@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
+@AccumulatorStateMetadata(stateSerializerClass = NullableDoubleStateSerializer.class)
 public interface NullableDoubleState
         extends AccumulatorState
 {
@@ -20,7 +21,8 @@ public interface NullableDoubleState
 
     void setDouble(double value);
 
-    boolean getNotNull();
+    @InitialBooleanValue(true)
+    boolean isNull();
 
-    void setNotNull(boolean value);
+    void setNull(boolean value);
 }

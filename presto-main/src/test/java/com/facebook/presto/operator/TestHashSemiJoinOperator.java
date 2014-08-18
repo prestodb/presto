@@ -18,6 +18,7 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.HashSemiJoinOperator.HashSemiJoinOperatorFactory;
 import com.facebook.presto.operator.SetBuilderOperator.SetBuilderOperatorFactory;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -34,6 +35,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.google.common.collect.Iterables.concat;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -66,7 +68,8 @@ public class TestHashSemiJoinOperator
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
-        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(BIGINT)
+        List<Type> buildTypes = ImmutableList.<Type>of(BIGINT);
+        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder(buildTypes)
                 .row(10)
                 .row(30)
                 .row(30)
@@ -84,18 +87,19 @@ public class TestHashSemiJoinOperator
         }
 
         // probe
-        List<Page> probeInput = rowPagesBuilder(BIGINT, BIGINT)
+        List<Type> probeTypes = ImmutableList.<Type>of(BIGINT, BIGINT);
+        List<Page> probeInput = rowPagesBuilder(probeTypes)
                 .addSequencePage(10, 30, 0)
                 .build();
         HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
                 2,
                 setBuilderOperatorFactory.getSetProvider(),
-                ImmutableList.of(BIGINT, BIGINT),
+                probeTypes,
                 0);
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, BOOLEAN)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
                 .row(30, 0, true)
                 .row(31, 1, false)
                 .row(32, 2, false)
@@ -119,7 +123,8 @@ public class TestHashSemiJoinOperator
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
-        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(BIGINT)
+        List<Type> buildTypes = ImmutableList.<Type>of(BIGINT);
+        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder(buildTypes)
                 .row(0)
                 .row(1)
                 .row(2)
@@ -136,18 +141,19 @@ public class TestHashSemiJoinOperator
         }
 
         // probe
-        List<Page> probeInput = rowPagesBuilder(BIGINT)
+        List<Type> probeTypes = ImmutableList.<Type>of(BIGINT);
+        List<Page> probeInput = rowPagesBuilder(probeTypes)
                 .addSequencePage(4, 1)
                 .build();
         HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
                 2,
                 setBuilderOperatorFactory.getSetProvider(),
-                ImmutableList.of(BIGINT),
+                probeTypes,
                 0);
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BOOLEAN)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
                 .row(1, true)
                 .row(2, true)
                 .row(3, true)
@@ -165,7 +171,8 @@ public class TestHashSemiJoinOperator
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
-        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(BIGINT)
+        List<Type> buildTypes = ImmutableList.<Type>of(BIGINT);
+        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder(buildTypes)
                 .row(0)
                 .row(1)
                 .row(3)
@@ -179,7 +186,8 @@ public class TestHashSemiJoinOperator
         }
 
         // probe
-        List<Page> probeInput = rowPagesBuilder(BIGINT)
+        List<Type> probeTypes = ImmutableList.<Type>of(BIGINT);
+        List<Page> probeInput = rowPagesBuilder(probeTypes)
                 .row(0)
                 .row((Object) null)
                 .row(1)
@@ -188,12 +196,12 @@ public class TestHashSemiJoinOperator
         HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
                 2,
                 setBuilderOperatorFactory.getSetProvider(),
-                ImmutableList.of(BIGINT),
+                probeTypes,
                 0);
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BOOLEAN)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
                 .row(0, true)
                 .row(null, null)
                 .row(1, true)
@@ -211,7 +219,8 @@ public class TestHashSemiJoinOperator
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
-        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(BIGINT)
+        List<Type> buildTypes = ImmutableList.<Type>of(BIGINT);
+        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder(buildTypes)
                 .row(0)
                 .row(1)
                 .row((Object) null)
@@ -226,7 +235,8 @@ public class TestHashSemiJoinOperator
         }
 
         // probe
-        List<Page> probeInput = rowPagesBuilder(BIGINT)
+        List<Type> probeTypes = ImmutableList.<Type>of(BIGINT);
+        List<Page> probeInput = rowPagesBuilder(probeTypes)
                 .row(0)
                 .row((Object) null)
                 .row(1)
@@ -235,12 +245,12 @@ public class TestHashSemiJoinOperator
         HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
                 2,
                 setBuilderOperatorFactory.getSetProvider(),
-                ImmutableList.of(BIGINT),
+                probeTypes,
                 0);
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BOOLEAN)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
                 .row(0, true)
                 .row(null, null)
                 .row(1, true)
@@ -260,7 +270,8 @@ public class TestHashSemiJoinOperator
                 .addDriverContext();
 
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
-        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(BIGINT)
+        List<Type> buildTypes = ImmutableList.<Type>of(BIGINT);
+        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder(buildTypes)
                 .addSequencePage(10000, 20)
                 .build());
         SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(1, buildOperator.getTypes(), 0, 10);

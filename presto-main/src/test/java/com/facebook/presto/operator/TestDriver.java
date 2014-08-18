@@ -84,7 +84,8 @@ public class TestDriver
     @Test
     public void testNormalFinish()
     {
-        ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, "values"), rowPagesBuilder(VARCHAR, BIGINT, BIGINT)
+        List<Type> types = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
+        ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, "values"), types, rowPagesBuilder(types)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
 
@@ -105,7 +106,8 @@ public class TestDriver
     @Test
     public void testAbruptFinish()
     {
-        ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, "values"), rowPagesBuilder(VARCHAR, BIGINT, BIGINT)
+        List<Type> types = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
+        ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, "values"), types, rowPagesBuilder(types)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
 
@@ -126,6 +128,7 @@ public class TestDriver
     public void testAddSourceFinish()
     {
         PlanNodeId sourceId = new PlanNodeId("source");
+        final List<Type> types = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(99, "values"),
                 sourceId,
                 new DataStreamProvider()
@@ -133,12 +136,12 @@ public class TestDriver
                     @Override
                     public Operator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
                     {
-                        return new ValuesOperator(driverContext.addOperatorContext(0, "values"), rowPagesBuilder(VARCHAR, BIGINT, BIGINT)
+                        return new ValuesOperator(driverContext.addOperatorContext(0, "values"), types, rowPagesBuilder(types)
                                 .addSequencePage(10, 20, 30, 40)
                                 .build());
                     }
                 },
-                ImmutableList.of(VARCHAR, BIGINT, BIGINT),
+                types,
                 ImmutableList.<ColumnHandle>of());
 
         MaterializingOperator sink = createSinkOperator(source);
@@ -147,8 +150,7 @@ public class TestDriver
         assertSame(driver.getDriverContext(), driverContext);
 
         assertFalse(driver.isFinished());
-        // todo TableScanOperator should be blocked until split is set
-        assertTrue(driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
+        assertFalse(driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
         assertFalse(driver.isFinished());
 
         driver.updateSource(new TaskSource(sourceId, ImmutableSet.of(new ScheduledSplit(0, newMockSplit())), true));
@@ -229,19 +231,21 @@ public class TestDriver
             throws Exception
     {
         PlanNodeId sourceId = new PlanNodeId("source");
-        TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(99, "values"),
+        final List<Type> types = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
+        // create a table scan operator that does not block, which will cause the driver loop to busy wait
+        TableScanOperator source = new NotBlockedTableScanOperator(driverContext.addOperatorContext(99, "values"),
                 sourceId,
                 new DataStreamProvider()
                 {
                     @Override
                     public Operator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
                     {
-                        return new ValuesOperator(driverContext.addOperatorContext(0, "values"), rowPagesBuilder(VARCHAR, BIGINT, BIGINT)
+                        return new ValuesOperator(driverContext.addOperatorContext(0, "values"), types, rowPagesBuilder(types)
                                 .addSequencePage(10, 20, 30, 40)
                                 .build());
                     }
                 },
-                ImmutableList.of(VARCHAR, BIGINT, BIGINT),
+                types,
                 ImmutableList.<ColumnHandle>of());
 
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, "source"));
@@ -262,13 +266,14 @@ public class TestDriver
         assertSame(driver.getDriverContext(), driverContext);
 
         assertFalse(driver.isFinished());
-        // todo TableScanOperator should be blocked until split is set
+        // processFor always returns NOT_BLOCKED, because DriveLockResult was not acquired
         assertTrue(driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
         assertFalse(driver.isFinished());
 
         driver.updateSource(new TaskSource(sourceId, ImmutableSet.of(new ScheduledSplit(0, newMockSplit())), true));
 
         assertFalse(driver.isFinished());
+        // processFor always returns NOT_BLOCKED, because DriveLockResult was not acquired
         assertTrue(driver.processFor(new Duration(1, TimeUnit.SECONDS)).isDone());
         assertFalse(driver.isFinished());
 
@@ -284,7 +289,7 @@ public class TestDriver
         }
     }
 
-    private Split newMockSplit()
+    private static Split newMockSplit()
     {
         return new Split("test", new MockSplit());
     }
@@ -407,6 +412,26 @@ public class TestDriver
             if (lockForClose) {
                 waitForUnlock();
             }
+        }
+    }
+
+    private static class NotBlockedTableScanOperator
+            extends TableScanOperator
+    {
+        public NotBlockedTableScanOperator(
+                OperatorContext operatorContext,
+                PlanNodeId planNodeId,
+                DataStreamProvider dataStreamProvider,
+                List<Type> types,
+                Iterable<ColumnHandle> columns)
+        {
+            super(operatorContext, planNodeId, dataStreamProvider, types, columns);
+        }
+
+        @Override
+        public ListenableFuture<?> isBlocked()
+        {
+            return NOT_BLOCKED;
         }
     }
 

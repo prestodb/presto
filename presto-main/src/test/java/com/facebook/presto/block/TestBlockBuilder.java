@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -26,24 +27,16 @@ public class TestBlockBuilder
     @Test
     public void testMultipleValuesWithNull()
     {
-        BlockCursor cursor = BIGINT.createBlockBuilder(new BlockBuilderStatus())
-                .appendNull()
-                .appendLong(42)
-                .appendNull()
-                .appendLong(42)
-                .build()
-                .cursor();
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
+        blockBuilder.appendNull();
+        BIGINT.writeLong(blockBuilder, 42);
+        blockBuilder.appendNull();
+        BIGINT.writeLong(blockBuilder, 42);
+        Block block = blockBuilder.build();
 
-        assertTrue(cursor.advanceNextPosition());
-        assertTrue(cursor.isNull());
-
-        assertTrue(cursor.advanceNextPosition());
-        assertEquals(cursor.getLong(), 42L);
-
-        assertTrue(cursor.advanceNextPosition());
-        assertTrue(cursor.isNull());
-
-        assertTrue(cursor.advanceNextPosition());
-        assertEquals(cursor.getLong(), 42L);
+        assertTrue(block.isNull(0));
+        assertEquals(BIGINT.getLong(block, 1), 42L);
+        assertTrue(block.isNull(2));
+        assertEquals(BIGINT.getLong(block, 3), 42L);
     }
 }

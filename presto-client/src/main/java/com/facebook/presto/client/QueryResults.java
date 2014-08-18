@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.BaseEncoding;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -185,8 +186,20 @@ public class QueryResults
             case "boolean":
                 return Boolean.class.cast(value);
             case "varchar":
+            case "time":
+            case "time with time zone":
+            case "timestamp":
+            case "timestamp with time zone":
+            case "date":
+            case "interval year to month":
+            case "interval day to second":
                 return String.class.cast(value);
             default:
+                // for now we assume that only the explicit types above are passed
+                // as a plain text and everything else is base64 encoded binary
+                if (value instanceof String) {
+                    return BaseEncoding.base64().decode((String) value);
+                }
                 return value;
         }
     }

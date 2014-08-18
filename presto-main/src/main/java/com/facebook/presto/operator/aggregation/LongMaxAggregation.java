@@ -13,51 +13,31 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.operator.aggregation.state.InitialLongValue;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.operator.aggregation.state.NullableBigintState;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.type.SqlType;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-
-public class LongMaxAggregation
-        extends AbstractAggregationFunction<LongMaxAggregation.LongMaxState>
+@AggregationFunction("max")
+public final class LongMaxAggregation
 {
-    public static final LongMaxAggregation LONG_MAX = new LongMaxAggregation();
+    public static final InternalAggregationFunction LONG_MAX = new AggregationCompiler().generateAggregationFunction(LongMaxAggregation.class);
 
-    public LongMaxAggregation()
+    private LongMaxAggregation() {}
+
+    @InputFunction
+    @IntermediateInputFunction
+    public static void max(BigintMaxState state, @SqlType(BigintType.class) long value)
     {
-        super(BIGINT, BIGINT, BIGINT);
+        state.setNull(false);
+        state.setLong(Math.max(state.getLong(), value));
     }
 
-    @Override
-    public void processInput(LongMaxState state, BlockCursor cursor)
+    public interface BigintMaxState
+            extends NullableBigintState
     {
-        state.setNotNull(true);
-        state.setLong(Math.max(state.getLong(), cursor.getLong()));
-    }
-
-    @Override
-    public void evaluateFinal(LongMaxState state, BlockBuilder out)
-    {
-        if (state.getNotNull()) {
-            out.appendLong(state.getLong());
-        }
-        else {
-            out.appendNull();
-        }
-    }
-
-    public interface LongMaxState
-            extends AccumulatorState
-    {
+        @Override
         @InitialLongValue(Long.MIN_VALUE)
         long getLong();
-
-        void setLong(long value);
-
-        boolean getNotNull();
-
-        void setNotNull(boolean value);
     }
 }

@@ -27,7 +27,7 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
-import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -44,7 +44,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 public class HttpRemoteTaskFactory
         implements RemoteTaskFactory
 {
-    private final AsyncHttpClient httpClient;
+    private final HttpClient httpClient;
     private final LocationFactory locationFactory;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
@@ -55,7 +55,7 @@ public class HttpRemoteTaskFactory
 
     @Inject
     public HttpRemoteTaskFactory(QueryManagerConfig config,
-            @ForScheduler AsyncHttpClient httpClient,
+            @ForScheduler HttpClient httpClient,
             LocationFactory locationFactory,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec)

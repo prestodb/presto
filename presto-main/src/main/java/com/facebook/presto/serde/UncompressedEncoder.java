@@ -16,8 +16,8 @@ package com.facebook.presto.serde;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.SliceOutput;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -26,15 +26,20 @@ import static com.google.common.base.Preconditions.checkState;
 public class UncompressedEncoder
         implements Encoder
 {
+    private final Type type;
     private final SliceOutput sliceOutput;
-
-    private BlockEncoding encoding;
+    private final BlockEncoding encoding;
     private BlockBuilder blockBuilder;
+
     private boolean finished;
 
-    public UncompressedEncoder(SliceOutput sliceOutput)
+    public UncompressedEncoder(Type type, SliceOutput sliceOutput)
     {
+        this.type = checkNotNull(type, "type is null");
         this.sliceOutput = checkNotNull(sliceOutput, "sliceOutput is null");
+
+        this.blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+        this.encoding = blockBuilder.getEncoding();
     }
 
     @Override
@@ -43,13 +48,8 @@ public class UncompressedEncoder
         checkNotNull(block, "block is null");
         checkState(!finished, "already finished");
 
-        if (encoding == null) {
-            blockBuilder = block.getType().createBlockBuilder(new BlockBuilderStatus());
-            encoding = blockBuilder.getEncoding();
-        }
-        BlockCursor cursor = block.cursor();
-        while (cursor.advanceNextPosition()) {
-            cursor.appendTo(blockBuilder);
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            type.appendTo(block, position, blockBuilder);
             if (blockBuilder.isFull()) {
                 writeBlock();
             }
@@ -61,7 +61,6 @@ public class UncompressedEncoder
     @Override
     public BlockEncoding finish()
     {
-        checkState(encoding != null, "nothing appended");
         checkState(!finished, "already finished");
         finished = true;
 
@@ -75,6 +74,6 @@ public class UncompressedEncoder
     {
         Block block = blockBuilder.build();
         encoding.writeBlock(sliceOutput, block);
-        blockBuilder = block.getType().createBlockBuilder(new BlockBuilderStatus());
+        blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
     }
 }

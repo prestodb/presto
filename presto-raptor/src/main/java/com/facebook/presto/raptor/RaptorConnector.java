@@ -17,7 +17,6 @@ import com.facebook.presto.connector.InternalConnector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
@@ -79,12 +78,6 @@ public class RaptorConnector
     public ConnectorRecordSinkProvider getRecordSinkProvider()
     {
         return recordSinkProvider;
-    }
-
-    @Override
-    public ConnectorOutputHandleResolver getOutputHandleResolver()
-    {
-        return handleResolver;
     }
 
     @Override

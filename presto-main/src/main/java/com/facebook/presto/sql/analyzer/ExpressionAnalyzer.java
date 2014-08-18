@@ -14,11 +14,13 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.OperatorNotFoundException;
+import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
@@ -26,6 +28,7 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
@@ -37,8 +40,6 @@ import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
@@ -85,7 +86,6 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.spi.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -98,6 +98,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_MINUTE;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.DateTimeUtils.timeHasTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.timestampHasTimeZone;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -107,6 +108,7 @@ public class ExpressionAnalyzer
 {
     private final Analysis analysis;
     private final Metadata metadata;
+    private final SqlParser sqlParser;
     private final boolean experimentalSyntaxEnabled;
     private final ConnectorSession session;
     private final Map<QualifiedName, Integer> resolvedNames = new HashMap<>();
@@ -115,11 +117,12 @@ public class ExpressionAnalyzer
     private final IdentityHashMap<Expression, Type> expressionCoercions = new IdentityHashMap<>();
     private final Set<InPredicate> subqueryInPredicates = Collections.newSetFromMap(new IdentityHashMap<InPredicate, Boolean>());
 
-    public ExpressionAnalyzer(Analysis analysis, ConnectorSession session, Metadata metadata, boolean experimentalSyntaxEnabled)
+    public ExpressionAnalyzer(Analysis analysis, ConnectorSession session, Metadata metadata, SqlParser sqlParser, boolean experimentalSyntaxEnabled)
     {
         this.analysis = checkNotNull(analysis, "analysis is null");
         this.session = checkNotNull(session, "session is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
+        this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
         this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
     }
 
@@ -284,11 +287,15 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitNullIfExpression(NullIfExpression node, AnalysisContext context)
         {
-            Type type = coerceToSingleType(context, node, "Types are not comparable with NULLIF: %s vs %s", node.getFirst(), node.getSecond());
+            Type firstType = process(node.getFirst(), context);
+            Type secondType = process(node.getSecond(), context);
 
-            // todo NULLIF should be type of first argument, but that is difficult in current AST based expressions tree
-            expressionTypes.put(node, type);
-            return type;
+            if (!FunctionRegistry.getCommonSuperType(firstType, secondType).isPresent()) {
+                throw new SemanticException(TYPE_MISMATCH, node, "Types are not comparable with NULLIF: %s vs %s", firstType, secondType);
+            }
+
+            expressionTypes.put(node, firstType);
+            return firstType;
         }
 
         @Override
@@ -614,7 +621,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitSubqueryExpression(SubqueryExpression node, AnalysisContext context)
         {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, session, experimentalSyntaxEnabled, Optional.<QueryExplainer>absent());
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, session, experimentalSyntaxEnabled, Optional.<QueryExplainer>absent());
             TupleDescriptor descriptor = analyzer.process(node.getQuery(), context);
 
             // Scalar subqueries should only produce one column
@@ -634,7 +641,7 @@ public class ExpressionAnalyzer
         @Override
         public Type visitInputReference(InputReference node, AnalysisContext context)
         {
-            Type type = tupleDescriptor.getFieldByIndex(node.getInput().getChannel()).getType();
+            Type type = tupleDescriptor.getFieldByIndex(node.getChannel()).getType();
             expressionTypes.put(node, type);
             return type;
         }
@@ -742,27 +749,52 @@ public class ExpressionAnalyzer
         }
     }
 
-    public static IdentityHashMap<Expression, Type> getExpressionTypes(ConnectorSession session, Metadata metadata, Map<Symbol, Type> types, Expression expression)
+    public static IdentityHashMap<Expression, Type> getExpressionTypes(
+            ConnectorSession session,
+            Metadata metadata,
+            SqlParser sqlParser,
+            Map<Symbol, Type> types,
+            Expression expression)
     {
-        return getExpressionTypes(session, metadata, types, ImmutableList.of(expression));
+        return getExpressionTypes(session, metadata, sqlParser, types, ImmutableList.of(expression));
     }
 
-    public static IdentityHashMap<Expression, Type> getExpressionTypes(ConnectorSession session, Metadata metadata, Map<Symbol, Type> types, Iterable<? extends Expression> expressions)
+    public static IdentityHashMap<Expression, Type> getExpressionTypes(
+            ConnectorSession session,
+            Metadata metadata,
+            SqlParser sqlParser,
+            Map<Symbol, Type> types,
+            Iterable<? extends Expression> expressions)
     {
-        return analyzeExpressionsWithSymbols(session, metadata, types, expressions).getExpressionTypes();
+        return analyzeExpressionsWithSymbols(session, metadata, sqlParser, types, expressions).getExpressionTypes();
     }
 
-    public static IdentityHashMap<Expression, Type> getExpressionTypesFromInput(ConnectorSession session, Metadata metadata, Map<Input, Type> types, Expression expression)
+    public static IdentityHashMap<Expression, Type> getExpressionTypesFromInput(
+            ConnectorSession session,
+            Metadata metadata,
+            SqlParser sqlParser,
+            Map<Integer, Type> types,
+            Expression expression)
     {
-        return getExpressionTypesFromInput(session, metadata, types, ImmutableList.of(expression));
+        return getExpressionTypesFromInput(session, metadata, sqlParser, types, ImmutableList.of(expression));
     }
 
-    public static IdentityHashMap<Expression, Type> getExpressionTypesFromInput(ConnectorSession session, Metadata metadata, Map<Input, Type> types, Iterable<? extends Expression> expressions)
+    public static IdentityHashMap<Expression, Type> getExpressionTypesFromInput(
+            ConnectorSession session,
+            Metadata metadata,
+            SqlParser sqlParser,
+            Map<Integer, Type> types,
+            Iterable<? extends Expression> expressions)
     {
-        return analyzeExpressionsWithInputs(session, metadata, types, expressions).getExpressionTypes();
+        return analyzeExpressionsWithInputs(session, metadata, sqlParser, types, expressions).getExpressionTypes();
     }
 
-    public static ExpressionAnalysis analyzeExpressionsWithSymbols(ConnectorSession session, Metadata metadata, final Map<Symbol, Type> types, Iterable<? extends Expression> expressions)
+    public static ExpressionAnalysis analyzeExpressionsWithSymbols(
+            ConnectorSession session,
+            Metadata metadata,
+            SqlParser sqlParser,
+            final Map<Symbol, Type> types,
+            Iterable<? extends Expression> expressions)
     {
         List<Field> fields = IterableTransformer.on(DependencyExtractor.extractUnique(expressions))
                 .transform(new Function<Symbol, Field>()
@@ -777,23 +809,33 @@ public class ExpressionAnalyzer
                 })
                 .list();
 
-        return analyzeExpressions(session, metadata, new TupleDescriptor(fields), expressions);
+        return analyzeExpressions(session, metadata, sqlParser, new TupleDescriptor(fields), expressions);
     }
 
-    public static ExpressionAnalysis analyzeExpressionsWithInputs(ConnectorSession session, Metadata metadata, Map<Input, Type> types, Iterable<? extends Expression> expressions)
+    public static ExpressionAnalysis analyzeExpressionsWithInputs(
+            ConnectorSession session,
+            Metadata metadata,
+            SqlParser sqlParser,
+            Map<Integer, Type> types,
+            Iterable<? extends Expression> expressions)
     {
         Field[] fields = new Field[types.size()];
-        for (Entry<Input, Type> entry : types.entrySet()) {
-            fields[entry.getKey().getChannel()] = Field.newUnqualified(Optional.<String>absent(), entry.getValue());
+        for (Entry<Integer, Type> entry : types.entrySet()) {
+            fields[entry.getKey()] = Field.newUnqualified(Optional.<String>absent(), entry.getValue());
         }
         TupleDescriptor tupleDescriptor = new TupleDescriptor(fields);
 
-        return analyzeExpressions(session, metadata, tupleDescriptor, expressions);
+        return analyzeExpressions(session, metadata, sqlParser, tupleDescriptor, expressions);
     }
 
-    private static ExpressionAnalysis analyzeExpressions(ConnectorSession session, Metadata metadata, TupleDescriptor tupleDescriptor, Iterable<? extends Expression> expressions)
+    private static ExpressionAnalysis analyzeExpressions(
+            ConnectorSession session,
+            Metadata metadata,
+            SqlParser sqlParser,
+            TupleDescriptor tupleDescriptor,
+            Iterable<? extends Expression> expressions)
     {
-        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(new Analysis(), session, metadata, false);
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(new Analysis(), session, metadata, sqlParser, false);
         for (Expression expression : expressions) {
             analyzer.analyze(expression, tupleDescriptor, new AnalysisContext());
         }
@@ -807,13 +849,14 @@ public class ExpressionAnalyzer
     public static ExpressionAnalysis analyzeExpression(
             ConnectorSession session,
             Metadata metadata,
+            SqlParser sqlParser,
             TupleDescriptor tupleDescriptor,
             Analysis analysis,
             boolean approximateQueriesEnabled,
             AnalysisContext context,
             Expression expression)
     {
-        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(analysis, session, metadata, approximateQueriesEnabled);
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(analysis, session, metadata, sqlParser, approximateQueriesEnabled);
         analyzer.analyze(expression, tupleDescriptor, context);
 
         IdentityHashMap<Expression, Type> expressionTypes = analyzer.getExpressionTypes();

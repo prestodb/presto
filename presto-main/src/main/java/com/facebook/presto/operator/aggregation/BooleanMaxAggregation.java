@@ -13,31 +13,27 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.ByteState;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.operator.aggregation.state.TriStateBooleanState;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.type.SqlType;
 
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.FALSE_VALUE;
+import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.NULL_VALUE;
+import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.TRUE_VALUE;
 
-public class BooleanMaxAggregation
-        extends AbstractAggregationFunction<ByteState>
+@AggregationFunction("max")
+public final class BooleanMaxAggregation
 {
-    public static final BooleanMaxAggregation BOOLEAN_MAX = new BooleanMaxAggregation();
+    public static final InternalAggregationFunction BOOLEAN_MAX = new AggregationCompiler().generateAggregationFunction(BooleanMaxAggregation.class);
 
-    private static final byte NULL_VALUE = 0;
-    private static final byte TRUE_VALUE = 1;
-    private static final byte FALSE_VALUE = -1;
+    private BooleanMaxAggregation() {}
 
-    public BooleanMaxAggregation()
-    {
-        super(BOOLEAN, BOOLEAN, BOOLEAN);
-    }
-
-    @Override
-    protected void processInput(ByteState state, BlockCursor cursor)
+    @InputFunction
+    @IntermediateInputFunction
+    public static void max(TriStateBooleanState state, @SqlType(BooleanType.class) boolean value)
     {
         // if value is true, update the max to true
-        if (cursor.getBoolean()) {
+        if (value) {
             state.setByte(TRUE_VALUE);
         }
         else {
@@ -45,17 +41,6 @@ public class BooleanMaxAggregation
             if (state.getByte() == NULL_VALUE) {
                 state.setByte(FALSE_VALUE);
             }
-        }
-    }
-
-    @Override
-    protected void evaluateFinal(ByteState state, BlockBuilder out)
-    {
-        if (state.getByte() == NULL_VALUE) {
-            out.appendNull();
-        }
-        else {
-            out.appendBoolean(state.getByte() == TRUE_VALUE);
         }
     }
 }

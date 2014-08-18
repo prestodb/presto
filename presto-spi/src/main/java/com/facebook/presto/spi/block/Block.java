@@ -13,14 +13,94 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.Type;
+import io.airlift.slice.Slice;
 
 public interface Block
 {
     /**
-     * Gets the type of this block.
+     * Gets the length of the value at the {@code position}.
      */
-    Type getType();
+    int getLength(int position);
+
+    /**
+     * Gets a byte at {@code offset} in the value at {@code position}.
+     */
+    byte getByte(int position, int offset);
+
+    /**
+     * Gets a little endian short at {@code offset} in the value at {@code position}.
+     */
+    short getShort(int position, int offset);
+
+    /**
+     * Gets a little endian int at {@code offset} in the value at {@code position}.
+     */
+    int getInt(int position, int offset);
+
+    /**
+     * Gets a little endian long at {@code offset} in the value at {@code position}.
+     */
+    long getLong(int position, int offset);
+
+    /**
+     * Gets a little endian float at {@code offset} in the value at {@code position}.
+     */
+    float getFloat(int position, int offset);
+
+    /**
+     * Gets a little endian double at {@code offset} in the value at {@code position}.
+     */
+    double getDouble(int position, int offset);
+
+    /**
+     * Gets a slice at {@code offset} in the value at {@code position}.
+     */
+    Slice getSlice(int position, int offset, int length);
+
+    /**
+     * Is the byte sequences at {@code offset} in the value at {@code position} equal
+     * to the byte sequence at {@code otherOffset} in {@code otherSlice}.
+     */
+    boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length);
+
+    /**
+     * Compares the byte sequences at {@code offset} in the value at {@code position}
+     * to the byte sequence at {@code otherOffset} in {@code otherSlice}.
+     */
+    int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength);
+
+    /**
+     * Appends the byte sequences at {@code offset} in the value at {@code position}
+     * to {@code blockBuilder}.
+     */
+    void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder);
+
+    /**
+     * Is the byte sequences at {@code offset} in the value at {@code position} equal
+     * to the byte sequence at {@code otherOffset} in the value at {@code otherPosition}
+     * in {@code otherBlock}.
+     */
+    boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length);
+
+    /**
+     * Calculates the hash code the byte sequences at {@code offset} in the
+     * value at {@code position}.
+     */
+    int hash(int position, int offset, int length);
+
+    /**
+     * Compares the byte sequences at {@code offset} in the value at {@code position}
+     * to the byte sequence at {@code otherOffset} in the value at {@code otherPosition}
+     * in {@code otherBlock}.
+     */
+    int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength);
+
+    /**
+     * Gets the value at the specified position as a single element block.
+     *
+     * @throws IllegalArgumentException if this position is not valid
+     */
+    Block getSingleValueBlock(int position);
 
     /**
      * Returns the number of positions in this block.
@@ -31,11 +111,6 @@ public interface Block
      * Returns the size of this block in memory.
      */
     int getSizeInBytes();
-
-    /**
-     * Gets a cursor over the block.
-     */
-    BlockCursor cursor();
 
     /**
      * Get the encoding for this block.
@@ -50,7 +125,9 @@ public interface Block
     Block getRegion(int positionOffset, int length);
 
     /**
-     * Converts this block to a random access block.
+     * Is the specified position null?
+     *
+     * @throws IllegalArgumentException if this position is not valid
      */
-    RandomAccessBlock toRandomAccessBlock();
+    boolean isNull(int position);
 }

@@ -30,6 +30,8 @@ import static org.testng.Assert.assertFalse;
 
 public class TestStatementBuilder
 {
+    private static final SqlParser SQL_PARSER = new SqlParser();
+
     @Test
     public void testStatementBuilder()
             throws Exception
@@ -92,7 +94,10 @@ public class TestStatementBuilder
 
         printStatement("show functions");
 
-        printStatement("select * from a.b.c@d");
+        printStatement("select cast('123' as bigint), try_cast('foo' as bigint)");
+
+        printStatement("select * from a.b.c");
+        printStatement("select * from a.b.c.e.f.g");
 
         printStatement("select \"TOTALPRICE\" \"my price\" from \"ORDERS\"");
 
@@ -108,6 +113,8 @@ public class TestStatementBuilder
 
         printStatement("create table foo as select * from abc");
         printStatement("drop table foo");
+
+        printStatement("insert into foo select * from abc");
 
         printStatement("values ('a', 1, 2.2), ('b', 2, 3.3)");
 
@@ -129,6 +136,9 @@ public class TestStatementBuilder
         printStatement("(table a union (table b except table c)) intersect table d");
         printStatement("table a intersect table b union table c");
         printStatement("table a intersect (table b union table c)");
+
+        printStatement("alter table foo rename to bar");
+        printStatement("alter table a.b.c rename to d.e.f");
 
         printStatement("create view foo as with a as (select 123) select * from a");
         printStatement("create or replace view foo as select 123 from t");
@@ -176,17 +186,17 @@ public class TestStatementBuilder
         println(sql.trim());
         println("");
 
-        CommonTree tree = SqlParser.parseStatement(sql);
+        CommonTree tree = SQL_PARSER.parseStatement(sql);
         println(treeToString(tree));
         println("");
 
-        Statement statement = SqlParser.createStatement(tree);
+        Statement statement = SQL_PARSER.createStatement(tree);
         println(statement.toString());
         println("");
 
         println(SqlFormatter.formatSql(statement));
         println("");
-        assertFormattedSql(statement);
+        assertFormattedSql(SQL_PARSER, statement);
 
         println(repeat("=", 60));
         println("");

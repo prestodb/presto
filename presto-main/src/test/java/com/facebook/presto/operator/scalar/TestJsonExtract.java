@@ -17,6 +17,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.google.common.base.Charsets;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
@@ -29,12 +30,72 @@ import static com.facebook.presto.operator.scalar.JsonExtract.JsonValueJsonExtra
 import static com.facebook.presto.operator.scalar.JsonExtract.ObjectFieldJsonExtractor;
 import static com.facebook.presto.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
 import static com.facebook.presto.operator.scalar.JsonExtract.generateExtractor;
+import static com.facebook.presto.operator.scalar.JsonExtract.tokenizePath;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestJsonExtract
 {
     @Test
-    public void testScalarVaueJsonExtractor()
+    public void testJsonTokenizer()
+    {
+        assertEquals(tokenizePath("$"), ImmutableList.of());
+        assertEquals(tokenizePath("$.foo"), ImmutableList.of("foo"));
+        assertEquals(tokenizePath("$[\"foo\"]"), ImmutableList.of("foo"));
+        assertEquals(tokenizePath("$[\"foo.bar\"]"), ImmutableList.of("foo.bar"));
+        assertEquals(tokenizePath("$[42]"), ImmutableList.of(42));
+        assertEquals(tokenizePath("$.x.foo"), ImmutableList.of("x", "foo"));
+        assertEquals(tokenizePath("$.x[\"foo\"]"), ImmutableList.of("x", "foo"));
+        assertEquals(tokenizePath("$.x[42]"), ImmutableList.of("x", 42));
+
+        assertPathToken("foo");
+
+        assertQuotedPathToken("42");
+        assertQuotedPathToken("1.1");
+        assertQuotedPathToken("-1.1");
+        assertQuotedPathToken("!@#$%^&*()[]{}/?'");
+        assertQuotedPathToken("ab\\u0001c");
+        assertQuotedPathToken("ab\0c");
+        assertQuotedPathToken("ab\t\n\rc");
+        assertQuotedPathToken(".");
+        assertQuotedPathToken("$");
+        assertQuotedPathToken("]");
+        assertQuotedPathToken("[");
+        assertQuotedPathToken("'");
+        assertQuotedPathToken("!@#$%^&*(){}[]<>?/\\|.,`~\r\n\t \0");
+    }
+
+    private static void assertPathToken(String fieldName)
+    {
+        assertTrue(fieldName.indexOf('"') < 0);
+        assertEquals(tokenizePath("$." + fieldName), ImmutableList.of(fieldName));
+        assertEquals(tokenizePath("$.foo." + fieldName + ".bar"), ImmutableList.of("foo", fieldName, "bar"));
+        assertPathTokenQuoting(fieldName);
+    }
+
+    private static void assertQuotedPathToken(String fieldName)
+    {
+        assertPathTokenQuoting(fieldName);
+        try {
+            // without quoting we should get an error
+            tokenizePath("$." + fieldName);
+            fail("Expected PrestoException");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
+        }
+    }
+    private static void assertPathTokenQuoting(String fieldName)
+    {
+        assertTrue(fieldName.indexOf('"') < 0);
+        assertEquals(tokenizePath("$[\"" + fieldName + "\"]"), ImmutableList.of(fieldName));
+        assertEquals(tokenizePath("$.foo[\"" + fieldName + "\"].bar"), ImmutableList.of("foo", fieldName, "bar"));
+    }
+
+    @Test
+    public void testScalarValueJsonExtractor()
             throws Exception
     {
         ScalarValueJsonExtractor extractor = new ScalarValueJsonExtractor();
@@ -57,7 +118,7 @@ public class TestJsonExtract
     }
 
     @Test
-    public void testJsonVaueJsonExtractor()
+    public void testJsonValueJsonExtractor()
             throws Exception
     {
         JsonValueJsonExtractor extractor = new JsonValueJsonExtractor();
@@ -83,8 +144,8 @@ public class TestJsonExtract
     public void testArrayElementJsonExtractor()
             throws Exception
     {
-        ArrayElementJsonExtractor firstExtractor = new ArrayElementJsonExtractor(0, new ScalarValueJsonExtractor());
-        ArrayElementJsonExtractor secondExtractor = new ArrayElementJsonExtractor(1, new ScalarValueJsonExtractor());
+        ArrayElementJsonExtractor<Slice> firstExtractor = new ArrayElementJsonExtractor<>(0, new ScalarValueJsonExtractor());
+        ArrayElementJsonExtractor<Slice> secondExtractor = new ArrayElementJsonExtractor<>(1, new ScalarValueJsonExtractor());
 
         assertEquals(doExtract(firstExtractor, "[]"), null);
         assertEquals(doExtract(firstExtractor, "[1, 2, 3]"), "1");
@@ -100,7 +161,7 @@ public class TestJsonExtract
     public void testObjectFieldJsonExtractor()
             throws Exception
     {
-        ObjectFieldJsonExtractor extractor = new ObjectFieldJsonExtractor("fuu", new ScalarValueJsonExtractor());
+        ObjectFieldJsonExtractor<Slice> extractor = new ObjectFieldJsonExtractor<>("fuu", new ScalarValueJsonExtractor());
 
         assertEquals(doExtract(extractor, "{}"), null);
         assertEquals(doExtract(extractor, "{\"a\": 1}"), null);
@@ -153,6 +214,39 @@ public class TestJsonExtract
         assertEquals(doJsonExtract("\"abc\"", "$"), "\"abc\"");
         assertEquals(doJsonExtract("123", "$"), "123");
         assertEquals(doJsonExtract("null", "$"), "null");
+
+        // Test extraction using bracket json path
+        assertEquals(doJsonExtract("{\"fuu\": {\"bar\": 1}}", "$[\"fuu\"]"), "{\"bar\":1}");
+        assertEquals(doJsonExtract("{\"fuu\": {\"bar\": 1}}", "$[\"fuu\"][\"bar\"]"), "1");
+        assertEquals(doJsonExtract("{\"fuu\": 1}", "$[\"fuu\"]"), "1");
+        assertEquals(doJsonExtract("{\"fuu\": null}", "$[\"fuu\"]"), "null");
+        assertEquals(doJsonExtract("{\"fuu\": 1}", "$[\"bar\"]"), null);
+        assertEquals(doJsonExtract("{\"fuu\": [\"\\u0001\"]}", "$[\"fuu\"][0]"), "\"\\u0001\""); // Test escaped characters
+        assertEquals(doJsonExtract("{\"fuu\": 1, \"bar\": \"abc\"}", "$[\"bar\"]"), "\"abc\"");
+        assertEquals(doJsonExtract("{\"fuu\": [0.1, 1, 2]}", "$[\"fuu\"][0]"), "0.1");
+        assertEquals(doJsonExtract("{\"fuu\": [0, [100, 101], 2]}", "$[\"fuu\"][1]"), "[100,101]");
+        assertEquals(doJsonExtract("{\"fuu\": [0, [100, 101], 2]}", "$[\"fuu\"][1][1]"), "101");
+
+        // Test extraction using bracket json path with special json characters in path
+        assertEquals(doJsonExtract("{\"@$fuu\": {\".b.ar\": 1}}", "$[\"@$fuu\"]"), "{\".b.ar\":1}");
+        assertEquals(doJsonExtract("{\"fuu..\": 1}", "$[\"fuu..\"]"), "1");
+        assertEquals(doJsonExtract("{\"fu*u\": null}", "$[\"fu*u\"]"), "null");
+        assertEquals(doJsonExtract("{\",fuu\": 1}", "$[\"bar\"]"), null);
+        assertEquals(doJsonExtract("{\",fuu\": [\"\\u0001\"]}", "$[\",fuu\"][0]"), "\"\\u0001\""); // Test escaped characters
+        assertEquals(doJsonExtract("{\":fu:u:\": 1, \":b:ar:\": \"abc\"}", "$[\":b:ar:\"]"), "\"abc\"");
+        assertEquals(doJsonExtract("{\"?()fuu\": [0.1, 1, 2]}", "$[\"?()fuu\"][0]"), "0.1");
+        assertEquals(doJsonExtract("{\"f?uu\": [0, [100, 101], 2]}", "$[\"f?uu\"][1]"), "[100,101]");
+        assertEquals(doJsonExtract("{\"fuu()\": [0, [100, 101], 2]}", "$[\"fuu()\"][1][1]"), "101");
+
+        // Test extraction using mix of bracket and dot notation json path
+        assertEquals(doJsonExtract("{\"fuu\": {\"bar\": 1}}", "$[\"fuu\"].bar"), "1");
+        assertEquals(doJsonExtract("{\"fuu\": {\"bar\": 1}}", "$.fuu[\"bar\"]"), "1");
+        assertEquals(doJsonExtract("{\"fuu\": [\"\\u0001\"]}", "$[\"fuu\"][0]"), "\"\\u0001\""); // Test escaped characters
+        assertEquals(doJsonExtract("{\"fuu\": [\"\\u0001\"]}", "$.fuu[0]"), "\"\\u0001\""); // Test escaped characters
+
+        // Test extraction using  mix of bracket and dot notation json path with special json characters in path
+        assertEquals(doJsonExtract("{\"@$fuu\": {\"bar\": 1}}", "$[\"@$fuu\"].bar"), "1");
+        assertEquals(doJsonExtract("{\",fuu\": {\"bar\": [\"\\u0001\"]}}", "$[\",fuu\"].bar[0]"), "\"\\u0001\""); // Test escaped characters
     }
 
     @Test(expectedExceptions = PrestoException.class)
@@ -176,7 +270,7 @@ public class TestJsonExtract
         doScalarExtract("{}", "$.bar[2][-1]");
     }
 
-    private static String doExtract(JsonExtractor jsonExtractor, String json)
+    private static String doExtract(JsonExtractor<Slice> jsonExtractor, String json)
             throws IOException
     {
         JsonFactory jsonFactory = new JsonFactory();
@@ -189,14 +283,14 @@ public class TestJsonExtract
     private static String doScalarExtract(String inputJson, String jsonPath)
             throws IOException
     {
-        Slice value = JsonExtract.extractInternal(Slices.wrappedBuffer(inputJson.getBytes(Charsets.UTF_8)), generateExtractor(jsonPath, true));
+        Slice value = JsonExtract.extract(Slices.utf8Slice(inputJson), generateExtractor(jsonPath, new ScalarValueJsonExtractor()));
         return (value == null) ? null : value.toString(Charsets.UTF_8);
     }
 
     private static String doJsonExtract(String inputJson, String jsonPath)
             throws IOException
     {
-        Slice value = JsonExtract.extractInternal(Slices.wrappedBuffer(inputJson.getBytes(Charsets.UTF_8)), generateExtractor(jsonPath, false));
+        Slice value = JsonExtract.extract(Slices.utf8Slice(inputJson), generateExtractor(jsonPath, new JsonValueJsonExtractor()));
         return (value == null) ? null : value.toString(Charsets.UTF_8);
     }
 }

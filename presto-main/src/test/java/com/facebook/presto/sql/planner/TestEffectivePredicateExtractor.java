@@ -210,7 +210,7 @@ public class TestEffectivePredicateExtractor
                                 equals(AE, BE),
                                 equals(BE, CE),
                                 lessThan(CE, number(10)))),
-                1, ImmutableList.of(A), ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST), true, Optional.<Symbol>absent());
+                1, ImmutableList.of(A), ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST), true);
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
@@ -232,8 +232,7 @@ public class TestEffectivePredicateExtractor
                                 equals(AE, BE),
                                 equals(BE, CE),
                                 lessThan(CE, number(10)))),
-                1,
-                Optional.<Symbol>absent());
+                1);
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
@@ -678,7 +677,7 @@ public class TestEffectivePredicateExtractor
 
     private static Signature fakeFunctionHandle(String name)
     {
-        return new Signature(name, UNKNOWN, ImmutableList.<Type>of(), false);
+        return new Signature(name, UNKNOWN, ImmutableList.<Type>of());
     }
 
     private Set<Expression> normalizeConjuncts(Expression... conjuncts)

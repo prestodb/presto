@@ -23,6 +23,10 @@ public interface ConnectorHandleResolver
 
     boolean canHandle(ConnectorIndexHandle indexHandle);
 
+    boolean canHandle(ConnectorOutputTableHandle tableHandle);
+
+    boolean canHandle(ConnectorInsertTableHandle tableHandle);
+
     Class<? extends ConnectorTableHandle> getTableHandleClass();
 
     Class<? extends ConnectorColumnHandle> getColumnHandleClass();
@@ -30,4 +34,8 @@ public interface ConnectorHandleResolver
     Class<? extends ConnectorIndexHandle> getIndexHandleClass();
 
     Class<? extends ConnectorSplit> getSplitClass();
+
+    Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass();
+
+    Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass();
 }

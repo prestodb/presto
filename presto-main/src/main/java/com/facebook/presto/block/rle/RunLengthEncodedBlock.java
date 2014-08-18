@@ -13,27 +13,22 @@
  */
 package com.facebook.presto.block.rle;
 
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.RandomAccessBlock;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Objects;
 import io.airlift.slice.Slice;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
-import static com.google.common.base.Preconditions.checkState;
 
 public class RunLengthEncodedBlock
-        implements RandomAccessBlock
+        implements Block
 {
-    private final RandomAccessBlock value;
+    private final Block value;
     private final int positionCount;
 
-    public RunLengthEncodedBlock(RandomAccessBlock value, int positionCount)
+    public RunLengthEncodedBlock(Block value, int positionCount)
     {
         this.value = checkNotNull(value, "value is null");
         checkArgument(value.getPositionCount() == 1, "Expected value to contain a single position but has %s positions", value.getPositionCount());
@@ -45,7 +40,7 @@ public class RunLengthEncodedBlock
         this.positionCount = checkNotNull(positionCount, "positionCount is null");
     }
 
-    public RandomAccessBlock getValue()
+    public Block getValue()
     {
         return value;
     }
@@ -69,61 +64,98 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public RandomAccessBlock getRegion(int positionOffset, int length)
+    public Block getRegion(int positionOffset, int length)
     {
         checkPositionIndexes(positionOffset, positionOffset + length, positionCount);
         return new RunLengthEncodedBlock(value, length);
     }
 
     @Override
-    public RandomAccessBlock toRandomAccessBlock()
+    public int getLength(int position)
     {
-        return this;
+        return value.getLength(0);
     }
 
     @Override
-    public Type getType()
+    public byte getByte(int position, int offset)
     {
-        return value.getType();
+        return value.getByte(0, offset);
     }
 
     @Override
-    public boolean getBoolean(int position)
+    public short getShort(int position, int offset)
     {
-        checkReadablePosition(position);
-        return value.getBoolean(0);
+        return value.getShort(0, offset);
     }
 
     @Override
-    public long getLong(int position)
+    public int getInt(int position, int offset)
     {
-        checkReadablePosition(position);
-        return value.getLong(0);
+        return value.getInt(0, offset);
     }
 
     @Override
-    public double getDouble(int position)
+    public long getLong(int position, int offset)
     {
-        checkReadablePosition(position);
-        return value.getDouble(0);
+        return value.getLong(0, offset);
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, int position)
+    public float getFloat(int position, int offset)
     {
-        checkReadablePosition(position);
-        return value.getObjectValue(session, 0);
+        return value.getFloat(0, offset);
     }
 
     @Override
-    public Slice getSlice(int position)
+    public double getDouble(int position, int offset)
     {
-        checkReadablePosition(position);
-        return value.getSlice(0);
+        return value.getDouble(0, offset);
     }
 
     @Override
-    public RandomAccessBlock getSingleValueBlock(int position)
+    public Slice getSlice(int position, int offset, int length)
+    {
+        return value.getSlice(0, offset, length);
+    }
+
+    @Override
+    public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
+    {
+        return value.bytesEqual(0, offset, otherSlice, otherOffset, length);
+    }
+
+    @Override
+    public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
+    {
+        return value.bytesCompare(0, offset, length, otherSlice, otherOffset, otherLength);
+    }
+
+    @Override
+    public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
+    {
+        value.writeBytesTo(0, offset, length, blockBuilder);
+    }
+
+    @Override
+    public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
+    {
+        return value.equals(0, offset, otherBlock, otherPosition, otherOffset, length);
+    }
+
+    @Override
+    public int hash(int position, int offset, int length)
+    {
+        return value.hash(0, offset, length);
+    }
+
+    @Override
+    public int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength)
+    {
+        return value.compareTo(0, leftOffset, leftLength, rightBlock, rightPosition, rightOffset, rightLength);
+    }
+
+    @Override
+    public Block getSingleValueBlock(int position)
     {
         checkReadablePosition(position);
         return value;
@@ -137,61 +169,6 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public boolean equalTo(int position, RandomAccessBlock otherBlock, int otherPosition)
-    {
-        checkReadablePosition(position);
-        return value.equalTo(0, otherBlock, otherPosition);
-    }
-
-    @Override
-    public boolean equalTo(int position, BlockCursor cursor)
-    {
-        checkReadablePosition(position);
-        return this.value.equalTo(0, cursor);
-    }
-
-    @Override
-    public boolean equalTo(int position, Slice otherSlice, int otherOffset)
-    {
-        checkReadablePosition(position);
-        return value.equalTo(0, otherSlice, otherOffset);
-    }
-
-    @Override
-    public int hash(int position)
-    {
-        checkReadablePosition(position);
-        return value.hash(0);
-    }
-
-    @Override
-    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock otherBlock, int otherPosition)
-    {
-        checkReadablePosition(position);
-        return value.compareTo(sortOrder, 0, otherBlock, otherPosition);
-    }
-
-    @Override
-    public int compareTo(SortOrder sortOrder, int position, BlockCursor cursor)
-    {
-        checkReadablePosition(position);
-        return value.compareTo(sortOrder, 0, cursor);
-    }
-
-    @Override
-    public int compareTo(int position, Slice otherSlice, int otherOffset)
-    {
-        checkReadablePosition(position);
-        return value.compareTo(0, otherSlice, otherOffset);
-    }
-
-    @Override
-    public void appendTo(int position, BlockBuilder blockBuilder)
-    {
-        value.appendTo(0, blockBuilder);
-    }
-
-    @Override
     public String toString()
     {
         return Objects.toStringHelper(this)
@@ -200,14 +177,8 @@ public class RunLengthEncodedBlock
                 .toString();
     }
 
-    @Override
-    public RunLengthEncodedBlockCursor cursor()
-    {
-        return new RunLengthEncodedBlockCursor(value, positionCount);
-    }
-
     private void checkReadablePosition(int position)
     {
-        checkState(position >= 0 && position < positionCount, "position is not valid");
+        checkArgument(position >= 0 && position < positionCount, "position is not valid");
     }
 }

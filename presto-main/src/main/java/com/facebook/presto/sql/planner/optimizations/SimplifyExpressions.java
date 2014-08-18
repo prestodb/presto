@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
@@ -44,10 +45,12 @@ public class SimplifyExpressions
         extends PlanOptimizer
 {
     private final Metadata metadata;
+    private final SqlParser sqlParser;
 
-    public SimplifyExpressions(Metadata metadata)
+    public SimplifyExpressions(Metadata metadata, SqlParser sqlParser)
     {
         this.metadata = checkNotNull(metadata, "metadata is null");
+        this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
     }
 
     @Override
@@ -59,19 +62,21 @@ public class SimplifyExpressions
         checkNotNull(symbolAllocator, "symbolAllocator is null");
         checkNotNull(idAllocator, "idAllocator is null");
 
-        return PlanRewriter.rewriteWith(new Rewriter(metadata, session, types), plan);
+        return PlanRewriter.rewriteWith(new Rewriter(metadata, sqlParser, session, types), plan);
     }
 
     private static class Rewriter
             extends PlanNodeRewriter<Void>
     {
         private final Metadata metadata;
+        private final SqlParser sqlParser;
         private final ConnectorSession session;
         private final Map<Symbol, Type> types;
 
-        public Rewriter(Metadata metadata, ConnectorSession session, Map<Symbol, Type> types)
+        public Rewriter(Metadata metadata, SqlParser sqlParser, ConnectorSession session, Map<Symbol, Type> types)
         {
             this.metadata = metadata;
+            this.sqlParser = sqlParser;
             this.session = session;
             this.types = types;
         }
@@ -119,7 +124,7 @@ public class SimplifyExpressions
 
         private Expression simplifyExpression(Expression input)
         {
-            IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, types, input);
+            IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, input);
             ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(input, metadata, session, expressionTypes);
             return LiteralInterpreter.toExpression(interpreter.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(input));
         }

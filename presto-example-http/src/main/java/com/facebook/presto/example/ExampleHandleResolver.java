@@ -16,6 +16,8 @@ package com.facebook.presto.example;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexHandle;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 
@@ -59,6 +61,18 @@ public class ExampleHandleResolver
     }
 
     @Override
+    public boolean canHandle(ConnectorOutputTableHandle tableHandle)
+    {
+        return false;
+    }
+
+    @Override
+    public boolean canHandle(ConnectorInsertTableHandle tableHandle)
+    {
+        return false;
+    }
+
+    @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return ExampleTableHandle.class;
@@ -78,6 +92,18 @@ public class ExampleHandleResolver
 
     @Override
     public Class<? extends ConnectorIndexHandle> getIndexHandleClass()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
     {
         throw new UnsupportedOperationException();
     }

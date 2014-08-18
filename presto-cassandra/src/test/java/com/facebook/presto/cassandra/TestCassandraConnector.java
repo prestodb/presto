@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Connector;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPartitionResult;
@@ -64,6 +64,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
+import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -72,11 +73,11 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+@Test(singleThreaded = true)
 public class TestCassandraConnector
 {
     private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "catalog", "test", UTC_KEY, Locale.ENGLISH, null, null);
@@ -90,20 +91,21 @@ public class TestCassandraConnector
     protected SchemaTableName table;
     protected SchemaTableName tableUnpartitioned;
     protected SchemaTableName invalidTable;
+    private static final String CLUSTER_NAME = "TestCluster";
+    private static final String HOST = "localhost:9160";
 
     @BeforeClass
     public void setup()
             throws Exception
     {
         EmbeddedCassandraServerHelper.startEmbeddedCassandra();
-        EmbeddedCassandraServerHelper.cleanEmbeddedCassandra();
 
-        createTestData();
+        createTestData("Presto_Database", "Presto_Test");
 
         String connectorId = "cassandra-test";
         CassandraConnectorFactory connectorFactory = new CassandraConnectorFactory(
                 connectorId,
-                ImmutableMap.<String, String>of("node.environment", "test"));
+                ImmutableMap.<String, String>of());
 
         Connector connector = connectorFactory.create(connectorId, ImmutableMap.<String, String>of(
                 "cassandra.contact-points", "localhost",
@@ -286,26 +288,22 @@ public class TestCassandraConnector
         ImmutableMap.Builder<String, Integer> index = ImmutableMap.builder();
         int i = 0;
         for (ConnectorColumnHandle columnHandle : columnHandles) {
-            checkArgument(columnHandle instanceof CassandraColumnHandle, "columnHandle is not an instance of CassandraColumnHandle");
-            CassandraColumnHandle hiveColumnHandle = (CassandraColumnHandle) columnHandle;
-            index.put(hiveColumnHandle.getName(), i);
+            String name = checkType(columnHandle, CassandraColumnHandle.class, "columnHandle").getName();
+            index.put(name, i);
             i++;
         }
         return index.build();
     }
 
-    public static void createTestData()
+    public static Keyspace createOrReplaceKeyspace(String keyspaceName)
     {
-        String clusterName = "TestCluster";
-        String host = "localhost:9171";
+        return createOrReplaceKeyspace(keyspaceName, ImmutableList.<ColumnFamilyDefinition>of());
+    }
 
-        Cluster cluster = HFactory.getOrCreateCluster(clusterName, host);
-        Keyspace keyspace = HFactory.createKeyspace("beautifulKeyspaceName", cluster);
-        assertNotNull(keyspace);
+    public static Keyspace createOrReplaceKeyspace(String keyspaceName, List<ColumnFamilyDefinition> columnFamilyDefinitions)
+    {
+        Cluster cluster = getOrCreateCluster();
 
-        String keyspaceName = "Presto_Database";
-        String columnFamilyName = "Presto_Test";
-        List<ColumnFamilyDefinition> columnFamilyDefinitions = createColumnFamilyDefinitions(keyspaceName, columnFamilyName);
         KeyspaceDefinition keyspaceDefinition = HFactory.createKeyspaceDefinition(
                 keyspaceName,
                 StrategyModel.SIMPLE_STRATEGY.value(),
@@ -316,7 +314,14 @@ public class TestCassandraConnector
             cluster.dropKeyspace(keyspaceName, true);
         }
         cluster.addKeyspace(keyspaceDefinition, true);
-        keyspace = HFactory.createKeyspace(keyspaceName, cluster);
+        return HFactory.createKeyspace(keyspaceName, cluster);
+    }
+
+    public static void createTestData(String keyspaceName, String columnFamilyName)
+    {
+        List<ColumnFamilyDefinition> columnFamilyDefinitions = createColumnFamilyDefinitions(keyspaceName, columnFamilyName);
+        Keyspace keyspace = createOrReplaceKeyspace(keyspaceName, columnFamilyDefinitions);
+
         Mutator<String> mutator = HFactory.createMutator(keyspace, StringSerializer.get());
 
         long timestamp = System.currentTimeMillis();
@@ -324,6 +329,11 @@ public class TestCassandraConnector
             addRow(columnFamilyName, mutator, timestamp, rowNumber);
         }
         mutator.execute();
+    }
+
+    private static Cluster getOrCreateCluster()
+    {
+        return HFactory.getOrCreateCluster(CLUSTER_NAME, HOST);
     }
 
     private static void addRow(String columnFamilyName, Mutator<String> mutator, long timestamp, int rowNumber)

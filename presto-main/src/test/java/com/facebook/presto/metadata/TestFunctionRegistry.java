@@ -55,10 +55,9 @@ public class TestFunctionRegistry
         assertEquals(signature.getName(), "$literal$timestamp with time zone");
         assertEquals(signature.getArgumentTypes(), ImmutableList.of(BIGINT));
         assertEquals(signature.getReturnType(), TIMESTAMP_WITH_TIME_ZONE);
-        assertEquals(signature.isApproximate(), false);
 
         FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
-        FunctionInfo function = registry.resolveFunction(new QualifiedName(signature.getName()), signature.getArgumentTypes(), signature.isApproximate());
+        FunctionInfo function = registry.resolveFunction(new QualifiedName(signature.getName()), signature.getArgumentTypes(), false);
         assertEquals(function.getArgumentTypes(), ImmutableList.of(BIGINT));
         assertEquals(function.getReturnType(), TIMESTAMP_WITH_TIME_ZONE);
     }

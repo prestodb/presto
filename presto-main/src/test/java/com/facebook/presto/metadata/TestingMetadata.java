@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -37,6 +38,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -133,9 +135,7 @@ public class TestingMetadata
     public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
     {
         SchemaTableName tableName = getTableName(tableHandle);
-        checkArgument(columnHandle instanceof InMemoryColumnHandle, "columnHandle is not an instance of InMemoryColumnHandle");
-        InMemoryColumnHandle inMemoryColumnHandle = (InMemoryColumnHandle) columnHandle;
-        int columnIndex = inMemoryColumnHandle.getOrdinalPosition();
+        int columnIndex = checkType(columnHandle, InMemoryColumnHandle.class, "columnHandle").getOrdinalPosition();
         return tables.get(tableName).getColumns().get(columnIndex);
     }
 
@@ -149,6 +149,17 @@ public class TestingMetadata
             }
         }
         return builder.build();
+    }
+
+    @Override
+    public void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName)
+    {
+        // TODO: use locking to do this properly
+        ConnectorTableMetadata table = getTableMetadata(tableHandle);
+        if (tables.putIfAbsent(newTableName, table) != null) {
+            throw new IllegalArgumentException("Target table already exists: " + newTableName);
+        }
+        tables.remove(table.getTable(), table);
     }
 
     @Override
@@ -173,6 +184,18 @@ public class TestingMetadata
 
     @Override
     public void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<String> fragments)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
     {
         throw new UnsupportedOperationException();
     }

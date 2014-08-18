@@ -29,6 +29,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -59,12 +60,12 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -87,8 +88,8 @@ public class TestSqlTaskExecution
         MetadataManager metadata = new MetadataManager(new FeaturesConfig(), new TypeRegistry());
 
         LocalExecutionPlanner planner = new LocalExecutionPlanner(
-                new NodeInfo("test"),
                 metadata,
+                new SqlParser(),
                 new DataStreamManager(),
                 new IndexManager(),
                 new RecordSinkManager(),
@@ -118,7 +119,7 @@ public class TestSqlTaskExecution
         TaskId taskId = new TaskId("query", "stage", "task");
         ConnectorSession session = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, "test", "test");
 
-        taskNotificationExecutor = Executors.newCachedThreadPool(threadsNamed("task-notification-%d"));
+        taskNotificationExecutor = newCachedThreadPool(threadsNamed("task-notification-%d"));
 
         outputBuffers = OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 

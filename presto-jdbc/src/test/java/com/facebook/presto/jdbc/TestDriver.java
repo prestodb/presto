@@ -41,7 +41,9 @@ import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.server.testing.TestingPrestoServer.TEST_CATALOG;
+import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -77,22 +79,67 @@ public class TestDriver
     {
         try (Connection connection = createConnection()) {
             try (Statement statement = connection.createStatement()) {
-                try (ResultSet rs = statement.executeQuery("SELECT 123 x, 'foo' y")) {
+                try (ResultSet rs = statement.executeQuery("" +
+                        "SELECT " +
+                        "  123 _bigint" +
+                        ", 'foo' _varchar" +
+                        ", 0.1 _double" +
+                        ", true _boolean" +
+                        ", cast('hello' as varbinary) _varbinary" +
+                        ", approx_set(42) _hll")) {
                     ResultSetMetaData metadata = rs.getMetaData();
 
-                    assertEquals(metadata.getColumnCount(), 2);
+                    assertEquals(metadata.getColumnCount(), 6);
 
-                    assertEquals(metadata.getColumnLabel(1), "x");
+                    assertEquals(metadata.getColumnLabel(1), "_bigint");
                     assertEquals(metadata.getColumnType(1), Types.BIGINT);
 
-                    assertEquals(metadata.getColumnLabel(2), "y");
+                    assertEquals(metadata.getColumnLabel(2), "_varchar");
                     assertEquals(metadata.getColumnType(2), Types.LONGNVARCHAR);
 
+                    assertEquals(metadata.getColumnLabel(3), "_double");
+                    assertEquals(metadata.getColumnType(3), Types.DOUBLE);
+
+                    assertEquals(metadata.getColumnLabel(4), "_boolean");
+                    assertEquals(metadata.getColumnType(4), Types.BOOLEAN);
+
+                    assertEquals(metadata.getColumnLabel(5), "_varbinary");
+                    assertEquals(metadata.getColumnType(5), Types.LONGVARBINARY);
+
+                    assertEquals(metadata.getColumnLabel(6), "_hll");
+                    assertEquals(metadata.getColumnType(6), Types.JAVA_OBJECT);
+
                     assertTrue(rs.next());
+
+                    assertEquals(rs.getObject(1), 123L);
+                    assertEquals(rs.getObject("_bigint"), 123L);
                     assertEquals(rs.getLong(1), 123);
-                    assertEquals(rs.getLong("x"), 123);
+                    assertEquals(rs.getLong("_bigint"), 123);
+
+                    assertEquals(rs.getObject(2), "foo");
+                    assertEquals(rs.getObject("_varchar"), "foo");
                     assertEquals(rs.getString(2), "foo");
-                    assertEquals(rs.getString("y"), "foo");
+                    assertEquals(rs.getString("_varchar"), "foo");
+
+                    assertEquals(rs.getObject(3), 0.1);
+                    assertEquals(rs.getObject("_double"), 0.1);
+                    assertEquals(rs.getDouble(3), 0.1);
+                    assertEquals(rs.getDouble("_double"), 0.1);
+
+                    assertEquals(rs.getObject(4), true);
+                    assertEquals(rs.getObject("_boolean"), true);
+                    assertEquals(rs.getBoolean(4), true);
+                    assertEquals(rs.getBoolean("_boolean"), true);
+
+                    assertEquals(rs.getObject(5), "hello".getBytes(UTF_8));
+                    assertEquals(rs.getObject("_varbinary"), "hello".getBytes(UTF_8));
+                    assertEquals(rs.getBytes(5), "hello".getBytes(UTF_8));
+                    assertEquals(rs.getBytes("_varbinary"), "hello".getBytes(UTF_8));
+
+                    assertInstanceOf(rs.getObject(6), byte[].class);
+                    assertInstanceOf(rs.getObject("_hll"), byte[].class);
+                    assertInstanceOf(rs.getBytes(6), byte[].class);
+                    assertInstanceOf(rs.getBytes("_hll"), byte[].class);
 
                     assertFalse(rs.next());
                 }

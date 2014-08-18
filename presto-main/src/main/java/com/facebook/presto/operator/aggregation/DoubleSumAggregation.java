@@ -14,36 +14,21 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.type.SqlType;
 
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-
-public class DoubleSumAggregation
-        extends AbstractAggregationFunction<NullableDoubleState>
+@AggregationFunction("sum")
+public final class DoubleSumAggregation
 {
-    public static final AggregationFunction DOUBLE_SUM = new DoubleSumAggregation();
+    public static final InternalAggregationFunction DOUBLE_SUM = new AggregationCompiler().generateAggregationFunction(DoubleSumAggregation.class);
 
-    public DoubleSumAggregation()
-    {
-        super(DOUBLE, DOUBLE, DOUBLE);
-    }
+    private DoubleSumAggregation() {}
 
-    @Override
-    public void processInput(NullableDoubleState state, BlockCursor cursor)
+    @InputFunction
+    @IntermediateInputFunction
+    public static void sum(NullableDoubleState state, @SqlType(DoubleType.class) double value)
     {
-        state.setNotNull(true);
-        state.setDouble(state.getDouble() + cursor.getDouble());
-    }
-
-    @Override
-    public void evaluateFinal(NullableDoubleState state, BlockBuilder out)
-    {
-        if (state.getNotNull()) {
-            out.appendDouble(state.getDouble());
-        }
-        else {
-            out.appendNull();
-        }
+        state.setNull(false);
+        state.setDouble(state.getDouble() + value);
     }
 }

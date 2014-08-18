@@ -14,11 +14,36 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.Description;
-import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.aggregation.ApproximateAverageAggregations;
+import com.facebook.presto.operator.aggregation.ApproximateCountColumnAggregations;
+import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations;
+import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations;
+import com.facebook.presto.operator.aggregation.ApproximateLongPercentileAggregations;
+import com.facebook.presto.operator.aggregation.ApproximateSetAggregation;
+import com.facebook.presto.operator.aggregation.ApproximateSumAggregations;
+import com.facebook.presto.operator.aggregation.AverageAggregations;
+import com.facebook.presto.operator.aggregation.BooleanMaxAggregation;
+import com.facebook.presto.operator.aggregation.BooleanMinAggregation;
+import com.facebook.presto.operator.aggregation.CountColumnAggregations;
+import com.facebook.presto.operator.aggregation.CountIfAggregation;
+import com.facebook.presto.operator.aggregation.DoubleMaxAggregation;
+import com.facebook.presto.operator.aggregation.DoubleMinAggregation;
+import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
+import com.facebook.presto.operator.aggregation.GenericAggregationFunctionFactory;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.operator.aggregation.LongMaxAggregation;
+import com.facebook.presto.operator.aggregation.LongMinAggregation;
+import com.facebook.presto.operator.aggregation.LongSumAggregation;
+import com.facebook.presto.operator.aggregation.MaxByAggregations;
+import com.facebook.presto.operator.aggregation.MergeHyperLogLogAggregation;
+import com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation;
+import com.facebook.presto.operator.aggregation.VarBinaryMinAggregation;
+import com.facebook.presto.operator.aggregation.VarianceAggregation;
 import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.operator.scalar.DateTimeFunctions;
 import com.facebook.presto.operator.scalar.HyperLogLogFunctions;
 import com.facebook.presto.operator.scalar.JsonFunctions;
+import com.facebook.presto.operator.scalar.JsonPath;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.RegexpFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunction;
@@ -32,10 +57,18 @@ import com.facebook.presto.operator.window.FirstValueFunction.BigintFirstValueFu
 import com.facebook.presto.operator.window.FirstValueFunction.BooleanFirstValueFunction;
 import com.facebook.presto.operator.window.FirstValueFunction.DoubleFirstValueFunction;
 import com.facebook.presto.operator.window.FirstValueFunction.VarcharFirstValueFunction;
+import com.facebook.presto.operator.window.LagFunction.BigintLagFunction;
+import com.facebook.presto.operator.window.LagFunction.BooleanLagFunction;
+import com.facebook.presto.operator.window.LagFunction.DoubleLagFunction;
+import com.facebook.presto.operator.window.LagFunction.VarcharLagFunction;
 import com.facebook.presto.operator.window.LastValueFunction.BigintLastValueFunction;
 import com.facebook.presto.operator.window.LastValueFunction.BooleanLastValueFunction;
 import com.facebook.presto.operator.window.LastValueFunction.DoubleLastValueFunction;
 import com.facebook.presto.operator.window.LastValueFunction.VarcharLastValueFunction;
+import com.facebook.presto.operator.window.LeadFunction.BigintLeadFunction;
+import com.facebook.presto.operator.window.LeadFunction.BooleanLeadFunction;
+import com.facebook.presto.operator.window.LeadFunction.DoubleLeadFunction;
+import com.facebook.presto.operator.window.LeadFunction.VarcharLeadFunction;
 import com.facebook.presto.operator.window.NthValueFunction.BigintNthValueFunction;
 import com.facebook.presto.operator.window.NthValueFunction.BooleanNthValueFunction;
 import com.facebook.presto.operator.window.NthValueFunction.DoubleNthValueFunction;
@@ -51,16 +84,16 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.sql.gen.DefaultFunctionBinder;
-import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
 import com.facebook.presto.type.DateOperators;
 import com.facebook.presto.type.DateTimeOperators;
 import com.facebook.presto.type.DoubleOperators;
+import com.facebook.presto.type.HyperLogLogOperators;
 import com.facebook.presto.type.IntervalDayTimeOperators;
 import com.facebook.presto.type.IntervalYearMonthOperators;
+import com.facebook.presto.type.LikeFunctions;
 import com.facebook.presto.type.SqlType;
 import com.facebook.presto.type.TimeOperators;
 import com.facebook.presto.type.TimeWithTimeZoneOperators;
@@ -86,6 +119,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
+import org.joni.Regex;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
@@ -94,7 +128,6 @@ import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.AnnotatedElement;
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -103,65 +136,24 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.metadata.FunctionInfo.isAggregationPredicate;
 import static com.facebook.presto.metadata.FunctionInfo.isHiddenPredicate;
-import static com.facebook.presto.operator.aggregation.ApproximateAverageAggregations.DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.ApproximateAverageAggregations.LONG_APPROXIMATE_AVERAGE_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ApproximateCountAggregation.APPROXIMATE_COUNT_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.ApproximateCountColumnAggregations.BOOLEAN_APPROXIMATE_COUNT_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.ApproximateCountColumnAggregations.DOUBLE_APPROXIMATE_COUNT_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.ApproximateCountColumnAggregations.LONG_APPROXIMATE_COUNT_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.ApproximateCountColumnAggregations.VARBINARY_APPROXIMATE_COUNT_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations.DOUBLE_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
-import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations.LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
-import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations.VARBINARY_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
-import static com.facebook.presto.operator.aggregation.ApproximateDoubleSumAggregation.DOUBLE_APPROXIMATE_SUM_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.ApproximateLongSumAggregation.LONG_APPROXIMATE_SUM_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.ApproximatePercentileAggregations.DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.ApproximatePercentileAggregations.LONG_APPROXIMATE_PERCENTILE_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAggregations.DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAggregations.LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.AverageAggregations.DOUBLE_AVERAGE;
-import static com.facebook.presto.operator.aggregation.AverageAggregations.LONG_AVERAGE;
-import static com.facebook.presto.operator.aggregation.BooleanMaxAggregation.BOOLEAN_MAX;
-import static com.facebook.presto.operator.aggregation.BooleanMinAggregation.BOOLEAN_MIN;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
-import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_BOOLEAN_COLUMN;
-import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_DOUBLE_COLUMN;
-import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_LONG_COLUMN;
-import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_STRING_COLUMN;
-import static com.facebook.presto.operator.aggregation.CountIfAggregation.COUNT_IF;
-import static com.facebook.presto.operator.aggregation.DoubleMaxAggregation.DOUBLE_MAX;
-import static com.facebook.presto.operator.aggregation.DoubleMinAggregation.DOUBLE_MIN;
-import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
-import static com.facebook.presto.operator.aggregation.HyperLogLogAggregations.BIGINT_APPROXIMATE_SET_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.HyperLogLogAggregations.DOUBLE_APPROXIMATE_SET_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.HyperLogLogAggregations.MERGE_HYPER_LOG_LOG_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.HyperLogLogAggregations.VARCHAR_APPROXIMATE_SET_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.LongMaxAggregation.LONG_MAX;
-import static com.facebook.presto.operator.aggregation.LongMinAggregation.LONG_MIN;
-import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
-import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
-import static com.facebook.presto.operator.aggregation.VarBinaryMinAggregation.VAR_BINARY_MIN;
-import static com.facebook.presto.operator.aggregation.VarianceAggregations.DOUBLE_STDDEV_INSTANCE;
-import static com.facebook.presto.operator.aggregation.VarianceAggregations.DOUBLE_STDDEV_POP_INSTANCE;
-import static com.facebook.presto.operator.aggregation.VarianceAggregations.DOUBLE_VARIANCE_INSTANCE;
-import static com.facebook.presto.operator.aggregation.VarianceAggregations.DOUBLE_VARIANCE_POP_INSTANCE;
-import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_STDDEV_INSTANCE;
-import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_STDDEV_POP_INSTANCE;
-import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_VARIANCE_INSTANCE;
-import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_VARIANCE_POP_INSTANCE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.JsonPathType.JSON_PATH;
+import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
+import static com.facebook.presto.type.RegexpType.REGEXP;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
@@ -176,6 +168,9 @@ import static java.lang.invoke.MethodHandles.lookup;
 public class FunctionRegistry
 {
     private static final String MAGIC_LITERAL_FUNCTION_PREFIX = "$literal$";
+
+    // hack: java classes for types that can be used with magic literals
+    private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class);
 
     private final TypeManager typeManager;
     private volatile FunctionMap functions = new FunctionMap();
@@ -202,50 +197,51 @@ public class FunctionRegistry
                 .window("nth_value", DOUBLE, ImmutableList.<Type>of(DOUBLE, BIGINT), DoubleNthValueFunction.class)
                 .window("nth_value", BOOLEAN, ImmutableList.<Type>of(BOOLEAN, BIGINT), BooleanNthValueFunction.class)
                 .window("nth_value", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT), VarcharNthValueFunction.class)
-                .aggregate("count", BIGINT, ImmutableList.<Type>of(), BIGINT, COUNT)
-                .aggregate("count", BIGINT, ImmutableList.of(BOOLEAN), BIGINT, COUNT_BOOLEAN_COLUMN)
-                .aggregate("count", BIGINT, ImmutableList.of(BIGINT), BIGINT, COUNT_LONG_COLUMN)
-                .aggregate("count", BIGINT, ImmutableList.of(DOUBLE), BIGINT, COUNT_DOUBLE_COLUMN)
-                .aggregate("count", BIGINT, ImmutableList.of(VARCHAR), BIGINT, COUNT_STRING_COLUMN)
-                .aggregate("count_if", BIGINT, ImmutableList.of(BOOLEAN), BIGINT, COUNT_IF)
-                .aggregate("sum", BIGINT, ImmutableList.of(BIGINT), BIGINT, LONG_SUM)
-                .aggregate("sum", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_SUM)
-                .aggregate("avg", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_AVERAGE)
-                .aggregate("avg", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LONG_AVERAGE)
-                .aggregate("max", BOOLEAN, ImmutableList.of(BOOLEAN), BOOLEAN, BOOLEAN_MAX)
-                .aggregate("max", BIGINT, ImmutableList.of(BIGINT), BIGINT, LONG_MAX)
-                .aggregate("max", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_MAX)
-                .aggregate("max", VARCHAR, ImmutableList.of(VARCHAR), VARCHAR, VAR_BINARY_MAX)
-                .aggregate("min", BOOLEAN, ImmutableList.of(BOOLEAN), BOOLEAN, BOOLEAN_MIN)
-                .aggregate("min", BIGINT, ImmutableList.of(BIGINT), BIGINT, LONG_MIN)
-                .aggregate("min", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_MIN)
-                .aggregate("min", VARCHAR, ImmutableList.of(VARCHAR), VARCHAR, VAR_BINARY_MIN)
-                .aggregate("var_pop", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_VARIANCE_POP_INSTANCE)
-                .aggregate("var_pop", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LONG_VARIANCE_POP_INSTANCE)
-                .aggregate("var_samp", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_VARIANCE_INSTANCE)
-                .aggregate("var_samp", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LONG_VARIANCE_INSTANCE)
-                .aggregate("variance", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_VARIANCE_INSTANCE)
-                .aggregate("variance", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LONG_VARIANCE_INSTANCE)
-                .aggregate("stddev_pop", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_STDDEV_POP_INSTANCE)
-                .aggregate("stddev_pop", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LONG_STDDEV_POP_INSTANCE)
-                .aggregate("stddev_samp", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_STDDEV_INSTANCE)
-                .aggregate("stddev_samp", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LONG_STDDEV_INSTANCE)
-                .aggregate("stddev", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_STDDEV_INSTANCE)
-                .aggregate("stddev", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LONG_STDDEV_INSTANCE)
-                .aggregate("approx_distinct", BIGINT, ImmutableList.of(BOOLEAN), VARCHAR, LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS)
-                .aggregate("approx_distinct", BIGINT, ImmutableList.of(BIGINT), VARCHAR, LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS)
-                .aggregate("approx_distinct", BIGINT, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS)
-                .aggregate("approx_distinct", BIGINT, ImmutableList.of(VARCHAR), VARCHAR, VARBINARY_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS)
-                .aggregate("approx_set", HYPER_LOG_LOG, ImmutableList.of(BIGINT), HYPER_LOG_LOG, BIGINT_APPROXIMATE_SET_AGGREGATION)
-                .aggregate("approx_set", HYPER_LOG_LOG, ImmutableList.of(VARCHAR), HYPER_LOG_LOG, VARCHAR_APPROXIMATE_SET_AGGREGATION)
-                .aggregate("approx_set", HYPER_LOG_LOG, ImmutableList.of(DOUBLE), HYPER_LOG_LOG, DOUBLE_APPROXIMATE_SET_AGGREGATION)
-                .aggregate("merge", HYPER_LOG_LOG, ImmutableList.of(HYPER_LOG_LOG), HYPER_LOG_LOG, MERGE_HYPER_LOG_LOG_AGGREGATION)
-                .aggregate("approx_percentile", BIGINT, ImmutableList.of(BIGINT, DOUBLE), VARCHAR, LONG_APPROXIMATE_PERCENTILE_AGGREGATION)
-                .aggregate("approx_percentile", BIGINT, ImmutableList.of(BIGINT, BIGINT, DOUBLE), VARCHAR, LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION)
-                .aggregate("approx_percentile", DOUBLE, ImmutableList.of(DOUBLE, DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION)
-                .aggregate("approx_percentile", DOUBLE, ImmutableList.of(DOUBLE, BIGINT, DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION)
-                .aggregate("approx_avg", VARCHAR, ImmutableList.of(BIGINT), VARCHAR, LONG_APPROXIMATE_AVERAGE_AGGREGATION)
-                .aggregate("approx_avg", VARCHAR, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION)
+                .window("lag", BIGINT, ImmutableList.<Type>of(BIGINT), BigintLagFunction.class)
+                .window("lag", BIGINT, ImmutableList.<Type>of(BIGINT, BIGINT), BigintLagFunction.class)
+                .window("lag", BIGINT, ImmutableList.<Type>of(BIGINT, BIGINT, BIGINT), BigintLagFunction.class)
+                .window("lag", DOUBLE, ImmutableList.<Type>of(DOUBLE), DoubleLagFunction.class)
+                .window("lag", DOUBLE, ImmutableList.<Type>of(DOUBLE, BIGINT), DoubleLagFunction.class)
+                .window("lag", DOUBLE, ImmutableList.<Type>of(DOUBLE, BIGINT, DOUBLE), DoubleLagFunction.class)
+                .window("lag", BOOLEAN, ImmutableList.<Type>of(BOOLEAN), BooleanLagFunction.class)
+                .window("lag", BOOLEAN, ImmutableList.<Type>of(BOOLEAN, BIGINT), BooleanLagFunction.class)
+                .window("lag", BOOLEAN, ImmutableList.<Type>of(BOOLEAN, BIGINT, BOOLEAN), BooleanLagFunction.class)
+                .window("lag", VARCHAR, ImmutableList.<Type>of(VARCHAR), VarcharLagFunction.class)
+                .window("lag", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT), VarcharLagFunction.class)
+                .window("lag", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT, VARCHAR), VarcharLagFunction.class)
+                .window("lead", BIGINT, ImmutableList.<Type>of(BIGINT), BigintLeadFunction.class)
+                .window("lead", BIGINT, ImmutableList.<Type>of(BIGINT, BIGINT), BigintLeadFunction.class)
+                .window("lead", BIGINT, ImmutableList.<Type>of(BIGINT, BIGINT, BIGINT), BigintLeadFunction.class)
+                .window("lead", DOUBLE, ImmutableList.<Type>of(DOUBLE), DoubleLeadFunction.class)
+                .window("lead", DOUBLE, ImmutableList.<Type>of(DOUBLE, BIGINT), DoubleLeadFunction.class)
+                .window("lead", DOUBLE, ImmutableList.<Type>of(DOUBLE, BIGINT, DOUBLE), DoubleLeadFunction.class)
+                .window("lead", BOOLEAN, ImmutableList.<Type>of(BOOLEAN), BooleanLeadFunction.class)
+                .window("lead", BOOLEAN, ImmutableList.<Type>of(BOOLEAN, BIGINT), BooleanLeadFunction.class)
+                .window("lead", BOOLEAN, ImmutableList.<Type>of(BOOLEAN, BIGINT, BOOLEAN), BooleanLeadFunction.class)
+                .window("lead", VARCHAR, ImmutableList.<Type>of(VARCHAR), VarcharLeadFunction.class)
+                .window("lead", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT), VarcharLeadFunction.class)
+                .window("lead", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT, VARCHAR), VarcharLeadFunction.class)
+                .aggregate(COUNT)
+                .aggregate(VarianceAggregation.class)
+                .aggregate(ApproximateLongPercentileAggregations.class)
+                .aggregate(ApproximateDoublePercentileAggregations.class)
+                .aggregate(CountIfAggregation.class)
+                .aggregate(CountColumnAggregations.class)
+                .aggregate(BooleanMinAggregation.class)
+                .aggregate(BooleanMaxAggregation.class)
+                .aggregate(DoubleMinAggregation.class)
+                .aggregate(DoubleMaxAggregation.class)
+                .aggregate(LongMinAggregation.class)
+                .aggregate(LongMaxAggregation.class)
+                .aggregate(VarBinaryMinAggregation.class)
+                .aggregate(VarBinaryMaxAggregation.class)
+                .aggregate(DoubleSumAggregation.class)
+                .aggregate(LongSumAggregation.class)
+                .aggregate(AverageAggregations.class)
+                .aggregate(ApproximateCountDistinctAggregations.class)
+                .aggregate(MergeHyperLogLogAggregation.class)
+                .aggregate(ApproximateSetAggregation.class)
+                .aggregate(MaxByAggregations.getAggregations(typeManager))
                 .scalar(StringFunctions.class)
                 .scalar(VarbinaryFunctions.class)
                 .scalar(RegexpFunctions.class)
@@ -267,18 +263,15 @@ public class FunctionRegistry
                 .scalar(IntervalYearMonthOperators.class)
                 .scalar(TimeWithTimeZoneOperators.class)
                 .scalar(TimestampWithTimeZoneOperators.class)
-                .scalar(DateTimeOperators.class);
+                .scalar(DateTimeOperators.class)
+                .scalar(HyperLogLogOperators.class)
+                .scalar(LikeFunctions.class);
 
         if (experimentalSyntaxEnabled) {
-            builder.approximateAggregate("avg", VARCHAR, ImmutableList.of(BIGINT), VARCHAR, LONG_APPROXIMATE_AVERAGE_AGGREGATION)
-                    .approximateAggregate("avg", VARCHAR, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION)
-                    .approximateAggregate("sum", VARCHAR, ImmutableList.of(BIGINT), VARCHAR, LONG_APPROXIMATE_SUM_AGGREGATION)
-                    .approximateAggregate("sum", VARCHAR, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_SUM_AGGREGATION)
-                    .approximateAggregate("count", VARCHAR, ImmutableList.<Type>of(), VARCHAR, APPROXIMATE_COUNT_AGGREGATION)
-                    .approximateAggregate("count", VARCHAR, ImmutableList.of(BOOLEAN), VARCHAR, BOOLEAN_APPROXIMATE_COUNT_AGGREGATION)
-                    .approximateAggregate("count", VARCHAR, ImmutableList.of(BIGINT), VARCHAR, LONG_APPROXIMATE_COUNT_AGGREGATION)
-                    .approximateAggregate("count", VARCHAR, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_COUNT_AGGREGATION)
-                    .approximateAggregate("count", VARCHAR, ImmutableList.of(VARCHAR), VARCHAR, VARBINARY_APPROXIMATE_COUNT_AGGREGATION);
+            builder.aggregate(ApproximateAverageAggregations.class)
+                    .aggregate(ApproximateSumAggregations.class)
+                    .aggregate(APPROXIMATE_COUNT_AGGREGATION)
+                    .aggregate(ApproximateCountColumnAggregations.class);
         }
 
         addFunctions(builder.getFunctions(), builder.getOperators());
@@ -360,12 +353,12 @@ public class FunctionRegistry
 
             MethodHandle identity = MethodHandles.identity(parameterTypes.get(0).getJavaType());
             return new FunctionInfo(
-                    new Signature(MAGIC_LITERAL_FUNCTION_PREFIX, type, ImmutableList.copyOf(parameterTypes), false),
+                    getMagicLiteralFunctionSignature(type),
                     null,
                     true,
                     identity,
                     true,
-                    new DefaultFunctionBinder(identity, false));
+                    false);
         }
 
         throw new PrestoException(StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode(), message);
@@ -398,6 +391,11 @@ public class FunctionRegistry
         throw new OperatorNotFoundException(operatorType, argumentTypes);
     }
 
+    public FunctionInfo getCoercion(Type fromType, Type toType)
+    {
+        return getExactOperator(OperatorType.CAST, ImmutableList.of(fromType), toType);
+    }
+
     public FunctionInfo getExactOperator(OperatorType operatorType, List<? extends Type> argumentTypes, Type returnType)
             throws OperatorNotFoundException
     {
@@ -413,7 +411,7 @@ public class FunctionRegistry
         // if identity cast, return a custom operator info
         if ((operatorType == OperatorType.CAST) && (argumentTypes.size() == 1) && argumentTypes.get(0).equals(returnType)) {
             MethodHandle identity = MethodHandles.identity(returnType.getJavaType());
-            return operatorInfo(OperatorType.CAST, returnType, argumentTypes, identity, new DefaultFunctionBinder(identity, false));
+            return operatorInfo(OperatorType.CAST, returnType, argumentTypes, identity, false);
         }
 
         throw new OperatorNotFoundException(operatorType, argumentTypes, returnType);
@@ -464,6 +462,19 @@ public class FunctionRegistry
         if (actualType.equals(TIMESTAMP) && expectedType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
             return true;
         }
+
+        if (actualType.equals(VARCHAR) && expectedType.equals(REGEXP)) {
+            return true;
+        }
+
+        if (actualType.equals(VARCHAR) && expectedType.equals(LIKE_PATTERN)) {
+            return true;
+        }
+
+        if (actualType.equals(VARCHAR) && expectedType.equals(JSON_PATH)) {
+            return true;
+        }
+
         return false;
     }
 
@@ -563,8 +574,12 @@ public class FunctionRegistry
     {
         return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getName(),
                 type,
-                ImmutableList.of(type(type.getJavaType())),
-                false);
+                ImmutableList.of(type(type.getJavaType())));
+    }
+
+    public static boolean isSupportedLiteralType(Type type)
+    {
+        return SUPPORTED_LITERAL_TYPES.contains(type.getJavaType());
     }
 
     public static class FunctionListBuilder
@@ -575,42 +590,48 @@ public class FunctionRegistry
         public FunctionListBuilder window(String name, Type returnType, List<? extends Type> argumentTypes, Class<? extends WindowFunction> functionClass)
         {
             WindowFunctionSupplier windowFunctionSupplier = new ReflectionWindowFunctionSupplier<>(
-                    new Signature(name, returnType, ImmutableList.copyOf(argumentTypes), false),
+                    new Signature(name, returnType, ImmutableList.copyOf(argumentTypes)),
                     functionClass);
 
             functions.add(new FunctionInfo(windowFunctionSupplier.getSignature(), windowFunctionSupplier.getDescription(), windowFunctionSupplier));
             return this;
         }
 
-        public FunctionListBuilder approximateAggregate(String name, Type returnType, List<? extends Type> argumentTypes, Type intermediateType, AggregationFunction function)
+        public FunctionListBuilder aggregate(List<InternalAggregationFunction> functions)
         {
-            return aggregate(name, returnType, argumentTypes, true, intermediateType, function);
+            for (InternalAggregationFunction function : functions) {
+                aggregate(function);
+            }
+            return this;
         }
 
-        public FunctionListBuilder aggregate(String name, Type returnType, List<? extends Type> argumentTypes, Type intermediateType, AggregationFunction function)
+        public FunctionListBuilder aggregate(InternalAggregationFunction function)
         {
-            return aggregate(name, returnType, argumentTypes, false, intermediateType, function);
-        }
-
-        private FunctionListBuilder aggregate(String name, Type returnType, List<? extends Type> argumentTypes, boolean approximate, Type intermediateType,
-                AggregationFunction function)
-        {
+            String name = function.name();
             name = name.toLowerCase();
 
             String description = getDescription(function.getClass());
-            functions.add(new FunctionInfo(new Signature(name, returnType, ImmutableList.copyOf(argumentTypes), approximate), description, intermediateType, function));
+            functions.add(new FunctionInfo(new Signature(name, function.getFinalType(), ImmutableList.copyOf(function.getParameterTypes())), description, function.getIntermediateType(), function, function.isApproximate()));
             return this;
         }
 
-        public FunctionListBuilder scalar(Signature signature, MethodHandle function, boolean deterministic, FunctionBinder functionBinder, String description, boolean hidden)
+        public FunctionListBuilder aggregate(Class<?> aggregationDefinition)
         {
-            functions.add(new FunctionInfo(signature, description, hidden, function, deterministic, functionBinder));
+            functions.addAll(GenericAggregationFunctionFactory.fromAggregationDefinition(aggregationDefinition).listFunctions());
             return this;
         }
 
-        private FunctionListBuilder operator(OperatorType operatorType, Type returnType, List<Type> parameterTypes, MethodHandle function, FunctionBinder functionBinder)
+        public FunctionListBuilder scalar(Signature signature, MethodHandle function, boolean deterministic, String description, boolean hidden, boolean nullable)
         {
-            operators.put(operatorType, operatorInfo(operatorType, returnType, parameterTypes, function, functionBinder));
+            functions.add(new FunctionInfo(signature, description, hidden, function, deterministic, nullable));
+            return this;
+        }
+
+        private FunctionListBuilder operator(OperatorType operatorType, Type returnType, List<Type> parameterTypes, MethodHandle function, boolean nullable)
+        {
+            FunctionInfo operatorInfo = operatorInfo(operatorType, returnType, parameterTypes, function, nullable);
+            operators.put(operatorType, operatorInfo);
+            functions.add(operatorInfo);
             return this;
         }
 
@@ -646,15 +667,13 @@ public class FunctionRegistry
             SqlType returnTypeAnnotation = method.getAnnotation(SqlType.class);
             checkArgument(returnTypeAnnotation != null, "Method %s return type does not have a @SqlType annotation", method);
             Type returnType = type(returnTypeAnnotation);
-            Signature signature = new Signature(name.toLowerCase(), returnType, parameterTypes(method), false);
+            Signature signature = new Signature(name.toLowerCase(), returnType, parameterTypes(method));
 
             verifyMethodSignature(method, signature.getReturnType(), signature.getArgumentTypes());
 
-            FunctionBinder functionBinder = createFunctionBinder(method, scalarFunction.functionBinder());
-
-            scalar(signature, methodHandle, scalarFunction.deterministic(), functionBinder, getDescription(method), scalarFunction.hidden());
+            scalar(signature, methodHandle, scalarFunction.deterministic(), getDescription(method), scalarFunction.hidden(), method.isAnnotationPresent(Nullable.class));
             for (String alias : scalarFunction.alias()) {
-                scalar(signature.withAlias(alias.toLowerCase()), methodHandle, scalarFunction.deterministic(), functionBinder, getDescription(method), scalarFunction.hidden());
+                scalar(signature.withAlias(alias.toLowerCase()), methodHandle, scalarFunction.deterministic(), getDescription(method), scalarFunction.hidden(), method.isAnnotationPresent(Nullable.class));
             }
             return true;
         }
@@ -685,30 +704,8 @@ public class FunctionRegistry
                 verifyMethodSignature(method, returnType, parameterTypes);
             }
 
-            FunctionBinder functionBinder = createFunctionBinder(method, scalarOperator.functionBinder());
-
-            operator(operatorType, returnType, parameterTypes, methodHandle, functionBinder);
+            operator(operatorType, returnType, parameterTypes, methodHandle, method.isAnnotationPresent(Nullable.class));
             return true;
-        }
-
-        private FunctionBinder createFunctionBinder(Method method, Class<? extends FunctionBinder> functionBinderClass)
-        {
-            try {
-                // look for <init>(MethodHandle,boolean)
-                Constructor<? extends FunctionBinder> constructor = functionBinderClass.getConstructor(MethodHandle.class, boolean.class);
-                return constructor.newInstance(lookup().unreflect(method), method.isAnnotationPresent(Nullable.class));
-            }
-            catch (ReflectiveOperationException | RuntimeException ignored) {
-            }
-
-            try {
-                // try with default constructor
-                return functionBinderClass.newInstance();
-            }
-            catch (Exception e) {
-            }
-
-            throw new IllegalArgumentException("Unable to create function binder " + functionBinderClass.getName() + " for function " + method);
         }
 
         private static String getDescription(AnnotatedElement annotatedElement)
@@ -722,8 +719,24 @@ public class FunctionRegistry
             return LOWER_CAMEL.to(LOWER_UNDERSCORE, name);
         }
 
-        private static final Set<Class<?>> SUPPORTED_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class);
-        private static final Set<Class<?>> SUPPORTED_RETURN_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class, int.class);
+        private static final Set<Class<?>> SUPPORTED_TYPES = ImmutableSet.of(
+                long.class,
+                double.class,
+                Slice.class,
+                boolean.class,
+                Pattern.class,
+                Regex.class,
+                JsonPath.class);
+
+        private static final Set<Class<?>> SUPPORTED_RETURN_TYPES = ImmutableSet.of(
+                long.class,
+                double.class,
+                Slice.class,
+                boolean.class,
+                int.class,
+                Pattern.class,
+                Regex.class,
+                JsonPath.class);
 
         private static void checkValidMethod(Method method)
         {
@@ -755,12 +768,12 @@ public class FunctionRegistry
         }
     }
 
-    private static FunctionInfo operatorInfo(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes, MethodHandle method, FunctionBinder functionBinder)
+    private static FunctionInfo operatorInfo(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes, MethodHandle method, boolean nullable)
     {
         operatorType.validateSignature(returnType, ImmutableList.copyOf(argumentTypes));
 
-        Signature signature = new Signature(operatorType.name(), returnType, argumentTypes, false, true);
-        return new FunctionInfo(signature, operatorType.getOperator(), true, method, true, functionBinder);
+        Signature signature = new Signature(operatorType.name(), returnType, argumentTypes, true);
+        return new FunctionInfo(signature, operatorType.getOperator(), true, method, true, nullable);
     }
 
     private static void verifyMethodSignature(Method method, Type returnType, List<Type> argumentTypes)

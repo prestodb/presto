@@ -13,19 +13,15 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.facebook.presto.connector.InternalConnector;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.split.ConnectorDataStreamProvider;
-import io.airlift.node.NodeInfo;
 
 import javax.inject.Inject;
 import javax.management.MBeanServer;
@@ -39,14 +35,12 @@ public class JmxConnectorFactory
 {
     private final MBeanServer mbeanServer;
     private final NodeManager nodeManager;
-    private final NodeInfo nodeInfo;
 
     @Inject
-    public JmxConnectorFactory(MBeanServer mbeanServer, NodeManager nodeManager, NodeInfo nodeInfo)
+    public JmxConnectorFactory(MBeanServer mbeanServer, NodeManager nodeManager)
     {
         this.mbeanServer = checkNotNull(mbeanServer, "mbeanServer is null");
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
-        this.nodeInfo = checkNotNull(nodeInfo, "nodeInfo is null");
     }
 
     @Override
@@ -58,7 +52,8 @@ public class JmxConnectorFactory
     @Override
     public Connector create(final String connectorId, Map<String, String> properties)
     {
-        return new InternalConnector() {
+        return new Connector()
+        {
             @Override
             public ConnectorHandleResolver getHandleResolver()
             {
@@ -78,15 +73,9 @@ public class JmxConnectorFactory
             }
 
             @Override
-            public ConnectorDataStreamProvider getDataStreamProvider()
-            {
-                return new JmxDataStreamProvider(new JmxConnectorId(connectorId), mbeanServer, nodeInfo);
-            }
-
-            @Override
             public ConnectorRecordSetProvider getRecordSetProvider()
             {
-                throw new UnsupportedOperationException();
+                return new JmxRecordSetProvider(mbeanServer, nodeManager);
             }
 
             @Override
@@ -97,12 +86,6 @@ public class JmxConnectorFactory
 
             @Override
             public ConnectorIndexResolver getIndexResolver()
-            {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public ConnectorOutputHandleResolver getOutputHandleResolver()
             {
                 throw new UnsupportedOperationException();
             }

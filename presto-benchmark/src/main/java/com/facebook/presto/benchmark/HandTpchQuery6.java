@@ -22,10 +22,8 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
-import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -37,9 +35,10 @@ import java.util.List;
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Charsets.UTF_8;
-import static com.google.common.base.Preconditions.checkState;
 
 public class HandTpchQuery6
         extends AbstractSimpleOperatorBenchmark
@@ -67,14 +66,14 @@ public class HandTpchQuery6
                 2,
                 Step.SINGLE,
                 ImmutableList.of(
-                        aggregation(DOUBLE_SUM, ImmutableList.of(new Input(0)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0)
+                        aggregation(DOUBLE_SUM, ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)
                 ));
 
         return ImmutableList.of(tableScanOperator, tpchQuery6Operator, aggregationOperator);
     }
 
     public static class TpchQuery6Operator
-            extends com.facebook.presto.operator.AbstractFilterAndProjectOperator
+            extends com.facebook.presto.operator.AbstractFilterAndProjectOperator // TODO: use import when Java 7 compiler bug is fixed
     {
         public static class TpchQuery6OperatorFactory
                 implements OperatorFactory
@@ -119,54 +118,39 @@ public class HandTpchQuery6
             filterAndProjectRowOriented(pageBuilder, page.getBlock(0), page.getBlock(1), page.getBlock(2), page.getBlock(3));
         }
 
-        private void filterAndProjectRowOriented(PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock, Block shipDateBlock, Block quantityBlock)
+        private static void filterAndProjectRowOriented(PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock, Block shipDateBlock, Block quantityBlock)
         {
             int rows = extendedPriceBlock.getPositionCount();
 
-            BlockCursor extendedPriceCursor = extendedPriceBlock.cursor();
-            BlockCursor discountCursor = discountBlock.cursor();
-            BlockCursor shipDateCursor = shipDateBlock.cursor();
-            BlockCursor quantityCursor = quantityBlock.cursor();
-
             for (int position = 0; position < rows; position++) {
-                checkState(extendedPriceCursor.advanceNextPosition());
-                checkState(discountCursor.advanceNextPosition());
-                checkState(shipDateCursor.advanceNextPosition());
-                checkState(quantityCursor.advanceNextPosition());
-
                 // where shipdate >= '1994-01-01'
                 //    and shipdate < '1995-01-01'
                 //    and discount >= 0.05
                 //    and discount <= 0.07
                 //    and quantity < 24;
-                if (filter(discountCursor, shipDateCursor, quantityCursor)) {
-                    project(pageBuilder, extendedPriceCursor, discountCursor);
+                if (filter(position, discountBlock, shipDateBlock, quantityBlock)) {
+                    project(position, pageBuilder, extendedPriceBlock, discountBlock);
                 }
             }
-
-            checkState(!extendedPriceCursor.advanceNextPosition());
-            checkState(!discountCursor.advanceNextPosition());
-            checkState(!shipDateCursor.advanceNextPosition());
-            checkState(!quantityCursor.advanceNextPosition());
         }
 
-        private void project(PageBuilder pageBuilder, BlockCursor extendedPriceCursor, BlockCursor discountCursor)
+        private static void project(int position, PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock)
         {
-            if (discountCursor.isNull() || extendedPriceCursor.isNull()) {
+            if (discountBlock.isNull(position) || extendedPriceBlock.isNull(position)) {
                 pageBuilder.getBlockBuilder(0).appendNull();
             }
             else {
-                pageBuilder.getBlockBuilder(0).appendDouble(extendedPriceCursor.getDouble() * discountCursor.getDouble());
+                DOUBLE.writeDouble(pageBuilder.getBlockBuilder(0), DOUBLE.getDouble(extendedPriceBlock, position) * DOUBLE.getDouble(discountBlock, position));
             }
         }
 
-        private boolean filter(BlockCursor discountCursor, BlockCursor shipDateCursor, BlockCursor quantityCursor)
+        private static boolean filter(int position, Block discountBlock, Block shipDateBlock, Block quantityBlock)
         {
-            return !shipDateCursor.isNull() && shipDateCursor.getSlice().compareTo(MIN_SHIP_DATE) >= 0 &&
-                    !shipDateCursor.isNull() && shipDateCursor.getSlice().compareTo(MAX_SHIP_DATE) < 0 &&
-                    !discountCursor.isNull() && discountCursor.getDouble() >= 0.05 &&
-                    !discountCursor.isNull() && discountCursor.getDouble() <= 0.07 &&
-                    !quantityCursor.isNull() && quantityCursor.getLong() < 24;
+            return !shipDateBlock.isNull(position) && VARCHAR.getSlice(shipDateBlock, position).compareTo(MIN_SHIP_DATE) >= 0 &&
+                    !shipDateBlock.isNull(position) && VARCHAR.getSlice(shipDateBlock, position).compareTo(MAX_SHIP_DATE) < 0 &&
+                    !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) >= 0.05 &&
+                    !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) <= 0.07 &&
+                    !quantityBlock.isNull(position) && BIGINT.getLong(quantityBlock, position) < 24;
         }
     }
 

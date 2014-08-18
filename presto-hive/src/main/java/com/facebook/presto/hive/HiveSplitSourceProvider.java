@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.util.AsyncRecursiveWalker;
+import com.facebook.presto.hive.util.AsyncWalker;
 import com.facebook.presto.hive.util.BoundedExecutor;
 import com.facebook.presto.hive.util.FileStatusCallback;
 import com.facebook.presto.hive.util.SetThreadName;
@@ -119,6 +119,7 @@ class HiveSplitSourceProvider
     private final DataSize maxInitialSplitSize;
     private long remainingInitialSplits;
     private final ConnectorSession session;
+    private final boolean recursiveDirWalkerEnabled;
 
     HiveSplitSourceProvider(String connectorId,
             Table table,
@@ -135,7 +136,8 @@ class HiveSplitSourceProvider
             int maxPartitionBatchSize,
             ConnectorSession session,
             DataSize maxInitialSplitSize,
-            int maxInitialSplits)
+            int maxInitialSplits,
+            boolean recursiveDirWalkerEnabled)
     {
         this.connectorId = connectorId;
         this.table = table;
@@ -154,6 +156,7 @@ class HiveSplitSourceProvider
         this.classLoader = Thread.currentThread().getContextClassLoader();
         this.maxInitialSplitSize = maxInitialSplitSize;
         this.remainingInitialSplits = maxInitialSplits;
+        this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
     }
 
     public ConnectorSplitSource get()
@@ -193,10 +196,9 @@ class HiveSplitSourceProvider
                 final List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition);
 
                 Path path = new Path(getPartitionLocation(table, partition));
+
                 final Configuration configuration = hdfsEnvironment.getConfiguration(path);
                 final InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, false);
-
-                FileSystem fs = path.getFileSystem(configuration);
 
                 if (inputFormat instanceof SymlinkTextInputFormat) {
                     JobConf jobConf = new JobConf(configuration);
@@ -206,7 +208,7 @@ class HiveSplitSourceProvider
                         FileSplit split = ((SymlinkTextInputFormat.SymlinkTextInputSplit) rawSplit).getTargetSplit();
 
                         // get the filesystem for the target path -- it may be a different hdfs instance
-                        FileSystem targetFilesystem = split.getPath().getFileSystem(configuration);
+                        FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(split.getPath());
                         FileStatus fileStatus = targetFilesystem.getFileStatus(split.getPath());
                         hiveSplitSource.addToQueue(createHiveSplits(
                                 partitionName,
@@ -223,6 +225,7 @@ class HiveSplitSourceProvider
                 }
 
                 // TODO: this is currently serial across all partitions and should be done in suspendingExecutor
+                FileSystem fs = hdfsEnvironment.getFileSystem(path);
                 if (bucket.isPresent()) {
                     Optional<FileStatus> bucketFile = getBucketFile(bucket.get(), fs, path);
                     if (bucketFile.isPresent()) {
@@ -246,13 +249,13 @@ class HiveSplitSourceProvider
                     return;
                 }
 
-                ListenableFuture<Void> partitionFuture = createRecursiveWalker(fs, suspendingExecutor).beginWalk(path, new FileStatusCallback()
+                ListenableFuture<Void> partitionFuture = createAsyncWalker(fs, suspendingExecutor).beginWalk(path, new FileStatusCallback()
                 {
                     @Override
                     public void process(FileStatus file, BlockLocation[] blockLocations)
                     {
                         try {
-                            boolean splittable = isSplittable(inputFormat, file.getPath().getFileSystem(configuration), file.getPath());
+                            boolean splittable = isSplittable(inputFormat, hdfsEnvironment.getFileSystem(file.getPath()), file.getPath());
 
                             hiveSplitSource.addToQueue(createHiveSplits(partitionName, file, blockLocations, 0, file.getLen(), schema, partitionKeys, splittable, session));
                         }
@@ -303,9 +306,9 @@ class HiveSplitSourceProvider
         }
     }
 
-    private AsyncRecursiveWalker createRecursiveWalker(FileSystem fs, SuspendingExecutor suspendingExecutor)
+    private AsyncWalker createAsyncWalker(FileSystem fs, SuspendingExecutor suspendingExecutor)
     {
-        return new AsyncRecursiveWalker(fs, suspendingExecutor, directoryLister, namenodeStats);
+        return new AsyncWalker(fs, suspendingExecutor, directoryLister, namenodeStats, recursiveDirWalkerEnabled);
     }
 
     private static Optional<FileStatus> getBucketFile(HiveBucket bucket, FileSystem fs, Path path)

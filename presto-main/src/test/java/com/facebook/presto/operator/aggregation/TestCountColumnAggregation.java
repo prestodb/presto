@@ -28,13 +28,13 @@ public class TestCountColumnAggregation
     {
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
         for (int i = start; i < start + length; i++) {
-            blockBuilder.appendLong(i);
+            BIGINT.writeLong(blockBuilder, i);
         }
         return blockBuilder.build();
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return COUNT_LONG_COLUMN;
     }

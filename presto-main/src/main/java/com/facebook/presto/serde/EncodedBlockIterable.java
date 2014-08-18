@@ -15,51 +15,26 @@ package com.facebook.presto.serde;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncoding;
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 
 import java.util.Iterator;
 
 public class EncodedBlockIterable
-        implements BlockIterable
+        implements Iterable<Block>
 {
     private final BlockEncoding blockEncoding;
     private final Slice blocksSlice;
-    private final int positionCount;
 
-    public EncodedBlockIterable(BlockEncoding blockEncoding, Slice blocksSlice, int positionCount)
+    public EncodedBlockIterable(BlockEncoding blockEncoding, Slice blocksSlice)
     {
-        this.positionCount = positionCount;
         Preconditions.checkNotNull(blockEncoding, "blockEncoding is null");
         Preconditions.checkNotNull(blocksSlice, "blocksSlice is null");
 
         this.blockEncoding = blockEncoding;
         this.blocksSlice = blocksSlice;
-    }
-
-    @Override
-    public Type getType()
-    {
-        return blockEncoding.getType();
-    }
-
-    @Override
-    public Optional<DataSize> getDataSize()
-    {
-        return Optional.of(new DataSize(blocksSlice.length(), Unit.BYTE));
-    }
-
-    @Override
-    public Optional<Integer> getPositionCount()
-    {
-        return Optional.of(positionCount);
     }
 
     @Override
@@ -80,6 +55,7 @@ public class EncodedBlockIterable
             this.sliceInput = sliceInput;
         }
 
+        @Override
         protected Block computeNext()
         {
             if (!sliceInput.isReadable()) {

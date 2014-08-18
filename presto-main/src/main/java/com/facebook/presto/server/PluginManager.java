@@ -17,7 +17,7 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.metadata.FunctionFactory;
-import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorFactory;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
@@ -69,6 +69,7 @@ public class PluginManager
             .add("com.fasterxml.jackson")
             .add("io.airlift.slice")
             .add("javax.inject")
+            .add("javax.annotation")
             .build();
 
     private static final Logger log = Logger.get(PluginManager.class);
@@ -76,13 +77,14 @@ public class PluginManager
     private final Injector injector;
     private final ConnectorManager connectorManager;
     private final SystemTablesManager systemTablesManager;
-    private final MetadataManager metadataManager;
+    private final Metadata metadata;
     private final BlockEncodingManager blockEncodingManager;
     private final TypeRegistry typeRegistry;
     private final ArtifactResolver resolver;
     private final File installedPluginsDir;
     private final List<String> plugins;
     private final Map<String, String> optionalConfig;
+    private final AtomicBoolean pluginsLoading = new AtomicBoolean();
     private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
 
     @Inject
@@ -93,7 +95,7 @@ public class PluginManager
             ConnectorManager connectorManager,
             ConfigurationFactory configurationFactory,
             SystemTablesManager systemTablesManager,
-            MetadataManager metadataManager,
+            Metadata metadata,
             BlockEncodingManager blockEncodingManager,
             TypeRegistry typeRegistry)
     {
@@ -121,7 +123,7 @@ public class PluginManager
 
         this.connectorManager = checkNotNull(connectorManager, "connectorManager is null");
         this.systemTablesManager = checkNotNull(systemTablesManager, "systemTablesManager is null");
-        this.metadataManager = checkNotNull(metadataManager, "metadataManager is null");
+        this.metadata = checkNotNull(metadata, "metadata is null");
         this.blockEncodingManager = checkNotNull(blockEncodingManager, "blockEncodingManager is null");
         this.typeRegistry = checkNotNull(typeRegistry, "typeRegistry is null");
     }
@@ -134,7 +136,7 @@ public class PluginManager
     public void loadPlugins()
             throws Exception
     {
-        if (!pluginsLoaded.compareAndSet(false, true)) {
+        if (!pluginsLoading.compareAndSet(false, true)) {
             return;
         }
 
@@ -147,6 +149,8 @@ public class PluginManager
         for (String plugin : plugins) {
             loadPlugin(plugin);
         }
+
+        pluginsLoaded.set(true);
     }
 
     @SuppressWarnings("UnusedDeclaration")
@@ -195,11 +199,11 @@ public class PluginManager
         }
 
         for (FunctionFactory functionFactory : plugin.getServices(FunctionFactory.class)) {
-            metadataManager.addFunctions(functionFactory.listFunctions());
+            metadata.addFunctions(functionFactory.listFunctions());
         }
 
         for (OperatorFactory operatorFactory : plugin.getServices(OperatorFactory.class)) {
-            metadataManager.addOperators(operatorFactory.listOperators());
+            metadata.addOperators(operatorFactory.listOperators());
         }
     }
 

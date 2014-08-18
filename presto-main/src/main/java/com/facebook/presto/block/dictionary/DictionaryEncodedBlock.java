@@ -13,45 +13,36 @@
  */
 package com.facebook.presto.block.dictionary;
 
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.BlockEncoding;
-import com.facebook.presto.spi.block.RandomAccessBlock;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.block.FixedWidthBlock;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 
 public class DictionaryEncodedBlock
-        implements RandomAccessBlock
+        implements Block
 {
-    private final RandomAccessBlock dictionary;
-    private final RandomAccessBlock idBlock;
+    private static final FixedWidthBlock NULL_SINGLE_VALUE_BLOCK = new FixedWidthBlock(0, 1, EMPTY_SLICE, new boolean[] {true});
+    private final Block dictionary;
+    private final Block idBlock;
 
-    public DictionaryEncodedBlock(RandomAccessBlock dictionary, RandomAccessBlock idBlock)
+    public DictionaryEncodedBlock(Block dictionary, Block idBlock)
     {
         this.dictionary = checkNotNull(dictionary, "dictionary is null");
         this.idBlock = checkNotNull(idBlock, "idBlock is null");
-        checkArgument(idBlock.getType().equals(BIGINT), "Expected bigint block but got %s block", idBlock.getType());
     }
 
-    @Override
-    public Type getType()
-    {
-        return dictionary.getType();
-    }
-
-    public RandomAccessBlock getDictionary()
+    public Block getDictionary()
     {
         return dictionary;
     }
 
-    public RandomAccessBlock getIdBlock()
+    public Block getIdBlock()
     {
         return idBlock;
     }
@@ -75,115 +66,112 @@ public class DictionaryEncodedBlock
     }
 
     @Override
-    public RandomAccessBlock getRegion(int positionOffset, int length)
+    public Block getRegion(int positionOffset, int length)
     {
         return new DictionaryEncodedBlock(dictionary, idBlock.getRegion(positionOffset, length));
     }
 
     @Override
-    public RandomAccessBlock toRandomAccessBlock()
+    public int getLength(int position)
     {
-        return this;
+        return dictionary.getLength(getDictionaryKey(position));
     }
 
     @Override
-    public DictionaryEncodedBlockCursor cursor()
+    public byte getByte(int position, int offset)
     {
-        return new DictionaryEncodedBlockCursor(dictionary, idBlock.cursor());
+        return dictionary.getByte(getDictionaryKey(position), offset);
     }
 
     @Override
-    public boolean getBoolean(int position)
+    public short getShort(int position, int offset)
     {
-        return dictionary.getBoolean(getDictionaryKey(position));
+        return dictionary.getShort(getDictionaryKey(position), offset);
     }
 
     @Override
-    public long getLong(int position)
+    public int getInt(int position, int offset)
     {
-        return dictionary.getLong(getDictionaryKey(position));
+        return dictionary.getInt(getDictionaryKey(position), offset);
     }
 
     @Override
-    public double getDouble(int position)
+    public long getLong(int position, int offset)
     {
-        return dictionary.getDouble(getDictionaryKey(position));
+        return dictionary.getLong(getDictionaryKey(position), offset);
     }
 
     @Override
-    public Slice getSlice(int position)
+    public float getFloat(int position, int offset)
     {
-        return dictionary.getSlice(getDictionaryKey(position));
+        return dictionary.getFloat(getDictionaryKey(position), offset);
     }
 
     @Override
-    public RandomAccessBlock getSingleValueBlock(int position)
+    public double getDouble(int position, int offset)
     {
+        return dictionary.getDouble(getDictionaryKey(position), offset);
+    }
+
+    @Override
+    public Slice getSlice(int position, int offset, int length)
+    {
+        return dictionary.getSlice(getDictionaryKey(position), offset, length);
+    }
+
+    @Override
+    public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
+    {
+        return dictionary.bytesEqual(getDictionaryKey(position), offset, otherSlice, otherOffset, length);
+    }
+
+    @Override
+    public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
+    {
+        return dictionary.bytesCompare(getDictionaryKey(position), offset, length, otherSlice, otherOffset, otherLength);
+    }
+
+    @Override
+    public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
+    {
+        dictionary.writeBytesTo(getDictionaryKey(position), offset, length, blockBuilder);
+    }
+
+    @Override
+    public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
+    {
+        return dictionary.equals(getDictionaryKey(position), offset, otherBlock, otherPosition, otherOffset, length);
+    }
+
+    @Override
+    public int hash(int position, int offset, int length)
+    {
+        return dictionary.hash(getDictionaryKey(position), offset, length);
+    }
+
+    @Override
+    public int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength)
+    {
+        return dictionary.compareTo(getDictionaryKey(leftPosition), leftOffset, leftLength, rightBlock, rightPosition, rightOffset, rightLength);
+    }
+
+    @Override
+    public Block getSingleValueBlock(int position)
+    {
+        if (isNull(position)) {
+            return NULL_SINGLE_VALUE_BLOCK;
+        }
         return dictionary.getSingleValueBlock(getDictionaryKey(position));
-    }
-
-    @Override
-    public Object getObjectValue(ConnectorSession session, int position)
-    {
-        return dictionary.getObjectValue(session, getDictionaryKey(position));
     }
 
     @Override
     public boolean isNull(int position)
     {
-        return dictionary.isNull(getDictionaryKey(position));
-    }
-
-    @Override
-    public boolean equalTo(int position, RandomAccessBlock otherBlock, int otherPosition)
-    {
-        return dictionary.equalTo(getDictionaryKey(position), otherBlock, otherPosition);
-    }
-
-    @Override
-    public boolean equalTo(int position, BlockCursor value)
-    {
-        return dictionary.equalTo(getDictionaryKey(position), value);
-    }
-
-    @Override
-    public boolean equalTo(int position, Slice otherSlice, int otherOffset)
-    {
-        return dictionary.equalTo(getDictionaryKey(position), otherSlice, otherOffset);
-    }
-
-    @Override
-    public int hash(int position)
-    {
-        return dictionary.hash(getDictionaryKey(position));
-    }
-
-    @Override
-    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock otherBlock, int otherPosition)
-    {
-        return dictionary.compareTo(sortOrder, getDictionaryKey(position), otherBlock, otherPosition);
-    }
-
-    @Override
-    public int compareTo(SortOrder sortOrder, int position, BlockCursor cursor)
-    {
-        return dictionary.compareTo(sortOrder, getDictionaryKey(position), cursor);
-    }
-
-    @Override
-    public int compareTo(int position, Slice otherSlice, int otherOffset)
-    {
-        return dictionary.compareTo(getDictionaryKey(position), otherSlice, otherOffset);
-    }
-
-    @Override
-    public void appendTo(int position, BlockBuilder blockBuilder)
-    {
-        dictionary.appendTo(getDictionaryKey(position), blockBuilder);
+        return idBlock.isNull(position) || dictionary.isNull(getDictionaryKey(position));
     }
 
     private int getDictionaryKey(int position)
     {
-        return Ints.checkedCast(idBlock.getLong(position));
+        return Ints.checkedCast(BIGINT.getLong(idBlock, position));
     }
 }

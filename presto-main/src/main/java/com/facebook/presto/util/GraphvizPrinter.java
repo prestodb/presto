@@ -25,17 +25,18 @@ import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
-import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.RowNumberLimitNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -201,13 +202,6 @@ public final class GraphvizPrinter
         }
 
         @Override
-        public Void visitMaterializeSample(MaterializeSampleNode node, Void context)
-        {
-            printNode(node, format("MaterializeSample[%s]", node.getSampleWeightSymbol()), NODE_COLORS.get(NodeType.MATERIALIZE_SAMPLE));
-            return node.getSource().accept(this, context);
-        }
-
-        @Override
         public Void visitSort(SortNode node, Void context)
         {
             printNode(node, format("Sort[%s]", Joiner.on(", ").join(node.getOrderBy())), NODE_COLORS.get(NodeType.SORT));
@@ -232,6 +226,26 @@ public final class GraphvizPrinter
         public Void visitWindow(WindowNode node, Void context)
         {
             printNode(node, "Window", format("partition by = %s|order by = %s", Joiner.on(", ").join(node.getPartitionBy()), Joiner.on(", ").join(node.getOrderBy())), NODE_COLORS.get(NodeType.WINDOW));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitRowNumberLimit(RowNumberLimitNode node, Void context)
+        {
+            printNode(node,
+                    "RowNumberLimit",
+                    format("partition by = %s|row_number limit %s", Joiner.on(", ").join(node.getPartitionBy()), node.getMaxRowCountPerPartition()),
+                    NODE_COLORS.get(NodeType.WINDOW));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitTopNRowNumber(TopNRowNumberNode node, Void context)
+        {
+            printNode(node,
+                    "TopNRowNumber",
+                    format("partition by = %s|order by = %s|n = %s", Joiner.on(", ").join(node.getPartitionBy()), Joiner.on(", ").join(node.getOrderBy()), node.getMaxRowCountPerPartition()),
+                    NODE_COLORS.get(NodeType.WINDOW));
             return node.getSource().accept(this, context);
         }
 

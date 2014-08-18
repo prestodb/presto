@@ -13,9 +13,15 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.spi.block.Block;
 import com.google.common.base.Throwables;
 import org.apache.commons.math3.distribution.NormalDistribution;
 import org.apache.commons.math3.exception.OutOfRangeException;
+
+import javax.annotation.Nullable;
+
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
 public final class ApproximateUtils
 {
@@ -113,5 +119,19 @@ public final class ApproximateUtils
             return Double.POSITIVE_INFINITY;
         }
         return error;
+    }
+
+    public static long computeSampleWeight(@Nullable Block masks, @Nullable Block sampleWeights, int index)
+    {
+        if (masks != null) {
+            // TODO: support for DISTINCT should be removed from sampled aggregations,
+            // since it doesn't make sense to try to process distinct rows when the data is sampled.
+
+            // DISTINCT is enabled, so ignore the sample weight
+            return BOOLEAN.getBoolean(masks, index) ? 1 : 0;
+        }
+        else {
+            return sampleWeights != null ? BIGINT.getLong(sampleWeights, index) : 1;
+        }
     }
 }

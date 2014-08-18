@@ -19,12 +19,13 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.ValuesOperator;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TestingDataStreamProvider
@@ -35,11 +36,11 @@ public class TestingDataStreamProvider
     {
         checkNotNull(operatorContext, "operatorContext is null");
         checkNotNull(columns, "columns is null");
-        checkArgument(split instanceof TestingSplit, "split is not a TestingSplit");
+        checkType(split, TestingSplit.class, "split");
 
         // TODO: check for !columns.isEmpty() -- currently, it breaks TestSqlTaskManager
         // and fixing it requires allowing TableScan nodes with no assignments
 
-        return new ValuesOperator(operatorContext, ImmutableList.of(new Page(1)));
+        return new ValuesOperator(operatorContext, ImmutableList.<Type>of(), ImmutableList.of(new Page(1)));
     }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -29,10 +30,6 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Optional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,7 +37,6 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 public class LimitPushDown
         extends PlanOptimizer
@@ -60,22 +56,15 @@ public class LimitPushDown
     private static class LimitContext
     {
         private final long count;
-        private final Optional<Symbol> sampleWeight;
 
-        public LimitContext(long count, Optional<Symbol> sampleWeight)
+        public LimitContext(long count)
         {
             this.count = count;
-            this.sampleWeight = checkNotNull(sampleWeight, "sampleWeight is null");
         }
 
         public long getCount()
         {
             return count;
-        }
-
-        public Optional<Symbol> getSampleWeight()
-        {
-            return sampleWeight;
         }
     }
 
@@ -95,7 +84,7 @@ public class LimitPushDown
             PlanNode rewrittenNode = planRewriter.defaultRewrite(node, null);
             if (context != null) {
                 // Drop in a LimitNode b/c we cannot push our limit down any further
-                rewrittenNode = new LimitNode(idAllocator.getNextId(), rewrittenNode, context.getCount(), context.getSampleWeight());
+                rewrittenNode = new LimitNode(idAllocator.getNextId(), rewrittenNode, context.getCount());
             }
             return rewrittenNode;
         }
@@ -104,13 +93,10 @@ public class LimitPushDown
         public PlanNode rewriteLimit(LimitNode node, LimitContext context, PlanRewriter<LimitContext> planRewriter)
         {
             if (context != null && context.getCount() < node.getCount()) {
-                if (context.getSampleWeight().isPresent()) {
-                    checkState(node.getSampleWeight().isPresent() && node.getSampleWeight().equals(context.getSampleWeight()), "sample weight symbols don't match");
-                }
                 return planRewriter.rewrite(node.getSource(), context);
             }
             else {
-                return planRewriter.rewrite(node.getSource(), new LimitContext(node.getCount(), node.getSampleWeight()));
+                return planRewriter.rewrite(node.getSource(), new LimitContext(node.getCount()));
             }
         }
 
@@ -121,16 +107,14 @@ public class LimitPushDown
                     node.getAggregations().isEmpty() &&
                     node.getOutputSymbols().size() == node.getGroupBy().size() &&
                     node.getOutputSymbols().containsAll(node.getGroupBy())) {
-                checkArgument(!context.getSampleWeight().isPresent(), "sample weight symbol referenced after a DISTINCT node");
                 checkArgument(!node.getSampleWeight().isPresent(), "DISTINCT aggregation has sample weight symbol");
                 PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), null);
                 return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, context.getCount());
             }
             PlanNode rewrittenNode = planRewriter.defaultRewrite(node, null);
             if (context != null) {
-                checkState(!context.getSampleWeight().isPresent(), "Aggregations do not output a sample weight, but limit consumes one");
                 // Drop in a LimitNode b/c limits cannot be pushed through aggregations
-                rewrittenNode = new LimitNode(idAllocator.getNextId(), rewrittenNode, context.getCount(), Optional.<Symbol>absent());
+                rewrittenNode = new LimitNode(idAllocator.getNextId(), rewrittenNode, context.getCount());
             }
             return rewrittenNode;
         }
@@ -144,25 +128,7 @@ public class LimitPushDown
         @Override
         public PlanNode rewriteProject(ProjectNode node, LimitContext context, PlanRewriter<LimitContext> planRewriter)
         {
-            Symbol sampleWeightSymbol = context != null ? context.getSampleWeight().orNull() : null;
-            if (sampleWeightSymbol == null) {
-                return planRewriter.defaultRewrite(node, context);
-            }
-
-            Expression expression = node.getOutputMap().get(sampleWeightSymbol);
-            if (expression instanceof QualifiedNameReference) {
-                Symbol unaliasedSampleWeightSymbol = Symbol.fromQualifiedName(((QualifiedNameReference) expression).getName());
-                context = new LimitContext(context.getCount(), Optional.of(unaliasedSampleWeightSymbol));
-                PlanNode source = planRewriter.rewrite(node.getSource(), context);
-                return new ProjectNode(node.getId(), source, node.getOutputMap());
-            }
-            else {
-                // TODO: We might want to add another limit here that ignores sample weight, and push it down. We would have to assume that sample weight is never zero.
-                PlanNode rewrittenNode = planRewriter.defaultRewrite(node, null);
-                // Drop in a LimitNode b/c we cannot push our limit down any further
-                rewrittenNode = new LimitNode(idAllocator.getNextId(), rewrittenNode, context.getCount(), context.getSampleWeight());
-                return rewrittenNode;
-            }
+            return planRewriter.defaultRewrite(node, context);
         }
 
         @Override
@@ -174,14 +140,10 @@ public class LimitPushDown
             }
 
             long count = node.getCount();
-            Optional<Symbol> sampleWeight = node.getSampleWeight();
             if (context != null) {
                 count = Math.min(count, context.getCount());
-                if (context.getSampleWeight().isPresent()) {
-                    checkState(sampleWeight.isPresent() && sampleWeight.equals(context.getSampleWeight()), "limit and topN sample weight symbols don't match");
-                }
             }
-            return new TopNNode(node.getId(), rewrittenSource, count, node.getOrderBy(), node.getOrderings(), node.isPartial(), sampleWeight);
+            return new TopNNode(node.getId(), rewrittenSource, count, node.getOrderBy(), node.getOrderings(), node.isPartial());
         }
 
         @Override
@@ -189,7 +151,7 @@ public class LimitPushDown
         {
             PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), null);
             if (context != null) {
-                return new TopNNode(node.getId(), rewrittenSource, context.getCount(), node.getOrderBy(), node.getOrderings(), false, context.getSampleWeight());
+                return new TopNNode(node.getId(), rewrittenSource, context.getCount(), node.getOrderBy(), node.getOrderings(), false);
             }
             else if (rewrittenSource != node.getSource()) {
                 return new SortNode(node.getId(), rewrittenSource, node.getOrderBy(), node.getOrderings());
@@ -200,23 +162,14 @@ public class LimitPushDown
         @Override
         public PlanNode rewriteUnion(UnionNode node, LimitContext context, PlanRewriter<LimitContext> planRewriter)
         {
-            List<Symbol> sampleWeights = null;
-            if (context != null && context.getSampleWeight().isPresent()) {
-                sampleWeights = node.getSymbolMapping().get(context.getSampleWeight().get());
-            }
-
             List<PlanNode> sources = new ArrayList<>();
             for (int i = 0; i < node.getSources().size(); i++) {
-                LimitContext rewrittenContext = context;
-                if (sampleWeights != null) {
-                    rewrittenContext = new LimitContext(context.getCount(), Optional.of(sampleWeights.get(i)));
-                }
-                sources.add(planRewriter.rewrite(node.getSources().get(i), rewrittenContext));
+                sources.add(planRewriter.rewrite(node.getSources().get(i), context));
             }
 
             PlanNode output = new UnionNode(node.getId(), sources, node.getSymbolMapping());
             if (context != null) {
-                output = new LimitNode(idAllocator.getNextId(), output, context.getCount(), context.getSampleWeight());
+                output = new LimitNode(idAllocator.getNextId(), output, context.getCount());
             }
             return output;
         }

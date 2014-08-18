@@ -17,7 +17,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Page;
@@ -40,7 +39,7 @@ public final class AggregationTestUtils
     {
     }
 
-    public static void assertAggregation(AggregationFunction function, double confidence, Object expectedValue, int positions, Block... blocks)
+    public static void assertAggregation(InternalAggregationFunction function, double confidence, Object expectedValue, int positions, Block... blocks)
     {
         if (positions == 0) {
             assertAggregation(function, confidence, expectedValue);
@@ -50,14 +49,14 @@ public final class AggregationTestUtils
         }
     }
 
-    public static void assertApproximateAggregation(AggregationFunction function, int sampleWeightChannel, double confidence, Double expectedValue, Page... pages)
+    public static void assertApproximateAggregation(InternalAggregationFunction function, int sampleWeightChannel, double confidence, Double expectedValue, Page... pages)
     {
         assertTrue(approximateAggregationWithinErrorBound(function, sampleWeightChannel, confidence, expectedValue, pages));
         assertTrue(partialApproximateAggregationWithinErrorBound(function, sampleWeightChannel, confidence, expectedValue, pages));
         assertTrue(groupedApproximateAggregationWithinErrorBound(function, sampleWeightChannel, confidence, expectedValue, pages));
     }
 
-    public static boolean approximateAggregationWithinErrorBound(AggregationFunction function, int sampleWeightChannel, double confidence, Double expectedValue, Page... pages)
+    public static boolean approximateAggregationWithinErrorBound(InternalAggregationFunction function, int sampleWeightChannel, double confidence, Double expectedValue, Page... pages)
     {
         Accumulator accumulator = function.createAggregation(Optional.<Integer>absent(), Optional.of(sampleWeightChannel), confidence, 0);
         for (Page page : pages) {
@@ -66,13 +65,13 @@ public final class AggregationTestUtils
         Block result = accumulator.evaluateFinal();
 
         if (expectedValue == null) {
-            return BlockAssertions.toValues(result).get(0) == null;
+            return BlockAssertions.toValues(function.getFinalType(), result).get(0) == null;
         }
 
-        return withinErrorBound(BlockAssertions.toValues(result).get(0).toString(), expectedValue);
+        return withinErrorBound(BlockAssertions.toValues(function.getFinalType(), result).get(0).toString(), expectedValue);
     }
 
-    public static boolean partialApproximateAggregationWithinErrorBound(AggregationFunction function, int sampleWeightChannel, double confidence, Double expectedValue, Page... pages)
+    public static boolean partialApproximateAggregationWithinErrorBound(InternalAggregationFunction function, int sampleWeightChannel, double confidence, Double expectedValue, Page... pages)
     {
         Accumulator partialAccumulator = function.createAggregation(Optional.<Integer>absent(), Optional.of(sampleWeightChannel), confidence, 0);
         for (Page page : pages) {
@@ -89,13 +88,13 @@ public final class AggregationTestUtils
         Block finalBlock = finalAggregation.evaluateFinal();
 
         if (expectedValue == null) {
-            return BlockAssertions.toValues(finalBlock).get(0) == null;
+            return BlockAssertions.toValues(function.getFinalType(), finalBlock).get(0) == null;
         }
 
-        return withinErrorBound(BlockAssertions.toValues(finalBlock).get(0).toString(), expectedValue);
+        return withinErrorBound(BlockAssertions.toValues(function.getFinalType(), finalBlock).get(0).toString(), expectedValue);
     }
 
-    public static boolean groupedApproximateAggregationWithinErrorBound(AggregationFunction function, int sampleWeightChannel, double confidence, Double expectedValue, Page... pages)
+    public static boolean groupedApproximateAggregationWithinErrorBound(InternalAggregationFunction function, int sampleWeightChannel, double confidence, Double expectedValue, Page... pages)
     {
         GroupedAccumulator groupedAggregation = function.createGroupedAggregation(Optional.<Integer>absent(), Optional.of(sampleWeightChannel), confidence, 0);
         for (Page page : pages) {
@@ -119,7 +118,7 @@ public final class AggregationTestUtils
         return Math.abs(expected - actual) <= error && !Double.isInfinite(error);
     }
 
-    public static void assertAggregation(AggregationFunction function, double confidence, Object expectedValue, Page... pages)
+    public static void assertAggregation(InternalAggregationFunction function, double confidence, Object expectedValue, Page... pages)
     {
         assertEquals(aggregation(function, confidence, pages), expectedValue);
         assertEquals(partialAggregation(function, confidence, pages), expectedValue);
@@ -130,7 +129,7 @@ public final class AggregationTestUtils
         }
     }
 
-    public static Object distinctAggregation(AggregationFunction function, double confidence, Page... pages)
+    public static Object distinctAggregation(InternalAggregationFunction function, double confidence, Page... pages)
     {
         Optional<Integer> maskChannel = Optional.of(pages[0].getChannelCount());
         // Execute normally
@@ -155,7 +154,7 @@ public final class AggregationTestUtils
             Page page = pages[i];
             BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
             for (int j = 0; j < page.getPositionCount(); j++) {
-                blockBuilder.appendBoolean(maskValue);
+                BOOLEAN.writeBoolean(blockBuilder, maskValue);
             }
             Block[] sourceBlocks = page.getBlocks();
             Block[] outputBlocks = new Block[sourceBlocks.length + 1]; // +1 for the single boolean output channel
@@ -169,7 +168,7 @@ public final class AggregationTestUtils
         return maskedPages;
     }
 
-    public static Object aggregation(AggregationFunction function, double confidence, Page... pages)
+    public static Object aggregation(InternalAggregationFunction function, double confidence, Page... pages)
     {
         // execute with args in positions: arg0, arg1, arg2
         Object aggregation = aggregation(function, createArgs(function), Optional.<Integer>absent(), confidence, pages);
@@ -187,7 +186,7 @@ public final class AggregationTestUtils
         return aggregation;
     }
 
-    private static Object aggregation(AggregationFunction function, int[] args, Optional<Integer> maskChannel, double confidence, Page... pages)
+    private static Object aggregation(InternalAggregationFunction function, int[] args, Optional<Integer> maskChannel, double confidence, Page... pages)
     {
         Accumulator aggregation = function.createAggregation(maskChannel, Optional.<Integer>absent(), confidence, args);
         for (Page page : pages) {
@@ -197,10 +196,10 @@ public final class AggregationTestUtils
         }
 
         Block block = aggregation.evaluateFinal();
-        return BlockAssertions.getOnlyValue(block);
+        return BlockAssertions.getOnlyValue(aggregation.getFinalType(), block);
     }
 
-    public static Object partialAggregation(AggregationFunction function, double confidence, Page... pages)
+    public static Object partialAggregation(InternalAggregationFunction function, double confidence, Page... pages)
     {
         // execute with args in positions: arg0, arg1, arg2
         Object aggregation = partialAggregation(function, confidence, createArgs(function), pages);
@@ -218,7 +217,7 @@ public final class AggregationTestUtils
         return aggregation;
     }
 
-    public static Object partialAggregation(AggregationFunction function, double confidence, int[] args, Page... pages)
+    public static Object partialAggregation(InternalAggregationFunction function, double confidence, int[] args, Page... pages)
     {
         Accumulator partialAggregation = function.createAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), confidence, args);
         for (Page page : pages) {
@@ -236,10 +235,10 @@ public final class AggregationTestUtils
         finalAggregation.addIntermediate(partialBlock);
 
         Block finalBlock = finalAggregation.evaluateFinal();
-        return BlockAssertions.getOnlyValue(finalBlock);
+        return BlockAssertions.getOnlyValue(finalAggregation.getFinalType(), finalBlock);
     }
 
-    public static Object groupedAggregation(AggregationFunction function, double confidence, Page... pages)
+    public static Object groupedAggregation(InternalAggregationFunction function, double confidence, Page... pages)
     {
         // execute with args in positions: arg0, arg1, arg2
         Object aggregation = groupedAggregation(function, confidence, createArgs(function), pages);
@@ -257,7 +256,7 @@ public final class AggregationTestUtils
         return aggregation;
     }
 
-    public static Object groupedAggregation(AggregationFunction function, double confidence, int[] args, Page... pages)
+    public static Object groupedAggregation(InternalAggregationFunction function, double confidence, int[] args, Page... pages)
     {
         GroupedAccumulator groupedAggregation = function.createGroupedAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), confidence, args);
         for (Page page : pages) {
@@ -274,7 +273,7 @@ public final class AggregationTestUtils
         return groupValue;
     }
 
-    public static Object groupedPartialAggregation(AggregationFunction function, double confidence, Page... pages)
+    public static Object groupedPartialAggregation(InternalAggregationFunction function, double confidence, Page... pages)
     {
         // execute with args in positions: arg0, arg1, arg2
         Object aggregation = groupedPartialAggregation(function, confidence, createArgs(function), pages);
@@ -292,7 +291,7 @@ public final class AggregationTestUtils
         return aggregation;
     }
 
-    public static Object groupedPartialAggregation(AggregationFunction function, double confidence, int[] args, Page... pages)
+    public static Object groupedPartialAggregation(InternalAggregationFunction function, double confidence, int[] args, Page... pages)
     {
         GroupedAccumulator partialAggregation = function.createGroupedAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), confidence, args);
         for (Page page : pages) {
@@ -320,12 +319,12 @@ public final class AggregationTestUtils
     {
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
         for (int i = 0; i < positions; i++) {
-            blockBuilder.appendLong(groupId);
+            BIGINT.writeLong(blockBuilder, groupId);
         }
         return new GroupByIdBlock(groupId, blockBuilder.build());
     }
 
-    private static int[] createArgs(AggregationFunction function)
+    private static int[] createArgs(InternalAggregationFunction function)
     {
         int[] args = new int[function.getParameterTypes().size()];
         for (int i = 0; i < args.length; i++) {
@@ -334,14 +333,14 @@ public final class AggregationTestUtils
         return args;
     }
 
-    private static int[] reverseArgs(AggregationFunction function)
+    private static int[] reverseArgs(InternalAggregationFunction function)
     {
         int[] args = createArgs(function);
         Collections.reverse(Ints.asList(args));
         return args;
     }
 
-    private static int[] offsetArgs(AggregationFunction function, int offset)
+    private static int[] offsetArgs(InternalAggregationFunction function, int offset)
     {
         int[] args = createArgs(function);
         for (int i = 0; i < args.length; i++) {
@@ -391,10 +390,9 @@ public final class AggregationTestUtils
 
     private static RunLengthEncodedBlock createNullRLEBlock(int positionCount)
     {
-        RandomAccessBlock value = BOOLEAN.createBlockBuilder(new BlockBuilderStatus())
+        Block value = BOOLEAN.createBlockBuilder(new BlockBuilderStatus())
                 .appendNull()
-                .build()
-                .toRandomAccessBlock();
+                .build();
 
         return new RunLengthEncodedBlock(value, positionCount);
     }
@@ -403,6 +401,6 @@ public final class AggregationTestUtils
     {
         BlockBuilder out = groupedAggregation.getFinalType().createBlockBuilder(new BlockBuilderStatus());
         groupedAggregation.evaluateFinal(groupId, out);
-        return BlockAssertions.getOnlyValue(out.build());
+        return BlockAssertions.getOnlyValue(groupedAggregation.getFinalType(), out.build());
     }
 }

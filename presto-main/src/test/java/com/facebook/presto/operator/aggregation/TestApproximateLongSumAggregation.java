@@ -19,7 +19,7 @@ import com.google.common.base.Predicates;
 
 import java.util.List;
 
-import static com.facebook.presto.operator.aggregation.ApproximateLongSumAggregation.LONG_APPROXIMATE_SUM_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximateSumAggregations.LONG_APPROXIMATE_SUM_AGGREGATION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestApproximateLongSumAggregation
@@ -46,7 +46,7 @@ public class TestApproximateLongSumAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return LONG_APPROXIMATE_SUM_AGGREGATION;
     }

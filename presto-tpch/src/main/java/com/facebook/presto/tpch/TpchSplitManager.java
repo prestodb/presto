@@ -31,6 +31,7 @@ import com.google.common.collect.Iterables;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.tpch.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -51,12 +52,6 @@ public class TpchSplitManager
     }
 
     @Override
-    public String getConnectorId()
-    {
-        return connectorId;
-    }
-
-    @Override
     public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
         ImmutableList<ConnectorPartition> partitions = ImmutableList.<ConnectorPartition>of(new TpchPartition((TpchTableHandle) table));
@@ -72,8 +67,7 @@ public class TpchSplitManager
         }
 
         ConnectorPartition partition = Iterables.getOnlyElement(partitions);
-        checkArgument(partition instanceof TpchPartition, "Partition must be a tpch partition");
-        TpchTableHandle tableHandle = ((TpchPartition) partition).getTable();
+        TpchTableHandle tableHandle = checkType(partition, TpchPartition.class, "partition").getTable();
 
         Set<Node> nodes = nodeManager.getActiveDatasourceNodes(connectorId);
         checkState(!nodes.isEmpty(), "No TPCH nodes available");
@@ -85,7 +79,8 @@ public class TpchSplitManager
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         for (Node node : nodes) {
             for (int i = 0; i < splitsPerNode; i++) {
-                splits.add(new TpchSplit(tableHandle, partNumber++, totalParts, ImmutableList.of(node.getHostAndPort())));
+                splits.add(new TpchSplit(tableHandle, partNumber, totalParts, ImmutableList.of(node.getHostAndPort())));
+                partNumber++;
             }
         }
         return new FixedSplitSource(connectorId, splits.build());

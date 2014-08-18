@@ -13,37 +13,22 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.NullableLongState;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.operator.aggregation.state.NullableBigintState;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.type.SqlType;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-
-public class LongSumAggregation
-        extends AbstractAggregationFunction<NullableLongState>
+@AggregationFunction("sum")
+public final class LongSumAggregation
 {
-    public static final AggregationFunction LONG_SUM = new LongSumAggregation();
+    public static final InternalAggregationFunction LONG_SUM = new AggregationCompiler().generateAggregationFunction(LongSumAggregation.class);
 
-    public LongSumAggregation()
-    {
-        super(BIGINT, BIGINT, BIGINT);
-    }
+    private LongSumAggregation() {}
 
-    @Override
-    public void processInput(NullableLongState state, BlockCursor cursor)
+    @InputFunction
+    @IntermediateInputFunction
+    public static void sum(NullableBigintState state, @SqlType(BigintType.class) long value)
     {
-        state.setNotNull(true);
-        state.setLong(state.getLong() + cursor.getLong());
-    }
-
-    @Override
-    public void evaluateFinal(NullableLongState state, BlockBuilder out)
-    {
-        if (state.getNotNull()) {
-            out.appendLong(state.getLong());
-        }
-        else {
-            out.appendNull();
-        }
+        state.setNull(false);
+        state.setLong(state.getLong() + value);
     }
 }

@@ -17,6 +17,9 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.operator.PageAssertions;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -40,8 +43,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
-import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
 import static com.facebook.presto.execution.BufferResult.emptyResults;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -56,6 +59,7 @@ public class TestSharedBuffer
     private static final TaskId TASK_ID = new TaskId("query", "stage", "task");
 
     private static final OutputBuffers CLOSED_OUTPUT_BUFFERS = INITIAL_EMPTY_OUTPUT_BUFFERS.withNoMoreBufferIds();
+    private static final ImmutableList<BigintType> TYPES = ImmutableList.of(BIGINT);
 
     private static Page createPage(int i)
     {
@@ -116,12 +120,12 @@ public class TestSharedBuffer
         assertQueueState(sharedBuffer, "first", 3, 0);
 
         // get the three elements
-        assertBufferResultEquals(sharedBuffer.get("first", 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+        assertBufferResultEquals(TYPES, sharedBuffer.get("first", 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
         // pages not acknowledged yet so state is the same
         assertQueueState(sharedBuffer, "first", 3, 0);
 
         // try to get some more pages (acknowledge first three pages)
-        assertBufferResultEquals(sharedBuffer.get("first", 3, sizeOfPages(10), NO_WAIT), emptyResults(3, false));
+        assertBufferResultEquals(TYPES, sharedBuffer.get("first", 3, sizeOfPages(10), NO_WAIT), emptyResults(3, false));
         // pages now acknowledged
         assertQueueState(sharedBuffer, "first", 0, 3);
 
@@ -135,7 +139,7 @@ public class TestSharedBuffer
         ListenableFuture<?> future = enqueuePage(sharedBuffer, createPage(10));
 
         // remove a page
-        assertBufferResultEquals(sharedBuffer.get("first", 3, sizeOfPages(1), NO_WAIT), bufferResult(3, createPage(3)));
+        assertBufferResultEquals(TYPES, sharedBuffer.get("first", 3, sizeOfPages(1), NO_WAIT), bufferResult(3, createPage(3)));
         // page not acknowledged yet so state is the same
         assertQueueState(sharedBuffer, "first", 7, 3);
 
@@ -147,7 +151,7 @@ public class TestSharedBuffer
         outputBuffers = outputBuffers.withBuffer("second", new UnpartitionedPagePartitionFunction());
         sharedBuffer.setOutputBuffers(outputBuffers);
         assertQueueState(sharedBuffer, "second", 10, 0);
-        assertBufferResultEquals(sharedBuffer.get("second", 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0),
+        assertBufferResultEquals(TYPES, sharedBuffer.get("second", 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0),
                 createPage(1),
                 createPage(2),
                 createPage(3),
@@ -160,7 +164,7 @@ public class TestSharedBuffer
         // page not acknowledged yet so state is the same
         assertQueueState(sharedBuffer, "second", 10, 0);
         // acknowledge the 10 pages
-        assertBufferResultEquals(sharedBuffer.get("second", 10, sizeOfPages(10), NO_WAIT), emptyResults(10, false));
+        assertBufferResultEquals(TYPES, sharedBuffer.get("second", 10, sizeOfPages(10), NO_WAIT), emptyResults(10, false));
         assertQueueState(sharedBuffer, "second", 0, 10);
 
         //
@@ -180,7 +184,7 @@ public class TestSharedBuffer
         assertQueueState(sharedBuffer, "second", 3, 10);
 
         // remove a page from the first queue
-        assertBufferResultEquals(sharedBuffer.get("first", 4, sizeOfPages(1), NO_WAIT), bufferResult(4, createPage(4)));
+        assertBufferResultEquals(TYPES, sharedBuffer.get("first", 4, sizeOfPages(1), NO_WAIT), bufferResult(4, createPage(4)));
 
         // the blocked page future above should be done
         future.get(1, TimeUnit.SECONDS);
@@ -198,14 +202,14 @@ public class TestSharedBuffer
         assertFalse(sharedBuffer.isFinished());
 
         // remove a page, not finished
-        assertBufferResultEquals(sharedBuffer.get("first", 5, sizeOfPages(1), NO_WAIT), bufferResult(5, createPage(5)));
+        assertBufferResultEquals(TYPES, sharedBuffer.get("first", 5, sizeOfPages(1), NO_WAIT), bufferResult(5, createPage(5)));
         assertQueueState(sharedBuffer, "first", 9, 5);
         assertQueueState(sharedBuffer, "second", 4, 10);
         assertFalse(sharedBuffer.isFinished());
 
         // remove all remaining pages from first queue, should not be finished
         BufferResult x = sharedBuffer.get("first", 6, sizeOfPages(10), NO_WAIT);
-        assertBufferResultEquals(x, bufferResult(6, createPage(6),
+        assertBufferResultEquals(TYPES, x, bufferResult(6, createPage(6),
                 createPage(7),
                 createPage(8),
                 createPage(9),
@@ -214,24 +218,24 @@ public class TestSharedBuffer
                 createPage(12),
                 createPage(13)));
         assertQueueState(sharedBuffer, "first", 8, 6);
-        assertBufferResultEquals(sharedBuffer.get("first", 14, sizeOfPages(10), NO_WAIT), emptyResults(14, false));
+        assertBufferResultEquals(TYPES, sharedBuffer.get("first", 14, sizeOfPages(10), NO_WAIT), emptyResults(14, false));
         assertQueueClosed(sharedBuffer, "first", 14);
         assertQueueState(sharedBuffer, "second", 4, 10);
         assertFalse(sharedBuffer.isFinished());
 
         // remove all remaining pages from second queue, should be finished
-        assertBufferResultEquals(sharedBuffer.get("second", 10, sizeOfPages(10), NO_WAIT), bufferResult(10, createPage(10),
+        assertBufferResultEquals(TYPES, sharedBuffer.get("second", 10, sizeOfPages(10), NO_WAIT), bufferResult(10, createPage(10),
                 createPage(11),
                 createPage(12),
                 createPage(13)));
         assertQueueState(sharedBuffer, "second", 4, 10);
-        assertBufferResultEquals(sharedBuffer.get("second", 14, sizeOfPages(10), NO_WAIT), emptyResults(14, false));
+        assertBufferResultEquals(TYPES, sharedBuffer.get("second", 14, sizeOfPages(10), NO_WAIT), emptyResults(14, false));
         assertQueueClosed(sharedBuffer, "first", 14);
         assertQueueClosed(sharedBuffer, "second", 14);
         assertFinished(sharedBuffer);
 
-        assertBufferResultEquals(sharedBuffer.get("first", 14, sizeOfPages(10), NO_WAIT), emptyResults(14, true));
-        assertBufferResultEquals(sharedBuffer.get("second", 14, sizeOfPages(10), NO_WAIT), emptyResults(14, true));
+        assertBufferResultEquals(TYPES, sharedBuffer.get("first", 14, sizeOfPages(10), NO_WAIT), emptyResults(14, true));
+        assertBufferResultEquals(TYPES, sharedBuffer.get("second", 14, sizeOfPages(10), NO_WAIT), emptyResults(14, true));
     }
 
     @Test
@@ -251,12 +255,12 @@ public class TestSharedBuffer
         assertQueueState(sharedBuffer, "first", 3, 0);
 
         // get the three elements
-        assertBufferResultEquals(sharedBuffer.get("first", 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+        assertBufferResultEquals(TYPES, sharedBuffer.get("first", 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
         // pages not acknowledged yet so state is the same
         assertQueueState(sharedBuffer, "first", 3, 0);
 
         // get the three elements again
-        assertBufferResultEquals(sharedBuffer.get("first", 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+        assertBufferResultEquals(TYPES, sharedBuffer.get("first", 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
         // pages not acknowledged yet so state is the same
         assertQueueState(sharedBuffer, "first", 3, 0);
 
@@ -264,7 +268,7 @@ public class TestSharedBuffer
         sharedBuffer.acknowledge("first", 3);
 
         // attempt to get the three elements again
-        assertBufferResultEquals(sharedBuffer.get("first", 0, sizeOfPages(10), NO_WAIT), emptyResults(3, false));
+        assertBufferResultEquals(TYPES, sharedBuffer.get("first", 0, sizeOfPages(10), NO_WAIT), emptyResults(3, false));
         // pages not acknowledged yet so state is the same
         assertQueueState(sharedBuffer, "first", 0, 3);
     }
@@ -416,18 +420,18 @@ public class TestSharedBuffer
 
         outputBuffers = outputBuffers.withBuffer("first", new UnpartitionedPagePartitionFunction());
         sharedBuffer.setOutputBuffers(outputBuffers);
-        assertBufferResultEquals(sharedBuffer.get("first", 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(0)));
+        assertBufferResultEquals(TYPES, sharedBuffer.get("first", 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(0)));
         sharedBuffer.abort("first");
         assertQueueClosed(sharedBuffer, "first", 0);
-        assertBufferResultEquals(sharedBuffer.get("first", 1, sizeOfPages(1), NO_WAIT), emptyResults(1, true));
+        assertBufferResultEquals(TYPES, sharedBuffer.get("first", 1, sizeOfPages(1), NO_WAIT), emptyResults(1, true));
 
         outputBuffers = outputBuffers.withBuffer("second", new UnpartitionedPagePartitionFunction()).withNoMoreBufferIds();
         sharedBuffer.setOutputBuffers(outputBuffers);
-        assertBufferResultEquals(sharedBuffer.get("second", 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(0)));
+        assertBufferResultEquals(TYPES, sharedBuffer.get("second", 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(0)));
         sharedBuffer.abort("second");
         assertQueueClosed(sharedBuffer, "second", 0);
         assertFinished(sharedBuffer);
-        assertBufferResultEquals(sharedBuffer.get("second", 1, sizeOfPages(1), NO_WAIT), emptyResults(0, true));
+        assertBufferResultEquals(TYPES, sharedBuffer.get("second", 1, sizeOfPages(1), NO_WAIT), emptyResults(0, true));
     }
 
     @Test
@@ -684,7 +688,7 @@ public class TestSharedBuffer
         }
     }
 
-    private void assertBufferResultEquals(BufferResult actual, BufferResult expected)
+    private static void assertBufferResultEquals(List<? extends Type> types, BufferResult actual, BufferResult expected)
     {
         assertEquals(actual.getPages().size(), expected.getPages().size());
         assertEquals(actual.getToken(), expected.getToken());
@@ -692,9 +696,7 @@ public class TestSharedBuffer
             Page actualPage = actual.getPages().get(i);
             Page expectedPage = expected.getPages().get(i);
             assertEquals(actualPage.getChannelCount(), expectedPage.getChannelCount());
-            for (int channel = 0; channel < actualPage.getChannelCount(); channel++) {
-                assertBlockEquals(actualPage.getBlock(channel), expectedPage.getBlock(channel));
-            }
+            PageAssertions.assertPageEquals(types, actualPage, expectedPage);
         }
         assertEquals(actual.isBufferClosed(), expected.isBufferClosed());
     }

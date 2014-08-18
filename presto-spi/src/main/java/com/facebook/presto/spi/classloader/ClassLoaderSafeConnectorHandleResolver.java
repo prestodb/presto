@@ -16,6 +16,8 @@ package com.facebook.presto.spi.classloader;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexHandle;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 
@@ -66,6 +68,22 @@ public class ClassLoaderSafeConnectorHandleResolver
     }
 
     @Override
+    public boolean canHandle(ConnectorOutputTableHandle tableHandle)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.canHandle(tableHandle);
+        }
+    }
+
+    @Override
+    public boolean canHandle(ConnectorInsertTableHandle tableHandle)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.canHandle(tableHandle);
+        }
+    }
+
+    @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -102,6 +120,22 @@ public class ClassLoaderSafeConnectorHandleResolver
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getIndexHandleClass();
+        }
+    }
+
+    @Override
+    public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getOutputTableHandleClass();
+        }
+    }
+
+    @Override
+    public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getInsertTableHandleClass();
         }
     }
 }

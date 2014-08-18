@@ -58,7 +58,6 @@ public class Block
 {
     private final CompilerContext context;
     private final List<ByteCodeNode> nodes = new ArrayList<>();
-//    private final List<TryCatchBlockNode> tryCatchBlocks = new ArrayList<>();
 
     private String description;
 
@@ -109,54 +108,6 @@ public class Block
         return nodes.size() == 0;
     }
 
-//    public List<TryCatchBlockNode> getTryCatchBlocks()
-//    {
-//        return tryCatchBlocks;
-//    }
-//
-//    public BlockDefinition tryCatch(BlockDefinition tryBlock, BlockDefinition handlerBlock, ParameterizedType exceptionType)
-//    {
-//        LabelNode tryStart = new LabelNode();
-//        LabelNode tryEnd = new LabelNode();
-//        LabelNode handler = new LabelNode();
-//        LabelNode done = new LabelNode();
-//
-//        String exceptionName = null;
-//        if (exceptionType != null) {
-//            exceptionName = exceptionType.getClassName();
-//        }
-//        tryCatchBlocks.add(new TryCatchBlockNode(tryStart, tryEnd, handler, exceptionName));
-//
-//        //
-//        // try block
-//        visitLabel(tryStart);
-//        append(tryBlock);
-//        visitLabel(tryEnd);
-//        gotoLabel(done);
-//
-//        //
-//        // handler block
-//
-//        visitLabel(handler);
-//
-//        // store exception
-//        Variable exception = context.createTempVariable();
-//        storeVariable(exception.getLocalVariableDefinition());
-//
-//        // execute handler code
-//        append(handlerBlock);
-//
-//        // load and rethrow exception
-//        loadVariable(exception.getLocalVariableDefinition());
-//        context.dropTempVariable(exception);
-//        throwObject();
-//
-//        // all done
-//        visitLabel(done);
-//
-//        return this;
-//    }
-
     public Block visitLabel(LabelNode label)
     {
         nodes.add(label);
@@ -200,6 +151,12 @@ public class Block
     public Block ifNotNullGoto(LabelNode label)
     {
         nodes.add(JumpInstruction.jumpIfNotNull(label));
+        return this;
+    }
+
+    public Block intAdd()
+    {
+        nodes.add(OpCodes.IADD);
         return this;
     }
 
@@ -308,6 +265,12 @@ public class Block
     public Block intNegate()
     {
         nodes.add(OpCodes.INEG);
+        return this;
+    }
+
+    public Block intToLong()
+    {
+        nodes.add(OpCodes.I2L);
         return this;
     }
 

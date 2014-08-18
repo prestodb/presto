@@ -13,15 +13,17 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import com.facebook.presto.raptor.RaptorPartitionKey;
 import com.facebook.presto.raptor.RaptorTableHandle;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.PartitionKey;
+import com.facebook.presto.spi.PrestoException;
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
+import com.google.common.collect.Ordering;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionStatus;
@@ -30,16 +32,20 @@ import org.skife.jdbi.v2.VoidTransactionCallback;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.presto.raptor.metadata.PartitionKey.partitionNameGetter;
 import static com.facebook.presto.raptor.metadata.ShardManagerDaoUtils.createShardTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.SqlUtils.runIgnoringConstraintViolation;
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.util.Types.checkType;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Maps.immutableEntry;
 
 public class DatabaseShardManager
@@ -60,13 +66,9 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void commitPartition(ConnectorTableHandle tableHandle, final String partition, final List<? extends PartitionKey> partitionKeys, final Map<UUID, String> shards)
+    public void commitPartition(final long tableId, String partition, List<PartitionKey> partitionKeys, final Map<UUID, String> shards)
     {
-        checkNotNull(partition, "partition is null");
-        checkNotNull(partitionKeys, "partitionKeys is null");
-        checkNotNull(shards, "shards is null");
-
-        final long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
+        final long partitionId = getOrCreatePartitionId(tableId, partition, partitionKeys);
 
         dbi.inTransaction(new VoidTransactionCallback()
         {
@@ -74,12 +76,6 @@ public class DatabaseShardManager
             protected void execute(Handle handle, TransactionStatus status)
             {
                 ShardManagerDao dao = handle.attach(ShardManagerDao.class);
-                long partitionId = dao.insertPartition(tableId, partition);
-
-                for (PartitionKey partitionKey : partitionKeys) {
-                    dao.insertPartitionKey(tableId, partition, partitionKey.getName(), partitionKey.getType().toString(), partitionKey.getValue());
-                }
-
                 for (Map.Entry<UUID, String> entry : shards.entrySet()) {
                     long nodeId = getOrCreateNodeId(entry.getValue());
                     UUID shardUuid = entry.getKey();
@@ -92,9 +88,9 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void commitUnpartitionedTable(ConnectorTableHandle tableHandle, Map<UUID, String> shards)
+    public void commitUnpartitionedTable(long tableId, Map<UUID, String> shards)
     {
-        commitPartition(tableHandle, "<UNPARTITIONED>", ImmutableList.<PartitionKey>of(), shards);
+        commitPartition(tableId, "<UNPARTITIONED>", ImmutableList.<PartitionKey>of(), shards);
     }
 
     @Override
@@ -126,17 +122,10 @@ public class DatabaseShardManager
     }
 
     @Override
-    public Multimap<String, ? extends PartitionKey> getAllPartitionKeys(ConnectorTableHandle tableHandle)
+    public Multimap<String, PartitionKey> getAllPartitionKeys(ConnectorTableHandle tableHandle)
     {
         long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
-
-        Set<RaptorPartitionKey> partitionKeys = dao.getPartitionKeys(tableId);
-        ImmutableMultimap.Builder<String, PartitionKey> builder = ImmutableMultimap.builder();
-        for (RaptorPartitionKey partitionKey : partitionKeys) {
-            builder.put(partitionKey.getPartitionName(), partitionKey);
-        }
-
-        return builder.build();
+        return Multimaps.index(dao.getPartitionKeys(tableId), partitionNameGetter());
     }
 
     @Override
@@ -220,8 +209,49 @@ public class DatabaseShardManager
 
         id = dao.getNodeId(nodeIdentifier);
         if (id == null) {
-            throw new IllegalStateException("node does not exist after insert");
+            throw new PrestoException(INTERNAL_ERROR.toErrorCode(), "node does not exist after insert");
         }
         return id;
+    }
+
+    private long getOrCreatePartitionId(final long tableId, final String partition, final List<PartitionKey> partitionKeys)
+    {
+        Long id = dao.getPartitionId(tableId, partition);
+        if (id != null) {
+            return id;
+        }
+
+        // creating a partition is idempotent
+        runIgnoringConstraintViolation(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                dao.insertPartition(tableId, partition);
+
+                // use consistent insertion ordering to avoid deadlocks
+                for (PartitionKey key : sorted(partitionKeys, partitionNameGetter())) {
+                    dao.insertPartitionKey(
+                            tableId,
+                            partition,
+                            key.getName(),
+                            key.getType().getName(),
+                            key.getValue());
+                }
+            }
+        });
+
+        id = dao.getPartitionId(tableId, partition);
+        if (id == null) {
+            throw new PrestoException(INTERNAL_ERROR.toErrorCode(), "partition does not exist after insert");
+        }
+        return id;
+    }
+
+    private static <F, T extends Comparable<T>> List<F> sorted(Collection<F> collection, Function<F, T> function)
+    {
+        List<F> list = new ArrayList<>(collection);
+        Collections.sort(list, Ordering.natural().onResultOf(function));
+        return list;
     }
 }

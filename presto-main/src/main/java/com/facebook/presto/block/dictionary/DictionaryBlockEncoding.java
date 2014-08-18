@@ -17,8 +17,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.block.RandomAccessBlock;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.SliceInput;
@@ -32,10 +30,10 @@ public class DictionaryBlockEncoding
     public static final BlockEncodingFactory<DictionaryBlockEncoding> FACTORY = new DictionaryBlockEncodingFactory();
     private static final String NAME = "DIC";
 
-    private final RandomAccessBlock dictionary;
+    private final Block dictionary;
     private final BlockEncoding idBlockEncoding;
 
-    public DictionaryBlockEncoding(RandomAccessBlock dictionary, BlockEncoding idBlockEncoding)
+    public DictionaryBlockEncoding(Block dictionary, BlockEncoding idBlockEncoding)
     {
         this.dictionary = checkNotNull(dictionary, "dictionary is null");
         this.idBlockEncoding = checkNotNull(idBlockEncoding, "idBlockEncoding is null");
@@ -45,12 +43,6 @@ public class DictionaryBlockEncoding
     public String getName()
     {
         return NAME;
-    }
-
-    @Override
-    public Type getType()
-    {
-        return dictionary.getType();
     }
 
     @Override
@@ -64,7 +56,7 @@ public class DictionaryBlockEncoding
     @Override
     public Block readBlock(SliceInput sliceInput)
     {
-        RandomAccessBlock idBlock = (RandomAccessBlock) idBlockEncoding.readBlock(sliceInput);
+        Block idBlock = idBlockEncoding.readBlock(sliceInput);
         return new DictionaryEncodedBlock(dictionary, idBlock);
     }
 
@@ -82,7 +74,7 @@ public class DictionaryBlockEncoding
         {
             // read the dictionary
             BlockEncoding dictionaryEncoding = serde.readBlockEncoding(input);
-            RandomAccessBlock dictionary = dictionaryEncoding.readBlock(input).toRandomAccessBlock();
+            Block dictionary = dictionaryEncoding.readBlock(input);
 
             // read the id block encoding
             BlockEncoding idBlockEncoding = serde.readBlockEncoding(input);

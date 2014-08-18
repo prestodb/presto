@@ -48,6 +48,7 @@ public class HiveClientConfig
     private int maxInitialSplits = 200;
     private DataSize maxInitialSplitSize;
     private boolean allowDropTable;
+    private boolean allowRenameTable;
 
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
     private Duration metastoreRefreshInterval = new Duration(2, TimeUnit.MINUTES);
@@ -58,6 +59,7 @@ public class HiveClientConfig
     private Duration dfsTimeout = new Duration(10, TimeUnit.SECONDS);
     private Duration dfsConnectTimeout = new Duration(500, TimeUnit.MILLISECONDS);
     private int dfsConnectMaxRetries = 5;
+    private boolean verifyChecksum = true;
 
     private String domainSocketPath;
 
@@ -66,8 +68,11 @@ public class HiveClientConfig
     private boolean s3SslEnabled = true;
     private int s3MaxClientRetries = 3;
     private int s3MaxErrorRetries = 10;
+    private Duration s3MaxBackoffTime = new Duration(10, TimeUnit.MINUTES);
     private Duration s3ConnectTimeout = new Duration(5, TimeUnit.SECONDS);
     private File s3StagingDirectory = new File(StandardSystemProperty.JAVA_IO_TMPDIR.value());
+
+    private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
 
     private List<String> resourceConfigFiles;
 
@@ -166,6 +171,19 @@ public class HiveClientConfig
     public HiveClientConfig setMaxGlobalSplitIteratorThreads(int maxGlobalSplitIteratorThreads)
     {
         this.maxGlobalSplitIteratorThreads = maxGlobalSplitIteratorThreads;
+        return this;
+    }
+
+    public boolean getAllowRenameTable()
+    {
+        return this.allowRenameTable;
+    }
+
+    @Config("hive.allow-rename-table")
+    @ConfigDescription("Allow hive connector to rename table")
+    public HiveClientConfig setAllowRenameTable(boolean allowRenameTable)
+    {
+        this.allowRenameTable = allowRenameTable;
         return this;
     }
 
@@ -331,6 +349,18 @@ public class HiveClientConfig
         return this;
     }
 
+    public HiveStorageFormat getHiveStorageFormat()
+    {
+        return hiveStorageFormat;
+    }
+
+    @Config("hive.storage-format")
+    public HiveClientConfig setHiveStorageFormat(HiveStorageFormat hiveStorageFormat)
+    {
+        this.hiveStorageFormat = hiveStorageFormat;
+        return this;
+    }
+
     public String getDomainSocketPath()
     {
         return domainSocketPath;
@@ -340,6 +370,18 @@ public class HiveClientConfig
     public HiveClientConfig setDomainSocketPath(String domainSocketPath)
     {
         this.domainSocketPath = domainSocketPath;
+        return this;
+    }
+
+    public boolean isVerifyChecksum()
+    {
+        return verifyChecksum;
+    }
+
+    @Config("hive.dfs.verify-checksum")
+    public HiveClientConfig setVerifyChecksum(boolean verifyChecksum)
+    {
+        this.verifyChecksum = verifyChecksum;
         return this;
     }
 
@@ -402,6 +444,20 @@ public class HiveClientConfig
     public HiveClientConfig setS3MaxErrorRetries(int s3MaxErrorRetries)
     {
         this.s3MaxErrorRetries = s3MaxErrorRetries;
+        return this;
+    }
+
+    @MinDuration("1s")
+    @NotNull
+    public Duration getS3MaxBackoffTime()
+    {
+        return s3MaxBackoffTime;
+    }
+
+    @Config("hive.s3.max-backoff-time")
+    public HiveClientConfig setS3MaxBackoffTime(Duration s3MaxBackoffTime)
+    {
+        this.s3MaxBackoffTime = s3MaxBackoffTime;
         return this;
     }
 

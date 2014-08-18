@@ -15,6 +15,7 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -22,6 +23,7 @@ import javax.inject.Inject;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -40,6 +42,9 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.type.ColorType.COLOR;
+import static com.facebook.presto.type.JsonPathType.JSON_PATH;
+import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
+import static com.facebook.presto.type.RegexpType.REGEXP;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -78,6 +83,9 @@ public final class TypeRegistry
         addType(INTERVAL_YEAR_MONTH);
         addType(INTERVAL_DAY_TIME);
         addType(HYPER_LOG_LOG);
+        addType(REGEXP);
+        addType(LIKE_PATTERN);
+        addType(JSON_PATH);
         addType(COLOR);
 
         for (Type type : types) {
@@ -89,6 +97,12 @@ public final class TypeRegistry
     public Type getType(String typeName)
     {
         return types.get(typeName.toLowerCase());
+    }
+
+    @Override
+    public List<Type> getTypes()
+    {
+        return ImmutableList.copyOf(types.values());
     }
 
     public void addType(Type type)

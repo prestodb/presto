@@ -18,8 +18,8 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 
@@ -46,7 +46,7 @@ public final class OperatorAssertion
             {
                 BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
                 for (int i = 0; i < page.getPositionCount(); i++) {
-                    builder.appendLong(sampleWeight);
+                    BIGINT.writeLong(builder, sampleWeight);
                 }
                 Block[] blocks = new Block[page.getChannelCount() + 1];
                 System.arraycopy(page.getBlocks(), 0, blocks, 0, page.getChannelCount());
@@ -141,7 +141,7 @@ public final class OperatorAssertion
         List<Page> actual = toPages(operator);
         assertEquals(actual.size(), expected.size());
         for (int i = 0; i < actual.size(); i++) {
-            assertPageEquals(actual.get(i), expected.get(i));
+            assertPageEquals(operator.getTypes(), actual.get(i), expected.get(i));
         }
     }
 
@@ -150,7 +150,7 @@ public final class OperatorAssertion
         List<Page> actual = toPages(operator, input);
         assertEquals(actual.size(), expected.size());
         for (int i = 0; i < actual.size(); i++) {
-            assertPageEquals(actual.get(i), expected.get(i));
+            assertPageEquals(operator.getTypes(), actual.get(i), expected.get(i));
         }
     }
 

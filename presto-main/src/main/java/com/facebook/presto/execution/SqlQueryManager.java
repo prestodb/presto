@@ -59,12 +59,15 @@ import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 @ThreadSafe
 public class SqlQueryManager
         implements QueryManager
 {
     private static final Logger log = Logger.get(SqlQueryManager.class);
+
+    private final SqlParser sqlParser;
 
     private final ExecutorService queryExecutor;
     private final ThreadPoolExecutorMBean queryExecutorMBean;
@@ -88,23 +91,26 @@ public class SqlQueryManager
     private final SqlQueryManagerStats stats = new SqlQueryManagerStats();
 
     @Inject
-    public SqlQueryManager(QueryManagerConfig config,
+    public SqlQueryManager(
+            SqlParser sqlParser,
+            QueryManagerConfig config,
             QueryMonitor queryMonitor,
             QueryIdGenerator queryIdGenerator,
             LocationFactory locationFactory,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories)
     {
-        checkNotNull(config, "config is null");
+        this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
 
         this.executionFactories = checkNotNull(executionFactories, "executionFactories is null");
 
-        this.queryExecutor = Executors.newCachedThreadPool(threadsNamed("query-scheduler-%d"));
+        this.queryExecutor = newCachedThreadPool(threadsNamed("query-scheduler-%d"));
         this.queryExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryExecutor);
 
         this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
         this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
         this.queryIdGenerator = checkNotNull(queryIdGenerator, "queryIdGenerator is null");
 
+        checkNotNull(config, "config is null");
         this.maxQueryAge = config.getMaxQueryAge();
         this.maxQueryHistory = config.getMaxQueryHistory();
         this.clientTimeout = config.getClientTimeout();
@@ -197,7 +203,7 @@ public class SqlQueryManager
 
         Statement statement;
         try {
-            statement = SqlParser.createStatement(query);
+            statement = sqlParser.createStatement(query);
         }
         catch (ParsingException e) {
             return createFailedQuery(session, query, queryId, e);

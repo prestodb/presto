@@ -130,7 +130,12 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
-    public R visitMaterializeSample(MaterializeSampleNode node, C context)
+    public R visitRowNumberLimit(RowNumberLimitNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitTopNRowNumber(TopNRowNumberNode node, C context)
     {
         return visitPlan(node, context);
     }

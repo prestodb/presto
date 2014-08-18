@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.RandomAccessBlock;
-import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import org.testng.annotations.Test;
+
+import java.util.List;
 
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 
@@ -28,7 +28,7 @@ public abstract class AbstractTestAggregationFunction
 {
     public abstract Block getSequenceBlock(int start, int length);
 
-    public abstract AggregationFunction getFunction();
+    public abstract InternalAggregationFunction getFunction();
 
     public abstract Object getExpectedValue(int start, int length);
 
@@ -64,11 +64,15 @@ public abstract class AbstractTestAggregationFunction
     public void testAllPositionsNull()
             throws Exception
     {
-        Type type = getSequenceBlock(0, 10).getType();
-        RandomAccessBlock nullValueBlock = type.createBlockBuilder(new BlockBuilderStatus())
+        // if there are no parameters skip this test
+        List<Type> parameterTypes = getFunction().getParameterTypes();
+        if (parameterTypes.isEmpty()) {
+            return;
+        }
+
+        Block nullValueBlock = parameterTypes.get(0).createBlockBuilder(new BlockBuilderStatus())
                 .appendNull()
-                .build()
-                .toRandomAccessBlock();
+                .build();
 
         Block block = new RunLengthEncodedBlock(nullValueBlock, 10);
         testAggregation(getExpectedValueIncludingNulls(0, 0, 10), block);
@@ -77,7 +81,13 @@ public abstract class AbstractTestAggregationFunction
     @Test
     public void testMixedNullAndNonNullPositions()
     {
-        Block alternatingNullsBlock = createAlternatingNullsBlock(getSequenceBlock(0, 10));
+        // if there are no parameters skip this test
+        List<Type> parameterTypes = getFunction().getParameterTypes();
+        if (parameterTypes.isEmpty()) {
+            return;
+        }
+
+        Block alternatingNullsBlock = createAlternatingNullsBlock(parameterTypes.get(0), getSequenceBlock(0, 10));
         testAggregation(getExpectedValueIncludingNulls(0, 10, 20), alternatingNullsBlock);
     }
 
@@ -93,15 +103,14 @@ public abstract class AbstractTestAggregationFunction
         testAggregation(getExpectedValue(2, 4), getSequenceBlock(2, 4));
     }
 
-    public Block createAlternatingNullsBlock(Block sequenceBlock)
+    public Block createAlternatingNullsBlock(Type type, Block sequenceBlock)
     {
-        BlockBuilder blockBuilder = sequenceBlock.getType().createBlockBuilder(new BlockBuilderStatus());
-        BlockCursor cursor = sequenceBlock.cursor();
-        while (cursor.advanceNextPosition()) {
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+        for (int position = 0; position < sequenceBlock.getPositionCount(); position++) {
             // append null
             blockBuilder.appendNull();
             // append value
-            cursor.appendTo(blockBuilder);
+            type.appendTo(sequenceBlock, position, blockBuilder);
         }
         return blockBuilder.build();
     }

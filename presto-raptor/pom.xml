@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.70-SNAPSHOT</version>
+        <version>0.75-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-raptor</artifactId>
@@ -132,9 +132,14 @@
         </dependency>
 
         <dependency>
-            <groupId>com.sun.jersey</groupId>
-            <artifactId>jersey-core</artifactId>
+            <groupId>javax.ws.rs</groupId>
+            <artifactId>javax.ws.rs-api</artifactId>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.annotation</groupId>
+            <artifactId>javax.annotation-api</artifactId>
         </dependency>
 
         <dependency>
@@ -186,11 +191,17 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- for benchmark -->
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-benchmark</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-tpch</artifactId>
             <scope>test</scope>
-            <optional>true</optional>
         </dependency>
 
         <dependency>

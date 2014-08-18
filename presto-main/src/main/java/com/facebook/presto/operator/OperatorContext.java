@@ -201,6 +201,12 @@ public class OperatorContext
         return result;
     }
 
+    public void freeMemory(long bytes)
+    {
+        driverContext.freeMemory(bytes);
+        memoryReservation.getAndAdd(-bytes);
+    }
+
     public synchronized long setMemoryReservation(long newMemoryReservation)
     {
         checkArgument(newMemoryReservation >= 0, "newMemoryReservation is negative");

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.CachingHiveMetastore;
+import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
@@ -31,7 +33,6 @@ import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.RecordSink;
-import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -45,7 +46,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.net.HostAndPort;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -91,7 +91,8 @@ public abstract class AbstractTestHiveClient
 {
     private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
 
-    protected static final String INVALID_DATABASE = "totally_invalid_database";
+    protected static final String INVALID_DATABASE = "totally_invalid_database_name";
+    protected static final String INVALID_TABLE = "totally_invalid_table_name";
     protected static final String INVALID_COLUMN = "totally_invalid_column_name";
 
     protected String database;
@@ -107,6 +108,8 @@ public abstract class AbstractTestHiveClient
 
     protected SchemaTableName temporaryCreateTable;
     protected SchemaTableName temporaryCreateSampledTable;
+    protected SchemaTableName temporaryRenameTableOld;
+    protected SchemaTableName temporaryRenameTableNew;
     protected SchemaTableName temporaryCreateView;
     protected String tableOwner;
 
@@ -124,7 +127,7 @@ public abstract class AbstractTestHiveClient
 
     protected DateTimeZone timeZone;
 
-    protected CachingHiveMetastore metastoreClient;
+    protected HiveMetastore metastoreClient;
 
     protected ConnectorMetadata metadata;
     protected ConnectorSplitManager splitManager;
@@ -139,17 +142,19 @@ public abstract class AbstractTestHiveClient
         tableOffline = new SchemaTableName(database, "presto_test_offline");
         tableOfflinePartition = new SchemaTableName(database, "presto_test_offline_partition");
         view = new SchemaTableName(database, "presto_test_view");
-        invalidTable = new SchemaTableName(database, "totally_invalid_table_name");
+        invalidTable = new SchemaTableName(database, INVALID_TABLE);
         tableBucketedStringInt = new SchemaTableName(database, "presto_test_bucketed_by_string_int");
         tableBucketedBigintBoolean = new SchemaTableName(database, "presto_test_bucketed_by_bigint_boolean");
         tableBucketedDoubleFloat = new SchemaTableName(database, "presto_test_bucketed_by_double_float");
 
         temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
         temporaryCreateSampledTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
+        temporaryRenameTableOld = new SchemaTableName(database, "tmp_presto_test_rename_" + randomName());
+        temporaryRenameTableNew = new SchemaTableName(database, "tmp_presto_test_rename_" + randomName());
         temporaryCreateView = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
         tableOwner = "presto_test";
 
-        invalidTableHandle = new HiveTableHandle("hive", database, "totally_invalid_table_name", SESSION);
+        invalidTableHandle = new HiveTableHandle("hive", database, INVALID_TABLE, SESSION);
 
         dsColumn = new HiveColumnHandle(connectorId, "ds", 0, HiveType.STRING, -1, true);
         fileFormatColumn = new HiveColumnHandle(connectorId, "file_format", 1, HiveType.STRING, -1, true);
@@ -214,6 +219,9 @@ public abstract class AbstractTestHiveClient
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxInitialSplitSize(),
                 hiveClientConfig.getMaxInitialSplits(),
+                false,
+                true,
+                hiveClientConfig.getHiveStorageFormat(),
                 false);
 
         metadata = client;
@@ -238,20 +246,14 @@ public abstract class AbstractTestHiveClient
         assertTrue(tables.contains(table));
     }
 
-    // disabled until metadata manager is updated to handle invalid catalogs and schemas
-    @Test(enabled = false, expectedExceptions = SchemaNotFoundException.class)
-    public void testGetTableNamesException()
-            throws Exception
-    {
-        metadata.listTables(SESSION, INVALID_DATABASE);
-    }
-
     @Test
     public void testListUnknownSchema()
     {
-        assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("totally_invalid_database_name", "dual")));
-        assertEquals(metadata.listTables(SESSION, "totally_invalid_database_name"), ImmutableList.of());
-        assertEquals(metadata.listTableColumns(SESSION, new SchemaTablePrefix("totally_invalid_database_name", "dual")), ImmutableMap.of());
+        assertNull(metadata.getTableHandle(SESSION, new SchemaTableName(INVALID_DATABASE, INVALID_TABLE)));
+        assertEquals(metadata.listTables(SESSION, INVALID_DATABASE), ImmutableList.of());
+        assertEquals(metadata.listTableColumns(SESSION, new SchemaTablePrefix(INVALID_DATABASE, INVALID_TABLE)), ImmutableMap.of());
+        assertEquals(metadata.listViews(SESSION, INVALID_DATABASE), ImmutableList.of());
+        assertEquals(metadata.getViews(SESSION, new SchemaTablePrefix(INVALID_DATABASE, INVALID_TABLE)), ImmutableMap.of());
     }
 
     @Test
@@ -260,7 +262,7 @@ public abstract class AbstractTestHiveClient
     {
         ConnectorTableHandle tableHandle = getTableHandle(table);
         ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
-        assertExpectedPartitions(partitionResult.getPartitions());
+        assertExpectedPartitions(partitionResult.getPartitions(), partitions);
     }
 
     @Test
@@ -269,7 +271,7 @@ public abstract class AbstractTestHiveClient
     {
         ConnectorTableHandle tableHandle = getTableHandle(table);
         ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.withColumnDomains(ImmutableMap.<ConnectorColumnHandle, Domain>of(intColumn, Domain.singleValue(5L))));
-        assertExpectedPartitions(partitionResult.getPartitions());
+        assertExpectedPartitions(partitionResult.getPartitions(), partitions);
     }
 
     @Test(expectedExceptions = TableNotFoundException.class)
@@ -285,13 +287,13 @@ public abstract class AbstractTestHiveClient
     {
         ConnectorTableHandle tableHandle = getTableHandle(table);
         ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
-        assertExpectedPartitions(partitionResult.getPartitions());
+        assertExpectedPartitions(partitionResult.getPartitions(), partitions);
     }
 
-    protected void assertExpectedPartitions(List<ConnectorPartition> actualPartitions)
+    protected void assertExpectedPartitions(List<ConnectorPartition> actualPartitions, Iterable<ConnectorPartition> expectedPartitions)
     {
         Map<String, ConnectorPartition> actualById = uniqueIndex(actualPartitions, partitionIdGetter());
-        for (ConnectorPartition expected : partitions) {
+        for (ConnectorPartition expected : expectedPartitions) {
             assertInstanceOf(expected, HivePartition.class);
             HivePartition expectedPartition = (HivePartition) expected;
 
@@ -828,6 +830,30 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
+    public void testHiveViewsHaveNoColumns()
+            throws Exception
+    {
+        assertEquals(metadata.listTableColumns(SESSION, new SchemaTablePrefix(view.getSchemaName(), view.getTableName())), ImmutableMap.of());
+    }
+
+    @Test
+    public void testRenameTable()
+    {
+        try {
+            createDummyTable(temporaryRenameTableOld);
+
+            metadata.renameTable(getTableHandle(temporaryRenameTableOld), temporaryRenameTableNew);
+
+            assertNull(metadata.getTableHandle(SESSION, temporaryRenameTableOld));
+            assertNotNull(metadata.getTableHandle(SESSION, temporaryRenameTableNew));
+        }
+        finally {
+            dropTable(temporaryRenameTableOld);
+            dropTable(temporaryRenameTableNew);
+        }
+    }
+
+    @Test
     public void testTableCreation()
             throws Exception
     {
@@ -862,9 +888,17 @@ public abstract class AbstractTestHiveClient
                 metadata.dropView(SESSION, temporaryCreateView);
             }
             catch (RuntimeException e) {
-                Logger.get(getClass()).warn(e, "Failed to drop view: %s", temporaryCreateView);
+                // this usually occurs because the view was not created
             }
         }
+    }
+
+    private void createDummyTable(SchemaTableName tableName)
+    {
+        List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", VARCHAR, 1, false));
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, tableOwner);
+        ConnectorOutputTableHandle handle = metadata.beginCreateTable(SESSION, tableMetadata);
+        metadata.commitCreateTable(handle, ImmutableList.<String>of());
     }
 
     private void verifyViewCreation()
@@ -1091,7 +1125,7 @@ public abstract class AbstractTestHiveClient
             metastoreClient.dropTable(table.getSchemaName(), table.getTableName());
         }
         catch (RuntimeException e) {
-            Logger.get(getClass()).warn(e, "Failed to drop table: %s", table);
+            // this usually occurs because the table was not created
         }
     }
 

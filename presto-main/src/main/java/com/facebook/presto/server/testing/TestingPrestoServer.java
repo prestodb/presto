@@ -21,6 +21,7 @@ import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
@@ -51,6 +52,7 @@ import java.io.Closeable;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -109,12 +111,12 @@ public class TestingPrestoServer
                 .add(new TestingNodeModule(Optional.fromNullable(environment)))
                 .add(new TestingHttpServerModule())
                 .add(new JsonModule())
-                .add(new JaxrsModule())
+                .add(new JaxrsModule(true))
                 .add(new MBeanModule())
                 .add(new TestingJmxModule())
                 .add(new InMemoryEventModule())
                 .add(new TraceTokenModule())
-                .add(new ServerMainModule());
+                .add(new ServerMainModule(new SqlParserOptions()));
 
         if (discoveryUri != null) {
             checkNotNull(environment, "environment required when discoveryUri is present");
@@ -129,10 +131,16 @@ public class TestingPrestoServer
 
         Bootstrap app = new Bootstrap(modules.build());
 
+        Map<String, String> optionalProperties = new HashMap<>();
+        if (environment != null) {
+            optionalProperties.put("node.environment", environment);
+        }
+
         Injector injector = app
                 .strictConfig()
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(serverProperties.build())
+                .setOptionalConfigurationProperties(optionalProperties)
                 .initialize();
 
         injector.getInstance(Announcer.class).start();

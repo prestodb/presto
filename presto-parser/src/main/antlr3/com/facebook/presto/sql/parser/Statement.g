@@ -76,6 +76,7 @@ tokens {
     CREATE_TABLE;
     CREATE_TEMP_TABLE;
     DROP_TABLE;
+    RENAME_TABLE;
     CREATE_VIEW;
     DROP_VIEW;
     OR_REPLACE;
@@ -94,6 +95,8 @@ tokens {
 
 @lexer::header {
     package com.facebook.presto.sql.parser;
+
+    import java.util.EnumSet;
 }
 
 @members {
@@ -120,14 +123,18 @@ tokens {
         if (e.token.getType() == DIGIT_IDENT) {
             return "identifiers must not start with a digit; surround the identifier with double quotes";
         }
-        if (e.token.getType() == COLON_IDENT) {
-            return "identifiers must not contain a colon; use '@' instead of ':' for table links";
-        }
         return super.getErrorMessage(e, tokenNames);
     }
 }
 
 @lexer::members {
+    private EnumSet<IdentifierSymbol> allowedIdentifierSymbols = EnumSet.noneOf(IdentifierSymbol.class);
+
+    public void setAllowedIdentifierSymbols(EnumSet<IdentifierSymbol> allowedIdentifierSymbols)
+    {
+        this.allowedIdentifierSymbols = EnumSet.copyOf(allowedIdentifierSymbols);
+    }
+
     @Override
     public void reportError(RecognitionException e)
     {
@@ -161,8 +168,10 @@ statement
     | showFunctionsStmt
     | useCollectionStmt
     | createTableStmt
-    | createTempTableStmt
+    | createTempTableStmt    
+    | insertStmt
     | dropTableStmt
+    | alterTableStmt
     | createViewStmt
     | dropViewStmt
     ;
@@ -185,14 +194,14 @@ orderOrLimitQuerySpec
 
 queryExprBody
     : ( queryTerm -> queryTerm )
-      ( UNION setQuant? queryTerm       -> ^(UNION $queryExprBody queryTerm setQuant?)
-      | EXCEPT setQuant? queryTerm      -> ^(EXCEPT $queryExprBody queryTerm setQuant?)
+      ( UNION s=setQuant? queryTerm       -> ^(UNION $queryExprBody queryTerm $s?)
+      | EXCEPT s=setQuant? queryTerm      -> ^(EXCEPT $queryExprBody queryTerm $s?)
       )*
     ;
 
 queryTerm
     : ( queryPrimary -> queryPrimary )
-      ( INTERSECT setQuant? queryPrimary -> ^(INTERSECT $queryTerm queryPrimary setQuant?) )*
+      ( INTERSECT s=setQuant? queryPrimary -> ^(INTERSECT $queryTerm queryPrimary $s?) )*
     ;
 
 queryPrimary
@@ -503,6 +512,7 @@ specialFunction
     | SUBSTRING '(' expr FROM expr (FOR expr)? ')' -> ^(FUNCTION_CALL ^(QNAME IDENT["substr"]) expr expr expr?)
     | EXTRACT '(' ident FROM expr ')'              -> ^(EXTRACT ident expr)
     | CAST '(' expr AS type ')'                    -> ^(CAST expr type)
+    | TRY_CAST '(' expr AS type ')'                -> ^(TRY_CAST expr type)
     ;
 
 // TODO: this should be 'dataType', which supports arbitrary type specifications. For now we constrain to simple types
@@ -624,12 +634,20 @@ dropTableStmt
     : DROP TABLE qname -> ^(DROP_TABLE qname)
     ;
 
+insertStmt
+    : INSERT INTO qname query -> ^(INSERT qname query)
+    ;
+
 createTableStmt
     : CREATE TABLE qname s=tableContentsSource -> ^(CREATE_TABLE qname $s)
     ;
 
 createTempTableStmt
     : CREATE TEMP TABLE qname s=tableContentsSource WITH DATA -> ^(CREATE_TEMP_TABLE qname $s)
+    ;
+
+alterTableStmt
+    : ALTER TABLE s=qname RENAME TO t=qname -> ^(RENAME_TABLE $s $t)
     ;
 
 createViewStmt
@@ -818,6 +836,8 @@ CREATE: 'CREATE';
 TABLE: 'TABLE';
 VIEW: 'VIEW';
 REPLACE: 'REPLACE';
+INSERT: 'INSERT';
+INTO: 'INTO';
 CHAR: 'CHAR';
 CHARACTER: 'CHARACTER';
 VARYING: 'VARYING';
@@ -842,6 +862,7 @@ JSON: 'JSON';
 LOGICAL: 'LOGICAL';
 DISTRIBUTED: 'DISTRIBUTED';
 CAST: 'CAST';
+TRY_CAST: 'TRY_CAST';
 SHOW: 'SHOW';
 TABLES: 'TABLES';
 SCHEMA: 'SCHEMA';
@@ -863,6 +884,8 @@ POISSONIZED: 'POISSONIZED';
 TABLESAMPLE: 'TABLESAMPLE';
 RESCALED: 'RESCALED';
 STRATIFY: 'STRATIFY';
+ALTER: 'ALTER';
+RENAME: 'RENAME';
 TEMP: 'TEMP';
 DATA: 'DATA';
 
@@ -890,7 +913,8 @@ DECIMAL_VALUE
     ;
 
 IDENT
-    : (LETTER | '_') (LETTER | DIGIT | '_' | '\@')*
+    : (LETTER | '_') (LETTER | DIGIT | '_' | '\@' | ':')*
+        { IdentifierSymbol.validateIdentifier(input, getText(), allowedIdentifierSymbols); }
     ;
 
 VIRTUAL_IDENT
@@ -898,7 +922,7 @@ VIRTUAL_IDENT
     ;
 
 DIGIT_IDENT
-    : DIGIT (LETTER | DIGIT | '_' | '\@')+
+    : DIGIT (LETTER | DIGIT | '_' | '\@' | ':')+
     ;
 
 QUOTED_IDENT
@@ -909,10 +933,6 @@ QUOTED_IDENT
 BACKQUOTED_IDENT
     : '`' ( ~'`' | '``' )* '`'
         { setText(getText().substring(1, getText().length() - 1).replace("``", "`")); }
-    ;
-
-COLON_IDENT
-    : (LETTER | DIGIT | '_' )+ ':' (LETTER | DIGIT | '_' )+
     ;
 
 fragment EXPONENT

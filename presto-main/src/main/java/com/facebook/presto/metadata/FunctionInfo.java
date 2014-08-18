@@ -15,11 +15,9 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.AggregationFunctionDefinition;
 import com.facebook.presto.operator.WindowFunctionDefinition;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
-import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.FunctionBinder;
-import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -39,14 +37,15 @@ public final class FunctionInfo
     private final Signature signature;
     private final String description;
     private final boolean hidden;
+    private final boolean nullable;
 
     private final boolean isAggregate;
     private final Type intermediateType;
-    private final AggregationFunction aggregationFunction;
+    private final InternalAggregationFunction aggregationFunction;
+    private final boolean isApproximate;
 
     private final MethodHandle methodHandle;
     private final boolean deterministic;
-    private final FunctionBinder functionBinder;
 
     private final boolean isWindow;
     private final WindowFunctionSupplier windowFunctionSupplier;
@@ -57,43 +56,46 @@ public final class FunctionInfo
         this.description = description;
         this.hidden = false;
         this.deterministic = true;
+        this.nullable = false;
 
         this.isAggregate = false;
         this.intermediateType = null;
         this.aggregationFunction = null;
+        this.isApproximate = false;
         this.methodHandle = null;
-        this.functionBinder = null;
 
         this.isWindow = true;
         this.windowFunctionSupplier = checkNotNull(windowFunctionSupplier, "windowFunction is null");
     }
 
-    public FunctionInfo(Signature signature, String description, Type intermediateType, AggregationFunction function)
+    public FunctionInfo(Signature signature, String description, Type intermediateType, InternalAggregationFunction function, boolean isApproximate)
     {
         this.signature = signature;
         this.description = description;
+        this.isApproximate = isApproximate;
         this.hidden = false;
         this.intermediateType = intermediateType;
         this.aggregationFunction = function;
         this.isAggregate = true;
         this.methodHandle = null;
         this.deterministic = true;
-        this.functionBinder = null;
+        this.nullable = false;
         this.isWindow = false;
         this.windowFunctionSupplier = null;
     }
 
-    public FunctionInfo(Signature signature, String description, boolean hidden, MethodHandle function, boolean deterministic, FunctionBinder functionBinder)
+    public FunctionInfo(Signature signature, String description, boolean hidden, MethodHandle function, boolean deterministic, boolean nullable)
     {
         this.signature = signature;
         this.description = description;
         this.hidden = hidden;
         this.deterministic = deterministic;
-        this.functionBinder = functionBinder;
+        this.nullable = nullable;
 
         this.isAggregate = false;
         this.intermediateType = null;
         this.aggregationFunction = null;
+        this.isApproximate = false;
 
         this.isWindow = false;
         this.windowFunctionSupplier = null;
@@ -137,7 +139,7 @@ public final class FunctionInfo
 
     public boolean isApproximate()
     {
-        return signature.isApproximate();
+        return isApproximate;
     }
 
     public Type getReturnType()
@@ -155,19 +157,19 @@ public final class FunctionInfo
         return intermediateType;
     }
 
-    public WindowFunctionDefinition bindWindowFunction(List<Input> inputs)
+    public WindowFunctionDefinition bindWindowFunction(List<Integer> inputs)
     {
         checkState(isWindow, "not a window function");
         return window(windowFunctionSupplier, inputs);
     }
 
-    public AggregationFunctionDefinition bind(List<Input> inputs, Optional<Input> mask, Optional<Input> sampleWeight, double confidence)
+    public AggregationFunctionDefinition bind(List<Integer> inputs, Optional<Integer> mask, Optional<Integer> sampleWeight, double confidence)
     {
         checkState(isAggregate, "function is not an aggregate");
         return aggregation(aggregationFunction, inputs, mask, sampleWeight, confidence);
     }
 
-    public AggregationFunction getAggregationFunction()
+    public InternalAggregationFunction getAggregationFunction()
     {
         checkState(aggregationFunction != null, "not an aggregation function");
         return aggregationFunction;
@@ -184,9 +186,9 @@ public final class FunctionInfo
         return deterministic;
     }
 
-    public FunctionBinder getFunctionBinder()
+    public boolean isNullable()
     {
-        return functionBinder;
+        return nullable;
     }
 
     @Override
@@ -198,7 +200,7 @@ public final class FunctionInfo
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final FunctionInfo other = (FunctionInfo) obj;
+        FunctionInfo other = (FunctionInfo) obj;
         return Objects.equal(this.signature, other.signature) &&
                 Objects.equal(this.isAggregate, other.isAggregate) &&
                 Objects.equal(this.isWindow, other.isWindow);

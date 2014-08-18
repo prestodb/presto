@@ -29,16 +29,14 @@ public final class Signature
     private final String name;
     private final Type returnType;
     private final List<Type> argumentTypes;
-    private final boolean approximate;
-    private final boolean operator;
+    private final boolean internal;
 
     @JsonCreator
     public Signature(
             @JsonProperty("name") String name,
             @JsonProperty("returnType") Type returnType,
             @JsonProperty("argumentTypes") List<? extends Type> argumentTypes,
-            @JsonProperty("approximate") boolean approximate,
-            @JsonProperty("operator") boolean operator)
+            @JsonProperty("internal") boolean internal)
     {
         checkNotNull(name, "name is null");
         checkNotNull(returnType, "returnType is null");
@@ -47,24 +45,27 @@ public final class Signature
         this.name = name;
         this.returnType = returnType;
         this.argumentTypes = ImmutableList.copyOf(argumentTypes);
-        this.approximate = approximate;
-        this.operator = operator;
+        this.internal = internal;
+    }
+
+    public Signature(String name, Type returnType, List<? extends Type> argumentTypes)
+    {
+        this(name, returnType, argumentTypes, false);
     }
 
     public Signature(String name, Type returnType, Type... argumentTypes)
     {
-        this(name.toLowerCase(), returnType, ImmutableList.copyOf(argumentTypes), false, false);
+        this(name, returnType, ImmutableList.copyOf(argumentTypes), false);
     }
 
-    public Signature(String name, Type returnType, List<? extends Type> argumentTypes, boolean approximate)
+    public static Signature internalFunction(String name, Type returnType, Type... argumentTypes)
     {
-        this(name, returnType, argumentTypes, approximate, false);
+        return new Signature(name, returnType, ImmutableList.copyOf(argumentTypes), true);
     }
 
-    @JsonProperty
-    public boolean isApproximate()
+    public static Signature internalFunction(String name, Type returnType, List<Type> argumentTypes)
     {
-        return approximate;
+        return new Signature(name, returnType, argumentTypes, true);
     }
 
     @JsonProperty
@@ -86,20 +87,20 @@ public final class Signature
     }
 
     @JsonProperty
-    public boolean isOperator()
+    public boolean isInternal()
     {
-        return operator;
+        return internal;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, returnType, argumentTypes, approximate, operator);
+        return Objects.hash(name, returnType, argumentTypes, internal);
     }
 
     Signature withAlias(String name)
     {
-        return new Signature(name, returnType, argumentTypes, approximate, operator);
+        return new Signature(name, returnType, argumentTypes, internal);
     }
 
     @Override
@@ -115,12 +116,11 @@ public final class Signature
         return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.returnType, other.returnType) &&
                 Objects.equals(this.argumentTypes, other.argumentTypes) &&
-                Objects.equals(this.approximate, other.approximate) &&
-                Objects.equals(this.operator, other.operator);
+                Objects.equals(this.internal, other.internal);
     }
 
     public String toString()
     {
-        return (operator ? "%" : "") + name + (approximate ? "[approximate]" : "") + "(" + Joiner.on(",").join(argumentTypes) + "):" + returnType;
+        return (internal ? "%" : "") + name + "(" + Joiner.on(",").join(argumentTypes) + "):" + returnType;
     }
 }

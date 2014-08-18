@@ -14,10 +14,9 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.tree.Input;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 
@@ -28,11 +27,6 @@ public final class ProjectionFunctions
     public static ProjectionFunction singleColumn(Type columnType, int channelIndex)
     {
         return new SingleColumnProjection(columnType, channelIndex);
-    }
-
-    public static ProjectionFunction singleColumn(Type columnType, Input input)
-    {
-        return new SingleColumnProjection(columnType, input.getChannel());
     }
 
     private static class SingleColumnProjection
@@ -57,13 +51,13 @@ public final class ProjectionFunctions
         }
 
         @Override
-        public void project(BlockCursor[] cursors, BlockBuilder output)
+        public void project(int position, Block[] blocks, BlockBuilder output)
         {
-            if (cursors[channelIndex].isNull()) {
+            if (blocks[channelIndex].isNull(position)) {
                 output.appendNull();
             }
             else {
-                cursors[channelIndex].appendTo(output);
+                columnType.appendTo(blocks[channelIndex], position, output);
             }
         }
 
@@ -77,16 +71,20 @@ public final class ProjectionFunctions
             else {
                 Class<?> javaType = columnType.getJavaType();
                 if (javaType == boolean.class) {
-                    output.appendBoolean(cursor.getBoolean(channelIndex));
+                    columnType.writeBoolean(output, cursor.getBoolean(channelIndex));
                 }
                 else if (javaType == long.class) {
-                    output.appendLong(cursor.getLong(channelIndex));
+                    columnType.writeLong(output, cursor.getLong(channelIndex));
                 }
                 else if (javaType == double.class) {
-                    output.appendDouble(cursor.getDouble(channelIndex));
+                    columnType.writeDouble(output, cursor.getDouble(channelIndex));
                 }
                 else if (javaType == Slice.class) {
-                    output.appendSlice(cursor.getSlice(channelIndex));
+                    Slice slice = cursor.getSlice(channelIndex);
+                    columnType.writeSlice(output, slice, 0, slice.length());
+                }
+                else {
+                    throw new UnsupportedOperationException("not yet implemented: " + javaType);
                 }
             }
         }

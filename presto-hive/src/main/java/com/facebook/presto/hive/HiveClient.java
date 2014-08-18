@@ -15,13 +15,14 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hadoop.HadoopFileSystemCache;
 import com.facebook.presto.hadoop.HadoopNative;
+import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.hive.util.BoundedExecutor;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexHandle;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
@@ -64,7 +65,6 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.metastore.TableType;
@@ -76,9 +76,6 @@ import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
-import org.apache.hadoop.hive.ql.io.RCFileInputFormat;
-import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
-import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
@@ -98,7 +95,6 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
-import static com.facebook.presto.hive.HiveColumnHandle.columnMetadataGetter;
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnHandle;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveType.columnTypeToHiveType;
@@ -112,7 +108,7 @@ import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_PARTITION;
 import static com.facebook.presto.hive.util.Types.checkType;
-import static com.facebook.presto.spi.StandardErrorCode.CANNOT_DROP_TABLE;
+import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -138,7 +134,7 @@ import static org.apache.hadoop.hive.serde.serdeConstants.STRING_TYPE_NAME;
 
 @SuppressWarnings("deprecation")
 public class HiveClient
-        implements ConnectorMetadata, ConnectorSplitManager, ConnectorRecordSetProvider, ConnectorRecordSinkProvider, ConnectorHandleResolver, ConnectorOutputHandleResolver
+        implements ConnectorMetadata, ConnectorSplitManager, ConnectorRecordSetProvider, ConnectorRecordSinkProvider, ConnectorHandleResolver
 {
     static {
         HadoopNative.requireHadoopNative();
@@ -155,7 +151,8 @@ public class HiveClient
     private final int minPartitionBatchSize;
     private final int maxPartitionBatchSize;
     private final boolean allowDropTable;
-    private final CachingHiveMetastore metastore;
+    private final boolean allowRenameTable;
+    private final HiveMetastore metastore;
     private final NamenodeStats namenodeStats;
     private final HdfsEnvironment hdfsEnvironment;
     private final DirectoryLister directoryLister;
@@ -164,11 +161,13 @@ public class HiveClient
     private final DataSize maxSplitSize;
     private final DataSize maxInitialSplitSize;
     private final int maxInitialSplits;
+    private final HiveStorageFormat hiveStorageFormat;
+    private final boolean recursiveDfsWalkerEnabled;
 
     @Inject
     public HiveClient(HiveConnectorId connectorId,
             HiveClientConfig hiveClientConfig,
-            CachingHiveMetastore metastore,
+            HiveMetastore metastore,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
             DirectoryLister directoryLister,
@@ -188,11 +187,14 @@ public class HiveClient
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxInitialSplitSize(),
                 hiveClientConfig.getMaxInitialSplits(),
-                hiveClientConfig.getAllowDropTable());
+                hiveClientConfig.getAllowDropTable(),
+                hiveClientConfig.getAllowRenameTable(),
+                hiveClientConfig.getHiveStorageFormat(),
+                false);
     }
 
     public HiveClient(HiveConnectorId connectorId,
-            CachingHiveMetastore metastore,
+            HiveMetastore metastore,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
             DirectoryLister directoryLister,
@@ -205,7 +207,10 @@ public class HiveClient
             int maxPartitionBatchSize,
             DataSize maxInitialSplitSize,
             int maxInitialSplits,
-            boolean allowDropTable)
+            boolean allowDropTable,
+            boolean allowRenameTable,
+            HiveStorageFormat hiveStorageFormat,
+            boolean recursiveDfsWalkerEnabled)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
 
@@ -218,6 +223,7 @@ public class HiveClient
         this.maxInitialSplitSize = checkNotNull(maxInitialSplitSize, "maxInitialSplitSize is null");
         this.maxInitialSplits = maxInitialSplits;
         this.allowDropTable = allowDropTable;
+        this.allowRenameTable = allowRenameTable;
 
         this.metastore = checkNotNull(metastore, "metastore is null");
         this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -226,17 +232,14 @@ public class HiveClient
         this.timeZone = checkNotNull(timeZone, "timeZone is null");
 
         this.executor = checkNotNull(executor, "executor is null");
+
+        this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
+        this.hiveStorageFormat = hiveStorageFormat;
     }
 
-    public CachingHiveMetastore getMetastore()
+    public HiveMetastore getMetastore()
     {
         return metastore;
-    }
-
-    @Override
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @Override
@@ -276,7 +279,10 @@ public class HiveClient
     {
         try {
             Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-            List<ColumnMetadata> columns = ImmutableList.copyOf(transform(getColumnHandles(table, false), columnMetadataGetter()));
+            if (table.getTableType().equals(TableType.VIRTUAL_VIEW.name())) {
+                throw new TableNotFoundException(tableName);
+            }
+            List<ColumnMetadata> columns = ImmutableList.copyOf(transform(getColumnHandles(table, false), columnMetadataGetter(table)));
             return new ConnectorTableMetadata(tableName, columns, table.getOwner());
         }
         catch (NoSuchObjectException e) {
@@ -394,6 +400,9 @@ public class HiveClient
             try {
                 columns.put(tableName, getTableMetadata(tableName).getColumns());
             }
+            catch (HiveViewNotSupportedException e) {
+                // view is not supported
+            }
             catch (TableNotFoundException e) {
                 // table disappeared during listing operation
             }
@@ -409,6 +418,9 @@ public class HiveClient
         return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
     }
 
+    /**
+     * NOTE: This method does not return column comment
+     */
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
     {
@@ -423,19 +435,30 @@ public class HiveClient
     }
 
     @Override
+    public void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName)
+    {
+        if (!allowRenameTable) {
+            throw new PrestoException(PERMISSION_DENIED.toErrorCode(), "Renaming tables is disabled in this Hive catalog");
+        }
+
+        HiveTableHandle handle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
+        metastore.renameTable(handle.getSchemaName(), handle.getTableName(), newTableName.getSchemaName(), newTableName.getTableName());
+    }
+
+    @Override
     public void dropTable(ConnectorTableHandle tableHandle)
     {
         HiveTableHandle handle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
         SchemaTableName tableName = getTableName(tableHandle);
 
         if (!allowDropTable) {
-            throw new PrestoException(CANNOT_DROP_TABLE.toErrorCode(), "DROP TABLE is disabled in this Hive catalog");
+            throw new PrestoException(PERMISSION_DENIED.toErrorCode(), "DROP TABLE is disabled in this Hive catalog");
         }
 
         try {
             Table table = metastore.getTable(handle.getSchemaName(), handle.getTableName());
             if (!handle.getSession().getUser().equals(table.getOwner())) {
-                throw new PrestoException(CANNOT_DROP_TABLE.toErrorCode(), format("Unable to drop table '%s': owner of the table is different from session user", table));
+                throw new PrestoException(PERMISSION_DENIED.toErrorCode(), format("Unable to drop table '%s': owner of the table is different from session user", table));
             }
             metastore.dropTable(handle.getSchemaName(), handle.getTableName());
         }
@@ -556,14 +579,16 @@ public class HiveClient
 
         SerDeInfo serdeInfo = new SerDeInfo();
         serdeInfo.setName(handle.getTableName());
-        serdeInfo.setSerializationLib(LazyBinaryColumnarSerDe.class.getName());
+        serdeInfo.setSerializationLib(hiveStorageFormat.getSerDe());
+        serdeInfo.setParameters(ImmutableMap.<String, String>of());
 
         StorageDescriptor sd = new StorageDescriptor();
         sd.setLocation(targetPath.toString());
         sd.setCols(columns.build());
         sd.setSerdeInfo(serdeInfo);
-        sd.setInputFormat(RCFileInputFormat.class.getName());
-        sd.setOutputFormat(RCFileOutputFormat.class.getName());
+        sd.setInputFormat(hiveStorageFormat.getInputFormat());
+        sd.setOutputFormat(hiveStorageFormat.getOutputFormat());
+        sd.setParameters(ImmutableMap.<String, String>of());
 
         Table table = new Table();
         table.setDbName(handle.getSchemaName());
@@ -575,6 +600,7 @@ public class HiveClient
             tableComment = "Sampled table created by Presto. Only query this table from Hive if you understand how Presto implements sampling.";
         }
         table.setParameters(ImmutableMap.of("comment", tableComment));
+        table.setPartitionKeys(ImmutableList.<FieldSchema>of());
         table.setSd(sd);
 
         metastore.createTable(table);
@@ -591,6 +617,12 @@ public class HiveClient
         return new HiveRecordSink(handle, target, conf);
     }
 
+    @Override
+    public RecordSink getRecordSink(ConnectorInsertTableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     private Database getDatabase(String database)
     {
         try {
@@ -605,7 +637,7 @@ public class HiveClient
     {
         try {
             // skip using temporary directory for S3
-            return !(getFileSystem(path) instanceof PrestoS3FileSystem);
+            return !(hdfsEnvironment.getFileSystem(path) instanceof PrestoS3FileSystem);
         }
         catch (IOException e) {
             throw new RuntimeException("Failed checking path: " + path, e);
@@ -615,7 +647,7 @@ public class HiveClient
     private boolean pathExists(Path path)
     {
         try {
-            return getFileSystem(path).exists(path);
+            return hdfsEnvironment.getFileSystem(path).exists(path);
         }
         catch (IOException e) {
             throw new RuntimeException("Failed checking path: " + path, e);
@@ -625,7 +657,7 @@ public class HiveClient
     private boolean isDirectory(Path path)
     {
         try {
-            return getFileSystem(path).isDirectory(path);
+            return hdfsEnvironment.getFileSystem(path).isDirectory(path);
         }
         catch (IOException e) {
             throw new RuntimeException("Failed checking path: " + path, e);
@@ -635,7 +667,7 @@ public class HiveClient
     private void createDirectories(Path path)
     {
         try {
-            if (!getFileSystem(path).mkdirs(path)) {
+            if (!hdfsEnvironment.getFileSystem(path).mkdirs(path)) {
                 throw new IOException("mkdirs returned false");
             }
         }
@@ -644,16 +676,10 @@ public class HiveClient
         }
     }
 
-    private FileSystem getFileSystem(Path path)
-            throws IOException
-    {
-        return path.getFileSystem(hdfsEnvironment.getConfiguration(path));
-    }
-
     private void rename(Path source, Path target)
     {
         try {
-            if (!getFileSystem(source).rename(source, target)) {
+            if (!hdfsEnvironment.getFileSystem(source).rename(source, target)) {
                 throw new IOException("rename returned false");
             }
         }
@@ -738,20 +764,39 @@ public class HiveClient
     @Override
     public Map<SchemaTableName, String> getViews(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        checkArgument(prefix.getSchemaName() != null, "Cannot get views in all schemas");
-        checkArgument(prefix.getTableName() != null, "Cannot get all views");
-        SchemaTableName viewName = new SchemaTableName(prefix.getSchemaName(), prefix.getTableName());
+        ImmutableMap.Builder<SchemaTableName, String> views = ImmutableMap.builder();
+        List<SchemaTableName> tableNames;
+        if (prefix.getTableName() != null) {
+            tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+        }
+        else {
+            tableNames = listViews(session, prefix.getSchemaName());
+        }
 
-        try {
-            Table table = metastore.getTable(prefix.getSchemaName(), prefix.getTableName());
-            if (HiveUtil.isPrestoView(table)) {
-                return ImmutableMap.of(viewName, decodeViewData(table.getViewOriginalText()));
+        for (SchemaTableName schemaTableName : tableNames) {
+            try {
+                Table table = metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
+                if (HiveUtil.isPrestoView(table)) {
+                    views.put(schemaTableName, decodeViewData(table.getViewOriginalText()));
+                }
+            }
+            catch (NoSuchObjectException ignored) {
             }
         }
-        catch (NoSuchObjectException ignored) {
-        }
 
-        return ImmutableMap.of();
+        return views.build();
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -890,7 +935,8 @@ public class HiveClient
                 maxPartitionBatchSize,
                 hiveTableHandle.getSession(),
                 maxInitialSplitSize,
-                maxInitialSplits).get();
+                maxInitialSplits,
+                recursiveDfsWalkerEnabled).get();
     }
 
     private Iterable<Partition> getPartitions(final Table table, final SchemaTableName tableName, List<String> partitionNames)
@@ -984,6 +1030,12 @@ public class HiveClient
     }
 
     @Override
+    public boolean canHandle(ConnectorInsertTableHandle tableHandle)
+    {
+        return false;
+    }
+
+    @Override
     public boolean canHandle(ConnectorIndexHandle indexHandle)
     {
         return false;
@@ -1020,11 +1072,43 @@ public class HiveClient
     }
 
     @Override
+    public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public String toString()
     {
         return Objects.toStringHelper(this)
                 .add("clientId", connectorId)
                 .toString();
+    }
+
+    private static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter(Table table)
+    {
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        for (FieldSchema field : concat(table.getSd().getCols(), table.getPartitionKeys())) {
+            if (field.getComment() != null) {
+                builder.put(field.getName(), field.getComment());
+            }
+        }
+        final Map<String, String> columnComment = builder.build();
+
+        return new Function<HiveColumnHandle, ColumnMetadata>()
+        {
+            @Override
+            public ColumnMetadata apply(HiveColumnHandle input)
+            {
+                return new ColumnMetadata(
+                        input.getName(),
+                        input.getType(),
+                        input.getOrdinalPosition(),
+                        input.isPartitionKey(),
+                        columnComment.get(input.getName()),
+                        false);
+            }
+        };
     }
 
     private static Function<String, HivePartition> toPartition(

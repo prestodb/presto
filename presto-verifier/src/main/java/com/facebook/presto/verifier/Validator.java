@@ -37,13 +37,13 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.SQLTimeoutException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.verifier.QueryResult.State;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -66,6 +66,7 @@ public class Validator
     private final Duration testTimeout;
     private final int maxRowCount;
     private final boolean checkCorrectness;
+    private final boolean verboseResultsComparison;
     private final QueryPair queryPair;
 
     private Boolean valid;
@@ -87,7 +88,16 @@ public class Validator
         this.controlTimeout = config.getControlTimeout();
         this.testTimeout = config.getTestTimeout();
         this.maxRowCount = config.getMaxRowCount();
-        this.checkCorrectness = config.isCheckCorrectnessEnabled();
+        // Check if either the control query or the test query matches the regex
+        if (Pattern.matches(config.getSkipCorrectnessRegex(), queryPair.getTest().getQuery()) ||
+                Pattern.matches(config.getSkipCorrectnessRegex(), queryPair.getControl().getQuery())) {
+            // If so disable correctness checking
+            this.checkCorrectness = false;
+        }
+        else {
+            this.checkCorrectness = config.isCheckCorrectnessEnabled();
+        }
+        this.verboseResultsComparison = config.isVerboseResultsComparison();
 
         this.queryPair = checkNotNull(queryPair, "queryPair is null");
     }
@@ -110,6 +120,10 @@ public class Validator
             return true;
         }
 
+        if (getTestResult().getState() == State.TIMEOUT) {
+            return true;
+        }
+
         return false;
     }
 
@@ -127,6 +141,15 @@ public class Validator
             sb.append("Name: " + queryPair.getName() + "\n");
             sb.append("Schema (control): " + queryPair.getControl().getSchema() + "\n");
             sb.append("NON DETERMINISTIC\n");
+        }
+        else if (getControlResult().getState() == State.TIMEOUT || getTestResult().getState() == State.TIMEOUT) {
+            sb.append("----------\n");
+            sb.append("Name: " + queryPair.getName() + "\n");
+            sb.append("Schema (control): " + queryPair.getControl().getSchema() + "\n");
+            sb.append("TIMEOUT\n");
+        }
+        else {
+            sb.append("SKIPPED");
         }
         return sb.toString();
     }
@@ -160,10 +183,12 @@ public class Validator
 
         // query has too many rows. Consider blacklisting.
         if (controlResult.getState() == State.TOO_MANY_ROWS) {
+            testResult = new QueryResult(State.INVALID, null, null, ImmutableList.<List<Object>>of());
             return false;
         }
         // query failed in the control
         else if (controlResult.getState() != State.SUCCESS) {
+            testResult = new QueryResult(State.INVALID, null, null, ImmutableList.<List<Object>>of());
             return true;
         }
 
@@ -212,7 +237,7 @@ public class Validator
     private QueryResult executeQuery(String url, String username, String password, Query query, Duration timeout)
     {
         try (Connection connection = DriverManager.getConnection(url, username, password)) {
-            connection.setClientInfo("ApplicationName", "verifier-test-" + queryPair.getName());
+            connection.setClientInfo("ApplicationName", "verifier-test:" + queryPair.getName());
             connection.setCatalog(query.getCatalog());
             connection.setSchema(query.getSchema());
             long start = System.nanoTime();
@@ -235,7 +260,7 @@ public class Validator
                     throw e;
                 }
                 catch (UncheckedTimeoutException e) {
-                    throw new SQLTimeoutException(e);
+                    return new QueryResult(State.TIMEOUT, null, null, ImmutableList.<List<Object>>of());
                 }
                 catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -353,7 +378,12 @@ public class Validator
             StringBuilder sb = new StringBuilder();
 
             sb.append(format("Control %s rows, Test %s rows%n", control.size(), test.size()));
-            Joiner.on("\n").appendTo(sb, diff);
+            if (verboseResultsComparison) {
+                Joiner.on("\n").appendTo(sb, diff);
+            }
+            else {
+                sb.append("RESULTS DO NOT MATCH\n");
+            }
 
             return sb.toString();
         }
@@ -370,7 +400,9 @@ public class Validator
             @Override
             public int compare(List<Object> a, List<Object> b)
             {
-                checkArgument(a.size() == b.size(), "list sizes do not match");
+                if (a.size() != b.size()) {
+                    return Integer.compare(a.size(), b.size());
+                }
                 for (int i = 0; i < a.size(); i++) {
                     int r = comparator.compare(a.get(i), b.get(i));
                     if (r != 0) {

@@ -13,40 +13,28 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.NullableLongState;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.operator.aggregation.state.LongState;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.type.SqlType;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-
-public class CountIfAggregation
-        extends AbstractAggregationFunction<NullableLongState>
+@AggregationFunction("count_if")
+public final class CountIfAggregation
 {
-    public static final CountIfAggregation COUNT_IF = new CountIfAggregation();
+    public static final InternalAggregationFunction COUNT_IF = new AggregationCompiler().generateAggregationFunction(CountIfAggregation.class);
 
-    public CountIfAggregation()
-    {
-        super(BIGINT, BIGINT, BOOLEAN);
-    }
+    private CountIfAggregation() {}
 
-    @Override
-    protected void processInput(NullableLongState state, BlockCursor cursor)
+    @InputFunction
+    public static void input(LongState state, @SqlType(BooleanType.class) boolean value)
     {
-        if (cursor.getBoolean()) {
+        if (value) {
             state.setLong(state.getLong() + 1);
         }
     }
 
-    @Override
-    protected void processIntermediate(NullableLongState state, BlockCursor cursor)
+    @CombineFunction
+    public static void combine(LongState state, LongState otherState)
     {
-        state.setLong(state.getLong() + cursor.getLong());
-    }
-
-    @Override
-    protected void evaluateFinal(NullableLongState state, BlockBuilder out)
-    {
-        out.appendLong(state.getLong());
+        state.setLong(state.getLong() + otherState.getLong());
     }
 }

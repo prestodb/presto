@@ -13,51 +13,31 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.operator.aggregation.state.InitialDoubleValue;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.type.SqlType;
 
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-
-public class DoubleMinAggregation
-        extends AbstractAggregationFunction<DoubleMinAggregation.DoubleMinState>
+@AggregationFunction("min")
+public final class DoubleMinAggregation
 {
-    public static final DoubleMinAggregation DOUBLE_MIN = new DoubleMinAggregation();
+    public static final InternalAggregationFunction DOUBLE_MIN = new AggregationCompiler().generateAggregationFunction(DoubleMinAggregation.class);
 
-    public DoubleMinAggregation()
-    {
-        super(DOUBLE, DOUBLE, DOUBLE);
-    }
+    private DoubleMinAggregation() {}
 
-    @Override
-    public void processInput(DoubleMinState state, BlockCursor cursor)
+    @InputFunction
+    @IntermediateInputFunction
+    public static void min(DoubleMinState state, @SqlType(DoubleType.class) double value)
     {
-        state.setNotNull(true);
-        state.setDouble(Math.min(state.getDouble(), cursor.getDouble()));
-    }
-
-    @Override
-    public void evaluateFinal(DoubleMinState state, BlockBuilder out)
-    {
-        if (state.getNotNull()) {
-            out.appendDouble(state.getDouble());
-        }
-        else {
-            out.appendNull();
-        }
+        state.setNull(false);
+        state.setDouble(Math.min(state.getDouble(), value));
     }
 
     public interface DoubleMinState
-            extends AccumulatorState
+            extends NullableDoubleState
     {
+        @Override
         @InitialDoubleValue(Double.POSITIVE_INFINITY)
         double getDouble();
-
-        void setDouble(double value);
-
-        boolean getNotNull();
-
-        void setNotNull(boolean value);
     }
 }

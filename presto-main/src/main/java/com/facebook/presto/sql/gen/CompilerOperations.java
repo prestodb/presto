@@ -13,12 +13,19 @@
  */
 package com.facebook.presto.sql.gen;
 
+import java.util.Set;
+
 // This methods are statically bound by the compiler
 @SuppressWarnings("UnusedDeclaration")
 public final class CompilerOperations
 {
     private CompilerOperations()
     {
+    }
+
+    public static boolean longGreaterThanZero(long value)
+    {
+        return value > 0;
     }
 
     public static boolean and(boolean left, boolean right)
@@ -39,5 +46,18 @@ public final class CompilerOperations
     public static boolean lessThan(int left, int right)
     {
         return left < right;
+    }
+
+    public static void propagateInterruptedException(Throwable throwable)
+    {
+        if (throwable instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(throwable);
+        }
+    }
+
+    public static boolean in(Object value, Set<?> set)
+    {
+        return set.contains(value);
     }
 }

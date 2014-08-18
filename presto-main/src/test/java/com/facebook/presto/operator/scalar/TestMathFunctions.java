@@ -282,8 +282,8 @@ public class TestMathFunctions
     public void testRandom()
     {
         // random is non-deterministic
-        functionAssertions.executeProjectionWithAll("rand()", SESSION);
-        functionAssertions.executeProjectionWithAll("random()", SESSION);
+        functionAssertions.tryEvaluateWithAll("rand()", SESSION);
+        functionAssertions.tryEvaluateWithAll("random()", SESSION);
     }
 
     @Test
@@ -395,14 +395,14 @@ public class TestMathFunctions
     public void testGreatestWithNaN()
             throws Exception
     {
-        functionAssertions.selectSingleValue("greatest(1.5, 0.0 / 0.0)");
+        functionAssertions.tryEvaluate("greatest(1.5, 0.0 / 0.0)");
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "\\QInvalid argument to least(): NaN\\E")
     public void testLeastWithNaN()
             throws Exception
     {
-        functionAssertions.selectSingleValue("least(1.5, 0.0 / 0.0)");
+        functionAssertions.tryEvaluate("least(1.5, 0.0 / 0.0)");
     }
 
     private void assertFunction(String projection, Object expected)

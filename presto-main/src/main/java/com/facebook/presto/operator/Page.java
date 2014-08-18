@@ -14,10 +14,11 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
@@ -69,13 +70,38 @@ public class Page
         return blocks[channel];
     }
 
-    public RandomAccessPage toRandomAccessPage()
+    public boolean getBoolean(Type type, int channel, int position)
     {
-        RandomAccessBlock[] randomAccessBlocks = new RandomAccessBlock[blocks.length];
-        for (int channel = 0; channel < blocks.length; channel++) {
-            randomAccessBlocks[channel] = blocks[channel].toRandomAccessBlock();
+        return type.getBoolean(getBlock(channel), position);
+    }
+
+    public long getLong(Type type, int channel, int position)
+    {
+        return type.getLong(getBlock(channel), position);
+    }
+
+    public double getDouble(Type type, int channel, int position)
+    {
+        return type.getDouble(getBlock(channel), position);
+    }
+
+    public Slice getSlice(Type type, int channel, int position)
+    {
+        return type.getSlice(getBlock(channel), position);
+    }
+
+    public boolean isNull(Type type, int channel, int position)
+    {
+        return getBlock(channel).isNull(position);
+    }
+
+    public Block[] getSingleValueBlocks(int position)
+    {
+        Block[] row = new Block[blocks.length];
+        for (int i = 0; i < blocks.length; i++) {
+            row[i] = blocks[i].getSingleValueBlock(position);
         }
-        return new RandomAccessPage(positionCount, randomAccessBlocks);
+        return row;
     }
 
     @Override

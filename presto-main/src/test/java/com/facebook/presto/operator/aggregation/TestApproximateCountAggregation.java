@@ -36,7 +36,7 @@ public class TestApproximateCountAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return APPROXIMATE_COUNT_AGGREGATION;
     }

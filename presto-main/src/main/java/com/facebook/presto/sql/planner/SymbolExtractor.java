@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
-import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
@@ -27,6 +26,7 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.RowNumberLimitNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
@@ -35,6 +35,7 @@ import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -88,16 +89,6 @@ public final class SymbolExtractor
         }
 
         @Override
-        public Void visitMaterializeSample(MaterializeSampleNode node, Void context)
-        {
-            node.getSource().accept(this, context);
-
-            builder.add(node.getSampleWeightSymbol());
-
-            return null;
-        }
-
-        @Override
         public Void visitMarkDistinct(MarkDistinctNode node, Void context)
         {
             node.getSource().accept(this, context);
@@ -114,6 +105,28 @@ public final class SymbolExtractor
             node.getSource().accept(this, context);
 
             builder.addAll(node.getWindowFunctions().keySet());
+
+            return null;
+        }
+
+        @Override
+        public Void visitTopNRowNumber(TopNRowNumberNode node, Void context)
+        {
+            // visit child
+            node.getSource().accept(this, context);
+
+            builder.add(node.getRowNumberSymbol());
+
+            return null;
+        }
+
+        @Override
+        public Void visitRowNumberLimit(RowNumberLimitNode node, Void context)
+        {
+            // visit child
+            node.getSource().accept(this, context);
+
+            builder.add(node.getRowNumberSymbol());
 
             return null;
         }

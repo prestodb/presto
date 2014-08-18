@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.storage.ColumnFileHandle.Builder;
 import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.block.Block;
 import com.google.common.base.Throwables;
 import com.google.common.io.Files;
 
@@ -56,7 +57,7 @@ public class MockLocalStorageManager
     }
 
     @Override
-    public BlockIterable getBlocks(UUID shardUuid, ConnectorColumnHandle columnHandle)
+    public Iterable<Block> getBlocks(UUID shardUuid, ConnectorColumnHandle columnHandle)
     {
         throw new UnsupportedOperationException();
     }
@@ -79,7 +80,7 @@ public class MockLocalStorageManager
     }
 
     @Override
-    public ColumnFileHandle createStagingFileHandles(UUID shardUuid, List<? extends ConnectorColumnHandle> columnHandles)
+    public ColumnFileHandle createStagingFileHandles(UUID shardUuid, List<RaptorColumnHandle> columnHandles)
             throws IOException
     {
             Builder builder = ColumnFileHandle.builder(shardUuid, createTestingBlockEncodingManager());

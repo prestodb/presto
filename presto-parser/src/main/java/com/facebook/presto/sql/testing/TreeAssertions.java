@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.testing;
 
 import com.facebook.presto.sql.parser.ParsingException;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Statement;
@@ -25,19 +26,18 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
-import static com.facebook.presto.sql.parser.SqlParser.createStatement;
 import static java.lang.String.format;
 
 public final class TreeAssertions
 {
     private TreeAssertions() {}
 
-    public static void assertFormattedSql(Node expected)
+    public static void assertFormattedSql(SqlParser sqlParser, Node expected)
     {
         String formatted = formatSql(expected);
 
         // verify round-trip of formatting already-formatted SQL
-        Statement actual = parseFormatted(formatted, expected);
+        Statement actual = parseFormatted(sqlParser, formatted, expected);
         assertEquals(formatSql(actual), formatted);
 
         // compare parsed tree with parsed tree of formatted SQL
@@ -48,10 +48,10 @@ public final class TreeAssertions
         assertEquals(actual, expected);
     }
 
-    private static Statement parseFormatted(String sql, Node tree)
+    private static Statement parseFormatted(SqlParser sqlParser, String sql, Node tree)
     {
         try {
-            return createStatement(sql);
+            return sqlParser.createStatement(sql);
         }
         catch (ParsingException e) {
             throw new AssertionError(format(
@@ -79,13 +79,30 @@ public final class TreeAssertions
     private static <T> void assertListEquals(List<T> actual, List<T> expected)
     {
         if (actual.size() != expected.size()) {
-            Joiner joiner = Joiner.on("\n    ");
-            throw new AssertionError(format(
-                    "Lists not equal%nActual [%s]:%n    %s%nExpected [%s]:%n    %s%n",
-                    actual.size(), joiner.join(actual),
-                    expected.size(), joiner.join(expected)));
+            throw new AssertionError(format("Lists not equal in size%n%s", formatLists(actual, expected)));
         }
-        assertEquals(actual, expected);
+        if (!actual.equals(expected)) {
+            throw new AssertionError(format("Lists not equal at index %s%n%s",
+                    differingIndex(actual, expected), formatLists(actual, expected)));
+        }
+    }
+
+    private static <T> String formatLists(List<T> actual, List<T> expected)
+    {
+        Joiner joiner = Joiner.on("\n    ");
+        return format("Actual [%s]:%n    %s%nExpected [%s]:%n    %s%n",
+                actual.size(), joiner.join(actual),
+                expected.size(), joiner.join(expected));
+    }
+
+    private static <T> int differingIndex(List<T> actual, List<T> expected)
+    {
+        for (int i = 0; i < actual.size(); i++) {
+            if (!actual.get(i).equals(expected.get(i))) {
+                return i;
+            }
+        }
+        return actual.size();
     }
 
     private static <T> void assertEquals(T actual, T expected)

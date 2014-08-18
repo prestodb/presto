@@ -13,10 +13,13 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.spi.RecordSink;
 
 public interface RecordSinkProvider
 {
     RecordSink getRecordSink(OutputTableHandle tableHandle);
+
+    RecordSink getRecordSink(InsertTableHandle tableHandle);
 }

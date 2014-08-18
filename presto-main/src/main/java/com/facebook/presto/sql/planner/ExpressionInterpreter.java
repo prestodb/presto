@@ -14,11 +14,12 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -31,8 +32,8 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.InputReference;
+import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.Literal;
@@ -47,6 +48,7 @@ import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
+import com.facebook.presto.type.LikeFunctions;
 import com.google.common.base.Charsets;
 import com.google.common.base.Functions;
 import com.google.common.base.Predicate;
@@ -121,10 +123,10 @@ public class ExpressionInterpreter
         return visitor.process(expression, inputs);
     }
 
-    public Object evaluate(BlockCursor[] inputs)
+    public Object evaluate(int position, Block... inputs)
     {
-        checkState(!optimize, "evaluate(BlockCursor[]) not allowed for optimizer");
-        return visitor.process(expression, inputs);
+        checkState(!optimize, "evaluate(int, Block...) not allowed for optimizer");
+        return visitor.process(expression, new PagePositionContext(position, inputs));
     }
 
     public Object optimize(SymbolResolver inputs)
@@ -140,29 +142,30 @@ public class ExpressionInterpreter
         @Override
         public Object visitInputReference(InputReference node, Object context)
         {
-            Input input = node.getInput();
+            Type type = expressionTypes.get(node);
 
-            int channel = input.getChannel();
-            if (context instanceof BlockCursor[]) {
-                BlockCursor[] inputs = (BlockCursor[]) context;
-                BlockCursor cursor = inputs[channel];
+            int channel = node.getChannel();
+            if (context instanceof PagePositionContext) {
+                PagePositionContext pagePositionContext = (PagePositionContext) context;
+                int position = pagePositionContext.getPosition();
+                Block block = pagePositionContext.getBlock(channel);
 
-                if (cursor.isNull()) {
+                if (block.isNull(position)) {
                     return null;
                 }
 
-                Class<?> javaType = cursor.getType().getJavaType();
+                Class<?> javaType = type.getJavaType();
                 if (javaType == boolean.class) {
-                    return cursor.getBoolean();
+                    return type.getBoolean(block, position);
                 }
                 else if (javaType == long.class) {
-                    return cursor.getLong();
+                    return type.getLong(block, position);
                 }
                 else if (javaType == double.class) {
-                    return cursor.getDouble();
+                    return type.getDouble(block, position);
                 }
                 else if (javaType == Slice.class) {
-                    return cursor.getSlice();
+                    return type.getSlice(block, position);
                 }
                 else {
                     throw new UnsupportedOperationException("not yet implemented");
@@ -174,7 +177,7 @@ public class ExpressionInterpreter
                     return null;
                 }
 
-                Class<?> javaType = cursor.getType(input.getChannel()).getJavaType();
+                Class<?> javaType = type.getJavaType();
                 if (javaType == boolean.class) {
                     return cursor.getBoolean(channel);
                 }
@@ -222,6 +225,18 @@ public class ExpressionInterpreter
             }
 
             return value == null;
+        }
+
+        @Override
+        protected Object visitIsNotNullPredicate(IsNotNullPredicate node, Object context)
+        {
+            Object value = process(node.getValue(), context);
+
+            if (value instanceof Expression) {
+                return new IsNotNullPredicate(toExpression(value, expressionTypes.get(node.getValue())));
+            }
+
+            return value != null;
         }
 
         @Override
@@ -503,11 +518,27 @@ public class ExpressionInterpreter
                 return first;
             }
 
+            Type firstType = expressionTypes.get(node.getFirst());
+            Type secondType = expressionTypes.get(node.getSecond());
+
             if (hasUnresolvedValue(first, second)) {
-                return new NullIfExpression(toExpression(first, expressionTypes.get(node.getFirst())), toExpression(second, expressionTypes.get(node.getSecond())));
+                return new NullIfExpression(toExpression(first, firstType), toExpression(second, secondType));
             }
 
-            if ((Boolean) invokeOperator(OperatorType.EQUAL, types(node.getFirst(), node.getSecond()), ImmutableList.of(first, second))) {
+            Type commonType = FunctionRegistry.getCommonSuperType(firstType, secondType).get();
+
+            FunctionInfo firstCast = metadata.getExactOperator(OperatorType.CAST, commonType, ImmutableList.of(firstType));
+            FunctionInfo secondCast = metadata.getExactOperator(OperatorType.CAST, commonType, ImmutableList.of(secondType));
+
+            // cast(first as <common type>) == cast(second as <common type>)
+            boolean equal = (Boolean) invokeOperator(
+                    OperatorType.EQUAL,
+                    ImmutableList.of(commonType, commonType),
+                    ImmutableList.of(
+                            invoke(session, firstCast.getMethodHandle(), ImmutableList.of(first)),
+                            invoke(session, secondCast.getMethodHandle(), ImmutableList.of(second))));
+
+            if (equal) {
                 return null;
             }
             else {
@@ -610,7 +641,7 @@ public class ExpressionInterpreter
                     node.getPattern() instanceof StringLiteral &&
                     (node.getEscape() instanceof StringLiteral || node.getEscape() == null)) {
                 // fast path when we know the pattern and escape are constant
-                return LikeUtils.regexMatches(getConstantPattern(node), (Slice) value);
+                return LikeFunctions.like((Slice) value, getConstantPattern(node));
             }
 
             Object pattern = process(node.getPattern(), context);
@@ -631,9 +662,15 @@ public class ExpressionInterpreter
             if (value instanceof Slice &&
                     pattern instanceof Slice &&
                     (escape == null || escape instanceof Slice)) {
-                Regex regex = LikeUtils.likeToPattern((Slice) pattern, (Slice) escape);
+                Regex regex;
+                if (escape == null) {
+                    regex = LikeFunctions.likePattern((Slice) pattern);
+                }
+                else {
+                    regex = LikeFunctions.likePattern((Slice) pattern, (Slice) escape);
+                }
 
-                return LikeUtils.regexMatches(regex, (Slice) value);
+                return LikeFunctions.like((Slice) value, regex);
             }
 
             // if pattern is a constant without % or _ replace with a comparison
@@ -665,7 +702,12 @@ public class ExpressionInterpreter
                 StringLiteral pattern = (StringLiteral) node.getPattern();
                 StringLiteral escape = (StringLiteral) node.getEscape();
 
-                result = LikeUtils.likeToPattern(pattern.getSlice(), escape == null ? null : escape.getSlice());
+                if (escape == null) {
+                    result = LikeFunctions.likePattern(pattern.getSlice());
+                }
+                else {
+                    result = LikeFunctions.likePattern(pattern.getSlice(), escape.getSlice());
+                }
 
                 likePatternCache.put(node, result);
             }
@@ -679,7 +721,13 @@ public class ExpressionInterpreter
             Object value = process(node.getExpression(), context);
 
             if (value instanceof Expression) {
-                return new Cast((Expression) value, node.getType());
+                return new Cast((Expression) value, node.getType(), node.isSafe());
+            }
+
+            // hack!!! don't optimize CASTs for types that cannot be represented in the SQL AST
+            // TODO: this will not be an issue when we migrate to RowExpression tree for this, which allows arbitrary literals.
+            if (optimize && !FunctionRegistry.isSupportedLiteralType(expressionTypes.get(node))) {
+                return new Cast(toExpression(value, expressionTypes.get(node.getExpression())), node.getType(), node.isSafe());
             }
 
             if (value == null) {
@@ -692,7 +740,16 @@ public class ExpressionInterpreter
             }
 
             FunctionInfo operatorInfo = metadata.getExactOperator(OperatorType.CAST, type, types(node.getExpression()));
-            return invoke(session, operatorInfo.getMethodHandle(), ImmutableList.of(value));
+
+            try {
+                return invoke(session, operatorInfo.getMethodHandle(), ImmutableList.of(value));
+            }
+            catch (RuntimeException e) {
+                if (node.isSafe()) {
+                    return null;
+                }
+                throw e;
+            }
         }
 
         @Override
@@ -740,6 +797,28 @@ public class ExpressionInterpreter
         }
     }
 
+    private static class PagePositionContext
+    {
+        private final int position;
+        private final Block[] blocks;
+
+        private PagePositionContext(int position, Block[] blocks)
+        {
+            this.position = position;
+            this.blocks = blocks;
+        }
+
+        public Block getBlock(int channel)
+        {
+            return blocks[channel];
+        }
+
+        public int getPosition()
+        {
+            return position;
+        }
+    }
+
     public static Object invoke(ConnectorSession session, MethodHandle handle, List<Object> argumentValues)
     {
         if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
@@ -749,9 +828,10 @@ public class ExpressionInterpreter
             return handle.invokeWithArguments(argumentValues);
         }
         catch (Throwable throwable) {
-            Throwables.propagateIfInstanceOf(throwable, RuntimeException.class);
-            Throwables.propagateIfInstanceOf(throwable, Error.class);
-            throw new RuntimeException(throwable.getMessage(), throwable);
+            if (throwable instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throw Throwables.propagate(throwable);
         }
     }
 

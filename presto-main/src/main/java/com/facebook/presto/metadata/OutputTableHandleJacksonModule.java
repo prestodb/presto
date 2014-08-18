@@ -23,7 +23,7 @@ public class OutputTableHandleJacksonModule
         extends AbstractTypedJacksonModule<ConnectorOutputTableHandle>
 {
     @Inject
-    public OutputTableHandleJacksonModule(OutputTableHandleResolver handleResolver)
+    public OutputTableHandleJacksonModule(HandleResolver handleResolver)
     {
         super(ConnectorOutputTableHandle.class, "type", new OutputTableHandleJsonTypeIdResolver(handleResolver));
     }
@@ -31,9 +31,9 @@ public class OutputTableHandleJacksonModule
     private static class OutputTableHandleJsonTypeIdResolver
             implements JsonTypeIdResolver<ConnectorOutputTableHandle>
     {
-        private final OutputTableHandleResolver handleResolver;
+        private final HandleResolver handleResolver;
 
-        private OutputTableHandleJsonTypeIdResolver(OutputTableHandleResolver handleResolver)
+        private OutputTableHandleJsonTypeIdResolver(HandleResolver handleResolver)
         {
             this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
         }

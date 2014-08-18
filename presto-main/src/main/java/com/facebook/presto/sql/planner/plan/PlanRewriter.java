@@ -111,25 +111,6 @@ public final class PlanRewriter<C>
         }
 
         @Override
-        public PlanNode visitMaterializeSample(MaterializeSampleNode node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                PlanNode result = nodeRewriter.rewriteMaterializeSample(node, context.get(), PlanRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            PlanNode source = rewrite(node.getSource(), context.get());
-
-            if (source != node.getSource()) {
-                return new MaterializeSampleNode(node.getId(), source, node.getSampleWeightSymbol());
-            }
-
-            return node;
-        }
-
-        @Override
         public PlanNode visitMarkDistinct(MarkDistinctNode node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
@@ -142,7 +123,7 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new MarkDistinctNode(node.getId(), source, node.getMarkerSymbol(), node.getDistinctSymbols(), node.getSampleWeightSymbol());
+                return new MarkDistinctNode(node.getId(), source, node.getMarkerSymbol(), node.getDistinctSymbols());
             }
 
             return node;
@@ -164,6 +145,49 @@ public final class PlanRewriter<C>
                 return new WindowNode(node.getId(), source, node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getWindowFunctions(), node.getSignatures());
             }
 
+            return node;
+        }
+
+        @Override
+        public PlanNode visitRowNumberLimit(RowNumberLimitNode node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                PlanNode result = nodeRewriter.rewriteRowNumberLimit(node, context.get(), PlanRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            PlanNode source = rewrite(node.getSource(), context.get());
+
+            if (source != node.getSource()) {
+                return new RowNumberLimitNode(node.getId(), source, node.getPartitionBy(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition());
+            }
+
+            return node;
+        }
+
+        @Override
+        public PlanNode visitTopNRowNumber(TopNRowNumberNode node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                PlanNode result = nodeRewriter.rewriteTopNRowNumber(node, context.get(), PlanRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            PlanNode source = rewrite(node.getSource(), context.get());
+
+            if (source != node.getSource()) {
+                return new TopNRowNumberNode(node.getId(),
+                        source,
+                        node.getPartitionBy(),
+                        node.getOrderBy(),
+                        node.getOrderings(),
+                        node.getRowNumberSymbol(),
+                        node.getMaxRowCountPerPartition());
+            }
             return node;
         }
 
@@ -237,7 +261,7 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new TopNNode(node.getId(), source, node.getCount(), node.getOrderBy(), node.getOrderings(), node.isPartial(), node.getSampleWeight());
+                return new TopNNode(node.getId(), source, node.getCount(), node.getOrderBy(), node.getOrderings(), node.isPartial());
             }
 
             return node;
@@ -275,7 +299,7 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new LimitNode(node.getId(), source, node.getCount(), node.getSampleWeight());
+                return new LimitNode(node.getId(), source, node.getCount());
             }
 
             return node;
@@ -339,7 +363,7 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new TableWriterNode(node.getId(), source, node.getTarget(), node.getColumns(), node.getColumnNames(), node.getOutputSymbols(), node.getSampleWeightSymbol(), node.getCatalog(), node.getTableMetadata(), node.isSampleWeightSupported());
+                return new TableWriterNode(node.getId(), source, node.getTarget(), node.getColumns(), node.getColumnNames(), node.getOutputSymbols(), node.getSampleWeightSymbol());
             }
 
             return node;

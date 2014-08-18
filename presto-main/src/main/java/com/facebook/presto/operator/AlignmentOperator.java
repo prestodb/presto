@@ -14,14 +14,9 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.block.BlockIterables;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -33,85 +28,29 @@ import static com.google.common.base.Preconditions.checkState;
 public class AlignmentOperator
         implements Operator
 {
-    public static class AlignmentOperatorFactory
-            implements OperatorFactory
-    {
-        private final int operatorId;
-        private final List<BlockIterable> channels;
-        private final List<Type> types;
-        private boolean closed;
-
-        public AlignmentOperatorFactory(int operatorId, BlockIterable firstChannel, BlockIterable... otherChannels)
-        {
-            this(operatorId,
-                    ImmutableList.<BlockIterable>builder()
-                            .add(checkNotNull(firstChannel, "firstChannel is null"))
-                            .add(checkNotNull(otherChannels, "otherChannels is null"))
-                            .build());
-        }
-
-        public AlignmentOperatorFactory(int operatorId, Iterable<BlockIterable> channels)
-        {
-            this.operatorId = operatorId;
-            this.channels = ImmutableList.copyOf(checkNotNull(channels, "channels is null"));
-            this.types = toTypes(channels);
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
-        }
-
-        @Override
-        public Operator createOperator(DriverContext driverContext)
-        {
-            checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, AlignmentOperator.class.getSimpleName());
-            return new AlignmentOperator(operatorContext, channels);
-        }
-
-        @Override
-        public void close()
-        {
-            closed = true;
-        }
-    }
-
     private final OperatorContext operatorContext;
     private final List<Type> types;
-    private final Optional<DataSize> expectedDataSize;
-    private final Optional<Integer> expectedPositionCount;
 
     private final List<Iterator<Block>> iterators;
-    private final List<BlockCursor> cursors;
+    private final List<BlockPosition> blockPositions;
 
     private boolean finished;
 
-    public AlignmentOperator(OperatorContext operatorContext, BlockIterable... channels)
-    {
-        this(operatorContext, ImmutableList.copyOf(channels));
-    }
-
-    public AlignmentOperator(OperatorContext operatorContext, Iterable<BlockIterable> channels)
+    public AlignmentOperator(OperatorContext operatorContext, List<Type> types, Iterable<Iterable<Block>> channels)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.types = toTypes(checkNotNull(channels, "channels is null"));
-
-        expectedDataSize = BlockIterables.getDataSize(channels);
-        expectedPositionCount = BlockIterables.getPositionCount(channels);
+        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
 
         ImmutableList.Builder<Iterator<Block>> iterators = ImmutableList.builder();
-        for (BlockIterable channel : channels) {
+        for (Iterable<Block> channel : channels) {
             iterators.add(channel.iterator());
         }
         this.iterators = iterators.build();
 
-        // open the cursors
-        cursors = new ArrayList<>(this.iterators.size());
+        blockPositions = new ArrayList<>(this.iterators.size());
         if (this.iterators.get(0).hasNext()) {
             for (Iterator<Block> iterator : this.iterators) {
-                cursors.add(iterator.next().cursor());
+                blockPositions.add(new BlockPosition(iterator.next()));
             }
         }
         else {
@@ -132,16 +71,6 @@ public class AlignmentOperator
     public List<Type> getTypes()
     {
         return types;
-    }
-
-    public Optional<DataSize> getExpectedDataSize()
-    {
-        return expectedDataSize;
-    }
-
-    public Optional<Integer> getExpectedPositionCount()
-    {
-        return expectedPositionCount;
     }
 
     @Override
@@ -171,7 +100,7 @@ public class AlignmentOperator
     @Override
     public void addInput(Page page)
     {
-        throw new UnsupportedOperationException(getClass().getName() + " can not take input");
+        throw new UnsupportedOperationException(getClass().getName() + " cannot take input");
     }
 
     @Override
@@ -182,7 +111,7 @@ public class AlignmentOperator
         }
 
         // all iterators should end together
-        if (cursors.get(0).getRemainingPositions() <= 0 && !iterators.get(0).hasNext()) {
+        if (blockPositions.get(0).getRemainingPositions() <= 0 && !iterators.get(0).hasNext()) {
             for (Iterator<Block> iterator : iterators) {
                 checkState(!iterator.hasNext());
             }
@@ -195,19 +124,19 @@ public class AlignmentOperator
         for (int i = 0; i < iterators.size(); i++) {
             Iterator<? extends Block> iterator = iterators.get(i);
 
-            BlockCursor cursor = cursors.get(i);
-            if (cursor.getRemainingPositions() <= 0) {
+            BlockPosition blockPosition = blockPositions.get(i);
+            if (blockPosition.getRemainingPositions() <= 0) {
                 // load next block
-                cursor = iterator.next().cursor();
-                cursors.set(i, cursor);
+                blockPosition = new BlockPosition(iterator.next());
+                blockPositions.set(i, blockPosition);
             }
-            length = Math.min(length, cursor.getRemainingPositions());
+            length = Math.min(length, blockPosition.getRemainingPositions());
         }
 
         // build page
         Block[] blocks = new Block[iterators.size()];
-        for (int i = 0; i < cursors.size(); i++) {
-            blocks[i] = cursors.get(i).getRegionAndAdvance(length);
+        for (int i = 0; i < blockPositions.size(); i++) {
+            blocks[i] = blockPositions.get(i).getRegionAndAdvance(length);
         }
 
         Page page = new Page(blocks);
@@ -215,12 +144,26 @@ public class AlignmentOperator
         return page;
     }
 
-    private static List<Type> toTypes(Iterable<BlockIterable> channels)
+    private final class BlockPosition
     {
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (BlockIterable channel : channels) {
-            types.add(channel.getType());
+        private final Block block;
+        private int position;
+
+        private BlockPosition(Block block)
+        {
+            this.block = block;
         }
-        return types.build();
+
+        public Block getRegionAndAdvance(int length)
+        {
+            Block region = block.getRegion(position, length);
+            position += length;
+            return region;
+        }
+
+        public int getRemainingPositions()
+        {
+            return block.getPositionCount() - position;
+        }
     }
 }

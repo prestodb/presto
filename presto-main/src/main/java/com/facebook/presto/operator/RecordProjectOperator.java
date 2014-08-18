@@ -128,6 +128,7 @@ public class RecordProjectOperator
                     break;
                 }
 
+                pageBuilder.declarePosition();
                 for (int column = 0; column < types.size(); column++) {
                     BlockBuilder output = pageBuilder.getBlockBuilder(column);
                     if (cursor.isNull(column)) {
@@ -137,16 +138,17 @@ public class RecordProjectOperator
                         Type type = getTypes().get(column);
                         Class<?> javaType = type.getJavaType();
                         if (javaType == boolean.class) {
-                            output.appendBoolean(cursor.getBoolean(column));
+                            type.writeBoolean(output, cursor.getBoolean(column));
                         }
                         else if (javaType == long.class) {
-                            output.appendLong(cursor.getLong(column));
+                            type.writeLong(output, cursor.getLong(column));
                         }
                         else if (javaType == double.class) {
-                            output.appendDouble(cursor.getDouble(column));
+                            type.writeDouble(output, cursor.getDouble(column));
                         }
                         else if (javaType == Slice.class) {
-                            output.appendSlice(cursor.getSlice(column));
+                            Slice slice = cursor.getSlice(column);
+                            type.writeSlice(output, slice, 0, slice.length());
                         }
                         else {
                             throw new AssertionError("Unimplemented type: " + javaType.getName());

@@ -31,6 +31,7 @@ import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 
+import static com.facebook.presto.example.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -49,16 +50,9 @@ public class ExampleSplitManager
     }
 
     @Override
-    public String getConnectorId()
-    {
-        return connectorId;
-    }
-
-    @Override
     public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
-        checkArgument(tableHandle instanceof ExampleTableHandle, "tableHandle is not an instance of ExampleTableHandle");
-        ExampleTableHandle exampleTableHandle = (ExampleTableHandle) tableHandle;
+        ExampleTableHandle exampleTableHandle = checkType(tableHandle, ExampleTableHandle.class, "tableHandle");
 
         // example connector has only one partition
         List<ConnectorPartition> partitions = ImmutableList.<ConnectorPartition>of(new ExamplePartition(exampleTableHandle.getSchemaName(), exampleTableHandle.getTableName()));
@@ -73,8 +67,7 @@ public class ExampleSplitManager
         checkArgument(partitions.size() == 1, "Expected one partition but got %s", partitions.size());
         ConnectorPartition partition = partitions.get(0);
 
-        checkArgument(partition instanceof ExamplePartition, "partition is not an instance of ExamplePartition");
-        ExamplePartition examplePartition = (ExamplePartition) partition;
+        ExamplePartition examplePartition = checkType(partition, ExamplePartition.class, "partition");
 
         ExampleTableHandle exampleTableHandle = (ExampleTableHandle) tableHandle;
         ExampleTable table = exampleClient.getTable(exampleTableHandle.getSchemaName(), exampleTableHandle.getTableName());

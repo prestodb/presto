@@ -16,29 +16,28 @@ package com.facebook.presto.spi.block;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestFixedWidthBlockBuilder
 {
-    private static final int BOOLEAN_ENTRY_SIZE = BOOLEAN.getFixedSize() + SIZE_OF_BYTE;
+    private static final int BOOLEAN_ENTRY_SIZE = BOOLEAN.getFixedSize();
     private static final int EXPECTED_ENTRY_COUNT = 3;
 
     @Test
     public void testFixedBlockIsFull()
             throws Exception
     {
-        testIsFull(new FixedWidthBlockBuilder(BOOLEAN, EXPECTED_ENTRY_COUNT));
-        testIsFull(new FixedWidthBlockBuilder(BOOLEAN, new BlockBuilderStatus(BOOLEAN_ENTRY_SIZE * EXPECTED_ENTRY_COUNT, 1024)));
-        testIsFull(new FixedWidthBlockBuilder(BOOLEAN, new BlockBuilderStatus(1024, BOOLEAN_ENTRY_SIZE * EXPECTED_ENTRY_COUNT)));
+        testIsFull(new FixedWidthBlockBuilder(BOOLEAN.getFixedSize(), EXPECTED_ENTRY_COUNT));
+        testIsFull(new FixedWidthBlockBuilder(BOOLEAN.getFixedSize(), new BlockBuilderStatus(BOOLEAN_ENTRY_SIZE * EXPECTED_ENTRY_COUNT, 1024)));
+        testIsFull(new FixedWidthBlockBuilder(BOOLEAN.getFixedSize(), new BlockBuilderStatus(1024, BOOLEAN_ENTRY_SIZE * EXPECTED_ENTRY_COUNT)));
     }
 
-    private void testIsFull(FixedWidthBlockBuilder blockBuilder)
+    private static void testIsFull(FixedWidthBlockBuilder blockBuilder)
     {
         assertTrue(blockBuilder.isEmpty());
         while (!blockBuilder.isFull()) {
-            blockBuilder.appendBoolean(true);
+            BOOLEAN.writeBoolean(blockBuilder, true);
         }
         assertEquals(blockBuilder.getPositionCount(), EXPECTED_ENTRY_COUNT);
         assertEquals(blockBuilder.isFull(), true);

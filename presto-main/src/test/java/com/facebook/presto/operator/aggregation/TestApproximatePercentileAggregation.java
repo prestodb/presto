@@ -14,8 +14,8 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.operator.Page;
 import com.google.common.base.Preconditions;
@@ -24,10 +24,10 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.operator.aggregation.ApproximatePercentileAggregations.DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.ApproximatePercentileAggregations.LONG_APPROXIMATE_PERCENTILE_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAggregations.DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAggregations.LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations.DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximateLongPercentileAggregations.LONG_APPROXIMATE_PERCENTILE_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations.DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximateLongPercentileAggregations.LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
@@ -369,11 +369,8 @@ public class TestApproximatePercentileAggregation
 
     private static RunLengthEncodedBlock createRLEBlock(double percentile, int positionCount)
     {
-        RandomAccessBlock value = DOUBLE.createBlockBuilder(new BlockBuilderStatus())
-                .appendDouble(percentile)
-                .build()
-                .toRandomAccessBlock();
-
-        return new RunLengthEncodedBlock(value, positionCount);
+        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus());
+        DOUBLE.writeDouble(blockBuilder, percentile);
+        return new RunLengthEncodedBlock(blockBuilder.build(), positionCount);
     }
 }

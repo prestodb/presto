@@ -54,12 +54,41 @@ public class VerifierConfig
     private String eventLogFile;
     private int suiteRepetitions = 1;
     private int queryRepetitions = 1;
+    private String skipCorrectnessRegex = "^$";
     private boolean checkCorrectness = true;
+    private boolean verboseResultsComparison;
     private String testCatalogOverride;
     private String testSchemaOverride;
     private String controlCatalogOverride;
     private String controlSchemaOverride;
     private boolean quiet;
+
+    @NotNull
+    public String getSkipCorrectnessRegex()
+    {
+        return skipCorrectnessRegex;
+    }
+
+    @ConfigDescription("Correctness check will be skipped if this regex matches query")
+    @Config("skip-correctness-regex")
+    public VerifierConfig setSkipCorrectnessRegex(String skipCorrectnessRegex)
+    {
+        this.skipCorrectnessRegex = skipCorrectnessRegex;
+        return this;
+    }
+
+    public boolean isVerboseResultsComparison()
+    {
+        return verboseResultsComparison;
+    }
+
+    @ConfigDescription("Display a diff of results that don't match")
+    @Config("verbose-results-comparison")
+    public VerifierConfig setVerboseResultsComparison(boolean verboseResultsComparison)
+    {
+        this.verboseResultsComparison = verboseResultsComparison;
+        return this;
+    }
 
     public boolean isQuiet()
     {

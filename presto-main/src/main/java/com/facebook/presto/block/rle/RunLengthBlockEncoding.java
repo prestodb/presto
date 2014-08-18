@@ -17,8 +17,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.block.RandomAccessBlock;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
@@ -42,12 +40,6 @@ public class RunLengthBlockEncoding
     public String getName()
     {
         return NAME;
-    }
-
-    @Override
-    public Type getType()
-    {
-        return valueBlockEncoding.getType();
     }
 
     public BlockEncoding getValueBlockEncoding()
@@ -74,7 +66,7 @@ public class RunLengthBlockEncoding
         int positionCount = sliceInput.readInt();
 
         // read the value
-        RandomAccessBlock value = getValueBlockEncoding().readBlock(sliceInput).toRandomAccessBlock();
+        Block value = getValueBlockEncoding().readBlock(sliceInput);
 
         return new RunLengthEncodedBlock(value, positionCount);
     }

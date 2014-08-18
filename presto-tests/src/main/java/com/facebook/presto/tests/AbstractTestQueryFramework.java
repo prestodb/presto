@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
@@ -29,30 +30,24 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Function;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableMultiset;
-import com.google.common.collect.Iterables;
-import io.airlift.log.Logger;
-import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 
 import java.util.List;
 
-import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
 {
-    private final H2QueryRunner h2QueryRunner;
+    protected final H2QueryRunner h2QueryRunner;
     protected final QueryRunner queryRunner;
+    private final SqlParser sqlParser;
 
     protected AbstractTestQueryFramework(QueryRunner queryRunner)
     {
         this.queryRunner = queryRunner;
         h2QueryRunner = new H2QueryRunner();
+        sqlParser = new SqlParser();
     }
 
     @AfterClass(alwaysRun = true)
@@ -85,25 +80,25 @@ public abstract class AbstractTestQueryFramework
     protected void assertQuery(@Language("SQL") String sql)
             throws Exception
     {
-        assertQuery(sql, sql, false);
+        QueryAssertions.assertQuery(queryRunner, getSession(), sql, h2QueryRunner, sql, false);
     }
 
     public void assertQueryOrdered(@Language("SQL") String sql)
             throws Exception
     {
-        assertQuery(sql, sql, true);
+        QueryAssertions.assertQuery(queryRunner, getSession(), sql, h2QueryRunner, sql, true);
     }
 
     protected void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected)
             throws Exception
     {
-        assertQuery(actual, expected, false);
+        QueryAssertions.assertQuery(queryRunner, getSession(), actual, h2QueryRunner, expected, false);
     }
 
     protected void assertQueryOrdered(@Language("SQL") String actual, @Language("SQL") String expected)
             throws Exception
     {
-        assertQuery(actual, expected, true);
+        QueryAssertions.assertQuery(queryRunner, getSession(), actual, h2QueryRunner, expected, true);
     }
 
     protected void assertQueryTrue(@Language("SQL") String sql)
@@ -112,41 +107,14 @@ public abstract class AbstractTestQueryFramework
         assertQuery(sql, "SELECT true");
     }
 
-    private static final Logger log = Logger.get(AbstractTestQueries.class);
-
-    public void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected, boolean ensureOrdering)
+    public void assertApproximateQuery(ConnectorSession session, @Language("SQL") String actual, @Language("SQL") String expected)
             throws Exception
     {
-        long start = System.nanoTime();
-        MaterializedResult actualResults = computeActual(actual);
-        Duration actualTime = Duration.nanosSince(start);
-
-        long expectedStart = System.nanoTime();
-        MaterializedResult expectedResults = computeExpected(expected, actualResults.getTypes());
-        log.info("FINISHED in presto: %s, h2: %s, total: %s", actualTime, Duration.nanosSince(expectedStart), Duration.nanosSince(start));
-
-        if (ensureOrdering) {
-            assertEquals(actualResults.getMaterializedRows(), expectedResults.getMaterializedRows());
-        }
-        else {
-            assertEqualsIgnoreOrder(actualResults.getMaterializedRows(), expectedResults.getMaterializedRows());
-        }
-    }
-
-    public static void assertEqualsIgnoreOrder(Iterable<?> actual, Iterable<?> expected)
-    {
-        assertNotNull(actual, "actual is null");
-        assertNotNull(expected, "expected is null");
-
-        ImmutableMultiset<?> actualSet = ImmutableMultiset.copyOf(actual);
-        ImmutableMultiset<?> expectedSet = ImmutableMultiset.copyOf(expected);
-        if (!actualSet.equals(expectedSet)) {
-            fail(format("not equal\nActual %s rows:\n    %s\nExpected %s rows:\n    %s\n",
-                    actualSet.size(),
-                    Joiner.on("\n    ").join(Iterables.limit(actualSet, 100)),
-                    expectedSet.size(),
-                    Joiner.on("\n    ").join(Iterables.limit(expectedSet, 100))));
-        }
+        QueryAssertions.assertApproximateQuery(queryRunner,
+                session,
+                actual,
+                h2QueryRunner,
+                expected);
     }
 
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
@@ -170,20 +138,20 @@ public abstract class AbstractTestQueryFramework
     public String getExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return explainer.getPlan(SqlParser.createStatement(query), planType);
+        return explainer.getPlan(sqlParser.createStatement(query), planType);
     }
 
     public String getGraphvizExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return explainer.getGraphvizPlan(SqlParser.createStatement(query), planType);
+        return explainer.getGraphvizPlan(sqlParser.createStatement(query), planType);
     }
 
     private QueryExplainer getQueryExplainer()
     {
-        MetadataManager metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), new TypeRegistry());
+        Metadata metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), new TypeRegistry());
         FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true);
-        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, new SplitManager(), new IndexManager(), featuresConfig).get();
-        return new QueryExplainer(queryRunner.getDefaultSession(), optimizers, metadata, featuresConfig.isExperimentalSyntaxEnabled());
+        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, sqlParser, new SplitManager(), new IndexManager(), featuresConfig).get();
+        return new QueryExplainer(queryRunner.getDefaultSession(), optimizers, metadata, sqlParser, featuresConfig.isExperimentalSyntaxEnabled());
     }
 }

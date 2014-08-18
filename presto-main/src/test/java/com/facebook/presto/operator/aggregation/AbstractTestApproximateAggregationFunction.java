@@ -55,10 +55,10 @@ public abstract class AbstractTestApproximateAggregationFunction
         BlockBuilder blockBuilder = getType().createBlockBuilder(new BlockBuilderStatus());
         for (int i = start; i < start + length; i++) {
             if (getType() == BIGINT) {
-                blockBuilder.appendLong((long) i);
+                BIGINT.writeLong(blockBuilder, (long) i);
             }
             else {
-                blockBuilder.appendDouble((double) i);
+                DOUBLE.writeDouble(blockBuilder, (double) i);
             }
         }
         return blockBuilder.build();
@@ -158,10 +158,10 @@ public abstract class AbstractTestApproximateAggregationFunction
             BlockBuilder builder = getType().createBlockBuilder(new BlockBuilderStatus());
             for (Number sample : sampledList.build()) {
                 if (getType() == BIGINT) {
-                    builder.appendLong(sample.longValue());
+                    BIGINT.writeLong(builder, sample.longValue());
                 }
                 else if (getType() == DOUBLE) {
-                    builder.appendDouble(sample.doubleValue());
+                    DOUBLE.writeDouble(builder, sample.doubleValue());
                 }
                 else {
                     throw new AssertionError("Can only handle longs and doubles");
@@ -174,7 +174,7 @@ public abstract class AbstractTestApproximateAggregationFunction
             accumulator.addInput(page);
             Block result = accumulator.evaluateFinal();
 
-            String approxValue = BlockAssertions.toValues(result).get(0).toString();
+            String approxValue = BlockAssertions.toValues(accumulator.getFinalType(), result).get(0).toString();
             double approx = Double.parseDouble(approxValue.split(" ")[0]);
             double error = Double.parseDouble(approxValue.split(" ")[2]);
 
