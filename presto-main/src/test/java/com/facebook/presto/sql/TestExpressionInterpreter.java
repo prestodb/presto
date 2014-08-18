@@ -781,7 +781,7 @@ public class TestExpressionInterpreter
         optimize("case when 0 / 0 = 0 then 1 end");
     }
 
-    @Test(timeOut = 3000)
+    @Test(timeOut = 60000)
     public void testLikeInvalidUtf8()
     {
         assertLike(new byte[] {'a', 'b', 'c'}, "%b%", true);
