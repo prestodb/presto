@@ -40,7 +40,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.byteCode.OpCode.NOP;
-import static com.facebook.presto.byteCode.expression.ByteCodeExpression.invokeDynamic;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.invokeDynamic;
 import static com.facebook.presto.sql.gen.Bootstrap.CALL_SITES_FIELD_NAME;
 import static java.lang.String.format;
 
