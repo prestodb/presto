@@ -127,6 +127,7 @@ public class PrestoResultSet
 
     private final StatementClient client;
     private final DateTimeZone sessionTimeZone;
+    private final String queryId;
     private final Iterator<List<Object>> results;
     private final Map<String, Integer> fieldMap;
     private final List<ColumnInfo> columnInfoList;
@@ -139,6 +140,7 @@ public class PrestoResultSet
     {
         this.client = checkNotNull(client, "client is null");
         this.sessionTimeZone = DateTimeZone.forID(client.getTimeZoneId());
+        this.queryId = client.current().getId();
 
         List<Column> columns = getColumns(client);
         this.fieldMap = getFieldMap(columns);
@@ -146,6 +148,11 @@ public class PrestoResultSet
         this.resultSetMetaData = new PrestoResultSetMetaData(columnInfoList);
 
         this.results = flatten(new ResultsPageIterator(client));
+    }
+
+    public String getQueryId()
+    {
+        return queryId;
     }
 
     @Override
