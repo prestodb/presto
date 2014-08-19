@@ -15,7 +15,7 @@ package com.facebook.presto.byteCode.expression;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.OpCodes;
+import com.facebook.presto.byteCode.OpCode;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.instruction.InstructionNode;
 import com.google.common.collect.ImmutableList;
@@ -65,29 +65,29 @@ class GetElementByteCodeExpression
     {
         Class<?> primitiveType = componentType.getPrimitiveType();
         if (primitiveType == null) {
-            return OpCodes.AALOAD;
+            return OpCode.AALOAD;
         }
 
         if (primitiveType == byte.class || primitiveType == boolean.class) {
-            return OpCodes.BALOAD;
+            return OpCode.BALOAD;
         }
         if (primitiveType == char.class) {
-            return OpCodes.CALOAD;
+            return OpCode.CALOAD;
         }
         if (primitiveType == short.class) {
-            return OpCodes.SALOAD;
+            return OpCode.SALOAD;
         }
         if (primitiveType == int.class) {
-            return OpCodes.IALOAD;
+            return OpCode.IALOAD;
         }
         if (primitiveType == long.class) {
-            return OpCodes.LALOAD;
+            return OpCode.LALOAD;
         }
         if (primitiveType == float.class) {
-            return OpCodes.FALOAD;
+            return OpCode.FALOAD;
         }
         if (primitiveType == double.class) {
-            return OpCodes.DALOAD;
+            return OpCode.DALOAD;
         }
         throw new IllegalArgumentException("Unsupported array type: " + primitiveType);
     }

@@ -25,8 +25,8 @@ import org.objectweb.asm.Type;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.OpCodes.ILOAD;
-import static com.facebook.presto.byteCode.OpCodes.ISTORE;
+import static com.facebook.presto.byteCode.OpCode.ILOAD;
+import static com.facebook.presto.byteCode.OpCode.ISTORE;
 
 public abstract class VariableInstruction
         implements InstructionNode

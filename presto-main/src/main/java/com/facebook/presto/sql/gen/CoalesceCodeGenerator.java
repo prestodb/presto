@@ -25,7 +25,7 @@ import com.google.common.collect.Lists;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.byteCode.OpCodes.NOP;
+import static com.facebook.presto.byteCode.OpCode.NOP;
 
 public class CoalesceCodeGenerator
         implements ByteCodeGenerator

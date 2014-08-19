@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.byteCode.OpCodes.NOP;
+import static com.facebook.presto.byteCode.OpCode.NOP;
 import static com.facebook.presto.byteCode.control.IfStatement.ifStatementBuilder;
 import static com.facebook.presto.byteCode.control.LookupSwitch.lookupSwitchBuilder;
 import static com.facebook.presto.byteCode.instruction.JumpInstruction.jump;

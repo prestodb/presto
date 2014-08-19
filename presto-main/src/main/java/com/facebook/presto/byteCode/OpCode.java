@@ -19,7 +19,7 @@ import org.objectweb.asm.MethodVisitor;
 
 import java.util.List;
 
-public enum OpCodes
+public enum OpCode
         implements InstructionNode
 {
     NOP(0),
@@ -227,7 +227,7 @@ public enum OpCodes
 
     private final int opCode;
 
-    private OpCodes(int opCode)
+    private OpCode(int opCode)
     {
         this.opCode = opCode;
     }
