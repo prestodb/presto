@@ -85,7 +85,7 @@ public class Block
 
     public Block append(ByteCodeNode node)
     {
-        if (node != OpCodes.NOP && !(node instanceof Block && ((Block) node).isEmpty())) {
+        if (node != OpCode.NOP && !(node instanceof Block && ((Block) node).isEmpty())) {
             nodes.add(node);
         }
         return this;
@@ -156,19 +156,19 @@ public class Block
 
     public Block intAdd()
     {
-        nodes.add(OpCodes.IADD);
+        nodes.add(OpCode.IADD);
         return this;
     }
 
     public Block longAdd()
     {
-        nodes.add(OpCodes.LADD);
+        nodes.add(OpCode.LADD);
         return this;
     }
 
     public Block longCompare()
     {
-        nodes.add(OpCodes.LCMP);
+        nodes.add(OpCode.LCMP);
         return this;
     }
 
@@ -177,7 +177,7 @@ public class Block
      */
     public Block doubleCompareNanLess()
     {
-        nodes.add(OpCodes.DCMPL);
+        nodes.add(OpCode.DCMPL);
         return this;
     }
 
@@ -186,103 +186,103 @@ public class Block
      */
     public Block doubleCompareNanGreater()
     {
-        nodes.add(OpCodes.DCMPG);
+        nodes.add(OpCode.DCMPG);
         return this;
     }
 
     public Block intLeftShift()
     {
-        nodes.add(OpCodes.ISHL);
+        nodes.add(OpCode.ISHL);
         return this;
     }
 
     public Block intRightShift()
     {
-        nodes.add(OpCodes.ISHR);
+        nodes.add(OpCode.ISHR);
         return this;
     }
 
     public Block longLeftShift()
     {
-        nodes.add(OpCodes.LSHL);
+        nodes.add(OpCode.LSHL);
         return this;
     }
 
     public Block longRightShift()
     {
-        nodes.add(OpCodes.LSHR);
+        nodes.add(OpCode.LSHR);
         return this;
     }
 
     public Block unsignedIntRightShift()
     {
-        nodes.add(OpCodes.IUSHR);
+        nodes.add(OpCode.IUSHR);
         return this;
     }
 
     public Block unsignedLongRightShift()
     {
-        nodes.add(OpCodes.LUSHR);
+        nodes.add(OpCode.LUSHR);
         return this;
     }
 
     public Block intBitAnd()
     {
-        nodes.add(OpCodes.IAND);
+        nodes.add(OpCode.IAND);
         return this;
     }
 
     public Block intBitOr()
     {
-        nodes.add(OpCodes.IOR);
+        nodes.add(OpCode.IOR);
         return this;
     }
 
     public Block intBitXor()
     {
-        nodes.add(OpCodes.IXOR);
+        nodes.add(OpCode.IXOR);
         return this;
     }
 
     public Block longBitAnd()
     {
-        nodes.add(OpCodes.LAND);
+        nodes.add(OpCode.LAND);
         return this;
     }
 
     public Block longBitOr()
     {
-        nodes.add(OpCodes.LOR);
+        nodes.add(OpCode.LOR);
         return this;
     }
 
     public Block longBitXor()
     {
-        nodes.add(OpCodes.LXOR);
+        nodes.add(OpCode.LXOR);
         return this;
     }
 
     public Block intNegate()
     {
-        nodes.add(OpCodes.INEG);
+        nodes.add(OpCode.INEG);
         return this;
     }
 
     public Block intToLong()
     {
-        nodes.add(OpCodes.I2L);
+        nodes.add(OpCode.I2L);
         return this;
     }
 
     public Block longNegate()
     {
-        nodes.add(OpCodes.LNEG);
+        nodes.add(OpCode.LNEG);
         return this;
     }
 
     public Block longToInt()
     {
-        nodes.add(OpCodes.L2I);
+        nodes.add(OpCode.L2I);
         return this;
     }
 
@@ -543,49 +543,49 @@ public class Block
 
     public Block ret()
     {
-        nodes.add(OpCodes.RETURN);
+        nodes.add(OpCode.RETURN);
         return this;
     }
 
     public Block retObject()
     {
-        nodes.add(OpCodes.ARETURN);
+        nodes.add(OpCode.ARETURN);
         return this;
     }
 
     public Block retFloat()
     {
-        nodes.add(OpCodes.FRETURN);
+        nodes.add(OpCode.FRETURN);
         return this;
     }
 
     public Block retDouble()
     {
-        nodes.add(OpCodes.DRETURN);
+        nodes.add(OpCode.DRETURN);
         return this;
     }
 
     public Block retBoolean()
     {
-        nodes.add(OpCodes.IRETURN);
+        nodes.add(OpCode.IRETURN);
         return this;
     }
 
     public Block retLong()
     {
-        nodes.add(OpCodes.LRETURN);
+        nodes.add(OpCode.LRETURN);
         return this;
     }
 
     public Block retInt()
     {
-        nodes.add(OpCodes.IRETURN);
+        nodes.add(OpCode.IRETURN);
         return this;
     }
 
     public Block throwObject()
     {
-        nodes.add(OpCodes.ATHROW);
+        nodes.add(OpCode.ATHROW);
         return this;
     }
 
@@ -609,41 +609,41 @@ public class Block
 
     public Block dup()
     {
-        nodes.add(OpCodes.DUP);
+        nodes.add(OpCode.DUP);
         return this;
     }
 
     public Block dup(Class<?> type)
     {
         if (type == long.class || type == double.class) {
-            nodes.add(OpCodes.DUP2);
+            nodes.add(OpCode.DUP2);
         }
         else {
-            nodes.add(OpCodes.DUP);
+            nodes.add(OpCode.DUP);
         }
         return this;
     }
 
     public Block pop()
     {
-        nodes.add(OpCodes.POP);
+        nodes.add(OpCode.POP);
         return this;
     }
 
     public Block pop(Class<?> type)
     {
         if (type == long.class || type == double.class) {
-            nodes.add(OpCodes.POP2);
+            nodes.add(OpCode.POP2);
         }
         else if (type != void.class) {
-            nodes.add(OpCodes.POP);
+            nodes.add(OpCode.POP);
         }
         return this;
     }
 
     public Block swap()
     {
-        nodes.add(OpCodes.SWAP);
+        nodes.add(OpCode.SWAP);
         return this;
     }
 
@@ -764,7 +764,7 @@ public class Block
 
     public Block pushNull()
     {
-        nodes.add(OpCodes.ACONST_NULL);
+        nodes.add(OpCode.ACONST_NULL);
         return this;
     }
 
@@ -983,13 +983,13 @@ public class Block
 
     public Block getObjectArrayElement()
     {
-        nodes.add(OpCodes.AALOAD);
+        nodes.add(OpCode.AALOAD);
         return this;
     }
 
     public Block putObjectArrayElement()
     {
-        nodes.add(OpCodes.AASTORE);
+        nodes.add(OpCode.AASTORE);
         return this;
     }
 
