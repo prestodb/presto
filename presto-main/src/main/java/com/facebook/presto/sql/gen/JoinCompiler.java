@@ -20,7 +20,7 @@ import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.FieldDefinition;
 import com.facebook.presto.byteCode.MethodDefinition;
-import com.facebook.presto.byteCode.OpCodes;
+import com.facebook.presto.byteCode.OpCode;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement.IfStatementBuilder;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
@@ -233,7 +233,7 @@ public class JoinCompiler
                     .getVariable("pageBuilder")
                     .getVariable("outputChannelOffset")
                     .push(index)
-                    .append(OpCodes.IADD)
+                    .append(OpCode.IADD)
                     .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class)
                     .invokeVirtual(type.getClass(), "appendTo", void.class, com.facebook.presto.spi.block.Block.class, int.class, BlockBuilder.class);
         }
@@ -266,9 +266,9 @@ public class JoinCompiler
                     .getBody()
                     .getVariable(resultVariable)
                     .push(31)
-                    .append(OpCodes.IMUL)
+                    .append(OpCode.IMUL)
                     .append(typeHashCode(compilerContext, type, block, compilerContext.getVariable("blockPosition")))
-                    .append(OpCodes.IADD)
+                    .append(OpCode.IADD)
                     .putVariable(resultVariable);
         }
 
@@ -303,9 +303,9 @@ public class JoinCompiler
                     .getBody()
                     .getVariable(resultVariable)
                     .push(31)
-                    .append(OpCodes.IMUL)
+                    .append(OpCode.IMUL)
                     .append(typeHashCode(compilerContext, type, block, compilerContext.getVariable("position")))
-                    .append(OpCodes.IADD)
+                    .append(OpCode.IADD)
                     .putVariable(resultVariable);
         }
 
@@ -443,12 +443,12 @@ public class JoinCompiler
         ifStatementBuilder.condition(new Block(compilerContext)
                 .append(leftBlock.invoke("isNull", boolean.class, leftBlockPosition))
                 .append(rightBlock.invoke("isNull", boolean.class, rightBlockPosition))
-                .append(OpCodes.IOR));
+                .append(OpCode.IOR));
 
         ifStatementBuilder.ifTrue(new Block(compilerContext)
                 .append(leftBlock.invoke("isNull", boolean.class, leftBlockPosition))
                 .append(rightBlock.invoke("isNull", boolean.class, rightBlockPosition))
-                .append(OpCodes.IAND));
+                .append(OpCode.IAND));
 
         ifStatementBuilder.ifFalse(new Block(compilerContext).append(type.invoke("equalTo", boolean.class, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition)));
 

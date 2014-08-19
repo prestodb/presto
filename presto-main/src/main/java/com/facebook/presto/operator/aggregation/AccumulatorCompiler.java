@@ -48,7 +48,7 @@ import static com.facebook.presto.byteCode.Access.PRIVATE;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
-import static com.facebook.presto.byteCode.OpCodes.NOP;
+import static com.facebook.presto.byteCode.OpCode.NOP;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
 import static com.facebook.presto.byteCode.control.IfStatement.IfStatementBuilder;
