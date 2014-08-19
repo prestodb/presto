@@ -47,7 +47,25 @@ class ConstantByteCodeExpression
     @Override
     public String toString()
     {
-        return String.valueOf(value.getValue());
+        return renderConstant(value.getValue());
+    }
+
+    public static String renderConstant(Object value)
+    {
+        if (value instanceof Long) {
+            return value + "L";
+        }
+        if (value instanceof Float) {
+            return value + "f";
+        }
+        if (value instanceof ParameterizedType) {
+            return ((ParameterizedType) value).getSimpleName() + ".class";
+        }
+        // todo escape string
+        if (value instanceof String) {
+            return "\"" + value + "\"";
+        }
+        return String.valueOf(value);
     }
 
     @Override
