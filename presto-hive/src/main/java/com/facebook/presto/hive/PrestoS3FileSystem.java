@@ -85,6 +85,7 @@ public class PrestoS3FileSystem
     public static final String S3_MAX_CLIENT_RETRIES = "presto.s3.max-client-retries";
     public static final String S3_MAX_BACKOFF_TIME = "presto.s3.max-backoff-time";
     public static final String S3_CONNECT_TIMEOUT = "presto.s3.connect-timeout";
+    public static final String S3_MAX_CONNECTIONS = "presto.s3.max-connections";
     public static final String S3_STAGING_DIRECTORY = "presto.s3.staging-directory";
 
     private static final Logger log = Logger.get(PrestoS3FileSystem.class);
@@ -116,11 +117,13 @@ public class PrestoS3FileSystem
         int maxErrorRetries = conf.getInt(S3_MAX_ERROR_RETRIES, defaults.getS3MaxErrorRetries());
         boolean sslEnabled = conf.getBoolean(S3_SSL_ENABLED, defaults.isS3SslEnabled());
         Duration connectTimeout = Duration.valueOf(conf.get(S3_CONNECT_TIMEOUT, defaults.getS3ConnectTimeout().toString()));
+        int maxConnections = conf.getInt(S3_MAX_CONNECTIONS, defaults.getS3MaxConnections());
 
         ClientConfiguration configuration = new ClientConfiguration();
         configuration.setMaxErrorRetry(maxErrorRetries);
         configuration.setProtocol(sslEnabled ? Protocol.HTTPS : Protocol.HTTP);
         configuration.setConnectionTimeout(Ints.checkedCast(connectTimeout.toMillis()));
+        configuration.setMaxConnections(maxConnections);
 
         this.s3 = new AmazonS3Client(getAwsCredentials(uri, conf), configuration);
     }

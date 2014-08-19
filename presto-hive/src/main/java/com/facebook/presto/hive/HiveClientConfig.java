@@ -70,6 +70,7 @@ public class HiveClientConfig
     private int s3MaxErrorRetries = 10;
     private Duration s3MaxBackoffTime = new Duration(10, TimeUnit.MINUTES);
     private Duration s3ConnectTimeout = new Duration(5, TimeUnit.SECONDS);
+    private int s3MaxConnections = 500;
     private File s3StagingDirectory = new File(StandardSystemProperty.JAVA_IO_TMPDIR.value());
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
@@ -472,6 +473,19 @@ public class HiveClientConfig
     public HiveClientConfig setS3ConnectTimeout(Duration s3ConnectTimeout)
     {
         this.s3ConnectTimeout = s3ConnectTimeout;
+        return this;
+    }
+
+    @Min(1)
+    public int getS3MaxConnections()
+    {
+        return s3MaxConnections;
+    }
+
+    @Config("hive.s3.max-connections")
+    public HiveClientConfig setS3MaxConnections(int s3MaxConnections)
+    {
+        this.s3MaxConnections = s3MaxConnections;
         return this;
     }
 
