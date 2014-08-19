@@ -7,7 +7,7 @@ Hive Changes
 
 * The Hive S3 file system has a new configuration option,
   ``hive.s3.max-connections``, which sets the maximum number of
-  connections to S3. The default is ``500``.
+  connections to S3.  The default is ``500``.
 
 SPI changes
 -----------
