@@ -14,6 +14,7 @@
 package com.facebook.presto.byteCode.expression;
 
 import com.facebook.presto.byteCode.FieldDefinition;
+import com.facebook.presto.byteCode.OpCode;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.google.common.collect.ImmutableList;
 
@@ -23,6 +24,7 @@ import java.lang.reflect.Method;
 import java.util.List;
 
 import static com.facebook.presto.byteCode.ParameterizedType.type;
+import static com.facebook.presto.byteCode.expression.ArithmeticByteCodeExpression.createArithmeticByteCodeExpression;
 import static com.facebook.presto.byteCode.instruction.Constant.loadBoolean;
 import static com.facebook.presto.byteCode.instruction.Constant.loadClass;
 import static com.facebook.presto.byteCode.instruction.Constant.loadDouble;
@@ -207,5 +209,64 @@ public final class ByteCodeExpressions
             List<Object> bootstrapArgs)
     {
         return new InvokeDynamicByteCodeExpression(methodName, methodType, bootstrapMethod, bootstrapArgs);
+    }
+
+    //
+    // Arithmetic operations
+    //
+
+    public static ByteCodeExpression add(ByteCodeExpression left, ByteCodeExpression right)
+    {
+        return createArithmeticByteCodeExpression(OpCode.IADD, left, right);
+    }
+
+    public static ByteCodeExpression subtract(ByteCodeExpression left, ByteCodeExpression right)
+    {
+        return createArithmeticByteCodeExpression(OpCode.ISUB, left, right);
+    }
+
+    public static ByteCodeExpression multiply(ByteCodeExpression left, ByteCodeExpression right)
+    {
+        return createArithmeticByteCodeExpression(OpCode.IMUL, left, right);
+    }
+
+    public static ByteCodeExpression divide(ByteCodeExpression left, ByteCodeExpression right)
+    {
+        return createArithmeticByteCodeExpression(OpCode.IDIV, left, right);
+    }
+
+    public static ByteCodeExpression remainder(ByteCodeExpression left, ByteCodeExpression right)
+    {
+        return createArithmeticByteCodeExpression(OpCode.IREM, left, right);
+    }
+
+    public static ByteCodeExpression bitwiseAnd(ByteCodeExpression left, ByteCodeExpression right)
+    {
+        return createArithmeticByteCodeExpression(OpCode.IAND, left, right);
+    }
+
+    public static ByteCodeExpression bitwiseOr(ByteCodeExpression left, ByteCodeExpression right)
+    {
+        return createArithmeticByteCodeExpression(OpCode.IOR, left, right);
+    }
+
+    public static ByteCodeExpression bitwiseXor(ByteCodeExpression left, ByteCodeExpression right)
+    {
+        return createArithmeticByteCodeExpression(OpCode.IXOR, left, right);
+    }
+
+    public static ByteCodeExpression shiftLeft(ByteCodeExpression left, ByteCodeExpression right)
+    {
+        return createArithmeticByteCodeExpression(OpCode.ISHL, left, right);
+    }
+
+    public static ByteCodeExpression shiftRight(ByteCodeExpression left, ByteCodeExpression right)
+    {
+        return createArithmeticByteCodeExpression(OpCode.ISHR, left, right);
+    }
+
+    public static ByteCodeExpression shiftRightUnsigned(ByteCodeExpression left, ByteCodeExpression right)
+    {
+        return createArithmeticByteCodeExpression(OpCode.IUSHR, left, right);
     }
 }
