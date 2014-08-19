@@ -279,7 +279,6 @@ public class TestJsonExtract
         assertEquals(doJsonExtract("{\"@$fuu\": {\"bar\": 1}}", "$[\"@$fuu\"].bar"), "1");
         assertEquals(doJsonExtract("{\",fuu\": {\"bar\": [\"\\u0001\"]}}", "$[\",fuu\"].bar[0]"), "\"\\u0001\""); // Test escaped characters
 
-
         // Test numeric path expression matches arrays and objects
         assertEquals(doJsonExtract("[0, 1, 2]", "$.1"), "1");
         assertEquals(doJsonExtract("[0, 1, 2]", "$[1]"), "1");
