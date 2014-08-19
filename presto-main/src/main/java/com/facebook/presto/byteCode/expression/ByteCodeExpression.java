@@ -162,6 +162,11 @@ public abstract class ByteCodeExpression
         return new GetElementByteCodeExpression(this, index);
     }
 
+    public final ByteCodeExpression ret()
+    {
+        return new ReturnByteCodeExpression(this);
+    }
+
     @Override
     public final void accept(MethodVisitor visitor)
     {
