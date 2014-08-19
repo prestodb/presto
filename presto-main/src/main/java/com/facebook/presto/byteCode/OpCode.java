@@ -15,9 +15,13 @@ package com.facebook.presto.byteCode;
 
 import com.facebook.presto.byteCode.instruction.InstructionNode;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.objectweb.asm.MethodVisitor;
 
 import java.util.List;
+import java.util.Map;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 public enum OpCode
         implements InstructionNode
@@ -225,9 +229,25 @@ public enum OpCode
     GOTO_W(200),
     JSR_W(201);
 
+    private static final Map<Integer, OpCode> OP_CODE_INDEX;
+    static {
+        ImmutableMap.Builder<Integer, OpCode> builder = ImmutableMap.builder();
+        for (OpCode opCode : OpCode.values()) {
+            builder.put(opCode.getOpCode(), opCode);
+        }
+        OP_CODE_INDEX = builder.build();
+    }
+
+    public static OpCode getOpCode(int opCode)
+    {
+        OpCode value = OP_CODE_INDEX.get(opCode);
+        checkArgument(value != null, "Unknown opCode %s", opCode);
+        return value;
+    }
+
     private final int opCode;
 
-    private OpCode(int opCode)
+    OpCode(int opCode)
     {
         this.opCode = opCode;
     }
@@ -237,6 +257,7 @@ public enum OpCode
         return opCode;
     }
 
+    @Override
     public void accept(MethodVisitor visitor)
     {
         visitor.visitInsn(opCode);
