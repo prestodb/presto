@@ -41,4 +41,37 @@ General Changes
 * The legacy byte code compiler has been removed
 * New aggregation framework (~10% faster)
 * Added :func:`max_by` aggregation function
-* Fixed parsing of UNION queries that use both DISTINCT and ALL
+* Fixed parsing of ``UNION`` queries that use both ``DISTINCT`` and ``ALL``
+* Fixed cross join planning error for certain query shapes
+* Added hex and base64 conversion functions for varbinary
+
+Scheduler Changes
+-----------------
+
+The scheduler now assigns splits to a node based on the current load on the node across all queries.
+Previously, the scheduler load balanced splits across nodes on a per query level. Every node can have
+``node-scheduler.max-splits-per-node`` splits scheduled on it. To avoid starvation of small queries,
+when the node already has the maximum allowable splits, every task can schedule at most
+``node-scheduler.max-pending-splits-per-node-per-task`` splits on the node.
+
+Optimizations
+-------------
+
+Queries that need to generate row numbers for each group of ordered or unordered rows
+using the :func:`row_number` window function are significantly faster and can run on larger tables::
+
+    SELECT row_number() OVER (PARTITION BY orderstatus),
+        custkey, orderstatus
+    FROM orders;
+
+    SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderdate),
+        custkey, orderdate, orderstatus
+    FROM orders;
+
+This is particularly useful for running queries with a per group limit::
+
+    SELECT * FROM (
+        SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderdate) AS rn,
+            custkey, orderdate, orderstatus
+        FROM orders
+    ) WHERE rn <= 5;
