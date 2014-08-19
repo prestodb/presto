@@ -33,7 +33,6 @@ import static com.facebook.presto.byteCode.OpCode.IFNULL;
 import static com.facebook.presto.byteCode.OpCode.IF_ACMPEQ;
 import static com.facebook.presto.byteCode.OpCode.IF_ACMPNE;
 import static com.facebook.presto.byteCode.OpCode.IF_ICMPEQ;
-import static com.facebook.presto.byteCode.OpCode.IF_ICMPGE;
 import static com.facebook.presto.byteCode.OpCode.IF_ICMPGT;
 import static com.facebook.presto.byteCode.OpCode.IF_ICMPLE;
 import static com.facebook.presto.byteCode.OpCode.IF_ICMPLT;
@@ -102,11 +101,6 @@ public class JumpInstruction
         return new JumpInstruction(IF_ICMPLE, label);
     }
 
-    public static InstructionNode jumpIfIntGreaterThanOrEqual(LabelNode label)
-    {
-        return new JumpInstruction(IF_ICMPGE, label);
-    }
-
     public static InstructionNode jumpIfNull(LabelNode label)
     {
         return new JumpInstruction(IFNULL, label);
@@ -130,7 +124,7 @@ public class JumpInstruction
     private final OpCode opCode;
     private final LabelNode label;
 
-    private JumpInstruction(OpCode opCode, LabelNode label)
+    public JumpInstruction(OpCode opCode, LabelNode label)
     {
         this.opCode = opCode;
         this.label = label;

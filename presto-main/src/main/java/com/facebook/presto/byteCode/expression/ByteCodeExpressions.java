@@ -269,4 +269,38 @@ public final class ByteCodeExpressions
     {
         return createArithmeticByteCodeExpression(OpCode.IUSHR, left, right);
     }
+
+    //
+    // Comparison operations
+    //
+
+    public static ByteCodeExpression lessThan(ByteCodeExpression left, ByteCodeExpression right)
+    {
+        return ComparisonByteCodeExpression.lessThan(left, right);
+    }
+
+    public static ByteCodeExpression greaterThan(ByteCodeExpression left, ByteCodeExpression right)
+    {
+        return ComparisonByteCodeExpression.greaterThan(left, right);
+    }
+
+    public static ByteCodeExpression lessThanOrEqual(ByteCodeExpression left, ByteCodeExpression right)
+    {
+        return ComparisonByteCodeExpression.lessThanOrEqual(left, right);
+    }
+
+    public static ByteCodeExpression greaterThanOrEqual(ByteCodeExpression left, ByteCodeExpression right)
+    {
+        return ComparisonByteCodeExpression.greaterThanOrEqual(left, right);
+    }
+
+    public static ByteCodeExpression equal(ByteCodeExpression left, ByteCodeExpression right)
+    {
+        return ComparisonByteCodeExpression.equal(left, right);
+    }
+
+    public static ByteCodeExpression notEqual(ByteCodeExpression left, ByteCodeExpression right)
+    {
+        return ComparisonByteCodeExpression.notEqual(left, right);
+    }
 }
