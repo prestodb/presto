@@ -39,3 +39,6 @@ General Changes
 * Add support for square bracket syntax in :func:`json_extract` functions
 * Add support for binary types to the JDBC driver
 * The legacy byte code compiler has been removed
+* New aggregation framework (~10% faster)
+* Added :func:`max_by` aggregation function
+* Fixed parsing of UNION queries that use both DISTINCT and ALL
