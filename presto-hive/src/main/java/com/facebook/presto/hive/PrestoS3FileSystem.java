@@ -91,6 +91,15 @@ import static org.apache.http.HttpStatus.SC_NOT_FOUND;
 public class PrestoS3FileSystem
         extends FileSystem
 {
+    private static final Logger log = Logger.get(PrestoS3FileSystem.class);
+
+    private static final PrestoS3FileSystemStats STATS = new PrestoS3FileSystemStats();
+
+    public static PrestoS3FileSystemStats getFileSystemStats()
+    {
+        return STATS;
+    }
+
     public static final String S3_SSL_ENABLED = "presto.s3.ssl.enabled";
     public static final String S3_MAX_ERROR_RETRIES = "presto.s3.max-error-retries";
     public static final String S3_MAX_CLIENT_RETRIES = "presto.s3.max-client-retries";
@@ -104,12 +113,11 @@ public class PrestoS3FileSystem
     public static final String S3_MULTIPART_MIN_PART_SIZE = "presto.s3.multipart.min-part-size";
     public static final String S3_USE_INSTANCE_CREDENTIALS = "presto.s3.use-instance-credentials";
 
-    private static final Logger log = Logger.get(PrestoS3FileSystem.class);
-
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
 
     private final TransferManagerConfiguration transferConfig = new TransferManagerConfiguration();
+
     private URI uri;
     private Path workingDirectory;
     private AmazonS3 s3;
@@ -180,6 +188,7 @@ public class PrestoS3FileSystem
     public FileStatus[] listStatus(Path path)
             throws IOException
     {
+        STATS.newListStatusCall();
         List<LocatedFileStatus> list = new ArrayList<>();
         RemoteIterator<LocatedFileStatus> iterator = listLocatedStatus(path);
         while (iterator.hasNext()) {
@@ -192,6 +201,7 @@ public class PrestoS3FileSystem
     public RemoteIterator<LocatedFileStatus> listLocatedStatus(final Path path)
             throws IOException
     {
+        STATS.newListLocatedStatusCall();
         return new RemoteIterator<LocatedFileStatus>()
         {
             private final Iterator<LocatedFileStatus> iterator = listPrefix(path);
@@ -322,6 +332,7 @@ public class PrestoS3FileSystem
                 .withPrefix(key)
                 .withDelimiter("/");
 
+        STATS.newListObjectsCall();
         Iterator<ObjectListing> listings = new AbstractSequentialIterator<ObjectListing>(s3.listObjects(request))
         {
             @Override
@@ -374,7 +385,8 @@ public class PrestoS3FileSystem
      * This exception is for stopping retries for S3 calls that shouldn't be retried.
      * For example, "Caused by: com.amazonaws.services.s3.model.AmazonS3Exception: Forbidden (Service: Amazon S3; Status Code: 403 ..."
      */
-    private static class UnrecoverableS3OperationException extends Exception
+    private static class UnrecoverableS3OperationException
+            extends Exception
     {
         public UnrecoverableS3OperationException(Throwable cause)
         {
@@ -392,6 +404,7 @@ public class PrestoS3FileSystem
                     .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class)
                     .run("getS3ObjectMetadata", () -> {
                         try {
+                            STATS.newMetadataCall();
                             return s3.getObjectMetadata(uri.getHost(), keyFromPath(path));
                         }
                         catch (AmazonS3Exception e) {
@@ -629,6 +642,7 @@ public class PrestoS3FileSystem
         {
             if (in == null) {
                 in = getS3Object(path, position).getObjectContent();
+                STATS.connectionOpened();
             }
         }
 
@@ -643,6 +657,7 @@ public class PrestoS3FileSystem
                     // thrown if the current thread is in the interrupted state
                 }
                 in = null;
+                STATS.connectionReleased();
             }
         }
     }
@@ -699,6 +714,7 @@ public class PrestoS3FileSystem
         {
             try {
                 log.debug("Starting upload for host: %s, key: %s, file: %s, size: %s", host, key, tempFile, tempFile.length());
+                STATS.uploadStarted();
                 Upload upload = transferManager.upload(host, key, tempFile);
 
                 if (log.isDebugEnabled()) {
@@ -706,12 +722,15 @@ public class PrestoS3FileSystem
                 }
 
                 upload.waitForCompletion();
+                STATS.uploadSuccessful();
                 log.debug("Completed upload for host: %s, key: %s", host, key);
             }
             catch (AmazonClientException e) {
+                STATS.uploadFailed();
                 throw new IOException(e);
             }
             catch (InterruptedException e) {
+                STATS.uploadFailed();
                 Thread.currentThread().interrupt();
                 throw new InterruptedIOException();
             }
