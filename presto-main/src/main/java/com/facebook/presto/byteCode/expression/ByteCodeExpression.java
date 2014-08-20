@@ -85,9 +85,9 @@ public abstract class ByteCodeExpression
         return new GetFieldByteCodeExpression(this, declaringClass, name, type);
     }
 
-    public final ByteCodeExpression setField(Class<?> declaringClass, String name, ByteCodeExpression value)
+    public final ByteCodeExpression setField(String name, ByteCodeExpression value)
     {
-        return new SetFieldByteCodeExpression(this, declaringClass, name, value);
+        return new SetFieldByteCodeExpression(this, this.getType(), name, value);
     }
 
     public final ByteCodeExpression setField(Field field, ByteCodeExpression value)
@@ -98,11 +98,6 @@ public abstract class ByteCodeExpression
     public final ByteCodeExpression setField(FieldDefinition field, ByteCodeExpression value)
     {
         return new SetFieldByteCodeExpression(this, field, value);
-    }
-
-    public final ByteCodeExpression setField(ParameterizedType declaringClass, String name, ByteCodeExpression value)
-    {
-        return new SetFieldByteCodeExpression(this, declaringClass, name, value);
     }
 
     public final ByteCodeExpression cast(Class<?> type)
