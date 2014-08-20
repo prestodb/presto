@@ -52,6 +52,7 @@ public class TestJsonExtract
         assertEquals(tokenizePath("$.x.foo"), ImmutableList.of("x", "foo"));
         assertEquals(tokenizePath("$.x[\"foo\"]"), ImmutableList.of("x", "foo"));
         assertEquals(tokenizePath("$.x[42]"), ImmutableList.of("x", "42"));
+        assertEquals(tokenizePath("$.foo_42._bar63"), ImmutableList.of("foo_42", "_bar63"));
 
         assertEquals(tokenizePath("  $  "), ImmutableList.of());
         assertEquals(tokenizePath("  $  .  foo  "), ImmutableList.of("foo"));

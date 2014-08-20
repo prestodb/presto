@@ -70,7 +70,7 @@ public class JsonPathTokenizer
 
         // seek until we see a special character or whitespace
         int start = index;
-        while (hasNextCharacter() && isLetterOrDigit(peekCharacter())) {
+        while (hasNextCharacter() && isUnquotedPathCharacter(peekCharacter())) {
             nextCharacter();
         }
         int end = index;
@@ -83,6 +83,11 @@ public class JsonPathTokenizer
         }
 
         return token;
+    }
+
+    private static boolean isUnquotedPathCharacter(char c)
+    {
+        return c == '_' || isLetterOrDigit(c);
     }
 
     private String matchQuotedToken()
