@@ -73,9 +73,7 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -98,6 +96,8 @@ import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
 import static com.facebook.presto.byteCode.control.ForLoop.forLoopBuilder;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
+import static com.facebook.presto.sql.gen.Bootstrap.CALL_SITES_FIELD_NAME;
+import static com.facebook.presto.sql.gen.ByteCodeUtils.setCallSitesField;
 import static com.google.common.base.Objects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -212,7 +212,7 @@ public class ExpressionCompiler
 
         // declare fields
         FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", ConnectorSession.class);
-        classDefinition.declareField(a(PRIVATE, VOLATILE, STATIC), "callSites", Map.class);
+        classDefinition.declareField(a(PRIVATE, VOLATILE, STATIC), CALL_SITES_FIELD_NAME, Map.class);
 
         // constructor
         classDefinition.declareConstructor(new CompilerContext(BOOTSTRAP_METHOD),
@@ -326,7 +326,7 @@ public class ExpressionCompiler
 
         // declare fields
         FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", ConnectorSession.class);
-        classDefinition.declareField(a(PRIVATE, VOLATILE, STATIC), "callSites", Map.class);
+        classDefinition.declareField(a(PRIVATE, VOLATILE, STATIC), CALL_SITES_FIELD_NAME, Map.class);
 
         // constructor
         classDefinition.declareConstructor(new CompilerContext(BOOTSTRAP_METHOD),
@@ -844,18 +844,6 @@ public class ExpressionCompiler
         Map<String, Class<?>> classes = classLoader.defineClasses(byteCodes);
         generatedClasses.addAndGet(classes.size());
         return classes;
-    }
-
-    private static void setCallSitesField(Class<?> clazz, Map<Long, MethodHandle> callSites)
-    {
-        try {
-            Field field = clazz.getDeclaredField("callSites");
-            field.setAccessible(true);
-            field.set(null, callSites);
-        }
-        catch (IllegalAccessException | NoSuchFieldException e) {
-            throw Throwables.propagate(e);
-        }
     }
 
     private static final class OperatorCacheKey

@@ -23,6 +23,7 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Joiner;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Primitives;
@@ -30,11 +31,14 @@ import com.google.common.primitives.Primitives;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.byteCode.OpCodes.NOP;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpression.invokeDynamic;
+import static com.facebook.presto.sql.gen.Bootstrap.CALL_SITES_FIELD_NAME;
 import static java.lang.String.format;
 
 public class ByteCodeUtils
@@ -202,5 +206,17 @@ public class ByteCodeUtils
     {
         return new Block(context)
                 .invokeDynamic("call_" + binding.getBindingId(), binding.getType(), binding.getBindingId());
+    }
+
+    public static void setCallSitesField(Class<?> clazz, Map<Long, MethodHandle> callSites)
+    {
+        try {
+            Field field = clazz.getDeclaredField(CALL_SITES_FIELD_NAME);
+            field.setAccessible(true);
+            field.set(null, callSites);
+        }
+        catch (ReflectiveOperationException e) {
+            throw Throwables.propagate(e);
+        }
     }
 }
