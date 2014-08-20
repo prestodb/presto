@@ -13,47 +13,74 @@
  */
 package com.facebook.presto.byteCode.expression;
 
+import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.instruction.InvokeInstruction;
+import com.facebook.presto.byteCode.ParameterizedType;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
-import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.util.List;
 
-import static com.facebook.presto.byteCode.ParameterizedType.type;
+import static com.facebook.presto.byteCode.expression.ConstantByteCodeExpression.constantRenderer;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Iterables.transform;
 
 class InvokeDynamicByteCodeExpression
         extends ByteCodeExpression
 {
-    private final String methodName;
-    private final MethodType methodType;
     private final Method bootstrapMethod;
     private final List<Object> bootstrapArgs;
+    private final String methodName;
+    private final ParameterizedType returnType;
+    private final List<ByteCodeExpression> parameters;
+    private final List<ParameterizedType> parameterTypes;
 
-    public InvokeDynamicByteCodeExpression(
-            String methodName,
-            MethodType methodType,
+    InvokeDynamicByteCodeExpression(
             Method bootstrapMethod,
-            List<Object> bootstrapArgs)
+            Iterable<?> bootstrapArgs,
+            String methodName,
+            ParameterizedType returnType,
+            Iterable<? extends ByteCodeExpression> parameters,
+            Iterable<ParameterizedType> parameterTypes)
     {
-        super(type(checkNotNull(methodType, "methodType is null").returnType()));
-        this.methodName = checkNotNull(methodName, "methodName is null");
-        this.methodType = checkNotNull(methodType, "methodType is null");
+        super(returnType);
         this.bootstrapMethod = checkNotNull(bootstrapMethod, "bootstrapMethod is null");
-        this.bootstrapArgs = checkNotNull(bootstrapArgs, "bootstrapArgs is null");
+        this.bootstrapArgs = ImmutableList.copyOf(checkNotNull(bootstrapArgs, "bootstrapArgs is null"));
+        this.methodName = checkNotNull(methodName, "methodName is null");
+        this.returnType = checkNotNull(returnType, "returnType is null");
+        this.parameters = ImmutableList.copyOf(checkNotNull(parameters, "parameters is null"));
+        this.parameterTypes = ImmutableList.copyOf(checkNotNull(parameterTypes, "parameterTypes is null"));
     }
 
     @Override
     public ByteCodeNode getByteCode()
     {
-        return InvokeInstruction.invokeDynamic(methodName, methodType, bootstrapMethod, bootstrapArgs);
+        Block block = new Block(null);
+        for (ByteCodeExpression parameter : parameters) {
+            block.append(parameter);
+        }
+        return block.invokeDynamic(methodName, returnType, parameterTypes, bootstrapMethod, bootstrapArgs);
     }
 
     @Override
     public List<ByteCodeNode> getChildNodes()
     {
         return ImmutableList.of();
+    }
+
+    @Override
+    public String toString()
+    {
+        StringBuilder builder = new StringBuilder();
+        builder.append("[").append(bootstrapMethod.getName());
+        if (!bootstrapArgs.isEmpty()) {
+            builder.append("(").append(Joiner.on(", ").join(transform(bootstrapArgs, constantRenderer()))).append(")");
+        }
+        builder.append("]=>");
+
+        builder.append(methodName).append("(").append(Joiner.on(", ").join(parameters)).append(")");
+
+        return builder.toString();
     }
 }
