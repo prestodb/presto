@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.byteCode.expression;
 
+import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.ClassInfoLoader;
 import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.DumpByteCodeVisitor;
 import com.facebook.presto.byteCode.DynamicClassLoader;
+import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.SmartClassWriter;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.ClassWriter;
@@ -47,14 +49,26 @@ public final class ByteCodeExpressionAssertions
     {
         assertEquals(expression.toString(), expectedRendering);
 
+        assertByteCodeNode(expression.ret(), expression.getType(), expected);
+    }
+
+    public static void assertByteCodeNode(ByteCodeNode node, ParameterizedType returnType, Object expected)
+            throws Exception
+    {
+        assertEquals(execute(node, returnType), expected);
+    }
+
+    public static Object execute(ByteCodeNode node, ParameterizedType returnType)
+            throws Exception
+    {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(BOOTSTRAP_METHOD),
                 a(PUBLIC, FINAL),
                 typeFromPathName("Test_" + CLASS_ID.incrementAndGet()),
                 type(Object.class));
 
-        classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD), a(PUBLIC, STATIC), "test", expression.getType())
+        classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD), a(PUBLIC, STATIC), "test", returnType)
                 .getBody()
-                .append(expression.ret());
+                .append(node);
 
         if (DUMP_BYTE_CODE_TREE) {
             DumpByteCodeVisitor dumpByteCode = new DumpByteCodeVisitor(System.out);
@@ -66,7 +80,6 @@ public final class ByteCodeExpressionAssertions
         classDefinition.visit(cw);
 
         Class<?> clazz = classLoader.defineClass(classDefinition.getType().getJavaClassName(), cw.toByteArray());
-        Object actual = clazz.getMethod("test").invoke(null);
-        assertEquals(actual, expected);
+        return clazz.getMethod("test").invoke(null);
     }
 }
