@@ -16,6 +16,7 @@ package com.facebook.presto.byteCode.expression;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.instruction.Constant;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -72,5 +73,17 @@ class ConstantByteCodeExpression
     public List<ByteCodeNode> getChildNodes()
     {
         return ImmutableList.of();
+    }
+
+    public static Function<Object, String> constantRenderer()
+    {
+        return new Function<Object, String>()
+        {
+            @Override
+            public String apply(Object arg)
+            {
+                return renderConstant(arg);
+            }
+        };
     }
 }
