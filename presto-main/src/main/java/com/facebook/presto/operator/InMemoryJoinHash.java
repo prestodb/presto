@@ -94,7 +94,7 @@ public final class InMemoryJoinHash
     @Override
     public long getJoinPosition(int position, Block... blocks)
     {
-        int pos = ((int) Murmur3.hash64(hashBlocks(position, blocks))) & mask;
+        int pos = ((int) Murmur3.hash64(pagesHashStrategy.hashRow(position, blocks))) & mask;
 
         while (key[pos] != -1) {
             if (positionEqualsCurrentRow(key[pos], position, blocks)) {
@@ -120,17 +120,6 @@ public final class InMemoryJoinHash
         int blockPosition = decodePosition(pageAddress);
 
         pagesHashStrategy.appendTo(blockIndex, blockPosition, pageBuilder, outputChannelOffset);
-    }
-
-    private int hashBlocks(int position, Block... blocks)
-    {
-        int result = 0;
-        for (int i = 0; i < hashTypes.size(); i++) {
-            Type type =  hashTypes.get(i);
-            Block block = blocks[i];
-            result = result * 31 + type.hash(block, position);
-        }
-        return result;
     }
 
     private int hashPosition(int position)
