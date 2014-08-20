@@ -60,42 +60,47 @@ public abstract class ByteCodeExpression
 
     public abstract ByteCodeNode getByteCode();
 
-    public ByteCodeExpression getField(Class<?> declaringClass, String name)
+    public final ByteCodeExpression getField(Class<?> declaringClass, String name)
     {
         return new GetFieldByteCodeExpression(this, declaringClass, name);
     }
 
-    public ByteCodeExpression getField(Field field)
+    public final ByteCodeExpression getField(String name, Class<?> type)
+    {
+        return new GetFieldByteCodeExpression(this, this.getType(), name, type(type));
+    }
+
+    public final ByteCodeExpression getField(Field field)
     {
         return new GetFieldByteCodeExpression(this, field);
     }
 
-    public ByteCodeExpression getField(FieldDefinition field)
+    public final ByteCodeExpression getField(FieldDefinition field)
     {
         return new GetFieldByteCodeExpression(this, field);
     }
 
-    public ByteCodeExpression getField(ParameterizedType declaringClass, String name, ParameterizedType type)
+    public final ByteCodeExpression getField(ParameterizedType declaringClass, String name, ParameterizedType type)
     {
         return new GetFieldByteCodeExpression(this, declaringClass, name, type);
     }
 
-    public ByteCodeExpression setField(Class<?> declaringClass, String name, ByteCodeExpression value)
+    public final ByteCodeExpression setField(Class<?> declaringClass, String name, ByteCodeExpression value)
     {
         return new SetFieldByteCodeExpression(this, declaringClass, name, value);
     }
 
-    public ByteCodeExpression setField(Field field, ByteCodeExpression value)
+    public final ByteCodeExpression setField(Field field, ByteCodeExpression value)
     {
         return new SetFieldByteCodeExpression(this, field, value);
     }
 
-    public ByteCodeExpression setField(FieldDefinition field, ByteCodeExpression value)
+    public final ByteCodeExpression setField(FieldDefinition field, ByteCodeExpression value)
     {
         return new SetFieldByteCodeExpression(this, field, value);
     }
 
-    public ByteCodeExpression setField(ParameterizedType declaringClass, String name, ByteCodeExpression value)
+    public final ByteCodeExpression setField(ParameterizedType declaringClass, String name, ByteCodeExpression value)
     {
         return new SetFieldByteCodeExpression(this, declaringClass, name, value);
     }
