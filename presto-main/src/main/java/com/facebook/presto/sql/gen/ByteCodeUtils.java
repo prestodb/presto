@@ -137,12 +137,6 @@ public final class ByteCodeUtils
         throw new UnsupportedOperationException("not yet implemented: " + unboxedType);
     }
 
-    public static ByteCodeExpression invokeMethod(CompilerContext context, CallSiteBinder callSiteBinder, MethodHandle method)
-    {
-        Binding binding = callSiteBinder.bind(method);
-        return invokeDynamic("call_" + binding.getBindingId(), binding.getType(), context.getDefaultBootstrapMethod(), binding.getBindingId());
-    }
-
     public static ByteCodeExpression loadConstant(CompilerContext context, CallSiteBinder callSiteBinder, Object constant, Class<?> type)
     {
         Binding binding = callSiteBinder.bind(MethodHandles.constant(type, constant));
@@ -151,7 +145,11 @@ public final class ByteCodeUtils
 
     public static ByteCodeExpression loadConstant(CompilerContext context, Binding binding)
     {
-        return invokeDynamic("constant_" + binding.getBindingId(), binding.getType(), context.getDefaultBootstrapMethod(), binding.getBindingId());
+        return invokeDynamic(
+                context.getDefaultBootstrapMethod(),
+                ImmutableList.of(binding.getBindingId()),
+                "constant_" + binding.getBindingId(),
+                binding.getType().returnType());
     }
 
     public static ByteCodeNode generateInvocation(CompilerContext context, FunctionInfo function, List<ByteCodeNode> arguments, Binding binding)

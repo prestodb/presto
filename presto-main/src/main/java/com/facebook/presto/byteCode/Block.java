@@ -511,6 +511,16 @@ public class Block
         return this;
     }
 
+    public ByteCodeNode invokeDynamic(String name,
+            ParameterizedType returnType,
+            Iterable<ParameterizedType> parameterTypes,
+            Method bootstrapMethod,
+            List<Object> bootstrapArgs)
+    {
+        nodes.add(InvokeInstruction.invokeDynamic(name, returnType, parameterTypes, bootstrapMethod, bootstrapArgs));
+        return this;
+    }
+
     public Block ret(Class<?> type)
     {
         if (type == long.class) {
