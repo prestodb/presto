@@ -50,13 +50,18 @@ import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.s3.S3Credentials;
 import org.apache.hadoop.util.Progressable;
+import org.weakref.jmx.MBeanExporter;
 
+import javax.management.InstanceNotFoundException;
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FilterOutputStream;
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.concurrent.Callable;
@@ -76,10 +81,35 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.max;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;
+import static org.weakref.jmx.ObjectNames.generatedNameOf;
 
 public class PrestoS3FileSystem
         extends FileSystem
 {
+    private static final Logger log = Logger.get(PrestoS3FileSystem.class);
+
+    static {
+        try {
+            //since PrestoS3FileSystem is not managed by guice we use MBeanExporter to manually export the mbean
+            MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
+            MBeanExporter exporter = new MBeanExporter(platformMBeanServer);
+            String objNameStr = generatedNameOf(PrestoS3FileSystemStats.class);
+            ObjectName objectName = ObjectName.getInstance(objNameStr);
+            try {
+                platformMBeanServer.getMBeanInfo(objectName);
+                log.debug("%s is already exported", PrestoS3FileSystemStats.class.getName());
+            }
+            catch (InstanceNotFoundException e) {
+                exporter.export(generatedNameOf(PrestoS3FileSystemStats.class), PrestoS3FileSystemStats.getInstance());
+            }
+        }
+        catch (Exception e) {
+            log.error(e, "Problem exporting %s", PrestoS3FileSystemStats.class.getName());
+        }
+    }
+
+    private static PrestoS3FileSystemStats fileSystemStats = PrestoS3FileSystemStats.getInstance();
+
     public static final String S3_SSL_ENABLED = "presto.s3.ssl.enabled";
     public static final String S3_MAX_ERROR_RETRIES = "presto.s3.max-error-retries";
     public static final String S3_MAX_CLIENT_RETRIES = "presto.s3.max-client-retries";
@@ -87,8 +117,6 @@ public class PrestoS3FileSystem
     public static final String S3_CONNECT_TIMEOUT = "presto.s3.connect-timeout";
     public static final String S3_MAX_CONNECTIONS = "presto.s3.max-connections";
     public static final String S3_STAGING_DIRECTORY = "presto.s3.staging-directory";
-
-    private static final Logger log = Logger.get(PrestoS3FileSystem.class);
 
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
@@ -150,6 +178,7 @@ public class PrestoS3FileSystem
     public FileStatus[] listStatus(Path path)
             throws IOException
     {
+        fileSystemStats.newListStatusCall();
         List<LocatedFileStatus> list = new ArrayList<>();
         RemoteIterator<LocatedFileStatus> iterator = listLocatedStatus(path);
         while (iterator.hasNext()) {
@@ -162,6 +191,7 @@ public class PrestoS3FileSystem
     public RemoteIterator<LocatedFileStatus> listLocatedStatus(final Path path)
             throws IOException
     {
+        fileSystemStats.newListLocatedStatusCall();
         return new RemoteIterator<LocatedFileStatus>()
         {
             private final Iterator<LocatedFileStatus> iterator = listPrefix(path);
@@ -292,6 +322,7 @@ public class PrestoS3FileSystem
                 .withPrefix(key)
                 .withDelimiter("/");
 
+        fileSystemStats.newListObjectsCall();
         Iterator<ObjectListing> listings = new AbstractSequentialIterator<ObjectListing>(s3.listObjects(request))
         {
             @Override
@@ -365,6 +396,7 @@ public class PrestoS3FileSystem
                                 throws Exception
                         {
                             try {
+                                fileSystemStats.newMetadataCall();
                                 return s3.getObjectMetadata(uri.getHost(), keyFromPath(path));
                             }
                             catch (AmazonS3Exception e) {
@@ -585,6 +617,7 @@ public class PrestoS3FileSystem
                 throws IOException
         {
             if (in == null) {
+                fileSystemStats.connectionOpened();
                 in = getS3Object(path, position).getObjectContent();
             }
         }
@@ -595,6 +628,7 @@ public class PrestoS3FileSystem
             if (in != null) {
                 try {
                     in.abort();
+                    fileSystemStats.connectionReleased();
                 }
                 catch (IOException ignored) {
                 }
@@ -651,10 +685,13 @@ public class PrestoS3FileSystem
         {
             try {
                 log.debug("Starting upload for key: %s", key);
+                fileSystemStats.uploadStarted();
                 s3.putObject(host, key, tempFile);
+                fileSystemStats.uploadSuccessful();
                 log.debug("Completed upload for key: %s", key);
             }
             catch (AmazonClientException e) {
+                fileSystemStats.uploadFailed();
                 throw new IOException(e);
             }
         }
