@@ -190,17 +190,9 @@ public final class ByteCodeExpressions
     // Invoke static method
     //
 
-    public static ByteCodeExpression invokeStatic(
-            Class<?> methodTargetType,
-            String methodName,
-            Class<?> returnType,
-            ByteCodeExpression... parameters)
+    public static ByteCodeExpression invokeStatic(Class<?> methodTargetType, String methodName, Class<?> returnType, ByteCodeExpression... parameters)
     {
-        return invokeStatic(
-                type(checkNotNull(methodTargetType, "methodTargetType is null")),
-                methodName,
-                type(checkNotNull(returnType, "returnType is null")),
-                ImmutableList.copyOf(checkNotNull(parameters, "parameters is null")));
+        return invokeStatic(methodTargetType, methodName, returnType, ImmutableList.copyOf(checkNotNull(parameters, "parameters is null")));
     }
 
     public static ByteCodeExpression invokeStatic(
@@ -213,13 +205,40 @@ public final class ByteCodeExpressions
                 type(checkNotNull(methodTargetType, "methodTargetType is null")),
                 methodName,
                 type(checkNotNull(returnType, "returnType is null")),
+                ImmutableList.copyOf(transform(checkNotNull(parameters, "parameters is null"), typeGetter())),
                 parameters);
+    }
+
+    public static ByteCodeExpression invokeStatic(
+            Class<?> methodTargetType,
+            String methodName,
+            Class<?> returnType,
+            Iterable<? extends Class<?>> parameterTypes,
+            ByteCodeExpression... parameters)
+    {
+        return invokeStatic(
+                type(checkNotNull(methodTargetType, "methodTargetType is null")),
+                methodName,
+                type(checkNotNull(returnType, "returnType is null")),
+                transform(checkNotNull(parameterTypes, "parameterTypes is null"), toParameterizedType()),
+                ImmutableList.copyOf(checkNotNull(parameters, "parameters is null")));
     }
 
     public static ByteCodeExpression invokeStatic(
             ParameterizedType methodTargetType,
             String methodName,
             ParameterizedType returnType,
+            Iterable<ParameterizedType> parameterTypes,
+            ByteCodeExpression... parameters)
+    {
+        return invokeStatic(methodTargetType, methodName, returnType, parameterTypes, ImmutableList.copyOf(checkNotNull(parameters, "parameters is null")));
+    }
+
+    public static ByteCodeExpression invokeStatic(
+            ParameterizedType methodTargetType,
+            String methodName,
+            ParameterizedType returnType,
+            Iterable<ParameterizedType> parameterTypes,
             Iterable<? extends ByteCodeExpression> parameters)
     {
         return new InvokeByteCodeExpression(
@@ -227,7 +246,7 @@ public final class ByteCodeExpressions
                 methodTargetType,
                 methodName,
                 returnType,
-                ImmutableList.copyOf(transform(checkNotNull(parameters, "parameters is null"), typeGetter())),
+                parameterTypes,
                 parameters);
     }
 
