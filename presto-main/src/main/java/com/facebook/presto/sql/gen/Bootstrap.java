@@ -28,6 +28,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class Bootstrap
 {
+    public static final String CALL_SITES_FIELD_NAME = "callSites";
     public static final Method BOOTSTRAP_METHOD;
 
     static {
@@ -46,7 +47,7 @@ public final class Bootstrap
     public static CallSite bootstrap(MethodHandles.Lookup callerLookup, String name, MethodType type, long bindingId)
     {
         try {
-            MethodHandle handle = callerLookup.findStaticGetter(callerLookup.lookupClass(), "callSites", Map.class);
+            MethodHandle handle = callerLookup.findStaticGetter(callerLookup.lookupClass(), CALL_SITES_FIELD_NAME, Map.class);
             Map<Long, MethodHandle> bindings = (Map<Long, MethodHandle>) handle.invokeExact();
             checkNotNull(bindings, "'callSites' field in %s is null", callerLookup.lookupClass().getName());
 
