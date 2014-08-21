@@ -2,11 +2,11 @@
 Overview
 ********
 
-Presto is a distributed query engine designed to query large datasets
-distributed over several heterogenous data sources.
+Presto is a distributed SQL query engine designed to query large data sets
+distributed over one or more heterogeneous data sources.
 
 .. toctree::
     :maxdepth: 1
 
-    overview/usecases
+    overview/use-cases
     overview/concepts
