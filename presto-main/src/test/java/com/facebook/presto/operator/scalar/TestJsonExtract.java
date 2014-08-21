@@ -53,6 +53,9 @@ public class TestJsonExtract
         assertEquals(tokenizePath("$.x[\"foo\"]"), ImmutableList.of("x", "foo"));
         assertEquals(tokenizePath("$.x[42]"), ImmutableList.of("x", "42"));
         assertEquals(tokenizePath("$.foo_42._bar63"), ImmutableList.of("foo_42", "_bar63"));
+        assertEquals(tokenizePath("$[foo_42][_bar63]"), ImmutableList.of("foo_42", "_bar63"));
+        assertEquals(tokenizePath("$.foo:42.:bar63"), ImmutableList.of("foo:42", ":bar63"));
+        assertEquals(tokenizePath("$[\"foo:42\"][\":bar63\"]"), ImmutableList.of("foo:42", ":bar63"));
 
         assertEquals(tokenizePath("  $  "), ImmutableList.of());
         assertEquals(tokenizePath("  $  .  foo  "), ImmutableList.of("foo"));
@@ -80,6 +83,15 @@ public class TestJsonExtract
         assertQuotedPathToken("[");
         assertQuotedPathToken("'");
         assertQuotedPathToken("!@#$%^&*(){}[]<>?/\\|.,`~\r\n\t \0");
+
+        try {
+            // colon in subscript must be quoted
+            tokenizePath("$[foo:bar]");
+            fail("Expected PrestoException");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
+        }
     }
 
     private static void assertPathToken(String fieldName)
