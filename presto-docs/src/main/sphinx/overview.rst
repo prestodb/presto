@@ -9,4 +9,3 @@ distributed over one or more heterogeneous data sources.
     :maxdepth: 1
 
     overview/use-cases
-    overview/concepts
