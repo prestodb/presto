@@ -39,7 +39,7 @@ public class PagesIndexBuilderOperator
     {
         private final int operatorId;
         private final List<Type> types;
-        private final AtomicReference<PagesIndexBuilder> pagesIndexBuilderReference = new AtomicReference<>();
+        private final AtomicReference<IndexSnapshotBuilder> indexSnapshotBuilderReference = new AtomicReference<>();
         private boolean closed;
 
         public PagesIndexBuilderOperatorFactory(
@@ -50,10 +50,10 @@ public class PagesIndexBuilderOperator
             this.types = checkNotNull(types, "types is null");
         }
 
-        public void setPagesIndexBuilder(PagesIndexBuilder pagesIndexBuilder)
+        public void setPagesIndexBuilder(IndexSnapshotBuilder indexSnapshotBuilder)
         {
-            checkNotNull(pagesIndexBuilder, "pagesIndexBuilder is null");
-            checkState(pagesIndexBuilderReference.compareAndSet(null, pagesIndexBuilder), "Pages index builder has already been set");
+            checkNotNull(indexSnapshotBuilder, "indexSnapshotBuilder is null");
+            checkState(indexSnapshotBuilderReference.compareAndSet(null, indexSnapshotBuilder), "Index snapshot builder has already been set");
         }
 
         @Override
@@ -67,14 +67,14 @@ public class PagesIndexBuilderOperator
         {
             checkState(!closed, "Factory is already closed");
 
-            PagesIndexBuilder pagesIndexBuilder = pagesIndexBuilderReference.get();
-            checkState(pagesIndexBuilder != null, "Pages index builder has not been set");
+            IndexSnapshotBuilder indexSnapshotBuilder = indexSnapshotBuilderReference.get();
+            checkState(indexSnapshotBuilder != null, "Index snapshot builder has not been set");
 
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, PagesIndexBuilderOperator.class.getSimpleName());
             return new PagesIndexBuilderOperator(
                     types,
                     operatorContext,
-                    pagesIndexBuilder);
+                    indexSnapshotBuilder);
         }
 
         @Override
@@ -86,18 +86,18 @@ public class PagesIndexBuilderOperator
 
     private final List<Type> types;
     private final OperatorContext operatorContext;
-    private final PagesIndexBuilder pagesIndexBuilder;
+    private final IndexSnapshotBuilder indexSnapshotBuilder;
 
     private boolean finished;
 
     public PagesIndexBuilderOperator(
             List<Type> types,
             OperatorContext operatorContext,
-            PagesIndexBuilder pagesIndexBuilder)
+            IndexSnapshotBuilder indexSnapshotBuilder)
     {
         this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.pagesIndexBuilder = checkNotNull(pagesIndexBuilder, "pagesIndexBuilder is null");
+        this.indexSnapshotBuilder = checkNotNull(indexSnapshotBuilder, "indexSnapshotBuilder is null");
     }
 
     @Override
@@ -142,7 +142,7 @@ public class PagesIndexBuilderOperator
         checkNotNull(page, "page is null");
         checkState(!isFinished(), "Operator is already finished");
 
-        if (!pagesIndexBuilder.tryAddPage(page)) {
+        if (!indexSnapshotBuilder.tryAddPage(page)) {
             finish();
             return;
         }

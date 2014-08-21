@@ -63,7 +63,7 @@ public class IndexLoader
     private final List<Integer> indexChannels;
 
     @GuardedBy("this")
-    private IndexSnapshotBuilder indexSnapshotBuilder;
+    private IndexSnapshotLoader indexSnapshotLoader;
 
     @GuardedBy("this")
     private final AtomicReference<IndexSnapshot> indexSnapshotReference;
@@ -154,11 +154,11 @@ public class IndexLoader
 
     private synchronized boolean batchLoadRequests(List<UpdateRequest> requests)
     {
-        if (indexSnapshotBuilder == null) {
+        if (indexSnapshotLoader == null) {
             TaskContext taskContext = taskContextReference.get();
             checkState(taskContext != null, "Task context must be set before index can be built");
             PipelineContext pipelineContext = taskContext.addPipelineContext(false, false);
-            indexSnapshotBuilder = new IndexSnapshotBuilder(
+            indexSnapshotLoader = new IndexSnapshotLoader(
                     driverFactory,
                     pipelineContext,
                     sourcePlanNodeId,
@@ -169,11 +169,11 @@ public class IndexLoader
                     maxIndexMemorySize);
         }
 
-        return indexSnapshotBuilder.batchLoadRequests(requests);
+        return indexSnapshotLoader.batchLoadRequests(requests);
     }
 
     @NotThreadSafe
-    private static class IndexSnapshotBuilder
+    private static class IndexSnapshotLoader
     {
         private final DriverFactory driverFactory;
         private final PipelineContext pipelineContext;
@@ -183,9 +183,9 @@ public class IndexLoader
         private final List<Type> indexTypes;
         private final AtomicReference<IndexSnapshot> indexSnapshotReference;
 
-        private final PagesIndexBuilder pagesIndexBuilder;
+        private final IndexSnapshotBuilder indexSnapshotBuilder;
 
-        private IndexSnapshotBuilder(DriverFactory driverFactory,
+        private IndexSnapshotLoader(DriverFactory driverFactory,
                 PipelineContext pipelineContext,
                 PlanNodeId sourcePlanNodeId,
                 PagesIndexBuilderOperatorFactory pagesIndexOutput,
@@ -207,37 +207,37 @@ public class IndexLoader
             }
             indexTypes = typeBuilder.build();
 
-            this.pagesIndexBuilder = new PagesIndexBuilder(
+            this.indexSnapshotBuilder = new IndexSnapshotBuilder(
                     pagesIndexOutput.getTypes(),
                     indexChannels,
                     pipelineContext.addDriverContext(),
                     maxIndexMemorySize,
                     expectedPositions);
 
-            pagesIndexOutput.setPagesIndexBuilder(pagesIndexBuilder);
+            pagesIndexOutput.setPagesIndexBuilder(indexSnapshotBuilder);
         }
 
         private boolean batchLoadRequests(List<UpdateRequest> requests)
         {
-            boolean initialIndexIsEmpty = pagesIndexBuilder.isEmpty();
+            boolean initialIndexIsEmpty = indexSnapshotBuilder.isEmpty();
             UnloadedIndexKeyRecordSet unloadedKeysRecordSet = load(requests);
-            if (pagesIndexBuilder.isMemoryExceeded()) {
+            if (indexSnapshotBuilder.isMemoryExceeded()) {
                 // If the initial index had some data, flush the index and retry
                 if (!initialIndexIsEmpty) {
                     indexSnapshotReference.set(new IndexSnapshot(new EmptyLookupSource(types.size()), new EmptyLookupSource(indexChannels.size())));
-                    pagesIndexBuilder.reset();
+                    indexSnapshotBuilder.reset();
                     unloadedKeysRecordSet = load(requests);
                 }
                 // If we are still full, flush and fail the load
-                if (pagesIndexBuilder.isMemoryExceeded()) {
+                if (indexSnapshotBuilder.isMemoryExceeded()) {
                     indexSnapshotReference.set(new IndexSnapshot(new EmptyLookupSource(types.size()), new EmptyLookupSource(indexChannels.size())));
-                    pagesIndexBuilder.reset();
+                    indexSnapshotBuilder.reset();
                     return false;
                 }
             }
 
             // Create lookup source with new data
-            IndexSnapshot newValue = pagesIndexBuilder.createIndexSnapshot(unloadedKeysRecordSet);
+            IndexSnapshot newValue = indexSnapshotBuilder.createIndexSnapshot(unloadedKeysRecordSet);
             indexSnapshotReference.set(newValue);
             return true;
         }

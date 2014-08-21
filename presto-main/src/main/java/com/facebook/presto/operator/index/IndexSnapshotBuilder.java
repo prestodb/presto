@@ -32,7 +32,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 
-public class PagesIndexBuilder
+public class IndexSnapshotBuilder
 {
     private final List<Type> types;
     private final List<Type> missingKeysTypes;
@@ -50,7 +50,7 @@ public class PagesIndexBuilder
     private final List<Page> pages = new ArrayList<>();
     private long memoryInBytes;
 
-    public PagesIndexBuilder(List<Type> types,
+    public IndexSnapshotBuilder(List<Type> types,
             List<Integer> indexChannels,
             DriverContext driverContext,
             DataSize maxMemoryInBytes,
