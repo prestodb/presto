@@ -62,7 +62,7 @@ class InvokeByteCodeExpression
             Iterable<? extends ByteCodeExpression> parameters)
     {
         super(checkNotNull(returnType, "returnType is null"));
-        checkArgument(instance == null || instance.getType().getPrimitiveType() == null, "Type %s does not have methods", getType());
+        checkArgument(instance == null || !instance.getType().isPrimitive(), "Type %s does not have methods", getType());
         this.instance = instance;
         this.methodTargetType = checkNotNull(methodTargetType, "methodTargetType is null");
         this.methodName = checkNotNull(methodName, "methodName is null");

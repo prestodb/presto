@@ -71,7 +71,7 @@ class GetFieldByteCodeExpression
     public GetFieldByteCodeExpression(@Nullable ByteCodeExpression instance, ParameterizedType declaringClass, String name, ParameterizedType type)
     {
         super(type);
-        checkArgument(instance == null || instance.getType().getPrimitiveType() == null, "Type %s does not have fields", getType());
+        checkArgument(instance == null || !instance.getType().isPrimitive(), "Type %s does not have fields", getType());
         this.instance = instance;
         this.declaringClass = checkNotNull(declaringClass, "declaringClass is null");
         this.name = checkNotNull(name, "name is null");
