@@ -22,6 +22,7 @@ General Changes
 * The legacy byte code compiler has been removed
 * New aggregation framework (~10% faster)
 * Added :func:`max_by` aggregation function
+* The ``approx_avg()`` function has been removed. Use :func:`avg` instead.
 * Fixed parsing of ``UNION`` queries that use both ``DISTINCT`` and ``ALL``
 * Fixed cross join planning error for certain query shapes
 * Added hex and base64 conversion functions for varbinary
