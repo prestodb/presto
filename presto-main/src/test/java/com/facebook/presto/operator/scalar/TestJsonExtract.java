@@ -57,19 +57,6 @@ public class TestJsonExtract
         assertEquals(tokenizePath("$.foo:42.:bar63"), ImmutableList.of("foo:42", ":bar63"));
         assertEquals(tokenizePath("$[\"foo:42\"][\":bar63\"]"), ImmutableList.of("foo:42", ":bar63"));
 
-        assertEquals(tokenizePath("  $  "), ImmutableList.of());
-        assertEquals(tokenizePath("  $  .  foo  "), ImmutableList.of("foo"));
-        assertEquals(tokenizePath("  $  [  \"foo\"  ]  "), ImmutableList.of("foo"));
-        assertEquals(tokenizePath("  $  [  \"foo.bar\"  ]  "), ImmutableList.of("foo.bar"));
-        assertEquals(tokenizePath("  $  [  42  ]  "), ImmutableList.of("42"));
-        assertEquals(tokenizePath("  $  .  42  "), ImmutableList.of("42"));
-        assertEquals(tokenizePath("  $  .  42  .  42  "), ImmutableList.of("42", "42"));
-        assertEquals(tokenizePath("  $  .  x  .  foo  "), ImmutableList.of("x", "foo"));
-        assertEquals(tokenizePath("  $  .  x  [  \"foo\"  ]  "), ImmutableList.of("x", "foo"));
-        assertEquals(tokenizePath("  $  .  x  [  42  ]  "), ImmutableList.of("x", "42"));
-
-        assertEquals(tokenizePath("\t$\r.\nfoo\u3000"), ImmutableList.of("foo"));
-
         assertPathToken("foo");
 
         assertQuotedPathToken("-1.1");
@@ -86,6 +73,18 @@ public class TestJsonExtract
 
         // colon in subscript must be quoted
         assertInvalidPath("$[foo:bar]");
+
+        // whitespace is not allowed
+        assertInvalidPath(" $.x");
+        assertInvalidPath(" $.x ");
+        assertInvalidPath("$. x");
+        assertInvalidPath("$ .x");
+        assertInvalidPath("$\n.x");
+        assertInvalidPath("$.x [42]");
+        assertInvalidPath("$.x[ 42]");
+        assertInvalidPath("$.x[42 ]");
+        assertInvalidPath("$.x[ \"foo\"]");
+        assertInvalidPath("$.x[\"foo\" ]");
     }
 
     private static void assertPathToken(String fieldName)
