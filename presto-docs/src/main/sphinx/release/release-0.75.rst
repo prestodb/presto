@@ -17,7 +17,6 @@ General Changes
 ---------------
 
 * Optimize :func:`count` with a constant to execute as the much faster ``count(*)``
-* Add support for square bracket syntax in :func:`json_extract` functions
 * Add support for binary types to the JDBC driver
 * The legacy byte code compiler has been removed
 * New aggregation framework (~10% faster)
@@ -31,6 +30,21 @@ General Changes
 * Add support for renaming tables using the :doc:`../sql/alter-table` statement.
 * Add basic support for inserting data using the :doc:`../sql/insert` statement.
   This is currently only supported for the Raptor connector.
+
+JSON Function Changes
+---------------------
+
+The :func:`json_extract` and :func:`json_extract_scalar` functions now support
+the square bracket syntax::
+
+    SELECT json_extract(json, '$.store[book]');
+    SELECT json_extract(json, '$.store["book name"]');
+
+As part of this change, the set of characters allowed in a non-bracketed
+path segment has been restricted to alphanumeric, underscores and colons.
+Additionally, colons cannot be used in a un-quoted bracketed path segment.
+Use the new bracket syntax with quotes to match elements that contain
+special characters.
 
 Scheduler Changes
 -----------------
