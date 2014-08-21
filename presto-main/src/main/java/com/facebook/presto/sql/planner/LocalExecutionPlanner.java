@@ -1029,7 +1029,6 @@ public class LocalExecutionPlanner
             IndexLookupSourceSupplier indexLookupSourceSupplier = new IndexLookupSourceSupplier(
                     indexChannels,
                     indexSource.getTypes(),
-                    indexContext.getNextOperatorId(),
                     indexBuildDriverFactory,
                     pagesIndexOutput,
                     maxIndexMemorySize);

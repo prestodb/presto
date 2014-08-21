@@ -33,12 +33,11 @@ public class IndexLookupSourceSupplier
     public IndexLookupSourceSupplier(
             List<Integer> indexChannels,
             List<Type> types,
-            int snapshotOperatorId,
             DriverFactory indexBuildDriverFactory,
             PagesIndexBuilderOperatorFactory pagesIndexOutput,
             DataSize maxIndexMemorySize)
     {
-        this.indexLoader = new IndexLoader(indexChannels, types, snapshotOperatorId, indexBuildDriverFactory, pagesIndexOutput, 100_000, maxIndexMemorySize);
+        this.indexLoader = new IndexLoader(indexChannels, types, indexBuildDriverFactory, pagesIndexOutput, 100_000, maxIndexMemorySize);
     }
 
     @Override

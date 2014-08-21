@@ -17,9 +17,13 @@ import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.operator.index.UnloadedIndexKeyRecordSet.UnloadedIndexKeyRecordCursor;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
@@ -31,31 +35,51 @@ import static com.google.common.base.Preconditions.checkState;
 public class PagesIndexBuilder
 {
     private final List<Type> types;
+    private final List<Type> missingKeysTypes;
     private final int expectedPositions;
     private final List<Integer> indexChannels;
-    private final long maxMemoryUsage;
+    private final long maxMemoryInBytes;
+    private final List<Integer> missingKeysChannels;
 
     private final OperatorContext bogusOperatorContext;
     private PagesIndex currentPagesIndex;
 
-    private List<Page> pages = new ArrayList<>();
-    private long memoryUsage;
+    private PagesIndex missingKeysIndex;
+    private LookupSource missingKeys;
 
-    public PagesIndexBuilder(List<Type> types, int expectedPositions, List<Integer> indexChannels, OperatorContext operatorContext, DataSize maxMemoryUsage)
+    private final List<Page> pages = new ArrayList<>();
+    private long memoryInBytes;
+
+    public PagesIndexBuilder(List<Type> types,
+            List<Integer> indexChannels,
+            DriverContext driverContext,
+            DataSize maxMemoryInBytes,
+            int expectedPositions)
     {
-        this.types = types;
+        this.types = ImmutableList.copyOf(types);
         this.expectedPositions = expectedPositions;
         this.indexChannels = indexChannels;
-        this.maxMemoryUsage = maxMemoryUsage.toBytes();
+        this.maxMemoryInBytes = maxMemoryInBytes.toBytes();
+
+        ImmutableList.Builder<Type> missingKeysTypes = ImmutableList.builder();
+        ImmutableList.Builder<Integer> missingKeysChannels = ImmutableList.builder();
+        for (int i = 0; i < indexChannels.size(); i++) {
+            Integer outputIndexChannel = indexChannels.get(i);
+            missingKeysTypes.add(types.get(outputIndexChannel));
+            missingKeysChannels.add(i);
+        }
+        this.missingKeysTypes = missingKeysTypes.build();
+        this.missingKeysChannels = missingKeysChannels.build();
 
         // create a bogus operator context with unlimited memory for the pages index
-        DriverContext driverContext = operatorContext.getDriverContext();
         bogusOperatorContext = new TaskContext(driverContext.getTaskId(), driverContext.getExecutor(), driverContext.getSession(), new DataSize(Long.MAX_VALUE, Unit.BYTE))
                 .addPipelineContext(true, true)
                 .addDriverContext()
                 .addOperatorContext(0, "operator");
 
         this.currentPagesIndex = new PagesIndex(types, expectedPositions, bogusOperatorContext);
+        this.missingKeysIndex = new PagesIndex(missingKeysTypes.build(), expectedPositions, bogusOperatorContext);
+        this.missingKeys = missingKeysIndex.createLookupSource(this.missingKeysChannels);
     }
 
     public boolean isEmpty()
@@ -65,33 +89,58 @@ public class PagesIndexBuilder
 
     public boolean isMemoryExceeded()
     {
-        return memoryUsage > maxMemoryUsage;
+        return memoryInBytes > maxMemoryInBytes;
     }
 
     public boolean tryAddPage(Page page)
     {
-        memoryUsage += page.getDataSize().toBytes();
+        memoryInBytes += page.getDataSize().toBytes();
         if (isMemoryExceeded()) {
             return false;
         }
-        currentPagesIndex.addPage(page);
+        pages.add(page);
         return true;
     }
 
-    public LookupSource createLookupSource()
+    public IndexSnapshot createIndexSnapshot(UnloadedIndexKeyRecordSet unloadedKeysRecordSet)
     {
         checkState(!isMemoryExceeded(), "Max memory exceeded");
         for (Page page : pages) {
             currentPagesIndex.addPage(page);
         }
         pages.clear();
-        return currentPagesIndex.createLookupSource(indexChannels);
+
+        LookupSource lookupSource = currentPagesIndex.createLookupSource(indexChannels);
+
+        // Build a page containing the keys that produced no output rows, so in future requests can skip these keys
+        PageBuilder missingKeysPageBuilder = new PageBuilder(missingKeysIndex.getTypes());
+        UnloadedIndexKeyRecordCursor unloadedKeyRecordCursor = unloadedKeysRecordSet.cursor();
+        while (unloadedKeyRecordCursor.advanceNextPosition()) {
+            Block[] blocks = unloadedKeyRecordCursor.getBlocks();
+            int position = unloadedKeyRecordCursor.getPosition();
+            if (lookupSource.getJoinPosition(position, blocks) < 0) {
+                for (int i = 0; i < blocks.length; i++) {
+                    Block block = blocks[i];
+                    Type type = unloadedKeyRecordCursor.getType(i);
+                    type.appendTo(block, position, missingKeysPageBuilder.getBlockBuilder(i));
+                }
+            }
+        }
+
+        // only update missing keys if we have new missing keys
+        if (!missingKeysPageBuilder.isEmpty()) {
+            missingKeysIndex.addPage(missingKeysPageBuilder.build());
+            missingKeys = missingKeysIndex.createLookupSource(missingKeysChannels);
+        }
+
+        return new IndexSnapshot(lookupSource, missingKeys);
     }
 
     public void reset()
     {
-        memoryUsage = 0;
+        memoryInBytes = 0;
         pages.clear();
         currentPagesIndex = new PagesIndex(types, expectedPositions, bogusOperatorContext);
+        missingKeysIndex = new PagesIndex(missingKeysTypes, expectedPositions, bogusOperatorContext);
     }
 }
