@@ -175,6 +175,9 @@ public class ParameterizedType
     public String getGenericSignature()
     {
         StringBuilder sb = new StringBuilder();
+        if (primitiveType != null) {
+            return type;
+        }
         sb.append('L').append(className);
         if (!parameters.isEmpty()) {
             sb.append("<");
@@ -201,6 +204,11 @@ public class ParameterizedType
     public Class<?> getPrimitiveType()
     {
         return primitiveType;
+    }
+
+    public boolean isPrimitive()
+    {
+        return primitiveType != null;
     }
 
     @Nullable
