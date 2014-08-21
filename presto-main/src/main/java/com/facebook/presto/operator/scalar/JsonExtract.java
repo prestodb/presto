@@ -27,7 +27,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
-import java.util.regex.Pattern;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
@@ -113,7 +112,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
  */
 public final class JsonExtract
 {
-    private static final Pattern PATH_TOKEN = Pattern.compile("(?:\\[(\\d+)])|(?:\\[(\"[^\"]*?\")])|(?:\\.([a-zA-Z_]\\w*))");
     private static final int ESTIMATED_JSON_OUTPUT_SIZE = 512;
 
     private static final JsonFactory JSON_FACTORY = new JsonFactory()
@@ -307,7 +305,8 @@ public final class JsonExtract
                     length++;
                 }
             }
-            else if (jsonParser.getCurrentToken() == START_OBJECT) {
+
+            if (jsonParser.getCurrentToken() == START_OBJECT) {
                 long length = 0;
                 while (true) {
                     JsonToken token = jsonParser.nextToken();
@@ -326,9 +325,8 @@ public final class JsonExtract
                     }
                 }
             }
-            else {
-                return 0L;
-            }
+
+            return 0L;
         }
     }
 
