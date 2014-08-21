@@ -49,11 +49,6 @@ General Aggregate Functions
 Approximate Aggregate Functions
 -------------------------------
 
-.. function:: approx_avg(x) -> varchar
-
-    Returns the approximate average with bounded error at 99% confidence for
-    all input values of ``x``.
-
 .. function:: approx_distinct(x) -> bigint
 
     Returns the approximate number of distinct input values.
