@@ -84,14 +84,8 @@ public class TestJsonExtract
         assertQuotedPathToken("'");
         assertQuotedPathToken("!@#$%^&*(){}[]<>?/\\|.,`~\r\n\t \0");
 
-        try {
-            // colon in subscript must be quoted
-            tokenizePath("$[foo:bar]");
-            fail("Expected PrestoException");
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
-        }
+        // colon in subscript must be quoted
+        assertInvalidPath("$[foo:bar]");
     }
 
     private static void assertPathToken(String fieldName)
@@ -105,20 +99,26 @@ public class TestJsonExtract
     private static void assertQuotedPathToken(String fieldName)
     {
         assertPathTokenQuoting(fieldName);
-        try {
-            // without quoting we should get an error
-            tokenizePath("$." + fieldName);
-            fail("Expected PrestoException");
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
-        }
+        // without quoting we should get an error
+        assertInvalidPath("$." + fieldName);
     }
+
     private static void assertPathTokenQuoting(String fieldName)
     {
         assertTrue(fieldName.indexOf('"') < 0);
         assertEquals(tokenizePath("$[\"" + fieldName + "\"]"), ImmutableList.of(fieldName));
         assertEquals(tokenizePath("$.foo[\"" + fieldName + "\"].bar"), ImmutableList.of("foo", fieldName, "bar"));
+    }
+
+    public static void assertInvalidPath(String path)
+    {
+        try {
+            tokenizePath(path);
+            fail("Expected PrestoException");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
+        }
     }
 
     @Test
