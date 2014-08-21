@@ -19,7 +19,6 @@ import com.google.common.collect.AbstractIterator;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Character.isLetterOrDigit;
-import static java.lang.Character.isWhitespace;
 import static java.lang.String.format;
 
 public class JsonPathTokenizer
@@ -45,7 +44,6 @@ public class JsonPathTokenizer
     @Override
     protected String computeNext()
     {
-        skipWhitespace();
         if (!hasNextCharacter()) {
             return endOfData();
         }
@@ -66,8 +64,6 @@ public class JsonPathTokenizer
 
     private String matchPathSegment()
     {
-        skipWhitespace();
-
         // seek until we see a special character or whitespace
         int start = index;
         while (hasNextCharacter() && isUnquotedPathCharacter(peekCharacter())) {
@@ -92,8 +88,6 @@ public class JsonPathTokenizer
 
     private String matchUnquotedSubscript()
     {
-        skipWhitespace();
-
         // seek until we see a special character or whitespace
         int start = index;
         while (hasNextCharacter() && isUnquotedSubscriptCharacter(peekCharacter())) {
@@ -147,20 +141,11 @@ public class JsonPathTokenizer
 
     private boolean tryMatch(char expected)
     {
-        skipWhitespace();
-
         if (peekCharacter() != expected) {
             return false;
         }
         index++;
         return true;
-    }
-
-    private void skipWhitespace()
-    {
-        while (hasNextCharacter() && isWhitespace(peekCharacter())) {
-            index++;
-        }
     }
 
     private void nextCharacter()
