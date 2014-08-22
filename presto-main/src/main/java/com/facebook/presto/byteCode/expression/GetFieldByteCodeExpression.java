@@ -90,7 +90,7 @@ class GetFieldByteCodeExpression
     }
 
     @Override
-    public String toString()
+    protected String formatOneLine()
     {
         if (instance == null) {
             return declaringClass.getSimpleName() + "." + name;

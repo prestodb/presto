@@ -70,7 +70,7 @@ class InvokeDynamicByteCodeExpression
     }
 
     @Override
-    public String toString()
+    protected String formatOneLine()
     {
         StringBuilder builder = new StringBuilder();
         builder.append("[").append(bootstrapMethod.getName());

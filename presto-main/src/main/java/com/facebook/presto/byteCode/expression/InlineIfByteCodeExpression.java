@@ -63,7 +63,7 @@ class InlineIfByteCodeExpression
     }
 
     @Override
-    public String toString()
+    protected String formatOneLine()
     {
         return "(" + condition + " ? " + ifTrue + " : " + ifFalse + ")";
     }

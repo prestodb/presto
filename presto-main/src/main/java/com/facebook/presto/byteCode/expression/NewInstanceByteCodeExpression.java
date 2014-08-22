@@ -53,7 +53,7 @@ class NewInstanceByteCodeExpression
     }
 
     @Override
-    public String toString()
+    protected String formatOneLine()
     {
         return "new " + getType().getSimpleName() + "(" + Joiner.on(", ").join(parameters) + ")";
     }

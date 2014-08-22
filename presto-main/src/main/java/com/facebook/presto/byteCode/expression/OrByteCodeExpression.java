@@ -63,7 +63,7 @@ class OrByteCodeExpression
     }
 
     @Override
-    public String toString()
+    protected String formatOneLine()
     {
         return "(" + left + " || " + right + ")";
     }
