@@ -21,6 +21,7 @@ import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.bitwis
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.bitwiseXor;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.divide;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.multiply;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.negate;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.remainder;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.shiftLeft;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.shiftRight;
@@ -130,5 +131,19 @@ public class TestArithmeticByteCodeExpression
     {
         assertByteCodeExpression(bitwiseXor(constantInt(101), constantInt(37)), 101 ^ 37, "(101 ^ 37)");
         assertByteCodeExpression(bitwiseXor(constantLong(101), constantLong(37)), 101L ^ 37L, "(101L ^ 37L)");
+    }
+
+    @Test
+    public void testNegate()
+            throws Exception
+    {
+        assertByteCodeExpression(negate(constantInt(3)), -3, "-(3)");
+        assertByteCodeExpression(negate(constantLong(3)), -3L, "-(3L)");
+        assertByteCodeExpression(negate(constantFloat(3.1f)), -3.1f, "-(3.1f)");
+        assertByteCodeExpression(negate(constantDouble(3.1)), -3.1, "-(3.1)");
+        assertByteCodeExpression(negate(constantInt(-3)), -(-3), "-(-3)");
+        assertByteCodeExpression(negate(constantLong(-3)), -(-3L), "-(-3L)");
+        assertByteCodeExpression(negate(constantFloat(-3.1f)), -(-3.1f), "-(-3.1f)");
+        assertByteCodeExpression(negate(constantDouble(-3.1)), -(-3.1), "-(-3.1)");
     }
 }
