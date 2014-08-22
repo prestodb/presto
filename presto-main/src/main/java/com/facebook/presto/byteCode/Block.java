@@ -651,6 +651,18 @@ public class Block
         return this;
     }
 
+    public Block pop(ParameterizedType type)
+    {
+        Class<?> primitiveType = type.getPrimitiveType();
+        if (primitiveType == long.class || primitiveType == double.class) {
+            nodes.add(OpCode.POP2);
+        }
+        else if (primitiveType != void.class) {
+            nodes.add(OpCode.POP);
+        }
+        return this;
+    }
+
     public Block swap()
     {
         nodes.add(OpCode.SWAP);
