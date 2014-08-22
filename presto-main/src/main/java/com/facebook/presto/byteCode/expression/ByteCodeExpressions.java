@@ -392,6 +392,11 @@ public final class ByteCodeExpressions
         return createArithmeticByteCodeExpression(OpCode.IUSHR, left, right);
     }
 
+    public static ByteCodeExpression negate(ByteCodeExpression value)
+    {
+        return new NegateByteCodeExpression(value);
+    }
+
     //
     // Comparison operations
     //
@@ -424,5 +429,24 @@ public final class ByteCodeExpressions
     public static ByteCodeExpression notEqual(ByteCodeExpression left, ByteCodeExpression right)
     {
         return ComparisonByteCodeExpression.notEqual(left, right);
+    }
+
+    //
+    // Logical binary operations
+    //
+
+    public static ByteCodeExpression and(ByteCodeExpression left, ByteCodeExpression right)
+    {
+        return new AndByteCodeExpression(left, right);
+    }
+
+    public static ByteCodeExpression or(ByteCodeExpression left, ByteCodeExpression right)
+    {
+        return new OrByteCodeExpression(left, right);
+    }
+
+    public static ByteCodeExpression not(ByteCodeExpression value)
+    {
+        return new NotByteCodeExpression(value);
     }
 }
