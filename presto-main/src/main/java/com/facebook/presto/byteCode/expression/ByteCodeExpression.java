@@ -167,6 +167,14 @@ public abstract class ByteCodeExpression
         return new ReturnByteCodeExpression(this);
     }
 
+    public final ByteCodeExpression pop()
+    {
+        if (this.getType().getPrimitiveType() == void.class) {
+            return this;
+        }
+        return new PopByteCodeExpression(this);
+    }
+
     @Override
     public final void accept(MethodVisitor visitor)
     {
