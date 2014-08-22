@@ -530,12 +530,12 @@ public final class ExpressionFormatter
         }
     }
 
-    static String formatStringLiteral(String s)
+    public static String formatStringLiteral(String s)
     {
         return "'" + s.replace("'", "''") + "'";
     }
 
-    static String formatSortItems(List<SortItem> sortItems)
+    public static String formatSortItems(List<SortItem> sortItems)
     {
         return Joiner.on(", ").join(transform(sortItems, sortItemFormatterFunction()));
     }

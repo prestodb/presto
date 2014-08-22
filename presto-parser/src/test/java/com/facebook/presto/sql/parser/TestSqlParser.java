@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.sql.parser;
 
-import com.facebook.presto.sql.VeroGenericSqlFormatter;
-import com.facebook.presto.sql.VeroPostgreSqlFormatter;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.Cast;
@@ -50,7 +48,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
-import org.antlr.runtime.tree.CommonTree;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.QueryUtil.selectList;
@@ -66,31 +63,6 @@ import static org.testng.Assert.fail;
 public class TestSqlParser
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
-
-    @Test
-    public void testYulin()
-    {
-        String sql = "SELECT SUM(@{# BB}, virt) ccc, aaa c2 FROM dual group by abc, abb";
-
-        CommonTree tree = SQL_PARSER.parseStatement(sql);
-        Statement statement = SQL_PARSER.createStatement(sql);
-        System.out.println("CommonTree: " + TreePrinter.treeToString(tree));
-        System.out.println("Statement: " + statement.toString());
-        System.out.println("Formatter: " + VeroGenericSqlFormatter.formatSql(statement));
-    }
-
-    @Test
-    public void testYulinCreateTempTable()
-    {
-        String sql = "CREATE TEMP TABLE A AS (SELECT SUM(@{AA BB}, virt) ccc, aaa c2 FROM dual group by abc) WITH DATA";
-
-        CommonTree tree = SQL_PARSER.parseStatement(sql);
-        Statement statement = SQL_PARSER.createStatement(sql);
-        System.out.println("CommonTree: " + TreePrinter.treeToString(tree));
-        System.out.println("Statement: " + statement.toString());
-        System.out.println("Generic Formatter: " + VeroGenericSqlFormatter.formatSql(statement));
-        System.out.println("PostgreSql Formatter: " + VeroPostgreSqlFormatter.formatSql(statement));
-    }
 
     @Test
     public void testPossibleExponentialBacktracking()

@@ -68,7 +68,7 @@ public class SqlParser
     }
 
     @VisibleForTesting
-    public static Statement createStatement(CommonTree tree)
+    public Statement createStatement(CommonTree tree)
     {
         TreeNodeStream stream = new BufferedTreeNodeStream(tree);
         StatementBuilder builder = new StatementBuilder(stream);
@@ -80,7 +80,7 @@ public class SqlParser
         }
     }
 
-    public static Expression createExpression(CommonTree tree)
+    public Expression createExpression(CommonTree tree)
     {
         TreeNodeStream stream = new BufferedTreeNodeStream(tree);
         StatementBuilder builder = new StatementBuilder(stream);
