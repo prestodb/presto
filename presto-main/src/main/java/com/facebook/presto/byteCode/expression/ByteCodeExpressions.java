@@ -46,6 +46,16 @@ public final class ByteCodeExpressions
     // Constants
     //
 
+    public static ByteCodeExpression constantTrue()
+    {
+        return new ConstantByteCodeExpression(boolean.class, loadBoolean(true));
+    }
+
+    public static ByteCodeExpression constantFalse()
+    {
+        return new ConstantByteCodeExpression(boolean.class, loadBoolean(false));
+    }
+
     public static ByteCodeExpression constantBoolean(boolean value)
     {
         return new ConstantByteCodeExpression(boolean.class, loadBoolean(value));

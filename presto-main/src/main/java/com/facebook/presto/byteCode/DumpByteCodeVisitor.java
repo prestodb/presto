@@ -22,6 +22,7 @@ import com.facebook.presto.byteCode.control.TryCatch;
 import com.facebook.presto.byteCode.control.WhileLoop;
 import com.facebook.presto.byteCode.debug.LineNumberNode;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
+import com.facebook.presto.byteCode.instruction.Constant.BooleanConstant;
 import com.facebook.presto.byteCode.instruction.Constant.BoxedBooleanConstant;
 import com.facebook.presto.byteCode.instruction.Constant.BoxedDoubleConstant;
 import com.facebook.presto.byteCode.instruction.Constant.BoxedFloatConstant;
@@ -395,6 +396,13 @@ public class DumpByteCodeVisitor
     public Void visitBoxedBooleanConstant(ByteCodeNode parent, BoxedBooleanConstant boxedBooleanConstant)
     {
         printLine("load constant %s", boxedBooleanConstant.getValue());
+        return null;
+    }
+
+    @Override
+    public Void visitBooleanConstant(ByteCodeNode parent, BooleanConstant booleanConstant)
+    {
+        printLine("load constant %s", booleanConstant.getValue());
         return null;
     }
 
