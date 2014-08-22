@@ -20,12 +20,14 @@ import java.util.List;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantBoolean;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantClass;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantDouble;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFalse;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFloat;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantLong;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantNull;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantString;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressionAssertions.assertByteCodeExpression;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantTrue;
 
 public class TestConstantByteCodeExpression
 {
@@ -35,8 +37,10 @@ public class TestConstantByteCodeExpression
     {
         assertByteCodeExpression(constantNull(List.class), null, "null");
 
-        assertByteCodeExpression(constantBoolean(true), true, "1");
-        assertByteCodeExpression(constantBoolean(false), false, "0");
+        assertByteCodeExpression(constantTrue(), true, "true");
+        assertByteCodeExpression(constantFalse(), false, "false");
+        assertByteCodeExpression(constantBoolean(true), true, "true");
+        assertByteCodeExpression(constantBoolean(false), false, "false");
 
         assertByteCodeExpression(constantInt(0), 0, "0");
         assertByteCodeExpression(constantInt(Integer.MAX_VALUE), Integer.MAX_VALUE, String.valueOf(Integer.MAX_VALUE));

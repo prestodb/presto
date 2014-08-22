@@ -55,7 +55,7 @@ public abstract class Constant
 
     public static Constant loadBoolean(boolean value)
     {
-        return new IntConstant(value ? 1 : 0);
+        return new BooleanConstant(value);
     }
 
     public static Constant loadBoxedBoolean(boolean value)
@@ -186,6 +186,40 @@ public abstract class Constant
         public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
         {
             return visitor.visitConstant(parent, this);
+        }
+    }
+
+    public static class BooleanConstant
+            extends Constant
+    {
+        private final boolean value;
+
+        private BooleanConstant(boolean value)
+        {
+            this.value = value;
+        }
+
+        @Override
+        public Boolean getValue()
+        {
+            return value;
+        }
+
+        @Override
+        public void accept(MethodVisitor visitor)
+        {
+            if (value) {
+                visitor.visitInsn(ICONST_1.getOpCode());
+            }
+            else {
+                visitor.visitInsn(ICONST_0.getOpCode());
+            }
+        }
+
+        @Override
+        public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+        {
+            return visitor.visitBooleanConstant(parent, this);
         }
     }
 
