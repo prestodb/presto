@@ -132,7 +132,7 @@ public class ArithmeticByteCodeExpression
         }
     }
 
-    private static OpCode getNumericOpCode(String name, OpCode baseOpCode, Class<?> type)
+    static OpCode getNumericOpCode(String name, OpCode baseOpCode, Class<?> type)
     {
         // Arithmetic OpCodes are laid out int, long, float and then double
         if (type == int.class) {
