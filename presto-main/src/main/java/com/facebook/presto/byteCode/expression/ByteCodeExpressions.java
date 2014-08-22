@@ -449,4 +449,13 @@ public final class ByteCodeExpressions
     {
         return new NotByteCodeExpression(value);
     }
+
+    //
+    // Complex expressions
+    //
+
+    public static ByteCodeExpression inlineIf(ByteCodeExpression condition, ByteCodeExpression ifTrue, ByteCodeExpression ifFalse)
+    {
+        return new InlineIfByteCodeExpression(condition, ifTrue, ifFalse);
+    }
 }
