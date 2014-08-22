@@ -46,7 +46,7 @@ class ConstantByteCodeExpression
     }
 
     @Override
-    public String toString()
+    protected String formatOneLine()
     {
         return renderConstant(value.getValue());
     }

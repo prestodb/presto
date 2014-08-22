@@ -266,7 +266,7 @@ class CastByteCodeExpression
     }
 
     @Override
-    public String toString()
+    protected String formatOneLine()
     {
         return "((" + getType().getSimpleName() + ") " + instance + ")";
     }

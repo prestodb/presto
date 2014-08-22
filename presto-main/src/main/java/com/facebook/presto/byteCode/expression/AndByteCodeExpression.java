@@ -63,7 +63,7 @@ class AndByteCodeExpression
     }
 
     @Override
-    public String toString()
+    protected String formatOneLine()
     {
         return "(" + left + " && " + right + ")";
     }

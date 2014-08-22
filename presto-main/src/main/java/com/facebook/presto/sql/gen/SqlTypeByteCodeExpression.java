@@ -66,7 +66,7 @@ public class SqlTypeByteCodeExpression
     }
 
     @Override
-    public String toString()
+    protected String formatOneLine()
     {
         return type.getName();
     }

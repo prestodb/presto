@@ -42,9 +42,9 @@ class PopByteCodeExpression
     }
 
     @Override
-    public String toString()
+    protected String formatOneLine()
     {
-        return instance + ";";
+        return instance.toString();
     }
 
     @Override
