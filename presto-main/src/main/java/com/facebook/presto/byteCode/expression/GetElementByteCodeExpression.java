@@ -50,7 +50,7 @@ class GetElementByteCodeExpression
     }
 
     @Override
-    public String toString()
+    protected String formatOneLine()
     {
         return instance + "[" + index + "]";
     }

@@ -60,7 +60,7 @@ class NegateByteCodeExpression
     }
 
     @Override
-    public String toString()
+    protected String formatOneLine()
     {
         return "-(" + value + ")";
     }

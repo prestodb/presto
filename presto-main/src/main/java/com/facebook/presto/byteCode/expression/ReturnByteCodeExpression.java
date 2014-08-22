@@ -46,9 +46,9 @@ class ReturnByteCodeExpression
     }
 
     @Override
-    public String toString()
+    protected String formatOneLine()
     {
-        return "return " + instance + ";";
+        return "return " + instance;
     }
 
     @Override

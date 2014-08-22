@@ -307,7 +307,7 @@ class ComparisonByteCodeExpression
     }
 
     @Override
-    public String toString()
+    protected String formatOneLine()
     {
         return "(" + left + " " + infixSymbol + " " + right + ")";
     }

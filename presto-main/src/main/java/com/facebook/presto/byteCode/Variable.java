@@ -57,7 +57,7 @@ public class Variable
     }
 
     @Override
-    public String toString()
+    protected String formatOneLine()
     {
         return name;
     }
@@ -96,7 +96,7 @@ public class Variable
         }
 
         @Override
-        public String toString()
+        protected String formatOneLine()
         {
             return variable.getName() + " = " + value;
         }

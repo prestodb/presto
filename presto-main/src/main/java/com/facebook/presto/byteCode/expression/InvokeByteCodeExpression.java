@@ -95,7 +95,7 @@ class InvokeByteCodeExpression
     }
 
     @Override
-    public String toString()
+    protected String formatOneLine()
     {
         if (instance == null) {
             return methodTargetType.getSimpleName() + "." + methodName + "(" + Joiner.on(", ").join(parameters) + ")";

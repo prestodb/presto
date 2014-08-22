@@ -37,7 +37,7 @@ public class TestSetVariableByteCodeExpression
         Variable point = context.declareVariable(Point.class, "point");
         ByteCodeExpression setPoint = point.set(newInstance(Point.class, constantInt(3), constantInt(7)));
 
-        assertEquals(setPoint.toString(), "point = new Point(3, 7)");
+        assertEquals(setPoint.toString(), "point = new Point(3, 7);");
 
         Block block = new Block(context)
                 .append(setPoint)

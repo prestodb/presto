@@ -60,6 +60,14 @@ public abstract class ByteCodeExpression
 
     public abstract ByteCodeNode getByteCode();
 
+    protected abstract String formatOneLine();
+
+    @Override
+    public final String toString()
+    {
+        return formatOneLine() + (type.getPrimitiveType() == void.class ? ";" : "");
+    }
+
     public final ByteCodeExpression getField(Class<?> declaringClass, String name)
     {
         return new GetFieldByteCodeExpression(this, declaringClass, name);

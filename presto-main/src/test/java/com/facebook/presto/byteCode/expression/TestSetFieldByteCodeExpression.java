@@ -48,7 +48,7 @@ public class TestSetFieldByteCodeExpression
     public static void assertSetPoint(CompilerContext context, ByteCodeExpression setX)
             throws Exception
     {
-        assertEquals(setX.toString(), "point.x = 42");
+        assertEquals(setX.toString(), "point.x = 42;");
 
         Block block = new Block(context)
                 .append(context.getVariable("point").set(newInstance(Point.class, constantInt(3), constantInt(7))))
@@ -71,7 +71,7 @@ public class TestSetFieldByteCodeExpression
             throws Exception
     {
         testField = "fail";
-        assertByteCodeExpression(setStaticField, null, getClass().getSimpleName() + ".testField = \"testValue\"");
+        assertByteCodeExpression(setStaticField, null, getClass().getSimpleName() + ".testField = \"testValue\";");
         assertEquals(testField, "testValue");
     }
 }

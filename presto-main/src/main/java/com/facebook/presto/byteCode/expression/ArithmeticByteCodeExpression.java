@@ -196,7 +196,7 @@ public class ArithmeticByteCodeExpression
     }
 
     @Override
-    public String toString()
+    protected String formatOneLine()
     {
         return "(" + left + " " + infixSymbol + " " + right + ")";
     }
