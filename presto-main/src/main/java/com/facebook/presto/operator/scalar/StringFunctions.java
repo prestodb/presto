@@ -19,11 +19,13 @@ import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.SqlType;
 import com.google.common.base.Ascii;
 import com.google.common.base.Charsets;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import javax.annotation.Nullable;
+
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -31,14 +33,14 @@ public final class StringFunctions
 {
     private StringFunctions() {}
 
-    @Description("convert ASCII character code to string")
+    @Description("convert unicode code point to a string")
     @ScalarFunction
     @SqlType(VarcharType.class)
-    public static Slice chr(@SqlType(BigintType.class) long n)
+    public static Slice chr(@SqlType(BigintType.class) long codepoint)
     {
-        Slice slice = Slices.allocate(1);
-        slice.setByte(0, Ints.saturatedCast(n));
-        return slice;
+        char[] utf16 = Character.toChars((int) codepoint);
+        ByteBuffer utf8 = Charsets.UTF_8.encode(CharBuffer.wrap(utf16));
+        return Slices.wrappedBuffer(utf8.array(), 0, utf8.limit());
     }
 
     @Description("concatenates given strings")
