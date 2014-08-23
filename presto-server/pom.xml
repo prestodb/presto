@@ -10,151 +10,25 @@
 
     <artifactId>presto-server</artifactId>
     <name>presto-server</name>
-    <packaging>pom</packaging>
+    <packaging>provisio</packaging>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <main-class>com.facebook.presto.server.PrestoServer</main-class>
         <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
         <air.check.skip-dependency-version-check>true</air.check.skip-dependency-version-check>
-    </properties>
 
-    <dependencies>
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-    </dependencies>
+        <!-- Launcher properties -->
+        <main-class>com.facebook.presto.server.PrestoServer</main-class>
+        <process-name>${project.artifactId}</process-name>
+    </properties>
 
     <build>
         <plugins>
             <plugin>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>unpack-plugins</id>
-                        <phase>prepare-package</phase>
-                        <goals>
-                            <goal>unpack</goal>
-                        </goals>
-                        <configuration>
-                            <artifactItems>
-                                <artifactItem>
-                                    <groupId>com.facebook.presto</groupId>
-                                    <artifactId>presto-raptor</artifactId>
-                                    <version>${project.version}</version>
-                                    <type>zip</type>
-                                    <overWrite>false</overWrite>
-                                    <outputDirectory>${project.build.directory}/plugin/raptor</outputDirectory>
-                                </artifactItem>
-                                <artifactItem>
-                                    <groupId>com.facebook.presto</groupId>
-                                    <artifactId>presto-tpch</artifactId>
-                                    <version>${project.version}</version>
-                                    <type>zip</type>
-                                    <overWrite>false</overWrite>
-                                    <outputDirectory>${project.build.directory}/plugin/tpch</outputDirectory>
-                                </artifactItem>
-                                <artifactItem>
-                                    <groupId>com.facebook.presto</groupId>
-                                    <artifactId>presto-hive-hadoop1</artifactId>
-                                    <version>${project.version}</version>
-                                    <type>zip</type>
-                                    <overWrite>false</overWrite>
-                                    <outputDirectory>${project.build.directory}/plugin/hive-hadoop1</outputDirectory>
-                                </artifactItem>
-                                <artifactItem>
-                                    <groupId>com.facebook.presto</groupId>
-                                    <artifactId>presto-hive-hadoop2</artifactId>
-                                    <version>${project.version}</version>
-                                    <type>zip</type>
-                                    <overWrite>false</overWrite>
-                                    <outputDirectory>${project.build.directory}/plugin/hive-hadoop2</outputDirectory>
-                                </artifactItem>
-                                <artifactItem>
-                                    <groupId>com.facebook.presto</groupId>
-                                    <artifactId>presto-hive-cdh4</artifactId>
-                                    <version>${project.version}</version>
-                                    <type>zip</type>
-                                    <overWrite>false</overWrite>
-                                    <outputDirectory>${project.build.directory}/plugin/hive-cdh4</outputDirectory>
-                                </artifactItem>
-                                <artifactItem>
-                                    <groupId>com.facebook.presto</groupId>
-                                    <artifactId>presto-hive-cdh5</artifactId>
-                                    <version>${project.version}</version>
-                                    <type>zip</type>
-                                    <overWrite>false</overWrite>
-                                    <outputDirectory>${project.build.directory}/plugin/hive-cdh5</outputDirectory>
-                                </artifactItem>
-                                <artifactItem>
-                                    <groupId>com.facebook.presto</groupId>
-                                    <artifactId>presto-cassandra</artifactId>
-                                    <version>${project.version}</version>
-                                    <type>zip</type>
-                                    <overWrite>false</overWrite>
-                                    <outputDirectory>${project.build.directory}/plugin/cassandra</outputDirectory>
-                                </artifactItem>
-                                <artifactItem>
-                                    <groupId>com.facebook.presto</groupId>
-                                    <artifactId>presto-example-http</artifactId>
-                                    <version>${project.version}</version>
-                                    <type>zip</type>
-                                    <overWrite>false</overWrite>
-                                    <outputDirectory>${project.build.directory}/plugin/example-http</outputDirectory>
-                                </artifactItem>
-                                <artifactItem>
-                                    <groupId>com.facebook.presto</groupId>
-                                    <artifactId>presto-mysql</artifactId>
-                                    <version>${project.version}</version>
-                                    <type>zip</type>
-                                    <overWrite>false</overWrite>
-                                    <outputDirectory>${project.build.directory}/plugin/mysql</outputDirectory>
-                                </artifactItem>
-                                <artifactItem>
-                                    <groupId>com.facebook.presto</groupId>
-                                    <artifactId>presto-postgresql</artifactId>
-                                    <version>${project.version}</version>
-                                    <type>zip</type>
-                                    <overWrite>false</overWrite>
-                                    <outputDirectory>${project.build.directory}/plugin/postgresql</outputDirectory>
-                                </artifactItem>
-                            </artifactItems>
-                        </configuration>
-                    </execution>
-                </executions>
+                <groupId>io.takari.maven.plugins</groupId>
+                <artifactId>provisio-maven-plugin</artifactId>
+                <extensions>true</extensions>
             </plugin>
         </plugins>
-
-        <pluginManagement>
-            <plugins>
-                <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
-                <plugin>
-                    <groupId>org.eclipse.m2e</groupId>
-                    <artifactId>lifecycle-mapping</artifactId>
-                    <version>1.0.0</version>
-                    <configuration>
-                        <lifecycleMappingMetadata>
-                            <pluginExecutions>
-                                <pluginExecution>
-                                    <pluginExecutionFilter>
-                                        <groupId>org.apache.maven.plugins</groupId>
-                                        <artifactId>maven-dependency-plugin</artifactId>
-                                        <versionRange>[2.6,)</versionRange>
-                                        <goals>
-                                            <goal>unpack</goal>
-                                        </goals>
-                                    </pluginExecutionFilter>
-                                    <action>
-                                        <ignore />
-                                    </action>
-                                </pluginExecution>
-                            </pluginExecutions>
-                        </lifecycleMappingMetadata>
-                    </configuration>
-                </plugin>
-            </plugins>
-        </pluginManagement>
     </build>
 </project>

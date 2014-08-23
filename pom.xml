@@ -76,9 +76,6 @@
         <module>presto-tests</module>
         <module>presto-jdbc</module>
         <module>presto-cli</module>
-
-        <!-- Important: presto-server needs to be listed *after* all plugins in order for them to be included in the tgz.
-             The dependency resolution rules in the maven assembly are broken, so presto-server can't depend on the plugins -->
         <module>presto-server</module>
         <module>presto-docs</module>
         <module>presto-verifier</module>
@@ -621,6 +618,12 @@
                     <version>1.0.3</version>
                 </plugin>
 
+                <plugin>
+                    <groupId>io.takari.maven.plugins</groupId>
+                    <artifactId>provisio-maven-plugin</artifactId>
+                    <version>0.1.5</version>
+                </plugin>
+
                 <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
                 <plugin>
                     <!--suppress MavenModelInspection -->
@@ -687,6 +690,19 @@
                                         <ignore />
                                     </action>
                                 </pluginExecution>
+                                <pluginExecution>
+                                    <pluginExecutionFilter>
+                                        <groupId>org.apache.maven.plugins</groupId>
+                                        <artifactId>maven-checkstyle-plugin</artifactId>
+                                        <versionRange>[2.11,)</versionRange>
+                                        <goals>
+                                            <goal>check</goal>
+                                        </goals>
+                                    </pluginExecutionFilter>
+                                    <action>
+                                        <ignore />
+                                    </action>
+                                </pluginExecution>
                             </pluginExecutions>
                         </lifecycleMappingMetadata>
                     </configuration>
@@ -715,6 +731,13 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>io.takari.maven.plugins</groupId>
+                <artifactId>presto-maven-plugin</artifactId>
+                <version>0.1.4</version>
+                <extensions>true</extensions>
             </plugin>
         </plugins>
     </build>
