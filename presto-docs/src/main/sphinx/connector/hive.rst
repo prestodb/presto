@@ -44,8 +44,8 @@ You can have as many catalogs as you need, so if you have additional
 Hive clusters, simply add another properties file to ``etc/catalog``
 with a different name (making sure it ends in ``.properties``). For
 example, if you name the property file ``sales.properties``, Presto
-will create a catalog named ``sales`` using the Hive connector. If
-you are connecting to more than one Hive metastore you can create
+will create a catalog named ``sales`` using the configured connector.
+If you are connecting to more than one Hive metastore, you can create
 any number of properties files configuring multiple instances of
 the Hive connector.
 
