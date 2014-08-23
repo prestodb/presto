@@ -18,7 +18,7 @@ String Functions
     the number of bytes in the UTF-8 representation of the string rather than
     the number of unicode characters.
 
-.. function:: char(n) -> varchar
+.. function:: chr(n) -> varchar
 
     Returns the Unicode code point ``n`` as a single character string.
 

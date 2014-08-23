@@ -30,7 +30,8 @@ public class TestStringFunctions
     public void testChr()
     {
         assertFunction("CHR(65)", "A");
-        assertFunction("CHR(65)", "A");
+        assertFunction("CHR(9731)", "\u2603");
+        assertFunction("CHR(131210)", new String(Character.toChars(131210)));
         assertFunction("CHR(0)", "\0");
     }
 
