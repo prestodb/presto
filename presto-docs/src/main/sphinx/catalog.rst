@@ -8,3 +8,4 @@ Presto Catalogs
     catalog/jmx
     catalog/sys
     catalog/tpch
+    catalog/hive
