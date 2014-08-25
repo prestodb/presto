@@ -39,7 +39,7 @@ public class VerifierConfig
     private String suite;
     private String source;
     private String runId = new DateTime().toString("yyyy-MM-dd");
-    private String eventClient = "human-readable";
+    private Set<String> eventClients = ImmutableSet.of("human-readable");
     private int threadCount = 10;
     private String queryDatabase;
     private String controlGateway;
@@ -267,16 +267,22 @@ public class VerifierConfig
     }
 
     @NotNull
-    public String getEventClient()
+    public Set<String> getEventClients()
     {
-        return eventClient;
+        return eventClients;
     }
 
-    @ConfigDescription("The event client to log the results to")
+    @ConfigDescription("The event client(s) to log the results to")
     @Config("event-client")
-    public VerifierConfig setEventClient(String eventClient)
+    public VerifierConfig setEventClients(String eventClients)
     {
-        this.eventClient = checkNotNull(eventClient, "eventClient is null");
+        checkNotNull(eventClients, "eventClients is null");
+        ImmutableSet.Builder<String> builder = ImmutableSet.builder();
+        for (String value : Splitter.on(',').trimResults().omitEmptyStrings().split(eventClients)) {
+            builder.add(value);
+        }
+
+        this.eventClients = builder.build();
         return this;
     }
 

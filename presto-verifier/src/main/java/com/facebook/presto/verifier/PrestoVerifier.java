@@ -18,11 +18,11 @@ import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
+import com.google.inject.name.Names;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventClient;
@@ -39,8 +39,12 @@ import java.sql.DriverManager;
 import java.util.List;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 public class PrestoVerifier
 {
+    public static final String SUPPORTED_EVENT_CLIENTS = "SUPPORTED_EVENT_CLIENTS";
+
     protected PrestoVerifier()
     {
     }
@@ -67,7 +71,11 @@ public class PrestoVerifier
 
         VerifierConfig config = injector.getInstance(VerifierConfig.class);
         injector.injectMembers(this);
-        EventClient eventClient = Iterables.getOnlyElement(injector.getInstance(Key.get(new TypeLiteral<Set<EventClient>>() {})));
+        Set<String> supportedEventClients = injector.getInstance(Key.get(new TypeLiteral<Set<String>>() {}, Names.named(SUPPORTED_EVENT_CLIENTS)));
+        for (String clientType : config.getEventClients()) {
+            checkArgument(supportedEventClients.contains(clientType), "Unsupported event client: %s", clientType);
+        }
+        Set<EventClient> eventClients = injector.getInstance(Key.get(new TypeLiteral<Set<EventClient>>() {}));
 
         VerifierDao dao = new DBI(config.getQueryDatabase()).onDemand(VerifierDao.class);
         List<QueryPair> queries = dao.getQueriesBySuite(config.getSuite(), config.getMaxQueries());
@@ -89,7 +97,7 @@ public class PrestoVerifier
         }
 
         // TODO: construct this with Guice
-        Verifier verifier = new Verifier(System.out, config, eventClient);
+        Verifier verifier = new Verifier(System.out, config, eventClients);
         verifier.run(queries);
 
         injector.getInstance(LifeCycleManager.class).stop();

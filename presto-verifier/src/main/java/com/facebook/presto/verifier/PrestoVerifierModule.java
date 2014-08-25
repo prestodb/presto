@@ -16,7 +16,11 @@ package com.facebook.presto.verifier;
 import com.facebook.presto.guice.AbstractConfigurationAwareModule;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
+import com.google.inject.multibindings.Multibinder;
+import com.google.inject.name.Names;
 import io.airlift.event.client.EventClient;
+
+import java.util.Set;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
@@ -31,20 +35,22 @@ public class PrestoVerifierModule
         bindConfig(binder).to(VerifierConfig.class);
         eventBinder(binder).bindEventClient(VerifierQueryEvent.class);
 
-        String eventClientType = buildConfigObject(VerifierConfig.class).getEventClient();
-        Class<? extends EventClient> eventClientClass = getEventClientClass(eventClientType);
-        newSetBinder(binder, EventClient.class).addBinding().to(eventClientClass).in(Scopes.SINGLETON);
+        Multibinder<String> supportedClients = newSetBinder(binder, String.class, Names.named(PrestoVerifier.SUPPORTED_EVENT_CLIENTS));
+        supportedClients.addBinding().toInstance("human-readable");
+        supportedClients.addBinding().toInstance("file");
+        Set<String> eventClientTypes = buildConfigObject(VerifierConfig.class).getEventClients();
+        bindEventClientClasses(eventClientTypes, newSetBinder(binder, EventClient.class));
     }
 
-    private static Class<? extends EventClient> getEventClientClass(String eventClientType)
+    private static void bindEventClientClasses(Set<String> eventClientTypes, Multibinder<EventClient> multibinder)
     {
-        switch (eventClientType) {
-            case "human-readable":
-                return HumanReadableEventClient.class;
-            case "file":
-                return JsonEventClient.class;
-            default:
-                throw new IllegalArgumentException(String.format("Unsupported event client: %s", eventClientType));
+        for (String eventClientType : eventClientTypes) {
+            if (eventClientType.equals("human-readable")) {
+                multibinder.addBinding().to(HumanReadableEventClient.class).in(Scopes.SINGLETON);
+            }
+            else if (eventClientType.equals("file")) {
+                multibinder.addBinding().to(JsonEventClient.class).in(Scopes.SINGLETON);
+            }
         }
     }
 }
