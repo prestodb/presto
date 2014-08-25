@@ -37,16 +37,16 @@ public class Verifier
     private static final Logger log = Logger.get(Verifier.class);
 
     private final VerifierConfig config;
-    private final EventClient eventClient;
+    private final Set<EventClient> eventClients;
     private final int threadCount;
     private final Set<String> whitelist;
     private final Set<String> blacklist;
 
-    public Verifier(PrintStream out, VerifierConfig config, EventClient eventClient)
+    public Verifier(PrintStream out, VerifierConfig config, Set<EventClient> eventClients)
     {
         checkNotNull(out, "out is null");
         this.config = checkNotNull(config, "config is null");
-        this.eventClient = checkNotNull(eventClient, "eventClient is null");
+        this.eventClients = checkNotNull(eventClients, "eventClients is null");
         this.whitelist = checkNotNull(config.getWhitelist(), "whitelist is null");
         this.blacklist = checkNotNull(config.getBlacklist(), "blacklist is null");
         this.threadCount = config.getThreadCount();
@@ -116,7 +116,9 @@ public class Verifier
                 failed++;
             }
 
-            eventClient.post(buildEvent(validator));
+            for (EventClient eventClient : eventClients) {
+                eventClient.post(buildEvent(validator));
+            }
 
             double progress = (((double) total) / totalQueries) * 100;
             if (!config.isQuiet() || (progress - lastProgress) > 1) {
