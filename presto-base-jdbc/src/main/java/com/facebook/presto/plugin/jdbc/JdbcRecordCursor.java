@@ -1,0 +1,241 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.plugin.jdbc;
+
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.TimeType;
+import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
+import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
+import org.joda.time.DateTimeZone;
+import org.joda.time.chrono.ISOChronology;
+
+import java.sql.Connection;
+import java.sql.Date;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.util.List;
+
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
+
+public class JdbcRecordCursor
+        implements RecordCursor
+{
+    private static final Logger log = Logger.get(JdbcRecordCursor.class);
+
+    private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstance(DateTimeZone.UTC);
+
+    private final List<JdbcColumnHandle> columnHandles;
+
+    private final Connection connection;
+    private final Statement statement;
+    private final ResultSet resultSet;
+    private boolean closed;
+
+    public JdbcRecordCursor(JdbcClient jdbcClient, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
+    {
+        this.columnHandles = ImmutableList.copyOf(checkNotNull(columnHandles, "columnHandles is null"));
+
+        String sql = jdbcClient.buildSql(split, columnHandles);
+        try {
+            connection = jdbcClient.getConnection(split);
+
+            statement = connection.createStatement();
+            statement.setFetchSize(1000);
+
+            log.debug("Executing: %s", sql);
+            resultSet = statement.executeQuery(sql);
+        }
+        catch (SQLException e) {
+            throw handleSqlException(e);
+        }
+    }
+
+    @Override
+    public long getReadTimeNanos()
+    {
+        return 0;
+    }
+
+    @Override
+    public long getTotalBytes()
+    {
+        return 0;
+    }
+
+    @Override
+    public long getCompletedBytes()
+    {
+        return 0;
+    }
+
+    @Override
+    public Type getType(int field)
+    {
+        return columnHandles.get(field).getColumnType();
+    }
+
+    @Override
+    public boolean advanceNextPosition()
+    {
+        if (closed) {
+            return false;
+        }
+
+        try {
+            boolean result = resultSet.next();
+            if (!result) {
+                close();
+            }
+            return result;
+        }
+        catch (SQLException e) {
+            throw handleSqlException(e);
+        }
+    }
+
+    @Override
+    public boolean getBoolean(int field)
+    {
+        checkState(!closed, "cursor is closed");
+        try {
+            return resultSet.getBoolean(field + 1);
+        }
+        catch (SQLException e) {
+            throw handleSqlException(e);
+        }
+    }
+
+    @Override
+    public long getLong(int field)
+    {
+        checkState(!closed, "cursor is closed");
+        try {
+            Type type = getType(field);
+            if (type.equals(BigintType.BIGINT)) {
+                return resultSet.getLong(field + 1);
+            }
+            if (type.equals(DateType.DATE)) {
+                Date date = resultSet.getDate(field + 1);
+                return UTC_CHRONOLOGY.dayOfMonth().roundFloor(date.getTime());
+            }
+            if (type.equals(TimeType.TIME)) {
+                Time time = resultSet.getTime(field + 1);
+                return UTC_CHRONOLOGY.millisOfDay().get(time.getTime());
+            }
+            if (type.equals(TimestampType.TIMESTAMP)) {
+                Timestamp timestamp = resultSet.getTimestamp(field + 1);
+                return timestamp.getTime();
+            }
+            throw new PrestoException(INTERNAL_ERROR.toErrorCode(), "Unhandled type for long: " + type.getName());
+        }
+        catch (SQLException e) {
+            throw handleSqlException(e);
+        }
+    }
+
+    @Override
+    public double getDouble(int field)
+    {
+        checkState(!closed, "cursor is closed");
+        try {
+            return resultSet.getDouble(field + 1);
+        }
+        catch (SQLException e) {
+            throw handleSqlException(e);
+        }
+    }
+
+    @Override
+    public Slice getSlice(int field)
+    {
+        checkState(!closed, "cursor is closed");
+        try {
+            Type type = getType(field);
+            if (type.equals(VarcharType.VARCHAR)) {
+                return utf8Slice(resultSet.getString(field + 1));
+            }
+            if (type.equals(VarbinaryType.VARBINARY)) {
+                return wrappedBuffer(resultSet.getBytes(field + 1));
+            }
+            throw new PrestoException(INTERNAL_ERROR.toErrorCode(), "Unhandled type for slice: " + type.getName());
+        }
+        catch (SQLException e) {
+            throw handleSqlException(e);
+        }
+    }
+
+    @Override
+    public boolean isNull(int field)
+    {
+        checkState(!closed, "cursor is closed");
+        checkArgument(field < columnHandles.size(), "Invalid field index");
+
+        try {
+            // JDBC is kind of dumb: we need to read the field and then ask
+            // if it was null, which means we are wasting effort here.
+            // We could save the result of the field access if it matters.
+            resultSet.getObject(field + 1);
+
+            return resultSet.wasNull();
+        }
+        catch (SQLException e) {
+            throw handleSqlException(e);
+        }
+    }
+
+    @SuppressWarnings({"UnusedDeclaration", "EmptyTryBlock"})
+    @Override
+    public void close()
+    {
+        closed = true;
+
+        // use try with resources to close everything properly
+        try (ResultSet resultSet = this.resultSet;
+                Statement statement = this.statement;
+                Connection connection = this.connection) {
+            // do nothing
+        }
+        catch (SQLException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    private RuntimeException handleSqlException(SQLException e)
+    {
+        try {
+            close();
+        }
+        catch (Exception closeException) {
+            e.addSuppressed(closeException);
+        }
+        return Throwables.propagate(e);
+    }
+}
