@@ -65,6 +65,7 @@
         <module>presto-example-http</module>
         <module>presto-tpch</module>
         <module>presto-raptor</module>
+        <module>presto-base-jdbc</module>
         <module>presto-client</module>
         <module>presto-parser</module>
         <module>presto-main</module>
