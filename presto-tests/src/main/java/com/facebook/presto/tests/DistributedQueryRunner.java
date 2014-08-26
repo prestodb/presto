@@ -93,7 +93,6 @@ public class DistributedQueryRunner
                 .put("query.client.timeout", "10m")
                 .put("exchange.http-client.read-timeout", "1h")
                 .put("compiler.interpreter-enabled", "false")
-                .put("compiler.new-bytecode-generator-enabled", "true")
                 .put("task.max-index-memory", "128kB") // causes index joins to fault load
                 .put("datasources", "system")
                 .put("distributed-index-joins-enabled", "true");
