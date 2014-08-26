@@ -310,6 +310,7 @@ public class CachingHiveMetastore
                 public Database call()
                         throws Exception
                 {
+                    checkNotNativeDB(databaseName);
                     try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                         return client.get_database(databaseName);
                     }
@@ -340,6 +341,7 @@ public class CachingHiveMetastore
             public List<String> call()
                     throws Exception
             {
+                checkNotNativeDB(databaseName);
                 try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                     return client.get_all_tables(databaseName);
                 }
@@ -352,6 +354,7 @@ public class CachingHiveMetastore
             public Void call()
                     throws Exception
             {
+                checkNotNativeDB(databaseName);
                 try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                     client.get_database(databaseName);
                     return null;
@@ -407,6 +410,7 @@ public class CachingHiveMetastore
                 public List<String> call()
                         throws Exception
                 {
+                    checkNotNativeDB(databaseName);
                     try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                         String filter = HIVE_FILTER_FIELD_PARAMS + PRESTO_VIEW_FLAG + " = \"true\"";
                         return client.get_table_names_by_filter(databaseName, filter, (short) -1);
@@ -545,6 +549,7 @@ public class CachingHiveMetastore
                 public Table call()
                         throws Exception
                 {
+                    checkNotNativeDB(hiveTableName.getDatabaseName());
                     try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                         Table table = client.get_table(hiveTableName.getDatabaseName(), hiveTableName.getTableName());
                         if (table.getTableType().equals(TableType.VIRTUAL_VIEW.name()) && (!isPrestoView(table))) {
@@ -580,6 +585,7 @@ public class CachingHiveMetastore
                 public List<String> call()
                         throws Exception
                 {
+                    checkNotNativeDB(hiveTableName.getDatabaseName());
                     try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                         return client.get_partition_names(hiveTableName.getDatabaseName(), hiveTableName.getTableName(), (short) 0);
                     }
@@ -723,6 +729,14 @@ public class CachingHiveMetastore
                 return HivePartitionName.partition(databaseName, tableName, partitionName);
             }
         };
+    }
+
+    private static void checkNotNativeDB(String db) throws NoSuchObjectException
+    {
+        if (db != null &&
+            (db.equals("information_schema") || db.equals("sys"))) {
+            throw new NoSuchObjectException(String.format("Presto Internal Database: %s not located on HiveMetastore", db));
+        }
     }
 
     private static class HiveTableName
