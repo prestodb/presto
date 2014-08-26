@@ -112,6 +112,14 @@
                                     <overWrite>false</overWrite>
                                     <outputDirectory>${project.build.directory}/plugin/mysql</outputDirectory>
                                 </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.facebook.presto</groupId>
+                                    <artifactId>presto-postgresql</artifactId>
+                                    <version>${project.version}</version>
+                                    <type>zip</type>
+                                    <overWrite>false</overWrite>
+                                    <outputDirectory>${project.build.directory}/plugin/mysql</outputDirectory>
+                                </artifactItem>
                             </artifactItems>
                         </configuration>
                     </execution>
