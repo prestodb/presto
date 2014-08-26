@@ -135,23 +135,12 @@ public class OrderingCompiler
 
         classDefinition.declareField(a(PRIVATE, STATIC, VOLATILE), CALL_SITES_FIELD_NAME, Map.class);
 
-        generateConstructor(classDefinition);
+        classDefinition.declareDefaultConstructor(a(PUBLIC));
         generateCompareTo(classDefinition, callSiteBinder, sortTypes, sortChannels, sortOrders);
 
         Class<? extends PagesIndexComparator> comparatorClass = defineClass(classDefinition, PagesIndexComparator.class, classLoader);
         setCallSitesField(comparatorClass, callSiteBinder.getBindings());
         return comparatorClass;
-    }
-
-    private void generateConstructor(ClassDefinition classDefinition)
-    {
-        classDefinition.declareConstructor(new CompilerContext(BOOTSTRAP_METHOD),
-                a(PUBLIC))
-                .getBody()
-                .comment("super();")
-                .pushThis()
-                .invokeConstructor(Object.class)
-                .ret();
     }
 
     private void generateCompareTo(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
