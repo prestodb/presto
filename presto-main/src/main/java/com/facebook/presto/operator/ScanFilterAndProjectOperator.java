@@ -185,7 +185,7 @@ public class ScanFilterAndProjectOperator
                 long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
                 long elapsedNanos = cursor.getReadTimeNanos() - readTimeNanos;
                 operatorContext.recordGeneratedInput(new DataSize(bytesProcessed, BYTE), rowsProcessed, elapsedNanos);
-                completedBytes += cursor.getCompletedBytes();
+                completedBytes = cursor.getCompletedBytes();
                 readTimeNanos = cursor.getReadTimeNanos();
 
                 if (rowsProcessed == 0) {
