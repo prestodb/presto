@@ -67,6 +67,7 @@
         <module>presto-raptor</module>
         <module>presto-base-jdbc</module>
         <module>presto-mysql</module>
+        <module>presto-postgresql</module>
         <module>presto-client</module>
         <module>presto-parser</module>
         <module>presto-main</module>
@@ -415,6 +416,44 @@
             </dependency>
 
             <dependency>
+                <groupId>org.postgresql</groupId>
+                <artifactId>postgresql</artifactId>
+                <version>9.3-1102-jdbc41</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.nesscomputing.components</groupId>
+                <artifactId>ness-pg-embedded</artifactId>
+                <version>2.6.2</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.nesscomputing.components</groupId>
+                        <artifactId>ness-config</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.nesscomputing.migratory</groupId>
+                        <artifactId>migratory-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.code.findbugs</groupId>
+                        <artifactId>jsr305</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.jdbi</groupId>
+                        <artifactId>jdbi</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>commons-configuration</groupId>
+                        <artifactId>commons-configuration</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>postgresql</groupId>
+                        <artifactId>postgresql</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
                 <groupId>org.jruby.jcodings</groupId>
                 <artifactId>jcodings</artifactId>
                 <version>1.0.8</version>
@@ -489,7 +528,7 @@
             <dependency>
                 <groupId>commons-codec</groupId>
                 <artifactId>commons-codec</artifactId>
-                <version>1.7</version>
+                <version>1.9</version>
             </dependency>
 
             <dependency>
