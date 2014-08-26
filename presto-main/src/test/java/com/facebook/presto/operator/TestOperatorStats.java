@@ -52,6 +52,45 @@ public class TestOperatorStats
             new DataSize(18, BYTE),
             "19");
 
+    public static final OperatorStats REDUCIBLE = new OperatorStats(
+            41,
+            "test",
+
+            1,
+            new Duration(2, NANOSECONDS),
+            new Duration(3, NANOSECONDS),
+            new Duration(4, NANOSECONDS),
+            new DataSize(5, BYTE),
+            6,
+
+            7,
+            new Duration(8, NANOSECONDS),
+            new Duration(9, NANOSECONDS),
+            new Duration(10, NANOSECONDS),
+            new DataSize(11, BYTE),
+            12,
+
+            new Duration(13, NANOSECONDS),
+
+            14,
+            new Duration(15, NANOSECONDS),
+            new Duration(16, NANOSECONDS),
+            new Duration(17, NANOSECONDS),
+
+            new DataSize(18, BYTE),
+            new Reducer()
+            {
+                @Override
+                public Object reduce(Object base)
+                {
+                    if (base == null) {
+                        return new Long(19);
+                    }
+
+                    return new Long(((Long) base) + 1);
+                }
+            });
+
     @Test
     public void testJson()
     {
@@ -123,5 +162,37 @@ public class TestOperatorStats
         Assert.assertEquals(actual.getFinishUser(), new Duration(3 * 17, NANOSECONDS));
         Assert.assertEquals(actual.getMemoryReservation(), new DataSize(3 * 18, BYTE));
         Assert.assertEquals(actual.getInfo(), null);
+    }
+
+    @Test
+    public void testAddReducible()
+    {
+        OperatorStats actual = REDUCIBLE.add(REDUCIBLE, REDUCIBLE);
+
+        Assert.assertEquals(actual.getOperatorId(), 41);
+        Assert.assertEquals(actual.getOperatorType(), "test");
+
+        Assert.assertEquals(actual.getAddInputCalls(), 3 * 1);
+        Assert.assertEquals(actual.getAddInputWall(), new Duration(3 * 2, NANOSECONDS));
+        Assert.assertEquals(actual.getAddInputCpu(), new Duration(3 * 3, NANOSECONDS));
+        Assert.assertEquals(actual.getAddInputUser(), new Duration(3 * 4, NANOSECONDS));
+        Assert.assertEquals(actual.getInputDataSize(), new DataSize(3 * 5, BYTE));
+        Assert.assertEquals(actual.getInputPositions(), 3 * 6);
+
+        Assert.assertEquals(actual.getGetOutputCalls(), 3 * 7);
+        Assert.assertEquals(actual.getGetOutputWall(), new Duration(3 * 8, NANOSECONDS));
+        Assert.assertEquals(actual.getGetOutputCpu(), new Duration(3 * 9, NANOSECONDS));
+        Assert.assertEquals(actual.getGetOutputUser(), new Duration(3 * 10, NANOSECONDS));
+        Assert.assertEquals(actual.getOutputDataSize(), new DataSize(3 * 11, BYTE));
+        Assert.assertEquals(actual.getOutputPositions(), 3 * 12);
+
+        Assert.assertEquals(actual.getBlockedWall(), new Duration(3 * 13, NANOSECONDS));
+
+        Assert.assertEquals(actual.getFinishCalls(), 3 * 14);
+        Assert.assertEquals(actual.getFinishWall(), new Duration(3 * 15, NANOSECONDS));
+        Assert.assertEquals(actual.getFinishCpu(), new Duration(3 * 16, NANOSECONDS));
+        Assert.assertEquals(actual.getFinishUser(), new Duration(3 * 17, NANOSECONDS));
+        Assert.assertEquals(actual.getMemoryReservation(), new DataSize(3 * 18, BYTE));
+        Assert.assertEquals(actual.getInfo(), new Long(21));
     }
 }
