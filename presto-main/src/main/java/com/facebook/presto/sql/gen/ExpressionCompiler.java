@@ -128,13 +128,7 @@ public class ExpressionCompiler
                 type(superType));
 
         classDefinition.declareField(a(PRIVATE, VOLATILE, STATIC), CALL_SITES_FIELD_NAME, Map.class);
-
-        // constructor
-        classDefinition.declareConstructor(new CompilerContext(BOOTSTRAP_METHOD), a(PUBLIC))
-                .getBody()
-                .pushThis()
-                .invokeSpecial(Object.class, "<init>", void.class)
-                .ret();
+        classDefinition.declareDefaultConstructor(a(PUBLIC));
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
         bodyCompiler.generateMethods(classDefinition, callSiteBinder, filter, projections);

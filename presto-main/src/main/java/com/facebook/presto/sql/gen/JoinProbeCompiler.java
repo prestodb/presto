@@ -105,13 +105,7 @@ public class JoinProbeCompiler
                 type(Object.class),
                 type(JoinProbeFactory.class));
 
-        classDefinition.declareConstructor(new CompilerContext(BOOTSTRAP_METHOD),
-                a(PUBLIC))
-                .getBody()
-                .comment("super();")
-                .pushThis()
-                .invokeConstructor(Object.class)
-                .ret();
+        classDefinition.declareDefaultConstructor(a(PUBLIC));
 
         classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD),
                 a(PUBLIC),
