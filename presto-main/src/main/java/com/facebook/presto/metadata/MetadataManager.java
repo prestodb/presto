@@ -470,6 +470,12 @@ public class MetadataManager
     }
 
     @Override
+    public void addPartition(TableHandle tableHandle, List<String> partitionValues)
+    {
+        lookupConnectorFor(tableHandle).addPartition(tableHandle.getConnectorHandle(), partitionValues);
+    }
+
+    @Override
     public FunctionRegistry getFunctionRegistry()
     {
         return functions;

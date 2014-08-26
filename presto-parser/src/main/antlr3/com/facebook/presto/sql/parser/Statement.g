@@ -86,6 +86,9 @@ tokens {
     SAMPLED_RELATION;
     QUERY_SPEC;
     STRATIFY_ON;
+    ADD_PARTITION;
+    PARTITION_ITEM_LIST;
+    PARTITION_ITEM;
 }
 
 @header {
@@ -642,6 +645,15 @@ createTableStmt
 
 alterTableStmt
     : ALTER TABLE s=qname RENAME TO t=qname -> ^(RENAME_TABLE $s $t)
+    | ALTER TABLE s=qname ADD PARTITION p=partitionSpec -> ^(ADD_PARTITION $s $p)
+    ;
+
+partitionSpec
+    : '(' partitionItem (',' partitionItem)* ')' -> ^(PARTITION_ITEM_LIST partitionItem+)
+    ;
+
+partitionItem
+    : ident EQ c=constant -> ^(PARTITION_ITEM ident $c)
     ;
 
 createViewStmt
@@ -718,6 +730,11 @@ ident
     : IDENT
     | QUOTED_IDENT
     | nonReserved  -> IDENT[$nonReserved.text]
+    ;
+
+constant
+    : integer
+    | STRING
     ;
 
 number
@@ -879,6 +896,7 @@ RESCALED: 'RESCALED';
 STRATIFY: 'STRATIFY';
 ALTER: 'ALTER';
 RENAME: 'RENAME';
+ADD: 'ADD';
 
 EQ  : '=';
 NEQ : '<>' | '!=';

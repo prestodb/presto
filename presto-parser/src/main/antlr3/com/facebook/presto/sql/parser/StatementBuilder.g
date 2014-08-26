@@ -68,6 +68,7 @@ statement returns [Statement value]
     | createTable               { $value = $createTable.value; }
     | dropTable                 { $value = $dropTable.value; }
     | renameTable               { $value = $renameTable.value; }
+    | addPartition              { $value = $addPartition.value; }
     | createView                { $value = $createView.value; }
     | dropView                  { $value = $dropView.value; }
     | insert                    { $value = $insert.value; }
@@ -361,6 +362,11 @@ ident returns [String value]
     | q=QUOTED_IDENT { $value = $q.text; }
     ;
 
+constant returns [String value]
+    : s=STRING { $value = $s.text; }
+    | i=integer { $value = $i.value; }
+    ;
+
 string returns [String value]
     : s=STRING { $value = $s.text; }
     ;
@@ -562,6 +568,18 @@ dropTable returns [Statement value]
 
 renameTable returns [Statement value]
     : ^(RENAME_TABLE s=qname t=qname) { $value = new RenameTable($s.value, $t.value); }
+    ;
+
+addPartition returns [Statement value]
+    : ^(ADD_PARTITION s=qname p=partitionSpec) { $value = new AddPartition($s.value, $p.value); }
+    ;
+
+partitionSpec returns [List<PartitionItem> value = new ArrayList<>()]
+    : ^(PARTITION_ITEM_LIST ( partitionItem { $value.add($partitionItem.value); } )+ )
+    ;
+
+partitionItem returns [PartitionItem value]
+    : ^(PARTITION_ITEM ident constant) { $value = new PartitionItem($ident.value, $constant.value); }
     ;
 
 createView returns [Statement value]

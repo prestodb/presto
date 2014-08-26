@@ -24,6 +24,7 @@ import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.hive.shaded.org.apache.thrift.TException;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaPartitionName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -560,6 +561,43 @@ public class CachingHiveMetastore
         }
         catch (TException e) {
             throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
+        }
+    }
+
+    public void addPartition(final Partition partition)
+    {
+        try {
+            retry()
+                    .stopOn(InvalidOperationException.class, MetaException.class)
+                    .stopOnIllegalExceptions()
+                    .run("addPartition", stats.getAddPartition().wrap(new Callable<Void>()
+                    {
+                        @Override
+                        public Void call()
+                                throws Exception
+                        {
+                            try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                                client.add_partition(partition);
+                            }
+                            partitionNamesCache.invalidate(new HiveTableName(partition.getDbName(), partition.getTableName()));
+                            return null;
+                        }
+                    }));
+        }
+        catch (AlreadyExistsException e) {
+            throw new PartitionAlreadyExistsException(new SchemaPartitionName(partition.getDbName(), partition.getTableName(), partition.getValues()));
+        }
+        catch (InvalidOperationException | MetaException e) {
+            throw Throwables.propagate(e);
+        }
+        catch (TException e) {
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
+        }
+        catch (Exception e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throw Throwables.propagate(e);
         }
     }
 

@@ -297,6 +297,24 @@ public class RaptorMetadata
     }
 
     @Override
+    public void addPartition(ConnectorTableHandle tableHandle, final List<String> partitionValues)
+    {
+        final RaptorTableHandle table = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
+        dbi.inTransaction(new VoidTransactionCallback()
+        {
+            @Override
+            protected void execute(Handle handle, TransactionStatus status)
+                    throws Exception
+            {
+                MetadataDao dao = handle.attach(MetadataDao.class);
+                for (String partition : partitionValues) {
+                    dao.addPartition(table.getTableId(), partition);
+                }
+            }
+        });
+    }
+
+    @Override
     public void renameTable(ConnectorTableHandle tableHandle, final SchemaTableName newTableName)
     {
         final RaptorTableHandle table = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");

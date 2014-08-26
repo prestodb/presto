@@ -152,6 +152,7 @@ public class HiveClient
     private final int maxPartitionBatchSize;
     private final boolean allowDropTable;
     private final boolean allowRenameTable;
+    private final boolean allowAddPartition;
     private final HiveMetastore metastore;
     private final NamenodeStats namenodeStats;
     private final HdfsEnvironment hdfsEnvironment;
@@ -189,6 +190,7 @@ public class HiveClient
                 hiveClientConfig.getMaxInitialSplits(),
                 hiveClientConfig.getAllowDropTable(),
                 hiveClientConfig.getAllowRenameTable(),
+                hiveClientConfig.getAllowAddPartition(),
                 hiveClientConfig.getHiveStorageFormat(),
                 false);
     }
@@ -209,6 +211,7 @@ public class HiveClient
             int maxInitialSplits,
             boolean allowDropTable,
             boolean allowRenameTable,
+            boolean allowAddPartition,
             HiveStorageFormat hiveStorageFormat,
             boolean recursiveDfsWalkerEnabled)
     {
@@ -224,6 +227,7 @@ public class HiveClient
         this.maxInitialSplits = maxInitialSplits;
         this.allowDropTable = allowDropTable;
         this.allowRenameTable = allowRenameTable;
+        this.allowAddPartition = allowAddPartition;
 
         this.metastore = checkNotNull(metastore, "metastore is null");
         this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -797,6 +801,32 @@ public class HiveClient
     public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void addPartition(ConnectorTableHandle tableHandle, List<String> partitionValues)
+    {
+        if (!allowAddPartition) {
+            throw new PrestoException(PERMISSION_DENIED.toErrorCode(), "Adding Partition is disabled in this Hive catalog");
+        }
+
+        HiveTableHandle hiveTableHandle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
+        SchemaTableName tableName = getTableName(tableHandle);
+
+        try {
+            Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+
+            Partition partition = new Partition();
+            partition.setDbName(table.getDbName());
+            partition.setTableName(table.getTableName());
+            partition.setSd(table.getSd());
+            partition.setValues(partitionValues);
+
+            metastore.addPartition(partition);
+        }
+        catch (NoSuchObjectException e) {
+            throw new TableNotFoundException(tableName);
+        }
     }
 
     @Override

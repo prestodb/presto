@@ -249,6 +249,12 @@ public class CassandraMetadata
     }
 
     @Override
+    public void addPartition(ConnectorTableHandle tableHandle, List<String> partitionValues)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         checkArgument(!isNullOrEmpty(tableMetadata.getOwner()), "Table owner is null or empty");
