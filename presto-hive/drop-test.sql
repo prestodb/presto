@@ -1,3 +1,5 @@
+DROP TABLE IF EXISTS presto_test_sequence;
+
 DROP TABLE IF EXISTS presto_test;
 
 DROP TABLE IF EXISTS presto_test_unpartitioned;
