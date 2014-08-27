@@ -170,7 +170,8 @@ public final class BigintOperators
     }
 
     @ScalarOperator(HASH_CODE)
-    public static int hashCode(@SqlType(BigintType.class) long value)
+    @SqlType(BigintType.class)
+    public static long hashCode(@SqlType(BigintType.class) long value)
     {
         return (int) (value ^ (value >>> 32));
     }
