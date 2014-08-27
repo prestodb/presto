@@ -160,7 +160,8 @@ public final class IntervalYearMonthOperators
     }
 
     @ScalarOperator(HASH_CODE)
-    public static int hashCode(@SqlType(IntervalYearMonthType.class) long value)
+    @SqlType(BigintType.class)
+    public static long hashCode(@SqlType(IntervalYearMonthType.class) long value)
     {
         return (int) (value ^ (value >>> 32));
     }

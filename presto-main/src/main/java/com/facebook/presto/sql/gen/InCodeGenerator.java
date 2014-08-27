@@ -77,7 +77,7 @@ public class InCodeGenerator
                 constantValuesBuilder.add(object);
 
                 try {
-                    int hashCode = (int) hashCodeFunction.getMethodHandle().invoke(object);
+                    int hashCode = ((Long) hashCodeFunction.getMethodHandle().invoke(object)).intValue();
                     hashBucketsBuilder.put(hashCode, testByteCode);
                 }
                 catch (Throwable throwable) {
@@ -122,6 +122,7 @@ public class InCodeGenerator
                     .comment("lookupSwitch(hashCode(<stackValue>))")
                     .dup(javaType)
                     .append(invoke(generatorContext.getContext(), hashCodeBinding))
+                    .longToInt()
                     .append(switchBuilder.build())
                     .append(switchCaseBlocks);
         }

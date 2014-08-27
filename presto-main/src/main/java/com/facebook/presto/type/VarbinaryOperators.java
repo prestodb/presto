@@ -14,6 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.ScalarOperator;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.VarbinaryType;
 import io.airlift.slice.Slice;
@@ -83,7 +84,8 @@ public final class VarbinaryOperators
     }
 
     @ScalarOperator(HASH_CODE)
-    public static int hashCode(@SqlType(VarbinaryType.class) Slice value)
+    @SqlType(BigintType.class)
+    public static long hashCode(@SqlType(VarbinaryType.class) Slice value)
     {
         return value.hashCode();
     }
