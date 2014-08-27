@@ -1,3 +1,10 @@
+CREATE TABLE presto_test_sequence (
+  n INT
+)
+COMMENT 'Presto test data'
+TBLPROPERTIES ('RETENTION'='-1')
+;
+
 CREATE TABLE presto_test (
   t_string STRING,
   t_tinyint TINYINT,
@@ -106,9 +113,7 @@ LOAD DATA LOCAL INPATH '/usr/share/dict/words'
 INTO TABLE tmp_presto_test_load
 ;
 
-DROP TABLE IF EXISTS tmp_presto_test;
-CREATE TABLE tmp_presto_test (n INT);
-INSERT OVERWRITE TABLE tmp_presto_test
+INSERT OVERWRITE TABLE presto_test_sequence
 SELECT TRANSFORM(word)
 USING 'awk "BEGIN { n = 0 } { print ++n }"' AS n
 FROM tmp_presto_test_load
@@ -137,7 +142,7 @@ SELECT
 , CASE WHEN n % 31 = 0 THEN NULL ELSE
      map(1, array(named_struct('s_string', 'rcfile-text-a', 's_double', 0.1),
                   named_struct('s_string' , 'rcfile-text-b', 's_double', 0.2))) END
-FROM tmp_presto_test LIMIT 100;
+FROM presto_test_sequence LIMIT 100;
 
 ALTER TABLE presto_test SET FILEFORMAT RCFILE;
 ALTER TABLE presto_test SET SERDE 'org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe';
@@ -159,7 +164,7 @@ SELECT
 , CASE WHEN n % 31 = 0 THEN NULL ELSE
     map(1, array(named_struct('s_string', 'rcfile-binary-a', 's_double', 0.1),
                  named_struct('s_string' , 'rcfile-binary-b', 's_double', 0.2))) END
-FROM tmp_presto_test LIMIT 100;
+FROM presto_test_sequence LIMIT 100;
 
 ALTER TABLE presto_test SET FILEFORMAT SEQUENCEFILE;
 ALTER TABLE presto_test SET SERDE 'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe';
@@ -181,7 +186,7 @@ SELECT
 , CASE WHEN n % 31 = 0 THEN NULL ELSE
     map(1, array(named_struct('s_string', 'sequencefile-a', 's_double', 0.1),
                  named_struct('s_string' , 'sequencefile-b', 's_double', 0.2))) END
-FROM tmp_presto_test LIMIT 100;
+FROM presto_test_sequence LIMIT 100;
 
 ALTER TABLE presto_test SET FILEFORMAT TEXTFILE;
 ALTER TABLE presto_test SET SERDE 'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe';
@@ -203,23 +208,21 @@ SELECT
 , CASE WHEN n % 31 = 0 THEN NULL ELSE
     map(1, array(named_struct('s_string', 'textfile-a', 's_double', 0.1),
                  named_struct('s_string' , 'textfile-b', 's_double', 0.2))) END
-FROM tmp_presto_test LIMIT 100;
+FROM presto_test_sequence LIMIT 100;
 
 INSERT INTO TABLE presto_test_unpartitioned
 SELECT
   CASE n % 19 WHEN 0 THEN NULL WHEN 1 THEN '' ELSE 'unpartitioned' END
 , 1 + n
-FROM tmp_presto_test LIMIT 100;
+FROM presto_test_sequence LIMIT 100;
 
 INSERT INTO TABLE presto_test_offline_partition PARTITION (ds='2012-12-29')
-SELECT 'test' FROM tmp_presto_test LIMIT 100;
+SELECT 'test' FROM presto_test_sequence LIMIT 100;
 
 INSERT INTO TABLE presto_test_offline_partition PARTITION (ds='2012-12-30')
-SELECT 'test' FROM tmp_presto_test LIMIT 100;
+SELECT 'test' FROM presto_test_sequence LIMIT 100;
 
 ALTER TABLE presto_test_offline_partition PARTITION (ds='2012-12-30') ENABLE OFFLINE;
-
-DROP TABLE tmp_presto_test;
 
 SET hive.enforce.bucketing = true;
 
