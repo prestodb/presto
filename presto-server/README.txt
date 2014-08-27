@@ -1,1 +1,5 @@
-Presto, an interactive data warehouse query system
+Presto is a distributed SQL query engine.
+
+Please see the website for installation instructions:
+
+http://prestodb.io/
