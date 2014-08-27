@@ -163,7 +163,8 @@ public final class VarcharOperators
     }
 
     @ScalarOperator(HASH_CODE)
-    public static int hashCode(@SqlType(VarcharType.class) Slice value)
+    @SqlType(BigintType.class)
+    public static long hashCode(@SqlType(VarcharType.class) Slice value)
     {
         return value.hashCode();
     }
