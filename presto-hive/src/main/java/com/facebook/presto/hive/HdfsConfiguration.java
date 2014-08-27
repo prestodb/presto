@@ -49,11 +49,11 @@ public class HdfsConfiguration
     private final Duration s3ConnectTimeout;
     private final Duration s3SocketTimeout;
     private final int s3MaxConnections;
+    private final DataSize s3MultipartMinFileSize;
+    private final DataSize s3MultipartMinPartSize;
     private final File s3StagingDirectory;
     private final List<String> resourcePaths;
     private final boolean verifyChecksum;
-    private final DataSize s3MultipartMinFileSize;
-    private final DataSize s3MultipartMinPartSize;
 
     @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<Configuration> hadoopConfiguration = new ThreadLocal<Configuration>()
@@ -85,11 +85,11 @@ public class HdfsConfiguration
         this.s3ConnectTimeout = hiveClientConfig.getS3ConnectTimeout();
         this.s3SocketTimeout = hiveClientConfig.getS3SocketTimeout();
         this.s3MaxConnections = hiveClientConfig.getS3MaxConnections();
+        this.s3MultipartMinFileSize = hiveClientConfig.getS3MultipartMinFileSize();
+        this.s3MultipartMinPartSize = hiveClientConfig.getS3MultipartMinPartSize();
         this.s3StagingDirectory = hiveClientConfig.getS3StagingDirectory();
         this.resourcePaths = hiveClientConfig.getResourceConfigFiles();
         this.verifyChecksum = hiveClientConfig.isVerifyChecksum();
-        this.s3MultipartMinFileSize = hiveClientConfig.getS3MultipartMinFileSize();
-        this.s3MultipartMinPartSize = hiveClientConfig.getS3MultipartMinPartSize();
     }
 
     public boolean verifyChecksum()
