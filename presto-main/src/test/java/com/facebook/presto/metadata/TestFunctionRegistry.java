@@ -19,6 +19,8 @@ import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.SqlType;
 import com.facebook.presto.type.TypeRegistry;
+import com.google.common.base.Predicate;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import org.testng.annotations.Test;
@@ -68,6 +70,15 @@ public class TestFunctionRegistry
         List<FunctionInfo> functions = new FunctionRegistry.FunctionListBuilder()
                 .scalar(CustomFunctions.class)
                 .getFunctions();
+
+        functions = FluentIterable.from(functions).filter(new Predicate<FunctionInfo>()
+        {
+            @Override
+            public boolean apply(FunctionInfo input)
+            {
+                return input.getName().toString().equals("custom_add");
+            }
+        }).toList();
 
         FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
         registry.addFunctions(functions, ImmutableMultimap.<OperatorType, FunctionInfo>of());
