@@ -124,6 +124,7 @@ import static com.facebook.presto.metadata.ParametricFunctionUtils.isHiddenPredi
 import static com.facebook.presto.operator.aggregation.ApproximateCountAggregation.APPROXIMATE_COUNT_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.scalar.ArraySubscriptOperator.ARRAY_SUBSCRIPT;
+import static com.facebook.presto.operator.scalar.ArrayCardinalityFunction.ARRAY_CARDINALITY;
 import static com.facebook.presto.operator.scalar.IdentityCastParametricFunction.IDENTITY_CAST;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -250,7 +251,8 @@ public class FunctionRegistry
                 .scalar(LikeFunctions.class)
                 .parametricScalar(IDENTITY_CAST)
                 .parametricScalar(new ArrayConstructor(typeManager))
-                .parametricScalar(ARRAY_SUBSCRIPT);
+                .parametricScalar(ARRAY_SUBSCRIPT)
+                .parametricScalar(ARRAY_CARDINALITY);
 
         if (experimentalSyntaxEnabled) {
             builder.aggregate(ApproximateAverageAggregations.class)

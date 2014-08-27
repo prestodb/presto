@@ -61,6 +61,21 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testCardinality()
+            throws Exception
+    {
+        assertFunction("CARDINALITY(ARRAY [])", 0);
+        assertFunction("CARDINALITY(ARRAY [NULL])", 1);
+        assertFunction("CARDINALITY(ARRAY [1, 2, 3])", 3);
+        assertFunction("CARDINALITY(ARRAY [1, NULL, 3])", 3);
+        assertFunction("CARDINALITY(ARRAY [1, 2.0, 3])", 3);
+        assertFunction("CARDINALITY(ARRAY [ARRAY[1, 2], ARRAY[3]])", 2);
+        assertFunction("CARDINALITY(ARRAY [1.0, 2.5, 3.0])", 3);
+        assertFunction("CARDINALITY(ARRAY ['puppies', 'kittens'])", 2);
+        assertFunction("CARDINALITY(ARRAY [TRUE, FALSE])", 2);
+    }
+
+    @Test
     public void testSubscript()
             throws Exception
     {
