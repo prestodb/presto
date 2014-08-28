@@ -2,6 +2,8 @@ DROP TABLE IF EXISTS presto_test_sequence;
 
 DROP TABLE IF EXISTS presto_test;
 
+DROP TABLE IF EXISTS presto_test_partition_format;
+
 DROP TABLE IF EXISTS presto_test_unpartitioned;
 
 CREATE TABLE IF NOT EXISTS presto_test_offline (x INT);
