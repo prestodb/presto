@@ -47,7 +47,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
@@ -96,7 +95,7 @@ public abstract class AbstractTestHiveClient
     protected static final String INVALID_COLUMN = "totally_invalid_column_name";
 
     protected String database;
-    protected SchemaTableName table;
+    protected SchemaTableName tablePartitionFormat;
     protected SchemaTableName tableUnpartitioned;
     protected SchemaTableName tableOffline;
     protected SchemaTableName tableOfflinePartition;
@@ -137,7 +136,7 @@ public abstract class AbstractTestHiveClient
     protected void setupHive(String connectorId, String databaseName, String timeZoneId)
     {
         database = databaseName;
-        table = new SchemaTableName(database, "presto_test");
+        tablePartitionFormat = new SchemaTableName(database, "presto_test_partition_format");
         tableUnpartitioned = new SchemaTableName(database, "presto_test_unpartitioned");
         tableOffline = new SchemaTableName(database, "presto_test_offline");
         tableOfflinePartition = new SchemaTableName(database, "presto_test_offline_partition");
@@ -162,23 +161,40 @@ public abstract class AbstractTestHiveClient
         intColumn = new HiveColumnHandle(connectorId, "t_int", 0, HiveType.INT, -1, true);
         invalidColumnHandle = new HiveColumnHandle(connectorId, INVALID_COLUMN, 0, HiveType.STRING, 0, false);
 
-        partitions = ImmutableSet.<ConnectorPartition>of(
-                new HivePartition(table,
-                        "ds=2012-12-29/file_format=rcfile-text/dummy=0",
-                        ImmutableMap.<ConnectorColumnHandle, Comparable<?>>of(dsColumn, utf8Slice("2012-12-29"), fileFormatColumn, utf8Slice("rcfile-text"), dummyColumn, 0L),
-                        Optional.<HiveBucket>absent()),
-                new HivePartition(table,
-                        "ds=2012-12-29/file_format=rcfile-binary/dummy=2",
-                        ImmutableMap.<ConnectorColumnHandle, Comparable<?>>of(dsColumn, utf8Slice("2012-12-29"), fileFormatColumn, utf8Slice("rcfile-binary"), dummyColumn, 2L),
-                        Optional.<HiveBucket>absent()),
-                new HivePartition(table,
-                        "ds=2012-12-29/file_format=sequencefile/dummy=4",
-                        ImmutableMap.<ConnectorColumnHandle, Comparable<?>>of(dsColumn, utf8Slice("2012-12-29"), fileFormatColumn, utf8Slice("sequencefile"), dummyColumn, 4L),
-                        Optional.<HiveBucket>absent()),
-                new HivePartition(table,
-                        "ds=2012-12-29/file_format=textfile/dummy=6",
-                        ImmutableMap.<ConnectorColumnHandle, Comparable<?>>of(dsColumn, utf8Slice("2012-12-29"), fileFormatColumn, utf8Slice("textfile"), dummyColumn, 6L),
-                        Optional.<HiveBucket>absent()));
+        partitions = ImmutableSet.<ConnectorPartition>builder()
+                .add(new HivePartition(tablePartitionFormat,
+                        "ds=2012-12-29/file_format=textfile/dummy=1",
+                        ImmutableMap.<ConnectorColumnHandle, Comparable<?>>builder()
+                                .put(dsColumn, utf8Slice("2012-12-29"))
+                                .put(fileFormatColumn, utf8Slice("textfile"))
+                                .put(dummyColumn, 1L)
+                                .build(),
+                        Optional.<HiveBucket>absent()))
+                .add(new HivePartition(tablePartitionFormat,
+                        "ds=2012-12-29/file_format=sequencefile/dummy=2",
+                        ImmutableMap.<ConnectorColumnHandle, Comparable<?>>builder()
+                                .put(dsColumn, utf8Slice("2012-12-29"))
+                                .put(fileFormatColumn, utf8Slice("sequencefile"))
+                                .put(dummyColumn, 2L)
+                                .build(),
+                        Optional.<HiveBucket>absent()))
+                .add(new HivePartition(tablePartitionFormat,
+                        "ds=2012-12-29/file_format=rcfile-text/dummy=3",
+                        ImmutableMap.<ConnectorColumnHandle, Comparable<?>>builder()
+                                .put(dsColumn, utf8Slice("2012-12-29"))
+                                .put(fileFormatColumn, utf8Slice("rcfile-text"))
+                                .put(dummyColumn, 3L)
+                                .build(),
+                        Optional.<HiveBucket>absent()))
+                .add(new HivePartition(tablePartitionFormat,
+                        "ds=2012-12-29/file_format=rcfile-binary/dummy=4",
+                        ImmutableMap.<ConnectorColumnHandle, Comparable<?>>builder()
+                                .put(dsColumn, utf8Slice("2012-12-29"))
+                                .put(fileFormatColumn, utf8Slice("rcfile-binary"))
+                                .put(dummyColumn, 4L)
+                                .build(),
+                        Optional.<HiveBucket>absent()))
+                .build();
         unpartitionedPartitions = ImmutableSet.<ConnectorPartition>of(new HivePartition(tableUnpartitioned));
         invalidPartition = new HivePartition(invalidTable, "unknown", ImmutableMap.<ConnectorColumnHandle, Comparable<?>>of(), Optional.<HiveBucket>absent());
         timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(timeZoneId));
@@ -243,7 +259,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         List<SchemaTableName> tables = metadata.listTables(SESSION, database);
-        assertTrue(tables.contains(table));
+        assertTrue(tables.contains(tablePartitionFormat));
     }
 
     @Test
@@ -260,7 +276,7 @@ public abstract class AbstractTestHiveClient
     public void testGetPartitions()
             throws Exception
     {
-        ConnectorTableHandle tableHandle = getTableHandle(table);
+        ConnectorTableHandle tableHandle = getTableHandle(tablePartitionFormat);
         ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
         assertExpectedPartitions(partitionResult.getPartitions(), partitions);
     }
@@ -269,7 +285,7 @@ public abstract class AbstractTestHiveClient
     public void testGetPartitionsWithBindings()
             throws Exception
     {
-        ConnectorTableHandle tableHandle = getTableHandle(table);
+        ConnectorTableHandle tableHandle = getTableHandle(tablePartitionFormat);
         ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.withColumnDomains(ImmutableMap.<ConnectorColumnHandle, Domain>of(intColumn, Domain.singleValue(5L))));
         assertExpectedPartitions(partitionResult.getPartitions(), partitions);
     }
@@ -285,7 +301,7 @@ public abstract class AbstractTestHiveClient
     public void testGetPartitionNames()
             throws Exception
     {
-        ConnectorTableHandle tableHandle = getTableHandle(table);
+        ConnectorTableHandle tableHandle = getTableHandle(tablePartitionFormat);
         ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
         assertExpectedPartitions(partitionResult.getPartitions(), partitions);
     }
@@ -330,10 +346,10 @@ public abstract class AbstractTestHiveClient
 
     @SuppressWarnings({"ValueOfIncrementOrDecrementUsed", "UnusedAssignment"})
     @Test
-    public void testGetTableSchema()
+    public void testGetTableSchemaPartitionFormat()
             throws Exception
     {
-        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(getTableHandle(table));
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(getTableHandle(tablePartitionFormat));
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
         int i = 0;
@@ -344,12 +360,7 @@ public abstract class AbstractTestHiveClient
         assertPrimitiveField(map, i++, "t_bigint", BIGINT, false);
         assertPrimitiveField(map, i++, "t_float", DOUBLE, false);
         assertPrimitiveField(map, i++, "t_double", DOUBLE, false);
-        assertPrimitiveField(map, i++, "t_map", VARCHAR, false); // Currently mapped as a string
         assertPrimitiveField(map, i++, "t_boolean", BOOLEAN, false);
-        assertPrimitiveField(map, i++, "t_timestamp", TIMESTAMP, false);
-        assertPrimitiveField(map, i++, "t_binary", VARBINARY, false);
-        assertPrimitiveField(map, i++, "t_array_string", VARCHAR, false); // Currently mapped as a string
-        assertPrimitiveField(map, i++, "t_complex", VARCHAR, false); // Currently mapped as a string
         assertPrimitiveField(map, i++, "ds", VARCHAR, true);
         assertPrimitiveField(map, i++, "file_format", VARCHAR, true);
         assertPrimitiveField(map, i++, "dummy", BIGINT, true);
@@ -400,7 +411,7 @@ public abstract class AbstractTestHiveClient
     public void testGetPartitionSplitsBatch()
             throws Exception
     {
-        ConnectorTableHandle tableHandle = getTableHandle(table);
+        ConnectorTableHandle tableHandle = getTableHandle(tablePartitionFormat);
         ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
         ConnectorSplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
 
@@ -488,9 +499,9 @@ public abstract class AbstractTestHiveClient
 
         assertTableIsBucketed(tableHandle);
 
-        String testString = "sequencefile test";
-        Long testInt = 413L;
-        Long testSmallint = 412L;
+        String testString = "test";
+        Long testInt = 13L;
+        Long testSmallint = 12L;
 
         // Reverse the order of bindings as compared to bucketing order
         ImmutableMap<ConnectorColumnHandle, Comparable<?>> bindings = ImmutableMap.<ConnectorColumnHandle, Comparable<?>>builder()
@@ -516,6 +527,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
+    @SuppressWarnings("ConstantConditions")
     @Test
     public void testBucketedTableBigintBoolean()
             throws Exception
@@ -526,10 +538,8 @@ public abstract class AbstractTestHiveClient
 
         assertTableIsBucketed(tableHandle);
 
-        String testString = "textfile test";
-        // This needs to match one of the rows where t_string is not empty or null, and where t_bigint is not null
-        // (i.e. (testBigint - 604) % 19 > 1 and (testBigint - 604) % 13 != 0)
-        Long testBigint = 608L;
+        String testString = "test";
+        Long testBigint = 89L;
         Boolean testBoolean = true;
 
         ImmutableMap<ConnectorColumnHandle, Comparable<?>> bindings = ImmutableMap.<ConnectorColumnHandle, Comparable<?>>builder()
@@ -567,8 +577,8 @@ public abstract class AbstractTestHiveClient
         assertTableIsBucketed(tableHandle);
 
         ImmutableMap<ConnectorColumnHandle, Comparable<?>> bindings = ImmutableMap.<ConnectorColumnHandle, Comparable<?>>builder()
-                .put(columnHandles.get(columnIndex.get("t_float")), 406.1000061035156)
-                .put(columnHandles.get(columnIndex.get("t_double")), 407.2)
+                .put(columnHandles.get(columnIndex.get("t_float")), 87.1)
+                .put(columnHandles.get(columnIndex.get("t_double")), 88.2)
                 .build();
 
         // floats and doubles are not supported, so we should see all splits
@@ -584,7 +594,7 @@ public abstract class AbstractTestHiveClient
                 }
             }
         }
-        assertEquals(count, 300);
+        assertEquals(count, 100);
     }
 
     private void assertTableIsBucketed(ConnectorTableHandle tableHandle)
@@ -606,7 +616,7 @@ public abstract class AbstractTestHiveClient
     public void testGetRecords()
             throws Exception
     {
-        ConnectorTableHandle tableHandle = getTableHandle(table);
+        ConnectorTableHandle tableHandle = getTableHandle(tablePartitionFormat);
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
         List<ConnectorColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
@@ -620,10 +630,7 @@ public abstract class AbstractTestHiveClient
             List<HivePartitionKey> partitionKeys = hiveSplit.getPartitionKeys();
             String ds = partitionKeys.get(0).getValue();
             String fileType = partitionKeys.get(1).getValue();
-            long dummy = Long.parseLong(partitionKeys.get(2).getValue());
-
-            long baseValue = getBaseValueForFileType(fileType);
-            assertEquals(dummy * 100, baseValue);
+            long dummyPartition = Long.parseLong(partitionKeys.get(2).getValue());
 
             long rowNumber = 0;
             long completedBytes = 0;
@@ -648,22 +655,22 @@ public abstract class AbstractTestHiveClient
                         assertEquals(cursor.getSlice(columnIndex.get("t_string")).toStringUtf8(), "");
                     }
                     else {
-                        assertEquals(cursor.getSlice(columnIndex.get("t_string")).toStringUtf8(), (fileType + " test"));
+                        assertEquals(cursor.getSlice(columnIndex.get("t_string")).toStringUtf8(), "test");
                     }
 
-                    assertEquals(cursor.getLong(columnIndex.get("t_tinyint")), (long) ((byte) (baseValue + 1 + rowNumber)));
-                    assertEquals(cursor.getLong(columnIndex.get("t_smallint")), baseValue + 2 + rowNumber);
-                    assertEquals(cursor.getLong(columnIndex.get("t_int")), baseValue + 3 + rowNumber);
+                    assertEquals(cursor.getLong(columnIndex.get("t_tinyint")), 1 + rowNumber);
+                    assertEquals(cursor.getLong(columnIndex.get("t_smallint")), 2 + rowNumber);
+                    assertEquals(cursor.getLong(columnIndex.get("t_int")), 3 + rowNumber);
 
                     if (rowNumber % 13 == 0) {
                         assertTrue(cursor.isNull(columnIndex.get("t_bigint")));
                     }
                     else {
-                        assertEquals(cursor.getLong(columnIndex.get("t_bigint")), baseValue + 4 + rowNumber);
+                        assertEquals(cursor.getLong(columnIndex.get("t_bigint")), 4 + rowNumber);
                     }
 
-                    assertEquals(cursor.getDouble(columnIndex.get("t_float")), baseValue + 5.1 + rowNumber, 0.001);
-                    assertEquals(cursor.getDouble(columnIndex.get("t_double")), baseValue + 6.2 + rowNumber);
+                    assertEquals(cursor.getDouble(columnIndex.get("t_float")), 5.1 + rowNumber, 0.001);
+                    assertEquals(cursor.getDouble(columnIndex.get("t_double")), 6.2 + rowNumber);
 
                     if (rowNumber % 3 == 2) {
                         assertTrue(cursor.isNull(columnIndex.get("t_boolean")));
@@ -672,48 +679,9 @@ public abstract class AbstractTestHiveClient
                         assertEquals(cursor.getBoolean(columnIndex.get("t_boolean")), rowNumber % 3 != 0);
                     }
 
-                    if (rowNumber % 17 == 0) {
-                        assertTrue(cursor.isNull(columnIndex.get("t_timestamp")));
-                    }
-                    else {
-                        long millis = new DateTime(2011, 5, 6, 7, 8, 9, 123, timeZone).getMillis();
-                        assertEquals(cursor.getLong(columnIndex.get("t_timestamp")), millis, (fileType + " test"));
-                    }
-
-                    if (rowNumber % 23 == 0) {
-                        assertTrue(cursor.isNull(columnIndex.get("t_binary")));
-                    }
-                    else {
-                        assertEquals(cursor.getSlice(columnIndex.get("t_binary")).toStringUtf8(), (fileType + " test"));
-                    }
-
-                    if (rowNumber % 29 == 0) {
-                        assertTrue(cursor.isNull(columnIndex.get("t_map")));
-                    }
-                    else {
-                        String expectedJson = "{\"format\":\"" + fileType + "\"}";
-                        assertEquals(cursor.getSlice(columnIndex.get("t_map")).toStringUtf8(), expectedJson);
-                    }
-
-                    if (rowNumber % 27 == 0) {
-                        assertTrue(cursor.isNull(columnIndex.get("t_array_string")));
-                    }
-                    else {
-                        String expectedJson = "[\"" + fileType + "\",\"test\",\"data\"]";
-                        assertEquals(cursor.getSlice(columnIndex.get("t_array_string")).toStringUtf8(), expectedJson);
-                    }
-
-                    if (rowNumber % 31 == 0) {
-                        assertTrue(cursor.isNull(columnIndex.get("t_complex")));
-                    }
-                    else {
-                        String expectedJson = "{\"1\":[{\"s_string\":\"" + fileType + "-a\",\"s_double\":0.1},{\"s_string\":\"" + fileType + "-b\",\"s_double\":0.2}]}";
-                        assertEquals(cursor.getSlice(columnIndex.get("t_complex")).toStringUtf8(), expectedJson);
-                    }
-
                     assertEquals(cursor.getSlice(columnIndex.get("ds")).toStringUtf8(), ds);
                     assertEquals(cursor.getSlice(columnIndex.get("file_format")).toStringUtf8(), fileType);
-                    assertEquals(cursor.getLong(columnIndex.get("dummy")), dummy);
+                    assertEquals(cursor.getLong(columnIndex.get("dummy")), dummyPartition);
 
                     long newCompletedBytes = cursor.getCompletedBytes();
                     assertTrue(newCompletedBytes >= completedBytes);
@@ -730,7 +698,7 @@ public abstract class AbstractTestHiveClient
     public void testGetPartialRecords()
             throws Exception
     {
-        ConnectorTableHandle tableHandle = getTableHandle(table);
+        ConnectorTableHandle tableHandle = getTableHandle(tablePartitionFormat);
         List<ConnectorColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
@@ -743,9 +711,7 @@ public abstract class AbstractTestHiveClient
             List<HivePartitionKey> partitionKeys = hiveSplit.getPartitionKeys();
             String ds = partitionKeys.get(0).getValue();
             String fileType = partitionKeys.get(1).getValue();
-            long dummy = Long.parseLong(partitionKeys.get(2).getValue());
-
-            long baseValue = getBaseValueForFileType(fileType);
+            long dummyPartition = Long.parseLong(partitionKeys.get(2).getValue());
 
             long rowNumber = 0;
             try (RecordCursor cursor = recordSetProvider.getRecordSet(hiveSplit, columnHandles).cursor()) {
@@ -753,10 +719,10 @@ public abstract class AbstractTestHiveClient
                 while (cursor.advanceNextPosition()) {
                     rowNumber++;
 
-                    assertEquals(cursor.getDouble(columnIndex.get("t_double")), baseValue + 6.2 + rowNumber);
+                    assertEquals(cursor.getDouble(columnIndex.get("t_double")),  6.2 + rowNumber);
                     assertEquals(cursor.getSlice(columnIndex.get("ds")).toStringUtf8(), ds);
                     assertEquals(cursor.getSlice(columnIndex.get("file_format")).toStringUtf8(), fileType);
-                    assertEquals(cursor.getLong(columnIndex.get("dummy")), dummy);
+                    assertEquals(cursor.getLong(columnIndex.get("dummy")), dummyPartition);
                 }
             }
             assertEquals(rowNumber, 100);
@@ -1156,22 +1122,6 @@ public abstract class AbstractTestHiveClient
             splits.addAll(batch);
         }
         return splits.build();
-    }
-
-    private static long getBaseValueForFileType(String fileType)
-    {
-        switch (fileType) {
-            case "rcfile-text":
-                return 0;
-            case "rcfile-binary":
-                return 200;
-            case "sequencefile":
-                return 400;
-            case "textfile":
-                return 600;
-            default:
-                throw new IllegalArgumentException("Unexpected fileType key " + fileType);
-        }
     }
 
     private static void assertRecordCursorType(RecordCursor cursor, String fileType)
