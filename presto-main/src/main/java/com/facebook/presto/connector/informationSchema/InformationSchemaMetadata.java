@@ -148,18 +148,6 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName)
-    {
-        InformationSchemaTableHandle informationSchemaTableHandle = checkTableHandle(tableHandle);
-        ConnectorTableMetadata tableMetadata = TABLES.get(informationSchemaTableHandle.getSchemaTableName());
-
-        if (findColumnMetadata(tableMetadata, columnName) == null) {
-            return null;
-        }
-        return new InformationSchemaColumnHandle(columnName);
-    }
-
-    @Override
     public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return null;

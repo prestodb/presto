@@ -455,7 +455,7 @@ public abstract class AbstractTestHiveClient
         ConnectorTableHandle tableHandle = getTableHandle(tableOfflinePartition);
         assertNotNull(tableHandle);
 
-        ConnectorColumnHandle dsColumn = metadata.getColumnHandle(tableHandle, "ds");
+        ConnectorColumnHandle dsColumn = metadata.getColumnHandles(tableHandle).get("ds");
         assertNotNull(dsColumn);
 
         Domain domain = Domain.singleValue(utf8Slice("2012-12-30"));

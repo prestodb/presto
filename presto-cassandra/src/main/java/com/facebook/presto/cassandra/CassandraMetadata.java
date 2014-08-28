@@ -142,14 +142,6 @@ public class CassandraMetadata
     }
 
     @Override
-    public ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName)
-    {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkNotNull(columnName, "columnName is null");
-        return getColumnHandles(tableHandle, false).get(columnName);
-    }
-
-    @Override
     public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return getColumnHandles(tableHandle, true).get(SAMPLE_WEIGHT_COLUMN_NAME);

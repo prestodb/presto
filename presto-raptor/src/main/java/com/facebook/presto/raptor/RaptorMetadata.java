@@ -175,18 +175,6 @@ public class RaptorMetadata
     }
 
     @Override
-    public ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName)
-    {
-        RaptorTableHandle raptorTableHandle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
-        Long columnId = dao.getColumnId(raptorTableHandle.getTableId(), columnName);
-        if (columnId == null) {
-            return null;
-        }
-        TableColumn tableColumn = dao.getTableColumn(raptorTableHandle.getTableId(), columnId);
-        return new RaptorColumnHandle(connectorId, columnName, columnId, tableColumn.getDataType());
-    }
-
-    @Override
     public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getSampleWeightColumnHandle();
