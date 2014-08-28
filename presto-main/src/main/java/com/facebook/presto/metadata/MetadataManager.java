@@ -59,7 +59,6 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.metadata.ColumnHandle.fromConnectorHandle;
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
-import static com.facebook.presto.metadata.MetadataUtil.checkColumnName;
 import static com.facebook.presto.metadata.QualifiedTableName.convertFromSchemaTableName;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
@@ -259,21 +258,6 @@ public class MetadataManager
             }
         }
         return ImmutableList.copyOf(tables);
-    }
-
-    @Override
-    public Optional<ColumnHandle> getColumnHandle(TableHandle tableHandle, String columnName)
-    {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkColumnName(columnName);
-
-        ConnectorColumnHandle handle = lookupConnectorFor(tableHandle).getColumnHandle(tableHandle.getConnectorHandle(), columnName);
-
-        if (handle == null) {
-            return Optional.absent();
-        }
-
-        return Optional.of(new ColumnHandle(tableHandle.getConnectorId(), handle));
     }
 
     @Override

@@ -74,31 +74,6 @@ public class TestExampleMetadata
     }
 
     @Test
-    public void testGetColumnHandle()
-    {
-        // known column
-        assertEquals(metadata.getColumnHandle(NUMBERS_TABLE_HANDLE, "text"),
-                new ExampleColumnHandle(CONNECTOR_ID, "text", VARCHAR, 0));
-
-        // unknown column
-        assertNull(metadata.getColumnHandle(NUMBERS_TABLE_HANDLE, "unknown"));
-
-        // unknown table
-        try {
-            metadata.getColumnHandle(new ExampleTableHandle(CONNECTOR_ID, "unknown", "unknown"), "unknown");
-            fail("Expected getColumnHandle of unknown table to throw a TableNotFoundException");
-        }
-        catch (TableNotFoundException expected) {
-        }
-        try {
-            metadata.getColumnHandle(new ExampleTableHandle(CONNECTOR_ID, "example", "unknown"), "unknown");
-            fail("Expected getColumnHandle of unknown table to throw a TableNotFoundException");
-        }
-        catch (TableNotFoundException expected) {
-        }
-    }
-
-    @Test
     public void testGetColumnHandles()
     {
         // known table
