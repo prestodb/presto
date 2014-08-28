@@ -46,7 +46,6 @@ import com.google.common.collect.Sets;
 import java.util.Map;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
@@ -231,10 +230,9 @@ public class WindowFilterPushDown
         {
             Visitor visitor = new Visitor();
             Long limit = visitor.process(expression, rowNumberSymbol);
-            if (limit == null) {
+            if (limit == null || limit >= Integer.MAX_VALUE) {
                 return Optional.absent();
             }
-            checkArgument(limit < Integer.MAX_VALUE, "filter on row_number greater than allowed value");
 
             return Optional.of(limit.intValue());
         }
