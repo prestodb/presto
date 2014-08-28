@@ -15,6 +15,7 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.TimeWithTimeZoneType;
@@ -121,7 +122,8 @@ public final class TimeWithTimeZoneOperators
     }
 
     @ScalarOperator(HASH_CODE)
-    public static int hashCode(@SqlType(TimeWithTimeZoneType.class) long value)
+    @SqlType(BigintType.class)
+    public static long hashCode(@SqlType(TimeWithTimeZoneType.class) long value)
     {
         long millis = unpackMillisUtc(value);
         return (int) (millis ^ (millis >>> 32));

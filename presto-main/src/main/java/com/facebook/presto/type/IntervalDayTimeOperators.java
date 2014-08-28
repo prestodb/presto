@@ -161,7 +161,8 @@ public final class IntervalDayTimeOperators
     }
 
     @ScalarOperator(HASH_CODE)
-    public static int hashCode(@SqlType(IntervalDayTimeType.class) long value)
+    @SqlType(BigintType.class)
+    public static long hashCode(@SqlType(IntervalDayTimeType.class) long value)
     {
         return (int) (value ^ (value >>> 32));
     }

@@ -113,7 +113,8 @@ public final class BooleanOperators
     }
 
     @ScalarOperator(HASH_CODE)
-    public static int hashCode(@SqlType(BooleanType.class) boolean value)
+    @SqlType(BigintType.class)
+    public static long hashCode(@SqlType(BooleanType.class) boolean value)
     {
         return value ? 1231 : 1237;
     }

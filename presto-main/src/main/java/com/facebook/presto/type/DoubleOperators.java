@@ -173,7 +173,8 @@ public final class DoubleOperators
     }
 
     @ScalarOperator(HASH_CODE)
-    public static int hashCode(@SqlType(DoubleType.class) double value)
+    @SqlType(BigintType.class)
+    public static long hashCode(@SqlType(DoubleType.class) double value)
     {
         long bits = doubleToLongBits(value);
         return (int) (bits ^ (bits >>> 32));
