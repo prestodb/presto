@@ -13,11 +13,9 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.window.RowNumberFunction;
-import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -40,9 +38,9 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import java.util.Map;
@@ -55,12 +53,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 public class WindowFilterPushDown
         extends PlanOptimizer
 {
-    private final Metadata metadata;
-
-    public WindowFilterPushDown(Metadata metadata)
-    {
-        this.metadata = checkNotNull(metadata, "metadata is null");
-    }
+    private static final Signature ROW_NUMBER_SIGNATURE = new Signature("row_number", BigintType.BIGINT, ImmutableList.<Type>of());
 
     @Override
     public PlanNode optimize(PlanNode plan, ConnectorSession session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
@@ -71,7 +64,7 @@ public class WindowFilterPushDown
         checkNotNull(symbolAllocator, "symbolAllocator is null");
         checkNotNull(idAllocator, "idAllocator is null");
 
-        return PlanRewriter.rewriteWith(new Rewriter(idAllocator, metadata), plan, null);
+        return PlanRewriter.rewriteWith(new Rewriter(idAllocator), plan, null);
     }
 
     private static class WindowContext
@@ -100,12 +93,10 @@ public class WindowFilterPushDown
             extends PlanNodeRewriter<WindowContext>
     {
         private final PlanNodeIdAllocator idAllocator;
-        private final Metadata metadata;
 
-        private Rewriter(PlanNodeIdAllocator idAllocator, Metadata metadata)
+        private Rewriter(PlanNodeIdAllocator idAllocator)
         {
             this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");
-            this.metadata = checkNotNull(metadata, "metadata is null");
         }
 
         @Override
@@ -144,12 +135,13 @@ public class WindowFilterPushDown
             return planRewriter.defaultRewrite(node, null);
         }
 
-        private boolean canOptimizeWindowFunction(WindowNode node, WindowContext context)
+        private static boolean canOptimizeWindowFunction(WindowNode node, WindowContext context)
         {
             if (node.getWindowFunctions().size() != 1) {
                 return false;
             }
-            if (!isRowNumberFunction(node)) {
+            Symbol rowNumberSymbol = getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
+            if (!isRowNumberSignature(node.getSignatures().get(rowNumberSymbol))) {
                 return false;
             }
 
@@ -159,15 +151,6 @@ public class WindowFilterPushDown
 
             Optional<Integer> limit = extractLimitOptional(node, context.getExpression());
             return limit.isPresent() && limit.get() < Integer.MAX_VALUE;
-        }
-
-        private boolean isRowNumberFunction(WindowNode node)
-        {
-            checkArgument(node.getWindowFunctions().size() == 1);
-            Symbol symbol = Iterables.getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
-            Signature signature = node.getSignatures().get(symbol);
-            WindowFunction function = metadata.getExactFunction(signature).bindWindowFunction(ImmutableList.<Integer>of()).createWindowFunction();
-            return function instanceof RowNumberFunction;
         }
 
         private static boolean filterContainsWindowFunctions(WindowNode node, Expression filterPredicate)
@@ -232,6 +215,12 @@ public class WindowFilterPushDown
     {
         Symbol rowNumberSymbol = getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
         return WindowLimitExtractor.extract(filterPredicate, rowNumberSymbol);
+    }
+
+    @VisibleForTesting
+    static boolean isRowNumberSignature(Signature signature)
+    {
+        return signature.equals(ROW_NUMBER_SIGNATURE);
     }
 
     public static final class WindowLimitExtractor
