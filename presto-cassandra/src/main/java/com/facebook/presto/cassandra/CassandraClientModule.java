@@ -17,6 +17,10 @@ import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.QueryOptions;
 import com.datastax.driver.core.SocketOptions;
 import com.datastax.driver.core.policies.ExponentialReconnectionPolicy;
+import com.datastax.driver.core.policies.LoadBalancingPolicy;
+import com.datastax.driver.core.policies.DCAwareRoundRobinPolicy;
+import com.datastax.driver.core.policies.RoundRobinPolicy;
+import com.datastax.driver.core.policies.TokenAwarePolicy;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -111,6 +115,20 @@ public class CassandraClientModule
         if (config.getUsername() != null && config.getPassword() != null) {
             clusterBuilder.withCredentials(config.getUsername(), config.getPassword());
         }
+
+        LoadBalancingPolicy policy;
+        String localDataCenter = config.getLocalDataCenter();
+
+        if (localDataCenter != null && !"".equals(localDataCenter)) {
+            policy = new DCAwareRoundRobinPolicy(localDataCenter, config.getUsedHostsPerRemoteDc());
+        }
+        else {
+            policy = new RoundRobinPolicy();
+        }
+        if (config.getUseTokenAwarePolicy()) {
+            policy = new TokenAwarePolicy(policy);
+        }
+        clusterBuilder.withLoadBalancingPolicy(policy);
 
         QueryOptions options = new QueryOptions();
         options.setFetchSize(config.getFetchSize());

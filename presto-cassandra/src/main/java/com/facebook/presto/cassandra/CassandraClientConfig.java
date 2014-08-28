@@ -59,6 +59,9 @@ public class CassandraClientConfig
     private int clientReadTimeout = SocketOptions.DEFAULT_READ_TIMEOUT_MILLIS;
     private int clientConnectTimeout = SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS;
     private Integer clientSoLinger;
+    private String localDataCenter;
+    private int usedHostsPerRemoteDc = 0;
+    private boolean useTokenAwarePolicy;
 
     @Min(0)
     public int getLimitForPartitionKeySelect()
@@ -332,6 +335,46 @@ public class CassandraClientConfig
     public CassandraClientConfig setClientSoLinger(Integer clientSoLinger)
     {
         this.clientSoLinger = clientSoLinger;
+        return this;
+    }
+
+    public String getLocalDataCenter()
+    {
+        return this.localDataCenter;
+    }
+
+    @Config("cassandra.local-data-center")
+    @ConfigDescription("Use DCAwareRoundRobinPolicy with local datacenter in cassandra driver")
+    public CassandraClientConfig setLocalDataCenter(String localDataCenter)
+    {
+        this.localDataCenter = localDataCenter;
+        return this;
+    }
+
+    @Min(0)
+    public int getUsedHostsPerRemoteDc()
+    {
+        return usedHostsPerRemoteDc;
+    }
+
+    @Config("cassandra.used-hosts-per-remote-dc")
+    @ConfigDescription("Use for DCAwareRoundRobinPolicy if cassandra.local-data-center is set")
+    public CassandraClientConfig setUsedHostsPerRemoteDc(int usedHostsPerRemoteDc)
+    {
+        this.usedHostsPerRemoteDc = usedHostsPerRemoteDc;
+        return this;
+    }
+
+    public boolean getUseTokenAwarePolicy()
+    {
+        return this.useTokenAwarePolicy;
+    }
+
+    @Config("cassandra.use-token-aware-policy")
+    @ConfigDescription("Use TokenAwarePolicy in cassandra driver")
+    public CassandraClientConfig setUseTokenAwarePolicy(boolean useTokenAwarePolicy)
+    {
+        this.useTokenAwarePolicy = useTokenAwarePolicy;
         return this;
     }
 }
