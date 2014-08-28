@@ -94,18 +94,6 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName)
-    {
-        SystemTableHandle systemTableHandle = checkTableHandle(tableHandle);
-        ConnectorTableMetadata tableMetadata = tables.get(systemTableHandle.getSchemaTableName());
-
-        if (findColumnMetadata(tableMetadata, columnName) == null) {
-            return null;
-        }
-        return new SystemColumnHandle(columnName);
-    }
-
-    @Override
     public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return null;

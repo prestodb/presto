@@ -91,17 +91,6 @@ public class TestingMetadata
     }
 
     @Override
-    public ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName)
-    {
-        for (ColumnMetadata columnMetadata : getTableMetadata(tableHandle).getColumns()) {
-            if (columnMetadata.getName().equals(columnName)) {
-                return new InMemoryColumnHandle(columnMetadata.getName(), columnMetadata.getOrdinalPosition(), columnMetadata.getType());
-            }
-        }
-        return null;
-    }
-
-    @Override
     public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return null;

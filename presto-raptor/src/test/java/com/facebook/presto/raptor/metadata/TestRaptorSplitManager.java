@@ -93,7 +93,7 @@ public class TestRaptorSplitManager
         RaptorMetadata metadata = new RaptorMetadata(connectorId, dbi, shardManager);
 
         tableHandle = metadata.createTable(SESSION, TEST_TABLE);
-        dsColumnHandle = metadata.getColumnHandle(tableHandle, "ds");
+        dsColumnHandle = metadata.getColumnHandles(tableHandle).get("ds");
 
         UUID shardUuid1 = UUID.randomUUID();
         UUID shardUuid2 = UUID.randomUUID();

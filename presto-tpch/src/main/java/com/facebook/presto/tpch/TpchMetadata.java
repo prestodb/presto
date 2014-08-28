@@ -121,25 +121,6 @@ public class TpchMetadata
     }
 
     @Override
-    public ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName)
-    {
-        TpchTableHandle tpchTableHandle = checkType(tableHandle, TpchTableHandle.class, "tableHandle");
-
-        if (columnName.equalsIgnoreCase(ROW_NUMBER_COLUMN_NAME)) {
-            return ROW_NUMBER_COLUMN_HANDLE;
-        }
-
-        int ordinalPosition = 0;
-        for (TpchColumn<? extends TpchEntity> column : TpchTable.getTable(tpchTableHandle.getTableName()).getColumns()) {
-            if (column.getColumnName().equalsIgnoreCase(columnName)) {
-                return new TpchColumnHandle(column.getColumnName(), ordinalPosition, getPrestoType(column.getType()));
-            }
-            ordinalPosition++;
-        }
-        return null;
-    }
-
-    @Override
     public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return null;

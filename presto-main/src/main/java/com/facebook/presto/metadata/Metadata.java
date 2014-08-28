@@ -75,14 +75,6 @@ public interface Metadata
     List<QualifiedTableName> listTables(ConnectorSession session, QualifiedTablePrefix prefix);
 
     /**
-     * Returns a handle for the specified table column.
-     *
-     * @throws RuntimeException if table handle is no longer valid
-     */
-    @NotNull
-    Optional<ColumnHandle> getColumnHandle(TableHandle tableHandle, String columnName);
-
-    /**
      * Returns the handle for the sample weight column.
      *
      * @throws RuntimeException if the table handle is no longer valid

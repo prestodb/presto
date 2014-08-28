@@ -120,18 +120,6 @@ public class JmxMetadata
     }
 
     @Override
-    public ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName)
-    {
-        JmxTableHandle jmxTableHandle = checkType(tableHandle, JmxTableHandle.class, "tableHandle");
-        for (JmxColumnHandle jmxColumnHandle : jmxTableHandle.getColumns()) {
-            if (jmxColumnHandle.getColumnName().equalsIgnoreCase(columnName)) {
-                return jmxColumnHandle;
-            }
-        }
-        return null;
-    }
-
-    @Override
     public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return null;

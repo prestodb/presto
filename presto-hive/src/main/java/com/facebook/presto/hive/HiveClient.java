@@ -316,14 +316,6 @@ public class HiveClient
     }
 
     @Override
-    public ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName)
-    {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkNotNull(columnName, "columnName is null");
-        return getColumnHandles(tableHandle).get(columnName);
-    }
-
-    @Override
     public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         SchemaTableName tableName = getTableName(tableHandle);

@@ -92,7 +92,7 @@ public class TestRaptorMetadata
         ConnectorTableMetadata table = metadata.getTableMetadata(tableHandle);
         assertTableEqual(table, getOrdersTable());
 
-        ConnectorColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, "orderkey");
+        ConnectorColumnHandle columnHandle = metadata.getColumnHandles(tableHandle).get("orderkey");
         assertInstanceOf(columnHandle, RaptorColumnHandle.class);
         assertEquals(((RaptorColumnHandle) columnHandle).getColumnId(), 1);
 

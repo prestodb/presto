@@ -42,13 +42,6 @@ public interface ConnectorMetadata
     List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull);
 
     /**
-     * Returns a handle for the specified table column, or null if the table does not contain the specified column.
-     *
-     * @throws RuntimeException if table handle is no longer valid
-     */
-    ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName);
-
-    /**
      * Returns the handle for the sample weight column, or null if the table does not contain sampled data.
      *
      * @throws RuntimeException if the table handle is no longer valid
