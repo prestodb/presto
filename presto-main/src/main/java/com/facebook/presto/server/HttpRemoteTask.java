@@ -379,9 +379,11 @@ public class HttpRemoteTask
         currentRequest = future;
         currentRequestStartNanos = System.nanoTime();
 
-        Futures.addCallback(future, new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri()), executor);
-
+        // The needsUpdate flag needs to be set to false BEFORE adding the Future callback since callback might change the flag value
+        // and does so without grabbing the instance lock.
         needsUpdate.set(false);
+
+        Futures.addCallback(future, new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri()), executor);
     }
 
     private synchronized List<TaskSource> getSources()
