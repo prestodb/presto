@@ -50,6 +50,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Iterables.getOnlyElement;
 
 public class WindowFilterPushDown
         extends PlanOptimizer
@@ -103,8 +104,8 @@ public class WindowFilterPushDown
 
         private Rewriter(PlanNodeIdAllocator idAllocator, Metadata metadata)
         {
-            this.metadata = checkNotNull(metadata, "metadata is null");
             this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");
+            this.metadata = checkNotNull(metadata, "metadata is null");
         }
 
         @Override
@@ -123,25 +124,22 @@ public class WindowFilterPushDown
                             node.getWindowFunctions(),
                             node.getSignatures());
                 }
-                else if (node.getOrderBy().isEmpty()) {
+                if (node.getOrderBy().isEmpty()) {
                     PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), null);
                     return new RowNumberLimitNode(idAllocator.getNextId(),
                             rewrittenSource,
                             node.getPartitionBy(),
-                            Iterables.getOnlyElement(node.getWindowFunctions().keySet()),
+                            getOnlyElement(node.getWindowFunctions().keySet()),
                             limit);
                 }
-                else {
-                    PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), null);
-                    return new TopNRowNumberNode(idAllocator.getNextId(),
-                            rewrittenSource,
-                            node.getPartitionBy(),
-                            node.getOrderBy(),
-                            node.getOrderings(),
-                            Iterables.getOnlyElement(node.getWindowFunctions().keySet()),
-                            limit);
-
-                }
+                PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), null);
+                return new TopNRowNumberNode(idAllocator.getNextId(),
+                        rewrittenSource,
+                        node.getPartitionBy(),
+                        node.getOrderBy(),
+                        node.getOrderings(),
+                        getOnlyElement(node.getWindowFunctions().keySet()),
+                        limit);
             }
             return planRewriter.defaultRewrite(node, null);
         }
@@ -207,15 +205,13 @@ public class WindowFilterPushDown
                 if (windowNode.getOrderBy().isEmpty()) {
                     return new LimitNode(idAllocator.getNextId(), rewrittenNode, ((LongLiteral) context.getExpression()).getValue());
                 }
-                else {
-                    return new TopNNode(
-                            idAllocator.getNextId(),
-                            rewrittenNode,
-                            ((LongLiteral) context.getExpression()).getValue(),
-                            windowNode.getOrderBy(),
-                            windowNode.getOrderings(),
-                            false);
-                }
+                return new TopNNode(
+                        idAllocator.getNextId(),
+                        rewrittenNode,
+                        ((LongLiteral) context.getExpression()).getValue(),
+                        windowNode.getOrderBy(),
+                        windowNode.getOrderings(),
+                        false);
             }
             return planRewriter.defaultRewrite(node, null);
         }
@@ -234,7 +230,7 @@ public class WindowFilterPushDown
 
     private static Optional<Integer> extractLimitOptional(WindowNode node, Expression filterPredicate)
     {
-        Symbol rowNumberSymbol = Iterables.getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
+        Symbol rowNumberSymbol = getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
         return WindowLimitExtractor.extract(filterPredicate, rowNumberSymbol);
     }
 
@@ -249,11 +245,9 @@ public class WindowFilterPushDown
             if (limit == null) {
                 return Optional.absent();
             }
-            else {
-                checkArgument(limit < Integer.MAX_VALUE, "filter on row_number greater than allowed value");
+            checkArgument(limit < Integer.MAX_VALUE, "filter on row_number greater than allowed value");
 
-                return Optional.of(limit.intValue());
-            }
+            return Optional.of(limit.intValue());
         }
 
         private static class Visitor
@@ -272,7 +266,7 @@ public class WindowFilterPushDown
                     if (node.getType() == ComparisonExpression.Type.LESS_THAN_OR_EQUAL) {
                         return extractValue(literal);
                     }
-                    else if (node.getType() == ComparisonExpression.Type.LESS_THAN) {
+                    if (node.getType() == ComparisonExpression.Type.LESS_THAN) {
                         return extractValue(literal) - 1;
                     }
                 }
@@ -280,7 +274,7 @@ public class WindowFilterPushDown
                     if (node.getType() == ComparisonExpression.Type.GREATER_THAN_OR_EQUAL) {
                         return extractValue(literal);
                     }
-                    else if (node.getType() == ComparisonExpression.Type.GREATER_THAN) {
+                    if (node.getType() == ComparisonExpression.Type.GREATER_THAN) {
                         return extractValue(literal) - 1;
                     }
                 }
@@ -293,7 +287,7 @@ public class WindowFilterPushDown
             if (expression.getLeft() instanceof QualifiedNameReference) {
                 return (QualifiedNameReference) expression.getLeft();
             }
-            else if (expression.getRight() instanceof QualifiedNameReference) {
+            if (expression.getRight() instanceof QualifiedNameReference) {
                 return (QualifiedNameReference) expression.getRight();
             }
             throw new IllegalArgumentException("Comparison does not have a child of type QualifiedNameReference");
@@ -304,7 +298,7 @@ public class WindowFilterPushDown
             if (expression.getLeft() instanceof Literal) {
                 return (Literal) expression.getLeft();
             }
-            else if (expression.getRight() instanceof Literal) {
+            if (expression.getRight() instanceof Literal) {
                 return (Literal) expression.getRight();
             }
             throw new IllegalArgumentException("Comparison does not have a child of type Literal");
