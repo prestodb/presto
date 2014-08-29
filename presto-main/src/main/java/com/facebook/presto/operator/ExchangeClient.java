@@ -118,7 +118,7 @@ public class ExchangeClient
         for (HttpPageBufferClient client : allClients.values()) {
             exchangeStatus.add(client.getStatus());
         }
-        return new ExchangeClientStatus(bufferBytes, averageBytesPerRequest, bufferedPages, exchangeStatus.build());
+        return new ExchangeClientStatus(bufferBytes, averageBytesPerRequest, bufferedPages, noMoreLocations, exchangeStatus.build());
     }
 
     public synchronized void addLocation(URI location)
