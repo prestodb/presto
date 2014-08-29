@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.util.AsyncSemaphore;
 import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.SetThreadName;
 import com.google.common.base.Function;
@@ -27,6 +28,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -46,12 +49,15 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.compose;
 import static com.google.common.base.Predicates.isNull;
@@ -71,6 +77,7 @@ public class SqlQueryManager
 
     private final ExecutorService queryExecutor;
     private final ThreadPoolExecutorMBean queryExecutorMBean;
+    private final QueryStarter queryStarter;
 
     private final int maxQueryHistory;
     private final Duration maxQueryAge;
@@ -105,6 +112,7 @@ public class SqlQueryManager
 
         this.queryExecutor = newCachedThreadPool(threadsNamed("query-scheduler-%d"));
         this.queryExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryExecutor);
+        this.queryStarter = new QueryStarter(queryExecutor, stats, config.getMaxConcurrentQueries());
 
         this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
         this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
@@ -231,7 +239,7 @@ public class SqlQueryManager
         queries.put(queryId, queryExecution);
 
         // start the query in the background
-        queryExecutor.submit(new QueryStarter(queryExecution, stats));
+        queryStarter.submit(queryExecution);
 
         return queryExecution.getQueryInfo();
     }
@@ -260,6 +268,12 @@ public class SqlQueryManager
         if (query != null) {
             query.cancelStage(stageId);
         }
+    }
+
+    @Managed
+    public int getQueryQueueSize()
+    {
+        return queryStarter.getQueueSize();
     }
 
     @Managed
@@ -378,23 +392,69 @@ public class SqlQueryManager
     }
 
     private static class QueryStarter
-            implements Runnable
     {
-        private final QueryExecution queryExecution;
-        private final SqlQueryManagerStats stats;
+        private final AtomicInteger queueSize = new AtomicInteger();
+        private final AsyncSemaphore<QueryExecution> asyncSemaphore;
 
-        public QueryStarter(QueryExecution queryExecution, SqlQueryManagerStats stats)
+        public QueryStarter(Executor queryExecutor, SqlQueryManagerStats stats, int maxConcurrentQueries)
         {
-            this.queryExecution = queryExecution;
-            this.stats = stats;
+            checkNotNull(queryExecutor, "queryExecutor is null");
+            checkNotNull(stats, "stats is null");
+            checkArgument(maxConcurrentQueries > 0, "must allow at least one running query");
+
+            this.asyncSemaphore = new AsyncSemaphore<>(maxConcurrentQueries, queryExecutor, new QuerySubmitter(queryExecutor, stats));
         }
 
-        @Override
-        public void run()
+        public void submit(QueryExecution queryExecution)
         {
-            try (SetThreadName setThreadName = new SetThreadName("Query-%s", queryExecution.getQueryInfo().getQueryId())) {
-                stats.queryStarted();
-                queryExecution.start();
+            queueSize.incrementAndGet();
+            asyncSemaphore.submit(queryExecution);
+        }
+
+        public int getQueueSize()
+        {
+            return queueSize.get();
+        }
+
+        private class QuerySubmitter
+                implements Function<QueryExecution, ListenableFuture<?>>
+        {
+            private final Executor queryExecutor;
+            private final SqlQueryManagerStats stats;
+
+            public QuerySubmitter(Executor queryExecutor, SqlQueryManagerStats stats)
+            {
+                this.queryExecutor = checkNotNull(queryExecutor, "queryExecutor is null");
+                this.stats = checkNotNull(stats, "stats is null");
+            }
+
+            @Override
+            public ListenableFuture<?> apply(final QueryExecution queryExecution)
+            {
+                queueSize.decrementAndGet();
+                final SettableFuture<?> settableFuture = SettableFuture.create();
+                queryExecution.addStateChangeListener(new StateChangeListener<QueryState>()
+                {
+                    @Override
+                    public void stateChanged(QueryState newValue)
+                    {
+                        if (newValue.isDone()) {
+                            settableFuture.set(null);
+                        }
+                    }
+                });
+                queryExecutor.execute(new Runnable()
+                {
+                    @Override
+                    public void run()
+                    {
+                        try (SetThreadName setThreadName = new SetThreadName("Query-%s", queryExecution.getQueryInfo().getQueryId())) {
+                            stats.queryStarted();
+                            queryExecution.start();
+                        }
+                    }
+                });
+                return settableFuture;
             }
         }
     }
