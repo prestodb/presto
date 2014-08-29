@@ -22,6 +22,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -43,10 +44,12 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.LikeFunctions;
 import com.google.common.base.Charsets;
@@ -755,6 +758,31 @@ public class ExpressionInterpreter
                 }
                 throw e;
             }
+        }
+
+        @Override
+        protected Object visitArrayConstructor(ArrayConstructor node, Object context)
+        {
+            return visitFunctionCall(new FunctionCall(QualifiedName.of(ArrayConstructor.ARRAY_CONSTRUCTOR), node.getValues()), context);
+        }
+
+        @Override
+        protected Object visitSubscriptExpression(SubscriptExpression node, Object context)
+        {
+            Object base = process(node.getBase(), context);
+            if (base == null) {
+                return null;
+            }
+            Object index = process(node.getIndex(), context);
+            if (index == null) {
+                return null;
+            }
+
+            if (hasUnresolvedValue(base, index)) {
+                return new SubscriptExpression(toExpression(base, expressionTypes.get(node.getBase())), toExpression(index, expressionTypes.get(node.getIndex())));
+            }
+
+            return invokeOperator(OperatorType.SUBSCRIPT, types(node.getBase(), node.getIndex()), ImmutableList.of(base, index));
         }
 
         @Override

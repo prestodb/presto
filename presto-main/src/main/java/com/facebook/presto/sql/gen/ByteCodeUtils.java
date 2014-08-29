@@ -204,7 +204,7 @@ public final class ByteCodeUtils
         return block;
     }
 
-    private static ByteCodeNode boxPrimitiveIfNecessary(CompilerContext context, Class<?> type)
+    public static ByteCodeNode boxPrimitiveIfNecessary(CompilerContext context, Class<?> type)
     {
         if (!Primitives.isWrapperType(type)) {
             return NOP;
@@ -222,6 +222,11 @@ public final class ByteCodeUtils
         else if (type == Boolean.class) {
             notNull.invokeStatic(Boolean.class, "valueOf", Boolean.class, boolean.class);
             expectedCurrentStackType = boolean.class;
+        }
+        else if (type == Void.class) {
+            notNull.pushNull()
+                    .checkCast(Void.class);
+            expectedCurrentStackType = void.class;
         }
         else {
             throw new UnsupportedOperationException("not yet implemented: " + type);

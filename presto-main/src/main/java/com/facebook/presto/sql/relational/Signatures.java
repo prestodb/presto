@@ -27,8 +27,10 @@ import com.google.common.collect.Lists;
 import java.util.List;
 
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
+import static com.facebook.presto.metadata.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.metadata.Signature.internalFunction;
 import static com.facebook.presto.metadata.Signature.internalOperator;
+import static com.facebook.presto.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static com.facebook.presto.type.TypeUtils.nameGetter;
 
 public final class Signatures
@@ -91,6 +93,16 @@ public final class Signatures
     public static Signature arithmeticExpressionSignature(ArithmeticExpression.Type expressionType, Type returnType, Type leftType, Type rightType)
     {
         return internalOperator(expressionType.name(), returnType.getName(), leftType.getName(), rightType.getName());
+    }
+
+    public static Signature subscriptSignature(Type returnType, Type leftType, Type rightType)
+    {
+        return internalOperator(SUBSCRIPT.name(), returnType.getName(), leftType.getName(), rightType.getName());
+    }
+
+    public static Signature arrayConstructorSignature(Type returnType, List<? extends Type> argumentTypes)
+    {
+        return internalFunction(ARRAY_CONSTRUCTOR, returnType.getName(), Lists.transform(argumentTypes, nameGetter()));
     }
 
     public static Signature comparisonExpressionSignature(ComparisonExpression.Type expressionType, Type leftType, Type rightType)

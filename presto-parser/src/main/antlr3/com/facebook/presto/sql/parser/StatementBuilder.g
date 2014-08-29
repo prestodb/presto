@@ -316,6 +316,15 @@ singleExpression returns [Expression value]
     : expr EOF { $value = $expr.value; }
     ;
 
+arrayValue returns [ArrayConstructor value]
+    : ^(ARRAY exprList) { $value = new ArrayConstructor($exprList.value); }
+    | ARRAY             { $value = new ArrayConstructor(ImmutableList.<Expression>of()); }
+    ;
+
+subscript returns [SubscriptExpression value]
+    : ^(SUBSCRIPT a=expr i=expr) { $value = new SubscriptExpression($a.value, $i.value); }
+    ;
+
 expr returns [Expression value]
     : NULL                    { $value = new NullLiteral(); }
     | qname                   { $value = new QualifiedNameReference($qname.value); }
@@ -334,6 +343,8 @@ expr returns [Expression value]
     | TRUE                    { $value = BooleanLiteral.TRUE_LITERAL; }
     | FALSE                   { $value = BooleanLiteral.FALSE_LITERAL; }
     | intervalValue           { $value = $intervalValue.value; }
+    | arrayValue              { $value = $arrayValue.value; }
+    | subscript               { $value = $subscript.value; }
     | predicate               { $value = $predicate.value; }
     | ^(IN_LIST exprList)     { $value = new InListExpression($exprList.value); }
     | ^(NEGATIVE e=expr)      { $value = new NegativeExpression($e.value); }

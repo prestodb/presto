@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.presto.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
@@ -27,6 +28,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.unmodifiableIterable;
@@ -174,6 +176,14 @@ public class QueryResults
     {
         if (value == null) {
             return null;
+        }
+        TypeSignature signature = parseTypeSignature(type);
+        if (signature.getBase().equals("array")) {
+            List<Object> fixedValue = new ArrayList<>();
+            for (Object object : List.class.cast(value)) {
+                fixedValue.add(fixValue(signature.getParameters().get(0).toString(), object));
+            }
+            return fixedValue;
         }
         switch (type) {
             case "bigint":

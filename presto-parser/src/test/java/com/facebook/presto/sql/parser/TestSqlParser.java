@@ -15,6 +15,7 @@ package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Approximate;
+import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -38,6 +39,7 @@ import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
@@ -95,6 +97,34 @@ public class TestSqlParser
         assertExpression("TIMESTAMP" + " 'abc'", new TimestampLiteral("abc"));
         assertExpression("INTERVAL '33' day", new IntervalLiteral("33", Sign.POSITIVE, IntervalField.DAY, null));
         assertExpression("INTERVAL '33' day to second", new IntervalLiteral("33", Sign.POSITIVE, IntervalField.DAY, IntervalField.SECOND));
+    }
+
+    @Test
+    public void testArrayConstructor()
+            throws Exception
+    {
+        assertExpression("ARRAY []", new ArrayConstructor(ImmutableList.<Expression>of()));
+        assertExpression("ARRAY [1, 2]", new ArrayConstructor(ImmutableList.<Expression>of(new LongLiteral("1"), new LongLiteral("2"))));
+        assertExpression("ARRAY [1.0, 2.5]", new ArrayConstructor(ImmutableList.<Expression>of(new DoubleLiteral("1.0"), new DoubleLiteral("2.5"))));
+        assertExpression("ARRAY ['hi']", new ArrayConstructor(ImmutableList.<Expression>of(new StringLiteral("hi"))));
+        assertExpression("ARRAY ['hi', 'hello']", new ArrayConstructor(ImmutableList.<Expression>of(new StringLiteral("hi"), new StringLiteral("hello"))));
+    }
+
+    @Test
+    public void testArraySubscript()
+            throws Exception
+    {
+        assertExpression("ARRAY [1, 2][1]", new SubscriptExpression(
+                        new ArrayConstructor(ImmutableList.<Expression>of(new LongLiteral("1"), new LongLiteral("2"))),
+                        new LongLiteral("1"))
+                );
+        try {
+            assertExpression("CASE WHEN TRUE THEN ARRAY[1,2] END[1]", null);
+            fail();
+        }
+        catch (RuntimeException e) {
+            // Expected
+        }
     }
 
     @Test

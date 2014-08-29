@@ -58,6 +58,25 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitArrayConstructor(ArrayConstructor node, C context)
+    {
+        for (Expression expression : node.getValues()) {
+            process(expression, context);
+        }
+
+        return null;
+    }
+
+    @Override
+    protected R visitSubscriptExpression(SubscriptExpression node, C context)
+    {
+        process(node.getBase(), context);
+        process(node.getIndex(), context);
+
+        return null;
+    }
+
+    @Override
     protected R visitComparisonExpression(ComparisonExpression node, C context)
     {
         process(node.getLeft(), context);
