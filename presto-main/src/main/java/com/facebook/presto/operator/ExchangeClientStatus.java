@@ -27,6 +27,7 @@ public class ExchangeClientStatus
     private final long bufferedBytes;
     private final long averageBytesPerRequest;
     private final int bufferedPages;
+    private final boolean noMoreLocations;
     private final List<PageBufferClientStatus> pageBufferClientStatuses;
 
     @JsonCreator
@@ -34,11 +35,13 @@ public class ExchangeClientStatus
             @JsonProperty("bufferedBytes") long bufferedBytes,
             @JsonProperty("averageBytesPerRequest") long averageBytesPerRequest,
             @JsonProperty("bufferedPages") int bufferedPages,
+            @JsonProperty("noMoreLocations") boolean noMoreLocations,
             @JsonProperty("pageBufferClientStatuses") List<PageBufferClientStatus> pageBufferClientStatuses)
     {
         this.bufferedBytes = bufferedBytes;
         this.averageBytesPerRequest = averageBytesPerRequest;
         this.bufferedPages = bufferedPages;
+        this.noMoreLocations = noMoreLocations;
         this.pageBufferClientStatuses = ImmutableList.copyOf(checkNotNull(pageBufferClientStatuses, "pageBufferClientStatuses is null"));
     }
 
@@ -61,6 +64,13 @@ public class ExchangeClientStatus
     }
 
     @JsonProperty
+    public boolean isNoMoreLocations()
+    {
+        return noMoreLocations;
+    }
+
+    @JsonProperty
+
     public List<PageBufferClientStatus> getPageBufferClientStatuses()
     {
         return pageBufferClientStatuses;
@@ -73,6 +83,7 @@ public class ExchangeClientStatus
                 .add("bufferBytes", bufferedBytes)
                 .add("averageBytesPerRequest", averageBytesPerRequest)
                 .add("bufferedPages", bufferedPages)
+                .add("noMoreLocations", noMoreLocations)
                 .add("pageBufferClientStatuses", pageBufferClientStatuses)
                 .toString();
     }
