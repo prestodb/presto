@@ -442,6 +442,24 @@ public class TestSqlParser
         sqlParser.createStatement("select * from foo:bar");
     }
 
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:11: mismatched input '(' expecting EOF\\E")
+    public void testInvalidArguments()
+    {
+        SQL_PARSER.createStatement("select foo(,1)");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:20: no viable alternative at input ')'\\E")
+    public void testInvalidArguments2()
+    {
+        SQL_PARSER.createStatement("select foo(DISTINCT)");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:21: no viable alternative at input ','\\E")
+    public void testInvalidArguments3()
+    {
+        SQL_PARSER.createStatement("select foo(DISTINCT ,1)");
+    }
+
     @SuppressWarnings("deprecation")
     @Test
     public void testAllowIdentifierAtSign()
