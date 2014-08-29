@@ -15,11 +15,11 @@ package com.facebook.presto.sql;
 
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
@@ -51,6 +52,7 @@ import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
+import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
@@ -134,6 +136,22 @@ public final class ExpressionFormatter
         protected String visitStringLiteral(StringLiteral node, Void context)
         {
             return formatStringLiteral(node.getValue());
+        }
+
+        @Override
+        protected String visitArrayConstructor(ArrayConstructor node, Void context)
+        {
+            ImmutableList.Builder<String> valueStrings = ImmutableList.builder();
+            for (Expression value : node.getValues()) {
+                valueStrings.add(formatSql(value));
+            }
+            return "ARRAY[" + Joiner.on(",").join(valueStrings.build()) + "]";
+        }
+
+        @Override
+        protected String visitSubscriptExpression(SubscriptExpression node, Void context)
+        {
+            return formatSql(node.getBase()) + "[" + formatSql(node.getIndex()) + "]";
         }
 
         @Override

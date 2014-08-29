@@ -49,6 +49,7 @@ tokens {
     RIGHT_JOIN;
     FULL_JOIN;
     COMPARE;
+    SUBSCRIPT;
     IS_NULL;
     IS_NOT_NULL;
     IS_DISTINCT_FROM;
@@ -415,12 +416,18 @@ numericFactor
     ;
 
 exprWithTimeZone
-    : (exprPrimary -> exprPrimary)
+    : (subscriptExpression -> subscriptExpression)
       (
         // todo this should have a full tree node to preserve the syntax
-        AT TIME ZONE STRING           -> ^(FUNCTION_CALL ^(QNAME IDENT["at_time_zone"]) $exprWithTimeZone STRING)
+        AT TIME ZONE STRING             -> ^(FUNCTION_CALL ^(QNAME IDENT["at_time_zone"]) $exprWithTimeZone STRING)
       | AT TIME ZONE intervalLiteral    -> ^(FUNCTION_CALL ^(QNAME IDENT["at_time_zone"]) $exprWithTimeZone intervalLiteral)
       )?
+    ;
+
+subscriptExpression
+    : (exprPrimary -> exprPrimary)
+      ( '[' expr ']' -> ^(SUBSCRIPT $subscriptExpression expr) )*
+    | caseExpression
     ;
 
 exprPrimary
@@ -431,7 +438,6 @@ exprPrimary
     | number
     | bool
     | STRING
-    | caseExpression
     | ('(' expr ')') => ('(' expr ')' -> expr)
     | subquery
     ;
@@ -480,7 +486,12 @@ literal
     | (TIME) => TIME STRING           -> ^(TIME STRING)
     | (TIMESTAMP) => TIMESTAMP STRING -> ^(TIMESTAMP STRING)
     | (INTERVAL) => intervalLiteral
+    | (ARRAY) => arrayConstructor
     | ident STRING                    -> ^(LITERAL ident STRING)
+    ;
+
+arrayConstructor
+    : ARRAY '[' (expr (',' expr)*)? ']'     -> ^(ARRAY expr*)
     ;
 
 intervalLiteral
@@ -820,6 +831,7 @@ ROW: 'ROW';
 WITH: 'WITH';
 RECURSIVE: 'RECURSIVE';
 VALUES: 'VALUES';
+ARRAY: 'ARRAY';
 CREATE: 'CREATE';
 TABLE: 'TABLE';
 VIEW: 'VIEW';

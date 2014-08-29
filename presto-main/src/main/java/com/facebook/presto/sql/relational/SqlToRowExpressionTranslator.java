@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -47,6 +48,7 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
@@ -73,6 +75,7 @@ import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.sql.relational.RowExpression.typeGetter;
 import static com.facebook.presto.sql.relational.Signatures.arithmeticExpressionSignature;
 import static com.facebook.presto.sql.relational.Signatures.arithmeticNegationSignature;
+import static com.facebook.presto.sql.relational.Signatures.arrayConstructorSignature;
 import static com.facebook.presto.sql.relational.Signatures.betweenSignature;
 import static com.facebook.presto.sql.relational.Signatures.castSignature;
 import static com.facebook.presto.sql.relational.Signatures.coalesceSignature;
@@ -81,6 +84,7 @@ import static com.facebook.presto.sql.relational.Signatures.likePatternSignature
 import static com.facebook.presto.sql.relational.Signatures.likeSignature;
 import static com.facebook.presto.sql.relational.Signatures.logicalExpressionSignature;
 import static com.facebook.presto.sql.relational.Signatures.nullIfSignature;
+import static com.facebook.presto.sql.relational.Signatures.subscriptSignature;
 import static com.facebook.presto.sql.relational.Signatures.switchSignature;
 import static com.facebook.presto.sql.relational.Signatures.tryCastSignature;
 import static com.facebook.presto.sql.relational.Signatures.whenSignature;
@@ -474,6 +478,27 @@ public final class SqlToRowExpressionTranslator
             }
 
             return call(likeSignature(), BOOLEAN, value, call(castSignature(LIKE_PATTERN, VARCHAR), LIKE_PATTERN, pattern));
+        }
+
+        @Override
+        protected RowExpression visitSubscriptExpression(SubscriptExpression node, Void context)
+        {
+            RowExpression base = process(node.getBase(), context);
+            RowExpression index = process(node.getIndex(), context);
+
+            return call(
+                    subscriptSignature(types.get(node), base.getType(), index.getType()),
+                    types.get(node),
+                    base,
+                    index);
+        }
+
+        @Override
+        protected RowExpression visitArrayConstructor(ArrayConstructor node, Void context)
+        {
+            List<RowExpression> arguments = Lists.transform(node.getValues(), processFunction(context));
+            List<Type> argumentTypes = Lists.transform(arguments, typeGetter());
+            return call(arrayConstructorSignature(types.get(node), argumentTypes), types.get(node), arguments);
         }
     }
 }

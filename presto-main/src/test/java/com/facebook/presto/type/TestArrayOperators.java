@@ -1,0 +1,107 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.type;
+
+import com.facebook.presto.operator.scalar.FunctionAssertions;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.sql.analyzer.SemanticErrorCode;
+import com.facebook.presto.sql.analyzer.SemanticException;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
+
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
+
+public class TestArrayOperators
+{
+    private FunctionAssertions functionAssertions;
+
+    @BeforeClass
+    public void setUp()
+    {
+        functionAssertions = new FunctionAssertions();
+    }
+
+    private void assertFunction(String projection, Object expected)
+    {
+        functionAssertions.assertFunction(projection, expected);
+    }
+
+    @Test
+    public void testConstructor()
+            throws Exception
+    {
+        assertFunction("ARRAY []", ImmutableList.of());
+        assertFunction("ARRAY [NULL]", Lists.newArrayList((Object) null));
+        assertFunction("ARRAY [1, 2, 3]", ImmutableList.of(1L, 2L, 3L));
+        assertFunction("ARRAY [1, NULL, 3]", Lists.newArrayList(1L, null, 3L));
+        assertFunction("ARRAY [NULL, 2, 3]", Lists.newArrayList(null, 2L, 3L));
+        assertFunction("ARRAY [1, 2.0, 3]", ImmutableList.of(1.0, 2.0, 3.0));
+        assertFunction("ARRAY [ARRAY[1, 2], ARRAY[3]]", ImmutableList.of(ImmutableList.of(1L, 2L), ImmutableList.of(3L)));
+        assertFunction("ARRAY [1.0, 2.5, 3.0]", ImmutableList.of(1.0, 2.5, 3.0));
+        assertFunction("ARRAY ['puppies', 'kittens']", ImmutableList.of("puppies", "kittens"));
+        assertFunction("ARRAY [TRUE, FALSE]", ImmutableList.of(true, false));
+        assertFunction("ARRAY [from_unixtime(1), from_unixtime(100)]", ImmutableList.of(
+                new SqlTimestamp(1000, FunctionAssertions.SESSION.getTimeZoneKey()),
+                new SqlTimestamp(100_000, FunctionAssertions.SESSION.getTimeZoneKey())));
+    }
+
+    @Test
+    public void testSubscript()
+            throws Exception
+    {
+        try {
+            assertFunction("ARRAY [1, 2, 3][0]", null);
+            fail("Access to array element zero should fail");
+        }
+        catch (PrestoException e) {
+            // Expected
+        }
+        try {
+            assertFunction("ARRAY [1, 2, 3][-1]", null);
+            fail("Access to negative array element should fail");
+        }
+        catch (PrestoException e) {
+            // Expected
+        }
+        try {
+            assertFunction("ARRAY [1, 2, 3][4]", null);
+            fail("Access to out of bounds array element should fail");
+        }
+        catch (PrestoException e) {
+            // Expected
+        }
+        try {
+            assertFunction("ARRAY [1, 2, 3][1.1]", null);
+            fail("Access to array with double subscript should fail");
+        }
+        catch (SemanticException e) {
+            assertTrue(e.getCode() == SemanticErrorCode.TYPE_MISMATCH);
+        }
+        assertFunction("1 + ARRAY [2, 1, 3][2]", 2);
+        assertFunction("ARRAY [2, 1, 3][2]", 1);
+        assertFunction("ARRAY [2, NULL, 3][2]", null);
+        assertFunction("ARRAY [1.0, 2.5, 3.5][3]", 3.5);
+        assertFunction("ARRAY [ARRAY[1, 2], ARRAY[3]][2]", ImmutableList.of(3L));
+        assertFunction("ARRAY [ARRAY[1, 2], NULL, ARRAY[3]][2]", null);
+        assertFunction("ARRAY [ARRAY[1, 2], ARRAY[3]][2][1]", 3);
+        assertFunction("ARRAY ['puppies', 'kittens'][2]", "kittens");
+        assertFunction("ARRAY ['puppies', 'kittens', NULL][3]", null);
+        assertFunction("ARRAY [TRUE, FALSE][2]", false);
+        assertFunction("ARRAY [from_unixtime(1), from_unixtime(100)][1]", new SqlTimestamp(1000, FunctionAssertions.SESSION.getTimeZoneKey()));
+    }
+}

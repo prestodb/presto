@@ -148,6 +148,16 @@ public enum OperatorType
                 }
             },
 
+    SUBSCRIPT("[]")
+            {
+                @Override
+                void validateSignature(String returnType, List<String> argumentTypes)
+                {
+                    validateOperatorSignature(this, returnType, argumentTypes, 2);
+                    checkArgument(argumentTypes.get(1).equals(StandardTypes.BIGINT), "[] operator requires a BIGINT, got %s", argumentTypes.get(1));
+                }
+            },
+
     HASH_CODE("HASH CODE")
             {
                 @Override

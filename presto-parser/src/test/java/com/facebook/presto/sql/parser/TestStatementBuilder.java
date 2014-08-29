@@ -56,6 +56,10 @@ public class TestStatementBuilder
 
         printStatement("select x is distinct from y from foo where a is not distinct from b");
 
+        printStatement("select x[1] from my_table");
+        printStatement("select x[1][2] from my_table");
+        printStatement("select x[cast(10 * sin(x) as bigint)] from my_table");
+
         printStatement("" +
                 "select depname, empno, salary\n" +
                 ", count(*) over ()\n" +
