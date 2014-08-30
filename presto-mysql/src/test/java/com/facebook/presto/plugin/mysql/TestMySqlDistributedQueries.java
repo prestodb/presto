@@ -80,7 +80,7 @@ public class TestMySqlDistributedQueries
     private static QueryRunner doCreateQueryRunner(TestingMySqlServer server)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession("tpch"), 2);
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession("tpch"), 3);
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
