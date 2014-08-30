@@ -19,12 +19,14 @@ import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Partition;
 import com.facebook.presto.metadata.PartitionResult;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 import java.util.List;
@@ -47,7 +49,16 @@ public class SplitManager
 
     public PartitionResult getPartitions(TableHandle table, Optional<TupleDomain<ColumnHandle>> tupleDomain)
     {
-        ConnectorPartitionResult result = getConnectorSplitManager(table).getPartitions(table.getConnectorHandle(), toConnectorDomain(tupleDomain.or(TupleDomain.<ColumnHandle>all())));
+        TupleDomain<ColumnHandle> domain = tupleDomain.or(TupleDomain.<ColumnHandle>all());
+
+        ConnectorPartitionResult result;
+        if (domain.isNone()) {
+            result = new ConnectorPartitionResult(ImmutableList.<ConnectorPartition>of(), toConnectorDomain(domain));
+        }
+        else {
+            result = getConnectorSplitManager(table).getPartitions(table.getConnectorHandle(), toConnectorDomain(domain));
+        }
+
         return new PartitionResult(table.getConnectorId(), result);
     }
 
