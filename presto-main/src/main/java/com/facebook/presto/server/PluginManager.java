@@ -15,12 +15,14 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.connector.adapter.SafeConnectorFactoryAdapter;
 import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorFactory;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.SafeConnectorFactory;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.type.Type;
@@ -188,6 +190,10 @@ public class PluginManager
 
         for (Type type : plugin.getServices(Type.class)) {
             typeRegistry.addType(type);
+        }
+
+        for (SafeConnectorFactory<?, ?, ?, ?, ?, ?, ?> connectorFactory : plugin.getServices(SafeConnectorFactory.class)) {
+            connectorManager.addConnectorFactory(new SafeConnectorFactoryAdapter<>(connectorFactory));
         }
 
         for (ConnectorFactory connectorFactory : plugin.getServices(ConnectorFactory.class)) {
