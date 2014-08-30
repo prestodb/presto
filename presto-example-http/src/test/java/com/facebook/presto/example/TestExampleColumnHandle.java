@@ -23,7 +23,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestExampleColumnHandle
 {
-    private final ExampleColumnHandle columnHandle = new ExampleColumnHandle("connectorId", "columnName", VARCHAR, 0);
+    private final ExampleColumnHandle columnHandle = new ExampleColumnHandle("columnName", VARCHAR, 0);
 
     @Test
     public void testJsonRoundTrip()
@@ -38,20 +38,15 @@ public class TestExampleColumnHandle
     {
         EquivalenceTester.equivalenceTester()
                 .addEquivalentGroup(
-                        new ExampleColumnHandle("connectorId", "columnName", VARCHAR, 0),
-                        new ExampleColumnHandle("connectorId", "columnName", VARCHAR, 0),
-                        new ExampleColumnHandle("connectorId", "columnName", BIGINT, 0),
-                        new ExampleColumnHandle("connectorId", "columnName", VARCHAR, 1))
+                        new ExampleColumnHandle("columnName", VARCHAR, 0),
+                        new ExampleColumnHandle("columnName", VARCHAR, 0),
+                        new ExampleColumnHandle("columnName", BIGINT, 0),
+                        new ExampleColumnHandle("columnName", VARCHAR, 1))
                 .addEquivalentGroup(
-                        new ExampleColumnHandle("connectorIdX", "columnName", VARCHAR, 0),
-                        new ExampleColumnHandle("connectorIdX", "columnName", VARCHAR, 0),
-                        new ExampleColumnHandle("connectorIdX", "columnName", BIGINT, 0),
-                        new ExampleColumnHandle("connectorIdX", "columnName", VARCHAR, 1))
-                .addEquivalentGroup(
-                        new ExampleColumnHandle("connectorId", "columnNameX", VARCHAR, 0),
-                        new ExampleColumnHandle("connectorId", "columnNameX", VARCHAR, 0),
-                        new ExampleColumnHandle("connectorId", "columnNameX", BIGINT, 0),
-                        new ExampleColumnHandle("connectorId", "columnNameX", VARCHAR, 1))
+                        new ExampleColumnHandle("columnNameX", VARCHAR, 0),
+                        new ExampleColumnHandle("columnNameX", VARCHAR, 0),
+                        new ExampleColumnHandle("columnNameX", BIGINT, 0),
+                        new ExampleColumnHandle("columnNameX", VARCHAR, 1))
                 .check();
     }
 }

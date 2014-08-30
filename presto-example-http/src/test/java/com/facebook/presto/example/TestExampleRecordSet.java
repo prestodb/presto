@@ -39,23 +39,23 @@ public class TestExampleRecordSet
     public void testGetColumnTypes()
             throws Exception
     {
-        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
-                new ExampleColumnHandle("test", "text", VARCHAR, 0),
-                new ExampleColumnHandle("test", "value", BIGINT, 1)));
+        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("schema", "table", dataUri), ImmutableList.of(
+                new ExampleColumnHandle("text", VARCHAR, 0),
+                new ExampleColumnHandle("value", BIGINT, 1)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(VARCHAR, BIGINT));
 
-        recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
-                new ExampleColumnHandle("test", "value", BIGINT, 1),
-                new ExampleColumnHandle("test", "text", VARCHAR, 0)));
+        recordSet = new ExampleRecordSet(new ExampleSplit("schema", "table", dataUri), ImmutableList.of(
+                new ExampleColumnHandle("value", BIGINT, 1),
+                new ExampleColumnHandle("text", VARCHAR, 0)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, VARCHAR));
 
-        recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
-                new ExampleColumnHandle("test", "value", BIGINT, 1),
-                new ExampleColumnHandle("test", "value", BIGINT, 1),
-                new ExampleColumnHandle("test", "text", VARCHAR, 0)));
+        recordSet = new ExampleRecordSet(new ExampleSplit("schema", "table", dataUri), ImmutableList.of(
+                new ExampleColumnHandle("value", BIGINT, 1),
+                new ExampleColumnHandle("value", BIGINT, 1),
+                new ExampleColumnHandle("text", VARCHAR, 0)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, BIGINT, VARCHAR));
 
-        recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.<ExampleColumnHandle>of());
+        recordSet = new ExampleRecordSet(new ExampleSplit("schema", "table", dataUri), ImmutableList.<ExampleColumnHandle>of());
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of());
     }
 
@@ -63,9 +63,9 @@ public class TestExampleRecordSet
     public void testCursorSimple()
             throws Exception
     {
-        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
-                new ExampleColumnHandle("test", "text", VARCHAR, 0),
-                new ExampleColumnHandle("test", "value", BIGINT, 1)));
+        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("schema", "table", dataUri), ImmutableList.of(
+                new ExampleColumnHandle("text", VARCHAR, 0),
+                new ExampleColumnHandle("value", BIGINT, 1)));
         RecordCursor cursor = recordSet.cursor();
 
         assertEquals(cursor.getType(0), VARCHAR);
@@ -88,10 +88,10 @@ public class TestExampleRecordSet
     public void testCursorMixedOrder()
             throws Exception
     {
-        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
-                new ExampleColumnHandle("test", "value", BIGINT, 1),
-                new ExampleColumnHandle("test", "value", BIGINT, 1),
-                new ExampleColumnHandle("test", "text", VARCHAR, 0)));
+        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("schema", "table", dataUri), ImmutableList.of(
+                new ExampleColumnHandle("value", BIGINT, 1),
+                new ExampleColumnHandle("value", BIGINT, 1),
+                new ExampleColumnHandle("text", VARCHAR, 0)));
         RecordCursor cursor = recordSet.cursor();
 
         Map<String, Long> data = new LinkedHashMap<>();

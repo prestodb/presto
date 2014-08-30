@@ -13,43 +13,17 @@
  */
 package com.facebook.presto.example;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
-import com.google.common.collect.ImmutableList;
-
-import javax.inject.Inject;
+import com.facebook.presto.spi.SafeRecordSetProvider;
 
 import java.util.List;
 
-import static com.facebook.presto.example.Types.checkType;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-
 public class ExampleRecordSetProvider
-        implements ConnectorRecordSetProvider
+        implements SafeRecordSetProvider<ExampleColumnHandle, ExampleSplit>
 {
-    private final String connectorId;
-
-    @Inject
-    public ExampleRecordSetProvider(ExampleConnectorId connectorId)
-    {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
-    }
-
     @Override
-    public RecordSet getRecordSet(ConnectorSplit split, List<? extends ConnectorColumnHandle> columns)
+    public RecordSet getRecordSet(ExampleSplit split, List<ExampleColumnHandle> columns)
     {
-        checkNotNull(split, "partitionChunk is null");
-        ExampleSplit exampleSplit = checkType(split, ExampleSplit.class, "split");
-        checkArgument(exampleSplit.getConnectorId().equals(connectorId), "split is not for this connector");
-
-        ImmutableList.Builder<ExampleColumnHandle> handles = ImmutableList.builder();
-        for (ConnectorColumnHandle handle : columns) {
-            handles.add(checkType(handle, ExampleColumnHandle.class, "handle"));
-        }
-
-        return new ExampleRecordSet(exampleSplit, handles.build());
+        return new ExampleRecordSet(split, columns);
     }
 }

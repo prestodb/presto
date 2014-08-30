@@ -25,28 +25,28 @@ import static org.testng.Assert.assertEquals;
 
 public class TestExampleSplit
 {
-    private final ExampleSplit split = new ExampleSplit("connectorId", "schemaName", "tableName", URI.create("http://127.0.0.1/test.file"));
+    private final ExampleSplit split = new ExampleSplit("schemaName", "tableName", URI.create("http://127.0.0.1/test.file"));
 
     @Test
     public void testAddresses()
     {
         // http split with default port
-        ExampleSplit httpSplit = new ExampleSplit("connectorId", "schemaName", "tableName", URI.create("http://example.com/example"));
+        ExampleSplit httpSplit = new ExampleSplit("schemaName", "tableName", URI.create("http://example.com/example"));
         assertEquals(httpSplit.getAddresses(), ImmutableList.of(HostAddress.fromString("example.com")));
         assertEquals(httpSplit.isRemotelyAccessible(), true);
 
         // http split with custom port
-        httpSplit = new ExampleSplit("connectorId", "schemaName", "tableName", URI.create("http://example.com:8080/example"));
+        httpSplit = new ExampleSplit("schemaName", "tableName", URI.create("http://example.com:8080/example"));
         assertEquals(httpSplit.getAddresses(), ImmutableList.of(HostAddress.fromParts("example.com", 8080)));
         assertEquals(httpSplit.isRemotelyAccessible(), true);
 
         // http split with default port
-        ExampleSplit httpsSplit = new ExampleSplit("connectorId", "schemaName", "tableName", URI.create("https://example.com/example"));
+        ExampleSplit httpsSplit = new ExampleSplit("schemaName", "tableName", URI.create("https://example.com/example"));
         assertEquals(httpsSplit.getAddresses(), ImmutableList.of(HostAddress.fromString("example.com")));
         assertEquals(httpsSplit.isRemotelyAccessible(), true);
 
         // http split with custom port
-        httpsSplit = new ExampleSplit("connectorId", "schemaName", "tableName", URI.create("https://example.com:8443/example"));
+        httpsSplit = new ExampleSplit("schemaName", "tableName", URI.create("https://example.com:8443/example"));
         assertEquals(httpsSplit.getAddresses(), ImmutableList.of(HostAddress.fromParts("example.com", 8443)));
         assertEquals(httpsSplit.isRemotelyAccessible(), true);
     }
@@ -57,7 +57,6 @@ public class TestExampleSplit
         JsonCodec<ExampleSplit> codec = jsonCodec(ExampleSplit.class);
         String json = codec.toJson(split);
         ExampleSplit copy = codec.fromJson(json);
-        assertEquals(copy.getConnectorId(), split.getConnectorId());
         assertEquals(copy.getSchemaName(), split.getSchemaName());
         assertEquals(copy.getTableName(), split.getTableName());
         assertEquals(copy.getUri(), split.getUri());
