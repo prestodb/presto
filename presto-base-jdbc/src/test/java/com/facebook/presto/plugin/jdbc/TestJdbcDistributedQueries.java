@@ -34,7 +34,7 @@ import static io.airlift.units.Duration.nanosSince;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public abstract class TestJdbcDistributedQueries
+public class TestJdbcDistributedQueries
         extends AbstractTestQueries
 {
     private static final Logger log = Logger.get(TestJdbcDistributedQueries.class);
@@ -54,7 +54,7 @@ public abstract class TestJdbcDistributedQueries
     private static QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession("tpch"), 2);
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession("tpch"), 3);
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");

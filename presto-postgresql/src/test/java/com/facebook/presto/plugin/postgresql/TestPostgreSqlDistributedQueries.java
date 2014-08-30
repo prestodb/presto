@@ -85,7 +85,7 @@ public class TestPostgreSqlDistributedQueries
     private static QueryRunner doCreateQueryRunner(TestingPostgreSqlServer server)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession("tpch"), 2);
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession("tpch"), 3);
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
