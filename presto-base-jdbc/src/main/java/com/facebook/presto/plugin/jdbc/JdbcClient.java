@@ -32,7 +32,7 @@ public interface JdbcClient
 {
     Set<String> getSchemaNames();
 
-    Set<String> getTableNames(String schema);
+    List<SchemaTableName> getTableNames(@Nullable String schema);
 
     @Nullable
     JdbcTableHandle getTableHandle(SchemaTableName schemaTableName);
