@@ -55,8 +55,10 @@ public class TestJdbcClient
             throws Exception
     {
         assertTrue(jdbcClient.getSchemaNames().containsAll(ImmutableSet.of("example", "tpch")));
-        assertEquals(jdbcClient.getTableNames("example"), ImmutableSet.of("numbers"));
-        assertEquals(jdbcClient.getTableNames("tpch"), ImmutableSet.of("orders", "lineitem"));
+        assertEquals(jdbcClient.getTableNames("example"), ImmutableList.of(new SchemaTableName("example", "numbers")));
+        assertEquals(jdbcClient.getTableNames("tpch"), ImmutableList.of(
+                new SchemaTableName("tpch", "lineitem"),
+                new SchemaTableName("tpch", "orders")));
 
         SchemaTableName schemaTableName = new SchemaTableName("example", "numbers");
         JdbcTableHandle table = jdbcClient.getTableHandle(schemaTableName);

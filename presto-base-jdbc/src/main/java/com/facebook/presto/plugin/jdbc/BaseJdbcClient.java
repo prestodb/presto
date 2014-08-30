@@ -32,6 +32,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 
+import javax.annotation.Nullable;
+
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.Driver;
@@ -129,19 +131,19 @@ public class BaseJdbcClient
     }
 
     @Override
-    public Set<String> getTableNames(String schema)
+    public List<SchemaTableName> getTableNames(@Nullable String schema)
     {
         try (Connection connection = driver.connect(connectionUrl, connectionProperties)) {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (metadata.storesUpperCaseIdentifiers() && (schema != null)) {
                 schema = schema.toUpperCase();
             }
             try (ResultSet resultSet = getTables(connection, schema, null)) {
-                ImmutableSet.Builder<String> tableNames = ImmutableSet.builder();
+                ImmutableList.Builder<SchemaTableName> list = ImmutableList.builder();
                 while (resultSet.next()) {
-                    tableNames.add(resultSet.getString("TABLE_NAME").toLowerCase());
+                    list.add(getSchemaTableName(resultSet));
                 }
-                return tableNames.build();
+                return list.build();
             }
         }
         catch (SQLException e) {
@@ -149,6 +151,7 @@ public class BaseJdbcClient
         }
     }
 
+    @Nullable
     @Override
     public JdbcTableHandle getTableHandle(SchemaTableName schemaTableName)
     {
@@ -368,6 +371,14 @@ public class BaseJdbcClient
             throws SQLException
     {
         return connection.getMetaData().getTables(connection.getCatalog(), schemaName, tableName, new String[] {"TABLE"});
+    }
+
+    protected SchemaTableName getSchemaTableName(ResultSet resultSet)
+            throws SQLException
+    {
+        return new SchemaTableName(
+                resultSet.getString("TABLE_SCHEM").toLowerCase(),
+                resultSet.getString("TABLE_NAME").toLowerCase());
     }
 
     protected void execute(Connection connection, String query)

@@ -16,6 +16,7 @@ package com.facebook.presto.plugin.mysql;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
@@ -36,6 +37,7 @@ public class MySqlClient
             throws SQLException
     {
         super(connectorId, config, "`", new Driver());
+        connectionProperties.setProperty("nullCatalogMeansCurrent", "false");
     }
 
     @Override
@@ -65,6 +67,17 @@ public class MySqlClient
     {
         // MySQL maps their "database" to SQL catalogs and does not have schemas
         return connection.getMetaData().getTables(schemaName, null, tableName, new String[] {"TABLE"});
+    }
+
+    @Override
+    protected SchemaTableName getSchemaTableName(ResultSet resultSet)
+            throws SQLException
+    {
+        // MySQL uses catalogs instead of schemas
+        return new SchemaTableName(
+                resultSet.getString("TABLE_CAT").toLowerCase(),
+                resultSet.getString("TABLE_NAME").toLowerCase());
+
     }
 
     @Override
