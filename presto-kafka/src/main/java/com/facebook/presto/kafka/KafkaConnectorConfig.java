@@ -26,6 +26,7 @@ import io.airlift.units.MinDuration;
 
 import javax.annotation.Nonnull;
 import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
 
 import java.io.File;
 import java.util.Set;
@@ -35,7 +36,7 @@ public class KafkaConnectorConfig
     /**
      * Seed nodes for Kafka cluster. At least one must exist.
      */
-    private Set<HostAddress> nodes = null;
+    private Set<HostAddress> nodes = ImmutableSet.of();
 
     /**
      * Timeout to connect to Kafka.
@@ -106,7 +107,7 @@ public class KafkaConnectorConfig
         return this;
     }
 
-    @NotNull
+    @Size(min = 1)
     public Set<HostAddress> getNodes()
     {
         return nodes;
@@ -134,9 +135,10 @@ public class KafkaConnectorConfig
     }
 
     @Config("kafka.connect-timeout")
-    public void setKafkaConnectTimeout(String kafkaConnectTimeout)
+    public KafkaConnectorConfig setKafkaConnectTimeout(String kafkaConnectTimeout)
     {
         this.kafkaConnectTimeout = Duration.valueOf(kafkaConnectTimeout);
+        return this;
     }
 
     public DataSize getKafkaBufferSize()
@@ -145,9 +147,10 @@ public class KafkaConnectorConfig
     }
 
     @Config("kafka.buffer-size")
-    public void setKafkaBufferSize(String kafkaBufferSize)
+    public KafkaConnectorConfig setKafkaBufferSize(String kafkaBufferSize)
     {
         this.kafkaBufferSize = DataSize.valueOf(kafkaBufferSize);
+        return this;
     }
 
     public boolean isInternalColumnsAreHidden()
@@ -156,8 +159,9 @@ public class KafkaConnectorConfig
     }
 
     @Config("kafka.internal-columns-are-hidden")
-    public void setInternalColumnsAreHidden(boolean internalColumnsAreHidden)
+    public KafkaConnectorConfig setInternalColumnsAreHidden(boolean internalColumnsAreHidden)
     {
         this.internalColumnsAreHidden = internalColumnsAreHidden;
+        return this;
     }
 }

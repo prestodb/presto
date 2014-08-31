@@ -69,21 +69,25 @@ public class CsvKafkaFieldDecoder
                 return value == null || value.length() == 0;
             }
 
+            @Override
             public boolean getBoolean()
             {
                 return isNull() ? false : Boolean.parseBoolean(value.trim());
             }
 
+            @Override
             public long getLong()
             {
                 return isNull() ? 0L : Long.parseLong(value.trim());
             }
 
+            @Override
             public double getDouble()
             {
                 return isNull() ? 0.0d : Double.parseDouble(value.trim());
             }
 
+            @Override
             public Slice getSlice()
             {
                 return isNull() ? Slices.EMPTY_SLICE : Slices.utf8Slice(value);

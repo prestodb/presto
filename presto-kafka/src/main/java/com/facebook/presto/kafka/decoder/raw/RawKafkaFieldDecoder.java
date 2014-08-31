@@ -171,6 +171,7 @@ public class RawKafkaFieldDecoder
             }
         }
 
+        @Override
         public long getLong()
         {
             if (isNull()) {
@@ -190,6 +191,7 @@ public class RawKafkaFieldDecoder
             }
         }
 
+        @Override
         public double getDouble()
         {
             if (isNull()) {
@@ -205,6 +207,7 @@ public class RawKafkaFieldDecoder
             }
         }
 
+        @Override
         public Slice getSlice()
         {
             if (isNull()) {

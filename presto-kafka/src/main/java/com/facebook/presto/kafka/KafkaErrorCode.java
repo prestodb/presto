@@ -25,9 +25,8 @@ public enum KafkaErrorCode
     /**
      * A requested data conversion is not supported.
      */
-    KAFKA_CONVERSION_NOT_SUPPORTED(0x0100_0000),
-    KAFKA_OFFSET_ERROR(0x0100_0001),
-    KAFKA_SPLIT_ERROR(0x0100_0001);
+    KAFKA_CONVERSION_NOT_SUPPORTED(0x0200_0000),
+    KAFKA_SPLIT_ERROR(0x0200_0001);
 
     private final ErrorCode errorCode;
 

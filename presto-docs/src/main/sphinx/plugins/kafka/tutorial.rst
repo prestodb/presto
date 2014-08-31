@@ -48,7 +48,7 @@ Download the tpch-kafka loader from Maven central:
 
 .. code:: bash
 
-    > curl -o kafka-tpch http://search.maven.org/remotecontent?filepath=de/softwareforge/kafka_tpch_0811/1.0/kafka_tpch_0811-1.0.sh
+    > curl -o kafka-tpch https://search.maven.org/remotecontent?filepath=de/softwareforge/kafka_tpch_0811/1.0/kafka_tpch_0811-1.0.sh
     > chmod 755 kafka-tpch
 
 Now run the kafka-tpch program to preload a number of topics with tpch data:
@@ -411,7 +411,7 @@ Setup a live twitter feed
 
 .. code:: bash
 
-    > curl -o twistr http://search.maven.org/remotecontent?filepath=de/softwareforge/twistr_kafka_0811/1.2/twistr_kafka_0811-1.2.sh
+    > curl -o twistr https://search.maven.org/remotecontent?filepath=de/softwareforge/twistr_kafka_0811/1.2/twistr_kafka_0811-1.2.sh
     > chmod 755 twistr
 
 * Create a developer account at https://dev.twitter.com/ and set up an access and consumer token.

@@ -89,21 +89,25 @@ public class JsonKafkaFieldDecoder
             return value.isMissingNode() || value.isNull();
         }
 
+        @Override
         public boolean getBoolean()
         {
             return value.asBoolean();
         }
 
+        @Override
         public long getLong()
         {
             return value.asLong();
         }
 
+        @Override
         public double getDouble()
         {
             return value.asDouble();
         }
 
+        @Override
         public Slice getSlice()
         {
             String textValue = value.isValueNode() ? value.asText() : value.toString();
