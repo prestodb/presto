@@ -7,8 +7,9 @@
         <artifactId>presto-root</artifactId>
         <version>0.76-SNAPSHOT</version>
     </parent>
-
+    
     <artifactId>presto-hive-cdh4</artifactId>
+    <packaging>presto-plugin</packaging>
     <name>presto-hive-cdh4</name>
     <description>Presto - Hive Connector - CDH 4</description>
 
@@ -57,24 +58,6 @@
 
     <build>
         <plugins>
-            <plugin>
-                <artifactId>maven-assembly-plugin</artifactId>
-                <configuration>
-                    <appendAssemblyId>false</appendAssemblyId>
-                    <descriptors>
-                        <descriptor>src/main/assembly/plugin.xml</descriptor>
-                    </descriptors>
-                </configuration>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>single</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>

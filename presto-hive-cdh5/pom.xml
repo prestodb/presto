@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-hive-cdh5</artifactId>
+    <packaging>presto-plugin</packaging>    
     <name>presto-hive-cdh5</name>
     <description>Presto - Hive Connector - CDH 5</description>
 
@@ -57,24 +58,6 @@
 
     <build>
         <plugins>
-            <plugin>
-                <artifactId>maven-assembly-plugin</artifactId>
-                <configuration>
-                    <appendAssemblyId>false</appendAssemblyId>
-                    <descriptors>
-                        <descriptor>src/main/assembly/plugin.xml</descriptor>
-                    </descriptors>
-                </configuration>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>single</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
