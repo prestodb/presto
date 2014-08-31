@@ -44,7 +44,8 @@ public class TestManySegments
 
     private static EmbeddedKafka embeddedKafka;
 
-    private String topicName;
+    private static String topicName;
+
     private StandaloneQueryRunner queryRunner;
 
     @BeforeClass
@@ -53,9 +54,31 @@ public class TestManySegments
     {
         embeddedKafka = EmbeddedKafka.createEmbeddedKafka();
         embeddedKafka.start();
+
+        topicName = "test_" + UUID.randomUUID().toString().replaceAll("-", "_");
+
+        Properties topicProperties = new Properties();
+        topicProperties.putAll(ImmutableMap.<String, String>builder()
+                .put("segment.bytes", "256")
+                .build());
+
+        embeddedKafka.createTopics(1, 1, topicProperties, topicName);
+
+        try (CloseableProducer<Long, Object> producer = embeddedKafka.createProducer()) {
+            int jMax = 10_000;
+            int iMax = 100_000 / jMax;
+            for (long i = 0; i < iMax; i++) {
+                ImmutableList.Builder<KeyedMessage<Long, Object>> builder = ImmutableList.builder();
+                for (long j = 0; j < jMax; j++) {
+                    builder.add(new KeyedMessage<Long, Object>(topicName, i, ImmutableMap.of("id", Long.toString(i * iMax + j), "value", UUID.randomUUID().toString())));
+                }
+                producer.send(builder.build());
+            }
+        }
+
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public static void stopKafka()
             throws Exception
     {
@@ -67,27 +90,6 @@ public class TestManySegments
     public void spinUp()
             throws Exception
     {
-        topicName = "test_" + UUID.randomUUID().toString().replaceAll("-", "_");
-
-        Properties topicProperties = new Properties();
-        topicProperties.putAll(ImmutableMap.<String, String>builder()
-                .put("segment.bytes", "256")
-                .build());
-
-        embeddedKafka.createTopics(1, 1, topicProperties, topicName);
-
-        try (CloseableProducer<Long, Object> producer = embeddedKafka.createProducer()) {
-            int jMax = 100;
-            int iMax = 100_000 / jMax;
-            for (long i = 0; i < iMax; i++) {
-                ImmutableList.Builder<KeyedMessage<Long, Object>> builder = ImmutableList.builder();
-                for (long j = 0; j < jMax; j++) {
-                    builder.add(new KeyedMessage<Long, Object>(topicName, i, ImmutableMap.of("id", Long.toString(i * iMax + j), "value", UUID.randomUUID().toString())));
-                }
-                producer.send(builder.build());
-            }
-        }
-
         this.queryRunner = new StandaloneQueryRunner(SESSION);
 
         TestUtils.installKafkaPlugin(embeddedKafka, queryRunner,
