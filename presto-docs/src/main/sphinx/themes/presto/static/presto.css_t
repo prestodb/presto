@@ -42,6 +42,11 @@ div.header h1 a {
     text-align: right;
 }
 
+.nav .padding {
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
 div.topnav {
     background: #eeeeee;
 }
