@@ -39,6 +39,7 @@ public final class TopNRowNumberNode
     private final Map<Symbol, SortOrder> orderings;
     private final Symbol rowNumberSymbol;
     private final int maxRowCountPerPartition;
+    private final boolean partial;
 
     @JsonCreator
     public TopNRowNumberNode(
@@ -48,12 +49,13 @@ public final class TopNRowNumberNode
             @JsonProperty("orderBy") List<Symbol> orderBy,
             @JsonProperty("orderings") Map<Symbol, SortOrder> orderings,
             @JsonProperty("rowNumberSymbol") Symbol rowNumberSymbol,
-            @JsonProperty("maxRowCountPerPartition") int maxRowCountPerPartition)
+            @JsonProperty("maxRowCountPerPartition") int maxRowCountPerPartition,
+            @JsonProperty("partial") boolean partial)
     {
         super(id);
+
         checkNotNull(source, "source is null");
         checkNotNull(partitionBy, "partitionBy is null");
-        checkArgument(!partitionBy.isEmpty(), "partitionBy is empty");
         checkNotNull(orderBy, "orderBy is null");
         checkNotNull(orderings, "orderings is null");
         checkArgument(orderings.size() == orderBy.size(), "orderBy and orderings sizes don't match");
@@ -66,6 +68,7 @@ public final class TopNRowNumberNode
         this.orderings = ImmutableMap.copyOf(orderings);
         this.rowNumberSymbol = rowNumberSymbol;
         this.maxRowCountPerPartition = maxRowCountPerPartition;
+        this.partial = partial;
     }
 
     @Override
@@ -77,7 +80,10 @@ public final class TopNRowNumberNode
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.copyOf(concat(source.getOutputSymbols(), ImmutableList.of(rowNumberSymbol)));
+        if (!partial) {
+            return ImmutableList.copyOf(concat(source.getOutputSymbols(), ImmutableList.of(rowNumberSymbol)));
+        }
+        return ImmutableList.copyOf(source.getOutputSymbols());
     }
 
     @JsonProperty
@@ -114,6 +120,12 @@ public final class TopNRowNumberNode
     public int getMaxRowCountPerPartition()
     {
         return maxRowCountPerPartition;
+    }
+
+    @JsonProperty
+    public boolean isPartial()
+    {
+        return partial;
     }
 
     @Override

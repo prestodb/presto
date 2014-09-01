@@ -35,7 +35,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
         @JsonSubTypes.Type(value = MarkDistinctNode.class, name = "markDistinct"),
         @JsonSubTypes.Type(value = FilterNode.class, name = "filter"),
         @JsonSubTypes.Type(value = WindowNode.class, name = "window"),
-        @JsonSubTypes.Type(value = RowNumberLimitNode.class, name = "rowNumberLimit"),
+        @JsonSubTypes.Type(value = RowNumberNode.class, name = "rowNumber"),
         @JsonSubTypes.Type(value = TopNRowNumberNode.class, name = "topnRowNumber"),
         @JsonSubTypes.Type(value = LimitNode.class, name = "limit"),
         @JsonSubTypes.Type(value = DistinctLimitNode.class, name = "distinctlimit"),

@@ -64,41 +64,6 @@ public class TestWindowFunctions
     }
 
     @Test
-    public void testRowNumberPartitioning()
-    {
-        assertWindowQuery("row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
-                        .row(3, "F", 1)
-                        .row(5, "F", 2)
-                        .row(6, "F", 3)
-                        .row(33, "F", 4)
-                        .row(1, "O", 1)
-                        .row(2, "O", 2)
-                        .row(4, "O", 3)
-                        .row(7, "O", 4)
-                        .row(32, "O", 5)
-                        .row(34, "O", 6)
-                        .build(), queryRunner
-        );
-
-        // TODO: add better test for non-deterministic sorting behavior
-        assertWindowQuery("row_number() OVER (PARTITION BY orderstatus)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
-                        .row(3, "F", 1)
-                        .row(5, "F", 2)
-                        .row(33, "F", 3)
-                        .row(6, "F", 4)
-                        .row(32, "O", 1)
-                        .row(34, "O", 2)
-                        .row(1, "O", 3)
-                        .row(2, "O", 4)
-                        .row(4, "O", 5)
-                        .row(7, "O", 6)
-                        .build(), queryRunner
-        );
-    }
-
-    @Test
     public void testRank()
     {
         assertWindowQuery("rank() OVER (ORDER BY orderstatus)",
