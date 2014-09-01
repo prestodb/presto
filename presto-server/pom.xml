@@ -118,7 +118,7 @@
                                     <version>${project.version}</version>
                                     <type>zip</type>
                                     <overWrite>false</overWrite>
-                                    <outputDirectory>${project.build.directory}/plugin/mysql</outputDirectory>
+                                    <outputDirectory>${project.build.directory}/plugin/postgresql</outputDirectory>
                                 </artifactItem>
                             </artifactItems>
                         </configuration>
