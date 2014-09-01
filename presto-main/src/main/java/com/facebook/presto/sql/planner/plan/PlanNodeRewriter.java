@@ -110,7 +110,7 @@ public class PlanNodeRewriter<C>
         return rewriteNode(node, context, planRewriter);
     }
 
-    public PlanNode rewriteRowNumberLimit(RowNumberLimitNode node, C context, PlanRewriter<C> planRewriter)
+    public PlanNode rewriteRowNumber(RowNumberNode node, C context, PlanRewriter<C> planRewriter)
     {
         return rewriteNode(node, context, planRewriter);
     }

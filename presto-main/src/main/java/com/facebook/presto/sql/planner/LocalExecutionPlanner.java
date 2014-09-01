@@ -46,7 +46,7 @@ import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.RecordSinkManager;
-import com.facebook.presto.operator.RowNumberLimitOperator;
+import com.facebook.presto.operator.RowNumberOperator;
 import com.facebook.presto.operator.SampleOperator.SampleOperatorFactory;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator;
 import com.facebook.presto.operator.SetBuilderOperator.SetBuilderOperatorFactory;
@@ -89,7 +89,7 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.RowNumberLimitNode;
+import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
@@ -390,7 +390,7 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitRowNumberLimit(RowNumberLimitNode node, LocalExecutionPlanContext context)
+        public PhysicalOperation visitRowNumber(RowNumberNode node, LocalExecutionPlanContext context)
         {
             final PhysicalOperation source = node.getSource().accept(this, context);
 
@@ -418,14 +418,14 @@ public class LocalExecutionPlanner
             int channel = source.getTypes().size();
             outputMappings.put(node.getRowNumberSymbol(), channel);
 
-            OperatorFactory operatorFactory = new RowNumberLimitOperator.RowNumberLimitOperatorFactory(
+            OperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
                     context.getNextOperatorId(),
                     source.getTypes(),
                     outputChannels.build(),
                     partitionChannels,
                     partitionTypes,
-                    1_000_000,
-                    node.getMaxRowCountPerPartition());
+                    node.getMaxRowCountPerPartition(),
+                    1_000_000);
             return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
         }
 
@@ -461,6 +461,16 @@ public class LocalExecutionPlanner
                 outputChannels.add(i);
             }
 
+            // compute the layout of the output from the window operator
+            ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
+            outputMappings.putAll(source.getLayout());
+
+            if (!node.isPartial() || !partitionChannels.isEmpty()) {
+                // row number function goes in the last channel
+                int channel = source.getTypes().size();
+                outputMappings.put(node.getRowNumberSymbol(), channel);
+            }
+
             OperatorFactory operatorFactory = new TopNRowNumberOperator.TopNRowNumberOperatorFactory(
                     context.getNextOperatorId(),
                     source.getTypes(),
@@ -470,6 +480,7 @@ public class LocalExecutionPlanner
                     sortChannels,
                     sortOrder,
                     node.getMaxRowCountPerPartition(),
+                    node.isPartial(),
                     1_000_000);
 
             return new PhysicalOperation(operatorFactory, makeLayout(node), source);

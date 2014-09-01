@@ -16,40 +16,39 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.concat;
 
 @Immutable
-public final class RowNumberLimitNode
+public final class RowNumberNode
         extends PlanNode
 {
     private final PlanNode source;
     private final List<Symbol> partitionBy;
-    private final int maxRowCountPerPartition;
+    private final Optional<Integer> maxRowCountPerPartition;
     private final Symbol rowNumberSymbol;
 
     @JsonCreator
-    public RowNumberLimitNode(
+    public RowNumberNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("partitionBy") List<Symbol> partitionBy,
             @JsonProperty("rowNumberSymbol") Symbol rowNumberSymbol,
-            @JsonProperty("maxRowCountPerPartition") int maxRowCountPerPartition)
+            @JsonProperty("maxRowCountPerPartition") Optional<Integer> maxRowCountPerPartition)
     {
         super(id);
 
         checkNotNull(source, "source is null");
         checkNotNull(partitionBy, "partitionBy is null");
-        checkArgument(!partitionBy.isEmpty(), "partitionBy is empty");
         checkNotNull(rowNumberSymbol, "rowNumberSymbol is null");
-        checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
+        checkNotNull(maxRowCountPerPartition, "maxRowCountPerPartition is null");
 
         this.source = source;
         this.partitionBy = ImmutableList.copyOf(partitionBy);
@@ -88,7 +87,7 @@ public final class RowNumberLimitNode
     }
 
     @JsonProperty
-    public int getMaxRowCountPerPartition()
+    public Optional<Integer> getMaxRowCountPerPartition()
     {
         return maxRowCountPerPartition;
     }
@@ -96,6 +95,6 @@ public final class RowNumberLimitNode
     @Override
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
-        return visitor.visitRowNumberLimit(this, context);
+        return visitor.visitRowNumber(this, context);
     }
 }

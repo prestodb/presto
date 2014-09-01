@@ -15,12 +15,16 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.array.LongBigArray;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -28,42 +32,40 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-public class RowNumberLimitOperator
+public class RowNumberOperator
         implements Operator
 {
-    public static class RowNumberLimitOperatorFactory
+    public static class RowNumberOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
+        private final Optional<Integer> maxRowsPerPartition;
         private final List<Type> sourceTypes;
         private final List<Integer> outputChannels;
         private final List<Integer> partitionChannels;
+        private final List<Type> partitionTypes;
         private final int expectedPositions;
         private final List<Type> types;
         private boolean closed;
 
-        private final List<Type> partitionTypes;
-        private final int maxRowCountPerPartition;
-
-        public RowNumberLimitOperatorFactory(
+        public RowNumberOperatorFactory(
                 int operatorId,
                 List<? extends Type> sourceTypes,
                 List<Integer> outputChannels,
                 List<Integer> partitionChannels,
                 List<? extends Type> partitionTypes,
-                int expectedPositions,
-                int maxRowCountPerPartition)
+                Optional<Integer> maxRowsPerPartition,
+                int expectedPositions)
         {
             this.operatorId = operatorId;
             this.sourceTypes = ImmutableList.copyOf(sourceTypes);
             this.outputChannels = ImmutableList.copyOf(checkNotNull(outputChannels, "outputChannels is null"));
             this.partitionChannels = ImmutableList.copyOf(checkNotNull(partitionChannels, "partitionChannels is null"));
             this.partitionTypes = ImmutableList.copyOf(checkNotNull(partitionTypes, "partitionTypes is null"));
+            this.maxRowsPerPartition = checkNotNull(maxRowsPerPartition, "maxRowsPerPartition is null");
 
             checkArgument(expectedPositions > 0, "expectedPositions < 0");
             this.expectedPositions = expectedPositions;
-            checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition < 0");
-            this.maxRowCountPerPartition = maxRowCountPerPartition;
             this.types = toTypes(sourceTypes, outputChannels);
         }
 
@@ -78,15 +80,15 @@ public class RowNumberLimitOperator
         {
             checkState(!closed, "Factory is already closed");
 
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, RowNumberLimitOperator.class.getSimpleName());
-            return new RowNumberLimitOperator(
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, RowNumberOperator.class.getSimpleName());
+            return new RowNumberOperator(
                     operatorContext,
                     sourceTypes,
                     outputChannels,
                     partitionChannels,
                     partitionTypes,
-                    expectedPositions,
-                    maxRowCountPerPartition);
+                    maxRowsPerPartition,
+                    expectedPositions);
         }
 
         @Override
@@ -99,35 +101,37 @@ public class RowNumberLimitOperator
     private final OperatorContext operatorContext;
     private boolean finishing;
 
-    private final PageBuilder pageBuilder;
     private final int[] outputChannels;
     private final List<Type> types;
 
     private GroupByIdBlock partitionIds;
-    private final GroupByHash groupByHash;
+    private final Optional<GroupByHash> groupByHash;
 
     private Page inputPage;
-    private int currentPosition;
-    private final int maxRowCountPerPartition;
     private final LongBigArray partitionRowCount;
+    private final Optional<Integer> maxRowsPerPartition;
 
-    public RowNumberLimitOperator(
+    public RowNumberOperator(
             OperatorContext operatorContext,
             List<Type> sourceTypes,
             List<Integer> outputChannels,
             List<Integer> partitionChannels,
             List<Type> partitionTypes,
-            int expectedPositions,
-            int maxRowCountPerPartition)
+            Optional<Integer> maxRowsPerPartition,
+            int expectedPositions)
     {
+        this.maxRowsPerPartition = maxRowsPerPartition;
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.outputChannels = Ints.toArray(outputChannels);
-        this.maxRowCountPerPartition = maxRowCountPerPartition;
 
         this.partitionRowCount = new LongBigArray(0);
-        this.groupByHash = new GroupByHash(partitionTypes, Ints.toArray(partitionChannels), expectedPositions);
+        if (partitionChannels.isEmpty()) {
+            this.groupByHash = Optional.absent();
+        }
+        else {
+            this.groupByHash = Optional.of(new GroupByHash(partitionTypes, Ints.toArray(partitionChannels), expectedPositions));
+        }
         this.types = toTypes(sourceTypes, outputChannels);
-        this.pageBuilder = new PageBuilder(types);
     }
 
     @Override
@@ -151,7 +155,11 @@ public class RowNumberLimitOperator
     @Override
     public boolean isFinished()
     {
-        return finishing && pageBuilder.isEmpty();
+        if (isSinglePartition() && maxRowsPerPartition.isPresent()) {
+            return partitionRowCount.get(0) == maxRowsPerPartition.get();
+        }
+
+        return finishing && inputPage == null;
     }
 
     @Override
@@ -163,6 +171,10 @@ public class RowNumberLimitOperator
     @Override
     public boolean needsInput()
     {
+        if (isSinglePartition() && maxRowsPerPartition.isPresent()) {
+            // Check if single partition is done
+            return partitionRowCount.get(0) < maxRowsPerPartition.get();
+        }
         return !finishing && inputPage == null;
     }
 
@@ -173,9 +185,10 @@ public class RowNumberLimitOperator
         checkNotNull(page, "page is null");
         checkState(inputPage == null);
         inputPage = page;
-        partitionIds = groupByHash.getGroupIds(inputPage);
-        partitionRowCount.ensureCapacity(partitionIds.getGroupCount());
-        currentPosition = 0;
+        if (groupByHash.isPresent()) {
+            partitionIds = groupByHash.get().getGroupIds(inputPage);
+            partitionRowCount.ensureCapacity(partitionIds.getGroupCount());
+        }
     }
 
     @Override
@@ -185,32 +198,77 @@ public class RowNumberLimitOperator
             return null;
         }
 
-        while (!pageBuilder.isFull() && currentPosition < inputPage.getPositionCount()) {
-            long partitionId = partitionIds.getGroupId(currentPosition);
-            long rowCount = partitionRowCount.get(partitionId);
-            if (rowCount < maxRowCountPerPartition) {
-                for (int i = 0; i < outputChannels.length; i++) {
-                    int channel = outputChannels[i];
-                    Type type = types.get(channel);
-                    type.appendTo(inputPage.getBlock(channel), currentPosition, pageBuilder.getBlockBuilder(i));
-                }
-                BIGINT.writeLong(pageBuilder.getBlockBuilder(types.size() - 1), rowCount + 1);
-                partitionRowCount.set(partitionId, rowCount + 1);
-            }
-            currentPosition++;
+        Page outputPage;
+        if (maxRowsPerPartition.isPresent()) {
+            outputPage = getSelectedRows();
         }
-        if (currentPosition == inputPage.getPositionCount()) {
-            inputPage = null;
-            currentPosition = 0;
+        else {
+            outputPage = getRowsWithRowNumber();
         }
 
+        inputPage = null;
+        return outputPage;
+    }
+
+    private boolean isSinglePartition()
+    {
+        return !groupByHash.isPresent();
+    }
+
+    private Page getRowsWithRowNumber()
+    {
+        Block rowNumberBlock = createRowNumberBlock();
+        Block[] sourceBlocks = new Block[inputPage.getChannelCount()];
+        for (int i = 0; i < outputChannels.length; i++) {
+            sourceBlocks[i] = inputPage.getBlock(outputChannels[i]);
+        }
+
+        Block[] outputBlocks = Arrays.copyOf(sourceBlocks, sourceBlocks.length + 1); // +1 for the row number column
+        outputBlocks[sourceBlocks.length] = rowNumberBlock;
+
+        return new Page(inputPage.getPositionCount(), outputBlocks);
+    }
+
+    private Block createRowNumberBlock()
+    {
+        BlockBuilder rowNumberBlock = BIGINT.createFixedSizeBlockBuilder(inputPage.getPositionCount());
+        for (int currentPosition = 0; currentPosition < inputPage.getPositionCount(); currentPosition++) {
+            long partitionId = getPartitionId(currentPosition);
+            long nextRowCount = partitionRowCount.get(partitionId) + 1;
+            BIGINT.writeLong(rowNumberBlock, nextRowCount);
+            partitionRowCount.set(partitionId, nextRowCount);
+        }
+        return rowNumberBlock.build();
+    }
+
+    private Page getSelectedRows()
+    {
+        PageBuilder pageBuilder = new PageBuilder(types);
+        int rowNumberChannel = types.size() - 1;
+
+        for (int currentPosition = 0; currentPosition < inputPage.getPositionCount(); currentPosition++) {
+            long partitionId = getPartitionId(currentPosition);
+            long rowCount = partitionRowCount.get(partitionId);
+            if (rowCount == maxRowsPerPartition.get()) {
+                continue;
+            }
+            for (int i = 0; i < outputChannels.length; i++) {
+                int channel = outputChannels[i];
+                Type type = types.get(channel);
+                type.appendTo(inputPage.getBlock(channel), currentPosition, pageBuilder.getBlockBuilder(i));
+            }
+            BIGINT.writeLong(pageBuilder.getBlockBuilder(rowNumberChannel), rowCount + 1);
+            partitionRowCount.set(partitionId, rowCount + 1);
+        }
         if (pageBuilder.isEmpty()) {
             return null;
         }
+        return pageBuilder.build();
+    }
 
-        Page page = pageBuilder.build();
-        pageBuilder.reset();
-        return page;
+    private long getPartitionId(int position)
+    {
+        return isSinglePartition() ? 0 : partitionIds.getGroupId(position);
     }
 
     private static List<Type> toTypes(List<? extends Type> sourceTypes, List<Integer> outputChannels)
