@@ -35,7 +35,7 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.RowNumberLimitNode;
+import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
@@ -140,7 +140,7 @@ public final class JsonPlanPrinter
         }
 
         @Override
-        public Void visitRowNumberLimit(final RowNumberLimitNode node, Void context)
+        public Void visitRowNumber(final RowNumberNode node, Void context)
         {
             return processChildren(node);
         }

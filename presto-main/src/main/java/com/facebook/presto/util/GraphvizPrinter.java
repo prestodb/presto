@@ -30,7 +30,7 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.RowNumberLimitNode;
+import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
@@ -233,11 +233,11 @@ public final class GraphvizPrinter
         }
 
         @Override
-        public Void visitRowNumberLimit(RowNumberLimitNode node, Void context)
+        public Void visitRowNumber(RowNumberNode node, Void context)
         {
             printNode(node,
-                    "RowNumberLimit",
-                    format("partition by = %s|row_number limit %s", Joiner.on(", ").join(node.getPartitionBy()), node.getMaxRowCountPerPartition()),
+                    "RowNumber",
+                    format("partition by = %s", Joiner.on(", ").join(node.getPartitionBy())),
                     NODE_COLORS.get(NodeType.WINDOW));
             return node.getSource().accept(this, context);
         }
