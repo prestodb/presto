@@ -1,21 +1,23 @@
-===================
-Apache Kafka Plugin
-===================
+.. _kafka_connector:
 
-This plugin allows the use of Apache Kafka topics as tables in Presto. Each message is presented as a row in Presto. 
+======================
+Apache Kafka Connector
+======================
+
+This connector allows the use of Apache Kafka topics as tables in Presto. Each message is presented as a row in Presto.
 
 Topics can be live, rows will appear as data arrives and disappear as segments get dropped.
 
-.. note:: This plugin only supports Kafka 0.8 and it is highly recommended to use 0.8.1 or later.
+.. note:: This connector only supports Kafka 0.8 and it is highly recommended to use 0.8.1 or later.
 
-Plugin configuration
---------------------
+Connector configuration
+-----------------------
 
-The plugin supports the following configuration options. These must be in a catalog description properties file (in etc/catalog).
+The connector supports the following configuration options. These must be in a catalog description properties file (in etc/catalog).
 
 The catalog description file must contain the line ``connector.name=kafka`` to select the Kafka connector.
 
-Properties supported by the Apache Kafka plugin:
+Properties supported by the Apache Kafka connector:
 
 ================================= =============== ====================
 Property Name                     Default         Description
@@ -33,7 +35,7 @@ kafka.internal-columns-are-hidden  ``true``       Controls whether internal colu
 kafka.table-names
 =================
 
-Comma-separated list of all tables provided by this catalog. A table name can be unqualified (simple name) and will be put into the default schema (see below) or qualified with a schema name (``<schema-name>.<table-name>``). 
+Comma-separated list of all tables provided by this catalog. A table name can be unqualified (simple name) and will be put into the default schema (see below) or qualified with a schema name (``<schema-name>.<table-name>``).
 
 For each table defined here, a table description file (see below) may exist. If no table description file exists, the table name is used as the topic name on Kafka and no data columns are mapped into the table. The table will
 still contain all internal columns (see below).
@@ -43,7 +45,7 @@ This property is required; there is no default and at least one table must be de
 kafka.default-schema
 ====================
 
-Defines the schema which will contain all tables that were defined without a qualifying schema name. 
+Defines the schema which will contain all tables that were defined without a qualifying schema name.
 
 This property is optional, the default is ``default``.
 
@@ -52,7 +54,7 @@ kafka.nodes
 
 A comma separated list of ``hostname:port`` pairs for the Kafka data nodes.
 
-This property is required, there is no default and at least one address:port pair must be defined. 
+This property is required, there is no default and at least one address:port pair must be defined.
 
 **Note:**  Presto must still be able to connect to all nodes of the cluster even if only a subset is specified here as segment files may be located only on a specifc node.
 
@@ -68,7 +70,7 @@ kafka.buffer-size
 
 Size of the internal data buffer for reading data from Kafka. The data buffer must be able to hold at least one message and ideally can hold many messages. There is one data buffer allocated per worker and data node.
 
-This property is optional, the default is ``64kb``. 
+This property is optional, the default is ``64kb``.
 
 kafka.table-description-dir
 ===========================
@@ -80,29 +82,29 @@ This property is optional, the default is ``etc/kafka``.
 kafka.internal-columns-are-hidden
 =================================
 
-In addition to the data columns defined in a table description file, the plugin maintains a number of additional columns for each table. If these columns are hidden, they can still be used in queries but do not show up in ``DESCRIBE <table-name>`` or ``SELECT *``.
+In addition to the data columns defined in a table description file, the connector maintains a number of additional columns for each table. If these columns are hidden, they can still be used in queries but do not show up in ``DESCRIBE <table-name>`` or ``SELECT *``.
 
 This property is optional, the default is ``true``.
 
 Internal columns
 ================
 
-For each defined table, the plugin maintains the following columns:
+For each defined table, the connector maintains the following columns:
 
 ======================= ========= =============================
 Column name                 Type        Description
 ======================= ========= =============================
-``_partition_id``       BIGINT    Id of the Kafka partition which contains this row.  
-``_partition_offset``   BIGINT    Offset within the Kafka partition for this row.  
-``_segment_start``      BIGINT    Lowest offset in the segment (inclusive) which contains this row. This offset is partition specific.  
-``_segment_end``        BIGINT    Highest offset in the segment (exclusive) which contains this row. The offset is partition specific. This is the same value as ``_segment_start`` of the next segment (if it exists).  
-``_segment_count``      BIGINT     Running count of for the current row within the segment. For an uncompacted topic, ``_segment_start + _segment_count`` is equal to ``_partition_offset``.  
-``_message_corrupt``    BOOLEAN   True if the decoder could not decode the message for this row. When true, data columns mapped from the message should be treated as invalid.  
-``_message``            VARCHAR   Message bytes as an UTF-8 encoded string. This is only useful for a text topic.  
-``_message_length``     BIGINT    Number of bytes in the message.  
-``_key_corrupt``        BOOLEAN    True if the key decode could not decode the key for this row. When true, data columns mapped from the key should be treated as invalid.  
-``_key``                VARCHAR   Key bytes as an UTF-8 encoded string. This is only useful for textual keys.  
-``_key_length``         BIGINT    Number of bytes in the key.  
+``_partition_id``       BIGINT    Id of the Kafka partition which contains this row.
+``_partition_offset``   BIGINT    Offset within the Kafka partition for this row.
+``_segment_start``      BIGINT    Lowest offset in the segment (inclusive) which contains this row. This offset is partition specific.
+``_segment_end``        BIGINT    Highest offset in the segment (exclusive) which contains this row. The offset is partition specific. This is the same value as ``_segment_start`` of the next segment (if it exists).
+``_segment_count``      BIGINT     Running count of for the current row within the segment. For an uncompacted topic, ``_segment_start + _segment_count`` is equal to ``_partition_offset``.
+``_message_corrupt``    BOOLEAN   True if the decoder could not decode the message for this row. When true, data columns mapped from the message should be treated as invalid.
+``_message``            VARCHAR   Message bytes as an UTF-8 encoded string. This is only useful for a text topic.
+``_message_length``     BIGINT    Number of bytes in the message.
+``_key_corrupt``        BOOLEAN    True if the key decode could not decode the key for this row. When true, data columns mapped from the key should be treated as invalid.
+``_key``                VARCHAR   Key bytes as an UTF-8 encoded string. This is only useful for textual keys.
+``_key_length``         BIGINT    Number of bytes in the key.
 ======================= ========= =============================
 
 
@@ -178,7 +180,7 @@ Each field definition is a JSON object:
         "hidden":...,
         "comment":...
     }
-    
+
 =============== ====================== =============================
 Field           Type                   Description
 =============== ====================== =============================
@@ -199,7 +201,7 @@ Row decoding
 
 For key and message, a decoder is used to map data onto columns. If no table definition file exists for a table, the ``dummy`` decoder is used.
 
-The Kafka plugin contains the following decoders:
+The Kafka connector contains the following decoders:
 
 * ``raw`` - do not convert the row data, use as raw bytes
 * ``csv`` - interpret the value as CSV
@@ -222,7 +224,7 @@ For fields, the following attributes are supported:
 * ``mapping`` - selects the width of the data type converted
 * ``formatHint`` - optional, ``<start>[:<end>]``; start and end position of bytes to convert
 
-The ``mapping`` column selects the number of bytes converted. If absent, ``BYTE`` is assumed. All values are signed. 
+The ``mapping`` column selects the number of bytes converted. If absent, ``BYTE`` is assumed. All values are signed.
 
 Supported values are:
 
@@ -285,22 +287,22 @@ date and time decoders
 
 To convert values from JSON objects into presto DATE, TIME or TIMESTAMP columns, special decoders can be selected using the ``dataFormat`` attribute of a field definition.
 
-* ``iso8601`` - text based, parses a text field as an ISO 8601 timestamp. 
+* ``iso8601`` - text based, parses a text field as an ISO 8601 timestamp.
 * ``rfc2822`` - text based, parses a text field as an RFC 2822 timestamp.
 * ``custom-date-time`` - text based, a formatting hint is required which is parsed as a joda-time formatting string.
 
 ================ ========================================================= =========================================================
-Presto type      JSON text                                                 JSON long     
+Presto type      JSON text                                                 JSON long
 ================ ========================================================= =========================================================
 string type      as-is                                                     parse according to format type, return millis since epoch
-long based type  parse according to format type, return millis since epoch return as millis since epoch        
+long based type  parse according to format type, return millis since epoch return as millis since epoch
 ================ ========================================================= =========================================================
 
 * ``milliseconds-since-epoch`` - number based, interprets a text or number as number of milliseconds since the epoch.
 * ``seconds-since-epoch`` - number based, interprets a text or number as number of milliseconds since the epoch.
 
 ================ ========================================================= =========================================================
-Presto type      JSON text                                                 JSON long     
+Presto type      JSON text                                                 JSON long
 ================ ========================================================= =========================================================
 string type      parse as long, format as ISO8601                          format as ISO8601
 long based type  parse as long, return millis since epoch                  return millis since epoch

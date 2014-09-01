@@ -1,11 +1,13 @@
-============================
-Apache Kafka Plugin Tutorial
-============================
+.. _kafka_connector_tutorial:
+
+===============================
+Apache Kafka Connector Tutorial
+===============================
 
 Introduction
 ============
 
-The Apache Kafka Plugin for Presto allows access to live topic data from Apache Kafka using Presto. This tutorial shows how to set up topics and how to create the topic description files that back Presto tables. 
+The Apache Kafka Connector for Presto allows access to live topic data from Apache Kafka using Presto. This tutorial shows how to set up topics and how to create the topic description files that back Presto tables.
 
 Installation
 ============
@@ -98,7 +100,7 @@ In your Presto installation, add a catalog file for the Kafka connector. This fi
     kafka.table-names=tpch.customer,tpch.orders,tpch.lineitem,tpch.part,tpch.partsupp,tpch.supplier,tpch.nation,tpch.region
     kafka.internal-columns-are-hidden=false
 
-Remove all other catalog files from the ``etc/catalog`` folder. 
+Remove all other catalog files from the ``etc/catalog`` folder.
 
 In the Presto installation, also make sure that the ``kafka`` data source is configured in ``etc/config.properties``:
 
@@ -124,7 +126,7 @@ Now start Presto. As the Kafka tables all use the ``tpch.`` prefix, the tables a
      region
      supplier
     (8 rows)
-    
+
     Query 20140729_160910_00002_sqkkx, FINISHED, 1 node
     Splits: 2 total, 2 done (100.00%)
     0:00 [8 rows, 238B] [150 rows/s, 4.38KB/s]
@@ -152,21 +154,21 @@ Kafka data is unstructured and it has no metadata to describe the format of the 
      _message_corrupt  | boolean | true | false         | Message data is corrupt
      _message_length   | bigint  | true | false         | Total number of message bytes
     (11 rows)
-    
+
     Query 20140729_161351_00003_sqkkx, FINISHED, 1 node
     Splits: 2 total, 2 done (100.00%)
     0:00 [11 rows, 1.35KB] [112 rows/s, 13.9KB/s]
-    
+
     presto:tpch> select count(1) from customer;
      _col0
     -------
       1500
     (1 row)
-    
+
     Query 20140729_161359_00004_sqkkx, FINISHED, 1 node
     Splits: 3 total, 3 done (100.00%)
     0:00 [1.5K rows, 411KB] [4.15K rows/s, 1.11MB/s]
-    
+
     presto:tpch> select _message from customer limit 5;
                                                                                                                                                      _message
     --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -236,11 +238,11 @@ The customer table now has an additional column: ``kafka_key``.
      _message_corrupt  | boolean | true | false         | Message data is corrupt
      _message_length   | bigint  | true | false         | Total number of message bytes
     (12 rows)
-    
+
     Query 20140729_162952_00000_p2ezp, FINISHED, 1 node
     Splits: 2 total, 2 done (100.00%)
     0:00 [12 rows, 1.43KB] [28 rows/s, 3.45KB/s]
-    
+
     presto:tpch> select kafka_key from customer order by kafka_key limit 10;
      kafka_key
     -----------
@@ -255,7 +257,7 @@ The customer table now has an additional column: ``kafka_key``.
              8
              9
     (10 rows)
-    
+
     Query 20140729_163044_00002_p2ezp, FINISHED, 1 node
     Splits: 3 total, 3 done (100.00%)
     0:00 [1.5K rows, 411KB] [19.5K rows/s, 5.24MB/s]
@@ -366,11 +368,11 @@ Now for all the fields in the JSON of the message, columns are defined and the s
      _message_corrupt  | boolean | true | false         | Message data is corrupt
      _message_length   | bigint  | true | false         | Total number of message bytes
     (21 rows)
-    
+
     Query 20140729_190237_00005_9q4cz, FINISHED, 1 node
     Splits: 2 total, 2 done (100.00%)
     0:00 [21 rows, 2.1KB] [295 rows/s, 29.5KB/s]
-    
+
     presto:tpch> select * from customer limit 5;
      kafka_key | row_number | customer_key |        name        |                address                | nation_key |      phone      | account_balance | market_segment |                                                      comment
     -----------+------------+--------------+--------------------+---------------------------------------+------------+-----------------+-----------------+----------------+---------------------------------------------------------------------------------------------------------
@@ -380,17 +382,17 @@ Now for all the fields in the JSON of the message, columns are defined and the s
              7 |          8 |            8 | Customer#000000008 | I0B10bB0AymmC, 0PrRYBCP1yGJ8xcBPmWhl5 |         17 | 27-147-574-9335 |         6819.74 | BUILDING       | among the slyly regular theodolites kindle blithely courts. carefully even theodolites haggle slyly alon
              9 |         10 |           10 | Customer#000000010 | 6LrEaV6KR6PLVcgl2ArL Q3rqzLzcT1 v2    |          5 | 15-741-346-9870 |         2753.54 | HOUSEHOLD      | es regular deposits haggle. fur
     (5 rows)
-    
+
     Query 20140729_190239_00006_9q4cz, FINISHED, 1 node
     Splits: 3 total, 1 done (33.33%)
     0:01 [0 rows, 0B] [0 rows/s, 0B/s]
-    
+
     presto:tpch> select sum(account_balance) from customer limit 10;
        _col0
     ------------
      6681865.59
     (1 row)
-    
+
     Query 20140729_190243_00007_9q4cz, FINISHED, 1 node
     Splits: 3 total, 3 done (100.00%)
     0:00 [1.5K rows, 411KB] [20.3K rows/s, 5.44MB/s]
@@ -514,7 +516,7 @@ Add a topic definition file for the twitter feed as ``etc/kafka/tweets.json``:
             ]
         }
     }
-    
+
 As this table does not have an explicit schema name, it will be placed into the ``default`` schema.
 
 Feed live data
@@ -538,31 +540,31 @@ Now run queries against live data:
     -------
       4467
     (1 row)
-    
+
     Query 20140729_210635_00004_6w7di, FINISHED, 1 node
     Splits: 17 total, 17 done (100.00%)
     0:00 [4.47K rows, 14.7MB] [28.4K rows/s, 93.8MB/s]
-    
+
     presto:default> select count(1) from tweets;
      _col0
     -------
       4517
     (1 row)
-    
+
     Query 20140729_210637_00005_6w7di, FINISHED, 1 node
     Splits: 17 total, 17 done (100.00%)
     0:00 [4.52K rows, 14.9MB] [29.9K rows/s, 98.6MB/s]
-    
+
     presto:default> select count(1) from tweets;
      _col0
     -------
       4572
     (1 row)
-    
+
     Query 20140729_210638_00006_6w7di, FINISHED, 1 node
     Splits: 18 total, 18 done (100.00%)
     0:00 [4.57K rows, 15.1MB] [30.6K rows/s, 101MB/s]
-    
+
     presto:default> select kafka_key, user_name, lang, created_at from tweets limit 10;
          kafka_key      |    user_name    | lang |       created_at
     --------------------+-----------------+------+-------------------------
@@ -577,7 +579,7 @@ Now run queries against live data:
      494227750396653569 | FilmArsivimiz   | tr   | 2014-07-29 14:07:32.000
      494227750388256769 | jmolas          | es   | 2014-07-29 14:07:32.000
     (10 rows)
-    
+
     Query 20140729_211049_00008_6w7di, FINISHED, 1 node
     Splits: 31 total, 1 done (3.23%)
     0:00 [0 rows, 0B] [0 rows/s, 0B/s]
@@ -601,7 +603,7 @@ The tweets feed that was set up in the last step contains a time stamp in RFC 28
      Tue Jul 29 21:07:34 +0000 2014
      Tue Jul 29 21:07:35 +0000 2014
     (5 rows)
-    
+
     Query 20140729_213524_00022_6w7di, FINISHED, 1 node
     Splits: 31 total, 1 done (3.23%)
     0:00 [0 rows, 0B] [0 rows/s, 0B/s]
@@ -632,10 +634,10 @@ This allows the raw data to be mapped onto a Presto timestamp column:
      2014-07-29 14:07:23.000 | Tue Jul 29 21:07:23 +0000 2014
      2014-07-29 14:07:24.000 | Tue Jul 29 21:07:24 +0000 2014
     (5 rows)
-    
+
     Query 20140729_213849_00026_6w7di, FINISHED, 1 node
     Splits: 31 total, 1 done (3.23%)
     0:00 [0 rows, 0B] [0 rows/s, 0B/s]
 
 
-The Apache Kafka plugin contains converters for ISO 8601, RFC 2822 text formats and for number based timestamps using seconds or miilliseconds since the epoch. There is also a generic, text based formatter which uses Joda-Time format strings to parse text columns.
+The Apache Kafka connector contains converters for ISO 8601, RFC 2822 text formats and for number based timestamps using seconds or miilliseconds since the epoch. There is also a generic, text based formatter which uses Joda-Time format strings to parse text columns.
