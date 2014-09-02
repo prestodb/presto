@@ -629,4 +629,21 @@ public class DistributedLogicalPlanner
             return String.valueOf(nextFragmentId++);
         }
     }
+
+    private static Expression getHashExpression(List<Symbol> partitioningSymbols)
+    {
+        Expression hashExpression = new LongLiteral("1");
+
+        for (Symbol symbol : partitioningSymbols) {
+            hashExpression = getHashFunctionCall(hashExpression, symbol);
+        }
+        return hashExpression;
+    }
+
+    private static Expression getHashFunctionCall(Expression previousHashValue, Symbol symbol)
+    {
+        FunctionCall functionCall = new FunctionCall(QualifiedName.of("hash_code"), null, false, ImmutableList.<Expression>of(new QualifiedNameReference(symbol.toQualifiedName())));
+        List<Expression> arguments = ImmutableList.of(previousHashValue, functionCall);
+        return new FunctionCall(QualifiedName.of("hash"), arguments);
+    }
 }

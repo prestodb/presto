@@ -113,10 +113,11 @@ public final class Signature
             return false;
         }
         Signature other = (Signature) obj;
-        return Objects.equals(this.name, other.name) &&
+
+        // TODO: this is a hack
+        return this.name.equalsIgnoreCase(other.name) &&
                 Objects.equals(this.returnType, other.returnType) &&
-                Objects.equals(this.argumentTypes, other.argumentTypes) &&
-                Objects.equals(this.internal, other.internal);
+                Objects.equals(this.argumentTypes, other.argumentTypes);
     }
 
     public String toString()
