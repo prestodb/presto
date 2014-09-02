@@ -11,6 +11,7 @@ Presto Documentation
     functions
     language
     sql
+    connectors
     migration
     spi
     release

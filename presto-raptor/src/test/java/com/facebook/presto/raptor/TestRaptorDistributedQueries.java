@@ -25,6 +25,7 @@ import io.airlift.log.Logger;
 import org.testng.annotations.AfterClass;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Map;
 
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
@@ -47,6 +48,7 @@ public class TestRaptorDistributedQueries
 
     @AfterClass(alwaysRun = true)
     public void destroy()
+            throws IOException
     {
         queryRunner.close();
     }

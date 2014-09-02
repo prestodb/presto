@@ -21,6 +21,7 @@ import com.facebook.presto.tpch.TpchPlugin;
 import io.airlift.log.Logger;
 import org.testng.annotations.AfterClass;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -47,6 +48,7 @@ public class TestJdbcDistributedQueries
 
     @AfterClass(alwaysRun = true)
     public void destroy()
+            throws IOException
     {
         queryRunner.close();
     }

@@ -26,6 +26,8 @@ import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.tests.QueryAssertions.copyTable;
 import static io.airlift.units.Duration.nanosSince;
@@ -47,6 +49,7 @@ public class TestCassandraIntegrationSmokeTest
 
     @AfterClass(alwaysRun = true)
     public void destroy()
+            throws IOException
     {
         queryRunner.close();
     }
