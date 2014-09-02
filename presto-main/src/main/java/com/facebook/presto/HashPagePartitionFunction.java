@@ -33,6 +33,7 @@ public final class HashPagePartitionFunction
     private final int partition;
     private final int partitionCount;
     private final List<Integer> partitioningChannels;
+    private final int hashChannel;
     private final List<Type> types;
 
     @JsonCreator
@@ -40,11 +41,13 @@ public final class HashPagePartitionFunction
             @JsonProperty("partition") int partition,
             @JsonProperty("partitionCount") int partitionCount,
             @JsonProperty("partitioningChannels") List<Integer> partitioningChannels,
+            @JsonProperty("hashChannel") int hashChannel,
             @JsonProperty("types") List<Type> types)
     {
         this.partition = partition;
         this.partitionCount = partitionCount;
         this.partitioningChannels = ImmutableList.copyOf(partitioningChannels);
+        this.hashChannel = hashChannel;
         this.types = ImmutableList.copyOf(types);
     }
 
@@ -70,6 +73,12 @@ public final class HashPagePartitionFunction
     public List<Type> getTypes()
     {
         return types;
+    }
+
+    @JsonProperty
+    public int getHashChannel()
+    {
+        return hashChannel;
     }
 
     @Override

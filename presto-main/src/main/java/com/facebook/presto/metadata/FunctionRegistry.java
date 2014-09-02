@@ -41,6 +41,7 @@ import com.facebook.presto.operator.aggregation.VarBinaryMinAggregation;
 import com.facebook.presto.operator.aggregation.VarianceAggregation;
 import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.operator.scalar.DateTimeFunctions;
+import com.facebook.presto.operator.scalar.HashingFunction;
 import com.facebook.presto.operator.scalar.HyperLogLogFunctions;
 import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.operator.scalar.JsonPath;
@@ -266,7 +267,8 @@ public class FunctionRegistry
                 .scalar(TimestampWithTimeZoneOperators.class)
                 .scalar(DateTimeOperators.class)
                 .scalar(HyperLogLogOperators.class)
-                .scalar(LikeFunctions.class);
+                .scalar(LikeFunctions.class)
+                .scalar(HashingFunction.class);
 
         if (experimentalSyntaxEnabled) {
             builder.aggregate(ApproximateAverageAggregations.class)

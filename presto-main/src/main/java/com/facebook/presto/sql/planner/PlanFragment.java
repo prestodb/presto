@@ -13,17 +13,18 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.SinkNode;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.IterableTransformer;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
@@ -64,6 +65,7 @@ public class PlanFragment
     private final Set<PlanNodeId> sourceIds;
     private final OutputPartitioning outputPartitioning;
     private final List<Symbol> partitionBy;
+    private final Optional<Integer> hashChannel;
 
     @JsonCreator
     public PlanFragment(
@@ -73,7 +75,8 @@ public class PlanFragment
             @JsonProperty("distribution") PlanDistribution distribution,
             @JsonProperty("partitionedSource") PlanNodeId partitionedSource,
             @JsonProperty("outputPartitioning") OutputPartitioning outputPartitioning,
-            @JsonProperty("partitionBy") List<Symbol> partitionBy)
+            @JsonProperty("partitionBy") List<Symbol> partitionBy,
+            @JsonProperty("hashChannel") Optional<Integer> hashChannel)
     {
         this.id = checkNotNull(id, "id is null");
         this.root = checkNotNull(root, "root is null");
@@ -81,6 +84,7 @@ public class PlanFragment
         this.distribution = checkNotNull(distribution, "distribution is null");
         this.partitionedSource = partitionedSource;
         this.partitionBy = ImmutableList.copyOf(checkNotNull(partitionBy, "partitionBy is null"));
+        this.hashChannel = checkNotNull(hashChannel, "hashChennel is null");
 
         types = ImmutableList.copyOf(IterableTransformer.on(root.getOutputSymbols())
                 .transform(Functions.forMap(symbols))
@@ -142,6 +146,12 @@ public class PlanFragment
     public List<Symbol> getPartitionBy()
     {
         return partitionBy;
+    }
+
+    @JsonProperty
+    public Optional<Integer> getHashChannel()
+    {
+        return hashChannel;
     }
 
     public List<Integer> getPartitioningChannels()
