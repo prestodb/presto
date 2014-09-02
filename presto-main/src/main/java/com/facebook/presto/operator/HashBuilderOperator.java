@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -23,6 +22,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -36,6 +36,7 @@ public class HashBuilderOperator
         private final int operatorId;
         private final SettableLookupSourceSupplier lookupSourceSupplier;
         private final List<Integer> hashChannels;
+        private final int channelContainingHash;
         private final int expectedPositions;
         private boolean closed;
 
@@ -43,13 +44,17 @@ public class HashBuilderOperator
                 int operatorId,
                 List<Type> types,
                 List<Integer> hashChannels,
+                int channelContainingHash,
                 int expectedPositions)
         {
             this.operatorId = operatorId;
             this.lookupSourceSupplier = new SettableLookupSourceSupplier(checkNotNull(types, "types is null"));
 
-            Preconditions.checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
-            this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
+            checkNotNull(hashChannels, "hashChannels is null");
+            checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
+            this.hashChannels = ImmutableList.copyOf(hashChannels);
+            checkArgument(channelContainingHash >= 0, "invalid channelContainingHash");
+            this.channelContainingHash = channelContainingHash;
 
             this.expectedPositions = checkNotNull(expectedPositions, "expectedPositions is null");
         }
@@ -74,6 +79,7 @@ public class HashBuilderOperator
                     operatorContext,
                     lookupSourceSupplier,
                     hashChannels,
+                    channelContainingHash,
                     expectedPositions);
         }
 
@@ -96,16 +102,17 @@ public class HashBuilderOperator
             OperatorContext operatorContext,
             SettableLookupSourceSupplier lookupSourceSupplier,
             List<Integer> hashChannels,
+            int channelContainingHash,
             int expectedPositions)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 
         this.lookupSourceSupplier = checkNotNull(lookupSourceSupplier, "hashSupplier is null");
 
-        Preconditions.checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
+        checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
         this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
 
-        this.pagesIndex = new PagesIndex(lookupSourceSupplier.getTypes(), expectedPositions, operatorContext);
+        this.pagesIndex = new PagesIndex(lookupSourceSupplier.getTypes(), expectedPositions, channelContainingHash, operatorContext);
     }
 
     @Override

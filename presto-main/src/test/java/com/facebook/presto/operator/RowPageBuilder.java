@@ -18,6 +18,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -77,6 +78,25 @@ public class RowPageBuilder
         for (int i = 0; i < blocks.length; i++) {
             blocks[i] = builders.get(i).build();
         }
+        return new Page(blocks);
+    }
+
+    public Page buildWithHash(List<Integer> hashChannels)
+    {
+        int numBlocks = builders.size();
+        Block[] blocks = new Block[numBlocks + 1];
+
+        Block[] hashBlocks = new Block[hashChannels.size()];
+        ImmutableList.Builder<Type> hashTypes = ImmutableList.builder();
+        int hashIndex = 0;
+        for (int i = 0; i < numBlocks; i++) {
+            blocks[i] = builders.get(i).build();
+            if (hashChannels.contains(i)) {
+                hashBlocks[hashIndex++] = blocks[i];
+                hashTypes.add(types.get(i));
+            }
+        }
+        blocks[numBlocks] = TypeUtils.getHashBlock(hashTypes.build(), hashBlocks);
         return new Page(blocks);
     }
 

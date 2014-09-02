@@ -55,7 +55,7 @@ public class StreamingIndexedData
     }
 
     @Override
-    public long getJoinPosition(int position, Block... blocks)
+    public long getJoinPosition(int position, Block hashBlock, Block... blocks)
     {
         checkArgument(blocks.length == indexKeyTypes.size(), "Number of blocks does not match the number of key columns");
         if (started || !matchesExpectedKey(position, blocks)) {

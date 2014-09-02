@@ -35,14 +35,16 @@ public class DistinctLimitOperator
         private final int operatorId;
         private final List<Type> types;
         private final long limit;
+        private final int hashChannel;
         private boolean closed;
 
-        public DistinctLimitOperatorFactory(int operatorId, List<? extends Type> types, long limit)
+        public DistinctLimitOperatorFactory(int operatorId, List<? extends Type> types, long limit, int hashChannel)
         {
             this.operatorId = operatorId;
             this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
             checkArgument(limit >= 0, "limit must be at least zero");
             this.limit = limit;
+            this.hashChannel = hashChannel;
         }
 
         @Override
@@ -56,7 +58,7 @@ public class DistinctLimitOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, DistinctLimitOperator.class.getSimpleName());
-            return new DistinctLimitOperator(operatorContext, types, limit);
+            return new DistinctLimitOperator(operatorContext, types, limit, hashChannel);
         }
 
         @Override
@@ -78,7 +80,7 @@ public class DistinctLimitOperator
     private final GroupByHash groupByHash;
     private long nextDistinctId;
 
-    public DistinctLimitOperator(OperatorContext operatorContext, List<Type> types, long limit)
+    public DistinctLimitOperator(OperatorContext operatorContext, List<Type> types, long limit, int hashChannel)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
@@ -91,7 +93,7 @@ public class DistinctLimitOperator
             distinctChannels.add(i);
         }
 
-        this.groupByHash = new GroupByHash(distinctTypes.build(), Ints.toArray(distinctChannels.build()), Math.min((int) limit, 10_000));
+        this.groupByHash = new GroupByHash(distinctTypes.build(), Ints.toArray(distinctChannels.build()), hashChannel, Math.min((int) limit, 10_000));
 
         this.pageBuilder = new PageBuilder(types);
         remainingLimit = limit;

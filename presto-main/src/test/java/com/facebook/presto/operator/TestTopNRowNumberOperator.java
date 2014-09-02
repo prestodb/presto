@@ -61,7 +61,7 @@ public class TestTopNRowNumberOperator
     public void testTopNRowNumberPartitioned()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
+        List<Page> input = rowPagesBuilder(ImmutableList.of(0), BIGINT, DOUBLE)
                 .row(1, 0.3)
                 .row(2, 0.2)
                 .row(3, 0.1)
@@ -77,6 +77,7 @@ public class TestTopNRowNumberOperator
                 .row(2, 0.9)
                 .build();
 
+        int hashChannel = 2;
         TopNRowNumberOperatorFactory operatorFactory = new TopNRowNumberOperatorFactory(
                 0,
                 ImmutableList.of(BIGINT, DOUBLE),
@@ -87,6 +88,7 @@ public class TestTopNRowNumberOperator
                 ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                 3,
                 false,
+                hashChannel,
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);

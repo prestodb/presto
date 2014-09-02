@@ -100,7 +100,7 @@ public class TestWindowOperator
     public void testRowNumber()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
+        List<Page> input = rowPagesBuilder(Ints.asList(0), BIGINT, DOUBLE)
                 .row(2, 0.3)
                 .row(4, 0.2)
                 .row(6, 0.1)
@@ -117,6 +117,7 @@ public class TestWindowOperator
                 Ints.asList(),
                 Ints.asList(0),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                2,
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -136,7 +137,7 @@ public class TestWindowOperator
     public void testRowNumberPartition()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, DOUBLE, BOOLEAN)
+        List<Page> input = rowPagesBuilder(Ints.asList(0), VARCHAR, BIGINT, DOUBLE, BOOLEAN)
                 .row("b", -1, -0.1, true)
                 .row("a", 2, 0.3, false)
                 .row("a", 4, 0.2, true)
@@ -153,6 +154,7 @@ public class TestWindowOperator
                 Ints.asList(0),
                 Ints.asList(1),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                4,
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -172,7 +174,7 @@ public class TestWindowOperator
     public void testRowNumberArbitrary()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(BIGINT)
+        List<Page> input = rowPagesBuilder(Ints.asList(0), BIGINT)
                 .row(1)
                 .row(3)
                 .row(5)
@@ -192,6 +194,7 @@ public class TestWindowOperator
                 Ints.asList(),
                 Ints.asList(),
                 ImmutableList.copyOf(new SortOrder[] {}),
+                2,
                 10);
         Operator operator = operatorFactory.createOperator(driverContext);
 
@@ -213,7 +216,7 @@ public class TestWindowOperator
     public void testMemoryLimit()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
+        List<Page> input = rowPagesBuilder(Ints.asList(0), BIGINT, DOUBLE)
                 .row(1, 0.1)
                 .row(2, 0.2)
                 .pageBreak()
@@ -233,6 +236,7 @@ public class TestWindowOperator
                 Ints.asList(),
                 Ints.asList(0),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                2,
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -262,6 +266,7 @@ public class TestWindowOperator
                 Ints.asList(0),
                 Ints.asList(2),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                5,
                 100);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -282,7 +287,7 @@ public class TestWindowOperator
     public void testLastValuePartition()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
+        List<Page> input = rowPagesBuilder(Ints.asList(0), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1, true, "")
                 .row("a", "A2", 1, false, "")
                 .row("a", "B1", 2, true, "")
@@ -300,6 +305,7 @@ public class TestWindowOperator
                 Ints.asList(0),
                 Ints.asList(2),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                5,
                 100);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -320,7 +326,7 @@ public class TestWindowOperator
     public void testNthValuePartition()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BIGINT, BOOLEAN, VARCHAR)
+        List<Page> input = rowPagesBuilder(Ints.asList(0), VARCHAR, VARCHAR, BIGINT, BIGINT, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1, 2, true, "")
                 .row("a", "A2", 1, 3, false, "")
                 .row("a", "B1", 2, 2, true, "")
@@ -338,6 +344,7 @@ public class TestWindowOperator
                 Ints.asList(0),
                 Ints.asList(2),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                6,
                 100);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -358,7 +365,7 @@ public class TestWindowOperator
     public void testLagPartition()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR)
+        List<Page> input = rowPagesBuilder(Ints.asList(0), VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1, 1, "D", true, "")
                 .row("a", "A2", 1, 2, "D", false, "")
                 .row("a", "B1", 2, 2, "D", true, "")
@@ -376,6 +383,7 @@ public class TestWindowOperator
                 Ints.asList(0),
                 Ints.asList(2),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                7,
                 100);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -396,7 +404,7 @@ public class TestWindowOperator
     public void testLeadPartition()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR)
+        List<Page> input = rowPagesBuilder(Ints.asList(0), VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1, 1, "D", true, "")
                 .row("a", "A2", 1, 2, "D", false, "")
                 .row("a", "B1", 2, 2, "D", true, "")
@@ -414,6 +422,7 @@ public class TestWindowOperator
                 Ints.asList(0),
                 Ints.asList(2),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                7,
                 100);
 
         Operator operator = operatorFactory.createOperator(driverContext);

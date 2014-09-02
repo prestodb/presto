@@ -23,6 +23,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.testing.MaterializedResult;
@@ -42,10 +43,10 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqualsIgnoreOrder;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.operator.RowPagesBuilderWithHash.rowPagesBuilderWithHash;
 import static com.facebook.presto.operator.aggregation.AverageAggregations.LONG_AVERAGE;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
@@ -93,7 +94,8 @@ public class TestHashAggregationOperator
         MetadataManager metadata = new MetadataManager();
         InternalAggregationFunction countVarcharColumn = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of(parseTypeSignature(StandardTypes.VARCHAR)), false).getAggregationFunction();
         InternalAggregationFunction countBooleanColumn = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of(parseTypeSignature(StandardTypes.BOOLEAN)), false).getAggregationFunction();
-        List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+        List<Integer> hashChannels = Ints.asList(1);
+        List<Page> input = rowPagesBuilderWithHash(hashChannels, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .addSequencePage(10, 100, 0, 100, 0, 500)
                 .addSequencePage(10, 100, 0, 200, 0, 500)
                 .addSequencePage(10, 100, 0, 300, 0, 500)
@@ -103,6 +105,7 @@ public class TestHashAggregationOperator
                 0,
                 ImmutableList.of(VARCHAR),
                 Ints.asList(1),
+                5,
                 Step.SINGLE,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
                         LONG_SUM.bind(ImmutableList.of(3), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
@@ -127,13 +130,13 @@ public class TestHashAggregationOperator
                 .row("9", 3, 27, 9.0, "309", 3, 3)
                 .build();
 
-        assertOperatorEqualsIgnoreOrder(operator, input, expected);
+        OperatorAssertion.assertOperatorEqualsIgnoreOrderWithoutHashes(operator, input, expected, ImmutableList.of(1));
     }
 
     @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Task exceeded max memory size of 10B")
     public void testMemoryLimit()
     {
-        List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, VARCHAR, BIGINT)
+        List<Page> input = rowPagesBuilderWithHash(Ints.asList(1), VARCHAR, VARCHAR, VARCHAR, BIGINT)
                 .addSequencePage(10, 100, 0, 100, 0)
                 .addSequencePage(10, 100, 0, 200, 0)
                 .addSequencePage(10, 100, 0, 300, 0)
@@ -147,6 +150,7 @@ public class TestHashAggregationOperator
                 0,
                 ImmutableList.of(VARCHAR),
                 Ints.asList(1),
+                4,
                 Step.SINGLE,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
                         LONG_SUM.bind(ImmutableList.of(3), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
@@ -166,7 +170,7 @@ public class TestHashAggregationOperator
         VARCHAR.writeSlice(builder, Slices.allocate(200_000)); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
         builder.build();
 
-        List<Page> input = rowPagesBuilder(VARCHAR)
+        List<Page> input = rowPagesBuilderWithHash(Ints.asList(0), VARCHAR)
                 .addSequencePage(10, 100)
                 .addBlocksPage(builder.build())
                 .addSequencePage(10, 100)
@@ -180,6 +184,7 @@ public class TestHashAggregationOperator
                 0,
                 ImmutableList.of(VARCHAR),
                 Ints.asList(0),
+                1,
                 Step.SINGLE,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)),
                 100_000);
@@ -196,7 +201,7 @@ public class TestHashAggregationOperator
         VARCHAR.writeSlice(builder, Slices.allocate(5_000_000)); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
         builder.build();
 
-        List<Page> input = rowPagesBuilder(VARCHAR)
+        List<Page> input = rowPagesBuilderWithHash(Ints.asList(0), VARCHAR)
                 .addSequencePage(10, 100)
                 .addBlocksPage(builder.build())
                 .addSequencePage(10, 100)
@@ -210,6 +215,7 @@ public class TestHashAggregationOperator
                 0,
                 ImmutableList.of(VARCHAR),
                 Ints.asList(0),
+                1,
                 Step.SINGLE,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)),
                 100_000);
@@ -227,7 +233,7 @@ public class TestHashAggregationOperator
         int multiSlicePositionCount = (int) (1.5 * BlockBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES / fixedWidthSize);
         multiSlicePositionCount = Math.min((int) (1.5 * BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES / SIZE_OF_DOUBLE), multiSlicePositionCount);
 
-        List<Page> input = rowPagesBuilder(BIGINT, BIGINT)
+        List<Page> input = rowPagesBuilderWithHash(Ints.asList(0), BIGINT, BIGINT)
                 .addSequencePage(multiSlicePositionCount, 0, 0)
                 .build();
 
@@ -235,6 +241,7 @@ public class TestHashAggregationOperator
                 0,
                 ImmutableList.of(BIGINT),
                 Ints.asList(1),
+                2,
                 Step.SINGLE,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
                         LONG_AVERAGE.bind(ImmutableList.of(1), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)),
@@ -249,7 +256,7 @@ public class TestHashAggregationOperator
     public void testMultiplePartialFlushes()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(BIGINT)
+        List<Page> input = rowPagesBuilderWithHash(Ints.asList(0), BIGINT)
                 .addSequencePage(500, 0)
                 .addSequencePage(500, 500)
                 .addSequencePage(500, 1000)
@@ -260,6 +267,7 @@ public class TestHashAggregationOperator
                 0,
                 ImmutableList.of(BIGINT),
                 Ints.asList(0),
+                1,
                 Step.PARTIAL,
                 ImmutableList.of(LONG_SUM.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)),
                 100_000);
@@ -302,7 +310,12 @@ public class TestHashAggregationOperator
         // Now, drive the operator to completion
         outputPages.addAll(toPages(operator, inputIterator));
 
-        MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), outputPages);
+        // Drop the hashChannel for all pages
+        List<Page> actualPages = OperatorAssertion.dropChannel(outputPages, Ints.asList(1));
+        List<Type> expectedTypes = OperatorAssertion.without(operator.getTypes(), Ints.asList(1));
+
+        MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), expectedTypes, actualPages);
+
         assertEquals(actual.getTypes(), expected.getTypes());
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }

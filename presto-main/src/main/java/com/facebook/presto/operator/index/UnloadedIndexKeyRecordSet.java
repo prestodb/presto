@@ -56,10 +56,16 @@ public class UnloadedIndexKeyRecordSet
 
         ImmutableList.Builder<PageAndPositions> builder = ImmutableList.builder();
         long nextDistinctId = 0;
-        GroupByHash groupByHash = new GroupByHash(distinctChannelTypes, normalizedDistinctChannels, 10_000);
+
+        // This is a hack to get the groupByHash, this channel offset is never used
+        int hashChannel = normalizedDistinctChannels.length + 1;
+        GroupByHash groupByHash = new GroupByHash(distinctChannelTypes, normalizedDistinctChannels, hashChannel, 10_000);
+
         for (UpdateRequest request : requests) {
             IntList positions = new IntArrayList();
+
             Block[] blocks = request.getBlocks();
+            Block hashBlock = request.getHashBlock();
 
             Block[] distinctBlocks = new Block[distinctChannels.length];
             for (int i = 0; i < distinctBlocks.length; i++) {
@@ -72,9 +78,9 @@ public class UnloadedIndexKeyRecordSet
                 // We are reading ahead in the cursors, so we need to filter any nulls since they can not join
                 if (!containsNullValue(position, blocks)) {
                     // Only include the key if it is not already in the index
-                    if (existingSnapshot.getJoinPosition(position, blocks) == UNLOADED_INDEX_KEY) {
+                    if (existingSnapshot.getJoinPosition(position, hashBlock, blocks) == UNLOADED_INDEX_KEY) {
                         // Only add the position if we have not seen this tuple before (based on the distinct channels)
-                        if (groupByHash.putIfAbsent(position, distinctBlocks) == nextDistinctId) {
+                        if (groupByHash.putIfAbsent(position, hashBlock, distinctBlocks) == nextDistinctId) {
                             nextDistinctId++;
                             positions.add(position);
                         }

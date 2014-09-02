@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.ChannelSet.ChannelSetBuilder;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -26,6 +25,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -66,6 +66,7 @@ public class SetBuilderOperator
         private final int operatorId;
         private final SetSupplier setProvider;
         private final int setChannel;
+        private final int hashChannel;
         private final int expectedPositions;
         private boolean closed;
 
@@ -73,12 +74,15 @@ public class SetBuilderOperator
                 int operatorId,
                 List<Type> types,
                 int setChannel,
+                int hashChannel,
                 int expectedPositions)
         {
             this.operatorId = operatorId;
             Preconditions.checkArgument(setChannel >= 0, "setChannel is negative");
             this.setProvider = new SetSupplier(checkNotNull(types, "types is null").get(setChannel));
             this.setChannel = setChannel;
+            checkArgument(hashChannel >= 0, "invalid hashChannel");
+            this.hashChannel = hashChannel;
             this.expectedPositions = checkNotNull(expectedPositions, "expectedPositions is null");
         }
 
@@ -98,7 +102,7 @@ public class SetBuilderOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, SetBuilderOperator.class.getSimpleName());
-            return new SetBuilderOperator(operatorContext, setProvider, setChannel, expectedPositions);
+            return new SetBuilderOperator(operatorContext, setProvider, setChannel, hashChannel, expectedPositions);
         }
 
         @Override
@@ -120,13 +124,19 @@ public class SetBuilderOperator
             OperatorContext operatorContext,
             SetSupplier setSupplier,
             int setChannel,
+            int hashChannel,
             int expectedPositions)
     {
+        checkArgument(setChannel >= 0, "invalid setChannel");
+        checkArgument(hashChannel >= 0, "invalid hashChannel");
+
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.setSupplier = checkNotNull(setSupplier, "setProvider is null");
         this.setChannel = setChannel;
         this.channelSetBuilder = new ChannelSetBuilder(
                 setSupplier.getType(),
+                setChannel,
+                hashChannel,
                 expectedPositions,
                 checkNotNull(operatorContext, "operatorContext is null"));
     }
@@ -179,9 +189,7 @@ public class SetBuilderOperator
     {
         checkNotNull(page, "page is null");
         checkState(!isFinished(), "Operator is already finished");
-
-        Block sourceBlock = page.getBlock(setChannel);
-        channelSetBuilder.addBlock(sourceBlock);
+        channelSetBuilder.addPage(page);
     }
 
     @Override

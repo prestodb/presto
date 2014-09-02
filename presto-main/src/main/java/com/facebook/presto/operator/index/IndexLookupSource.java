@@ -43,13 +43,13 @@ public class IndexLookupSource
     }
 
     @Override
-    public long getJoinPosition(int position, Block... blocks)
+    public long getJoinPosition(int position, Block hashBlock, Block... blocks)
     {
-        long joinPosition = indexedData.getJoinPosition(position, blocks);
+        long joinPosition = indexedData.getJoinPosition(position, hashBlock, blocks);
         if (joinPosition == UNLOADED_INDEX_KEY) {
             indexedData.close(); // Close out the old indexedData
-            indexedData = indexLoader.getIndexedDataForKeys(position, blocks);
-            joinPosition = indexedData.getJoinPosition(position, blocks);
+            indexedData = indexLoader.getIndexedDataForKeys(position, hashBlock, blocks);
+            joinPosition = indexedData.getJoinPosition(position, hashBlock, blocks);
             checkState(joinPosition != UNLOADED_INDEX_KEY);
         }
         // INVARIANT: position is -1 or a valid position greater than or equal to zero

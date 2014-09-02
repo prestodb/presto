@@ -34,6 +34,7 @@ import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.planner.LookupSymbolResolver;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
+import com.facebook.presto.sql.planner.QueryPlanner;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.SymbolResolver;
@@ -69,6 +70,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import io.airlift.log.Logger;
 
@@ -280,9 +282,8 @@ public class PredicatePushDown
             PlanNode rightSource = planRewriter.rewrite(node.getRight(), rightPredicate);
 
             PlanNode output = node;
+            List<JoinNode.EquiJoinClause> criteria = node.getCriteria();
             if (leftSource != node.getLeft() || rightSource != node.getRight() || !newJoinPredicate.equals(joinPredicate) || isCrossJoin) {
-                List<JoinNode.EquiJoinClause> criteria = node.getCriteria();
-
                 // Rewrite criteria and add projections if there is a new join predicate
 
                 if (!newJoinPredicate.equals(joinPredicate) || isCrossJoin) {
@@ -327,8 +328,21 @@ public class PredicatePushDown
                     rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
                     criteria = builder.build();
                 }
-                output = new JoinNode(node.getId(), node.getType(), leftSource, rightSource, criteria);
             }
+
+            if (!node.getRight().getOutputSymbols().contains(node.getRightHashSymbol()) && !node.getLeft().getOutputSymbols().contains(node.getLeftHashSymbol()))
+            {
+                Symbol leftHashSymbol = symbolAllocator.newHashSymbol();
+                List<Symbol> leftSymbols = Lists.transform(criteria, JoinNode.EquiJoinClause.leftGetter());
+                leftSource = QueryPlanner.getHashProjectNode(idAllocator, leftSource, leftHashSymbol, leftSymbols);
+
+                Symbol rightHashSymbol = symbolAllocator.newHashSymbol();
+                List<Symbol> rightSymbols = Lists.transform(criteria, JoinNode.EquiJoinClause.rightGetter());
+                rightSource = QueryPlanner.getHashProjectNode(idAllocator, rightSource, rightHashSymbol, rightSymbols);
+
+                output = new JoinNode(node.getId(), node.getType(), leftSource, rightSource, leftHashSymbol, rightHashSymbol, criteria);
+            }
+
             if (!postJoinPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
                 output = new FilterNode(idAllocator.getNextId(), output, postJoinPredicate);
             }
@@ -578,7 +592,7 @@ public class PredicatePushDown
             Preconditions.checkArgument(EnumSet.of(INNER, RIGHT, LEFT, CROSS).contains(node.getType()), "Unsupported join type: %s", node.getType());
 
             if (node.getType() == JoinNode.Type.CROSS) {
-                return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getCriteria());
+                return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getCriteria());
             }
 
             if (node.getType() == JoinNode.Type.INNER ||
@@ -586,7 +600,7 @@ public class PredicatePushDown
                     node.getType() == JoinNode.Type.RIGHT && !canConvertOuterToInner(node.getLeft().getOutputSymbols(), inheritedPredicate)) {
                 return node;
             }
-            return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getCriteria());
+            return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getCriteria());
         }
 
         private boolean canConvertOuterToInner(List<Symbol> innerSymbolsForOuterJoin, Expression inheritedPredicate)
@@ -711,7 +725,12 @@ public class PredicatePushDown
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource() || rewrittenFilteringSource != node.getFilteringSource()) {
-                output = new SemiJoinNode(node.getId(), rewrittenSource, rewrittenFilteringSource, node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput());
+                output = new SemiJoinNode(node.getId(), rewrittenSource, rewrittenFilteringSource,
+                        node.getSourceHashSymbol(),
+                        node.getFilteringSourceHashSymbol(),
+                        node.getSourceJoinSymbol(),
+                        node.getFilteringSourceJoinSymbol(),
+                        node.getSemiJoinOutput());
             }
             if (!postJoinConjuncts.isEmpty()) {
                 output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(postJoinConjuncts));
@@ -752,7 +771,16 @@ public class PredicatePushDown
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource()) {
-                output = new AggregationNode(node.getId(), rewrittenSource, node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), node.getStep(), node.getSampleWeight(), node.getConfidence());
+                output = new AggregationNode(node.getId(),
+                        rewrittenSource,
+                        node.getGroupBy(),
+                        node.getAggregations(),
+                        node.getFunctions(),
+                        node.getMasks(),
+                        node.getStep(),
+                        node.getSampleWeight(),
+                        node.getConfidence(),
+                        node.getHashSymbol());
             }
             if (!postAggregationConjuncts.isEmpty()) {
                 output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(postAggregationConjuncts));

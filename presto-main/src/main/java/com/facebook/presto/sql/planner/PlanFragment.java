@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.SinkNode;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.IterableTransformer;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -64,6 +64,7 @@ public class PlanFragment
     private final Set<PlanNodeId> sourceIds;
     private final OutputPartitioning outputPartitioning;
     private final List<Symbol> partitionBy;
+    private final Integer hashChannel;
 
     @JsonCreator
     public PlanFragment(
@@ -73,7 +74,8 @@ public class PlanFragment
             @JsonProperty("distribution") PlanDistribution distribution,
             @JsonProperty("partitionedSource") PlanNodeId partitionedSource,
             @JsonProperty("outputPartitioning") OutputPartitioning outputPartitioning,
-            @JsonProperty("partitionBy") List<Symbol> partitionBy)
+            @JsonProperty("partitionBy") List<Symbol> partitionBy,
+            @JsonProperty("hashChannel") Integer hashChannel)
     {
         this.id = checkNotNull(id, "id is null");
         this.root = checkNotNull(root, "root is null");
@@ -81,6 +83,7 @@ public class PlanFragment
         this.distribution = checkNotNull(distribution, "distribution is null");
         this.partitionedSource = partitionedSource;
         this.partitionBy = ImmutableList.copyOf(checkNotNull(partitionBy, "partitionBy is null"));
+        this.hashChannel = hashChannel;
 
         types = ImmutableList.copyOf(IterableTransformer.on(root.getOutputSymbols())
                 .transform(Functions.forMap(symbols))
@@ -144,6 +147,12 @@ public class PlanFragment
         return partitionBy;
     }
 
+    @JsonProperty
+    public Integer getHashChannel()
+    {
+        return hashChannel;
+    }
+
     public List<Integer> getPartitioningChannels()
     {
         checkState(outputPartitioning == OutputPartitioning.HASH, "fragment is not hash partitioned");
@@ -193,6 +202,7 @@ public class PlanFragment
                 .add("distribution", distribution)
                 .add("partitionedSource", partitionedSource)
                 .add("outputPartitioning", outputPartitioning)
+                .add("hashChannel", hashChannel)
                 .toString();
     }
 

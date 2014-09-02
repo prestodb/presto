@@ -44,6 +44,7 @@ public class RowNumberOperator
         private final List<Integer> outputChannels;
         private final List<Integer> partitionChannels;
         private final List<Type> partitionTypes;
+        private final int hashChannel;
         private final int expectedPositions;
         private final List<Type> types;
         private boolean closed;
@@ -55,6 +56,7 @@ public class RowNumberOperator
                 List<Integer> partitionChannels,
                 List<? extends Type> partitionTypes,
                 Optional<Integer> maxRowsPerPartition,
+                int hashChannel,
                 int expectedPositions)
         {
             this.operatorId = operatorId;
@@ -64,6 +66,8 @@ public class RowNumberOperator
             this.partitionTypes = ImmutableList.copyOf(checkNotNull(partitionTypes, "partitionTypes is null"));
             this.maxRowsPerPartition = checkNotNull(maxRowsPerPartition, "maxRowsPerPartition is null");
 
+            checkArgument(hashChannel >= 0, "invalid hashChannel");
+            this.hashChannel = hashChannel;
             checkArgument(expectedPositions > 0, "expectedPositions < 0");
             this.expectedPositions = expectedPositions;
             this.types = toTypes(sourceTypes, outputChannels);
@@ -86,6 +90,7 @@ public class RowNumberOperator
                     sourceTypes,
                     outputChannels,
                     partitionChannels,
+                    hashChannel,
                     partitionTypes,
                     maxRowsPerPartition,
                     expectedPositions);
@@ -116,6 +121,7 @@ public class RowNumberOperator
             List<Type> sourceTypes,
             List<Integer> outputChannels,
             List<Integer> partitionChannels,
+            int hashChannel,
             List<Type> partitionTypes,
             Optional<Integer> maxRowsPerPartition,
             int expectedPositions)
@@ -129,7 +135,7 @@ public class RowNumberOperator
             this.groupByHash = Optional.absent();
         }
         else {
-            this.groupByHash = Optional.of(new GroupByHash(partitionTypes, Ints.toArray(partitionChannels), expectedPositions));
+            this.groupByHash = Optional.of(new GroupByHash(partitionTypes, Ints.toArray(partitionChannels), hashChannel, expectedPositions));
         }
         this.types = toTypes(sourceTypes, outputChannels);
     }

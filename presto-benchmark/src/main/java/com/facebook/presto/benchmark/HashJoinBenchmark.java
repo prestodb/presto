@@ -50,7 +50,7 @@ public class HashJoinBenchmark
     {
         if (lookupSourceSupplier == null) {
             OperatorFactory ordersTableScan = createTableScanOperator(0, "orders", "orderkey", "totalprice");
-            HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(1, ordersTableScan.getTypes(), Ints.asList(0), 1_500_000);
+            HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(1, ordersTableScan.getTypes(), Ints.asList(0), 1, 1_500_000);
 
             DriverContext driverContext = taskContext.addPipelineContext(false, false).addDriverContext();
             Driver driver = new DriverFactory(false, false, ordersTableScan, hashBuilder).createDriver(driverContext);
@@ -62,7 +62,7 @@ public class HashJoinBenchmark
 
         OperatorFactory lineItemTableScan = createTableScanOperator(0, "lineitem", "orderkey", "quantity");
 
-        OperatorFactory joinOperator = LookupJoinOperators.innerJoin(1, lookupSourceSupplier, lineItemTableScan.getTypes(), Ints.asList(0));
+        OperatorFactory joinOperator = LookupJoinOperators.innerJoin(1, lookupSourceSupplier, lineItemTableScan.getTypes(), Ints.asList(0), 1);
 
         NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, joinOperator.getTypes());
 

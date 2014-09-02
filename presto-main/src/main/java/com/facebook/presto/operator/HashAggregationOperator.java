@@ -19,6 +19,7 @@ import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.google.common.collect.AbstractIterator;
@@ -43,6 +44,7 @@ public class HashAggregationOperator
         private final int operatorId;
         private final List<Type> groupByTypes;
         private final List<Integer> groupByChannels;
+        private final int hashChannel;
         private final Step step;
         private final List<AccumulatorFactory> accumulatorFactories;
         private final int expectedGroups;
@@ -53,6 +55,7 @@ public class HashAggregationOperator
                 int operatorId,
                 List<? extends Type> groupByTypes,
                 List<Integer> groupByChannels,
+                int hashChannel,
                 Step step,
                 List<AccumulatorFactory> accumulatorFactories,
                 int expectedGroups)
@@ -60,6 +63,7 @@ public class HashAggregationOperator
             this.operatorId = operatorId;
             this.groupByTypes = ImmutableList.copyOf(groupByTypes);
             this.groupByChannels = ImmutableList.copyOf(groupByChannels);
+            this.hashChannel = hashChannel;
             this.step = step;
             this.accumulatorFactories = ImmutableList.copyOf(accumulatorFactories);
             this.expectedGroups = expectedGroups;
@@ -84,6 +88,7 @@ public class HashAggregationOperator
                     groupByTypes,
                     groupByChannels,
                     step,
+                    hashChannel,
                     accumulatorFactories,
                     expectedGroups
             );
@@ -99,6 +104,7 @@ public class HashAggregationOperator
     private final OperatorContext operatorContext;
     private final List<Type> groupByTypes;
     private final List<Integer> groupByChannels;
+    private final int hashChannel;
     private final Step step;
     private final List<AccumulatorFactory> accumulatorFactories;
     private final int expectedGroups;
@@ -115,6 +121,7 @@ public class HashAggregationOperator
             List<Type> groupByTypes,
             List<Integer> groupByChannels,
             Step step,
+            int hashChannel,
             List<AccumulatorFactory> accumulatorFactories,
             int expectedGroups)
     {
@@ -127,6 +134,7 @@ public class HashAggregationOperator
         this.groupByChannels = ImmutableList.copyOf(groupByChannels);
         this.accumulatorFactories = ImmutableList.copyOf(accumulatorFactories);
         this.step = step;
+        this.hashChannel = hashChannel;
         this.expectedGroups = expectedGroups;
         this.memoryManager = new MemoryManager(operatorContext);
 
@@ -174,6 +182,7 @@ public class HashAggregationOperator
     {
         checkState(!finishing, "Operator is already finishing");
         checkNotNull(page, "page is null");
+
         if (aggregationBuilder == null) {
             aggregationBuilder = new GroupByHashAggregationBuilder(
                     accumulatorFactories,
@@ -181,6 +190,7 @@ public class HashAggregationOperator
                     expectedGroups,
                     groupByTypes,
                     groupByChannels,
+                    hashChannel,
                     memoryManager);
 
             // assume initial aggregationBuilder is not full
@@ -230,6 +240,7 @@ public class HashAggregationOperator
     {
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         types.addAll(groupByType);
+        types.add(BigintType.BIGINT); // Add a channel for hashcolumn
         for (AccumulatorFactory factory : factories) {
             types.add(new Aggregator(factory, step).getType());
         }
@@ -248,9 +259,10 @@ public class HashAggregationOperator
                 int expectedGroups,
                 List<Type> groupByTypes,
                 List<Integer> groupByChannels,
+                int hashChannel,
                 MemoryManager memoryManager)
         {
-            this.groupByHash = new GroupByHash(groupByTypes, Ints.toArray(groupByChannels), expectedGroups);
+            this.groupByHash = new GroupByHash(groupByTypes, Ints.toArray(groupByChannels), hashChannel, expectedGroups);
             this.memoryManager = memoryManager;
 
             // wrapper each function with an aggregator

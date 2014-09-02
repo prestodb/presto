@@ -58,12 +58,12 @@ public class TestMarkDistinctOperator
     public void testMarkDistinct()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(BIGINT)
+        List<Page> input = rowPagesBuilder(ImmutableList.of(0), BIGINT)
                 .addSequencePage(100, 0)
                 .addSequencePage(100, 0)
                 .build();
 
-        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, ImmutableList.of(BIGINT), ImmutableList.of(0));
+        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, ImmutableList.of(BIGINT, BIGINT), ImmutableList.of(0), 1);
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult.Builder expected = resultBuilder(driverContext.getSession(), BIGINT, BOOLEAN);
@@ -72,6 +72,6 @@ public class TestMarkDistinctOperator
             expected.row(i, false);
         }
 
-        OperatorAssertion.assertOperatorEqualsIgnoreOrder(operator, input, expected.build());
+        OperatorAssertion.assertOperatorEqualsIgnoreOrderWithoutHashes(operator, input, expected.build(), ImmutableList.of(1));
     }
 }

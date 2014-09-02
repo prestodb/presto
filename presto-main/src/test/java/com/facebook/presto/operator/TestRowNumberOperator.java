@@ -99,6 +99,7 @@ public class TestRowNumberOperator
                 Ints.asList(),
                 ImmutableList.<Type>of(),
                 Optional.<Integer>absent(),
+                2, // hashChannel is not used
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -130,7 +131,7 @@ public class TestRowNumberOperator
             throws Exception
     {
         DriverContext driverContext = getDriverContext();
-        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
+        List<Page> input = rowPagesBuilder(Ints.asList(0), BIGINT, DOUBLE)
                 .row(1, 0.3)
                 .row(2, 0.2)
                 .row(3, 0.1)
@@ -152,6 +153,7 @@ public class TestRowNumberOperator
                 Ints.asList(0),
                 ImmutableList.of(BIGINT),
                 Optional.of(10),
+                2,
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -195,7 +197,7 @@ public class TestRowNumberOperator
             throws Exception
     {
         DriverContext driverContext = getDriverContext();
-        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
+        List<Page> input = rowPagesBuilder(Ints.asList(0), BIGINT, DOUBLE)
                 .row(1, 0.3)
                 .row(2, 0.2)
                 .row(3, 0.1)
@@ -217,6 +219,7 @@ public class TestRowNumberOperator
                 Ints.asList(0),
                 ImmutableList.of(BIGINT),
                 Optional.of(3),
+                2,
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -286,6 +289,7 @@ public class TestRowNumberOperator
                 Ints.asList(),
                 ImmutableList.<Type>of(),
                 Optional.of(3),
+                2, // hashChannel is not used
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);

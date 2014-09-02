@@ -109,7 +109,7 @@ public class LimitPushDown
                     node.getOutputSymbols().containsAll(node.getGroupBy())) {
                 checkArgument(!node.getSampleWeight().isPresent(), "DISTINCT aggregation has sample weight symbol");
                 PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), null);
-                return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, context.getCount());
+                return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, context.getCount(), node.getHashSymbol());
             }
             PlanNode rewrittenNode = planRewriter.defaultRewrite(node, null);
             if (context != null) {
@@ -179,7 +179,14 @@ public class LimitPushDown
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
             if (source != node.getSource()) {
-                return new SemiJoinNode(node.getId(), source, node.getFilteringSource(), node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput());
+                return new SemiJoinNode(node.getId(),
+                        source,
+                        node.getFilteringSource(),
+                        node.getSourceHashSymbol(),
+                        node.getFilteringSourceHashSymbol(),
+                        node.getSourceJoinSymbol(),
+                        node.getFilteringSourceJoinSymbol(),
+                        node.getSemiJoinOutput());
             }
             return node;
         }

@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -93,9 +94,9 @@ public final class InMemoryJoinHash
     }
 
     @Override
-    public long getJoinPosition(int position, Block... blocks)
+    public long getJoinPosition(int position, Block hashBlock, Block... blocks)
     {
-        int pos = ((int) Murmur3.hash64(pagesHashStrategy.hashRow(position, blocks))) & mask;
+        int pos = ((int) Murmur3.hash64((int) BigintType.BIGINT.getLong(hashBlock, position))) & mask;
 
         while (key[pos] != -1) {
             if (positionEqualsCurrentRow(key[pos], position, blocks)) {

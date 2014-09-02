@@ -33,11 +33,15 @@ public class SemiJoinNode
     private final Symbol sourceJoinSymbol;
     private final Symbol filteringSourceJoinSymbol;
     private final Symbol semiJoinOutput;
+    private final Symbol sourceHashSymbol;
+    private final Symbol filteringSourceHashSymbol;
 
     @JsonCreator
     public SemiJoinNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("filteringSource") PlanNode filteringSource,
+            @JsonProperty("sourceHashSymbol") Symbol sourceHashSymbol,
+            @JsonProperty("filteringSourceHashSymbol") Symbol filteringSourceHashSymbol,
             @JsonProperty("sourceJoinSymbol") Symbol sourceJoinSymbol,
             @JsonProperty("filteringSourceJoinSymbol") Symbol filteringSourceJoinSymbol,
             @JsonProperty("semiJoinOutput") Symbol semiJoinOutput)
@@ -45,8 +49,13 @@ public class SemiJoinNode
         super(id);
         this.source = checkNotNull(source, "source is null");
         this.filteringSource = checkNotNull(filteringSource, "filteringSource is null");
+
+        this.sourceHashSymbol = checkNotNull(sourceHashSymbol, "sourceHashSymbol is null");
+        this.filteringSourceHashSymbol = checkNotNull(filteringSourceHashSymbol, "filteringSourceHashSymbol is null");
+
         this.sourceJoinSymbol = checkNotNull(sourceJoinSymbol, "sourceJoinSymbol is null");
         this.filteringSourceJoinSymbol = checkNotNull(filteringSourceJoinSymbol, "filteringSourceJoinSymbol is null");
+
         this.semiJoinOutput = checkNotNull(semiJoinOutput, "semiJoinOutput is null");
     }
 
@@ -78,6 +87,18 @@ public class SemiJoinNode
     public Symbol getSemiJoinOutput()
     {
         return semiJoinOutput;
+    }
+
+    @JsonProperty("sourceHashSymbol")
+    public Symbol getSourceHashSymbol()
+    {
+        return sourceHashSymbol;
+    }
+
+    @JsonProperty("filteringSourceHashSymbol")
+    public Symbol getFilteringSourceHashSymbol()
+    {
+        return filteringSourceHashSymbol;
     }
 
     @Override

@@ -26,16 +26,23 @@ import static com.google.common.base.Preconditions.checkState;
 class UpdateRequest
 {
     private final Block[] blocks;
+    private final Block hashBlock;
     private final AtomicReference<IndexSnapshot> indexSnapshotReference = new AtomicReference<>();
 
-    public UpdateRequest(Block... blocks)
+    public UpdateRequest(Block hashBlock, Block... blocks)
     {
+        this.hashBlock = checkNotNull(hashBlock, "hashBlock is null");
         this.blocks = checkNotNull(blocks, "blocks is null");
     }
 
     public Block[] getBlocks()
     {
         return blocks;
+    }
+
+    public Block getHashBlock()
+    {
+        return hashBlock;
     }
 
     public void finished(IndexSnapshot indexSnapshot)

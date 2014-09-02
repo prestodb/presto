@@ -20,6 +20,7 @@ import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.util.CpuTimer;
 import com.facebook.presto.util.CpuTimer.CpuDuration;
@@ -59,6 +60,11 @@ public abstract class AbstractOperatorBenchmark
     protected OperatorFactory createTableScanOperator(int operatorId, String tableName, String... columnNames)
     {
         return localQueryRunner.createTableScanOperator(operatorId, tableName, columnNames);
+    }
+
+    protected OperatorFactory createHashProjectOperator(int operatorId, List<Type> types, List<Integer> hashChannels)
+    {
+        return localQueryRunner.createHashProjectOperator(operatorId, types, hashChannels);
     }
 
     protected abstract List<Driver> createDrivers(TaskContext taskContext);

@@ -33,6 +33,8 @@ public class IndexJoinNode
     private final PlanNode probeSource;
     private final PlanNode indexSource;
     private final List<EquiJoinClause> criteria;
+    private final Symbol probeHashSymbol;
+    private final Symbol indexHashSymbol;
 
     @JsonCreator
     public IndexJoinNode(
@@ -40,6 +42,8 @@ public class IndexJoinNode
             @JsonProperty("type") Type type,
             @JsonProperty("probeSource") PlanNode probeSource,
             @JsonProperty("indexSource") PlanNode indexSource,
+            @JsonProperty("probeHashSymbol") Symbol probeHashSymbol,
+            @JsonProperty("indexHashSymbol") Symbol indexHashSymbol,
             @JsonProperty("criteria") List<EquiJoinClause> criteria)
     {
         super(id);
@@ -47,6 +51,8 @@ public class IndexJoinNode
         this.type = checkNotNull(type, "type is null");
         this.probeSource = checkNotNull(probeSource, "probeSource is null");
         this.indexSource = checkNotNull(indexSource, "indexSource is null");
+        this.probeHashSymbol = checkNotNull(probeHashSymbol, "probeHashSymbol is null");
+        this.indexHashSymbol = checkNotNull(indexHashSymbol, "indexHashSymbol is null");
         this.criteria = ImmutableList.copyOf(checkNotNull(criteria, "criteria is null"));
     }
 
@@ -84,6 +90,18 @@ public class IndexJoinNode
     public PlanNode getIndexSource()
     {
         return indexSource;
+    }
+
+    @JsonProperty("probeHashSymbol")
+    public Symbol getProbeHashSymbol()
+    {
+        return probeHashSymbol;
+    }
+
+    @JsonProperty("indexHashSymbol")
+    public Symbol getIndexHashSymbol()
+    {
+        return indexHashSymbol;
     }
 
     @JsonProperty("criteria")

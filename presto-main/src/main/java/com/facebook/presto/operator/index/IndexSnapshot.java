@@ -35,11 +35,11 @@ public class IndexSnapshot
     }
 
     @Override
-    public long getJoinPosition(int position, Block... blocks)
+    public long getJoinPosition(int position, Block hashBlock, Block... blocks)
     {
-        long joinPosition = values.getJoinPosition(position, blocks);
+        long joinPosition = values.getJoinPosition(position, hashBlock, blocks);
         if (joinPosition < 0) {
-            if (missingKeys.getJoinPosition(position, blocks) < 0) {
+            if (missingKeys.getJoinPosition(position, hashBlock, blocks) < 0) {
                 return UNLOADED_INDEX_KEY;
             }
             else {

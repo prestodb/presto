@@ -34,11 +34,13 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -96,7 +98,7 @@ public class UnaliasSymbolReferences
     }
 
     private static class Rewriter
-            extends PlanNodeRewriter<Void>
+            extends PlanNodeRewriter<List<Symbol>>
     {
         private final Map<Symbol, Symbol> mapping;
 
@@ -106,16 +108,22 @@ public class UnaliasSymbolReferences
         }
 
         @Override
-        public PlanNode rewriteLimit(LimitNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode rewriteLimit(LimitNode node, List<Symbol> context, PlanRewriter<List<Symbol>> planRewriter)
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
             return new LimitNode(node.getId(), source, node.getCount());
         }
 
         @Override
-        public PlanNode rewriteAggregation(AggregationNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode rewriteAggregation(AggregationNode node, List<Symbol> context, PlanRewriter<List<Symbol>> planRewriter)
         {
-            PlanNode source = planRewriter.rewrite(node.getSource(), context);
+            PlanNode source;
+            if (node.getHashSymbol() == null) {
+                source = planRewriter.rewrite(node.getSource(), ImmutableList.<Symbol>of());
+            }
+            else {
+                source = planRewriter.rewrite(node.getSource(), ImmutableList.of(node.getHashSymbol()));
+            }
 
             ImmutableMap.Builder<Symbol, Signature> functionInfos = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
@@ -132,19 +140,27 @@ public class UnaliasSymbolReferences
             }
 
             List<Symbol> groupByKeys = ImmutableList.copyOf(ImmutableSet.copyOf(canonicalize(node.getGroupBy())));
-            return new AggregationNode(node.getId(), source, groupByKeys, functionCalls.build(), functionInfos.build(), masks.build(), canonicalize(node.getSampleWeight()), node.getConfidence());
+            return new AggregationNode(node.getId(),
+                    source,
+                    groupByKeys,
+                    functionCalls.build(),
+                    functionInfos.build(),
+                    masks.build(),
+                    canonicalize(node.getSampleWeight()),
+                    node.getConfidence(),
+                    node.getHashSymbol());
         }
 
         @Override
-        public PlanNode rewriteMarkDistinct(MarkDistinctNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode rewriteMarkDistinct(MarkDistinctNode node, List<Symbol> context, PlanRewriter<List<Symbol>> planRewriter)
         {
-            PlanNode source = planRewriter.rewrite(node.getSource(), context);
+            PlanNode source = planRewriter.rewrite(node.getSource(), ImmutableList.of(node.getHashSymbol()));
             List<Symbol> symbols = ImmutableList.copyOf(ImmutableSet.copyOf(canonicalize(node.getDistinctSymbols())));
-            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerSymbol()), symbols);
+            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerSymbol()), symbols, node.getHashSymbol());
         }
 
         @Override
-        public PlanNode rewriteUnnest(UnnestNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode rewriteUnnest(UnnestNode node, List<Symbol> context, PlanRewriter<List<Symbol>> planRewriter)
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
             ImmutableMap.Builder<Symbol, List<Symbol>> builder = ImmutableMap.builder();
@@ -155,9 +171,9 @@ public class UnaliasSymbolReferences
         }
 
         @Override
-        public PlanNode rewriteWindow(WindowNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode rewriteWindow(WindowNode node, List<Symbol> context, PlanRewriter<List<Symbol>> planRewriter)
         {
-            PlanNode source = planRewriter.rewrite(node.getSource(), context);
+            PlanNode source = planRewriter.rewrite(node.getSource(), ImmutableList.of(node.getHashSymbol()));
 
             ImmutableMap.Builder<Symbol, Signature> functionInfos = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
@@ -173,11 +189,25 @@ public class UnaliasSymbolReferences
                 orderings.put(canonicalize(entry.getKey()), entry.getValue());
             }
 
-            return new WindowNode(node.getId(), source, canonicalize(node.getPartitionBy()), canonicalize(node.getOrderBy()), orderings.build(), functionCalls.build(), functionInfos.build());
+            return new WindowNode(node.getId(), source, canonicalize(node.getPartitionBy()), canonicalize(node.getOrderBy()), orderings.build(), functionCalls.build(), functionInfos.build(), node.getHashSymbol());
         }
 
         @Override
-        public PlanNode rewriteTableScan(TableScanNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode rewriteRowNumber(RowNumberNode node, List<Symbol> context, PlanRewriter<List<Symbol>> planRewriter)
+        {
+            PlanNode source = planRewriter.rewrite(node.getSource(), ImmutableList.of(node.getHashSymbol()));
+            return new RowNumberNode(node.getId(), source, node.getPartitionBy(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition(), node.getHashSymbol());
+        }
+
+        @Override
+        public PlanNode rewriteTopNRowNumber(TopNRowNumberNode node, List<Symbol> context, PlanRewriter<List<Symbol>> planRewriter)
+        {
+            PlanNode source = planRewriter.rewrite(node.getSource(), ImmutableList.of(node.getHashSymbol()));
+            return new TopNRowNumberNode(node.getId(), source, node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition(), node.isPartial(), node.getHashSymbol());
+        }
+
+        @Override
+        public PlanNode rewriteTableScan(TableScanNode node, List<Symbol> context, PlanRewriter<List<Symbol>> planRewriter)
         {
             ImmutableMap.Builder<Symbol, ColumnHandle> builder = ImmutableMap.builder();
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
@@ -192,7 +222,7 @@ public class UnaliasSymbolReferences
         }
 
         @Override
-        public PlanNode rewriteFilter(FilterNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode rewriteFilter(FilterNode node, List<Symbol> context, PlanRewriter<List<Symbol>> planRewriter)
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
@@ -200,7 +230,7 @@ public class UnaliasSymbolReferences
         }
 
         @Override
-        public PlanNode rewriteProject(ProjectNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode rewriteProject(ProjectNode node, List<Symbol> context, PlanRewriter<List<Symbol>> planRewriter)
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
@@ -208,16 +238,17 @@ public class UnaliasSymbolReferences
 
             Map<Symbol, Expression> assignments = new LinkedHashMap<>();
             for (Map.Entry<Symbol, Expression> entry : node.getOutputMap().entrySet()) {
+                Symbol entrySymbol = entry.getKey();
                 Expression expression = canonicalize(entry.getValue());
 
                 if (entry.getValue() instanceof QualifiedNameReference) {
                     // Always map a trivial symbol projection
                     Symbol symbol = Symbol.fromQualifiedName(((QualifiedNameReference) entry.getValue()).getName());
-                    if (!symbol.equals(entry.getKey())) {
-                        map(entry.getKey(), symbol);
+                    if (!symbol.equals(entrySymbol)) {
+                        map(entrySymbol, symbol);
                     }
                 }
-                else if (DeterminismEvaluator.isDeterministic(expression) && !(expression instanceof NullLiteral)) {
+                else if (DeterminismEvaluator.isDeterministic(expression) && !(expression instanceof NullLiteral) && (context != null && !context.contains(entrySymbol))) {
                     // Try to map same deterministic expressions within a projection into the same symbol
                     // Omit NullLiterals since those have ambiguous types
                     Symbol computedSymbol = computedExpressions.get(expression);
@@ -243,7 +274,7 @@ public class UnaliasSymbolReferences
         }
 
         @Override
-        public PlanNode rewriteOutput(OutputNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode rewriteOutput(OutputNode node, List<Symbol> context, PlanRewriter<List<Symbol>> planRewriter)
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
@@ -252,7 +283,7 @@ public class UnaliasSymbolReferences
         }
 
         @Override
-        public PlanNode rewriteTopN(TopNNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode rewriteTopN(TopNNode node, List<Symbol> context, PlanRewriter<List<Symbol>> planRewriter)
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
@@ -268,7 +299,7 @@ public class UnaliasSymbolReferences
         }
 
         @Override
-        public PlanNode rewriteSort(SortNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode rewriteSort(SortNode node, List<Symbol> context, PlanRewriter<List<Symbol>> planRewriter)
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
@@ -284,25 +315,34 @@ public class UnaliasSymbolReferences
         }
 
         @Override
-        public PlanNode rewriteJoin(JoinNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode rewriteJoin(JoinNode node, List<Symbol> context, PlanRewriter<List<Symbol>> planRewriter)
         {
-            PlanNode left = planRewriter.rewrite(node.getLeft(), context);
-            PlanNode right = planRewriter.rewrite(node.getRight(), context);
+            List leftContext = ImmutableList.of(node.getLeftHashSymbol());
+            List rightContext = ImmutableList.of(node.getRightHashSymbol());
+            PlanNode left = planRewriter.rewrite(node.getLeft(), leftContext);
+            PlanNode right = planRewriter.rewrite(node.getRight(), rightContext);
 
-            return new JoinNode(node.getId(), node.getType(), left, right, canonicalizeJoinCriteria(node.getCriteria()));
+            return new JoinNode(node.getId(), node.getType(), left, right, node.getLeftHashSymbol(), node.getRightHashSymbol(), canonicalizeJoinCriteria(node.getCriteria()));
         }
 
         @Override
-        public PlanNode rewriteSemiJoin(SemiJoinNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode rewriteSemiJoin(SemiJoinNode node, List<Symbol> context, PlanRewriter<List<Symbol>> planRewriter)
         {
-            PlanNode source = planRewriter.rewrite(node.getSource(), context);
+            PlanNode source = planRewriter.rewrite(node.getSource(), ImmutableList.of(node.getSourceHashSymbol(), node.getFilteringSourceHashSymbol()));
             PlanNode filteringSource = planRewriter.rewrite(node.getFilteringSource(), context);
 
-            return new SemiJoinNode(node.getId(), source, filteringSource, canonicalize(node.getSourceJoinSymbol()), canonicalize(node.getFilteringSourceJoinSymbol()), canonicalize(node.getSemiJoinOutput()));
+            return new SemiJoinNode(node.getId(),
+                    source,
+                    filteringSource,
+                    node.getSourceHashSymbol(),
+                    node.getFilteringSourceHashSymbol(),
+                    canonicalize(node.getSourceJoinSymbol()),
+                    canonicalize(node.getFilteringSourceJoinSymbol()),
+                    canonicalize(node.getSemiJoinOutput()));
         }
 
         @Override
-        public PlanNode rewriteIndexSource(IndexSourceNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode rewriteIndexSource(IndexSourceNode node, List<Symbol> context, PlanRewriter<List<Symbol>> planRewriter)
         {
             ImmutableMap.Builder<Symbol, ColumnHandle> builder = ImmutableMap.builder();
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
@@ -312,16 +352,16 @@ public class UnaliasSymbolReferences
         }
 
         @Override
-        public PlanNode rewriteIndexJoin(IndexJoinNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode rewriteIndexJoin(IndexJoinNode node, List<Symbol> context, PlanRewriter<List<Symbol>> planRewriter)
         {
             PlanNode probeSource = planRewriter.rewrite(node.getProbeSource(), context);
             PlanNode indexSource = planRewriter.rewrite(node.getIndexSource(), context);
 
-            return new IndexJoinNode(node.getId(), node.getType(), probeSource, indexSource, canonicalizeIndexJoinCriteria(node.getCriteria()));
+            return new IndexJoinNode(node.getId(), node.getType(), probeSource, indexSource, node.getProbeHashSymbol(), node.getIndexHashSymbol(), canonicalizeIndexJoinCriteria(node.getCriteria()));
         }
 
         @Override
-        public PlanNode rewriteUnion(UnionNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode rewriteUnion(UnionNode node, List<Symbol> context, PlanRewriter<List<Symbol>> planRewriter)
         {
             ImmutableList.Builder<PlanNode> rewrittenSources = ImmutableList.builder();
             for (PlanNode source : node.getSources()) {
@@ -332,7 +372,7 @@ public class UnaliasSymbolReferences
         }
 
         @Override
-        public PlanNode rewriteTableWriter(TableWriterNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode rewriteTableWriter(TableWriterNode node, List<Symbol> context, PlanRewriter<List<Symbol>> planRewriter)
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
@@ -364,10 +404,10 @@ public class UnaliasSymbolReferences
 
         private Expression canonicalize(Expression value)
         {
-            return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+            return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<List<Symbol>>()
             {
                 @Override
-                public Expression rewriteQualifiedNameReference(QualifiedNameReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                public Expression rewriteQualifiedNameReference(QualifiedNameReference node, List<Symbol> context, ExpressionTreeRewriter<List<Symbol>> treeRewriter)
                 {
                     Symbol canonical = canonicalize(Symbol.fromQualifiedName(node.getName()));
                     return new QualifiedNameReference(canonical.toQualifiedName());

@@ -30,13 +30,16 @@ public class SimplePagesHashStrategy
     private final List<Type> types;
     private final List<List<Block>> channels;
     private final List<Integer> hashChannels;
+    private final List<Block> channelContainingHash;
 
-    public SimplePagesHashStrategy(List<Type> types, List<List<Block>> channels, List<Integer> hashChannels)
+    public SimplePagesHashStrategy(List<Type> types, List<List<Block>> channels, List<Integer> hashChannels, int channelContainingHash)
     {
         this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
         this.channels = ImmutableList.copyOf(checkNotNull(channels, "channels is null"));
         checkArgument(types.size() == channels.size(), "Expected types and channels to be the same length");
         this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
+        checkArgument(channelContainingHash >= 0, "invalid channelContainingHash");
+        this.channelContainingHash = channels.get(channelContainingHash);
     }
 
     @Override
@@ -60,26 +63,7 @@ public class SimplePagesHashStrategy
     @Override
     public int hashPosition(int blockIndex, int position)
     {
-        int result = 0;
-        for (int hashChannel : hashChannels) {
-            Type type = types.get(hashChannel);
-            Block block = channels.get(hashChannel).get(blockIndex);
-            result = result * 31 + TypeUtils.hashPosition(type, block, position);
-        }
-        return result;
-    }
-
-    @Override
-    public int hashRow(int position, Block... blocks)
-    {
-        int result = 0;
-        for (int i = 0; i < hashChannels.size(); i++) {
-            int hashChannel = hashChannels.get(i);
-            Type type = types.get(hashChannel);
-            Block block = blocks[i];
-            result = result * 31 + TypeUtils.hashPosition(type, block, position);
-        }
-        return result;
+        return (int) channelContainingHash.get(blockIndex).getLong(position, 0);
     }
 
     @Override

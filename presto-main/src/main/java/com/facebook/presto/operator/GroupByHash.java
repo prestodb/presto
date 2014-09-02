@@ -17,11 +17,12 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.JoinCompiler;
-import com.facebook.presto.sql.gen.JoinCompiler.PagesHashStrategyFactory;
+import com.facebook.presto.type.TypeUtils;
 import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import io.airlift.slice.Murmur3;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
@@ -41,13 +42,12 @@ import static it.unimi.dsi.fastutil.HashCommon.maxFill;
 // This implementation assumes arrays used in the hash are always a power of 2
 public class GroupByHash
 {
-    private static final JoinCompiler JOIN_COMPILER = new JoinCompiler();
-
     private static final float FILL_RATIO = 0.75f;
     private final List<Type> types;
     private final int[] channels;
+    private final int inputHashChannel;
+    private final int outputHashChannel;
 
-    private final PagesHashStrategy hashStrategy;
     private final List<ObjectArrayList<Block>> channelBuilders;
     private PageBuilder currentPageBuilder;
 
@@ -62,25 +62,26 @@ public class GroupByHash
 
     private int nextGroupId;
 
-    public GroupByHash(List<? extends Type> types, int[] channels, int expectedSize)
+    /**
+     * @param types List of types of channels to group by
+     * @param channels Corresponding channels to group by
+     * @param inputHashChannel Channel containing the hash of {@code channels}
+     * @param expectedSize Number of expected groups
+     */
+    public GroupByHash(List<? extends Type> types, int[] channels, int inputHashChannel, int expectedSize)
     {
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        this.channels = checkNotNull(channels, "channels is null").clone();
+        checkNotNull(types, "types is null");
+        checkArgument(!types.isEmpty(), "empty types");
         checkArgument(types.size() == channels.length, "types and channels have different sizes");
+        checkArgument(inputHashChannel >= 0, "invalid input hash column");
 
-        // For each hashed channel, create an appendable list to hold the blocks (builders).  As we
-        // add new values we append them to the existing block builder until it fills up and then
-        // we add a new block builder to each list.
-        ImmutableList.Builder<Integer> hashChannels = ImmutableList.builder();
-        ImmutableList.Builder<ObjectArrayList<Block>> channelBuilders = ImmutableList.builder();
-        for (int i = 0; i < channels.length; i++) {
-            hashChannels.add(i);
-            channelBuilders.add(ObjectArrayList.wrap(new Block[1024], 0));
-        }
+        this.channelBuilders = getChannelBuilders(channels);
+        // Additional BIGINT channel for storing hash
+        this.types = ImmutableList.copyOf(Iterables.concat(types, ImmutableList.of(BIGINT)));
+        this.channels = checkNotNull(channels, "channels is null").clone();
 
-        this.channelBuilders = channelBuilders.build();
-        PagesHashStrategyFactory pagesHashStrategyFactory = JOIN_COMPILER.compilePagesHashStrategyFactory(this.types, hashChannels.build());
-        hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(this.channelBuilders);
+        this.inputHashChannel = inputHashChannel;
+        this.outputHashChannel = channels.length;   // Output hash goes in last channel
 
         startNewPage();
 
@@ -118,14 +119,26 @@ public class GroupByHash
         return nextGroupId;
     }
 
+    /**
+     * Append the values of groupId to pageBuilder. The last block is the rawHash of the groupId
+     */
     public void appendValuesTo(int groupId, PageBuilder pageBuilder, int outputChannelOffset)
     {
         long address = groupAddress.get(groupId);
         int blockIndex = decodeSliceIndex(address);
         int position = decodePosition(address);
-        hashStrategy.appendTo(blockIndex, position, pageBuilder, outputChannelOffset);
+        for (int i = 0; i < channels.length; i++) {
+            Type type = types.get(i);
+            Block block = channelBuilders.get(i).get(blockIndex);
+            type.appendTo(block, position, pageBuilder.getBlockBuilder(outputChannelOffset));
+            outputChannelOffset++;
+        }
+        BIGINT.appendTo(channelBuilders.get(outputHashChannel).get(blockIndex), position, pageBuilder.getBlockBuilder(outputHashChannel));
     }
 
+    /**
+     * Get the group id for each row of the specified page
+     */
     public GroupByIdBlock getGroupIds(Page page)
     {
         int positionCount = page.getPositionCount();
@@ -138,11 +151,12 @@ public class GroupByHash
         for (int i = 0; i < channels.length; i++) {
             blocks[i] = page.getBlock(channels[i]);
         }
+        Block blockContainingHash = page.getBlock(inputHashChannel);
 
         // get the group id for each position
         for (int position = 0; position < page.getPositionCount(); position++) {
             // get the group for the current row
-            int groupId = putIfAbsent(position, blocks);
+            int groupId = putIfAbsent(position, blockContainingHash, blocks);
 
             // output the group id for this row
             BIGINT.writeLong(blockBuilder, groupId);
@@ -152,14 +166,23 @@ public class GroupByHash
         return new GroupByIdBlock(nextGroupId, block);
     }
 
-    public boolean contains(int position, Block... blocks)
+    /**
+     * Inspect values at position in blocks
+     *
+     * @param position position in the blocks to inspect
+     * @param hashBlock Block containing the rawHash for {@code blocks}
+     * @param blocks Blocks containing values to groupBy
+     * @return true if group is already present, false otherwise
+     */
+    public boolean contains(int position, Block hashBlock, Block... blocks)
     {
-        int hashPosition = ((int) Murmur3.hash64(hashStrategy.hashRow(position, blocks))) & mask;
+        int rawHash = (int) BIGINT.getLong(hashBlock, position);
+        int hashPosition = ((int) Murmur3.hash64(rawHash)) & mask;
 
         // look for a slot containing this key
         while (key[hashPosition] != -1) {
             long address = key[hashPosition];
-            if (positionEqualsCurrentRow(decodeSliceIndex(address), decodePosition(address), position, blocks)) {
+            if (positionEqualsCurrentRow(decodeSliceIndex(address), decodePosition(address), position, rawHash, blocks)) {
                 // found an existing slot for this key
                 return true;
             }
@@ -170,15 +193,19 @@ public class GroupByHash
         return false;
     }
 
-    public int putIfAbsent(int position, Block... blocks)
+    /**
+     * Inspect the values at position and add a new group if necessary
+     */
+    public int putIfAbsent(int position, final Block hashBlock, Block... blocks)
     {
-        int hashPosition = ((int) Murmur3.hash64(hashStrategy.hashRow(position, blocks))) & mask;
+        int rawHash = (int) BIGINT.getLong(hashBlock, position);
+        int hashPosition = ((int) Murmur3.hash64(rawHash)) & mask;
 
         // look for an empty slot or a slot containing this key
         int groupId = -1;
         while (key[hashPosition] != -1) {
             long address = key[hashPosition];
-            if (positionEqualsCurrentRow(decodeSliceIndex(address), decodePosition(address), position, blocks)) {
+            if (positionEqualsCurrentRow(decodeSliceIndex(address), decodePosition(address), position, rawHash, blocks)) {
                 // found an existing slot for this key
                 groupId = value[hashPosition];
 
@@ -190,18 +217,36 @@ public class GroupByHash
 
         // did we find an existing group?
         if (groupId < 0) {
-            groupId = addNewGroup(hashPosition, position, blocks);
+            groupId = addNewGroup(hashPosition, position, blocks, rawHash);
         }
         return groupId;
     }
 
-    private int addNewGroup(int hashPosition, int position, Block[] blocks)
+    private static List<ObjectArrayList<Block>> getChannelBuilders(int[] channels)
+    {
+        // For each hashed channel, create an appendable list to hold the blocks (builders).  As we
+        // add new values we append them to the existing block builder until it fills up and then
+        // we add a new block builder to each list.
+        ImmutableList.Builder<Integer> hashChannels = ImmutableList.builder();
+        ImmutableList.Builder<ObjectArrayList<Block>> channelBuilders = ImmutableList.builder();
+        for (int i = 0; i < channels.length; i++) {
+            hashChannels.add(i);
+            channelBuilders.add(ObjectArrayList.wrap(new Block[1024], 0));
+        }
+        channelBuilders.add(ObjectArrayList.wrap(new Block[1024], 0)); // additional channel for storing hash
+        return channelBuilders.build();
+    }
+
+    private int addNewGroup(int hashPosition, int position, Block[] blocks, int rawHash)
     {
         // add the row to the open page
         for (int i = 0; i < blocks.length; i++) {
             Type type = types.get(i);
             type.appendTo(blocks[i], position, currentPageBuilder.getBlockBuilder(i));
         }
+        // write hash
+        BIGINT.writeLong(currentPageBuilder.getBlockBuilder(outputHashChannel), rawHash);
+
         currentPageBuilder.declarePosition();
         int pageIndex = channelBuilders.get(0).size() - 1;
         int pagePosition = currentPageBuilder.getPositionCount() - 1;
@@ -280,11 +325,24 @@ public class GroupByHash
     {
         int sliceIndex = decodeSliceIndex(sliceAddress);
         int position = decodePosition(sliceAddress);
-        return hashStrategy.hashPosition(sliceIndex, position);
+        Block hashBlock = channelBuilders.get(outputHashChannel).get(sliceIndex);
+        return (int) BigintType.BIGINT.getLong(hashBlock, position);
     }
 
-    private boolean positionEqualsCurrentRow(int sliceIndex, int slicePosition, int position, Block[] blocks)
+    private boolean positionEqualsCurrentRow(int sliceIndex, int slicePosition, int position, int rawHash, Block[] blocks)
     {
-        return hashStrategy.positionEqualsRow(sliceIndex, slicePosition, position, blocks);
+        if ((int) BIGINT.getLong(channelBuilders.get(outputHashChannel).get(sliceIndex), slicePosition) != rawHash) {
+            return false;
+        }
+
+        for (int hashChannel = 0; hashChannel < channels.length; hashChannel++) {
+            Type type = types.get(hashChannel);
+            Block leftBlock = channelBuilders.get(hashChannel).get(sliceIndex);
+            Block rightBlock = blocks[hashChannel];
+            if (!TypeUtils.positionEqualsPosition(type, leftBlock, slicePosition, rightBlock, position)) {
+                return false;
+            }
+        }
+        return true;
     }
 }

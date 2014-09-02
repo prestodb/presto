@@ -16,6 +16,7 @@ package com.facebook.presto;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -24,7 +25,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.google.common.base.Preconditions.checkState;
 
 public final class HashPagePartitionFunction
@@ -33,6 +33,7 @@ public final class HashPagePartitionFunction
     private final int partition;
     private final int partitionCount;
     private final List<Integer> partitioningChannels;
+    private final int hashChannel;
     private final List<Type> types;
 
     @JsonCreator
@@ -40,11 +41,13 @@ public final class HashPagePartitionFunction
             @JsonProperty("partition") int partition,
             @JsonProperty("partitionCount") int partitionCount,
             @JsonProperty("partitioningChannels") List<Integer> partitioningChannels,
+            @JsonProperty("hashChannel") int hashChannel,
             @JsonProperty("types") List<Type> types)
     {
         this.partition = partition;
         this.partitionCount = partitionCount;
         this.partitioningChannels = ImmutableList.copyOf(partitioningChannels);
+        this.hashChannel = hashChannel;
         this.types = ImmutableList.copyOf(types);
     }
 
@@ -72,6 +75,12 @@ public final class HashPagePartitionFunction
         return types;
     }
 
+    @JsonProperty
+    public int getHashChannel()
+    {
+        return hashChannel;
+    }
+
     @Override
     public List<Page> partition(List<Page> pages)
     {
@@ -83,9 +92,10 @@ public final class HashPagePartitionFunction
 
         ImmutableList.Builder<Page> partitionedPages = ImmutableList.builder();
         for (Page page : pages) {
+            Block hashBlock = page.getBlock(hashChannel);
             for (int position = 0; position < page.getPositionCount(); position++) {
                 // if hash is not in range skip
-                int partitionHashBucket = getPartitionHashBucket(position, page);
+                int partitionHashBucket = getPartitionHashBucket(position, hashBlock);
                 if (partitionHashBucket != partition) {
                     continue;
                 }
@@ -109,19 +119,14 @@ public final class HashPagePartitionFunction
         return partitionedPages.build();
     }
 
-    private int getPartitionHashBucket(int position, Page page)
+    private int getPartitionHashBucket(int position, Block hashBlock)
     {
-        long hashCode = 1;
-        for (int channel : partitioningChannels) {
-            hashCode *= 31;
-            Type type = types.get(channel);
-            Block block = page.getBlock(channel);
-            hashCode += hashPosition(type, block, position);
-        }
-        // clear the sign bit
-        hashCode &= 0x7fff_ffff_ffff_ffffL;
+        long rawHash = BigintType.BIGINT.getLong(hashBlock, position);
 
-        int bucket = (int) (hashCode % partitionCount);
+         // clear the sign bit
+        rawHash &= 0x7fff_ffff_ffff_ffffL;
+
+        int bucket = (int) (rawHash % partitionCount);
         checkState(bucket >= 0 && bucket < partitionCount);
         return bucket;
     }
@@ -129,7 +134,7 @@ public final class HashPagePartitionFunction
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(partition, partitionCount, partitioningChannels);
+        return Objects.hashCode(partition, partitionCount, partitioningChannels, hashChannel);
     }
 
     @Override
@@ -144,7 +149,8 @@ public final class HashPagePartitionFunction
         final HashPagePartitionFunction other = (HashPagePartitionFunction) obj;
         return Objects.equal(this.partition, other.partition) &&
                 Objects.equal(this.partitionCount, other.partitionCount) &&
-                Objects.equal(this.partitioningChannels, other.partitioningChannels);
+                Objects.equal(this.partitioningChannels, other.partitioningChannels) &&
+                Objects.equal(hashChannel, hashChannel);
     }
 
     @Override
@@ -154,6 +160,7 @@ public final class HashPagePartitionFunction
                 .add("partition", partition)
                 .add("partitionCount", partitionCount)
                 .add("partitioningChannels", partitioningChannels)
+                .add("hashChannel", hashChannel)
                 .toString();
     }
 }

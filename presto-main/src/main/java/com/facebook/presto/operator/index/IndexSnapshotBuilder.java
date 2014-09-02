@@ -23,13 +23,17 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -39,11 +43,13 @@ public class IndexSnapshotBuilder
     private final int expectedPositions;
     private final List<Type> outputTypes;
     private final List<Type> missingKeysTypes;
+    private final List<Type> missingKeysIndexTypes;
     private final List<Integer> keyOutputChannels;
     private final List<Integer> missingKeysChannels;
     private final long maxMemoryInBytes;
 
     private final OperatorContext bogusOperatorContext;
+    private final int keyHashChannel;
     private PagesIndex outputPagesIndex;
     private PagesIndex missingKeysIndex;
     private LookupSource missingKeys;
@@ -53,6 +59,7 @@ public class IndexSnapshotBuilder
 
     public IndexSnapshotBuilder(List<Type> outputTypes,
             List<Integer> keyOutputChannels,
+            int keyHashChannel,
             DriverContext driverContext,
             DataSize maxMemoryInBytes,
             int expectedPositions)
@@ -66,6 +73,7 @@ public class IndexSnapshotBuilder
         this.outputTypes = ImmutableList.copyOf(outputTypes);
         this.expectedPositions = expectedPositions;
         this.keyOutputChannels = ImmutableList.copyOf(keyOutputChannels);
+        this.keyHashChannel = keyHashChannel;
         this.maxMemoryInBytes = maxMemoryInBytes.toBytes();
 
         ImmutableList.Builder<Type> missingKeysTypes = ImmutableList.builder();
@@ -75,6 +83,7 @@ public class IndexSnapshotBuilder
             missingKeysTypes.add(outputTypes.get(keyOutputChannel));
             missingKeysChannels.add(i);
         }
+
         this.missingKeysTypes = missingKeysTypes.build();
         this.missingKeysChannels = missingKeysChannels.build();
 
@@ -85,8 +94,12 @@ public class IndexSnapshotBuilder
                 .addDriverContext()
                 .addOperatorContext(0, "operator");
 
-        this.outputPagesIndex = new PagesIndex(outputTypes, expectedPositions, bogusOperatorContext);
-        this.missingKeysIndex = new PagesIndex(missingKeysTypes.build(), expectedPositions, bogusOperatorContext);
+        this.missingKeysIndexTypes = ImmutableList.copyOf(Iterables.concat(this.missingKeysTypes, ImmutableList.of(BIGINT)));
+
+        this.outputPagesIndex = new PagesIndex(outputTypes, expectedPositions, keyHashChannel, bogusOperatorContext);
+        this.missingKeysIndex = new PagesIndex(this.missingKeysIndexTypes, expectedPositions, this.missingKeysIndexTypes.size() - 1, bogusOperatorContext);
+
+        // hash of missingKeys goes in the last channel
         this.missingKeys = missingKeysIndex.createLookupSource(this.missingKeysChannels);
     }
 
@@ -131,8 +144,9 @@ public class IndexSnapshotBuilder
         UnloadedIndexKeyRecordCursor indexKeysRecordCursor = indexKeysRecordSet.cursor();
         while (indexKeysRecordCursor.advanceNextPosition()) {
             Block[] blocks = indexKeysRecordCursor.getBlocks();
+            Block hashBlock = TypeUtils.getHashBlock(missingKeysTypes, blocks);
             int position = indexKeysRecordCursor.getPosition();
-            if (lookupSource.getJoinPosition(position, blocks) < 0) {
+            if (lookupSource.getJoinPosition(position, hashBlock, blocks) < 0) {
                 for (int i = 0; i < blocks.length; i++) {
                     Block block = blocks[i];
                     Type type = indexKeysRecordCursor.getType(i);
@@ -140,7 +154,14 @@ public class IndexSnapshotBuilder
                 }
             }
         }
+
         Page missingKeysPage = missingKeysPageBuilder.build();
+        Block hashBlock = TypeUtils.getHashBlock(missingKeysTypes, missingKeysPage.getBlocks());
+        int hashChannel = missingKeysTypes.size();
+
+        Block[] missingKeysPageBlocks = Arrays.copyOf(missingKeysPageBuilder.build().getBlocks(), hashChannel + 1);
+        missingKeysPageBlocks[hashChannel] = hashBlock;
+        missingKeysPage = new Page(missingKeysPageBlocks);
 
         memoryInBytes += missingKeysPage.getSizeInBytes();
         if (isMemoryExceeded()) {
@@ -160,7 +181,7 @@ public class IndexSnapshotBuilder
     {
         memoryInBytes = 0;
         pages.clear();
-        outputPagesIndex = new PagesIndex(outputTypes, expectedPositions, bogusOperatorContext);
-        missingKeysIndex = new PagesIndex(missingKeysTypes, expectedPositions, bogusOperatorContext);
+        outputPagesIndex = new PagesIndex(outputTypes, expectedPositions, keyHashChannel, bogusOperatorContext);
+        missingKeysIndex = new PagesIndex(missingKeysIndexTypes, expectedPositions, missingKeysIndexTypes.size() - 1, bogusOperatorContext);
     }
 }

@@ -35,16 +35,20 @@ public class MarkDistinctOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final int hashChannel;
         private final int[] markDistinctChannels;
         private final List<Type> types;
         private boolean closed;
 
-        public MarkDistinctOperatorFactory(int operatorId, List<? extends Type> sourceTypes, Collection<Integer> markDistinctChannels)
+        public MarkDistinctOperatorFactory(int operatorId, List<? extends Type> sourceTypes, Collection<Integer> markDistinctChannels, int hashChannel)
         {
             this.operatorId = operatorId;
             checkNotNull(markDistinctChannels, "markDistinctChannels is null");
             checkArgument(!markDistinctChannels.isEmpty(), "markDistinctChannels is empty");
             this.markDistinctChannels = Ints.toArray(markDistinctChannels);
+
+            checkArgument(hashChannel >= 0, "invalid hashChannel");
+            this.hashChannel = hashChannel;
 
             this.types = ImmutableList.<Type>builder()
                     .addAll(sourceTypes)
@@ -63,7 +67,7 @@ public class MarkDistinctOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, MarkDistinctOperator.class.getSimpleName());
-                return new MarkDistinctOperator(operatorContext, types, markDistinctChannels);
+                return new MarkDistinctOperator(operatorContext, types, markDistinctChannels, hashChannel);
         }
 
         @Override
@@ -80,7 +84,7 @@ public class MarkDistinctOperator
     private Page outputPage;
     private boolean finishing;
 
-    public MarkDistinctOperator(OperatorContext operatorContext, List<Type> types, int[] markDistinctChannels)
+    public MarkDistinctOperator(OperatorContext operatorContext, List<Type> types, int[] markDistinctChannels, int hashChannel)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 
@@ -91,7 +95,7 @@ public class MarkDistinctOperator
         for (int channel : markDistinctChannels) {
             markDistinctTypes.add(types.get(channel));
         }
-        this.markDistinctHash = new MarkDistinctHash(markDistinctTypes.build(), markDistinctChannels);
+        this.markDistinctHash = new MarkDistinctHash(markDistinctTypes.build(), markDistinctChannels, hashChannel);
 
         this.types = ImmutableList.copyOf(types);
     }

@@ -11,6 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.tests;
 
 import com.facebook.presto.testing.QueryRunner;
@@ -34,92 +35,6 @@ public abstract class AbstractTestIndexedQueries
     protected AbstractTestIndexedQueries(QueryRunner queryRunner)
     {
         super(queryRunner);
-    }
-
-    @Test
-    public void testBasicIndexJoin()
-            throws Exception
-    {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT *\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "JOIN orders o\n" +
-                "  ON l.orderkey = o.orderkey");
-    }
-
-    @Test
-    public void testBasicIndexJoinReverseCandidates()
-            throws Exception
-    {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM orders o " +
-                "JOIN (\n" +
-                "  SELECT *\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "  ON o.orderkey = l.orderkey");
-    }
-
-    @Test
-    public void testBasicIndexJoinWithNullKeys()
-            throws Exception
-    {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT CASE WHEN suppkey % 2 = 0 THEN orderkey ELSE NULL END AS orderkey\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "JOIN orders o\n" +
-                "  ON l.orderkey = o.orderkey");
-    }
-
-    @Test
-    public void testMultiKeyIndexJoinAligned()
-            throws Exception
-    {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT orderkey, CASE WHEN suppkey % 2 = 0 THEN 'F' ELSE 'O' END AS orderstatus\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "JOIN orders o\n" +
-                "  ON l.orderkey = o.orderkey AND l.orderstatus = o.orderstatus");
-    }
-
-    @Test
-    public void testMultiKeyIndexJoinUnaligned()
-            throws Exception
-    {
-        // This test a join order that is different from the inner select column ordering
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT orderkey, CASE WHEN suppkey % 2 = 0 THEN 'F' ELSE 'O' END AS orderstatus\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "JOIN orders o\n" +
-                "  ON l.orderstatus = o.orderstatus AND l.orderkey = o.orderkey");
-    }
-
-    @Test
-    public void testPredicateDerivedKey()
-            throws Exception
-    {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT orderkey\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "JOIN orders o\n" +
-                "  ON l.orderkey = o.orderkey\n" +
-                "WHERE o.orderstatus = 'F'");
     }
 
     @Test
@@ -370,9 +285,96 @@ public abstract class AbstractTestIndexedQueries
                 "  ON l.orderkey = o.orderkey AND l.orderkey = o.orderkey");
     }
 
+    @Test
+    public void testBasicIndexJoin()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT *\n" +
+                "FROM (\n" +
+                "  SELECT *\n" +
+                "  FROM lineitem\n" +
+                "  WHERE partkey % 8 = 0) l\n" +
+                "JOIN orders o\n" +
+                "  ON l.orderkey = o.orderkey");
+    }
+
+    @Test
+    public void testBasicIndexJoinReverseCandidates()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT *\n" +
+                "FROM orders o " +
+                "JOIN (\n" +
+                "  SELECT *\n" +
+                "  FROM lineitem\n" +
+                "  WHERE partkey % 8 = 0) l\n" +
+                "  ON o.orderkey = l.orderkey");
+    }
+
+    @Test
+    public void testBasicIndexJoinWithNullKeys()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT *\n" +
+                "FROM (\n" +
+                "  SELECT CASE WHEN suppkey % 2 = 0 THEN orderkey ELSE NULL END AS orderkey\n" +
+                "  FROM lineitem\n" +
+                "  WHERE partkey % 8 = 0) l\n" +
+                "JOIN orders o\n" +
+                "  ON l.orderkey = o.orderkey");
+    }
+
+    @Test
+    public void testMultiKeyIndexJoinAligned()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT *\n" +
+                "FROM (\n" +
+                "  SELECT orderkey, CASE WHEN suppkey % 2 = 0 THEN 'F' ELSE 'O' END AS orderstatus\n" +
+                "  FROM lineitem\n" +
+                "  WHERE partkey % 8 = 0) l\n" +
+                "JOIN orders o\n" +
+                "  ON l.orderkey = o.orderkey AND l.orderstatus = o.orderstatus");
+    }
+
+    @Test
+    public void testMultiKeyIndexJoinUnaligned()
+            throws Exception
+    {
+        // This test a join order that is different from the inner select column ordering
+        assertQuery("" +
+                "SELECT *\n" +
+                "FROM (\n" +
+                "  SELECT orderkey, CASE WHEN suppkey % 2 = 0 THEN 'F' ELSE 'O' END AS orderstatus\n" +
+                "  FROM lineitem\n" +
+                "  WHERE partkey % 8 = 0) l\n" +
+                "JOIN orders o\n" +
+                "  ON l.orderstatus = o.orderstatus AND l.orderkey = o.orderkey");
+    }
+
+    @Test
+    public void testPredicateDerivedKey()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT *\n" +
+                "FROM (\n" +
+                "  SELECT orderkey\n" +
+                "  FROM lineitem\n" +
+                "  WHERE partkey % 8 = 0) l\n" +
+                "JOIN orders o\n" +
+                "  ON l.orderkey = o.orderkey\n" +
+                "WHERE o.orderstatus = 'F'");
+    }
+
     /**
      * Assure nulls in probe readahead does not leak into connectors.
-     */
+     *//*
+
     @Test
     public void testProbeNullInReadahead()
             throws Exception
@@ -473,4 +475,6 @@ public abstract class AbstractTestIndexedQueries
                 "  GROUP BY t1.a, t1.b, t2.orderkey) o\n" +
                 "  ON l.a = o.a AND l.b = o.b AND l.c = o.c AND l.d = o.d");
     }
+}
+*/
 }

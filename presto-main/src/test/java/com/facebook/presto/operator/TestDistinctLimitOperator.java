@@ -57,12 +57,13 @@ public class TestDistinctLimitOperator
     public void testDistinctLimit()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(BIGINT)
+        List<Integer> hashChannel = ImmutableList.of(0);
+        List<Page> input = rowPagesBuilder(hashChannel, BIGINT)
                 .addSequencePage(3, 1)
                 .addSequencePage(5, 2)
                 .build();
 
-        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(BIGINT), 5);
+        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(BIGINT), 5, 1);
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
@@ -80,12 +81,13 @@ public class TestDistinctLimitOperator
     public void testDistinctLimitWithPageAlignment()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(BIGINT)
+        List<Integer> hashChannel = ImmutableList.of(0);
+        List<Page> input = rowPagesBuilder(hashChannel, BIGINT)
                 .addSequencePage(3, 1)
                 .addSequencePage(3, 2)
                 .build();
 
-        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(BIGINT), 3);
+        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(BIGINT), 3, 1);
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
@@ -101,12 +103,13 @@ public class TestDistinctLimitOperator
     public void testDistinctLimitValuesLessThanLimit()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(BIGINT)
+        List<Integer> hashChannel = ImmutableList.of(0);
+        List<Page> input = rowPagesBuilder(hashChannel, BIGINT)
                 .addSequencePage(3, 1)
                 .addSequencePage(3, 2)
                 .build();
 
-        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(BIGINT), 5);
+        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(BIGINT), 5, 1);
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)

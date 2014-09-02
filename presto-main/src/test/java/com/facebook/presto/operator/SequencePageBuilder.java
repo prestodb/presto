@@ -13,16 +13,19 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.TypeUtils;
+import com.google.common.collect.ImmutableList;
 
+import java.util.Arrays;
 import java.util.List;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public final class SequencePageBuilder
@@ -55,6 +58,25 @@ public final class SequencePageBuilder
             }
         }
 
+        return new Page(blocks);
+    }
+
+    public static Page createSequencePageWithHash(List<Integer> hashChannels, List<? extends Type> types, int length, int... initialValues)
+    {
+        Page page = createSequencePage(types, length, initialValues);
+        Block[] blocks = Arrays.copyOf(page.getBlocks(), initialValues.length + 1);
+
+        ImmutableList.Builder<Type> hashTypes = ImmutableList.builder();
+        Block[] hashBlocks = new Block[hashChannels.size()];
+        int hashBlockIndex = 0;
+
+        for (int channel : hashChannels) {
+            hashTypes.add(types.get(channel));
+            hashBlocks[hashBlockIndex++] = blocks[channel];
+        }
+
+        // Last block is a hash channel
+        blocks[initialValues.length] = TypeUtils.getHashBlock(hashTypes.build(), hashBlocks);
         return new Page(blocks);
     }
 }

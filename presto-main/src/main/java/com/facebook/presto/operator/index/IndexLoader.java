@@ -65,6 +65,7 @@ public class IndexLoader
     private final Set<Integer> lookupSourceInputChannels;
     private final List<Integer> keyOutputChannels;
     private final List<Type> keyTypes;
+    private final int keyHashChannel;
 
     @GuardedBy("this")
     private IndexSnapshotLoader indexSnapshotLoader; // Lazily initialized
@@ -79,6 +80,7 @@ public class IndexLoader
             Set<Integer> lookupSourceInputChannels,
             List<Integer> keyOutputChannels,
             List<Type> outputTypes,
+            int keyHashChannel,
             IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider,
             int expectedPositions,
             DataSize maxIndexMemorySize,
@@ -98,6 +100,8 @@ public class IndexLoader
         this.lookupSourceInputChannels = ImmutableSet.copyOf(lookupSourceInputChannels);
         this.keyOutputChannels = ImmutableList.copyOf(keyOutputChannels);
         this.outputTypes = ImmutableList.copyOf(outputTypes);
+        checkArgument(keyHashChannel >= 0, "invalid keyHashChannel");
+        this.keyHashChannel = keyHashChannel;
         this.indexBuildDriverFactoryProvider = indexBuildDriverFactoryProvider;
         this.expectedPositions = expectedPositions;
         this.maxIndexMemorySize = maxIndexMemorySize;
@@ -143,17 +147,17 @@ public class IndexLoader
         return slicedIndexBlocks;
     }
 
-    public IndexedData getIndexedDataForKeys(int position, Block[] indexBlocks)
+    public IndexedData getIndexedDataForKeys(int position, Block hashBlock, Block[] indexBlocks)
     {
         // Normalize the indexBlocks so that they only encompass the unloaded positions
         int totalPositions = indexBlocks[0].getPositionCount();
         int remainingPositions = totalPositions - position;
-        return getIndexedDataForKeys(sliceBlocks(indexBlocks, position, remainingPositions));
+        return getIndexedDataForKeys(hashBlock.getRegion(position, remainingPositions), sliceBlocks(indexBlocks, position, remainingPositions));
     }
 
-    private IndexedData getIndexedDataForKeys(Block[] indexBlocks)
+    private IndexedData getIndexedDataForKeys(Block hashBlock, Block[] indexBlocks)
     {
-        UpdateRequest myUpdateRequest = new UpdateRequest(indexBlocks);
+        UpdateRequest myUpdateRequest = new UpdateRequest(hashBlock, indexBlocks);
         updateRequests.add(myUpdateRequest);
 
         synchronized (this) {
@@ -194,7 +198,7 @@ public class IndexLoader
                 int totalPositions = indexBlocks[0].getPositionCount();
                 int attemptedPositions = totalPositions / 10;
                 while (attemptedPositions > 1) {
-                    myUpdateRequest = new UpdateRequest(sliceBlocks(indexBlocks, 0, attemptedPositions));
+                    myUpdateRequest = new UpdateRequest(hashBlock.getRegion(0, attemptedPositions), sliceBlocks(indexBlocks, 0, attemptedPositions));
                     if (indexSnapshotLoader.load(ImmutableList.of(myUpdateRequest))) {
                         stats.recordSuccessfulIndexJoinLookupByLimitedRequest();
                         return myUpdateRequest.getFinishedIndexSnapshot();
@@ -242,6 +246,7 @@ public class IndexLoader
                     lookupSourceInputChannels,
                     keyTypes,
                     keyOutputChannels,
+                    keyHashChannel,
                     expectedPositions,
                     maxIndexMemorySize);
         }
@@ -266,6 +271,7 @@ public class IndexLoader
                 Set<Integer> lookupSourceInputChannels,
                 List<Type> indexTypes,
                 List<Integer> keyOutputChannels,
+                int keyHashChannel,
                 int expectedPositions,
                 DataSize maxIndexMemorySize)
         {
@@ -278,6 +284,7 @@ public class IndexLoader
             this.indexSnapshotBuilder = new IndexSnapshotBuilder(
                     outputTypes,
                     keyOutputChannels,
+                    keyHashChannel,
                     pipelineContext.addDriverContext(),
                     maxIndexMemorySize,
                     expectedPositions);
@@ -358,7 +365,7 @@ public class IndexLoader
         }
 
         @Override
-        public long getJoinPosition(int position, Block... blocks)
+        public long getJoinPosition(int position, Block hashBlock, Block... blocks)
         {
             return IndexSnapshot.UNLOADED_INDEX_KEY;
         }

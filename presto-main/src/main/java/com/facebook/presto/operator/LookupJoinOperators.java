@@ -18,6 +18,8 @@ import com.facebook.presto.sql.gen.JoinProbeCompiler;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 public class LookupJoinOperators
 {
     private LookupJoinOperators()
@@ -26,14 +28,16 @@ public class LookupJoinOperators
 
     private static final JoinProbeCompiler JOIN_PROBE_COMPILER = new JoinProbeCompiler();
 
-    public static OperatorFactory innerJoin(int operatorId, LookupSourceSupplier lookupSourceSupplier, List<? extends Type> probeTypes, List<Integer> probeJoinChannel)
+    public static OperatorFactory innerJoin(int operatorId, LookupSourceSupplier lookupSourceSupplier, List<? extends Type> probeTypes, List<Integer> probeJoinChannel, int hashChannel)
     {
-        OperatorFactory operatorFactory = JOIN_PROBE_COMPILER.compileJoinOperatorFactory(operatorId, lookupSourceSupplier, probeTypes, probeJoinChannel, false);
+        checkArgument(hashChannel >= 0);
+        OperatorFactory operatorFactory = JOIN_PROBE_COMPILER.compileJoinOperatorFactory(operatorId, lookupSourceSupplier, probeTypes, probeJoinChannel, hashChannel, false);
         return operatorFactory;
     }
 
-    public static OperatorFactory outerJoin(int operatorId, LookupSourceSupplier lookupSourceSupplier, List<? extends Type> probeTypes, List<Integer> probeJoinChannel)
+    public static OperatorFactory outerJoin(int operatorId, LookupSourceSupplier lookupSourceSupplier, List<? extends Type> probeTypes, List<Integer> probeJoinChannel, int hashChannel)
     {
-        return JOIN_PROBE_COMPILER.compileJoinOperatorFactory(operatorId, lookupSourceSupplier, probeTypes, probeJoinChannel, true);
+        checkArgument(hashChannel >= 0);
+        return JOIN_PROBE_COMPILER.compileJoinOperatorFactory(operatorId, lookupSourceSupplier, probeTypes, probeJoinChannel, hashChannel, true);
     }
 }

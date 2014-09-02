@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.operator.scalar.CombineHashFunction;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -24,6 +27,8 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.sql.planner.QueryPlanner.INITIAL_HASH_VALUE;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class TypeUtils
@@ -32,12 +37,24 @@ public final class TypeUtils
     {
     }
 
-    public static int hashPosition(Type type, Block block, int position)
+    public static Block getHashBlock(List<Type> types, Block... hashBlocks)
     {
-        if (block.isNull(position)) {
-            return 0;
+        BlockBuilder hashBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
+        int positionCount = hashBlocks[0].getPositionCount();
+        for (int position = 0; position < positionCount; position++) {
+            BIGINT.writeLong(hashBuilder, hashPosition(types, hashBlocks, position));
         }
-        return type.hash(block, position);
+        return hashBuilder.build();
+    }
+
+    public static int hashPosition(List<Type> types, Block[] blocks, int position)
+    {
+        int hash = INITIAL_HASH_VALUE;
+        for (int i = 0; i < types.size(); i++) {
+            int positionHash = types.get(i).hash(blocks[i], position);
+            hash = (int) CombineHashFunction.getHash(hash, positionHash);
+        }
+        return hash;
     }
 
     public static boolean positionEqualsPosition(Type type, Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)

@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.SortOrder;
@@ -38,6 +39,8 @@ import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -70,9 +73,12 @@ import static com.facebook.presto.sql.tree.FunctionCall.distinctPredicate;
 import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
 import static com.google.common.base.Preconditions.checkState;
 
-class QueryPlanner
+public class QueryPlanner
         extends DefaultTraversalVisitor<PlanBuilder, Void>
 {
+    public static final int INITIAL_HASH_VALUE = 0;
+    private static final String HASH_CODE = FunctionRegistry.mangleOperatorName("HASH_CODE");
+
     private final Analysis analysis;
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
@@ -354,10 +360,7 @@ class QueryPlanner
             for (Expression expression : entry.getKey()) {
                 builder.add(subPlan.translate(expression));
             }
-            MarkDistinctNode markDistinct = new MarkDistinctNode(idAllocator.getNextId(),
-                    subPlan.getRoot(),
-                    entry.getValue(),
-                    builder.build());
+            MarkDistinctNode markDistinct = getMarkDistinctNode(subPlan, entry.getValue(), builder.build());
             subPlan = new PlanBuilder(subPlan.getTranslations(), markDistinct, subPlan.getSampleWeight());
         }
 
@@ -366,7 +369,7 @@ class QueryPlanner
             confidence = Double.valueOf(analysis.getQuery().getApproximate().get().getConfidence()) / 100.0;
         }
 
-        AggregationNode aggregationNode = new AggregationNode(idAllocator.getNextId(), subPlan.getRoot(), ImmutableList.copyOf(groupBySymbols), aggregationAssignments.build(), functions.build(), new ImmutableMap.Builder<Symbol, Symbol>().putAll(masks).build(), subPlan.getSampleWeight(), confidence);
+        AggregationNode aggregationNode = getAggregationNode(subPlan, aggregationAssignments.build(), functions.build(), groupBySymbols, masks, confidence);
         subPlan = new PlanBuilder(translations, aggregationNode, Optional.<Symbol>absent());
 
         // 3. Post-projection
@@ -376,6 +379,75 @@ class QueryPlanner
             return explicitCoercionFields(subPlan, analysis.getGroupByExpressions(node), analysis.getAggregates(node));
         }
         return subPlan;
+    }
+
+    private WindowNode getWindowNode(PlanBuilder subPlan, List<Symbol> partitionBySymbols, List<Symbol> orderBySymbols, Map<Symbol, SortOrder> orderings, Map<Symbol, FunctionCall> assignments, Map<Symbol, Signature> signatures)
+    {
+        Symbol hashSymbol = symbolAllocator.newHashSymbol();
+        ProjectNode projectNode = getHashProjectNode(idAllocator, subPlan.getRoot(), hashSymbol, partitionBySymbols);
+        return new WindowNode(idAllocator.getNextId(), projectNode, partitionBySymbols, orderBySymbols, orderings, assignments, signatures, hashSymbol);
+    }
+
+    private MarkDistinctNode getMarkDistinctNode(PlanBuilder subPlan, Symbol markerSymbol, List<Symbol> distinctSymbols)
+    {
+        Symbol hashSymbol = symbolAllocator.newHashSymbol();
+        ProjectNode projectNode = getHashProjectNode(idAllocator, subPlan.getRoot(), hashSymbol, distinctSymbols);
+
+        return new MarkDistinctNode(idAllocator.getNextId(),
+                projectNode,
+                markerSymbol,
+                distinctSymbols,
+                hashSymbol);
+    }
+
+    private AggregationNode getAggregationNode(PlanBuilder subPlan, Map<Symbol, FunctionCall> aggregationAssignments, Map<Symbol, Signature> functions, Set<Symbol> groupBySymbolsSet, Map<Symbol, Symbol> masks, double confidence)
+    {
+        ImmutableList<Symbol> groupBySymbols = ImmutableList.copyOf(groupBySymbolsSet);
+        PlanNode source = subPlan.getRoot();
+        Symbol hashSymbol = null;
+        if (!groupBySymbols.isEmpty()) {
+            hashSymbol = symbolAllocator.newHashSymbol();
+            source = getHashProjectNode(idAllocator, subPlan.getRoot(), hashSymbol, groupBySymbols);
+        }
+
+        return new AggregationNode(idAllocator.getNextId(),
+                source,
+                groupBySymbols,
+                aggregationAssignments,
+                functions,
+                ImmutableMap.copyOf(masks),
+                subPlan.getSampleWeight(),
+                confidence,
+                hashSymbol);
+    }
+
+    public static ProjectNode getHashProjectNode(PlanNodeIdAllocator idAllocator, PlanNode source, Symbol hashSymbol, List<Symbol> partitioningSymbols)
+    {
+        ImmutableMap.Builder<Symbol, Expression> outputSymbols = ImmutableMap.builder();
+        for (Symbol symbol : source.getOutputSymbols()) {
+            Expression expression = new QualifiedNameReference(symbol.toQualifiedName());
+            outputSymbols.put(symbol, expression);
+        }
+
+        Expression hashExpression = getHashExpression(partitioningSymbols);
+        outputSymbols.put(hashSymbol, hashExpression);
+        return new ProjectNode(idAllocator.getNextId(), source, outputSymbols.build());
+    }
+
+    private static Expression getHashExpression(List<Symbol> partitioningSymbols)
+    {
+        Expression hashExpression = new LongLiteral(String.valueOf(INITIAL_HASH_VALUE));
+        for (Symbol symbol : partitioningSymbols) {
+            hashExpression = getHashFunctionCall(hashExpression, symbol);
+        }
+        return hashExpression;
+    }
+
+    private static Expression getHashFunctionCall(Expression previousHashValue, Symbol symbol)
+    {
+        FunctionCall functionCall = new FunctionCall(QualifiedName.of(HASH_CODE), null, false, ImmutableList.<Expression>of(new QualifiedNameReference(symbol.toQualifiedName())));
+        List<Expression> arguments = ImmutableList.of(previousHashValue, functionCall);
+        return new FunctionCall(QualifiedName.of("combine_hash"), arguments);
     }
 
     private PlanBuilder window(PlanBuilder subPlan, QuerySpecification node)
@@ -432,9 +504,11 @@ class QueryPlanner
 
             List<Symbol> sourceSymbols = subPlan.getRoot().getOutputSymbols();
 
+            WindowNode windowNode = getWindowNode(subPlan, partitionBySymbols.build(), orderBySymbols.build(), orderings, assignments.build(), signatures);
+
             // create window node
             subPlan = new PlanBuilder(outputTranslations,
-                    new WindowNode(idAllocator.getNextId(), subPlan.getRoot(), partitionBySymbols.build(), orderBySymbols.build(), orderings, assignments.build(), signatures),
+                    windowNode,
                     subPlan.getSampleWeight());
 
             if (needCoercion) {
@@ -501,7 +575,7 @@ class QueryPlanner
         subPlan = appendProjections(subPlan, ImmutableList.of(inPredicate.getValue()));
         Symbol sourceJoinSymbol = subPlan.translate(inPredicate.getValue());
 
-        Preconditions.checkState(inPredicate.getValueList() instanceof SubqueryExpression);
+        checkState(inPredicate.getValueList() instanceof SubqueryExpression);
         SubqueryExpression subqueryExpression = (SubqueryExpression) inPredicate.getValueList();
         RelationPlanner relationPlanner = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
         RelationPlan valueListRelation = relationPlanner.process(subqueryExpression.getQuery(), null);
@@ -511,13 +585,22 @@ class QueryPlanner
 
         translations.put(inPredicate, semiJoinOutputSymbol);
 
+        Symbol sourceHashSymbol = symbolAllocator.newHashSymbol();
+        ProjectNode sourceProjectNode = getHashProjectNode(idAllocator, subPlan.getRoot(), sourceHashSymbol, ImmutableList.of(sourceJoinSymbol));
+
+        Symbol filteringSourceHashSymbol = symbolAllocator.newHashSymbol();
+        ProjectNode filteringSourceProjectNode = getHashProjectNode(idAllocator, valueListRelation.getRoot(), filteringSourceHashSymbol, ImmutableList.of(filteringSourceJoinSymbol));
+
         return new PlanBuilder(translations,
                 new SemiJoinNode(idAllocator.getNextId(),
-                        subPlan.getRoot(),
-                        valueListRelation.getRoot(),
+                        sourceProjectNode,
+                        filteringSourceProjectNode,
+                        sourceHashSymbol,
+                        filteringSourceHashSymbol,
                         sourceJoinSymbol,
                         filteringSourceJoinSymbol,
-                        semiJoinOutputSymbol),
+                        semiJoinOutputSymbol
+                ),
                 subPlan.getSampleWeight());
     }
 
@@ -526,14 +609,18 @@ class QueryPlanner
         if (node.getSelect().isDistinct()) {
             checkState(outputs.containsAll(orderBy), "Expected ORDER BY terms to be in SELECT. Broken analysis");
 
+            Symbol hashSymbol = symbolAllocator.newHashSymbol();
+            ProjectNode projectNode = getHashProjectNode(idAllocator, subPlan.getRoot(), hashSymbol, subPlan.getRoot().getOutputSymbols());
+
             AggregationNode aggregation = new AggregationNode(idAllocator.getNextId(),
-                    subPlan.getRoot(),
+                    projectNode,
                     subPlan.getRoot().getOutputSymbols(),
                     ImmutableMap.<Symbol, FunctionCall>of(),
                     ImmutableMap.<Symbol, Signature>of(),
                     ImmutableMap.<Symbol, Symbol>of(),
                     Optional.<Symbol>absent(),
-                    1.0);
+                    1.0,
+                    hashSymbol);
 
             return new PlanBuilder(subPlan.getTranslations(), aggregation, subPlan.getSampleWeight());
         }

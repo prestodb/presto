@@ -41,20 +41,28 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
+import com.facebook.presto.operator.FilterFunctions;
+import com.facebook.presto.operator.GenericPageProcessor;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PageSourceOperator;
+import com.facebook.presto.operator.ProjectionFunction;
+import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
+import com.facebook.presto.operator.scalar.CombineHashFunction;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
@@ -73,6 +81,7 @@ import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.PlanPrinter;
+import com.facebook.presto.sql.planner.QueryPlanner;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -95,6 +104,8 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -482,6 +493,20 @@ public class LocalQueryRunner
         };
     }
 
+    public OperatorFactory createHashProjectOperator(int operatorId, List<Type> columnTypes, List<Integer> channelToHash)
+    {
+        ImmutableList.Builder<ProjectionFunction> projectionFunctions = ImmutableList.builder();
+        for (int i = 0; i < columnTypes.size(); i++) {
+            projectionFunctions.add(ProjectionFunctions.singleColumn(columnTypes.get(i), i));
+        }
+        projectionFunctions.add(new HashProjectionFunction(columnTypes, channelToHash));
+
+        return new FilterAndProjectOperatorFactory(
+                operatorId,
+                new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, projectionFunctions.build()),
+                ImmutableList.copyOf(Iterables.concat(columnTypes, ImmutableList.of(BIGINT))));
+    }
+
     private Split getLocalQuerySplit(TableHandle tableHandle)
     {
         try {
@@ -496,6 +521,41 @@ public class LocalQueryRunner
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw Throwables.propagate(e);
+        }
+    }
+
+    private static class HashProjectionFunction
+            implements ProjectionFunction
+    {
+        private final List<Type> columnTypes;
+        private final List<Integer> hashChannels;
+
+        public HashProjectionFunction(List<Type> columnTypes, List<Integer> hashChannels)
+        {
+            this.columnTypes = columnTypes;
+            this.hashChannels = hashChannels;
+        }
+
+        @Override
+        public Type getType()
+        {
+            return BIGINT;
+        }
+
+        @Override
+        public void project(int position, Block[] blocks, BlockBuilder output)
+        {
+            int hash = QueryPlanner.INITIAL_HASH_VALUE;
+            for (int channel : hashChannels) {
+                hash = (int) CombineHashFunction.getHash(hash, columnTypes.get(channel).hash(blocks[channel], position));
+            }
+            BIGINT.writeLong(output, hash);
+        }
+
+        @Override
+        public void project(RecordCursor cursor, BlockBuilder output)
+        {
+            throw new UnsupportedOperationException("Operation not supported");
         }
     }
 }

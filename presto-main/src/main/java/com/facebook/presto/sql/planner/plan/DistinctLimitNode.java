@@ -31,17 +31,20 @@ public class DistinctLimitNode
 {
     private final PlanNode source;
     private final long limit;
+    private final Symbol hashSymbol;
 
     @JsonCreator
     public DistinctLimitNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("limit") long limit)
+            @JsonProperty("limit") long limit,
+            @JsonProperty("hashSymbol") Symbol hashSymbol)
     {
         super(id);
         this.source = checkNotNull(source, "source is null");
         checkArgument(limit >= 0, "limit must be greater than or equal to zero");
         this.limit = limit;
+        this.hashSymbol = checkNotNull(hashSymbol, "hashSymbol is null");
     }
 
     @Override
@@ -60,6 +63,12 @@ public class DistinctLimitNode
     public long getLimit()
     {
         return limit;
+    }
+
+    @JsonProperty("hashSymbol")
+    public Symbol getHashSymbol()
+    {
+        return hashSymbol;
     }
 
     @Override

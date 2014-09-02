@@ -37,11 +37,11 @@ import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TestingColumnHandle;
 import com.facebook.presto.sql.planner.TestingTableHandle;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -76,6 +76,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -294,15 +295,17 @@ public class TestSqlStageExecution
                 probe.getFragment().getId(),
                 ImmutableList.copyOf(probe.getFragment().getSymbols().keySet()));
 
+        SymbolAllocator symbolAllocator = new SymbolAllocator();
         // join build and probe
         PlanFragment joinPlan = new PlanFragment(
                 new PlanFragmentId(planId),
-                new JoinNode(new PlanNodeId(planId), JoinNode.Type.INNER, probeExchange, buildExchange, ImmutableList.<EquiJoinClause>of()),
+                new JoinNode(new PlanNodeId(planId), JoinNode.Type.INNER, probeExchange, buildExchange, symbolAllocator.newHashSymbol(), symbolAllocator.newHashSymbol(), ImmutableList.<EquiJoinClause>of()),
                 probe.getFragment().getSymbols(), // this is wrong, but it works
                 PlanDistribution.SOURCE,
                 new PlanNodeId(planId),
                 OutputPartitioning.NONE,
-                ImmutableList.<Symbol>of());
+                ImmutableList.<Symbol>of(),
+                null);
 
         return new StageExecutionPlan(joinPlan,
                 probe.getDataSource(),
@@ -329,7 +332,8 @@ public class TestSqlStageExecution
                 PlanDistribution.SOURCE,
                 tableScanNodeId,
                 OutputPartitioning.NONE,
-                ImmutableList.<Symbol>of());
+                ImmutableList.<Symbol>of(),
+                null);
 
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
 
