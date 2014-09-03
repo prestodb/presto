@@ -15,82 +15,92 @@ package com.facebook.presto.hive.orc.json;
 
 import com.facebook.presto.hive.orc.StreamDescriptor;
 import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
-import com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind;
+import com.facebook.presto.hive.orc.stream.BooleanStream;
+import com.facebook.presto.hive.orc.stream.LongStream;
 import com.facebook.presto.hive.orc.stream.StreamSources;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.base.Objects;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
-import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
-import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
-import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
-import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
+import static com.facebook.presto.hive.orc.OrcCorruptionException.verifyFormat;
+import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.DATA;
+import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class LongJsonReader
+public class LongDirectJsonReader
         implements JsonMapKeyReader
 {
     private final StreamDescriptor streamDescriptor;
 
-    private final LongDirectJsonReader directReader;
+    @Nullable
+    private BooleanStream presentStream;
+    @Nullable
+    private LongStream dataStream;
 
-    private final LongDictionaryJsonReader dictionaryReader;
-    private JsonMapKeyReader currentReader;
-
-    public LongJsonReader(StreamDescriptor streamDescriptor)
+    public LongDirectJsonReader(StreamDescriptor streamDescriptor)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
-        directReader = new LongDirectJsonReader(streamDescriptor);
-        dictionaryReader = new LongDictionaryJsonReader(streamDescriptor);
     }
 
     @Override
     public void readNextValueInto(JsonGenerator generator)
             throws IOException
     {
-        currentReader.readNextValueInto(generator);
+        if (presentStream != null && !presentStream.nextBit()) {
+            generator.writeNull();
+            return;
+        }
+
+        verifyFormat(dataStream != null, "Value is not null but data stream is not present");
+        generator.writeNumber(dataStream.next());
     }
 
     @Override
     public String nextValueAsMapKey()
             throws IOException
     {
-        return currentReader.nextValueAsMapKey();
+        if (presentStream != null && !presentStream.nextBit()) {
+            return null;
+        }
+
+        verifyFormat(dataStream != null, "Value is not null but data stream is not present");
+        return String.valueOf(dataStream.next());
     }
 
     @Override
     public void skip(int skipSize)
             throws IOException
     {
-        currentReader.skip(skipSize);
+        // skip nulls
+        if (presentStream != null) {
+            skipSize = presentStream.countBitsSet(skipSize);
+        }
+
+        // skip non-null values
+        if (skipSize > 0) {
+            verifyFormat(dataStream != null, "Value is not null but data stream is not present");
+            dataStream.skip(skipSize);
+        }
     }
 
     @Override
     public void openStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
-        ColumnEncodingKind kind = encoding.get(streamDescriptor.getStreamId()).getColumnEncodingKind();
-        if (kind == DIRECT || kind == DIRECT_V2 || kind == DWRF_DIRECT) {
-            currentReader = directReader;
-        }
-        else if (kind == DICTIONARY || kind == DICTIONARY_V2) {
-            currentReader = dictionaryReader;
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported encoding " + kind);
-        }
-
-        currentReader.openStripe(dictionaryStreamSources, encoding);
+        presentStream = null;
+        dataStream = null;
     }
 
     @Override
     public void openRowGroup(StreamSources dataStreamSources)
             throws IOException
     {
-        currentReader.openRowGroup(dataStreamSources);
+        presentStream = dataStreamSources.getStreamSource(streamDescriptor, PRESENT, BooleanStream.class).openStream();
+        dataStream = dataStreamSources.getStreamSource(streamDescriptor, DATA, LongStream.class).openStream();
     }
 
     @Override

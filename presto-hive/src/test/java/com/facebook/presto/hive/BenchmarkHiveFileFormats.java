@@ -217,6 +217,7 @@ public final class BenchmarkHiveFileFormats
                                 .add(new DwrfRecordCursorProvider())
                                 .build(),
                         ImmutableList.<HivePageSourceFactory>builder()
+                                .add(new DwrfPageSourceFactory(TYPE_MANAGER))
                                 .build()))
 
                 .add(new BenchmarkFile(

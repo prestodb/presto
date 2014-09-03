@@ -61,6 +61,8 @@ import com.google.common.net.HostAndPort;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hive.serde2.ReaderWriterProfiler;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
@@ -981,6 +983,32 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
+    public void testTypesDwrfRecordCursor()
+            throws Exception
+    {
+        if (metadata.getTableHandle(SESSION, new SchemaTableName(database, "presto_test_types_dwrf")) == null) {
+            return;
+        }
+
+        ConnectorTableHandle tableHandle = getTableHandle(new SchemaTableName(database, "presto_test_types_dwrf"));
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
+        HiveSplit hiveSplit = getHiveSplit(tableHandle);
+        List<ConnectorColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+
+        ReaderWriterProfiler.setProfilerOptions(new Configuration());
+
+        ConnectorPageSourceProvider pageSourceProvider = new HivePageSourceProvider(
+                new HiveClientConfig().setTimeZone(timeZone.getID()),
+                hdfsEnvironment,
+                ImmutableSet.<HiveRecordCursorProvider>of(new DwrfRecordCursorProvider()),
+                ImmutableSet.<HivePageSourceFactory>of(),
+                TYPE_MANAGER);
+
+        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(hiveSplit, columnHandles);
+        assertGetRecords(DWRF, tableMetadata, hiveSplit, pageSource, columnHandles);
+    }
+
+    @Test
     public void testHiveViewsAreNotSupported()
             throws Exception
     {
@@ -1591,6 +1619,7 @@ public abstract class AbstractTestHiveClient
             case RCBINARY:
                 return RcFilePageSource.class;
             case ORC:
+            case DWRF:
                 return OrcPageSource.class;
             default:
                 throw new AssertionError("Filed type " + hiveStorageFormat + " does not use a page source");

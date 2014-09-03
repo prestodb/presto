@@ -18,6 +18,7 @@ import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
 import com.facebook.presto.hive.orc.stream.BooleanStream;
 import com.facebook.presto.hive.orc.stream.ByteArrayStream;
 import com.facebook.presto.hive.orc.stream.LongStream;
+import com.facebook.presto.hive.orc.stream.RowGroupDictionaryLengthStream;
 import com.facebook.presto.hive.orc.stream.StreamSources;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.base.Objects;
@@ -33,8 +34,11 @@ import java.util.List;
 import static com.facebook.presto.hive.orc.OrcCorruptionException.verifyFormat;
 import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
+import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
 import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
+import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -50,8 +54,17 @@ public class SliceDictionaryJsonReader
     @Nonnull
     private int[] dictionaryLength = new int[0];
 
+    @Nonnull
+    private DictionaryEntry[] rowGroupDictionary = new DictionaryEntry[0];
+
+    @Nonnull
+    private int[] rowGroupDictionaryLength = new int[0];
+
     @Nullable
     private BooleanStream presentStream;
+
+    @Nullable
+    private BooleanStream inDictionaryStream;
 
     @Nullable
     private LongStream dataStream;
@@ -71,10 +84,7 @@ public class SliceDictionaryJsonReader
             return;
         }
 
-        verifyFormat(dataStream != null, "Value is not null but data stream is not present");
-
-        int dictionaryIndex = Ints.checkedCast(dataStream.next());
-        DictionaryEntry value = dictionary[dictionaryIndex];
+        DictionaryEntry value = getNextValue();
 
         byte[] data = value.getData();
         int offset = value.getOffset();
@@ -95,10 +105,7 @@ public class SliceDictionaryJsonReader
             return null;
         }
 
-        verifyFormat(dataStream != null, "Value is not null but data stream is not present");
-
-        int dictionaryIndex = Ints.checkedCast(dataStream.next());
-        DictionaryEntry value = dictionary[dictionaryIndex];
+        DictionaryEntry value = getNextValue();
 
         byte[] data = value.getData();
         int offset = value.getOffset();
@@ -109,6 +116,23 @@ public class SliceDictionaryJsonReader
         else {
             return new String(data, offset, length, UTF_8);
         }
+    }
+
+    private DictionaryEntry getNextValue()
+            throws IOException
+    {
+        verifyFormat(dataStream != null, "Value is not null but data stream is not present");
+
+        int dictionaryIndex = Ints.checkedCast(dataStream.next());
+
+        DictionaryEntry value;
+        if (inDictionaryStream == null || inDictionaryStream.nextBit()) {
+            value = dictionary[dictionaryIndex];
+        }
+        else {
+            value = rowGroupDictionary[dictionaryIndex];
+        }
+        return value;
     }
 
     @Override
@@ -127,6 +151,9 @@ public class SliceDictionaryJsonReader
         verifyFormat(dataStream != null, "Value is not null but data stream is not present");
 
         // skip non-null length
+        if (inDictionaryStream != null) {
+            inDictionaryStream.skip(skipSize);
+        }
         dataStream.skip(skipSize);
     }
 
@@ -136,38 +163,18 @@ public class SliceDictionaryJsonReader
     {
         int dictionarySize = encoding.get(streamDescriptor.getStreamId()).getDictionarySize();
         if (dictionarySize > 0) {
-            // initialize offset and length arrays
+            // resize the dictionary array if necessary
             if (dictionary.length < dictionarySize) {
                 dictionary = new DictionaryEntry[dictionarySize];
                 dictionaryLength = new int[dictionarySize];
             }
 
-            // read the lengths
             LongStream lengthStream = dictionaryStreamSources.getStreamSource(streamDescriptor, LENGTH, LongStream.class).openStream();
-            verifyFormat(lengthStream != null, "Dictionary is not empty but dictionary length stream is not present");
+            verifyFormat(lengthStream != null, "Dictionary is not empty but length stream is not present");
             lengthStream.nextIntVector(dictionarySize, dictionaryLength);
 
-            // sum lengths
-            int totalLength = 0;
-            for (int i = 0; i < dictionarySize; i++) {
-                totalLength += dictionaryLength[i];
-            }
-
-            // read dictionary data
-            byte[] dictionaryData = new byte[0];
-            if (totalLength > 0) {
-                ByteArrayStream dictionaryStream = dictionaryStreamSources.getStreamSource(streamDescriptor, DICTIONARY_DATA, ByteArrayStream.class).openStream();
-                verifyFormat(dictionaryStream != null, "Dictionary length is not zero but dictionary data stream is not present");
-                dictionaryData = dictionaryStream.next(totalLength);
-            }
-
-            // build dictionary slices
-            int offset = 0;
-            for (int i = 0; i < dictionarySize; i++) {
-                int length = dictionaryLength[i];
-                dictionary[i] = new DictionaryEntry(dictionaryData, offset, length);
-                offset += length;
-            }
+            ByteArrayStream dictionaryDataStream = dictionaryStreamSources.getStreamSource(streamDescriptor, DICTIONARY_DATA, ByteArrayStream.class).openStream();
+            readDictionary(dictionaryDataStream, dictionarySize, dictionaryLength, dictionary);
         }
 
         presentStream = null;
@@ -178,8 +185,56 @@ public class SliceDictionaryJsonReader
     public void openRowGroup(StreamSources dataStreamSources)
             throws IOException
     {
+        RowGroupDictionaryLengthStream lengthStream = dataStreamSources.getStreamSource(
+                streamDescriptor,
+                ROW_GROUP_DICTIONARY_LENGTH,
+                RowGroupDictionaryLengthStream.class).openStream();
+
+        if (lengthStream != null) {
+            inDictionaryStream = dataStreamSources.getStreamSource(streamDescriptor, IN_DICTIONARY, BooleanStream.class).openStream();
+
+            int dictionaryEntryCount = lengthStream.getEntryCount();
+
+            // resize the dictionary array if necessary
+            if (rowGroupDictionary.length < dictionaryEntryCount) {
+                rowGroupDictionary = new DictionaryEntry[dictionaryEntryCount];
+                rowGroupDictionaryLength = new int[dictionaryEntryCount];
+            }
+
+            // read the lengths
+            lengthStream.nextIntVector(dictionaryEntryCount, rowGroupDictionaryLength);
+
+            ByteArrayStream dictionaryDataStream = dataStreamSources.getStreamSource(streamDescriptor, ROW_GROUP_DICTIONARY, ByteArrayStream.class).openStream();
+            readDictionary(dictionaryDataStream, dictionaryEntryCount, rowGroupDictionaryLength, rowGroupDictionary);
+        }
+
         presentStream = dataStreamSources.getStreamSource(streamDescriptor, PRESENT, BooleanStream.class).openStream();
         dataStream = dataStreamSources.getStreamSource(streamDescriptor, DATA, LongStream.class).openStream();
+    }
+
+    private static void readDictionary(ByteArrayStream dictionaryDataStream, int dictionarySize, int[] dictionaryLength, DictionaryEntry[] dictionary)
+            throws IOException
+    {
+        // sum lengths
+        int totalLength = 0;
+        for (int i = 0; i < dictionarySize; i++) {
+            totalLength += dictionaryLength[i];
+        }
+
+        // read dictionary data
+        byte[] dictionaryData = new byte[0];
+        if (totalLength > 0) {
+            verifyFormat(dictionaryDataStream != null, "Dictionary length is not zero but dictionary data stream is not present");
+            dictionaryData = dictionaryDataStream.next(totalLength);
+        }
+
+        // build dictionary slices
+        int offset = 0;
+        for (int i = 0; i < dictionarySize; i++) {
+            int length = dictionaryLength[i];
+            dictionary[i] = new DictionaryEntry(dictionaryData, offset, length);
+            offset += length;
+        }
     }
 
     @Override

@@ -13,137 +13,72 @@
  */
 package com.facebook.presto.hive.orc.reader;
 
-import com.facebook.presto.hive.orc.LongVector;
 import com.facebook.presto.hive.orc.StreamDescriptor;
 import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
-import com.facebook.presto.hive.orc.stream.BooleanStream;
-import com.facebook.presto.hive.orc.stream.LongStream;
-import com.facebook.presto.hive.orc.stream.StreamSource;
+import com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.hive.orc.stream.StreamSources;
 import com.google.common.base.Objects;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.hive.orc.OrcCorruptionException.verifyFormat;
-import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.DATA;
-import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.hive.orc.stream.MissingStreamSource.missingStreamSource;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class LongStreamReader
         implements StreamReader
 {
     private final StreamDescriptor streamDescriptor;
-
-    private int readOffset;
-    private int nextBatchSize;
-
-    @Nonnull
-    private StreamSource<BooleanStream> presentStreamSource = missingStreamSource(BooleanStream.class);
-    @Nullable
-    private BooleanStream presentStream;
-
-    @Nonnull
-    private StreamSource<LongStream> dataStreamSource = missingStreamSource(LongStream.class);
-    @Nullable
-    private LongStream dataStream;
-
-    private boolean rowGroupOpen;
+    private final LongDirectStreamReader directReader;
+    private final LongDictionaryStreamReader dictionaryReader;
+    private StreamReader currentReader;
 
     public LongStreamReader(StreamDescriptor streamDescriptor)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
+        directReader = new LongDirectStreamReader(streamDescriptor);
+        dictionaryReader = new LongDictionaryStreamReader(streamDescriptor);
     }
 
     @Override
     public void prepareNextRead(int batchSize)
     {
-        readOffset += nextBatchSize;
-        nextBatchSize = batchSize;
+        currentReader.prepareNextRead(batchSize);
     }
 
     @Override
     public void readBatch(Object vector)
             throws IOException
     {
-        if (!rowGroupOpen) {
-            openRowGroup();
-        }
-
-        if (readOffset > 0) {
-            if (presentStream != null) {
-                // skip ahead the present bit reader, but count the set bits
-                // and use this as the skip size for the data reader
-                readOffset = presentStream.countBitsSet(readOffset);
-            }
-            if (readOffset > 0) {
-                verifyFormat(dataStream != null, "Value is not null but data stream is not present");
-                dataStream.skip(readOffset);
-            }
-        }
-
-        LongVector longVector = (LongVector) vector;
-        if (presentStream == null) {
-            verifyFormat(dataStream != null, "Value is not null but data stream is not present");
-            Arrays.fill(longVector.isNull, false);
-            dataStream.nextLongVector(nextBatchSize, longVector.vector);
-        }
-        else {
-            int nonNullValues = presentStream.getUnsetBits(nextBatchSize, longVector.isNull);
-            if (nonNullValues != nextBatchSize) {
-                verifyFormat(dataStream != null, "Value is not null but data stream is not present");
-                dataStream.nextLongVector(nextBatchSize, longVector.vector, longVector.isNull);
-            }
-        }
-
-        readOffset = 0;
-        nextBatchSize = 0;
-    }
-
-    private void openRowGroup()
-            throws IOException
-    {
-        presentStream = presentStreamSource.openStream();
-        dataStream = dataStreamSource.openStream();
-
-        rowGroupOpen = true;
+        currentReader.readBatch(vector);
     }
 
     @Override
     public void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
-        presentStreamSource = missingStreamSource(BooleanStream.class);
-        dataStreamSource = missingStreamSource(LongStream.class);
+        ColumnEncodingKind kind = encoding.get(streamDescriptor.getStreamId()).getColumnEncodingKind();
+        if (kind == DIRECT || kind == DIRECT_V2 || kind == DWRF_DIRECT) {
+            currentReader = directReader;
+        }
+        else if (kind == DICTIONARY) {
+            currentReader = dictionaryReader;
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported encoding " + kind);
+        }
 
-        readOffset = 0;
-        nextBatchSize = 0;
-
-        presentStream = null;
-        dataStream = null;
-
-        rowGroupOpen = false;
+        currentReader.startStripe(dictionaryStreamSources, encoding);
     }
 
     @Override
     public void startRowGroup(StreamSources dataStreamSources)
             throws IOException
     {
-        presentStreamSource = dataStreamSources.getStreamSource(streamDescriptor, PRESENT, BooleanStream.class);
-        dataStreamSource = dataStreamSources.getStreamSource(streamDescriptor, DATA, LongStream.class);
-
-        readOffset = 0;
-        nextBatchSize = 0;
-
-        presentStream = null;
-        dataStream = null;
-
-        rowGroupOpen = false;
+        currentReader.startRowGroup(dataStreamSources);
     }
 
     @Override

@@ -11,26 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.orc.metadata;
+package com.facebook.presto.hive.orc.stream;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.List;
 
-public interface MetadataReader
+public class RowGroupDictionaryLengthStream
+        extends LongStreamV1
 {
-    PostScript readPostScript(byte[] data, int offset, int length)
-            throws IOException;
+    private final int entryCount;
 
-    Metadata readMetadata(InputStream inputStream)
-            throws IOException;
+    public RowGroupDictionaryLengthStream(InputStream input, boolean signed, int entryCount)
+            throws IOException
+    {
+        super(input, signed);
+        this.entryCount = entryCount;
+    }
 
-    Footer readFooter(InputStream inputStream)
-            throws IOException;
-
-    StripeFooter readStripeFooter(List<OrcType> types, InputStream inputStream)
-            throws IOException;
-
-    List<RowGroupIndex> readRowIndexes(InputStream inputStream)
-            throws IOException;
+    public int getEntryCount()
+    {
+        return entryCount;
+    }
 }
