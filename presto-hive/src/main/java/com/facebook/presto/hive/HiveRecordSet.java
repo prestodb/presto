@@ -135,11 +135,11 @@ public class HiveRecordSet
         throw new IllegalStateException("Table doesn't have any PRIMITIVE columns");
     }
 
-    private static RecordReader<?, ?> createRecordReader(HiveSplit split, Configuration configuration, Path wrappedPath)
+    private static RecordReader<?, ?> createRecordReader(HiveSplit split, Configuration configuration, Path path)
     {
         final InputFormat<?, ?> inputFormat = getInputFormat(configuration, split.getSchema(), true);
         final JobConf jobConf = new JobConf(configuration);
-        final FileSplit fileSplit = createFileSplit(wrappedPath, split.getStart(), split.getLength());
+        final FileSplit fileSplit = new FileSplit(path, split.getStart(), split.getLength(), (String[]) null);
 
         // propagate serialization configuration to getRecordReader
         for (String name : split.getSchema().stringPropertyNames()) {
@@ -168,18 +168,5 @@ public class HiveRecordSet
                     e.getMessage()),
                     e);
         }
-    }
-
-    private static FileSplit createFileSplit(final Path path, long start, long length)
-    {
-        return new FileSplit(path, start, length, (String[]) null)
-        {
-            @Override
-            public Path getPath()
-            {
-                // make sure our original path object is returned
-                return path;
-            }
-        };
     }
 }
