@@ -286,7 +286,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(tablePartitionFormat);
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.withColumnDomains(ImmutableMap.<ConnectorColumnHandle, Domain>of(intColumn, Domain.singleValue(5L))));
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.withColumnDomains(ImmutableMap.of(intColumn, Domain.singleValue(5L))));
         assertExpectedPartitions(partitionResult.getPartitions(), partitions);
     }
 
@@ -1124,17 +1124,20 @@ public abstract class AbstractTestHiveClient
         return splits.build();
     }
 
-    private static void assertRecordCursorType(RecordCursor cursor, String fileType)
+    private void assertRecordCursorType(RecordCursor cursor, String fileType)
     {
-        if (fileType.equals("rcfile-text")) {
-            assertInstanceOf(cursor, ColumnarTextHiveRecordCursor.class, fileType);
+        assertInstanceOf(cursor, recordCursorType(fileType), fileType);
+    }
+
+    protected Class<? extends HiveRecordCursor> recordCursorType(String fileType)
+    {
+        switch (fileType) {
+            case "rcfile-text":
+                return ColumnarTextHiveRecordCursor.class;
+            case "rcfile-binary":
+                return ColumnarBinaryHiveRecordCursor.class;
         }
-        else if (fileType.equals("rcfile-binary")) {
-            assertInstanceOf(cursor, ColumnarBinaryHiveRecordCursor.class, fileType);
-        }
-        else {
-            assertInstanceOf(cursor, GenericHiveRecordCursor.class, fileType);
-        }
+        return GenericHiveRecordCursor.class;
     }
 
     private static void assertReadFields(RecordCursor cursor, List<ColumnMetadata> schema)
