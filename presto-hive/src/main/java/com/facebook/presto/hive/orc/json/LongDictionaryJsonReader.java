@@ -16,13 +16,10 @@ package com.facebook.presto.hive.orc.json;
 import com.facebook.presto.hive.orc.StreamDescriptor;
 import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
 import com.facebook.presto.hive.orc.stream.BooleanStream;
-import com.facebook.presto.hive.orc.stream.ByteArrayStream;
 import com.facebook.presto.hive.orc.stream.LongStream;
 import com.facebook.presto.hive.orc.stream.StreamSources;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.base.Objects;
-import com.google.common.io.BaseEncoding;
-import com.google.common.primitives.Ints;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -32,33 +29,29 @@ import java.util.List;
 
 import static com.facebook.presto.hive.orc.OrcCorruptionException.verifyFormat;
 import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.DATA;
-import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.LENGTH;
+import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
+import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
 import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
-public class SliceDirectJsonReader
+public class LongDictionaryJsonReader
         implements JsonMapKeyReader
 {
     private final StreamDescriptor streamDescriptor;
-    private final boolean writeBinary;
 
     @Nullable
     private BooleanStream presentStream;
-
     @Nullable
-    private LongStream lengthStream;
-
+    private BooleanStream inDictionaryStream;
     @Nullable
-    private ByteArrayStream dataStream;
+    private LongStream dataStream;
 
     @Nonnull
-    private byte[] data = new byte[1024];
+    private long[] dictionary = new long[0];
 
-    public SliceDirectJsonReader(StreamDescriptor streamDescriptor, boolean writeBinary)
+    public LongDictionaryJsonReader(StreamDescriptor streamDescriptor)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
-        this.writeBinary = writeBinary;
     }
 
     @Override
@@ -70,14 +63,7 @@ public class SliceDirectJsonReader
             return;
         }
 
-        int length = bufferNextValue();
-
-        if (writeBinary) {
-            generator.writeBinary(data, 0, length);
-        }
-        else {
-            generator.writeUTF8String(data, 0, length);
-        }
+        generator.writeNumber(nextValue());
     }
 
     @Override
@@ -88,31 +74,18 @@ public class SliceDirectJsonReader
             return null;
         }
 
-        int length = bufferNextValue();
-
-        if (writeBinary) {
-            return BaseEncoding.base64().encode(data, 0, length);
-        }
-        else {
-            return new String(data, 0, length, UTF_8);
-        }
+        return String.valueOf(nextValue());
     }
 
-    private int bufferNextValue()
+    private long nextValue()
             throws IOException
     {
-        verifyFormat(lengthStream != null, "Value is not null but length stream is not present");
-
-        int length = Ints.checkedCast(lengthStream.next());
-        if (data.length < length) {
-            data = new byte[length];
+        verifyFormat(dataStream != null, "Value is not null but data stream is not present");
+        long value = dataStream.next();
+        if (inDictionaryStream == null || inDictionaryStream.nextBit()) {
+            value = dictionary[((int) value)];
         }
-
-        if (length > 0) {
-            verifyFormat(dataStream != null, "Length is not zero but data stream is not present");
-            dataStream.next(length, data);
-        }
-        return length;
+        return value;
     }
 
     @Override
@@ -124,31 +97,33 @@ public class SliceDirectJsonReader
             skipSize = presentStream.countBitsSet(skipSize);
         }
 
-        if (skipSize == 0) {
-            return;
+        // skip non-null values
+        if (inDictionaryStream != null) {
+            inDictionaryStream.skip(skipSize);
         }
-
-        verifyFormat(lengthStream != null, "Value is not null but length stream is not present");
-
-        // skip non-null length
-        long dataSkipSize = lengthStream.sum(skipSize);
-
-        if (dataSkipSize == 0) {
-            return;
+        if (skipSize > 0) {
+            verifyFormat(dataStream != null, "Value is not null but data stream is not present");
+            dataStream.skip(skipSize);
         }
-
-        verifyFormat(dataStream != null, "Length is not zero but data stream is not present");
-
-        // skip data bytes
-        dataStream.skip(dataSkipSize);
     }
 
     @Override
     public void openStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
+        int dictionarySize = encoding.get(streamDescriptor.getStreamId()).getDictionarySize();
+        if (dictionarySize > 0) {
+            if (dictionary.length < dictionarySize) {
+                dictionary = new long[dictionarySize];
+            }
+
+            LongStream dictionaryStream = dictionaryStreamSources.getStreamSource(streamDescriptor, DICTIONARY_DATA, LongStream.class).openStream();
+            verifyFormat(dictionaryStream != null, "Dictionary is not empty but data stream is not present");
+            dictionaryStream.nextLongVector(dictionarySize, dictionary);
+        }
+
         presentStream = null;
-        lengthStream = null;
+        inDictionaryStream = null;
         dataStream = null;
     }
 
@@ -157,8 +132,8 @@ public class SliceDirectJsonReader
             throws IOException
     {
         presentStream = dataStreamSources.getStreamSource(streamDescriptor, PRESENT, BooleanStream.class).openStream();
-        lengthStream = dataStreamSources.getStreamSource(streamDescriptor, LENGTH, LongStream.class).openStream();
-        dataStream = dataStreamSources.getStreamSource(streamDescriptor, DATA, ByteArrayStream.class).openStream();
+        inDictionaryStream = dataStreamSources.getStreamSource(streamDescriptor, IN_DICTIONARY, BooleanStream.class).openStream();
+        dataStream = dataStreamSources.getStreamSource(streamDescriptor, DATA, LongStream.class).openStream();
     }
 
     @Override

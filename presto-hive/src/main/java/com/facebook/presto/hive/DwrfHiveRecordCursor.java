@@ -81,7 +81,7 @@ import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
-class DwrfHiveRecordCursor
+public class DwrfHiveRecordCursor
         extends HiveRecordCursor
 {
     private final RecordReader recordReader;

@@ -23,11 +23,11 @@ import com.google.common.base.Objects;
 import java.io.IOException;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
 import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SliceJsonReader
         implements JsonMapKeyReader
@@ -71,7 +71,7 @@ public class SliceJsonReader
             throws IOException
     {
         ColumnEncodingKind columnEncodingKind = encoding.get(streamDescriptor.getStreamId()).getColumnEncodingKind();
-        if (columnEncodingKind == DIRECT || columnEncodingKind == DIRECT_V2) {
+        if (columnEncodingKind == DIRECT || columnEncodingKind == DIRECT_V2 || columnEncodingKind == ColumnEncodingKind.DWRF_DIRECT) {
             currentReader = directReader;
         }
         else if (columnEncodingKind == DICTIONARY || columnEncodingKind == DICTIONARY_V2) {

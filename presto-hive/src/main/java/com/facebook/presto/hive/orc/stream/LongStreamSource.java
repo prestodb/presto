@@ -14,27 +14,35 @@
 package com.facebook.presto.hive.orc.stream;
 
 import com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind;
+import com.facebook.presto.hive.orc.metadata.OrcType.OrcTypeKind;
 import com.google.common.base.Objects;
 import com.google.common.io.ByteSource;
 
 import java.io.IOException;
 
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
 
 public class LongStreamSource
         implements StreamSource<LongStream>
 {
     private final ByteSource byteSource;
     private final ColumnEncodingKind encoding;
+    private final OrcTypeKind orcTypeKind;
     private final boolean signed;
+    private final boolean usesVInt;
     private final int valueSkipSize;
 
-    public LongStreamSource(ByteSource byteSource, ColumnEncodingKind encoding, boolean signed, int valueSkipSize)
+    public LongStreamSource(ByteSource byteSource, ColumnEncodingKind encoding, OrcTypeKind orcTypeKind, boolean signed, boolean usesVInt, int valueSkipSize)
     {
         this.byteSource = byteSource;
         this.encoding = encoding;
+        this.orcTypeKind = orcTypeKind;
         this.signed = signed;
+        this.usesVInt = usesVInt;
         this.valueSkipSize = valueSkipSize;
     }
 
@@ -52,8 +60,14 @@ public class LongStreamSource
         if (encoding == DIRECT_V2 || encoding == DICTIONARY_V2) {
             integerStream = new LongStreamV2(byteSource.openStream(), signed, false);
         }
-        else {
+        else if (encoding == DIRECT || encoding == DICTIONARY) {
             integerStream = new LongStreamV1(byteSource.openStream(), signed);
+        }
+        else if (encoding == DWRF_DIRECT) {
+            integerStream = new LongStreamDwrf(byteSource.openStream(), orcTypeKind, signed, usesVInt);
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported encoding for long stream: " + encoding);
         }
         if (valueSkipSize > 0) {
             integerStream.skip(valueSkipSize);
@@ -67,7 +81,9 @@ public class LongStreamSource
         return Objects.toStringHelper(this)
                 .add("byteSource", byteSource)
                 .add("encoding", encoding)
+                .add("orcTypeKind", orcTypeKind)
                 .add("signed", signed)
+                .add("usesVInt", usesVInt)
                 .add("valueSkipSize", valueSkipSize)
                 .toString();
     }

@@ -33,6 +33,7 @@ public class StreamLayout
     private final int groupId;
     private final OrcTypeKind type;
     private final ColumnEncodingKind encoding;
+    private final boolean usesVInt;
     private final CompressionKind compressionKind;
     private final DiskRange diskRange;
     private final List<Integer> offsetPositions;
@@ -41,6 +42,7 @@ public class StreamLayout
             int groupId,
             OrcTypeKind type,
             ColumnEncodingKind encoding,
+            boolean usesVInt,
             CompressionKind compressionKind,
             DiskRange diskRange,
             List<Integer> offsetPositions)
@@ -49,6 +51,7 @@ public class StreamLayout
         this.groupId = groupId;
         this.type = checkNotNull(type, "type is null");
         this.encoding = checkNotNull(encoding, "encoding is null");
+        this.usesVInt = usesVInt;
         this.compressionKind = checkNotNull(compressionKind, "compressionKind is null");
         this.diskRange = checkNotNull(diskRange, "diskRange is null");
         this.offsetPositions = ImmutableList.copyOf(checkNotNull(offsetPositions, "offsetPositions is null"));
@@ -87,7 +90,7 @@ public class StreamLayout
     public StreamSource<?> createStreamSource(Slice slice, int bufferSize)
     {
         checkNotNull(slice, "slice is null");
-        return StreamSources.createStreamSource(streamId, slice, type, encoding, compressionKind, offsetPositions, bufferSize);
+        return StreamSources.createStreamSource(streamId, slice, type, encoding, usesVInt, compressionKind, offsetPositions, bufferSize);
     }
 
     public StreamLayout mergeWith(StreamLayout otherStreamLayout)
@@ -103,7 +106,7 @@ public class StreamLayout
         checkArgument(type == otherStreamLayout.getType(), "Streams must have the same type");
         checkArgument(encoding == otherStreamLayout.getEncoding(), "Streams must have the same encoding");
         checkArgument(compressionKind == otherStreamLayout.getCompressionKind(), "Streams must have the same compression kind");
-        return new StreamLayout(streamId, groupId, type, encoding, compressionKind, diskRange.span(otherStreamLayout.getDiskRange()), offsetPositions);
+        return new StreamLayout(streamId, groupId, type, encoding, usesVInt, compressionKind, diskRange.span(otherStreamLayout.getDiskRange()), offsetPositions);
     }
 
     @Override
