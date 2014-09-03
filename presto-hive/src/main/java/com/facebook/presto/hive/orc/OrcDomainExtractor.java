@@ -15,28 +15,26 @@ package com.facebook.presto.hive.orc;
 
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.orc.metadata.BucketStatistics;
+import com.facebook.presto.hive.orc.metadata.ColumnStatistics;
+import com.facebook.presto.hive.orc.metadata.RangeStatistics;
+import com.facebook.presto.hive.orc.metadata.RowGroupIndex;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.BucketStatistics;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.DateStatistics;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.DoubleStatistics;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.IntegerStatistics;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.RowIndex;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.RowIndexEntry;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.StringStatistics;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -50,7 +48,6 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnStatistics;
 
 public final class OrcDomainExtractor
 {
@@ -65,14 +62,14 @@ public final class OrcDomainExtractor
             Map<HiveColumnHandle, Integer> columnHandles,
             int rowsInStripe,
             int rowsInRowGroup,
-            RowIndex[] indexes)
+            List<List<RowGroupIndex>> columnIndexes)
     {
         ImmutableList.Builder<TupleDomain<HiveColumnHandle>> rowGroupTupleDomains = ImmutableList.builder();
 
         int rowGroup = 0;
         for (int remainingRows = rowsInStripe; remainingRows > 0; remainingRows -= rowsInRowGroup) {
             int rows = Math.min(remainingRows, rowsInRowGroup);
-            TupleDomain<HiveColumnHandle> rowGroupTupleDomain = extractDomain(typeManager, columnHandles, Arrays.asList(indexes), rowGroup, rows);
+            TupleDomain<HiveColumnHandle> rowGroupTupleDomain = extractDomain(typeManager, columnHandles, columnIndexes, rowGroup, rows);
             rowGroupTupleDomains.add(rowGroupTupleDomain);
             rowGroup++;
         }
@@ -83,7 +80,7 @@ public final class OrcDomainExtractor
     public static TupleDomain<HiveColumnHandle> extractDomain(
             TypeManager typeManager,
             Map<HiveColumnHandle, Integer> columnHandles,
-            List<RowIndex> rowIndexes,
+            List<List<RowGroupIndex>> columnIndexes,
             int rowGroup,
             long rowCount)
     {
@@ -92,8 +89,8 @@ public final class OrcDomainExtractor
             HiveColumnHandle columnHandle = entry.getKey();
             Integer streamIndex = entry.getValue();
 
-            RowIndexEntry rowIndexEntry = rowIndexes.get(streamIndex).getEntry(rowGroup);
-            Domain domain = getDomain(typeManager.getType(columnHandle.getTypeSignature()), rowCount, rowIndexEntry.hasStatistics() ? rowIndexEntry.getStatistics() : null);
+            RowGroupIndex rowGroupIndex = columnIndexes.get(streamIndex).get(rowGroup);
+            Domain domain = getDomain(toPrestoType(typeManager, columnHandle.getHiveType()), rowCount, rowGroupIndex.getColumnStatistics());
             domains.put(columnHandle, domain);
         }
         return TupleDomain.withColumnDomains(domains.build());
@@ -167,7 +164,7 @@ public final class OrcDomainExtractor
 
         boolean hasNullValue = columnStatistics.getNumberOfValues() != rowCount;
 
-        if (boxedJavaType == Boolean.class && columnStatistics.hasBucketStatistics()) {
+        if (boxedJavaType == Boolean.class && columnStatistics.getBucketStatistics() != null) {
             BucketStatistics bucketStatistics = columnStatistics.getBucketStatistics();
 
             boolean hasTrueValues = (bucketStatistics.getCount(0) != 0);
@@ -182,55 +179,53 @@ public final class OrcDomainExtractor
                 return Domain.create(SortedRangeSet.singleValue(false), hasNullValue);
             }
         }
-        else if (boxedJavaType == Long.class && columnStatistics.hasIntStatistics()) {
-            IntegerStatistics integerStatistics = columnStatistics.getIntStatistics();
-            if (integerStatistics.hasMinimum() && integerStatistics.hasMaximum()) {
-                return Domain.create(SortedRangeSet.of(Range.range(integerStatistics.getMinimum(), true, integerStatistics.getMaximum(), true)), hasNullValue);
-            }
-            else if (integerStatistics.hasMaximum()) {
-                return Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(integerStatistics.getMaximum())), hasNullValue);
-            }
-            else if (integerStatistics.hasMinimum()) {
-                return Domain.create(SortedRangeSet.of(Range.greaterThanOrEqual(integerStatistics.getMinimum())), hasNullValue);
-            }
+        else if (boxedJavaType == Long.class && columnStatistics.getIntegerStatistics() != null) {
+            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getIntegerStatistics());
         }
-        else if (boxedJavaType == Double.class && columnStatistics.hasDoubleStatistics()) {
-            DoubleStatistics doubleStatistics = columnStatistics.getDoubleStatistics();
-            if (doubleStatistics.hasMinimum() && doubleStatistics.hasMaximum()) {
-                return Domain.create(SortedRangeSet.of(Range.range(doubleStatistics.getMinimum(), true, doubleStatistics.getMaximum(), true)), hasNullValue);
-            }
-            else if (doubleStatistics.hasMaximum()) {
-                return Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(doubleStatistics.getMaximum())), hasNullValue);
-            }
-            else if (doubleStatistics.hasMinimum()) {
-                return Domain.create(SortedRangeSet.of(Range.greaterThanOrEqual(doubleStatistics.getMinimum())), hasNullValue);
-            }
+        else if (boxedJavaType == Double.class && columnStatistics.getDateStatistics() != null) {
+            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getDoubleStatistics());
         }
-        else if (boxedJavaType == Slice.class && columnStatistics.hasStringStatistics()) {
-            StringStatistics stringStatistics = columnStatistics.getStringStatistics();
-            if (stringStatistics.hasMinimum() && stringStatistics.hasMaximum()) {
-                return Domain.create(SortedRangeSet.of(Range.range(utf8Slice(stringStatistics.getMinimum()), true, utf8Slice(stringStatistics.getMaximum()), true)), hasNullValue);
-            }
-            else if (stringStatistics.hasMaximum()) {
-                return Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(utf8Slice(stringStatistics.getMaximum()))), hasNullValue);
-            }
-            else if (stringStatistics.hasMinimum()) {
-                return Domain.create(SortedRangeSet.of(Range.greaterThanOrEqual(utf8Slice(stringStatistics.getMinimum()))), hasNullValue);
-            }
+        else if (boxedJavaType == Slice.class && columnStatistics.getStringStatistics() != null) {
+            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getStringStatistics(), new Function<String, Slice>()
+            {
+                @Override
+                public Slice apply(String string)
+                {
+                    return utf8Slice(string);
+                }
+            });
         }
-        else if (boxedJavaType == Long.class && columnStatistics.hasDateStatistics()) {
-            DateStatistics dateStatistics = columnStatistics.getDateStatistics();
-            if (dateStatistics.hasMinimum() && dateStatistics.hasMaximum()) {
-                return Domain.create(
-                        SortedRangeSet.of(Range.range(dateStatistics.getMinimum() * MILLIS_IN_DAY, true, dateStatistics.getMaximum() * MILLIS_IN_DAY, true)),
-                        hasNullValue);
-            }
-            else if (dateStatistics.hasMaximum()) {
-                return Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(dateStatistics.getMaximum() * MILLIS_IN_DAY)), hasNullValue);
-            }
-            else if (dateStatistics.hasMinimum()) {
-                return Domain.create(SortedRangeSet.of(Range.greaterThanOrEqual(dateStatistics.getMinimum() * MILLIS_IN_DAY)), hasNullValue);
-            }
+        else if (boxedJavaType == Long.class && columnStatistics.getDateStatistics() != null) {
+            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getDateStatistics(), new Function<Integer, Long>()
+            {
+                @Override
+                public Long apply(Integer days)
+                {
+                    return days * MILLIS_IN_DAY;
+                }
+            });
+        }
+        return Domain.create(SortedRangeSet.all(boxedJavaType), hasNullValue);
+    }
+
+    private static <T extends Comparable<T>> Domain createDomain(Class<?> boxedJavaType, boolean hasNullValue, RangeStatistics<T> rangeStatistics)
+    {
+        return createDomain(boxedJavaType, hasNullValue, rangeStatistics, Functions.<T>identity());
+    }
+
+    private static <F, T extends Comparable<T>> Domain createDomain(Class<?> boxedJavaType, boolean hasNullValue, RangeStatistics<F> rangeStatistics, Function<F, T> function)
+    {
+        F min = rangeStatistics.getMin();
+        F max = rangeStatistics.getMax();
+
+        if (min != null && max != null) {
+            return Domain.create(SortedRangeSet.of(Range.range(function.apply(min), true, function.apply(max), true)), hasNullValue);
+        }
+        else if (max != null) {
+            return Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(function.apply(max))), hasNullValue);
+        }
+        else if (min != null) {
+            return Domain.create(SortedRangeSet.of(Range.greaterThanOrEqual(function.apply(min))), hasNullValue);
         }
         return Domain.create(SortedRangeSet.all(boxedJavaType), hasNullValue);
     }

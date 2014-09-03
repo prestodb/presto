@@ -14,18 +14,19 @@
 package com.facebook.presto.hive.orc.reader;
 
 import com.facebook.presto.hive.orc.StreamDescriptor;
+import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
+import com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.hive.orc.stream.StreamSources;
 import com.google.common.base.Objects;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding;
 
 import java.io.IOException;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding.Kind.DICTIONARY;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding.Kind.DICTIONARY_V2;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding.Kind.DIRECT;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding.Kind.DIRECT_V2;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 
 public class SliceStreamReader
         implements StreamReader
@@ -59,15 +60,15 @@ public class SliceStreamReader
     public void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
-        ColumnEncoding.Kind kind = encoding.get(streamDescriptor.getStreamId()).getKind();
-        if (kind == DIRECT || kind == DIRECT_V2) {
+        ColumnEncodingKind columnEncodingKind = encoding.get(streamDescriptor.getStreamId()).getColumnEncodingKind();
+        if (columnEncodingKind == DIRECT || columnEncodingKind == DIRECT_V2) {
             currentReader = directReader;
         }
-        else if (kind == DICTIONARY || kind == DICTIONARY_V2) {
+        else if (columnEncodingKind == DICTIONARY || columnEncodingKind == DICTIONARY_V2) {
             currentReader = dictionaryReader;
         }
         else {
-            throw new IllegalArgumentException("Unsupported encoding " + kind);
+            throw new IllegalArgumentException("Unsupported encoding " + columnEncodingKind);
         }
 
         currentReader.startStripe(dictionaryStreamSources, encoding);

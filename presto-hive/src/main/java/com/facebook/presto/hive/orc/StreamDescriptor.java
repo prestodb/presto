@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.hive.orc;
 
+import com.facebook.presto.hive.orc.metadata.OrcType.OrcTypeKind;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.Type;
 
 import java.util.List;
 
@@ -25,12 +25,12 @@ public final class StreamDescriptor
 {
     private final String streamName;
     private final int streamId;
-    private final Type.Kind streamType;
+    private final OrcTypeKind streamType;
     private final String fieldName;
     private final OrcDataSource fileInput;
     private final List<StreamDescriptor> nestedStreams;
 
-    public StreamDescriptor(String streamName, int streamId, String fieldName, Type.Kind streamType, OrcDataSource fileInput, List<StreamDescriptor> nestedStreams)
+    public StreamDescriptor(String streamName, int streamId, String fieldName, OrcTypeKind streamType, OrcDataSource fileInput, List<StreamDescriptor> nestedStreams)
     {
         this.streamName = checkNotNull(streamName, "streamName is null");
         this.streamId = streamId;
@@ -50,7 +50,7 @@ public final class StreamDescriptor
         return streamId;
     }
 
-    public Type.Kind getStreamType()
+    public OrcTypeKind getStreamType()
     {
         return streamType;
     }

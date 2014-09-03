@@ -15,8 +15,8 @@ package com.facebook.presto.hive.orc.stream;
 
 import com.facebook.presto.hive.orc.StreamDescriptor;
 import com.facebook.presto.hive.orc.StreamId;
+import com.facebook.presto.hive.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableMap;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream;
 
 import javax.annotation.Nonnull;
 
@@ -36,12 +36,12 @@ public class StreamSources
     }
 
     @Nonnull
-    public <T> StreamSource<T> getStreamSource(StreamDescriptor streamDescriptor, Stream.Kind kind, Class<T> streamType)
+    public <T> StreamSource<T> getStreamSource(StreamDescriptor streamDescriptor, StreamKind streamKind, Class<T> streamType)
     {
         checkNotNull(streamDescriptor, "streamDescriptor is null");
         checkNotNull(streamType, "streamType is null");
 
-        StreamSource<?> streamSource = streamSources.get(new StreamId(streamDescriptor.getStreamId(), kind));
+        StreamSource<?> streamSource = streamSources.get(new StreamId(streamDescriptor.getStreamId(), streamKind));
         if (streamSource == null) {
             streamSource = missingStreamSource(streamType);
         }

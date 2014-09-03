@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.hive.orc;
 
+import com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind;
+import com.facebook.presto.hive.orc.metadata.CompressionKind;
+import com.facebook.presto.hive.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.hive.orc.reader.StreamSources;
 import com.facebook.presto.hive.orc.stream.StreamSource;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.CompressionKind;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.Type;
 
 import java.util.List;
 
@@ -31,16 +31,16 @@ public class StreamLayout
 {
     private final StreamId streamId;
     private final int groupId;
-    private final Type.Kind type;
-    private final ColumnEncoding.Kind encoding;
+    private final OrcTypeKind type;
+    private final ColumnEncodingKind encoding;
     private final CompressionKind compressionKind;
     private final DiskRange diskRange;
     private final List<Integer> offsetPositions;
 
     public StreamLayout(StreamId streamId,
             int groupId,
-            Type.Kind type,
-            ColumnEncoding.Kind encoding,
+            OrcTypeKind type,
+            ColumnEncodingKind encoding,
             CompressionKind compressionKind,
             DiskRange diskRange,
             List<Integer> offsetPositions)
@@ -64,12 +64,12 @@ public class StreamLayout
         return groupId;
     }
 
-    public Type.Kind getType()
+    public OrcTypeKind getType()
     {
         return type;
     }
 
-    public ColumnEncoding.Kind getEncoding()
+    public ColumnEncodingKind getEncoding()
     {
         return encoding;
     }

@@ -15,6 +15,7 @@ package com.facebook.presto.hive.orc;
 
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeRegistry;
@@ -464,7 +465,7 @@ public class TestOrcReader
         FSDataInputStream inputStream = fileSystem.open(path);
         try {
             HdfsOrcDataSource orcDataSource = new HdfsOrcDataSource(path.toString(), inputStream, size);
-            OrcReader orcReader = new OrcReader(orcDataSource, TYPE_MANAGER);
+            OrcReader orcReader = new OrcReader(orcDataSource, new OrcMetadataReader(), TYPE_MANAGER);
             Type type = getType(objectInspector, TYPE_MANAGER);
             checkArgument(type != null, "No type for object inspector: %s", objectInspector);
             HiveColumnHandle columnHandle = new HiveColumnHandle("clientId", "col_0", 0, HiveType.toHiveType(type), type.getTypeSignature(), 0, false);

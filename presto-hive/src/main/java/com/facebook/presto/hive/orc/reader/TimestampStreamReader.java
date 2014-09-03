@@ -16,12 +16,12 @@ package com.facebook.presto.hive.orc.reader;
 import com.facebook.presto.hive.orc.LongVector;
 import com.facebook.presto.hive.orc.StreamDescriptor;
 import com.facebook.presto.hive.orc.Vector;
+import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
 import com.facebook.presto.hive.orc.stream.BooleanStream;
 import com.facebook.presto.hive.orc.stream.LongStream;
 import com.facebook.presto.hive.orc.stream.StreamSource;
 import com.facebook.presto.hive.orc.stream.StreamSources;
 import com.google.common.base.Objects;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
@@ -33,11 +33,11 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.hive.orc.OrcCorruptionException.verifyFormat;
+import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.DATA;
+import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.SECONDARY;
 import static com.facebook.presto.hive.orc.stream.MissingStreamSource.missingStreamSource;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream.Kind.DATA;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream.Kind.PRESENT;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream.Kind.SECONDARY;
 
 public class TimestampStreamReader
         implements StreamReader

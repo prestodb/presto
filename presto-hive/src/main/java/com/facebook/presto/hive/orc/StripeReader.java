@@ -14,6 +14,16 @@
 package com.facebook.presto.hive.orc;
 
 import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
+import com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind;
+import com.facebook.presto.hive.orc.metadata.CompressionKind;
+import com.facebook.presto.hive.orc.metadata.MetadataReader;
+import com.facebook.presto.hive.orc.metadata.OrcType;
+import com.facebook.presto.hive.orc.metadata.RowGroupIndex;
+import com.facebook.presto.hive.orc.metadata.Stream;
+import com.facebook.presto.hive.orc.metadata.StripeFooter;
+import com.facebook.presto.hive.orc.metadata.StripeInformation;
+import com.facebook.presto.hive.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.hive.orc.stream.OrcInputStream;
 import com.facebook.presto.hive.orc.stream.StreamSource;
 import com.facebook.presto.hive.orc.stream.StreamSources;
@@ -29,13 +39,6 @@ import com.google.common.collect.Maps;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.CompressionKind;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.RowIndex;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream.Kind;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.StripeFooter;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.Type;
 
 import javax.annotation.Nullable;
 
@@ -50,20 +53,20 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
+import static com.facebook.presto.hive.orc.metadata.CompressionKind.UNCOMPRESSED;
+import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.DATA;
+import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.DICTIONARY_COUNT;
+import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
+import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.LENGTH;
+import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.ROW_INDEX;
+import static com.facebook.presto.hive.orc.metadata.Stream.StreamKind.SECONDARY;
 import static com.facebook.presto.hive.orc.stream.OrcInputStream.BLOCK_HEADER_SIZE;
 import static com.google.common.base.Preconditions.checkArgument;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding.Kind.DICTIONARY;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding.Kind.DICTIONARY_V2;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding.Kind.DIRECT;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding.Kind.DIRECT_V2;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.CompressionKind.NONE;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream.Kind.DATA;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream.Kind.DICTIONARY_DATA;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream.Kind.LENGTH;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream.Kind.PRESENT;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream.Kind.ROW_INDEX;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream.Kind.SECONDARY;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.StripeInformation;
 
 public class StripeReader
 {
@@ -78,22 +81,24 @@ public class StripeReader
 
     private final OrcDataSource orcDataSource;
     private final CompressionKind compressionKind;
-    private final List<Type> types;
+    private final List<OrcType> types;
     private final int bufferSize;
     private final boolean[] includedColumns;
     private final int rowsInRowGroup;
     private final Map<HiveColumnHandle, Integer> columnHandleStreamIndex;
     private final TupleDomain<HiveColumnHandle> tupleDomain;
+    private final MetadataReader metadataReader;
     private final TypeManager typeManager;
 
     public StripeReader(OrcDataSource orcDataSource,
             CompressionKind compressionKind,
-            List<Type> types,
+            List<OrcType> types,
             int bufferSize,
             boolean[] includedColumns,
             int rowsInRowGroup,
             Map<HiveColumnHandle, Integer> columnHandleStreamIndex,
             TupleDomain<HiveColumnHandle> tupleDomain,
+            MetadataReader metadataReader,
             TypeManager typeManager)
     {
         this.orcDataSource = orcDataSource;
@@ -104,6 +109,7 @@ public class StripeReader
         this.rowsInRowGroup = rowsInRowGroup;
         this.columnHandleStreamIndex = columnHandleStreamIndex;
         this.tupleDomain = tupleDomain;
+        this.metadataReader = metadataReader;
         this.typeManager = typeManager;
     }
 
@@ -115,24 +121,24 @@ public class StripeReader
 
         // get streams for selected columns
         Map<StreamId, Stream> streams = new HashMap<>();
-        for (Stream stream : stripeFooter.getStreamsList()) {
+        for (Stream stream : stripeFooter.getStreams()) {
             if (includedColumns[stream.getColumn()]) {
                 streams.put(new StreamId(stream), stream);
             }
         }
 
         // determine ranges of the stripe to read
-        Map<StreamId, DiskRange> diskRanges = getDiskRanges(stripeFooter.getStreamsList());
+        Map<StreamId, DiskRange> diskRanges = getDiskRanges(stripeFooter.getStreams());
         diskRanges = Maps.filterKeys(diskRanges, Predicates.in(streams.keySet()));
 
         // read the file regions
         Map<StreamId, Slice> streamsData = readDiskRanges(stripe.getOffset(), diskRanges);
 
         // read the row index for each column
-        List<RowIndex> indexes = readRowIndex(streams, streamsData);
+        List<List<RowGroupIndex>> columnIndexes = readColumnIndexes(streams, streamsData);
 
         // select the row groups matching the tuple domain
-        Set<Integer> selectedRowGroups = selectRowGroups(stripe, indexes);
+        Set<Integer> selectedRowGroups = selectRowGroups(stripe, columnIndexes);
 
         // if all row groups are skipped, return null
         if (selectedRowGroups.isEmpty()) {
@@ -140,16 +146,16 @@ public class StripeReader
         }
 
         // determine the dictionary stream locations
-        List<StreamLayout> dictionaryStreamLayouts = getDictionaryStreams(streams, diskRanges, stripeFooter.getColumnsList());
+        List<StreamLayout> dictionaryStreamLayouts = getDictionaryStreams(streams, diskRanges, stripeFooter.getColumnEncodings());
 
         // determine the locations of the row groups
         List<RowGroupLayout> rowGroupLayouts = getRowGroupRanges(
-                Ints.checkedCast(stripe.getNumberOfRows()),
+                stripe.getNumberOfRows(),
                 streams,
                 diskRanges,
-                indexes,
+                columnIndexes,
                 selectedRowGroups,
-                stripeFooter.getColumnsList());
+                stripeFooter.getColumnEncodings());
 
         // merge row groups
         rowGroupLayouts = RowGroupLayout.mergeAdjacentRowGroups(rowGroupLayouts);
@@ -173,7 +179,7 @@ public class StripeReader
             rowGroupBuilder.add(rowGroupLayout.createRowGroup(streamsData, bufferSize));
         }
 
-        return new Stripe(stripe.getNumberOfRows(), stripeFooter.getColumnsList(), rowGroupBuilder.build(), dictionaryStreamSources);
+        return new Stripe(stripe.getNumberOfRows(), stripeFooter.getColumnEncodings(), rowGroupBuilder.build(), dictionaryStreamSources);
     }
 
     public Map<StreamId, Slice> readDiskRanges(final long stripeOffset, Map<StreamId, DiskRange> diskRanges)
@@ -200,25 +206,25 @@ public class StripeReader
         byte[] tailBuffer = new byte[tailLength];
         orcDataSource.readFully(offset, tailBuffer);
         InputStream inputStream = new OrcInputStream(Slices.wrappedBuffer(tailBuffer).getInput(), compressionKind, bufferSize);
-        return StripeFooter.parseFrom(inputStream);
+        return metadataReader.readStripeFooter(inputStream);
     }
 
-    private List<RowIndex> readRowIndex(Map<StreamId, Stream> streams, Map<StreamId, Slice> streamsData)
+    private List<List<RowGroupIndex>> readColumnIndexes(Map<StreamId, Stream> streams, Map<StreamId, Slice> streamsData)
             throws IOException
     {
-        List<RowIndex> indexes = new ArrayList<>(Collections.<RowIndex>nCopies(types.size(), null));
+        List<List<RowGroupIndex>> indexes = new ArrayList<>(Collections.<List<RowGroupIndex>>nCopies(types.size(), null));
 
         for (Entry<StreamId, Stream> entry : streams.entrySet()) {
             Stream stream = entry.getValue();
-            if (stream.getKind() == ROW_INDEX) {
+            if (stream.getStreamKind() == ROW_INDEX) {
                 Slice slice = streamsData.get(entry.getKey());
-                indexes.set(stream.getColumn(), RowIndex.parseFrom(new OrcInputStream(slice.getInput(), compressionKind, bufferSize)));
+                indexes.set(stream.getColumn(), metadataReader.readRowIndexes(new OrcInputStream(slice.getInput(), compressionKind, bufferSize)));
             }
         }
         return indexes;
     }
 
-    private Set<Integer> selectRowGroups(StripeInformation stripe, List<RowIndex> indexes)
+    private Set<Integer> selectRowGroups(StripeInformation stripe,  List<List<RowGroupIndex>> columnIndexes)
             throws IOException
     {
         int rowsInStripe = Ints.checkedCast(stripe.getNumberOfRows());
@@ -228,7 +234,7 @@ public class StripeReader
         int remainingRows = rowsInStripe;
         for (int rowGroup = 0; rowGroup < groupsInStripe; ++rowGroup) {
             int rows = Math.min(remainingRows, rowsInRowGroup);
-            TupleDomain<HiveColumnHandle> rowGroupTupleDomain = OrcDomainExtractor.extractDomain(typeManager, columnHandleStreamIndex, indexes, rowGroup, rows);
+            TupleDomain<HiveColumnHandle> rowGroupTupleDomain = OrcDomainExtractor.extractDomain(typeManager, columnHandleStreamIndex, columnIndexes, rowGroup, rows);
             if (tupleDomain.overlaps(rowGroupTupleDomain)) {
                 selectedRowGroups.add(rowGroup);
             }
@@ -255,8 +261,8 @@ public class StripeReader
             StreamLayout streamLayout = new StreamLayout(
                     streamId,
                     0, // dictionary streams don't have a row group
-                    types.get(column).getKind(),
-                    encoding.getKind(),
+                    types.get(column).getOrcTypeKind(),
+                    encoding.getColumnEncodingKind(),
                     compressionKind,
                     diskRanges.get(streamId),
                     ImmutableList.<Integer>of());
@@ -271,13 +277,13 @@ public class StripeReader
             int rowsInStripe,
             Map<StreamId, Stream> streams,
             Map<StreamId, DiskRange> diskRanges,
-            List<RowIndex> indexes,
+            List<List<RowGroupIndex>> columnIndexes,
             Set<Integer> selectedRowGroups,
             List<ColumnEncoding> encodings)
     {
         Set<Integer> columnsWithNulls = new HashSet<>();
         for (Stream stream : streams.values()) {
-            if (stream.getKind() == PRESENT) {
+            if (stream.getStreamKind() == PRESENT) {
                 columnsWithNulls.add(stream.getColumn());
             }
         }
@@ -299,15 +305,14 @@ public class StripeReader
                 }
 
                 boolean hasNulls = columnsWithNulls.contains(column);
-                RowIndex rowIndex = indexes.get(column);
-                DiskRange diskRange = getRowGroupStreamDiskRange(rowIndex, diskRanges.get(streamId), hasNulls, rowGroupId, streamId, encoding.getKind());
-                List<Long> offsetPositions = getOffsetPositions(streamId, encoding.getKind(), hasNulls, rowIndex.getEntry(rowGroupId).getPositionsList());
+                DiskRange diskRange = getRowGroupStreamDiskRange(columnIndexes.get(column), diskRanges.get(streamId), hasNulls, rowGroupId, streamId, encoding.getColumnEncodingKind());
+                List<Long> offsetPositions = getOffsetPositions(streamId, encoding.getColumnEncodingKind(), hasNulls, columnIndexes.get(column).get(rowGroupId).getPositions());
 
                 StreamLayout streamLayout = new StreamLayout(
                         streamId,
                         rowGroupId,
-                        types.get(column).getKind(),
-                        encoding.getKind(),
+                        types.get(column).getOrcTypeKind(),
+                        encoding.getColumnEncodingKind(),
                         compressionKind,
                         diskRange,
                         checkedCastToInteger(offsetPositions));
@@ -322,21 +327,27 @@ public class StripeReader
         return rowGroupLayouts.build();
     }
 
-    private DiskRange getRowGroupStreamDiskRange(RowIndex index, DiskRange streamDiskRange, boolean hasNulls, int groupId, StreamId streamId, ColumnEncoding.Kind encoding)
+    private DiskRange getRowGroupStreamDiskRange(
+            List<RowGroupIndex> indexes,
+            DiskRange streamDiskRange,
+            boolean hasNulls,
+            int groupId,
+            StreamId streamId,
+            ColumnEncodingKind encoding)
     {
-        long start = streamDiskRange.getOffset() + getOffsetPositions(streamId, encoding, hasNulls, index.getEntry(groupId).getPositionsList()).get(0);
+        long start = streamDiskRange.getOffset() + getOffsetPositions(streamId, encoding, hasNulls, indexes.get(groupId).getPositions()).get(0);
 
         long end;
-        if (groupId == index.getEntryCount() - 1) {
+        if (groupId == indexes.size() - 1) {
             end = streamDiskRange.getEnd();
         }
         else {
-            end = streamDiskRange.getOffset() + getOffsetPositions(streamId, encoding, hasNulls, index.getEntry(groupId + 1).getPositionsList()).get(0);
+            end = streamDiskRange.getOffset() + getOffsetPositions(streamId, encoding, hasNulls, indexes.get(groupId + 1).getPositions()).get(0);
 
             // for an inner group, we need to add some "slop" to the length
             // since the last value may be in a compressed block or encoded sequence
             // shared with the next row group
-            if (compressionKind != NONE) {
+            if (compressionKind != UNCOMPRESSED) {
                 // add 2 buffers to safely accommodate the next compression block.
                 end += 2 * (BLOCK_HEADER_SIZE + bufferSize);
             }
@@ -353,16 +364,16 @@ public class StripeReader
 
     private List<Long> getOffsetPositions(
             StreamId streamId,
-            ColumnEncoding.Kind columnEncoding,
+            ColumnEncodingKind columnEncoding,
             boolean hasNulls,
             List<Long> positionsList)
     {
-        Type.Kind type = types.get(streamId.getColumn()).getKind();
-        int compressionOffsets = compressionKind != NONE ? 1 : 0;
+        OrcTypeKind type = types.get(streamId.getColumn()).getOrcTypeKind();
+        int compressionOffsets = compressionKind != UNCOMPRESSED ? 1 : 0;
 
         // if this is the present stream the offset is in position 1
         List<Long> offsetPositions = positionsList;
-        if (streamId.getKind() == PRESENT) {
+        if (streamId.getStreamKind() == PRESENT) {
             return offsetPositions.subList(0, BITFIELD_POSITIONS + compressionOffsets);
         }
 
@@ -371,7 +382,7 @@ public class StripeReader
             offsetPositions = offsetPositions.subList(BITFIELD_POSITIONS + compressionOffsets, offsetPositions.size());
         }
 
-        if (streamId.getKind() == DATA) {
+        if (streamId.getStreamKind() == DATA) {
             switch (type) {
                 case BOOLEAN:
                 case BYTE:
@@ -405,7 +416,7 @@ public class StripeReader
             }
         }
 
-        if (streamId.getKind() == LENGTH) {
+        if (streamId.getStreamKind() == LENGTH) {
             switch (type) {
                 case STRING:
                 case BINARY:
@@ -419,7 +430,7 @@ public class StripeReader
         }
 
         // length (nanos) of a timestamp column
-        if (streamId.getKind() == SECONDARY && type == Type.Kind.TIMESTAMP) {
+        if (streamId.getStreamKind() == SECONDARY && type == OrcTypeKind.TIMESTAMP) {
             int start = RUN_LENGTH_INT_POSITIONS + compressionOffsets;
             int end = start + RUN_LENGTH_INT_POSITIONS + compressionOffsets;
             return offsetPositions.subList(start, end);
@@ -430,13 +441,13 @@ public class StripeReader
 
     private static boolean isIndexStream(Stream stream)
     {
-        return stream.getKind() == ROW_INDEX || stream.getKind() == Kind.DICTIONARY_COUNT;
+        return stream.getStreamKind() == ROW_INDEX || stream.getStreamKind() == DICTIONARY_COUNT;
     }
 
     private static boolean isDictionary(Stream stream, ColumnEncoding encoding)
     {
-        ColumnEncoding.Kind encodingKind = encoding.getKind();
-        return stream.getKind() == DICTIONARY_DATA || (stream.getKind() == LENGTH && (encodingKind == DICTIONARY || encodingKind == DICTIONARY_V2));
+        ColumnEncodingKind encodingColumnEncodingKind = encoding.getColumnEncodingKind();
+        return stream.getStreamKind() == DICTIONARY_DATA || (stream.getStreamKind() == LENGTH && (encodingColumnEncodingKind == DICTIONARY || encodingColumnEncodingKind == DICTIONARY_V2));
     }
 
     private static Map<StreamId, DiskRange> getDiskRanges(List<Stream> streams)
