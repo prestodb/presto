@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.hive.orc;
 
+import com.facebook.hive.orc.OrcConf;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.orc.metadata.DwrfMetadataReader;
+import com.facebook.presto.hive.orc.metadata.MetadataReader;
 import com.facebook.presto.hive.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.type.TypeRegistry;
@@ -39,9 +42,9 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.Type;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.serde2.ReaderWriterProfiler;
+import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
@@ -65,6 +68,7 @@ import java.io.File;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -72,6 +76,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.Random;
 
 import static com.google.common.base.Functions.compose;
 import static com.google.common.base.Functions.toStringFunction;
@@ -144,6 +149,18 @@ public class TestOrcReader
     }
 
     @Test(enabled = false)
+    public void testLongDirect2()
+            throws Exception
+    {
+        List<Integer> values = new ArrayList<>(31_234);
+        for (int i = 0; i < 31_234; i++) {
+            values.add(i);
+        }
+        Collections.shuffle(values, new Random(0));
+        testRoundTripNumeric(values);
+    }
+
+    @Test(enabled = false)
     public void testLongShortRepeat()
             throws Exception
     {
@@ -155,6 +172,13 @@ public class TestOrcReader
             throws Exception
     {
         testRoundTripNumeric(limit(cycle(concat(intsBetween(0, 18), ImmutableList.of(30_000, 20_000))), 30_000));
+    }
+
+    @Test(enabled = false)
+    public void testLongStrideDictionary()
+            throws Exception
+    {
+        testRoundTripNumeric(concat(ImmutableList.of(1), Collections.nCopies(9999, 123), ImmutableList.of(2), Collections.nCopies(9999, 123)));
     }
 
     private static void testRoundTripNumeric(Iterable<Integer> writeValues)
@@ -193,6 +217,13 @@ public class TestOrcReader
             throws Exception
     {
         testRoundTrip(javaStringObjectInspector, limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), toStringFunction())), 30_000));
+    }
+
+    @Test(enabled = false)
+    public void testStringStrideDictionary()
+            throws Exception
+    {
+        testRoundTrip(javaStringObjectInspector, concat(ImmutableList.of("a"), Collections.nCopies(9999, "123"), ImmutableList.of("b"), Collections.nCopies(9999, "123")));
     }
 
     @Test(enabled = false)
@@ -334,21 +365,30 @@ public class TestOrcReader
     private static void assertRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues)
             throws Exception
     {
-        for (String formatVersion : ImmutableList.of("0.12"/*, "0.11"*/)) {
-            for (String compressionKind : ImmutableList.of("ZLIB"/*, "SNAPPY", "NONE"*/)) {
+        for (String formatVersion : ImmutableList.of("0.12", "0.11", "DWRF")) {
+            MetadataReader metadataReader;
+            if ("DWRF".equals(formatVersion)) {
+                metadataReader = new DwrfMetadataReader();
+            }
+            else {
+                metadataReader = new OrcMetadataReader();
+            }
+            for (String compressionKind : ImmutableList.of("ZLIB", "SNAPPY", "NONE")) {
                 try (TempFile tempFile = new TempFile("test", "orc")) {
                     writeOrcColumn(tempFile.getFile(), formatVersion, compressionKind, objectInspector, writeValues.iterator());
-                    assertFileContents(objectInspector, tempFile, readValues, false);
-                    assertFileContents(objectInspector, tempFile, readValues, true);
+
+                    assertFileContents(objectInspector, tempFile, readValues, false, metadataReader);
+
+                    assertFileContents(objectInspector, tempFile, readValues, true, metadataReader);
                 }
             }
         }
     }
 
-    private static void assertFileContents(ObjectInspector objectInspector, TempFile tempFile, Iterable<?> expectedValues, boolean skipFirstBatch)
+    private static void assertFileContents(ObjectInspector objectInspector, TempFile tempFile, Iterable<?> expectedValues, boolean skipFirstBatch, MetadataReader metadataReader)
             throws IOException
     {
-        OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, HiveType.getHiveType(objectInspector));
+        OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, HiveType.getHiveType(objectInspector), metadataReader);
 
         Vector vector = createResultsVector(objectInspector);
 
@@ -403,13 +443,13 @@ public class TestOrcReader
         }
     }
 
-    private static OrcRecordReader createCustomOrcRecordReader(TempFile tempFile, HiveType hiveType)
+    private static OrcRecordReader createCustomOrcRecordReader(TempFile tempFile, HiveType hiveType, MetadataReader metadataReader)
             throws IOException
     {
         Path path = new Path(tempFile.getFile().toURI());
         FileSystem fileSystem = path.getFileSystem(new Configuration());
 
-        OrcReader orcReader = new OrcReader(new HdfsOrcDataSource(path, fileSystem), new OrcMetadataReader(), TYPE_MANAGER);
+        OrcReader orcReader = new OrcReader(new HdfsOrcDataSource(path, fileSystem), metadataReader, TYPE_MANAGER);
         HiveColumnHandle columnHandle = new HiveColumnHandle("clientId", "col_0", 0, hiveType, hiveType.getHiveTypeName(), 0, false);
 
         return orcReader.createRecordReader(0, tempFile.getFile().length(), ImmutableList.of(columnHandle), TupleDomain.<HiveColumnHandle>all(), UTC, UTC);
@@ -418,12 +458,47 @@ public class TestOrcReader
     public static DataSize writeOrcColumn(File outputFile, String formatVersion, String compressionCodec, ObjectInspector columnObjectInspector, Iterator<?> values)
             throws Exception
     {
+        RecordWriter recordWriter;
+        if ("DWRF".equals(formatVersion)) {
+            recordWriter = createDwrfRecordWriter(outputFile, compressionCodec, columnObjectInspector);
+        }
+        else {
+            recordWriter = createOrcRecordWriter(outputFile, formatVersion, compressionCodec, columnObjectInspector);
+        }
+
+        SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", columnObjectInspector);
+        Object row = objectInspector.create();
+
+        List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
+
+        while (values.hasNext()) {
+            Object value = values.next();
+            objectInspector.setStructFieldData(row, fields.get(0), value);
+
+            @SuppressWarnings("deprecation") Serializer serde;
+            if ("DWRF".equals(formatVersion)) {
+                serde = new com.facebook.hive.orc.OrcSerde();
+            }
+            else {
+                serde = new OrcSerde();
+            }
+            Writable record = serde.serialize(row, objectInspector);
+            recordWriter.write(record);
+        }
+
+        recordWriter.close(false);
+        return new DataSize(outputFile.length(), Unit.BYTE).convertToMostSuccinctDataSize();
+    }
+
+    public static RecordWriter createOrcRecordWriter(File outputFile, String formatVersion, String compressionCodec, ObjectInspector columnObjectInspector)
+            throws IOException
+    {
         JobConf jobConf = new JobConf();
         jobConf.set("hive.exec.orc.write.format", formatVersion);
         jobConf.set("hive.exec.orc.default.compress", compressionCodec);
         ReaderWriterProfiler.setProfilerOptions(jobConf);
 
-        RecordWriter recordWriter1 = new OrcOutputFormat().getHiveRecordWriter(
+        return new OrcOutputFormat().getHiveRecordWriter(
                 jobConf,
                 new Path(outputFile.toURI()),
                 Text.class,
@@ -437,23 +512,34 @@ public class TestOrcReader
                     }
                 }
         );
+    }
 
-        RecordWriter recordWriter = recordWriter1;
+    public static RecordWriter createDwrfRecordWriter(File outputFile, String compressionCodec, ObjectInspector columnObjectInspector)
+            throws IOException
+    {
+        JobConf jobConf = new JobConf();
+        jobConf.set("hive.exec.orc.default.compress", compressionCodec);
+        jobConf.set("hive.exec.orc.compress", compressionCodec);
+        OrcConf.setIntVar(jobConf, OrcConf.ConfVars.HIVE_ORC_ENTROPY_STRING_THRESHOLD, 1);
+        OrcConf.setIntVar(jobConf, OrcConf.ConfVars.HIVE_ORC_DICTIONARY_ENCODING_INTERVAL, 2);
+        OrcConf.setBoolVar(jobConf, OrcConf.ConfVars.HIVE_ORC_BUILD_STRIDE_DICTIONARY, true);
+        OrcConf.setBoolVar(jobConf, OrcConf.ConfVars.HIVE_ORC_DICTIONARY_SORT_KEYS, true);
+        ReaderWriterProfiler.setProfilerOptions(jobConf);
 
-        SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", columnObjectInspector);
-        Object row = objectInspector.create();
-
-        List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
-
-        while (values.hasNext()) {
-            Object value = values.next();
-            objectInspector.setStructFieldData(row, fields.get(0), value);
-            Writable record = new OrcSerde().serialize(row, objectInspector);
-            recordWriter.write(record);
-        }
-
-        recordWriter.close(false);
-        return new DataSize(outputFile.length(), Unit.BYTE).convertToMostSuccinctDataSize();
+        return new com.facebook.hive.orc.OrcOutputFormat().getHiveRecordWriter(
+                jobConf,
+                new Path(outputFile.toURI()),
+                Text.class,
+                compressionCodec != null,
+                createTableProperties("test", columnObjectInspector.getTypeName()),
+                new Progressable()
+                {
+                    @Override
+                    public void progress()
+                    {
+                    }
+                }
+        );
     }
 
     private static SettableStructObjectInspector createSettableStructObjectInspector(String name, ObjectInspector objectInspector)
@@ -596,7 +682,7 @@ public class TestOrcReader
         };
     }
 
-    private static Iterable<Float> floatSequence(final double start, final double step, final int items)
+    private static Iterable<Float> floatSequence(double start, double step, int items)
     {
         return transform(doubleSequence(start, step, items), new Function<Double, Float>()
         {
@@ -837,26 +923,6 @@ public class TestOrcReader
         };
     }
 
-    private static boolean[] findIncludedColumns(List<Type> types)
-    {
-        boolean[] includes = new boolean[types.size()];
-        includes[0] = true;
-
-        includeColumnRecursive(types, includes, 1);
-
-        return includes;
-    }
-
-    private static void includeColumnRecursive(List<Type> types, boolean[] result, int typeId)
-    {
-        result[typeId] = true;
-        Type type = types.get(typeId);
-        int children = type.getSubtypesCount();
-        for (int i = 0; i < children; ++i) {
-            includeColumnRecursive(types, result, type.getSubtypes(i));
-        }
-    }
-
     private static StandardStructObjectInspector createHiveStructInspector(ObjectInspector objectInspector)
     {
         return getStandardStructObjectInspector(ImmutableList.of("a", "b"), ImmutableList.of(objectInspector, objectInspector));
@@ -931,7 +997,7 @@ public class TestOrcReader
                 Map<Object, Object> map = new HashMap<>();
                 if (input == null) {
                     // json doesn't support null keys, so just write the previous value as the key
-                    map.put(previousInput, input);
+                    map.put(previousInput, null);
                 }
                 else {
                     map.put(input, input);
@@ -955,31 +1021,13 @@ public class TestOrcReader
                 Map<Object, Object> map = new HashMap<>();
                 if (input == null) {
                     // json doesn't support null keys, so just write the previous value as the key
-                    map.put(previousInput, input);
+                    map.put(previousInput, null);
                 }
                 else {
                     map.put(input, input);
                 }
                 previousInput = input;
                 return OBJECT_JSON_CODEC.toJson(map);
-            }
-        };
-    }
-
-    private static Function<Object, Object> toObjectMap()
-    {
-        return new Function<Object, Object>()
-        {
-            @Nullable
-            @Override
-            public Object apply(@Nullable Object input)
-            {
-                if (input instanceof Float) {
-                    input = ((Float) input).doubleValue();
-                }
-                Map<Object, Object> data = new LinkedHashMap<>();
-                data.put(input, input);
-                return data;
             }
         };
     }

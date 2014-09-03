@@ -13,10 +13,15 @@
  */
 package com.facebook.presto.hive.orc.stream;
 
+import com.facebook.presto.hive.orc.metadata.Type;
+
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 
+import static com.facebook.presto.hive.orc.metadata.Type.Kind.INT;
+import static com.facebook.presto.hive.orc.metadata.Type.Kind.LONG;
+import static com.facebook.presto.hive.orc.metadata.Type.Kind.SHORT;
 import static com.facebook.presto.hive.orc.stream.LongDecode.FixedBitSizes.FIFTY_SIX;
 import static com.facebook.presto.hive.orc.stream.LongDecode.FixedBitSizes.FORTY;
 import static com.facebook.presto.hive.orc.stream.LongDecode.FixedBitSizes.FORTY_EIGHT;
@@ -151,5 +156,32 @@ public final class LongDecode
     public static long zigzagDecode(long value)
     {
         return (value >>> 1) ^ -(value & 1);
+    }
+
+    public static long readDwrfLong(InputStream input, Type.Kind type, boolean signed, boolean usesVInt)
+            throws IOException
+    {
+        if (usesVInt) {
+            return readVInt(signed, input);
+        }
+        else if (type == SHORT) {
+            return input.read() | (input.read() << 8);
+        }
+        else if (type == INT) {
+            return input.read() | (input.read() << 8) | (input.read() << 16) | (input.read() << 24);
+        }
+        else if (type == LONG) {
+            return ((long) input.read()) |
+                    (((long) input.read()) << 8) |
+                    (((long) input.read()) << 16) |
+                    (((long) input.read()) << 24) |
+                    (((long) input.read()) << 32) |
+                    (((long) input.read()) << 40) |
+                    (((long) input.read()) << 48) |
+                    (((long) input.read()) << 56);
+        }
+        else {
+            throw new IllegalArgumentException(type + " type is not supported");
+        }
     }
 }

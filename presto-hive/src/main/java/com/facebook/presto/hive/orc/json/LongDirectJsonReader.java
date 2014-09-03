@@ -17,40 +17,30 @@ import com.facebook.presto.hive.orc.StreamDescriptor;
 import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
 import com.facebook.presto.hive.orc.stream.BooleanStream;
 import com.facebook.presto.hive.orc.stream.BooleanStreamSource;
-import com.facebook.presto.hive.orc.stream.ByteArrayStream;
-import com.facebook.presto.hive.orc.stream.ByteArrayStreamSource;
 import com.facebook.presto.hive.orc.stream.LongStream;
 import com.facebook.presto.hive.orc.stream.LongStreamSource;
 import com.facebook.presto.hive.orc.stream.StreamSources;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.base.Objects;
-import com.google.common.io.BaseEncoding;
-import com.google.common.primitives.Ints;
 
 import java.io.IOException;
 import java.util.List;
 
 import static com.facebook.presto.hive.orc.metadata.Stream.Kind.DATA;
-import static com.facebook.presto.hive.orc.metadata.Stream.Kind.LENGTH;
 import static com.facebook.presto.hive.orc.metadata.Stream.Kind.PRESENT;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
-public class SliceDirectJsonReader
+public class LongDirectJsonReader
         implements JsonMapKeyReader
 {
     private final StreamDescriptor streamDescriptor;
-    private final boolean writeBinary;
 
     private BooleanStream presentStream;
-    private LongStream lengthStream;
-    private ByteArrayStream dataStream;
-    private byte[] data = new byte[1024];
+    private LongStream dataStream;
 
-    public SliceDirectJsonReader(StreamDescriptor streamDescriptor, boolean writeBinary)
+    public LongDirectJsonReader(StreamDescriptor streamDescriptor)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
-        this.writeBinary = writeBinary;
     }
 
     @Override
@@ -62,19 +52,7 @@ public class SliceDirectJsonReader
             return;
         }
 
-        int length = Ints.checkedCast(lengthStream.next());
-        if (data.length < length) {
-            data = new byte[length];
-        }
-        if (length > 0) {
-            dataStream.next(length, data);
-        }
-        if (writeBinary) {
-            generator.writeBinary(data, 0, length);
-        }
-        else {
-            generator.writeUTF8String(data, 0, length);
-        }
+        generator.writeNumber(dataStream.next());
     }
 
     @Override
@@ -85,19 +63,7 @@ public class SliceDirectJsonReader
             return null;
         }
 
-        int length = Ints.checkedCast(lengthStream.next());
-        if (data.length < length) {
-            data = new byte[length];
-        }
-        if (length > 0) {
-            dataStream.next(length, data);
-        }
-        if (writeBinary) {
-            return BaseEncoding.base64().encode(data, 0, length);
-        }
-        else {
-            return new String(data, 0, length, UTF_8);
-        }
+        return String.valueOf(dataStream.next());
     }
 
     @Override
@@ -109,13 +75,8 @@ public class SliceDirectJsonReader
             skipSize = presentStream.countBitsSet(skipSize);
         }
 
-        // skip non-null length
-        long dataSkipSize = lengthStream.sum(skipSize);
-
-        // skip data bytes
-        if (dataSkipSize > 0) {
-            dataStream.skip(dataSkipSize);
-        }
+        // skip non-null values
+        dataStream.skip(skipSize);
     }
 
     @Override
@@ -123,7 +84,6 @@ public class SliceDirectJsonReader
             throws IOException
     {
         presentStream = null;
-        lengthStream = null;
         dataStream = null;
     }
 
@@ -139,11 +99,12 @@ public class SliceDirectJsonReader
             presentStream = null;
         }
 
-        lengthStream = dataStreamSources.getStreamSource(streamDescriptor, LENGTH, LongStreamSource.class).openStream();
-
-        ByteArrayStreamSource dataStreamSource = dataStreamSources.getStreamSourceIfPresent(streamDescriptor, DATA, ByteArrayStreamSource.class);
+        LongStreamSource dataStreamSource = dataStreamSources.getStreamSourceIfPresent(streamDescriptor, DATA, LongStreamSource.class);
         if (dataStreamSource != null) {
             dataStream = dataStreamSource.openStream();
+        }
+        else {
+            dataStream = null;
         }
     }
 

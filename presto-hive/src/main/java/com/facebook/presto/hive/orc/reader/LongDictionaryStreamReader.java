@@ -13,30 +13,28 @@
  */
 package com.facebook.presto.hive.orc.reader;
 
-import com.facebook.presto.hive.orc.SliceVector;
+import com.facebook.presto.hive.orc.LongVector;
 import com.facebook.presto.hive.orc.StreamDescriptor;
 import com.facebook.presto.hive.orc.Vector;
 import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
 import com.facebook.presto.hive.orc.stream.BooleanStream;
 import com.facebook.presto.hive.orc.stream.BooleanStreamSource;
-import com.facebook.presto.hive.orc.stream.ByteArrayStream;
-import com.facebook.presto.hive.orc.stream.ByteArrayStreamSource;
 import com.facebook.presto.hive.orc.stream.LongStream;
 import com.facebook.presto.hive.orc.stream.LongStreamSource;
 import com.facebook.presto.hive.orc.stream.StreamSources;
 import com.google.common.base.Objects;
-import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.hive.orc.metadata.Stream.Kind.DATA;
-import static com.facebook.presto.hive.orc.metadata.Stream.Kind.LENGTH;
+import static com.facebook.presto.hive.orc.metadata.Stream.Kind.DICTIONARY_DATA;
+import static com.facebook.presto.hive.orc.metadata.Stream.Kind.IN_DICTIONARY;
 import static com.facebook.presto.hive.orc.metadata.Stream.Kind.PRESENT;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class SliceDirectStreamReader
+public class LongDictionaryStreamReader
         implements StreamReader
 {
     private final StreamDescriptor streamDescriptor;
@@ -46,16 +44,19 @@ public class SliceDirectStreamReader
 
     private BooleanStreamSource presentStreamSource;
     private BooleanStream presentStream;
-    private final boolean[] isNullVector = new boolean[Vector.MAX_VECTOR_LENGTH];
 
-    private LongStreamSource lengthStreamSource;
-    private LongStream lengthStream;
-    private final int[] lengthVector = new int[Vector.MAX_VECTOR_LENGTH];
+    private LongStreamSource dictionaryDataStreamSource;
+    private int dictionarySize;
+    private long[] dictionary = new long[0];
 
-    private ByteArrayStreamSource dataByteSource;
-    private ByteArrayStream dataStream;
+    private BooleanStreamSource inDictionaryStreamSource;
+    private BooleanStream inDictionaryStream;
+    private final boolean[] inDictionary = new boolean[Vector.MAX_VECTOR_LENGTH];
 
-    public SliceDirectStreamReader(StreamDescriptor streamDescriptor)
+    private LongStreamSource dataStreamSource;
+    private LongStream dataStream;
+
+    public LongDictionaryStreamReader(StreamDescriptor streamDescriptor)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
     }
@@ -71,7 +72,7 @@ public class SliceDirectStreamReader
     public void readBatch(Object vector)
             throws IOException
     {
-        if (presentStream == null && lengthStream == null) {
+        if (dataStream == null) {
             openStreams();
         }
 
@@ -81,41 +82,37 @@ public class SliceDirectStreamReader
                 // and use this as the skip size for the length reader
                 skipSize = presentStream.countBitsSet(skipSize);
             }
-            long dataSkipSize = lengthStream.sum(skipSize);
-            if (dataSkipSize > 0) {
-                dataStream.skip(dataSkipSize);
+
+            if (inDictionaryStreamSource != null) {
+                inDictionaryStream.skip(skipSize);
             }
+
+            dataStream.skip(skipSize);
         }
 
-        SliceVector sliceVector = (SliceVector) vector;
+        LongVector longVector = (LongVector) vector;
+
         if (presentStream == null) {
-            lengthStream.nextIntVector(nextBatchSize, lengthVector);
+            Arrays.fill(longVector.isNull, false);
+            dataStream.nextLongVector(nextBatchSize, longVector.vector);
         }
         else {
-            presentStream.getUnsetBits(nextBatchSize, isNullVector);
-            if (lengthStream != null) {
-                lengthStream.nextIntVector(nextBatchSize, lengthVector, isNullVector);
-            }
+            presentStream.getUnsetBits(nextBatchSize, longVector.isNull);
+            dataStream.nextLongVector(nextBatchSize, longVector.vector, longVector.isNull);
         }
 
-        int totalLength = 0;
-        for (int i = 0; i < nextBatchSize; i++) {
-            if (!isNullVector[i]) {
-                totalLength += lengthVector[i];
-            }
+        if (inDictionaryStream == null) {
+            Arrays.fill(inDictionary, true);
+        }
+        else {
+            inDictionaryStream.getSetBits(nextBatchSize, inDictionary, longVector.isNull);
         }
 
-        byte[] data = totalLength > 0 ? dataStream.next(totalLength) : new byte[0];
-
-        int offset = 0;
         for (int i = 0; i < nextBatchSize; i++) {
-            if (!isNullVector[i]) {
-                int length = lengthVector[i];
-                sliceVector.slice[i] = Slices.wrappedBuffer(data, offset, length);
-                offset += length;
-            }
-            else {
-                sliceVector.slice[i] = null;
+            if (!longVector.isNull[i]) {
+                if (inDictionary[i]) {
+                    longVector.vector[i] = dictionary[((int) longVector.vector[i])];
+                }
             }
         }
 
@@ -126,37 +123,53 @@ public class SliceDirectStreamReader
     private void openStreams()
             throws IOException
     {
+        // read the dictionary
+        if (dictionaryDataStreamSource != null) {
+            if (dictionary.length < dictionarySize) {
+                dictionary = new long[dictionarySize];
+            }
+
+            // read dictionary data
+            LongStream dictionaryStream = dictionaryDataStreamSource.openStream();
+            dictionaryStream.nextLongVector(dictionarySize, dictionary);
+        }
+
+        // open present stream
         if (presentStreamSource != null) {
             if (presentStream == null) {
                 presentStream = presentStreamSource.openStream();
             }
         }
 
-        if (lengthStreamSource != null) {
-            lengthStream = lengthStreamSource.openStream();
+        // open in dictionary stream
+        if (inDictionaryStreamSource != null) {
+            if (inDictionaryStream == null) {
+                inDictionaryStream = inDictionaryStreamSource.openStream();
+            }
         }
 
-        if (dataByteSource != null) {
-            dataStream = dataByteSource.openStream();
-        }
+        // open data stream
+        dataStream = dataStreamSource.openStream();
     }
 
     @Override
     public void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
+        dictionaryDataStreamSource = dictionaryStreamSources.getStreamSource(streamDescriptor, DICTIONARY_DATA, LongStreamSource.class);
+        inDictionaryStreamSource = null;
         presentStreamSource = null;
-        lengthStreamSource = null;
-        dataByteSource = null;
+        dataStreamSource = null;
+
+        dictionarySize = encoding.get(streamDescriptor.getStreamId()).getDictionarySize();
 
         skipSize = 0;
         nextBatchSize = 0;
 
-        Arrays.fill(isNullVector, false);
-
         presentStream = null;
-        lengthStream = null;
         dataStream = null;
+
+        dictionary = new long[0];
     }
 
     @Override
@@ -164,17 +177,13 @@ public class SliceDirectStreamReader
             throws IOException
     {
         presentStreamSource = dataStreamSources.getStreamSourceIfPresent(streamDescriptor, PRESENT, BooleanStreamSource.class);
-        lengthStreamSource = dataStreamSources.getStreamSourceIfPresent(streamDescriptor, LENGTH, LongStreamSource.class);
-        dataByteSource = dataStreamSources.getStreamSourceIfPresent(streamDescriptor, DATA, ByteArrayStreamSource.class);
+        inDictionaryStreamSource = dataStreamSources.getStreamSourceIfPresent(streamDescriptor, IN_DICTIONARY, BooleanStreamSource.class);
+        dataStreamSource = dataStreamSources.getStreamSource(streamDescriptor, DATA, LongStreamSource.class);
 
         skipSize = 0;
         nextBatchSize = 0;
 
-        if (presentStreamSource == null) {
-            Arrays.fill(isNullVector, false);
-        }
         presentStream = null;
-        lengthStream = null;
         dataStream = null;
     }
 

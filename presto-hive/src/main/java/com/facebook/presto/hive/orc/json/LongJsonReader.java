@@ -15,10 +15,6 @@ package com.facebook.presto.hive.orc.json;
 
 import com.facebook.presto.hive.orc.StreamDescriptor;
 import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
-import com.facebook.presto.hive.orc.stream.BooleanStream;
-import com.facebook.presto.hive.orc.stream.BooleanStreamSource;
-import com.facebook.presto.hive.orc.stream.LongStream;
-import com.facebook.presto.hive.orc.stream.LongStreamSource;
 import com.facebook.presto.hive.orc.stream.StreamSources;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.base.Objects;
@@ -26,8 +22,11 @@ import com.google.common.base.Objects;
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.hive.orc.metadata.Stream.Kind.DATA;
-import static com.facebook.presto.hive.orc.metadata.Stream.Kind.PRESENT;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.Kind.DICTIONARY;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.Kind.DICTIONARY_V2;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.Kind.DIRECT;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.Kind.DIRECT_V2;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.Kind.DWRF_DIRECT;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class LongJsonReader
@@ -35,71 +34,61 @@ public class LongJsonReader
 {
     private final StreamDescriptor streamDescriptor;
 
-    private BooleanStream presentStream;
-    private LongStream dataStream;
+    private final LongDirectJsonReader directReader;
+    private final LongDictionaryJsonReader dictionaryReader;
+    private JsonMapKeyReader currentReader;
 
     public LongJsonReader(StreamDescriptor streamDescriptor)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
+        directReader = new LongDirectJsonReader(streamDescriptor);
+        dictionaryReader = new LongDictionaryJsonReader(streamDescriptor);
     }
 
     @Override
     public void readNextValueInto(JsonGenerator generator)
             throws IOException
     {
-        if (presentStream != null && !presentStream.nextBit()) {
-            generator.writeNull();
-            return;
-        }
-
-        generator.writeNumber(dataStream.next());
+        currentReader.readNextValueInto(generator);
     }
 
     @Override
     public String nextValueAsMapKey()
             throws IOException
     {
-        if (presentStream != null && !presentStream.nextBit()) {
-            return null;
-        }
-
-        return String.valueOf(dataStream.next());
+        return currentReader.nextValueAsMapKey();
     }
 
     @Override
     public void skip(int skipSize)
             throws IOException
     {
-        // skip nulls
-        if (presentStream != null) {
-            skipSize = presentStream.countBitsSet(skipSize);
-        }
-
-        // skip non-null values
-        dataStream.skip(skipSize);
+        currentReader.skip(skipSize);
     }
 
     @Override
     public void openStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
-        presentStream = null;
-        dataStream = null;
+        ColumnEncoding.Kind kind = encoding.get(streamDescriptor.getStreamId()).getKind();
+        if (kind == DIRECT || kind == DIRECT_V2 || kind == DWRF_DIRECT) {
+            currentReader = directReader;
+        }
+        else if (kind == DICTIONARY || kind == DICTIONARY_V2) {
+            currentReader = dictionaryReader;
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported encoding " + kind);
+        }
+
+        currentReader.openStripe(dictionaryStreamSources, encoding);
     }
 
     @Override
     public void openRowGroup(StreamSources dataStreamSources)
             throws IOException
     {
-        BooleanStreamSource presentStreamSource = dataStreamSources.getStreamSourceIfPresent(streamDescriptor, PRESENT, BooleanStreamSource.class);
-        if (presentStreamSource != null) {
-            presentStream = presentStreamSource.openStream();
-        }
-        else {
-            presentStream = null;
-        }
-
-        dataStream = dataStreamSources.getStreamSource(streamDescriptor, DATA, LongStreamSource.class).openStream();
+        currentReader.openRowGroup(dataStreamSources);
     }
 
     @Override

@@ -55,6 +55,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hive.serde2.ReaderWriterProfiler;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
@@ -920,6 +922,27 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
+    public void testTypesDwrfRecordCursor()
+            throws Exception
+    {
+        if (metadata.getTableHandle(SESSION, new SchemaTableName(database, "presto_test_types_dwrf")) == null) {
+            return;
+        }
+
+        ConnectorTableHandle tableHandle = getTableHandle(new SchemaTableName(database, "presto_test_types_dwrf"));
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
+        HiveSplit hiveSplit = getHiveSplit(tableHandle);
+        List<HiveColumnHandle> columnHandles = ImmutableList.copyOf(transform(metadata.getColumnHandles(tableHandle).values(), hiveColumnHandle()));
+
+        ReaderWriterProfiler.setProfilerOptions(new Configuration());
+
+        HiveRecordSet hiveRecordSet = new HiveRecordSet(hdfsEnvironment, hiveSplit, columnHandles, ImmutableSet.<HiveRecordCursorProvider>of(new DwrfRecordCursorProvider()), timeZone, TYPE_MANAGER);
+
+        ConnectorPageSource pageSource = new RecordPageSource(hiveRecordSet);
+        assertGetRecords("dwrf", tableMetadata, hiveSplit, pageSource, columnHandles);
+    }
+
+    @Test
     public void testHiveViewsAreNotSupported()
             throws Exception
     {
@@ -1506,6 +1529,8 @@ public abstract class AbstractTestHiveClient
                 return ColumnarBinaryHiveRecordCursor.class;
             case "orc":
                 return OrcHiveRecordCursor.class;
+            case "dwrf":
+                return DwrfHiveRecordCursor.class;
             case "parquet":
                 return ParquetHiveRecordCursor.class;
         }

@@ -26,7 +26,7 @@ public class Stream
         DICTIONARY_COUNT,
         SECONDARY,
         ROW_INDEX,
-        NANO_DATA,
+//        NANO_DATA,
         IN_DICTIONARY,
         STRIDE_DICTIONARY,
         STRIDE_DICTIONARY_LENGTH,
@@ -35,12 +35,14 @@ public class Stream
     private final int column;
     private final Kind kind;
     private final int length;
+    private final boolean useVInts;
 
-    public Stream(int column, Kind kind, int length)
+    public Stream(int column, Kind kind, int length, boolean useVInts)
     {
         this.column = column;
         this.kind = kind;
         this.length = length;
+        this.useVInts = useVInts;
     }
 
     public int getColumn()
@@ -58,6 +60,11 @@ public class Stream
         return length;
     }
 
+    public boolean isUseVInts()
+    {
+        return useVInts;
+    }
+
     @Override
     public String toString()
     {
@@ -65,6 +72,7 @@ public class Stream
                 .add("column", column)
                 .add("kind", kind)
                 .add("length", length)
+                .add("useVInts", useVInts)
                 .toString();
     }
 }

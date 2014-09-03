@@ -97,6 +97,7 @@ public class HiveClientModule
 
         Multibinder<HivePageSourceFactory> dataStreamFactoryBinder = Multibinder.newSetBinder(binder, HivePageSourceFactory.class);
         dataStreamFactoryBinder.addBinding().to(OrcPageSourceFactory.class).in(Scopes.SINGLETON);
+        dataStreamFactoryBinder.addBinding().to(DwrfPageSourceFactory.class).in(Scopes.SINGLETON);
     }
 
     @ForHiveClient

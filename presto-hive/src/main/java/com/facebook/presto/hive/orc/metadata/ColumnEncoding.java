@@ -23,6 +23,7 @@ public class ColumnEncoding
         DICTIONARY,
         DIRECT_V2,
         DICTIONARY_V2,
+        DWRF_DIRECT,
     }
 
     private final Kind kind;

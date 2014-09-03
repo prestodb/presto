@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.hive.orc.metadata;
 
-import com.facebook.presto.hive.shaded.com.google.protobuf.CodedInputStream;
+import com.facebook.hive.orc.OrcProto;
+import com.facebook.hive.orc.OrcProto.ColumnEncoding.Kind;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.RowIndexEntry;
+import com.google.protobuf.CodedInputStream;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,8 +28,9 @@ import java.util.List;
 import static com.facebook.presto.hive.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.hive.orc.metadata.CompressionKind.UNCOMPRESSED;
 import static com.facebook.presto.hive.orc.metadata.CompressionKind.ZLIB;
+import static com.google.common.base.Preconditions.checkArgument;
 
-public class OrcMetadataReader
+public class DwrfMetadataReader
         implements MetadataReader
 {
     @Override
@@ -40,9 +41,9 @@ public class OrcMetadataReader
         OrcProto.PostScript postScript = OrcProto.PostScript.parseFrom(input);
 
         return new PostScript(
-                postScript.getVersionList(),
+                ImmutableList.<Integer>of(),
                 postScript.getFooterLength(),
-                postScript.getMetadataLength(),
+                0,
                 toCompression(postScript.getCompression()),
                 postScript.getCompressionBlockSize());
     }
@@ -51,26 +52,7 @@ public class OrcMetadataReader
     public Metadata readMetadata(InputStream inputStream)
             throws IOException
     {
-        CodedInputStream input = CodedInputStream.newInstance(inputStream);
-        OrcProto.Metadata metadata = OrcProto.Metadata.parseFrom(input);
-        return new Metadata(toStripeStatistics(metadata.getStripeStatsList()));
-    }
-
-    public static List<StripeStatistics> toStripeStatistics(List<OrcProto.StripeStatistics> types)
-    {
-        return ImmutableList.copyOf(Iterables.transform(types, new Function<OrcProto.StripeStatistics, StripeStatistics>()
-        {
-            @Override
-            public StripeStatistics apply(OrcProto.StripeStatistics type)
-            {
-                return toStripeStatistics(type);
-            }
-        }));
-    }
-
-    public static StripeStatistics toStripeStatistics(OrcProto.StripeStatistics stripeStatistics)
-    {
-        return new StripeStatistics(toColumnStatistics(stripeStatistics.getColStatsList()));
+        return new Metadata(ImmutableList.<StripeStatistics>of());
     }
 
     @Override
@@ -115,12 +97,12 @@ public class OrcMetadataReader
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         OrcProto.StripeFooter stripeFooter = OrcProto.StripeFooter.parseFrom(input);
-        return new StripeFooter(toStream(stripeFooter.getStreamsList()), toColumnEncoding(stripeFooter.getColumnsList()));
+        return new StripeFooter(toStream(stripeFooter.getStreamsList()), toColumnEncoding(types, stripeFooter.getColumnsList()));
     }
 
     public static Stream toStream(OrcProto.Stream stream)
     {
-        return new Stream(stream.getColumn(), toStreamKind(stream.getKind()), Ints.checkedCast(stream.getLength()), true);
+        return new Stream(stream.getColumn(), toStreamKind(stream.getKind()), Ints.checkedCast(stream.getLength()), stream.getUseVInts());
     }
 
     public static List<Stream> toStream(List<OrcProto.Stream> streams)
@@ -135,21 +117,21 @@ public class OrcMetadataReader
         }));
     }
 
-    public static ColumnEncoding toColumnEncoding(OrcProto.ColumnEncoding columnEncoding)
+    public static ColumnEncoding toColumnEncoding(Type.Kind type, OrcProto.ColumnEncoding columnEncoding)
     {
-        return new ColumnEncoding(toColumnEncodingKind(columnEncoding.getKind()), columnEncoding.getDictionarySize());
+        return new ColumnEncoding(toColumnEncodingKind(type, columnEncoding.getKind()), columnEncoding.getDictionarySize());
     }
 
-    public static List<ColumnEncoding> toColumnEncoding(List<OrcProto.ColumnEncoding> columnEncodings)
+    public static List<ColumnEncoding> toColumnEncoding(List<Type> types, List<OrcProto.ColumnEncoding> columnEncodings)
     {
-        return ImmutableList.copyOf(Iterables.transform(columnEncodings, new Function<OrcProto.ColumnEncoding, ColumnEncoding>()
-        {
-            @Override
-            public ColumnEncoding apply(OrcProto.ColumnEncoding columnEncoding)
-            {
-                return toColumnEncoding(columnEncoding);
-            }
-        }));
+        checkArgument(types.size() == columnEncodings.size());
+
+        ImmutableList.Builder<ColumnEncoding> encodings = ImmutableList.builder();
+        for (int i = 0; i < types.size(); i++) {
+            Type type = types.get(i);
+            encodings.add(toColumnEncoding(type.getKind(), columnEncodings.get(i)));
+        }
+        return encodings.build();
     }
 
     @Override
@@ -158,7 +140,7 @@ public class OrcMetadataReader
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         OrcProto.RowIndex rowIndex = OrcProto.RowIndex.parseFrom(input);
-        return ImmutableList.copyOf(Iterables.transform(rowIndex.getEntryList(), new Function<RowIndexEntry, RowGroupIndex>()
+        return ImmutableList.copyOf(Iterables.transform(rowIndex.getEntryList(), new Function<OrcProto.RowIndexEntry, RowGroupIndex>()
         {
             @Override
             public RowGroupIndex apply(OrcProto.RowIndexEntry rowIndexEntry)
@@ -168,20 +150,9 @@ public class OrcMetadataReader
         }));
     }
 
-    private static RowGroupIndex toRowGroupIndex(RowIndexEntry rowIndexEntry)
+    private static RowGroupIndex toRowGroupIndex(OrcProto.RowIndexEntry rowIndexEntry)
     {
         return new RowGroupIndex(rowIndexEntry.getPositionsList(), toColumnStatistics(rowIndexEntry.getStatistics()));
-    }
-
-    private static ColumnStatistics toColumnStatistics(OrcProto.ColumnStatistics statistics)
-    {
-        return new ColumnStatistics(
-                statistics.getNumberOfValues(),
-                toBucketStatistics(statistics.getBucketStatistics()),
-                toIntegerStatistics(statistics.getIntStatistics()),
-                toDoubleStatistics(statistics.getDoubleStatistics()),
-                toStringStatistics(statistics.getStringStatistics()),
-                toDateStatistics(statistics.getDateStatistics()));
     }
 
     public static List<ColumnStatistics> toColumnStatistics(List<OrcProto.ColumnStatistics> columnStatistics)
@@ -197,6 +168,17 @@ public class OrcMetadataReader
                 return toColumnStatistics(columnStatistics);
             }
         }));
+    }
+
+    private static ColumnStatistics toColumnStatistics(OrcProto.ColumnStatistics statistics)
+    {
+        return new ColumnStatistics(
+                statistics.getNumberOfValues(),
+                toBucketStatistics(statistics.getBucketStatistics()),
+                toIntegerStatistics(statistics.getIntStatistics()),
+                toDoubleStatistics(statistics.getDoubleStatistics()),
+                toStringStatistics(statistics.getStringStatistics()),
+                new DateStatistics(null, null));
     }
 
     private static BucketStatistics toBucketStatistics(OrcProto.BucketStatistics bucketStatistics)
@@ -223,13 +205,6 @@ public class OrcMetadataReader
         return new StringStatistics(
                 stringStatistics.hasMinimum() ? stringStatistics.getMinimum() : null,
                 stringStatistics.hasMaximum() ? stringStatistics.getMaximum() : null);
-    }
-
-    private static DateStatistics toDateStatistics(OrcProto.DateStatistics dateStatistics)
-    {
-        return new DateStatistics(
-                dateStatistics.hasMinimum() ? dateStatistics.getMinimum() : null,
-                dateStatistics.hasMaximum() ? dateStatistics.getMaximum() : null);
     }
 
     public static Type toType(OrcProto.Type type)
@@ -280,16 +255,8 @@ public class OrcMetadataReader
                 return Type.Kind.STRUCT;
             case UNION:
                 return Type.Kind.UNION;
-            case DECIMAL:
-                return Type.Kind.DECIMAL;
-            case DATE:
-                return Type.Kind.DATE;
-            case VARCHAR:
-                return Type.Kind.VARCHAR;
-            case CHAR:
-                return Type.Kind.CHAR;
             default:
-                throw new IllegalStateException(kind + " stream type not implemented yet");
+                throw new IllegalStateException(kind + " data type not implemented yet");
         }
     }
 
@@ -306,26 +273,33 @@ public class OrcMetadataReader
                 return Stream.Kind.DICTIONARY_DATA;
             case DICTIONARY_COUNT:
                 return Stream.Kind.DICTIONARY_COUNT;
-            case SECONDARY:
+            case NANO_DATA:
                 return Stream.Kind.SECONDARY;
             case ROW_INDEX:
                 return Stream.Kind.ROW_INDEX;
+            case IN_DICTIONARY:
+                return Stream.Kind.IN_DICTIONARY;
+            case STRIDE_DICTIONARY:
+                return Stream.Kind.STRIDE_DICTIONARY;
+            case STRIDE_DICTIONARY_LENGTH:
+                return Stream.Kind.STRIDE_DICTIONARY_LENGTH;
             default:
                 throw new IllegalStateException(kind + " stream type not implemented yet");
         }
     }
 
-    private static ColumnEncoding.Kind toColumnEncodingKind(OrcProto.ColumnEncoding.Kind kind)
+    private static ColumnEncoding.Kind toColumnEncodingKind(Type.Kind type, Kind kind)
     {
         switch (kind) {
             case DIRECT:
-                return ColumnEncoding.Kind.DIRECT;
-            case DIRECT_V2:
-                return ColumnEncoding.Kind.DIRECT_V2;
+                if (type == Type.Kind.SHORT || type == Type.Kind.INT || type == Type.Kind.LONG) {
+                    return ColumnEncoding.Kind.DWRF_DIRECT;
+                }
+                else {
+                    return ColumnEncoding.Kind.DIRECT;
+                }
             case DICTIONARY:
                 return ColumnEncoding.Kind.DICTIONARY;
-            case DICTIONARY_V2:
-                return ColumnEncoding.Kind.DICTIONARY_V2;
             default:
                 throw new IllegalStateException(kind + " stream encoding not implemented yet");
         }

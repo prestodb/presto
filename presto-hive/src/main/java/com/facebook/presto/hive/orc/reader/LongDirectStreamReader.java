@@ -13,30 +13,25 @@
  */
 package com.facebook.presto.hive.orc.reader;
 
-import com.facebook.presto.hive.orc.SliceVector;
+import com.facebook.presto.hive.orc.LongVector;
 import com.facebook.presto.hive.orc.StreamDescriptor;
-import com.facebook.presto.hive.orc.Vector;
 import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
 import com.facebook.presto.hive.orc.stream.BooleanStream;
 import com.facebook.presto.hive.orc.stream.BooleanStreamSource;
-import com.facebook.presto.hive.orc.stream.ByteArrayStream;
-import com.facebook.presto.hive.orc.stream.ByteArrayStreamSource;
 import com.facebook.presto.hive.orc.stream.LongStream;
 import com.facebook.presto.hive.orc.stream.LongStreamSource;
 import com.facebook.presto.hive.orc.stream.StreamSources;
 import com.google.common.base.Objects;
-import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.hive.orc.metadata.Stream.Kind.DATA;
-import static com.facebook.presto.hive.orc.metadata.Stream.Kind.LENGTH;
 import static com.facebook.presto.hive.orc.metadata.Stream.Kind.PRESENT;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class SliceDirectStreamReader
+public class LongDirectStreamReader
         implements StreamReader
 {
     private final StreamDescriptor streamDescriptor;
@@ -46,16 +41,11 @@ public class SliceDirectStreamReader
 
     private BooleanStreamSource presentStreamSource;
     private BooleanStream presentStream;
-    private final boolean[] isNullVector = new boolean[Vector.MAX_VECTOR_LENGTH];
 
-    private LongStreamSource lengthStreamSource;
-    private LongStream lengthStream;
-    private final int[] lengthVector = new int[Vector.MAX_VECTOR_LENGTH];
+    private LongStreamSource dataStreamSource;
+    private LongStream dataStream;
 
-    private ByteArrayStreamSource dataByteSource;
-    private ByteArrayStream dataStream;
-
-    public SliceDirectStreamReader(StreamDescriptor streamDescriptor)
+    public LongDirectStreamReader(StreamDescriptor streamDescriptor)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
     }
@@ -71,52 +61,27 @@ public class SliceDirectStreamReader
     public void readBatch(Object vector)
             throws IOException
     {
-        if (presentStream == null && lengthStream == null) {
+        if (dataStream == null) {
             openStreams();
         }
 
         if (skipSize != 0) {
             if (presentStreamSource != null) {
                 // skip ahead the present bit reader, but count the set bits
-                // and use this as the skip size for the length reader
+                // and use this as the skip size for the data reader
                 skipSize = presentStream.countBitsSet(skipSize);
             }
-            long dataSkipSize = lengthStream.sum(skipSize);
-            if (dataSkipSize > 0) {
-                dataStream.skip(dataSkipSize);
-            }
+            dataStream.skip(skipSize);
         }
 
-        SliceVector sliceVector = (SliceVector) vector;
+        LongVector longVector = (LongVector) vector;
         if (presentStream == null) {
-            lengthStream.nextIntVector(nextBatchSize, lengthVector);
+            Arrays.fill(longVector.isNull, false);
+            dataStream.nextLongVector(nextBatchSize, longVector.vector);
         }
         else {
-            presentStream.getUnsetBits(nextBatchSize, isNullVector);
-            if (lengthStream != null) {
-                lengthStream.nextIntVector(nextBatchSize, lengthVector, isNullVector);
-            }
-        }
-
-        int totalLength = 0;
-        for (int i = 0; i < nextBatchSize; i++) {
-            if (!isNullVector[i]) {
-                totalLength += lengthVector[i];
-            }
-        }
-
-        byte[] data = totalLength > 0 ? dataStream.next(totalLength) : new byte[0];
-
-        int offset = 0;
-        for (int i = 0; i < nextBatchSize; i++) {
-            if (!isNullVector[i]) {
-                int length = lengthVector[i];
-                sliceVector.slice[i] = Slices.wrappedBuffer(data, offset, length);
-                offset += length;
-            }
-            else {
-                sliceVector.slice[i] = null;
-            }
+            presentStream.getUnsetBits(nextBatchSize, longVector.isNull);
+            dataStream.nextLongVector(nextBatchSize, longVector.vector, longVector.isNull);
         }
 
         skipSize = 0;
@@ -132,13 +97,7 @@ public class SliceDirectStreamReader
             }
         }
 
-        if (lengthStreamSource != null) {
-            lengthStream = lengthStreamSource.openStream();
-        }
-
-        if (dataByteSource != null) {
-            dataStream = dataByteSource.openStream();
-        }
+        dataStream = dataStreamSource.openStream();
     }
 
     @Override
@@ -146,16 +105,12 @@ public class SliceDirectStreamReader
             throws IOException
     {
         presentStreamSource = null;
-        lengthStreamSource = null;
-        dataByteSource = null;
+        dataStreamSource = null;
 
         skipSize = 0;
         nextBatchSize = 0;
 
-        Arrays.fill(isNullVector, false);
-
         presentStream = null;
-        lengthStream = null;
         dataStream = null;
     }
 
@@ -164,17 +119,12 @@ public class SliceDirectStreamReader
             throws IOException
     {
         presentStreamSource = dataStreamSources.getStreamSourceIfPresent(streamDescriptor, PRESENT, BooleanStreamSource.class);
-        lengthStreamSource = dataStreamSources.getStreamSourceIfPresent(streamDescriptor, LENGTH, LongStreamSource.class);
-        dataByteSource = dataStreamSources.getStreamSourceIfPresent(streamDescriptor, DATA, ByteArrayStreamSource.class);
+        dataStreamSource = dataStreamSources.getStreamSource(streamDescriptor, DATA, LongStreamSource.class);
 
         skipSize = 0;
         nextBatchSize = 0;
 
-        if (presentStreamSource == null) {
-            Arrays.fill(isNullVector, false);
-        }
         presentStream = null;
-        lengthStream = null;
         dataStream = null;
     }
 

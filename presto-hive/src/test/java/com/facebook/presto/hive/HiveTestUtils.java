@@ -30,8 +30,9 @@ public final class HiveTestUtils
 
     public static final TypeManager TYPE_MANAGER = new TypeRegistry();
 
-    public static final ImmutableSet<HivePageSourceFactory> DEFAULT_HIVE_DATA_STREAM_FACTORIES = ImmutableSet.<HivePageSourceFactory>of(
-            new OrcPageSourceFactory(TYPE_MANAGER));
+    public static final ImmutableSet<HivePageSourceFactory> DEFAULT_HIVE_DATA_STREAM_FACTORIES = ImmutableSet.of(
+            new OrcPageSourceFactory(TYPE_MANAGER),
+            new DwrfPageSourceFactory(TYPE_MANAGER));
 
     public static final ImmutableSet<HiveRecordCursorProvider> DEFAULT_HIVE_RECORD_CURSOR_PROVIDER = ImmutableSet.of(
             new OrcRecordCursorProvider(),

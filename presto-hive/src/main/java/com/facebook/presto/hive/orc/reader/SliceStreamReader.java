@@ -21,6 +21,7 @@ import com.google.common.base.Objects;
 import java.io.IOException;
 import java.util.List;
 
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.Kind.DWRF_DIRECT;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.Kind.DICTIONARY;
 import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.Kind.DICTIONARY_V2;
@@ -60,7 +61,7 @@ public class SliceStreamReader
             throws IOException
     {
         ColumnEncoding.Kind kind = encoding.get(streamDescriptor.getStreamId()).getKind();
-        if (kind == DIRECT || kind == DIRECT_V2) {
+        if (kind == DIRECT || kind == DIRECT_V2 || kind == DWRF_DIRECT) {
             currentReader = directReader;
         }
         else if (kind == DICTIONARY || kind == DICTIONARY_V2) {

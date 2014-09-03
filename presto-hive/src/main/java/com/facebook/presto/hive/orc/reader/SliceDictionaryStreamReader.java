@@ -24,6 +24,7 @@ import com.facebook.presto.hive.orc.stream.ByteArrayStreamSource;
 import com.facebook.presto.hive.orc.stream.LongStream;
 import com.facebook.presto.hive.orc.stream.LongStreamSource;
 import com.facebook.presto.hive.orc.stream.StreamSources;
+import com.facebook.presto.hive.orc.stream.StrideDictionaryLengthStreamSource;
 import com.google.common.base.Objects;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -32,11 +33,14 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.facebook.presto.hive.orc.metadata.Stream.Kind.DATA;
 import static com.facebook.presto.hive.orc.metadata.Stream.Kind.DICTIONARY_DATA;
+import static com.facebook.presto.hive.orc.metadata.Stream.Kind.IN_DICTIONARY;
 import static com.facebook.presto.hive.orc.metadata.Stream.Kind.LENGTH;
 import static com.facebook.presto.hive.orc.metadata.Stream.Kind.PRESENT;
+import static com.facebook.presto.hive.orc.metadata.Stream.Kind.STRIDE_DICTIONARY;
+import static com.facebook.presto.hive.orc.metadata.Stream.Kind.STRIDE_DICTIONARY_LENGTH;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SliceDictionaryStreamReader
         implements StreamReader
@@ -56,6 +60,16 @@ public class SliceDictionaryStreamReader
 
     private LongStreamSource dictionaryLengthStreamSource;
     private int[] dictionaryLength = new int[0];
+
+    private BooleanStreamSource inDictionaryStreamSource;
+    private BooleanStream inDictionaryStream;
+    private final boolean[] inDictionary = new boolean[Vector.MAX_VECTOR_LENGTH];
+
+    private ByteArrayStreamSource strideDictionaryDataStreamSource;
+    private Slice[] strideDictionary = new Slice[0];
+
+    private StrideDictionaryLengthStreamSource strideDictionaryLengthStreamSource;
+    private int[] strideDictionaryLength = new int[0];
 
     private LongStreamSource dataStreamSource;
     private LongStream dataStream;
@@ -87,6 +101,9 @@ public class SliceDictionaryStreamReader
                 // and use this as the skip size for the length reader
                 skipSize = presentStream.countBitsSet(skipSize);
             }
+            if (inDictionaryStream != null) {
+                inDictionaryStream.skip(skipSize);
+            }
             dataStream.skip(skipSize);
         }
 
@@ -111,9 +128,21 @@ public class SliceDictionaryStreamReader
             }
         }
 
+        if (inDictionaryStream == null) {
+            Arrays.fill(inDictionary, true);
+        }
+        else {
+            inDictionaryStream.getSetBits(nextBatchSize, inDictionary, isNullVector);
+        }
+
         for (int i = 0; i < nextBatchSize; i++) {
             if (!isNullVector[i]) {
-                sliceVector.slice[i] = dictionary[dataVector[i]];
+                if (inDictionary[i]) {
+                    sliceVector.slice[i] = dictionary[dataVector[i]];
+                }
+                else {
+                    sliceVector.slice[i] = strideDictionary[dataVector[i]];
+                }
             }
             else {
                 sliceVector.slice[i] = null;
@@ -129,7 +158,7 @@ public class SliceDictionaryStreamReader
     {
         // read the dictionary
         if (dictionaryDataStreamSource != null) {
-            // initialize offset and length arrays
+            // resize the dictionary array if necessary
             if (dictionary.length < dictionarySize) {
                 dictionary = new Slice[dictionarySize];
                 dictionaryLength = new int[dictionarySize];
@@ -139,23 +168,7 @@ public class SliceDictionaryStreamReader
             LongStream lengthIntegerReader = dictionaryLengthStreamSource.openStream();
             lengthIntegerReader.nextIntVector(dictionarySize, dictionaryLength);
 
-            // sum lengths
-            int totalLength = 0;
-            for (int i = 0; i < dictionarySize; i++) {
-                totalLength += dictionaryLength[i];
-            }
-
-            // read dictionary data
-            ByteArrayStream dictionaryByteArrayStream = dictionaryDataStreamSource.openStream();
-            byte[] dictionaryData = dictionaryByteArrayStream.next(totalLength);
-
-            // build dictionary slices
-            int offset = 0;
-            for (int i = 0; i < dictionarySize; i++) {
-                int length = dictionaryLength[i];
-                dictionary[i] = Slices.wrappedBuffer(dictionaryData, offset, length);
-                offset += length;
-            }
+            readDictionary(dictionaryDataStreamSource, dictionarySize, dictionaryLength, dictionary);
         }
 
         // open present stream
@@ -163,6 +176,29 @@ public class SliceDictionaryStreamReader
             if (presentStream == null) {
                 presentStream = presentStreamSource.openStream();
             }
+        }
+
+        // read stride dictionary
+        if (inDictionaryStreamSource != null) {
+            if (inDictionaryStream == null) {
+                inDictionaryStream = inDictionaryStreamSource.openStream();
+            }
+        }
+
+        if (strideDictionaryLengthStreamSource != null) {
+            int dictionaryEntryCount = strideDictionaryLengthStreamSource.getEntryCount();
+
+            // resize the dictionary array if necessary
+            if (strideDictionary.length < dictionaryEntryCount) {
+                strideDictionary = new Slice[dictionaryEntryCount];
+                strideDictionaryLength = new int[dictionaryEntryCount];
+            }
+
+            // read the lengths
+            LongStream lengthStream = strideDictionaryLengthStreamSource.openStream();
+            lengthStream.nextIntVector(dictionaryEntryCount, strideDictionaryLength);
+
+            readDictionary(strideDictionaryDataStreamSource, dictionaryEntryCount, strideDictionaryLength, strideDictionary);
         }
 
         // open data stream
@@ -192,12 +228,47 @@ public class SliceDictionaryStreamReader
         dictionary = new Slice[0];
     }
 
+    private static void readDictionary(ByteArrayStreamSource dictionaryDataStreamSource, int dictionarySize, int[] dictionaryLength, Slice[] dictionary)
+            throws IOException
+    {
+        // sum lengths
+        int totalLength = 0;
+        for (int i = 0; i < dictionarySize; i++) {
+            totalLength += dictionaryLength[i];
+        }
+
+        // read dictionary data
+        ByteArrayStream dictionaryByteArrayStream = dictionaryDataStreamSource.openStream();
+        byte[] dictionaryData = new byte[0];
+        if (totalLength > 0) {
+            dictionaryData = dictionaryByteArrayStream.next(totalLength);
+        }
+
+        // build dictionary slices
+        int offset = 0;
+        for (int i = 0; i < dictionarySize; i++) {
+            int length = dictionaryLength[i];
+            dictionary[i] = Slices.wrappedBuffer(dictionaryData, offset, length);
+            offset += length;
+        }
+    }
+
     @Override
     public void startRowGroup(StreamSources dataStreamSources)
             throws IOException
     {
         presentStreamSource = dataStreamSources.getStreamSourceIfPresent(streamDescriptor, PRESENT, BooleanStreamSource.class);
         dataStreamSource = dataStreamSources.getStreamSourceIfPresent(streamDescriptor, DATA, LongStreamSource.class);
+
+        // the "in dictionary" stream signals if the value is in the stripe or stride dictionary
+        inDictionaryStreamSource = dataStreamSources.getStreamSourceIfPresent(streamDescriptor, IN_DICTIONARY, BooleanStreamSource.class);
+        strideDictionaryLengthStreamSource = dataStreamSources.getStreamSourceIfPresent(streamDescriptor, STRIDE_DICTIONARY_LENGTH, StrideDictionaryLengthStreamSource.class);
+        if (strideDictionaryLengthStreamSource != null) {
+            strideDictionaryDataStreamSource = dataStreamSources.getStreamSource(streamDescriptor, STRIDE_DICTIONARY, ByteArrayStreamSource.class);
+        }
+        else {
+            strideDictionaryDataStreamSource = null;
+        }
 
         skipSize = 0;
         nextBatchSize = 0;

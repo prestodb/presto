@@ -28,7 +28,7 @@ public interface MetadataReader
     Footer readFooter(InputStream inputStream)
             throws IOException;
 
-    StripeFooter readStripeFooter(InputStream inputStream)
+    StripeFooter readStripeFooter(List<Type> types, InputStream inputStream)
             throws IOException;
 
     List<RowGroupIndex> readRowIndexes(InputStream inputStream)
