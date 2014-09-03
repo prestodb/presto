@@ -155,7 +155,7 @@ public class ExpressionCompiler
         CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
         classDefinition.declareMethod(context, a(PUBLIC), "toString", type(String.class))
                 .getBody()
-                .append(invoke(context, callSiteBinder.bind(string, String.class)))
+                .append(invoke(context, callSiteBinder.bind(string, String.class), "toString"))
                 .retObject();
     }
 

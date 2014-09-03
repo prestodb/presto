@@ -331,8 +331,8 @@ public class PageProcessorCompiler
                         .pushJavaDefault(javaType);
 
                 MethodHandle target;
+                String methodName = "get" + Primitives.wrap(javaType).getSimpleName();
                 try {
-                    String methodName = "get" + Primitives.wrap(javaType).getSimpleName();
                     target = MethodHandles.lookup().findVirtual(type.getClass(), methodName, MethodType.methodType(javaType, com.facebook.presto.spi.block.Block.class, int.class));
                 }
                 catch (ReflectiveOperationException e) {
@@ -342,7 +342,7 @@ public class PageProcessorCompiler
                 Block isNotNull = new Block(context)
                         .getVariable("block_" + field)
                         .getVariable(positionVariable)
-                        .append(invoke(context, callSiteBinder.bind(target.bindTo(type))));
+                        .append(invoke(context, callSiteBinder.bind(target.bindTo(type)), methodName));
 
                 return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
