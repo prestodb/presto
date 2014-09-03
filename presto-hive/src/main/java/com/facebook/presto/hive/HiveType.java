@@ -21,10 +21,13 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Function;
-import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
+
+import javax.annotation.Nullable;
+
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -45,25 +48,46 @@ import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspe
 
 public enum HiveType
 {
-    BOOLEAN(BooleanType.BOOLEAN),
-    BYTE(BigintType.BIGINT),
-    SHORT(BigintType.BIGINT),
-    INT(BigintType.BIGINT),
-    LONG(BigintType.BIGINT),
-    FLOAT(DoubleType.DOUBLE),
-    DOUBLE(DoubleType.DOUBLE),
-    STRING(VarcharType.VARCHAR),
-    TIMESTAMP(TimestampType.TIMESTAMP),
-    BINARY(VarbinaryType.VARBINARY),
-    LIST(VarcharType.VARCHAR),
-    MAP(VarcharType.VARCHAR),
-    STRUCT(VarcharType.VARCHAR);
+    BOOLEAN(BooleanType.BOOLEAN, BOOLEAN_TYPE_NAME, PrimitiveCategory.BOOLEAN),
+    BYTE(BigintType.BIGINT, TINYINT_TYPE_NAME, PrimitiveCategory.BYTE),
+    SHORT(BigintType.BIGINT, SMALLINT_TYPE_NAME, PrimitiveCategory.SHORT),
+    INT(BigintType.BIGINT, INT_TYPE_NAME, PrimitiveCategory.INT),
+    LONG(BigintType.BIGINT, BIGINT_TYPE_NAME, PrimitiveCategory.LONG),
+    FLOAT(DoubleType.DOUBLE, FLOAT_TYPE_NAME, PrimitiveCategory.FLOAT),
+    DOUBLE(DoubleType.DOUBLE, DOUBLE_TYPE_NAME, PrimitiveCategory.DOUBLE),
+    STRING(VarcharType.VARCHAR, STRING_TYPE_NAME, PrimitiveCategory.STRING),
+    TIMESTAMP(TimestampType.TIMESTAMP, TIMESTAMP_TYPE_NAME, PrimitiveCategory.TIMESTAMP),
+    BINARY(VarbinaryType.VARBINARY, BINARY_TYPE_NAME, PrimitiveCategory.BINARY),
+    LIST(VarcharType.VARCHAR, LIST_TYPE_NAME, null),
+    MAP(VarcharType.VARCHAR, MAP_TYPE_NAME, null),
+    STRUCT(VarcharType.VARCHAR, STRUCT_TYPE_NAME, null);
 
     private final Type nativeType;
+    private final String hiveTypeName;
+    @Nullable
+    private final PrimitiveCategory primitiveCategory;
 
-    HiveType(Type nativeType)
+    HiveType(Type nativeType, String hiveTypeName, @Nullable PrimitiveCategory primitiveCategory)
     {
         this.nativeType = checkNotNull(nativeType, "nativeType is null");
+        this.hiveTypeName = checkNotNull(hiveTypeName, "hiveTypeName is null");
+        this.primitiveCategory = primitiveCategory;
+    }
+
+    private static final Map<String, HiveType> HIVE_TYPE_NAMES;
+    private static final Map<PrimitiveCategory, HiveType> PRIMITIVE_CATEGORIES;
+
+    static {
+        ImmutableBiMap.Builder<String, HiveType> typeMap = ImmutableBiMap.builder();
+        ImmutableBiMap.Builder<PrimitiveCategory, HiveType> categoryMap = ImmutableBiMap.builder();
+        for (HiveType type : values()) {
+            typeMap.put(type.getHiveTypeName(), type);
+            if (type.primitiveCategory != null) {
+                categoryMap.put(type.primitiveCategory, type);
+            }
+        }
+        HIVE_TYPE_NAMES = typeMap.build();
+        PRIMITIVE_CATEGORIES = categoryMap.build();
     }
 
     public Type getNativeType()
@@ -73,66 +97,22 @@ public enum HiveType
 
     public String getHiveTypeName()
     {
-        return HIVE_TYPE_NAMES.inverse().get(this);
+        return hiveTypeName;
     }
 
     public static HiveType getSupportedHiveType(PrimitiveCategory primitiveCategory)
     {
-        HiveType hiveType = getHiveType(primitiveCategory);
+        HiveType hiveType = PRIMITIVE_CATEGORIES.get(primitiveCategory);
         checkArgument(hiveType != null, "Unknown primitive Hive category: " + primitiveCategory);
         return hiveType;
     }
 
-    public static HiveType getHiveType(PrimitiveCategory primitiveCategory)
-    {
-        switch (primitiveCategory) {
-            case BOOLEAN:
-                return BOOLEAN;
-            case BYTE:
-                return BYTE;
-            case SHORT:
-                return SHORT;
-            case INT:
-                return INT;
-            case LONG:
-                return LONG;
-            case FLOAT:
-                return FLOAT;
-            case DOUBLE:
-                return DOUBLE;
-            case STRING:
-                return STRING;
-            case TIMESTAMP:
-                return TIMESTAMP;
-            case BINARY:
-                return BINARY;
-            default:
-                return null;
-        }
-    }
-
     public static HiveType getSupportedHiveType(String hiveTypeName)
     {
-        HiveType hiveType = getHiveType(hiveTypeName);
+        HiveType hiveType = HIVE_TYPE_NAMES.get(hiveTypeName);
         checkArgument(hiveType != null, "Unknown Hive type: " + hiveTypeName);
         return hiveType;
     }
-
-    private static final BiMap<String, HiveType> HIVE_TYPE_NAMES = ImmutableBiMap.<String, HiveType>builder()
-            .put(BOOLEAN_TYPE_NAME, BOOLEAN)
-            .put(TINYINT_TYPE_NAME, BYTE)
-            .put(SMALLINT_TYPE_NAME, SHORT)
-            .put(INT_TYPE_NAME, INT)
-            .put(BIGINT_TYPE_NAME, LONG)
-            .put(FLOAT_TYPE_NAME, FLOAT)
-            .put(DOUBLE_TYPE_NAME, DOUBLE)
-            .put(STRING_TYPE_NAME, STRING)
-            .put(TIMESTAMP_TYPE_NAME, TIMESTAMP)
-            .put(BINARY_TYPE_NAME, BINARY)
-            .put(LIST_TYPE_NAME, LIST)
-            .put(MAP_TYPE_NAME, MAP)
-            .put(STRUCT_TYPE_NAME, STRUCT)
-            .build();
 
     public static HiveType getHiveType(String hiveTypeName)
     {
@@ -150,7 +130,7 @@ public enum HiveType
     {
         switch (fieldInspector.getCategory()) {
             case PRIMITIVE:
-                return getHiveType(((PrimitiveObjectInspector) fieldInspector).getPrimitiveCategory());
+                return PRIMITIVE_CATEGORIES.get(((PrimitiveObjectInspector) fieldInspector).getPrimitiveCategory());
             case MAP:
                 return MAP;
             case LIST:
