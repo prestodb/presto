@@ -11,24 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.orc.reader;
+package com.facebook.presto.hive.orc.metadata;
 
-import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
-import com.facebook.presto.hive.orc.stream.StreamSources;
+import com.google.common.collect.ImmutableList;
 
-import java.io.IOException;
 import java.util.List;
 
-public interface StreamReader
+import static com.google.common.base.Preconditions.checkNotNull;
+
+public class StripeStatistics
 {
-    void readBatch(Object vector)
-            throws IOException;
+    private final List<ColumnStatistics> columnStatistics;
 
-    void setNextBatchSize(int batchSize);
+    public StripeStatistics(List<ColumnStatistics> columnStatistics)
+    {
+        this.columnStatistics = ImmutableList.copyOf(checkNotNull(columnStatistics, "columnStatistics is null"));
+    }
 
-    void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
-            throws IOException;
-
-    void startRowGroup(StreamSources dataStreamSources)
-            throws IOException;
+    public List<ColumnStatistics> getColumnStatistics()
+    {
+        return columnStatistics;
+    }
 }

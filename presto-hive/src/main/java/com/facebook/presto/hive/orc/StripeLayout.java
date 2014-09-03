@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.hive.orc;
 
+import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
 import com.facebook.presto.hive.orc.stream.StreamSource;
 import com.facebook.presto.hive.orc.stream.StreamSources;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding;
 
 import java.util.List;
 

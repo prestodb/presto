@@ -15,8 +15,8 @@ package com.facebook.presto.hive.orc.stream;
 
 import com.facebook.presto.hive.orc.StreamDescriptor;
 import com.facebook.presto.hive.orc.StreamId;
+import com.facebook.presto.hive.orc.metadata.Stream;
 import com.google.common.collect.ImmutableMap;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream;
 
 import java.util.Map;
 

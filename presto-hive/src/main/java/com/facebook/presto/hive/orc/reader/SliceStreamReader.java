@@ -14,18 +14,18 @@
 package com.facebook.presto.hive.orc.reader;
 
 import com.facebook.presto.hive.orc.StreamDescriptor;
+import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
 import com.facebook.presto.hive.orc.stream.StreamSources;
 import com.google.common.base.Objects;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding;
 
 import java.io.IOException;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding.Kind.DICTIONARY;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding.Kind.DICTIONARY_V2;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding.Kind.DIRECT;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding.Kind.DIRECT_V2;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.Kind.DICTIONARY;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.Kind.DICTIONARY_V2;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.Kind.DIRECT;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.Kind.DIRECT_V2;
 
 public class SliceStreamReader
         implements StreamReader

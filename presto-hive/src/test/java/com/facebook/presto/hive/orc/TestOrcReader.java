@@ -15,6 +15,7 @@ package com.facebook.presto.hive.orc;
 
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Function;
@@ -408,7 +409,7 @@ public class TestOrcReader
         Path path = new Path(tempFile.getFile().toURI());
         FileSystem fileSystem = path.getFileSystem(new Configuration());
 
-        OrcReader orcReader = new OrcReader(new HdfsOrcDataSource(path, fileSystem), TYPE_MANAGER);
+        OrcReader orcReader = new OrcReader(new HdfsOrcDataSource(path, fileSystem), new OrcMetadataReader(), TYPE_MANAGER);
         HiveColumnHandle columnHandle = new HiveColumnHandle("clientId", "col_0", 0, hiveType, hiveType.getHiveTypeName(), 0, false);
 
         return orcReader.createRecordReader(0, tempFile.getFile().length(), ImmutableList.of(columnHandle), TupleDomain.<HiveColumnHandle>all(), UTC, UTC);

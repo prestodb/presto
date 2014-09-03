@@ -11,24 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.orc.reader;
+package com.facebook.presto.hive.orc.metadata;
 
-import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
-import com.facebook.presto.hive.orc.stream.StreamSources;
-
-import java.io.IOException;
 import java.util.List;
 
-public interface StreamReader
+public class Metadata
 {
-    void readBatch(Object vector)
-            throws IOException;
+    private final List<StripeStatistics> stripeStatistics;
 
-    void setNextBatchSize(int batchSize);
+    public Metadata(List<StripeStatistics> stripeStatistics)
+    {
+        this.stripeStatistics = stripeStatistics;
+    }
 
-    void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
-            throws IOException;
-
-    void startRowGroup(StreamSources dataStreamSources)
-            throws IOException;
+    public List<StripeStatistics> getStripeStatsList()
+    {
+        return stripeStatistics;
+    }
 }

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.orc;
 
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream;
+import com.facebook.presto.hive.orc.metadata.Stream;
 
 import java.util.Objects;
 

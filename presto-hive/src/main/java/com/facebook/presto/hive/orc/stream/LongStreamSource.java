@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.hive.orc.stream;
 
+import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
 import com.google.common.base.Objects;
 import com.google.common.io.ByteSource;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding.Kind;
 
 import java.io.IOException;
+
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.Kind.DICTIONARY_V2;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.Kind.DIRECT_V2;
 
 public class LongStreamSource
         implements StreamSource<LongStream>
@@ -41,7 +43,7 @@ public class LongStreamSource
             throws IOException
     {
         LongStream integerStream;
-        if (encoding == Kind.DIRECT_V2 || encoding == Kind.DICTIONARY_V2) {
+        if (encoding == DIRECT_V2 || encoding == DICTIONARY_V2) {
             integerStream = new LongStreamV2(byteSource.openStream(), signed, false);
         }
         else {

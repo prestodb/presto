@@ -13,23 +13,23 @@
  */
 package com.facebook.presto.hive.orc.reader;
 
+import com.facebook.presto.hive.orc.LongVector;
+import com.facebook.presto.hive.orc.StreamDescriptor;
+import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
 import com.facebook.presto.hive.orc.stream.BooleanStream;
 import com.facebook.presto.hive.orc.stream.BooleanStreamSource;
 import com.facebook.presto.hive.orc.stream.ByteStream;
 import com.facebook.presto.hive.orc.stream.ByteStreamSource;
-import com.facebook.presto.hive.orc.LongVector;
-import com.facebook.presto.hive.orc.StreamDescriptor;
 import com.facebook.presto.hive.orc.stream.StreamSources;
 import com.google.common.base.Objects;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream.Kind.DATA;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream.Kind.PRESENT;
+import static com.facebook.presto.hive.orc.metadata.Stream.Kind.DATA;
+import static com.facebook.presto.hive.orc.metadata.Stream.Kind.PRESENT;
 
 public class ByteStreamReader
         implements StreamReader

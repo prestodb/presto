@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.hive.orc;
 
+import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
+import com.facebook.presto.hive.orc.metadata.CompressionKind;
+import com.facebook.presto.hive.orc.metadata.Type;
 import com.facebook.presto.hive.orc.reader.StreamSources;
 import com.facebook.presto.hive.orc.stream.StreamSource;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.CompressionKind;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.Type;
 
 import java.util.List;
 

@@ -13,34 +13,34 @@
  */
 package com.facebook.presto.hive.orc.reader;
 
-import com.facebook.presto.hive.orc.stream.OrcByteSource;
 import com.facebook.presto.hive.orc.StreamId;
+import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
+import com.facebook.presto.hive.orc.metadata.CompressionKind;
+import com.facebook.presto.hive.orc.metadata.Type;
 import com.facebook.presto.hive.orc.stream.BooleanStreamSource;
 import com.facebook.presto.hive.orc.stream.ByteArrayStreamSource;
 import com.facebook.presto.hive.orc.stream.ByteStreamSource;
 import com.facebook.presto.hive.orc.stream.DoubleStreamSource;
 import com.facebook.presto.hive.orc.stream.FloatStreamSource;
 import com.facebook.presto.hive.orc.stream.LongStreamSource;
+import com.facebook.presto.hive.orc.stream.OrcByteSource;
 import com.facebook.presto.hive.orc.stream.StreamSource;
 import com.google.common.io.ByteSource;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding.Kind;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.CompressionKind;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.Type;
 
 import java.util.List;
 
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding.Kind.DICTIONARY;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding.Kind.DICTIONARY_V2;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding.Kind.DIRECT;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding.Kind.DIRECT_V2;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.CompressionKind.NONE;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream.Kind.DATA;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream.Kind.DICTIONARY_DATA;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream.Kind.LENGTH;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream.Kind.PRESENT;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream.Kind.SECONDARY;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.Kind.DICTIONARY;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.Kind.DICTIONARY_V2;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.Kind.DIRECT;
+import static com.facebook.presto.hive.orc.metadata.ColumnEncoding.Kind.DIRECT_V2;
+import static com.facebook.presto.hive.orc.metadata.CompressionKind.UNCOMPRESSED;
+import static com.facebook.presto.hive.orc.metadata.Stream.Kind.DATA;
+import static com.facebook.presto.hive.orc.metadata.Stream.Kind.DICTIONARY_DATA;
+import static com.facebook.presto.hive.orc.metadata.Stream.Kind.LENGTH;
+import static com.facebook.presto.hive.orc.metadata.Stream.Kind.PRESENT;
+import static com.facebook.presto.hive.orc.metadata.Stream.Kind.SECONDARY;
 
 public final class StreamSources
 {
@@ -52,14 +52,14 @@ public final class StreamSources
             StreamId streamId,
             Slice slice,
             Type.Kind type,
-            Kind encoding,
+            ColumnEncoding.Kind encoding,
             CompressionKind compressionKind,
             List<Integer> offsetPositions,
             int bufferSize)
     {
         // create byte source with initial offset into uncompressed stream
         int inputStreamInitialOffset = 0;
-        if (!offsetPositions.isEmpty() & compressionKind != NONE) {
+        if (!offsetPositions.isEmpty() & compressionKind != UNCOMPRESSED) {
             inputStreamInitialOffset = Ints.checkedCast(offsetPositions.get(0));
             offsetPositions = offsetPositions.subList(1, offsetPositions.size());
         }

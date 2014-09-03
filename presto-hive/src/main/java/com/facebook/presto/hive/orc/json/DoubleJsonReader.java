@@ -13,22 +13,22 @@
  */
 package com.facebook.presto.hive.orc.json;
 
+import com.facebook.presto.hive.orc.StreamDescriptor;
+import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
 import com.facebook.presto.hive.orc.stream.BooleanStream;
 import com.facebook.presto.hive.orc.stream.BooleanStreamSource;
 import com.facebook.presto.hive.orc.stream.DoubleStream;
 import com.facebook.presto.hive.orc.stream.DoubleStreamSource;
-import com.facebook.presto.hive.orc.StreamDescriptor;
 import com.facebook.presto.hive.orc.stream.StreamSources;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.base.Objects;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding;
 
 import java.io.IOException;
 import java.util.List;
 
+import static com.facebook.presto.hive.orc.metadata.Stream.Kind.DATA;
+import static com.facebook.presto.hive.orc.metadata.Stream.Kind.PRESENT;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream.Kind.DATA;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream.Kind.PRESENT;
 
 public class DoubleJsonReader
         implements JsonMapKeyReader

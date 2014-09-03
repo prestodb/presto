@@ -13,24 +13,24 @@
  */
 package com.facebook.presto.hive.orc.stream;
 
+import com.facebook.presto.hive.orc.metadata.CompressionKind;
 import com.facebook.presto.hive.shaded.org.iq80.snappy.Snappy;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.CompressionKind;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
+import static com.facebook.presto.hive.orc.metadata.CompressionKind.SNAPPY;
+import static com.facebook.presto.hive.orc.metadata.CompressionKind.UNCOMPRESSED;
+import static com.facebook.presto.hive.orc.metadata.CompressionKind.ZLIB;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.CompressionKind.NONE;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.CompressionKind.SNAPPY;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.CompressionKind.ZLIB;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
 public final class OrcInputStream
@@ -52,7 +52,7 @@ public final class OrcInputStream
         this.compressionKind = checkNotNull(compressionKind, "compressionKind is null");
         this.bufferSize = bufferSize;
 
-        if (compressionKind == NONE) {
+        if (compressionKind == UNCOMPRESSED) {
             this.current = sliceInput;
             this.compressedSliceInput = EMPTY_SLICE.getInput();
         }

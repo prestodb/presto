@@ -14,8 +14,13 @@
 package com.facebook.presto.hive.orc;
 
 import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.orc.metadata.CompressionKind;
+import com.facebook.presto.hive.orc.metadata.Footer;
+import com.facebook.presto.hive.orc.metadata.Metadata;
+import com.facebook.presto.hive.orc.metadata.MetadataReader;
+import com.facebook.presto.hive.orc.metadata.PostScript;
+import com.facebook.presto.hive.orc.metadata.Type;
 import com.facebook.presto.hive.orc.stream.OrcInputStream;
-import com.facebook.presto.hive.shaded.com.google.protobuf.CodedInputStream;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Joiner;
@@ -23,24 +28,15 @@ import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.CompressionKind;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.Footer;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.Metadata;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.Type;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.CompressionKind.NONE;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.CompressionKind.SNAPPY;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.CompressionKind.ZLIB;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.PostScript;
 
 public class OrcReader
 {
@@ -51,17 +47,19 @@ public class OrcReader
     private static final int CURRENT_MINOR_VERSION = 12;
     private static final int EXPECTED_FOOTER_SIZE = 16 * 1024;
 
-    private final TypeManager typeManager;
     private final OrcDataSource orcDataSource;
+    private final MetadataReader metadataReader;
+    private final TypeManager typeManager;
     private final CompressionKind compressionKind;
     private final int bufferSize;
     private final Footer footer;
     private final Metadata metadata;
 
-    public OrcReader(OrcDataSource orcDataSource, TypeManager typeManager)
+    public OrcReader(OrcDataSource orcDataSource, MetadataReader metadataReader, TypeManager typeManager)
             throws IOException
     {
         this.orcDataSource = checkNotNull(orcDataSource, "orcDataSource is null");
+        this.metadataReader = checkNotNull(metadataReader, "metadataReader is null");
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
 
         //
@@ -88,15 +86,13 @@ public class OrcReader
 
         // decode the post script
         int postScriptOffset = buffer.length - SIZE_OF_BYTE - postScriptSize;
-        CodedInputStream in = CodedInputStream.newInstance(buffer, postScriptOffset, postScriptSize);
-        PostScript postScript = PostScript.parseFrom(in);
+        PostScript postScript = metadataReader.readPostScript(buffer, postScriptOffset, postScriptSize);
 
         // verify this is a supported version
-        checkOrcVersion(orcDataSource, postScript.getVersionList());
+        checkOrcVersion(orcDataSource, postScript.getVersion());
 
         // check compression codec is supported
         this.compressionKind = postScript.getCompression();
-        checkArgument(compressionKind == NONE || compressionKind == SNAPPY || compressionKind == ZLIB, "%s compression not implemented yet", compressionKind);
 
         this.bufferSize = Ints.checkedCast(postScript.getCompressionBlockSize());
 
@@ -125,17 +121,17 @@ public class OrcReader
         // read metadata
         Slice metadataSlice = completeFooterSlice.slice(0, metadataSize);
         InputStream metadataInputStream = new OrcInputStream(metadataSlice.getInput(), compressionKind, bufferSize);
-        this.metadata = Metadata.parseFrom(metadataInputStream);
+        this.metadata = metadataReader.readMetadata(metadataInputStream);
 
         // read footer
         Slice footerSlice = completeFooterSlice.slice(metadataSize, footerSize);
         InputStream footerInputStream = new OrcInputStream(footerSlice.getInput(), compressionKind, bufferSize);
-        this.footer = Footer.parseFrom(footerInputStream);
+        this.footer = metadataReader.readFooter(footerInputStream);
     }
 
     public List<Type> getTypes()
     {
-        return footer.getTypesList();
+        return footer.getTypes();
     }
 
     public Footer getFooter()
@@ -169,20 +165,21 @@ public class OrcReader
     {
         return new OrcRecordReader(
                 footer.getNumberOfRows(),
-                footer.getStripesList(),
-                footer.getStatisticsList(),
+                footer.getStripes(),
+                footer.getFileStats(),
                 metadata.getStripeStatsList(),
                 orcDataSource,
                 offset,
                 length,
                 checkNotNull(tupleDomain, "tupleDomain is null"),
                 checkNotNull(columnHandles, "columnHandles is null"),
-                footer.getTypesList(),
+                footer.getTypes(),
                 compressionKind,
                 bufferSize,
                 footer.getRowIndexStride(),
                 hiveStorageTimeZone,
                 sessionTimeZone,
+                metadataReader,
                 typeManager);
     }
 

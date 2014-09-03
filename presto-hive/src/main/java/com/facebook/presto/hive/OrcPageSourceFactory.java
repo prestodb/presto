@@ -16,6 +16,8 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.orc.HdfsOrcDataSource;
 import com.facebook.presto.hive.orc.OrcReader;
 import com.facebook.presto.hive.orc.OrcRecordReader;
+import com.facebook.presto.hive.orc.metadata.MetadataReader;
+import com.facebook.presto.hive.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
@@ -85,6 +87,32 @@ public class OrcPageSourceFactory
             return Optional.absent();
         }
 
+        return Optional.of(creteOrcPageSource(
+                new OrcMetadataReader(),
+                configuration,
+                session,
+                path,
+                start,
+                length,
+                columns,
+                partitionKeys,
+                tupleDomain,
+                hiveStorageTimeZone,
+                typeManager));
+    }
+
+    public static OrcPageSource creteOrcPageSource(MetadataReader metadataReader,
+            Configuration configuration,
+            ConnectorSession session,
+            Path path,
+            long start,
+            long length,
+            List<HiveColumnHandle> columns,
+            List<HivePartitionKey> partitionKeys,
+            TupleDomain<HiveColumnHandle> tupleDomain,
+            DateTimeZone hiveStorageTimeZone,
+            TypeManager typeManager)
+    {
         HdfsOrcDataSource orcDataSource;
         try {
             FileSystem fileSystem = path.getFileSystem(configuration);
@@ -95,7 +123,7 @@ public class OrcPageSourceFactory
         }
 
         try {
-            OrcReader reader = new OrcReader(orcDataSource, typeManager);
+            OrcReader reader = new OrcReader(orcDataSource, metadataReader, typeManager);
             OrcRecordReader recordReader = reader.createRecordReader(
                     start,
                     length,
@@ -104,12 +132,12 @@ public class OrcPageSourceFactory
                     hiveStorageTimeZone,
                     DateTimeZone.forID(session.getTimeZoneKey().getId()));
 
-            return Optional.of(new OrcPageSource(
+            return new OrcPageSource(
                     recordReader,
                     orcDataSource,
                     partitionKeys,
                     columns,
-                    typeManager));
+                    typeManager);
         }
         catch (Exception e) {
             try {
