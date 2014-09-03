@@ -13,25 +13,26 @@
  */
 package com.facebook.presto.hive.orc;
 
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.Stream;
+import com.facebook.presto.hive.orc.metadata.Stream;
+import com.facebook.presto.hive.orc.metadata.Stream.StreamKind;
 
 import java.util.Objects;
 
 public final class StreamId
 {
     private final int column;
-    private final Stream.Kind kind;
+    private final StreamKind streamKind;
 
     public StreamId(Stream stream)
     {
         this.column = stream.getColumn();
-        this.kind = stream.getKind();
+        this.streamKind = stream.getStreamKind();
     }
 
-    public StreamId(int column, Stream.Kind kind)
+    public StreamId(int column, StreamKind streamKind)
     {
         this.column = column;
-        this.kind = kind;
+        this.streamKind = streamKind;
     }
 
     public int getColumn()
@@ -39,15 +40,15 @@ public final class StreamId
         return column;
     }
 
-    public Stream.Kind getKind()
+    public StreamKind getStreamKind()
     {
-        return kind;
+        return streamKind;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(column, kind);
+        return Objects.hash(column, streamKind);
     }
 
     @Override
@@ -60,7 +61,7 @@ public final class StreamId
             return false;
         }
         StreamId other = (StreamId) obj;
-        return Objects.equals(this.column, other.column) && Objects.equals(this.kind, other.kind);
+        return Objects.equals(this.column, other.column) && Objects.equals(this.streamKind, other.streamKind);
     }
 
     @Override
@@ -68,7 +69,7 @@ public final class StreamId
     {
         return com.google.common.base.Objects.toStringHelper(this)
                 .add("column", column)
-                .add("kind", kind)
+                .add("streamKind", streamKind)
                 .toString();
     }
 }

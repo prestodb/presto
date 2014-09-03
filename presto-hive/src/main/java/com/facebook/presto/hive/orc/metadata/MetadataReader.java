@@ -11,26 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.orc.json;
-
-import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
-import com.facebook.presto.hive.orc.stream.StreamSources;
-import com.fasterxml.jackson.core.JsonGenerator;
+package com.facebook.presto.hive.orc.metadata;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 
-public interface JsonReader
+public interface MetadataReader
 {
-    void openStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    PostScript readPostScript(byte[] data, int offset, int length)
             throws IOException;
 
-    void openRowGroup(StreamSources dataStreamSources)
+    Metadata readMetadata(InputStream inputStream)
             throws IOException;
 
-    void readNextValueInto(JsonGenerator generator)
+    Footer readFooter(InputStream inputStream)
             throws IOException;
 
-    void skip(int skipSize)
+    StripeFooter readStripeFooter(InputStream inputStream)
+            throws IOException;
+
+    List<RowGroupIndex> readRowIndexes(InputStream inputStream)
             throws IOException;
 }

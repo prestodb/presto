@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.hive.orc.stream;
 
+import com.facebook.presto.hive.orc.metadata.CompressionKind;
 import com.google.common.base.Objects;
 import com.google.common.io.ByteSource;
 import io.airlift.slice.Slice;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.CompressionKind;
 
 import java.io.IOException;
 
