@@ -55,7 +55,7 @@ public class IsDistinctFromCodeGenerator
 
         ByteCodeNode equalsCall = new Block(context)
                 .comment("equals(%s, %s)", leftType, rightType)
-                .append(invoke(generatorContext.getContext(), binding));
+                .append(invoke(generatorContext.getContext(), binding, operator.getSignature().toString()));
 
         Block block = new Block(context)
                 .comment("IS DISTINCT FROM")

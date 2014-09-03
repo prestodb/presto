@@ -121,7 +121,7 @@ public class InCodeGenerator
             switchBlock = new Block(context)
                     .comment("lookupSwitch(hashCode(<stackValue>))")
                     .dup(javaType)
-                    .append(invoke(generatorContext.getContext(), hashCodeBinding))
+                    .append(invoke(generatorContext.getContext(), hashCodeBinding, hashCodeFunction.getSignature().toString()))
                     .longToInt()
                     .append(switchBuilder.build())
                     .append(switchCaseBlocks);
@@ -230,7 +230,7 @@ public class InCodeGenerator
                         .putVariable(caseWasNull)
                         .append(ifWasNullPopAndGoto(context, elseLabel, void.class, type.getJavaType(), type.getJavaType()));
             }
-            condition.append(invoke(generatorContext.getContext(), equalsFunction));
+            condition.append(invoke(generatorContext.getContext(), equalsFunction, operator.getSignature().toString()));
             test.condition(condition);
 
             test.ifTrue(new Block(context).gotoLabel(matchLabel));

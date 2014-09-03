@@ -183,7 +183,7 @@ public final class ByteCodeUtils
                 index++;
             }
         }
-        block.append(invoke(context, binding));
+        block.append(invoke(context, binding, function.getSignature().toString()));
 
         if (function.isNullable()) {
             if (unboxedReturnType.isPrimitive()) {
@@ -242,10 +242,10 @@ public final class ByteCodeUtils
         return IfStatement.ifStatementBuilder(context).condition(condition).ifTrue(wasNull).ifFalse(notNull).build();
     }
 
-    public static ByteCodeNode invoke(CompilerContext context, Binding binding)
+    public static ByteCodeNode invoke(CompilerContext context, Binding binding, String name)
     {
         return new Block(context)
-                .invokeDynamic("call_" + binding.getBindingId(), binding.getType(), binding.getBindingId());
+                .invokeDynamic(name, binding.getType(), binding.getBindingId());
     }
 
     public static void setCallSitesField(Class<?> clazz, Map<Long, MethodHandle> callSites)
@@ -282,7 +282,7 @@ public final class ByteCodeUtils
                                 .pop())
                         .ifFalse(new Block(context)
                                 .comment(type.getName() + "." + name + "(output, " + type.getJavaType().getSimpleName() + ")")
-                                .append(invoke(context, callSiteBinder.bind(target.bindTo(type)))))
+                                .append(invoke(context, callSiteBinder.bind(target.bindTo(type)), name)))
                         .build());
     }
 }
