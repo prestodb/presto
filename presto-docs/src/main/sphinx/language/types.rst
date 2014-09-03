@@ -84,3 +84,17 @@ INTERVAL DAY TO SECOND
     Span of days, hours, minutes, seconds and milliseconds.
 
     Example: ``INTERVAL '2' DAY``
+
+.. _array_type:
+
+ARRAY
+-----
+
+    An array of the given component type.
+
+.. _map_type:
+
+MAP
+---
+
+    A map between the given component types.
