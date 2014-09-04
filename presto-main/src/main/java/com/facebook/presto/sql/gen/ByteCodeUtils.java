@@ -178,7 +178,7 @@ public final class ByteCodeUtils
                 index++;
             }
         }
-        block.append(invoke(context, binding, function.getSignature().toString()));
+        block.append(invoke(context, binding, function.getSignature()));
 
         if (function.isNullable()) {
             if (unboxedReturnType.isPrimitive()) {
@@ -241,6 +241,11 @@ public final class ByteCodeUtils
     {
         return new Block(context)
                 .invokeDynamic(name, binding.getType(), binding.getBindingId());
+    }
+
+    public static ByteCodeNode invoke(CompilerContext context, Binding binding, Signature signature)
+    {
+        return invoke(context, binding, signature.getName());
     }
 
     public static ByteCodeNode generateWrite(CallSiteBinder callSiteBinder, CompilerContext context, Variable wasNullVariable, Type type)
