@@ -19,17 +19,18 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 
 import java.util.List;
-import java.util.concurrent.Executor;
 
 import static com.facebook.presto.execution.SqlTaskExecution.createSqlTaskExecution;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SqlTaskExecutionFactory
+            implements TaskExecutionFactory
 {
-    private final Executor taskNotificationExecutor;
+    private final TaskNotificationExecutor taskNotificationExecutor;
 
     private final TaskExecutor taskExecutor;
 
@@ -39,9 +40,10 @@ public class SqlTaskExecutionFactory
     private final DataSize operatorPreAllocatedMemory;
     private final boolean cpuTimerEnabled;
 
+    @Inject
     public SqlTaskExecutionFactory(
-            Executor taskNotificationExecutor,
             TaskExecutor taskExecutor,
+            TaskNotificationExecutor taskNotificationExecutor,
             LocalExecutionPlanner planner,
             QueryMonitor queryMonitor,
             TaskManagerConfig config)
@@ -56,8 +58,8 @@ public class SqlTaskExecutionFactory
                 config.isTaskCpuTimerEnabled());
     }
 
-    public SqlTaskExecutionFactory(
-            Executor taskNotificationExecutor,
+    private SqlTaskExecutionFactory(
+            TaskNotificationExecutor taskNotificationExecutor,
             TaskExecutor taskExecutor,
             LocalExecutionPlanner planner,
             QueryMonitor queryMonitor,
@@ -74,11 +76,12 @@ public class SqlTaskExecutionFactory
         this.cpuTimerEnabled = checkNotNull(cpuTimerEnabled, "cpuTimerEnabled is null");
     }
 
+    @Override
     public SqlTaskExecution create(ConnectorSession session, TaskStateMachine taskStateMachine, SharedBuffer sharedBuffer, PlanFragment fragment, List<TaskSource> sources)
     {
         TaskContext taskContext = new TaskContext(
                 taskStateMachine,
-                taskNotificationExecutor,
+                taskNotificationExecutor.getExecutor(),
                 session,
                 checkNotNull(maxTaskMemoryUsage, "maxTaskMemoryUsage is null"),
                 checkNotNull(operatorPreAllocatedMemory, "operatorPreAllocatedMemory is null"),
@@ -92,7 +95,7 @@ public class SqlTaskExecutionFactory
                 sources,
                 planner,
                 taskExecutor,
-                taskNotificationExecutor,
+                taskNotificationExecutor.getExecutor(),
                 queryMonitor);
     }
 }

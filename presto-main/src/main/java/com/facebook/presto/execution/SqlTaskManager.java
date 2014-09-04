@@ -15,9 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -41,7 +39,6 @@ import javax.inject.Inject;
 
 import java.io.Closeable;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -51,16 +48,12 @@ import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 public class SqlTaskManager
         implements TaskManager, Closeable
 {
     private static final Logger log = Logger.get(SqlTaskManager.class);
-
-    private final ExecutorService taskNotificationExecutor;
-    private final ThreadPoolExecutorMBean taskNotificationExecutorMBean;
 
     private final ScheduledExecutorService taskManagementExecutor;
     private final ThreadPoolExecutorMBean taskManagementExecutorMBean;
@@ -75,10 +68,9 @@ public class SqlTaskManager
 
     @Inject
     public SqlTaskManager(
-            LocalExecutionPlanner planner,
             final LocationFactory locationFactory,
-            TaskExecutor taskExecutor,
-            QueryMonitor queryMonitor,
+            final TaskNotificationExecutor taskNotificationExecutor,
+            final TaskExecutionFactory taskExecutionFactory,
             TaskManagerConfig config)
     {
         checkNotNull(config, "config is null");
@@ -87,13 +79,10 @@ public class SqlTaskManager
 
         final DataSize maxBufferSize = config.getSinkMaxBufferSize();
 
-        taskNotificationExecutor = newCachedThreadPool(threadsNamed("task-notification-%d"));
-        taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
+        checkNotNull(taskNotificationExecutor, "taskNotificationExecutor is null");
 
         taskManagementExecutor = newScheduledThreadPool(5, threadsNamed("task-management-%d"));
         taskManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskManagementExecutor);
-
-        final SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, queryMonitor, config);
 
         tasks = CacheBuilder.newBuilder().build(new CacheLoader<TaskId, SqlTask>()
         {
@@ -104,8 +93,8 @@ public class SqlTaskManager
                 return new SqlTask(
                         taskId,
                         locationFactory.createLocalTaskLocation(taskId),
-                        sqlTaskExecutionFactory,
-                        taskNotificationExecutor,
+                        taskExecutionFactory,
+                        taskNotificationExecutor.getExecutor(),
                         new Function<SqlTask, Void>()
                         {
                             @Override
@@ -162,7 +151,6 @@ public class SqlTaskManager
     @PreDestroy
     public void close()
     {
-        taskNotificationExecutor.shutdownNow();
         taskManagementExecutor.shutdownNow();
     }
 
@@ -171,13 +159,6 @@ public class SqlTaskManager
     public SqlTaskIoStats getIoStats()
     {
         return cachedStats;
-    }
-
-    @Managed(description = "Task notification executor")
-    @Nested
-    public ThreadPoolExecutorMBean getTaskNotificationExecutor()
-    {
-        return taskNotificationExecutorMBean;
     }
 
     @Managed(description = "Task garbage collector executor")
