@@ -36,6 +36,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 public final class CompilerUtils
@@ -46,9 +47,15 @@ public final class CompilerUtils
     private static final boolean DUMP_BYTE_CODE_RAW = false;
     private static final boolean RUN_ASM_VERIFIER = false; // verifier doesn't work right now
     private static final AtomicReference<String> DUMP_CLASS_FILES_TO = new AtomicReference<>();
+    private static final AtomicLong CLASS_ID = new AtomicLong();
 
     private CompilerUtils()
     {
+    }
+
+    public static ParameterizedType makeClassName(String baseName)
+    {
+        return ParameterizedType.typeFromJavaClassName("com.facebook.presto.$gen." + baseName + "_" + CLASS_ID.incrementAndGet());
     }
 
     public static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, DynamicClassLoader classLoader)

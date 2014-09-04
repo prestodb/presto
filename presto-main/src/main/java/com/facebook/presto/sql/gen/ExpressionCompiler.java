@@ -34,7 +34,6 @@ import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.byteCode.Access.FINAL;
 import static com.facebook.presto.byteCode.Access.PRIVATE;
@@ -43,17 +42,15 @@ import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.VOLATILE;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
-import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.sql.gen.Bootstrap.CALL_SITES_FIELD_NAME;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
+import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
 import static com.google.common.base.Objects.toStringHelper;
 
 public class ExpressionCompiler
 {
-    private static final AtomicLong CLASS_ID = new AtomicLong();
-
     private final Metadata metadata;
 
     private final LoadingCache<CacheKey, PageProcessor> pageProcessors = CacheBuilder.newBuilder().maximumSize(1000).build(
@@ -123,7 +120,7 @@ public class ExpressionCompiler
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(BOOTSTRAP_METHOD),
                 a(PUBLIC, FINAL),
-                typeFromPathName(superType.getSimpleName() + "_" + CLASS_ID.incrementAndGet()),
+                makeClassName(superType.getSimpleName()),
                 type(Object.class),
                 type(superType));
 

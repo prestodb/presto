@@ -47,7 +47,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.byteCode.Access.FINAL;
 import static com.facebook.presto.byteCode.Access.PRIVATE;
@@ -57,17 +56,15 @@ import static com.facebook.presto.byteCode.Access.VOLATILE;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
-import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.sql.gen.Bootstrap.CALL_SITES_FIELD_NAME;
-import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
+import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
+import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
 
 public class JoinProbeCompiler
 {
-    private static final AtomicLong CLASS_ID = new AtomicLong();
-
     private final LoadingCache<JoinOperatorCacheKey, HashJoinOperatorFactoryFactory> joinProbeFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
             new CacheLoader<JoinOperatorCacheKey, HashJoinOperatorFactoryFactory>()
             {
@@ -101,7 +98,7 @@ public class JoinProbeCompiler
 
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(BOOTSTRAP_METHOD),
                 a(PUBLIC, FINAL),
-                typeFromPathName("JoinProbeFactory_" + CLASS_ID.incrementAndGet()),
+                makeClassName("JoinProbeFactory"),
                 type(Object.class),
                 type(JoinProbeFactory.class));
 
@@ -155,7 +152,7 @@ public class JoinProbeCompiler
 
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(BOOTSTRAP_METHOD),
                 a(PUBLIC, FINAL),
-                typeFromPathName("JoinProbe_" + CLASS_ID.incrementAndGet()),
+                makeClassName("JoinProbe"),
                 type(Object.class),
                 type(JoinProbe.class));
 
