@@ -15,7 +15,11 @@ package com.facebook.presto.hive;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.facebook.presto.spi.Domain;
+import com.facebook.presto.spi.Marker;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.Range;
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
@@ -28,6 +32,7 @@ import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.TaskAttemptID;
 import org.joda.time.DateTimeZone;
 import parquet.column.Dictionary;
+import parquet.filter.UnboundRecordFilter;
 import parquet.hadoop.ParquetFileReader;
 import parquet.hadoop.ParquetInputSplit;
 import parquet.hadoop.ParquetRecordReader;
@@ -63,6 +68,14 @@ import static com.facebook.presto.hive.HiveBooleanParser.isTrue;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
+import static com.facebook.presto.hive.ParquetPredicateUtil.createEqualToPredicate;
+import static com.facebook.presto.hive.ParquetPredicateUtil.createGreaterThanOrEqualToPredicate;
+import static com.facebook.presto.hive.ParquetPredicateUtil.createGreaterThanPredicate;
+import static com.facebook.presto.hive.ParquetPredicateUtil.createLessThanOrEqualToPredicate;
+import static com.facebook.presto.hive.ParquetPredicateUtil.createLessThanPredicate;
+import static com.facebook.presto.spi.Marker.Bound.BELOW;
+import static com.facebook.presto.spi.Marker.Bound.EXACTLY;
+import static com.facebook.presto.spi.Marker.Bound.ABOVE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -73,6 +86,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static parquet.filter.AndRecordFilter.and;
+import static parquet.filter.ColumnRecordFilter.column;
+import static parquet.filter.OrRecordFilter.or;
 
 class ParquetHiveRecordCursor
         extends HiveRecordCursor
@@ -112,6 +128,7 @@ class ParquetHiveRecordCursor
             Properties splitSchema,
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
+            TupleDomain<HiveColumnHandle> tupleDomain,
             DateTimeZone sessionTimeZone)
     {
         checkNotNull(configuration, "jobConf is null");
@@ -120,10 +137,10 @@ class ParquetHiveRecordCursor
         checkNotNull(splitSchema, "splitSchema is null");
         checkNotNull(partitionKeys, "partitionKeys is null");
         checkNotNull(columns, "columns is null");
-        checkArgument(!columns.isEmpty(), "columns is empty");
+        checkNotNull(tupleDomain, "tupleDomain is null");
         checkNotNull(sessionTimeZone, "sessionTimeZone is null");
 
-        this.recordReader = createParquetRecordReader(configuration, path, start, length, columns);
+        this.recordReader = createParquetRecordReader(configuration, path, start, length, columns, tupleDomain);
 
         this.totalBytes = length;
         this.sessionTimeZone = sessionTimeZone;
@@ -327,7 +344,116 @@ class ParquetHiveRecordCursor
         }
     }
 
-    private ParquetRecordReader<Void> createParquetRecordReader(Configuration configuration, Path path, long start, long length, List<HiveColumnHandle> columns)
+    private UnboundRecordFilter convertToParquetPredicate(HiveColumnHandle columnHandle,
+                                                parquet.schema.Type parquetType,
+                                                Range range)
+    {
+        Marker low = range.getLow();
+        Marker high = range.getHigh();
+        String name = columnHandle.getName();
+
+        if (range.isSingleValue()) {
+            Comparable<?> value = range.getSingleValue();
+            return createEqualToPredicate(value, parquetType, name);
+        }
+
+        UnboundRecordFilter columnFilter = null;
+        if (!low.isLowerUnbounded()) {
+            Comparable<?> value = low.getValue();
+            switch (low.getBound()) {
+                case EXACTLY:
+                    columnFilter = createGreaterThanOrEqualToPredicate(value, parquetType, name);
+                    break;
+                case ABOVE:
+                    columnFilter = createGreaterThanPredicate(value, parquetType, name);
+                    break;
+                case BELOW:
+                default:
+                    throw new IllegalArgumentException("Invalid Marker: " + low.toString());
+            }
+        }
+
+        if (!high.isUpperUnbounded()) {
+            Comparable<?> value = high.getValue();
+            UnboundRecordFilter currentPredicate = null;
+            switch (high.getBound()) {
+                case EXACTLY:
+                    currentPredicate = createLessThanOrEqualToPredicate(value, parquetType, name);
+                    // lowValue <= col <= highValue : col >= lowValue AND col <= highValue
+                    return columnFilter == null ? currentPredicate :
+                            and(columnFilter, currentPredicate);
+                case BELOW:
+                    currentPredicate = createLessThanPredicate(value, parquetType, name);
+                    return columnFilter == null ? currentPredicate :
+                            and(columnFilter, currentPredicate);
+                case ABOVE:
+                default:
+                    throw new IllegalArgumentException("Invalid Marker: " + low.toString());
+            }
+        }
+        return columnFilter;
+    }
+
+    private UnboundRecordFilter getParquetFilter(TupleDomain<HiveColumnHandle> tupleDomain,
+                                                MessageType messageType)
+    {
+        List<UnboundRecordFilter> columnPredicateList = new ArrayList<UnboundRecordFilter>();
+        for (Map.Entry<HiveColumnHandle, Domain> entry : tupleDomain.getDomains().entrySet()) {
+            HiveColumnHandle columnHandle = entry.getKey();
+            // partition keys not in file
+            if (columnHandle.isPartitionKey()) {
+                continue;
+            }
+
+            Domain domain = entry.getValue();
+            if (domain.isNone() || domain.isAll()) {
+                throw new IllegalArgumentException("TupleDomain should not have Domain.none() or Domain.all()");
+            }
+
+            parquet.schema.Type parquetType = messageType.getFields().get(columnHandle.getHiveColumnIndex());
+            Iterator<Range> itr = domain.getRanges().iterator();
+            if (!itr.hasNext()) {
+                continue;
+            }
+            Range baseRange = itr.next();
+            UnboundRecordFilter pred = convertToParquetPredicate(columnHandle, parquetType, baseRange);
+            while (itr.hasNext()) {
+                Range range = itr.next();
+                UnboundRecordFilter currentPredicate =
+                                        convertToParquetPredicate(columnHandle, parquetType, range);
+                if (pred == null) {
+                    pred = currentPredicate;
+                }
+                else {
+                    // col <> value : col < value OR col > value
+                    pred = or(pred, currentPredicate);
+                }
+            }
+            // col IS NOT NULL : pred == null
+            if (pred != null) {
+                columnPredicateList.add(pred);
+            }
+        }
+
+        if (columnPredicateList.isEmpty()) {
+            return null;
+        }
+        Iterator<UnboundRecordFilter> predItr = columnPredicateList.iterator();
+        UnboundRecordFilter result = predItr.next();
+        // colA < valueHigh, colB >= valueLow: colA < valueHigh AND colB >= valueLow
+        while (predItr.hasNext()) {
+            result = and(result, predItr.next());
+        }
+        return result;
+    }
+
+    private ParquetRecordReader<Void> createParquetRecordReader(
+                                        Configuration configuration,
+                                        Path path,
+                                        long start,
+                                        long length,
+                                        List<HiveColumnHandle> columns,
+                                        TupleDomain<HiveColumnHandle> tupleDomain)
     {
         try {
             PrestoReadSupport readSupport = new PrestoReadSupport(columns);
@@ -360,7 +486,11 @@ class ParquetHiveRecordCursor
                     readContext.getReadSupportMetadata());
 
             TaskAttemptContext taskContext = ContextUtil.newTaskAttemptContext(configuration, new TaskAttemptID());
-            ParquetRecordReader<Void> realReader = new ParquetRecordReader<>(readSupport);
+            UnboundRecordFilter filter = getParquetFilter(tupleDomain, parquetMetadata.getFileMetaData().getSchema());
+            ParquetRecordReader<Void> realReader =
+                (filter == null) ?
+                    new ParquetRecordReader<>(readSupport) :
+                    new ParquetRecordReader<>(readSupport, filter);
             realReader.initialize(split, taskContext);
             return realReader;
         }

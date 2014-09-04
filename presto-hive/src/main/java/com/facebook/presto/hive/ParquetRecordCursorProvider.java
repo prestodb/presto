@@ -68,6 +68,7 @@ public class ParquetRecordCursorProvider
                 schema,
                 partitionKeys,
                 columns,
+                tupleDomain,
                 DateTimeZone.forID(session.getTimeZoneKey().getId())));
     }
 
