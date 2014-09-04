@@ -24,15 +24,13 @@ import com.facebook.presto.byteCode.SmartClassWriter;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.ClassWriter;
 
-import java.util.concurrent.atomic.AtomicLong;
-
 import static com.facebook.presto.byteCode.Access.FINAL;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
-import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
+import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
 import static org.testng.Assert.assertEquals;
 
 public final class ByteCodeExpressionAssertions
@@ -41,7 +39,6 @@ public final class ByteCodeExpressionAssertions
     {
     }
 
-    private static final AtomicLong CLASS_ID = new AtomicLong();
     private static final boolean DUMP_BYTE_CODE_TREE = false;
 
     public static void assertByteCodeExpression(ByteCodeExpression expression, Object expected, String expectedRendering)
@@ -63,7 +60,7 @@ public final class ByteCodeExpressionAssertions
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(BOOTSTRAP_METHOD),
                 a(PUBLIC, FINAL),
-                typeFromPathName("Test_" + CLASS_ID.incrementAndGet()),
+                makeClassName("Test"),
                 type(Object.class));
 
         classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD), a(PUBLIC, STATIC), "test", returnType)

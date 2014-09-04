@@ -49,7 +49,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.byteCode.Access.FINAL;
 import static com.facebook.presto.byteCode.Access.PRIVATE;
@@ -58,8 +57,8 @@ import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
-import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
+import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -67,8 +66,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class StateCompiler
 {
-    private static final AtomicLong CLASS_ID = new AtomicLong();
-
     private static Class<?> getBigArrayType(Class<?> type)
     {
         if (type.equals(long.class)) {
@@ -109,7 +106,7 @@ public class StateCompiler
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                typeFromPathName(clazz.getSimpleName() + "Serializer_" + CLASS_ID.incrementAndGet()),
+                makeClassName(clazz.getSimpleName() + "Serializer"),
                 type(Object.class),
                 type(AccumulatorStateSerializer.class));
 
@@ -355,7 +352,7 @@ public class StateCompiler
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                typeFromPathName(clazz.getSimpleName() + "Factory_" + CLASS_ID.incrementAndGet()),
+                makeClassName(clazz.getSimpleName() + "Factory"),
                 type(Object.class),
                 type(AccumulatorStateFactory.class));
 
@@ -402,7 +399,7 @@ public class StateCompiler
     {
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                typeFromPathName("Single" + clazz.getSimpleName() + "_" + CLASS_ID.incrementAndGet()),
+                makeClassName("Single" + clazz.getSimpleName()),
                 type(Object.class),
                 type(clazz));
 
@@ -444,7 +441,7 @@ public class StateCompiler
     {
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                typeFromPathName("Grouped" + clazz.getSimpleName() + "_" + CLASS_ID.incrementAndGet()),
+                makeClassName("Grouped" + clazz.getSimpleName()),
                 type(AbstractGroupedAccumulatorState.class),
                 type(clazz),
                 type(GroupedAccumulator.class));
