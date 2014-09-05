@@ -22,12 +22,106 @@
         <process-name>${project.artifactId}</process-name>
     </properties>
 
+    <dependencies>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-cassandra</artifactId>
+            <type>zip</type>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-example-http</artifactId>
+            <type>zip</type>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-hive-cdh4</artifactId>
+            <type>zip</type>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-hive-cdh5</artifactId>
+            <type>zip</type>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-hive-hadoop1</artifactId>
+            <type>zip</type>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-hive-hadoop2</artifactId>
+            <type>zip</type>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-ml</artifactId>
+            <type>zip</type>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-mysql</artifactId>
+            <type>zip</type>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-postgresql</artifactId>
+            <type>zip</type>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-raptor</artifactId>
+            <type>zip</type>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-tpch</artifactId>
+            <type>zip</type>
+        </dependency>
+    </dependencies>
+
     <build>
         <plugins>
             <plugin>
                 <groupId>io.takari.maven.plugins</groupId>
                 <artifactId>provisio-maven-plugin</artifactId>
                 <extensions>true</extensions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <usedDependencies>
+                        <usedDependency>com.facebook.presto:presto-main</usedDependency>
+                        <usedDependency>com.facebook.presto:presto-cassandra</usedDependency>
+                        <usedDependency>com.facebook.presto:presto-example-http</usedDependency>
+                        <usedDependency>com.facebook.presto:presto-hive-cdh4</usedDependency>
+                        <usedDependency>com.facebook.presto:presto-hive-cdh5</usedDependency>
+                        <usedDependency>com.facebook.presto:presto-hive-hadoop1</usedDependency>
+                        <usedDependency>com.facebook.presto:presto-hive-hadoop2</usedDependency>
+                        <usedDependency>com.facebook.presto:presto-ml</usedDependency>
+                        <usedDependency>com.facebook.presto:presto-mysql</usedDependency>
+                        <usedDependency>com.facebook.presto:presto-postgresql</usedDependency>
+                        <usedDependency>com.facebook.presto:presto-raptor</usedDependency>
+                        <usedDependency>com.facebook.presto:presto-tpch</usedDependency>
+                    </usedDependencies>
+                </configuration>
             </plugin>
         </plugins>
     </build>
