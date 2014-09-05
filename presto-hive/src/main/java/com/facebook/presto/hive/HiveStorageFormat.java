@@ -15,6 +15,9 @@ package com.facebook.presto.hive;
 
 import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat;
+import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
+import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
+import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.ql.io.RCFileInputFormat;
 import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
 import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
@@ -38,7 +41,10 @@ public enum HiveStorageFormat
             HiveSequenceFileOutputFormat.class.getName()),
     TEXTFILE(LazySimpleSerDe.class.getName(),
             TextInputFormat.class.getName(),
-            HiveIgnoreKeyTextOutputFormat.class.getName());
+            HiveIgnoreKeyTextOutputFormat.class.getName()),
+    PARQUET(ParquetHiveSerDe.class.getName(),
+            MapredParquetInputFormat.class.getName(),
+            MapredParquetOutputFormat.class.getName());
 
     private final String serde;
     private final String inputFormat;
