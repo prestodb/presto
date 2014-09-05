@@ -66,7 +66,7 @@ public abstract class ReadOnlyConnectorMetadata
     }
 
     @Override
-    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
+    public final void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
     {
         throw new UnsupportedOperationException();
     }
