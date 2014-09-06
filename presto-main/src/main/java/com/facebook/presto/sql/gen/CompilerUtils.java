@@ -32,6 +32,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
+import java.lang.invoke.MethodHandle;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -61,6 +62,12 @@ public final class CompilerUtils
     public static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, DynamicClassLoader classLoader)
     {
         Class<?> clazz = defineClasses(ImmutableList.of(classDefinition), classLoader).values().iterator().next();
+        return clazz.asSubclass(superType);
+    }
+
+    public static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType,  Map<Long, MethodHandle> callSiteBindings, ClassLoader parentClassLoader)
+    {
+        Class<?> clazz = defineClass(classDefinition, superType, new DynamicClassLoader(parentClassLoader, callSiteBindings));
         return clazz.asSubclass(superType);
     }
 

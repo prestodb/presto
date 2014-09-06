@@ -45,20 +45,16 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import static com.facebook.presto.byteCode.Access.FINAL;
 import static com.facebook.presto.byteCode.Access.PRIVATE;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
-import static com.facebook.presto.byteCode.Access.STATIC;
-import static com.facebook.presto.byteCode.Access.VOLATILE;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
-import static com.facebook.presto.sql.gen.Bootstrap.CALL_SITES_FIELD_NAME;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
 import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
@@ -93,8 +89,7 @@ public class JoinProbeCompiler
 
     public HashJoinOperatorFactoryFactory internalCompileJoinOperatorFactory(List<Type> types, List<Integer> probeJoinChannel)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(getClass().getClassLoader());
-        Class<? extends JoinProbe> joinProbeClass = compileJoinProbe(types, probeJoinChannel, classLoader);
+        Class<? extends JoinProbe> joinProbeClass = compileJoinProbe(types, probeJoinChannel);
 
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(BOOTSTRAP_METHOD),
                 a(PUBLIC, FINAL),
@@ -118,6 +113,7 @@ public class JoinProbeCompiler
                 .invokeConstructor(joinProbeClass, LookupSource.class, Page.class)
                 .retObject();
 
+        DynamicClassLoader classLoader = new DynamicClassLoader(joinProbeClass.getClassLoader());
         Class<? extends JoinProbeFactory> joinProbeFactoryClass = defineClass(classDefinition, JoinProbeFactory.class, classLoader);
         JoinProbeFactory joinProbeFactory;
         try {
@@ -139,14 +135,10 @@ public class JoinProbeCompiler
     @VisibleForTesting
     public JoinProbeFactory internalCompileJoinProbe(List<Type> types, List<Integer> probeChannels)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(getClass().getClassLoader());
-
-        Class<? extends JoinProbe> joinProbeClass = compileJoinProbe(types, probeChannels, classLoader);
-
-        return new ReflectionJoinProbeFactory(joinProbeClass);
+        return new ReflectionJoinProbeFactory(compileJoinProbe(types, probeChannels));
     }
 
-    private Class<? extends JoinProbe> compileJoinProbe(List<Type> types, List<Integer> probeChannels, DynamicClassLoader classLoader)
+    private Class<? extends JoinProbe> compileJoinProbe(List<Type> types, List<Integer> probeChannels)
     {
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
@@ -157,7 +149,6 @@ public class JoinProbeCompiler
                 type(JoinProbe.class));
 
         // declare fields
-        classDefinition.declareField(a(PRIVATE, STATIC, VOLATILE), CALL_SITES_FIELD_NAME, Map.class);
         FieldDefinition lookupSourceField = classDefinition.declareField(a(PRIVATE, FINAL), "lookupSource", LookupSource.class);
         FieldDefinition positionCountField = classDefinition.declareField(a(PRIVATE, FINAL), "positionCount", int.class);
         List<FieldDefinition> blockFields = new ArrayList<>();
@@ -180,9 +171,7 @@ public class JoinProbeCompiler
         generateGetCurrentJoinPosition(classDefinition, lookupSourceField, probeBlocksArrayField, positionField);
         generateCurrentRowContainsNull(classDefinition, probeBlockFields, positionField);
 
-        Class<? extends JoinProbe> joinProbeClass = defineClass(classDefinition, JoinProbe.class, classLoader);
-        ByteCodeUtils.setCallSitesField(joinProbeClass, callSiteBinder.getBindings());
-        return joinProbeClass;
+        return defineClass(classDefinition, JoinProbe.class, callSiteBinder.getBindings(), getClass().getClassLoader());
     }
 
     private void generateConstructor(ClassDefinition classDefinition,

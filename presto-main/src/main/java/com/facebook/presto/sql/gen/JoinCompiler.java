@@ -46,21 +46,16 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import static com.facebook.presto.byteCode.Access.FINAL;
 import static com.facebook.presto.byteCode.Access.PRIVATE;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
-import static com.facebook.presto.byteCode.Access.STATIC;
-import static com.facebook.presto.byteCode.Access.VOLATILE;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
-import static com.facebook.presto.sql.gen.Bootstrap.CALL_SITES_FIELD_NAME;
-import static com.facebook.presto.sql.gen.ByteCodeUtils.setCallSitesField;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
 import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
@@ -92,12 +87,10 @@ public class JoinCompiler
     @VisibleForTesting
     public LookupSourceFactory internalCompileLookupSourceFactory(List<Type> types, List<Integer> joinChannels)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(getClass().getClassLoader());
-
-        Class<? extends PagesHashStrategy> pagesHashStrategyClass = compilePagesHashStrategy(types, joinChannels, classLoader);
+        Class<? extends PagesHashStrategy> pagesHashStrategyClass = compilePagesHashStrategy(types, joinChannels);
 
         Class<? extends LookupSource> lookupSourceClass = IsolatedClass.isolateClass(
-                classLoader,
+                new DynamicClassLoader(getClass().getClassLoader()),
                 LookupSource.class,
                 InMemoryJoinHash.class);
 
@@ -105,16 +98,12 @@ public class JoinCompiler
     }
 
     @VisibleForTesting
-    public PagesHashStrategyFactory compilePagesHashStrategy(List<Type> types, List<Integer> joinChannels)
+    public PagesHashStrategyFactory compilePagesHashStrategyFactory(List<Type> types, List<Integer> joinChannels)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(getClass().getClassLoader());
-
-        Class<? extends PagesHashStrategy> pagesHashStrategyClass = compilePagesHashStrategy(types, joinChannels, classLoader);
-
-        return new PagesHashStrategyFactory(pagesHashStrategyClass);
+        return new PagesHashStrategyFactory(compilePagesHashStrategy(types, joinChannels));
     }
 
-    private Class<? extends PagesHashStrategy> compilePagesHashStrategy(List<Type> types, List<Integer> joinChannels, DynamicClassLoader classLoader)
+    private Class<? extends PagesHashStrategy> compilePagesHashStrategy(List<Type> types, List<Integer> joinChannels)
     {
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
@@ -123,9 +112,6 @@ public class JoinCompiler
                 makeClassName("PagesHashStrategy"),
                 type(Object.class),
                 type(PagesHashStrategy.class));
-
-        // declare fields
-        classDefinition.declareField(a(PRIVATE, STATIC, VOLATILE), CALL_SITES_FIELD_NAME, Map.class);
 
         List<FieldDefinition> channelFields = new ArrayList<>();
         for (int i = 0; i < types.size(); i++) {
@@ -148,9 +134,7 @@ public class JoinCompiler
         generatePositionEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
 
-        Class<? extends PagesHashStrategy> pagesHashStrategyClass = defineClass(classDefinition, PagesHashStrategy.class, classLoader);
-        setCallSitesField(pagesHashStrategyClass, callSiteBinder.getBindings());
-        return pagesHashStrategyClass;
+        return defineClass(classDefinition, PagesHashStrategy.class, callSiteBinder.getBindings(), getClass().getClassLoader());
     }
 
     private void generateConstructor(ClassDefinition classDefinition,
