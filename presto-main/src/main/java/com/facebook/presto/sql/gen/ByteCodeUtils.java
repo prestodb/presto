@@ -262,15 +262,17 @@ public final class ByteCodeUtils
 
     public static ByteCodeNode generateWrite(CallSiteBinder callSiteBinder, CompilerContext context, Variable wasNullVariable, Type type)
     {
-        String name = "write" + Primitives.wrap(type.getJavaType()).getSimpleName();
-        MethodHandle target;
-        try {
-            target = MethodHandles.lookup().findVirtual(type.getClass(), name, MethodType.methodType(void.class, BlockBuilder.class, type.getJavaType()));
-        }
-        catch (ReflectiveOperationException e) {
-            throw Throwables.propagate(e);
-        }
+        String methodName = "write" + Primitives.wrap(type.getJavaType()).getSimpleName();
 
+        // the stack contains [output, value]
+
+        // We should be able to insert the code to get the output variable and compute the value
+        // at the right place instead of assuming they are in the stack. We should also not need to
+        // use temp variables to re-shuffle the stack to the right shape before Type.writeXXX is called
+        // Unfortunately, because of the assumptions made by try_cast, we can't get around it yet.
+        // TODO: clean up once try_cast is fixed
+        Variable tempValue = context.createTempVariable(type.getJavaType());
+        Variable tempOutput = context.createTempVariable(BlockBuilder.class);
         return new Block(context)
                 .comment("if (wasNull)")
                 .append(new IfStatement.IfStatementBuilder(context)
@@ -281,8 +283,13 @@ public final class ByteCodeUtils
                                 .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
                                 .pop())
                         .ifFalse(new Block(context)
-                                .comment(type.getName() + "." + name + "(output, " + type.getJavaType().getSimpleName() + ")")
-                                .append(invoke(context, callSiteBinder.bind(target.bindTo(type)), name)))
+                                .comment(type.getName() + "." + methodName + "(output, " + type.getJavaType().getSimpleName() + ")")
+                                .putVariable(tempValue)
+                                .putVariable(tempOutput)
+                                .append(loadConstant(context, callSiteBinder.bind(type, Type.class)))
+                                .getVariable(tempOutput)
+                                .getVariable(tempValue)
+                                .invokeInterface(Type.class, methodName, void.class, BlockBuilder.class, type.getJavaType()))
                         .build());
     }
 }
