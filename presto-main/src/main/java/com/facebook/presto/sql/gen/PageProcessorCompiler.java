@@ -37,14 +37,10 @@ import com.facebook.presto.sql.relational.Expressions;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Primitives;
 
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
 import java.util.List;
 import java.util.TreeSet;
 
@@ -57,7 +53,7 @@ import static com.facebook.presto.byteCode.control.ForLoop.ForLoopBuilder;
 import static com.facebook.presto.byteCode.control.IfStatement.IfStatementBuilder;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.generateWrite;
-import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
+import static com.facebook.presto.sql.gen.ByteCodeUtils.loadConstant;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 
@@ -330,19 +326,13 @@ public class PageProcessorCompiler
                         .putVariable(wasNullVariable, true)
                         .pushJavaDefault(javaType);
 
-                MethodHandle target;
                 String methodName = "get" + Primitives.wrap(javaType).getSimpleName();
-                try {
-                    target = MethodHandles.lookup().findVirtual(type.getClass(), methodName, MethodType.methodType(javaType, com.facebook.presto.spi.block.Block.class, int.class));
-                }
-                catch (ReflectiveOperationException e) {
-                    throw Throwables.propagate(e);
-                }
 
                 Block isNotNull = new Block(context)
+                        .append(loadConstant(context, callSiteBinder.bind(type, Type.class)))
                         .getVariable("block_" + field)
                         .getVariable(positionVariable)
-                        .append(invoke(context, callSiteBinder.bind(target.bindTo(type)), methodName));
+                        .invokeInterface(Type.class, methodName, javaType, com.facebook.presto.spi.block.Block.class, int.class);
 
                 return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
