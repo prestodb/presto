@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.google.common.base.Throwables;
 
 import java.lang.invoke.CallSite;
@@ -21,14 +22,11 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
-import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class Bootstrap
 {
-    public static final String CALL_SITES_FIELD_NAME = "callSites";
     public static final Method BOOTSTRAP_METHOD;
 
     static {
@@ -47,13 +45,14 @@ public final class Bootstrap
     public static CallSite bootstrap(MethodHandles.Lookup callerLookup, String name, MethodType type, long bindingId)
     {
         try {
-            MethodHandle handle = callerLookup.findStaticGetter(callerLookup.lookupClass(), CALL_SITES_FIELD_NAME, Map.class);
-            Map<Long, MethodHandle> bindings = (Map<Long, MethodHandle>) handle.invokeExact();
-            checkNotNull(bindings, "'callSites' field in %s is null", callerLookup.lookupClass().getName());
+            ClassLoader classLoader = callerLookup.lookupClass().getClassLoader();
+            checkArgument(classLoader instanceof DynamicClassLoader, "Expected %s's classloader to be of type %s", callerLookup.lookupClass().getName(), DynamicClassLoader.class.getName());
 
-            MethodHandle method = bindings.get(bindingId);
-            checkArgument(method != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
-            return new ConstantCallSite(method);
+            DynamicClassLoader dynamicClassLoader = (DynamicClassLoader) classLoader;
+            MethodHandle target = dynamicClassLoader.getCallsiteBindings().get(bindingId);
+            checkArgument(target != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
+
+            return new ConstantCallSite(target);
         }
         catch (Throwable e) {
             if (e instanceof InterruptedException) {

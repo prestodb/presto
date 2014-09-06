@@ -15,7 +15,6 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.CompilerContext;
-import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.operator.PageProcessor;
@@ -30,20 +29,13 @@ import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
 
-import java.lang.invoke.MethodHandle;
-import java.lang.reflect.Field;
 import java.util.List;
-import java.util.Map;
 
 import static com.facebook.presto.byteCode.Access.FINAL;
-import static com.facebook.presto.byteCode.Access.PRIVATE;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
-import static com.facebook.presto.byteCode.Access.STATIC;
-import static com.facebook.presto.byteCode.Access.VOLATILE;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
-import static com.facebook.presto.sql.gen.Bootstrap.CALL_SITES_FIELD_NAME;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
@@ -99,10 +91,8 @@ public class ExpressionCompiler
 
     private <T> T compileAndInstantiate(RowExpression filter, List<RowExpression> projections, BodyCompiler<T> bodyCompiler, Class<? extends T> superType)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(getClass().getClassLoader());
-
         // create filter and project page iterator class
-        Class<? extends T> clazz = compileProcessor(filter, projections, bodyCompiler, superType, classLoader);
+        Class<? extends T> clazz = compileProcessor(filter, projections, bodyCompiler, superType);
         try {
             return clazz.newInstance();
         }
@@ -115,8 +105,7 @@ public class ExpressionCompiler
             RowExpression filter,
             List<RowExpression> projections,
             BodyCompiler<T> bodyCompiler,
-            Class<? extends T> superType,
-            DynamicClassLoader classLoader)
+            Class<? extends T> superType)
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(BOOTSTRAP_METHOD),
                 a(PUBLIC, FINAL),
@@ -124,7 +113,6 @@ public class ExpressionCompiler
                 type(Object.class),
                 type(superType));
 
-        classDefinition.declareField(a(PRIVATE, VOLATILE, STATIC), CALL_SITES_FIELD_NAME, Map.class);
         classDefinition.declareDefaultConstructor(a(PUBLIC));
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
@@ -141,9 +129,7 @@ public class ExpressionCompiler
                         .add("projections", projections)
                         .toString());
 
-        Class<? extends T> clazz = defineClass(classDefinition, superType, classLoader);
-        setCallSitesField(clazz, callSiteBinder.getBindings());
-        return clazz;
+        return defineClass(classDefinition, superType, callSiteBinder.getBindings(), getClass().getClassLoader());
     }
 
     private static void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)
@@ -154,18 +140,6 @@ public class ExpressionCompiler
                 .getBody()
                 .append(invoke(context, callSiteBinder.bind(string, String.class), "toString"))
                 .retObject();
-    }
-
-    private static void setCallSitesField(Class<?> clazz, Map<Long, MethodHandle> callSites)
-    {
-        try {
-            Field field = clazz.getDeclaredField("callSites");
-            field.setAccessible(true);
-            field.set(null, callSites);
-        }
-        catch (IllegalAccessException | NoSuchFieldException e) {
-            throw Throwables.propagate(e);
-        }
     }
 
     private static final class CacheKey

@@ -16,7 +16,6 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.CompilerContext;
-import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
@@ -42,14 +41,10 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import static com.facebook.presto.byteCode.Access.FINAL;
-import static com.facebook.presto.byteCode.Access.PRIVATE;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
-import static com.facebook.presto.byteCode.Access.STATIC;
-import static com.facebook.presto.byteCode.Access.VOLATILE;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
@@ -57,8 +52,6 @@ import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.consta
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.getStatic;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.invokeStatic;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
-import static com.facebook.presto.sql.gen.Bootstrap.CALL_SITES_FIELD_NAME;
-import static com.facebook.presto.sql.gen.ByteCodeUtils.setCallSitesField;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
 import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
@@ -102,9 +95,7 @@ public class OrderingCompiler
 
         PagesIndexComparator comparator;
         try {
-            DynamicClassLoader classLoader = new DynamicClassLoader(getClass().getClassLoader());
-
-            Class<? extends PagesIndexComparator> pagesHashStrategyClass = compilePagesIndexComparator(sortTypes, sortChannels, sortOrders, classLoader);
+            Class<? extends PagesIndexComparator> pagesHashStrategyClass = compilePagesIndexComparator(sortTypes, sortChannels, sortOrders);
             comparator = pagesHashStrategyClass.newInstance();
         }
         catch (Throwable e) {
@@ -119,8 +110,7 @@ public class OrderingCompiler
     private Class<? extends PagesIndexComparator> compilePagesIndexComparator(
             List<Type> sortTypes,
             List<Integer> sortChannels,
-            List<SortOrder> sortOrders,
-            DynamicClassLoader classLoader)
+            List<SortOrder> sortOrders)
     {
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
@@ -130,14 +120,10 @@ public class OrderingCompiler
                 type(Object.class),
                 type(PagesIndexComparator.class));
 
-        classDefinition.declareField(a(PRIVATE, STATIC, VOLATILE), CALL_SITES_FIELD_NAME, Map.class);
-
         classDefinition.declareDefaultConstructor(a(PUBLIC));
         generateCompareTo(classDefinition, callSiteBinder, sortTypes, sortChannels, sortOrders);
 
-        Class<? extends PagesIndexComparator> comparatorClass = defineClass(classDefinition, PagesIndexComparator.class, classLoader);
-        setCallSitesField(comparatorClass, callSiteBinder.getBindings());
-        return comparatorClass;
+        return defineClass(classDefinition, PagesIndexComparator.class, callSiteBinder.getBindings(), getClass().getClassLoader());
     }
 
     private void generateCompareTo(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
