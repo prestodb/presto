@@ -245,9 +245,4 @@ public class AggregationCompiler
 
         return stateClasses;
     }
-
-    private static DynamicClassLoader createClassLoader()
-    {
-        return new DynamicClassLoader(AggregationCompiler.class.getClassLoader());
-    }
 }
