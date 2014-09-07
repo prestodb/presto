@@ -116,6 +116,7 @@ import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -475,6 +476,8 @@ public class HiveClient
                 return DOUBLE;
             case STRING:
                 return VARCHAR;
+            case DATE:
+                return DATE;
             case TIMESTAMP:
                 return TIMESTAMP;
             case BINARY:
