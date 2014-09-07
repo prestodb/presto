@@ -25,6 +25,7 @@ import com.google.inject.TypeLiteral;
 import com.google.inject.name.Names;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.event.client.FlushableEventClient;
 import io.airlift.event.client.EventClient;
 import org.skife.jdbi.v2.DBI;
 
@@ -99,6 +100,12 @@ public class PrestoVerifier
         // TODO: construct this with Guice
         Verifier verifier = new Verifier(System.out, config, eventClients);
         verifier.run(queries);
+
+        for (EventClient eventClient : eventClients) {
+            if (eventClient instanceof FlushableEventClient) {
+                ((FlushableEventClient) eventClient).flush(config.getFlushTimeout());
+            }
+        }
 
         injector.getInstance(LifeCycleManager.class).stop();
     }
