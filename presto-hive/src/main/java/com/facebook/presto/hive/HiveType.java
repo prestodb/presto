@@ -41,6 +41,7 @@ import static org.apache.hadoop.hive.serde.Constants.SMALLINT_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.STRING_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.TIMESTAMP_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.TINYINT_TYPE_NAME;
+import static org.apache.hadoop.hive.serde.serdeConstants.DATE_TYPE_NAME;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 
 public final class HiveType
@@ -54,9 +55,21 @@ public final class HiveType
     public static final HiveType HIVE_DOUBLE = new HiveType(DOUBLE_TYPE_NAME);
     public static final HiveType HIVE_STRING = new HiveType(STRING_TYPE_NAME);
     public static final HiveType HIVE_TIMESTAMP = new HiveType(TIMESTAMP_TYPE_NAME);
+    public static final HiveType HIVE_DATE = new HiveType(DATE_TYPE_NAME);
     public static final HiveType HIVE_BINARY = new HiveType(BINARY_TYPE_NAME);
 
-    private static final Set<HiveType> SUPPORTED_HIVE_TYPES = ImmutableSet.of(HIVE_BOOLEAN, HIVE_BYTE, HIVE_SHORT, HIVE_INT, HIVE_LONG, HIVE_FLOAT, HIVE_DOUBLE, HIVE_STRING, HIVE_TIMESTAMP, HIVE_BINARY);
+    private static final Set<HiveType> SUPPORTED_HIVE_TYPES = ImmutableSet.of(
+            HIVE_BOOLEAN,
+            HIVE_BYTE,
+            HIVE_SHORT,
+            HIVE_INT,
+            HIVE_LONG,
+            HIVE_FLOAT,
+            HIVE_DOUBLE,
+            HIVE_STRING,
+            HIVE_TIMESTAMP,
+            HIVE_DATE,
+            HIVE_BINARY);
 
     private final String hiveTypeName;
     private final Category category;
