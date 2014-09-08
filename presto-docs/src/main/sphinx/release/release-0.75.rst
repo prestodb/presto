@@ -27,8 +27,8 @@ General Changes
 * Added hex and base64 conversion functions for varbinary
 * Fix the ``LIKE`` operator to correctly match against values that contain
   multiple lines. Previously, it would stop matching at the first newline.
-* Add support for renaming tables using the :doc:`../sql/alter-table` statement.
-* Add basic support for inserting data using the :doc:`../sql/insert` statement.
+* Add support for renaming tables using the :doc:`/sql/alter-table` statement.
+* Add basic support for inserting data using the :doc:`/sql/insert` statement.
   This is currently only supported for the Raptor connector.
 
 JSON Function Changes
@@ -82,7 +82,7 @@ from ``orders`` for each ``orderstatus``::
         FROM orders
     ) WHERE rn <= 5;
 
-Use the :doc:`../sql/explain` statement to see if any of these optimizations
+Use the :doc:`/sql/explain` statement to see if any of these optimizations
 have been applied to your query.
 
 SPI Changes
