@@ -37,25 +37,25 @@ public final class CountColumnAggregations
     private CountColumnAggregations() {}
 
     @InputFunction
-    public static void booleanInput(LongState state, @SqlType(BooleanType.class) Block block, @BlockIndex int index)
+    public static void booleanInput(LongState state, @SqlType(BooleanType.NAME) Block block, @BlockIndex int index)
     {
         state.setLong(state.getLong() + 1);
     }
 
     @InputFunction
-    public static void doubleInput(LongState state, @SqlType(DoubleType.class) Block block, @BlockIndex int index)
+    public static void doubleInput(LongState state, @SqlType(DoubleType.NAME) Block block, @BlockIndex int index)
     {
         state.setLong(state.getLong() + 1);
     }
 
     @InputFunction
-    public static void varcharInput(LongState state, @SqlType(VarcharType.class) Block block, @BlockIndex int index)
+    public static void varcharInput(LongState state, @SqlType(VarcharType.NAME) Block block, @BlockIndex int index)
     {
         state.setLong(state.getLong() + 1);
     }
 
     @InputFunction
-    public static void bigintInput(LongState state, @SqlType(BigintType.class) Block block, @BlockIndex int index)
+    public static void bigintInput(LongState state, @SqlType(BigintType.NAME) Block block, @BlockIndex int index)
     {
         state.setLong(state.getLong() + 1);
     }

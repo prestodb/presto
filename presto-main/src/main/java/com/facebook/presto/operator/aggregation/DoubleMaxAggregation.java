@@ -27,7 +27,7 @@ public final class DoubleMaxAggregation
 
     @InputFunction
     @IntermediateInputFunction
-    public static void max(DoubleMaxState state, @SqlType(DoubleType.class) double value)
+    public static void max(DoubleMaxState state, @SqlType(DoubleType.NAME) double value)
     {
         state.setNull(false);
         state.setDouble(Math.max(state.getDouble(), value));

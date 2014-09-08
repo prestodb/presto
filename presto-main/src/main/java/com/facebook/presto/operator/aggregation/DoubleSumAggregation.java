@@ -26,7 +26,7 @@ public final class DoubleSumAggregation
 
     @InputFunction
     @IntermediateInputFunction
-    public static void sum(NullableDoubleState state, @SqlType(DoubleType.class) double value)
+    public static void sum(NullableDoubleState state, @SqlType(DoubleType.NAME) double value)
     {
         state.setNull(false);
         state.setDouble(state.getDouble() + value);

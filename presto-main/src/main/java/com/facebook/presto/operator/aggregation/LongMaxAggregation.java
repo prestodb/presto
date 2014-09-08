@@ -27,7 +27,7 @@ public final class LongMaxAggregation
 
     @InputFunction
     @IntermediateInputFunction
-    public static void max(BigintMaxState state, @SqlType(BigintType.class) long value)
+    public static void max(BigintMaxState state, @SqlType(BigintType.NAME) long value)
     {
         state.setNull(false);
         state.setLong(Math.max(state.getLong(), value));

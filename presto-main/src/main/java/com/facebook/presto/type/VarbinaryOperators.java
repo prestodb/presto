@@ -35,57 +35,57 @@ public final class VarbinaryOperators
     }
 
     @ScalarOperator(EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean equal(@SqlType(VarbinaryType.class) Slice left, @SqlType(VarbinaryType.class) Slice right)
+    @SqlType(BooleanType.NAME)
+    public static boolean equal(@SqlType(VarbinaryType.NAME) Slice left, @SqlType(VarbinaryType.NAME) Slice right)
     {
         return left.equals(right);
     }
 
     @ScalarOperator(NOT_EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean notEqual(@SqlType(VarbinaryType.class) Slice left, @SqlType(VarbinaryType.class) Slice right)
+    @SqlType(BooleanType.NAME)
+    public static boolean notEqual(@SqlType(VarbinaryType.NAME) Slice left, @SqlType(VarbinaryType.NAME) Slice right)
     {
         return !left.equals(right);
     }
 
     @ScalarOperator(LESS_THAN)
-    @SqlType(BooleanType.class)
-    public static boolean lessThan(@SqlType(VarbinaryType.class) Slice left, @SqlType(VarbinaryType.class) Slice right)
+    @SqlType(BooleanType.NAME)
+    public static boolean lessThan(@SqlType(VarbinaryType.NAME) Slice left, @SqlType(VarbinaryType.NAME) Slice right)
     {
         return left.compareTo(right) < 0;
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean lessThanOrEqual(@SqlType(VarbinaryType.class) Slice left, @SqlType(VarbinaryType.class) Slice right)
+    @SqlType(BooleanType.NAME)
+    public static boolean lessThanOrEqual(@SqlType(VarbinaryType.NAME) Slice left, @SqlType(VarbinaryType.NAME) Slice right)
     {
         return left.compareTo(right) <= 0;
     }
 
     @ScalarOperator(GREATER_THAN)
-    @SqlType(BooleanType.class)
-    public static boolean greaterThan(@SqlType(VarbinaryType.class) Slice left, @SqlType(VarbinaryType.class) Slice right)
+    @SqlType(BooleanType.NAME)
+    public static boolean greaterThan(@SqlType(VarbinaryType.NAME) Slice left, @SqlType(VarbinaryType.NAME) Slice right)
     {
         return left.compareTo(right) > 0;
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean greaterThanOrEqual(@SqlType(VarbinaryType.class) Slice left, @SqlType(VarbinaryType.class) Slice right)
+    @SqlType(BooleanType.NAME)
+    public static boolean greaterThanOrEqual(@SqlType(VarbinaryType.NAME) Slice left, @SqlType(VarbinaryType.NAME) Slice right)
     {
         return left.compareTo(right) >= 0;
     }
 
     @ScalarOperator(BETWEEN)
-    @SqlType(BooleanType.class)
-    public static boolean between(@SqlType(VarbinaryType.class) Slice value, @SqlType(VarbinaryType.class) Slice min, @SqlType(VarbinaryType.class) Slice max)
+    @SqlType(BooleanType.NAME)
+    public static boolean between(@SqlType(VarbinaryType.NAME) Slice value, @SqlType(VarbinaryType.NAME) Slice min, @SqlType(VarbinaryType.NAME) Slice max)
     {
         return min.compareTo(value) <= 0 && value.compareTo(max) <= 0;
     }
 
     @ScalarOperator(HASH_CODE)
-    @SqlType(BigintType.class)
-    public static long hashCode(@SqlType(VarbinaryType.class) Slice value)
+    @SqlType(BigintType.NAME)
+    public static long hashCode(@SqlType(VarbinaryType.NAME) Slice value)
     {
         return value.hashCode();
     }

@@ -40,7 +40,7 @@ public final class ApproximateSumAggregations
     private ApproximateSumAggregations() {}
 
     @InputFunction
-    public static void input(ApproximateDoubleSumState state, @SqlType(DoubleType.class) double value, @SampleWeight long sampleWeight)
+    public static void input(ApproximateDoubleSumState state, @SqlType(DoubleType.NAME) double value, @SampleWeight long sampleWeight)
     {
         state.setWeightedCount(state.getWeightedCount() + sampleWeight);
         state.setSum(state.getSum() + value * sampleWeight);
@@ -55,7 +55,7 @@ public final class ApproximateSumAggregations
         mergeVarianceState(state, otherState);
     }
 
-    @OutputFunction(VarcharType.class)
+    @OutputFunction(VarcharType.NAME)
     public static void output(ApproximateDoubleSumState state, double confidence, BlockBuilder out)
     {
         if (state.getWeightedCount() == 0) {
@@ -72,7 +72,7 @@ public final class ApproximateSumAggregations
     }
 
     @InputFunction
-    public static void input(ApproximateLongSumState state, @SqlType(BigintType.class) long value, @SampleWeight long sampleWeight)
+    public static void input(ApproximateLongSumState state, @SqlType(BigintType.NAME) long value, @SampleWeight long sampleWeight)
     {
         state.setWeightedCount(state.getWeightedCount() + sampleWeight);
         state.setSum(state.getSum() + value * sampleWeight);
@@ -87,7 +87,7 @@ public final class ApproximateSumAggregations
         mergeVarianceState(state, otherState);
     }
 
-    @OutputFunction(VarcharType.class)
+    @OutputFunction(VarcharType.NAME)
     public static void evaluateFinal(ApproximateLongSumState state, double confidence, BlockBuilder out)
     {
         if (state.getWeightedCount() == 0) {

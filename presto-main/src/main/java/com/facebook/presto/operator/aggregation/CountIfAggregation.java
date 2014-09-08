@@ -25,7 +25,7 @@ public final class CountIfAggregation
     private CountIfAggregation() {}
 
     @InputFunction
-    public static void input(LongState state, @SqlType(BooleanType.class) boolean value)
+    public static void input(LongState state, @SqlType(BooleanType.NAME) boolean value)
     {
         if (value) {
             state.setLong(state.getLong() + 1);

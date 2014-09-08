@@ -31,7 +31,7 @@ public final class MergeHyperLogLogAggregation
 
     @InputFunction
     @IntermediateInputFunction
-    public static void merge(HyperLogLogState state, @SqlType(HyperLogLogType.class) Slice value)
+    public static void merge(HyperLogLogState state, @SqlType(HyperLogLogType.NAME) Slice value)
     {
         HyperLogLog input = HyperLogLog.newInstance(value);
 
@@ -47,7 +47,7 @@ public final class MergeHyperLogLogAggregation
         }
     }
 
-    @OutputFunction(HyperLogLogType.class)
+    @OutputFunction(HyperLogLogType.NAME)
     public static void output(HyperLogLogState state, BlockBuilder out)
     {
         serializer.serialize(state, out);

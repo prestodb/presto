@@ -410,7 +410,7 @@ public class AccumulatorCompiler
                 case INPUT_CHANNEL:
                     Block getBlockByteCode = new Block(context)
                             .getVariable(parameterVariables.get(inputChannel));
-                    pushStackType(block, parameterMetadata.getSqlType(), getBlockByteCode, parameters[i]);
+                    pushStackType(block, parameterMetadata.getSqlType().getClass(), getBlockByteCode, parameters[i]);
                     inputChannel++;
                     break;
                 default:

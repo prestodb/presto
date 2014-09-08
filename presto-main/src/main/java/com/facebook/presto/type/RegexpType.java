@@ -27,6 +27,7 @@ public class RegexpType
         extends AbstractType
 {
     public static final RegexpType REGEXP = new RegexpType();
+    public static final String NAME = "RegExp";
 
     public static RegexpType getInstance()
     {
@@ -35,7 +36,7 @@ public class RegexpType
 
     public RegexpType()
     {
-        super("RegExp", Pattern.class);
+        super(NAME, Pattern.class);
     }
 
     @Override

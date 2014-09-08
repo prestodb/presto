@@ -18,6 +18,7 @@ import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.SqlType;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Predicate;
@@ -250,22 +251,21 @@ public class AggregationMetadata
     public static class ParameterMetadata
     {
         private final ParameterType parameterType;
-        @Nullable
-        private final Class<? extends Type> sqlType;
+        private final Type sqlType;
 
         public ParameterMetadata(ParameterType parameterType)
         {
             this(parameterType, null);
         }
 
-        public ParameterMetadata(ParameterType parameterType, @Nullable Class<? extends Type> sqlType)
+        public ParameterMetadata(ParameterType parameterType, Type sqlType)
         {
             checkArgument((sqlType == null) == (parameterType != INPUT_CHANNEL && parameterType != NULLABLE_INPUT_CHANNEL), "sqlType must be provided only for input channels");
             this.parameterType = parameterType;
             this.sqlType = sqlType;
         }
 
-        public static ParameterMetadata fromAnnotations(Annotation[] annotations, String methodName)
+        public static ParameterMetadata fromAnnotations(Annotation[] annotations, String methodName, TypeManager typeManager)
         {
             List<Annotation> baseTypes = IterableTransformer.on(annotations).select(new Predicate<Annotation>()
             {
@@ -281,10 +281,10 @@ public class AggregationMetadata
             checkArgument(!nullable || (annotation instanceof SqlType), "%s contains a parameters with @Nullable that is not @SqlType", methodName);
             if (annotation instanceof SqlType) {
                 if (nullable) {
-                    return new ParameterMetadata(NULLABLE_INPUT_CHANNEL, ((SqlType) annotation).value());
+                    return new ParameterMetadata(NULLABLE_INPUT_CHANNEL, typeManager.getType(((SqlType) annotation).value()));
                 }
                 else {
-                    return new ParameterMetadata(INPUT_CHANNEL, ((SqlType) annotation).value());
+                    return new ParameterMetadata(INPUT_CHANNEL, typeManager.getType(((SqlType) annotation).value()));
                 }
             }
             else if (annotation instanceof BlockIndex) {
@@ -303,8 +303,7 @@ public class AggregationMetadata
             return parameterType;
         }
 
-        @Nullable
-        public Class<? extends Type> getSqlType()
+        public Type getSqlType()
         {
             return sqlType;
         }

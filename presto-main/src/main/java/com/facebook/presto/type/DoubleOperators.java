@@ -49,29 +49,29 @@ public final class DoubleOperators
     }
 
     @ScalarOperator(ADD)
-    @SqlType(DoubleType.class)
-    public static double add(@SqlType(DoubleType.class) double left, @SqlType(DoubleType.class) double right)
+    @SqlType(DoubleType.NAME)
+    public static double add(@SqlType(DoubleType.NAME) double left, @SqlType(DoubleType.NAME) double right)
     {
         return left + right;
     }
 
     @ScalarOperator(SUBTRACT)
-    @SqlType(DoubleType.class)
-    public static double subtract(@SqlType(DoubleType.class) double left, @SqlType(DoubleType.class) double right)
+    @SqlType(DoubleType.NAME)
+    public static double subtract(@SqlType(DoubleType.NAME) double left, @SqlType(DoubleType.NAME) double right)
     {
         return left - right;
     }
 
     @ScalarOperator(MULTIPLY)
-    @SqlType(DoubleType.class)
-    public static double multiply(@SqlType(DoubleType.class) double left, @SqlType(DoubleType.class) double right)
+    @SqlType(DoubleType.NAME)
+    public static double multiply(@SqlType(DoubleType.NAME) double left, @SqlType(DoubleType.NAME) double right)
     {
         return left * right;
     }
 
     @ScalarOperator(DIVIDE)
-    @SqlType(DoubleType.class)
-    public static double divide(@SqlType(DoubleType.class) double left, @SqlType(DoubleType.class) double right)
+    @SqlType(DoubleType.NAME)
+    public static double divide(@SqlType(DoubleType.NAME) double left, @SqlType(DoubleType.NAME) double right)
     {
         try {
             return left / right;
@@ -82,8 +82,8 @@ public final class DoubleOperators
     }
 
     @ScalarOperator(MODULUS)
-    @SqlType(DoubleType.class)
-    public static double modulus(@SqlType(DoubleType.class) double left, @SqlType(DoubleType.class) double right)
+    @SqlType(DoubleType.NAME)
+    public static double modulus(@SqlType(DoubleType.NAME) double left, @SqlType(DoubleType.NAME) double right)
     {
         try {
             return left % right;
@@ -94,87 +94,87 @@ public final class DoubleOperators
     }
 
     @ScalarOperator(NEGATION)
-    @SqlType(DoubleType.class)
-    public static double negate(@SqlType(DoubleType.class) double value)
+    @SqlType(DoubleType.NAME)
+    public static double negate(@SqlType(DoubleType.NAME) double value)
     {
         return -value;
     }
 
     @ScalarOperator(EQUAL)
     @SuppressWarnings("FloatingPointEquality")
-    @SqlType(BooleanType.class)
-    public static boolean equal(@SqlType(DoubleType.class) double left, @SqlType(DoubleType.class) double right)
+    @SqlType(BooleanType.NAME)
+    public static boolean equal(@SqlType(DoubleType.NAME) double left, @SqlType(DoubleType.NAME) double right)
     {
         return left == right;
     }
 
     @ScalarOperator(NOT_EQUAL)
     @SuppressWarnings("FloatingPointEquality")
-    @SqlType(BooleanType.class)
-    public static boolean notEqual(@SqlType(DoubleType.class) double left, @SqlType(DoubleType.class) double right)
+    @SqlType(BooleanType.NAME)
+    public static boolean notEqual(@SqlType(DoubleType.NAME) double left, @SqlType(DoubleType.NAME) double right)
     {
         return left != right;
     }
 
     @ScalarOperator(LESS_THAN)
-    @SqlType(BooleanType.class)
-    public static boolean lessThan(@SqlType(DoubleType.class) double left, @SqlType(DoubleType.class) double right)
+    @SqlType(BooleanType.NAME)
+    public static boolean lessThan(@SqlType(DoubleType.NAME) double left, @SqlType(DoubleType.NAME) double right)
     {
         return left < right;
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean lessThanOrEqual(@SqlType(DoubleType.class) double left, @SqlType(DoubleType.class) double right)
+    @SqlType(BooleanType.NAME)
+    public static boolean lessThanOrEqual(@SqlType(DoubleType.NAME) double left, @SqlType(DoubleType.NAME) double right)
     {
         return left <= right;
     }
 
     @ScalarOperator(GREATER_THAN)
-    @SqlType(BooleanType.class)
-    public static boolean greaterThan(@SqlType(DoubleType.class) double left, @SqlType(DoubleType.class) double right)
+    @SqlType(BooleanType.NAME)
+    public static boolean greaterThan(@SqlType(DoubleType.NAME) double left, @SqlType(DoubleType.NAME) double right)
     {
         return left > right;
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean greaterThanOrEqual(@SqlType(DoubleType.class) double left, @SqlType(DoubleType.class) double right)
+    @SqlType(BooleanType.NAME)
+    public static boolean greaterThanOrEqual(@SqlType(DoubleType.NAME) double left, @SqlType(DoubleType.NAME) double right)
     {
         return left >= right;
     }
 
     @ScalarOperator(BETWEEN)
-    @SqlType(BooleanType.class)
-    public static boolean between(@SqlType(DoubleType.class) double value, @SqlType(DoubleType.class) double min, @SqlType(DoubleType.class) double max)
+    @SqlType(BooleanType.NAME)
+    public static boolean between(@SqlType(DoubleType.NAME) double value, @SqlType(DoubleType.NAME) double min, @SqlType(DoubleType.NAME) double max)
     {
         return min <= value && value <= max;
     }
 
     @ScalarOperator(CAST)
-    @SqlType(BooleanType.class)
-    public static boolean castToBoolean(@SqlType(DoubleType.class) double value)
+    @SqlType(BooleanType.NAME)
+    public static boolean castToBoolean(@SqlType(DoubleType.NAME) double value)
     {
         return value != 0;
     }
 
     @ScalarOperator(CAST)
-    @SqlType(BigintType.class)
-    public static long castToLong(@SqlType(DoubleType.class) double value)
+    @SqlType(BigintType.NAME)
+    public static long castToLong(@SqlType(DoubleType.NAME) double value)
     {
         return (long) MathFunctions.round(value);
     }
 
     @ScalarOperator(CAST)
-    @SqlType(VarcharType.class)
-    public static Slice castToVarchar(@SqlType(DoubleType.class) double value)
+    @SqlType(VarcharType.NAME)
+    public static Slice castToVarchar(@SqlType(DoubleType.NAME) double value)
     {
         return Slices.copiedBuffer(String.valueOf(value), UTF_8);
     }
 
     @ScalarOperator(HASH_CODE)
-    @SqlType(BigintType.class)
-    public static long hashCode(@SqlType(DoubleType.class) double value)
+    @SqlType(BigintType.NAME)
+    public static long hashCode(@SqlType(DoubleType.NAME) double value)
     {
         long bits = doubleToLongBits(value);
         return (int) (bits ^ (bits >>> 32));

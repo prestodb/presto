@@ -45,123 +45,123 @@ public final class IntervalYearMonthOperators
     }
 
     @ScalarOperator(ADD)
-    @SqlType(IntervalYearMonthType.class)
-    public static long add(@SqlType(IntervalYearMonthType.class) long left, @SqlType(IntervalYearMonthType.class) long right)
+    @SqlType(IntervalYearMonthType.NAME)
+    public static long add(@SqlType(IntervalYearMonthType.NAME) long left, @SqlType(IntervalYearMonthType.NAME) long right)
     {
         return left + right;
     }
 
     @ScalarOperator(SUBTRACT)
-    @SqlType(IntervalYearMonthType.class)
-    public static long subtract(@SqlType(IntervalYearMonthType.class) long left, @SqlType(IntervalYearMonthType.class) long right)
+    @SqlType(IntervalYearMonthType.NAME)
+    public static long subtract(@SqlType(IntervalYearMonthType.NAME) long left, @SqlType(IntervalYearMonthType.NAME) long right)
     {
         return left - right;
     }
 
     @ScalarOperator(MULTIPLY)
-    @SqlType(IntervalYearMonthType.class)
-    public static long multiplyByBigint(@SqlType(IntervalYearMonthType.class) long left, @SqlType(BigintType.class) long right)
+    @SqlType(IntervalYearMonthType.NAME)
+    public static long multiplyByBigint(@SqlType(IntervalYearMonthType.NAME) long left, @SqlType(BigintType.NAME) long right)
     {
         return left * right;
     }
 
     @ScalarOperator(MULTIPLY)
-    @SqlType(IntervalYearMonthType.class)
-    public static long multiplyByDouble(@SqlType(IntervalYearMonthType.class) long left, @SqlType(DoubleType.class) double right)
+    @SqlType(IntervalYearMonthType.NAME)
+    public static long multiplyByDouble(@SqlType(IntervalYearMonthType.NAME) long left, @SqlType(DoubleType.NAME) double right)
     {
         return (long) (left * right);
     }
 
     @ScalarOperator(MULTIPLY)
-    @SqlType(IntervalYearMonthType.class)
-    public static long bigintMultiply(@SqlType(BigintType.class) long left, @SqlType(IntervalYearMonthType.class) long right)
+    @SqlType(IntervalYearMonthType.NAME)
+    public static long bigintMultiply(@SqlType(BigintType.NAME) long left, @SqlType(IntervalYearMonthType.NAME) long right)
     {
         return left * right;
     }
 
     @ScalarOperator(MULTIPLY)
-    @SqlType(IntervalYearMonthType.class)
-    public static long doubleMultiply(@SqlType(DoubleType.class) double left, @SqlType(IntervalYearMonthType.class) long right)
+    @SqlType(IntervalYearMonthType.NAME)
+    public static long doubleMultiply(@SqlType(DoubleType.NAME) double left, @SqlType(IntervalYearMonthType.NAME) long right)
     {
         return (long) (left * right);
     }
 
     @ScalarOperator(DIVIDE)
-    @SqlType(IntervalYearMonthType.class)
-    public static long divideByDouble(@SqlType(IntervalYearMonthType.class) long left, @SqlType(DoubleType.class) double right)
+    @SqlType(IntervalYearMonthType.NAME)
+    public static long divideByDouble(@SqlType(IntervalYearMonthType.NAME) long left, @SqlType(DoubleType.NAME) double right)
     {
         return (long) (left / right);
     }
 
     @ScalarOperator(NEGATION)
-    @SqlType(IntervalYearMonthType.class)
-    public static long negate(@SqlType(IntervalYearMonthType.class) long value)
+    @SqlType(IntervalYearMonthType.NAME)
+    public static long negate(@SqlType(IntervalYearMonthType.NAME) long value)
     {
         return -value;
     }
 
     @ScalarOperator(EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean equal(@SqlType(IntervalYearMonthType.class) long left, @SqlType(IntervalYearMonthType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean equal(@SqlType(IntervalYearMonthType.NAME) long left, @SqlType(IntervalYearMonthType.NAME) long right)
     {
         return left == right;
     }
 
     @ScalarOperator(NOT_EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean notEqual(@SqlType(IntervalYearMonthType.class) long left, @SqlType(IntervalYearMonthType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean notEqual(@SqlType(IntervalYearMonthType.NAME) long left, @SqlType(IntervalYearMonthType.NAME) long right)
     {
         return left != right;
     }
 
     @ScalarOperator(LESS_THAN)
-    @SqlType(BooleanType.class)
-    public static boolean lessThan(@SqlType(IntervalYearMonthType.class) long left, @SqlType(IntervalYearMonthType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean lessThan(@SqlType(IntervalYearMonthType.NAME) long left, @SqlType(IntervalYearMonthType.NAME) long right)
     {
         return left < right;
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean lessThanOrEqual(@SqlType(IntervalYearMonthType.class) long left, @SqlType(IntervalYearMonthType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean lessThanOrEqual(@SqlType(IntervalYearMonthType.NAME) long left, @SqlType(IntervalYearMonthType.NAME) long right)
     {
         return left <= right;
     }
 
     @ScalarOperator(GREATER_THAN)
-    @SqlType(BooleanType.class)
-    public static boolean greaterThan(@SqlType(IntervalYearMonthType.class) long left, @SqlType(IntervalYearMonthType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean greaterThan(@SqlType(IntervalYearMonthType.NAME) long left, @SqlType(IntervalYearMonthType.NAME) long right)
     {
         return left > right;
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean greaterThanOrEqual(@SqlType(IntervalYearMonthType.class) long left, @SqlType(IntervalYearMonthType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean greaterThanOrEqual(@SqlType(IntervalYearMonthType.NAME) long left, @SqlType(IntervalYearMonthType.NAME) long right)
     {
         return left >= right;
     }
 
     @ScalarOperator(BETWEEN)
-    @SqlType(BooleanType.class)
+    @SqlType(BooleanType.NAME)
     public static boolean between(
-            @SqlType(IntervalYearMonthType.class) long value,
-            @SqlType(IntervalYearMonthType.class) long min,
-            @SqlType(IntervalYearMonthType.class) long max)
+            @SqlType(IntervalYearMonthType.NAME) long value,
+            @SqlType(IntervalYearMonthType.NAME) long min,
+            @SqlType(IntervalYearMonthType.NAME) long max)
     {
         return min <= value && value <= max;
     }
 
     @ScalarOperator(CAST)
-    @SqlType(VarcharType.class)
-    public static Slice castToSlice(@SqlType(IntervalYearMonthType.class) long value)
+    @SqlType(VarcharType.NAME)
+    public static Slice castToSlice(@SqlType(IntervalYearMonthType.NAME) long value)
     {
         return utf8Slice(SqlIntervalYearMonth.formatMonths(value));
     }
 
     @ScalarOperator(HASH_CODE)
-    @SqlType(BigintType.class)
-    public static long hashCode(@SqlType(IntervalYearMonthType.class) long value)
+    @SqlType(BigintType.NAME)
+    public static long hashCode(@SqlType(IntervalYearMonthType.NAME) long value)
     {
         return (int) (value ^ (value >>> 32));
     }

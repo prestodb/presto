@@ -26,6 +26,7 @@ public class JsonPathType
         extends AbstractType
 {
     public static final JsonPathType JSON_PATH = new JsonPathType();
+    public static final String NAME = "JsonPath";
 
     public static JsonPathType getInstance()
     {
@@ -34,7 +35,7 @@ public class JsonPathType
 
     public JsonPathType()
     {
-        super("JsonPath", JsonPath.class);
+        super(NAME, JsonPath.class);
     }
 
     @Override

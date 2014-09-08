@@ -24,6 +24,7 @@ public final class TimeWithTimeZoneType
         extends AbstractFixedWidthType
 {
     public static final TimeWithTimeZoneType TIME_WITH_TIME_ZONE = new TimeWithTimeZoneType();
+    public static final String NAME = "time with time zone";
 
     public static TimeWithTimeZoneType getInstance()
     {
@@ -32,7 +33,7 @@ public final class TimeWithTimeZoneType
 
     private TimeWithTimeZoneType()
     {
-        super("time with time zone", long.class, SIZE_OF_LONG);
+        super(NAME, long.class, SIZE_OF_LONG);
     }
 
     @Override

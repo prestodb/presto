@@ -51,8 +51,8 @@ public final class LikeFunctions
 
     // TODO: this should not be callable from SQL
     @ScalarFunction(value = "like", hidden = true)
-    @SqlType(BooleanType.class)
-    public static boolean like(@SqlType(VarcharType.class) Slice value, @SqlType(LikePatternType.class) Regex pattern)
+    @SqlType(BooleanType.NAME)
+    public static boolean like(@SqlType(VarcharType.NAME) Slice value, @SqlType(LikePatternType.NAME) Regex pattern)
     {
         // Joni doesn't handle invalid UTF-8, so replace invalid characters
         byte[] bytes = value.getBytes();
@@ -64,15 +64,15 @@ public final class LikeFunctions
     }
 
     @ScalarOperator(OperatorType.CAST)
-    @SqlType(LikePatternType.class)
-    public static Regex likePattern(@SqlType(VarcharType.class) Slice pattern)
+    @SqlType(LikePatternType.NAME)
+    public static Regex likePattern(@SqlType(VarcharType.NAME) Slice pattern)
     {
         return likeToPattern(pattern.toStringUtf8(), '0', false);
     }
 
     @ScalarFunction
-    @SqlType(LikePatternType.class)
-    public static Regex likePattern(@SqlType(VarcharType.class) Slice pattern, @SqlType(VarcharType.class) Slice escape)
+    @SqlType(LikePatternType.NAME)
+    public static Regex likePattern(@SqlType(VarcharType.NAME) Slice pattern, @SqlType(VarcharType.NAME) Slice escape)
     {
         return likeToPattern(pattern.toStringUtf8(), getEscapeChar(escape), true);
     }

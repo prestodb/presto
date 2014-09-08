@@ -43,85 +43,85 @@ public final class BooleanOperators
     }
 
     @ScalarOperator(EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean equal(@SqlType(BooleanType.class) boolean left, @SqlType(BooleanType.class) boolean right)
+    @SqlType(BooleanType.NAME)
+    public static boolean equal(@SqlType(BooleanType.NAME) boolean left, @SqlType(BooleanType.NAME) boolean right)
     {
         return left == right;
     }
 
     @ScalarOperator(NOT_EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean notEqual(@SqlType(BooleanType.class) boolean left, @SqlType(BooleanType.class) boolean right)
+    @SqlType(BooleanType.NAME)
+    public static boolean notEqual(@SqlType(BooleanType.NAME) boolean left, @SqlType(BooleanType.NAME) boolean right)
     {
         return left != right;
     }
 
     @ScalarOperator(LESS_THAN)
-    @SqlType(BooleanType.class)
-    public static boolean lessThan(@SqlType(BooleanType.class) boolean left, @SqlType(BooleanType.class) boolean right)
+    @SqlType(BooleanType.NAME)
+    public static boolean lessThan(@SqlType(BooleanType.NAME) boolean left, @SqlType(BooleanType.NAME) boolean right)
     {
         return !left && right;
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean lessThanOrEqual(@SqlType(BooleanType.class) boolean left, @SqlType(BooleanType.class) boolean right)
+    @SqlType(BooleanType.NAME)
+    public static boolean lessThanOrEqual(@SqlType(BooleanType.NAME) boolean left, @SqlType(BooleanType.NAME) boolean right)
     {
         return !left || right;
     }
 
     @ScalarOperator(GREATER_THAN)
-    @SqlType(BooleanType.class)
-    public static boolean greaterThan(@SqlType(BooleanType.class) boolean left, @SqlType(BooleanType.class) boolean right)
+    @SqlType(BooleanType.NAME)
+    public static boolean greaterThan(@SqlType(BooleanType.NAME) boolean left, @SqlType(BooleanType.NAME) boolean right)
     {
         return left && !right;
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean greaterThanOrEqual(@SqlType(BooleanType.class) boolean left, @SqlType(BooleanType.class) boolean right)
+    @SqlType(BooleanType.NAME)
+    public static boolean greaterThanOrEqual(@SqlType(BooleanType.NAME) boolean left, @SqlType(BooleanType.NAME) boolean right)
     {
         return left || !right;
     }
 
     @ScalarOperator(BETWEEN)
-    @SqlType(BooleanType.class)
-    public static boolean between(@SqlType(BooleanType.class) boolean value, @SqlType(BooleanType.class) boolean min, @SqlType(BooleanType.class) boolean max)
+    @SqlType(BooleanType.NAME)
+    public static boolean between(@SqlType(BooleanType.NAME) boolean value, @SqlType(BooleanType.NAME) boolean min, @SqlType(BooleanType.NAME) boolean max)
     {
         return (value && max) || (!value && !min);
     }
 
     @ScalarOperator(CAST)
-    @SqlType(DoubleType.class)
-    public static double castToDouble(@SqlType(BooleanType.class) boolean value)
+    @SqlType(DoubleType.NAME)
+    public static double castToDouble(@SqlType(BooleanType.NAME) boolean value)
     {
         return value ? 1 : 0;
     }
 
     @ScalarOperator(CAST)
-    @SqlType(BigintType.class)
-    public static long castToBigint(@SqlType(BooleanType.class) boolean value)
+    @SqlType(BigintType.NAME)
+    public static long castToBigint(@SqlType(BooleanType.NAME) boolean value)
     {
         return value ? 1 : 0;
     }
 
     @ScalarOperator(CAST)
-    @SqlType(VarcharType.class)
-    public static Slice castToVarchar(@SqlType(BooleanType.class) boolean value)
+    @SqlType(VarcharType.NAME)
+    public static Slice castToVarchar(@SqlType(BooleanType.NAME) boolean value)
     {
         return value ? TRUE : FALSE;
     }
 
     @ScalarOperator(HASH_CODE)
-    @SqlType(BigintType.class)
-    public static long hashCode(@SqlType(BooleanType.class) boolean value)
+    @SqlType(BigintType.NAME)
+    public static long hashCode(@SqlType(BooleanType.NAME) boolean value)
     {
         return value ? 1231 : 1237;
     }
 
-    @SqlType(BooleanType.class)
+    @SqlType(BooleanType.NAME)
     @ScalarFunction(hidden = true) // TODO: this should not be callable from SQL
-    public static boolean not(@SqlType(BooleanType.class) boolean value)
+    public static boolean not(@SqlType(BooleanType.NAME) boolean value)
     {
         return !value;
     }

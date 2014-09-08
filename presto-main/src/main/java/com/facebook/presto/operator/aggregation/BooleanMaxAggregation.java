@@ -30,7 +30,7 @@ public final class BooleanMaxAggregation
 
     @InputFunction
     @IntermediateInputFunction
-    public static void max(TriStateBooleanState state, @SqlType(BooleanType.class) boolean value)
+    public static void max(TriStateBooleanState state, @SqlType(BooleanType.NAME) boolean value)
     {
         // if value is true, update the max to true
         if (value) {

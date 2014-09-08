@@ -26,8 +26,8 @@ public final class HyperLogLogFunctions
 
     @ScalarFunction
     @Description("compute the cardinality of a HyperLogLog instance")
-    @SqlType(BigintType.class)
-    public static long cardinality(@SqlType(HyperLogLogType.class) Slice serializedHll)
+    @SqlType(BigintType.NAME)
+    public static long cardinality(@SqlType(HyperLogLogType.NAME) Slice serializedHll)
     {
         return HyperLogLog.newInstance(serializedHll).cardinality();
     }

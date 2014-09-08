@@ -27,7 +27,7 @@ public final class VarBinaryMaxAggregation
 
     @InputFunction
     @IntermediateInputFunction
-    public static void max(SliceState state, @SqlType(VarcharType.class) Slice value)
+    public static void max(SliceState state, @SqlType(VarcharType.NAME) Slice value)
     {
         state.setSlice(max(state.getSlice(), value));
     }

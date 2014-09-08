@@ -23,6 +23,7 @@ public final class BigintType
         extends AbstractFixedWidthType
 {
     public static final BigintType BIGINT = new BigintType();
+    public static final String NAME = "bigint";
 
     public static BigintType getInstance()
     {
@@ -31,7 +32,7 @@ public final class BigintType
 
     private BigintType()
     {
-        super("bigint", long.class, SIZE_OF_LONG);
+        super(NAME, long.class, SIZE_OF_LONG);
     }
 
     @Override

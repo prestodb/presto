@@ -27,8 +27,8 @@ public class HyperLogLogOperators
     }
 
     @ScalarOperator(CAST)
-    @SqlType(VarbinaryType.class)
-    public static Slice castToBinary(@SqlType(HyperLogLogType.class) Slice slice)
+    @SqlType(VarbinaryType.NAME)
+    public static Slice castToBinary(@SqlType(HyperLogLogType.NAME) Slice slice)
     {
         return slice;
     }

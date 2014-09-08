@@ -34,7 +34,7 @@ public final class ApproximateSetAggregation
     private ApproximateSetAggregation() {}
 
     @InputFunction
-    public static void input(HyperLogLogState state, @SqlType(DoubleType.class) double value)
+    public static void input(HyperLogLogState state, @SqlType(DoubleType.NAME) double value)
     {
         HyperLogLog hll = getOrCreateHyperLogLog(state);
         state.addMemoryUsage(-hll.estimatedInMemorySize());
@@ -43,7 +43,7 @@ public final class ApproximateSetAggregation
     }
 
     @InputFunction
-    public static void input(HyperLogLogState state, @SqlType(VarcharType.class) Slice value)
+    public static void input(HyperLogLogState state, @SqlType(VarcharType.NAME) Slice value)
     {
         HyperLogLog hll = getOrCreateHyperLogLog(state);
         state.addMemoryUsage(-hll.estimatedInMemorySize());
@@ -52,7 +52,7 @@ public final class ApproximateSetAggregation
     }
 
     @InputFunction
-    public static void input(HyperLogLogState state, @SqlType(BigintType.class) long value)
+    public static void input(HyperLogLogState state, @SqlType(BigintType.NAME) long value)
     {
         HyperLogLog hll = getOrCreateHyperLogLog(state);
         state.addMemoryUsage(-hll.estimatedInMemorySize());
@@ -88,7 +88,7 @@ public final class ApproximateSetAggregation
         }
     }
 
-    @OutputFunction(HyperLogLogType.class)
+    @OutputFunction(HyperLogLogType.NAME)
     public static void evaluateFinal(HyperLogLogState state, BlockBuilder out)
     {
         SERIALIZER.serialize(state, out);

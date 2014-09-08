@@ -50,60 +50,60 @@ public final class TimestampWithTimeZoneOperators
     }
 
     @ScalarOperator(EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean equal(@SqlType(TimestampWithTimeZoneType.class) long left, @SqlType(TimestampWithTimeZoneType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean equal(@SqlType(TimestampWithTimeZoneType.NAME) long left, @SqlType(TimestampWithTimeZoneType.NAME) long right)
     {
         return unpackMillisUtc(left) == unpackMillisUtc(right);
     }
 
     @ScalarOperator(NOT_EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean notEqual(@SqlType(TimestampWithTimeZoneType.class) long left, @SqlType(TimestampWithTimeZoneType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean notEqual(@SqlType(TimestampWithTimeZoneType.NAME) long left, @SqlType(TimestampWithTimeZoneType.NAME) long right)
     {
         return unpackMillisUtc(left) != unpackMillisUtc(right);
     }
 
     @ScalarOperator(LESS_THAN)
-    @SqlType(BooleanType.class)
-    public static boolean lessThan(@SqlType(TimestampWithTimeZoneType.class) long left, @SqlType(TimestampWithTimeZoneType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean lessThan(@SqlType(TimestampWithTimeZoneType.NAME) long left, @SqlType(TimestampWithTimeZoneType.NAME) long right)
     {
         return unpackMillisUtc(left) < unpackMillisUtc(right);
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean lessThanOrEqual(@SqlType(TimestampWithTimeZoneType.class) long left, @SqlType(TimestampWithTimeZoneType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean lessThanOrEqual(@SqlType(TimestampWithTimeZoneType.NAME) long left, @SqlType(TimestampWithTimeZoneType.NAME) long right)
     {
         return unpackMillisUtc(left) <= unpackMillisUtc(right);
     }
 
     @ScalarOperator(GREATER_THAN)
-    @SqlType(BooleanType.class)
-    public static boolean greaterThan(@SqlType(TimestampWithTimeZoneType.class) long left, @SqlType(TimestampWithTimeZoneType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean greaterThan(@SqlType(TimestampWithTimeZoneType.NAME) long left, @SqlType(TimestampWithTimeZoneType.NAME) long right)
     {
         return unpackMillisUtc(left) > unpackMillisUtc(right);
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean greaterThanOrEqual(@SqlType(TimestampWithTimeZoneType.class) long left, @SqlType(TimestampWithTimeZoneType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean greaterThanOrEqual(@SqlType(TimestampWithTimeZoneType.NAME) long left, @SqlType(TimestampWithTimeZoneType.NAME) long right)
     {
         return unpackMillisUtc(left) >= unpackMillisUtc(right);
     }
 
     @ScalarOperator(BETWEEN)
-    @SqlType(BooleanType.class)
+    @SqlType(BooleanType.NAME)
     public static boolean between(
-            @SqlType(TimestampWithTimeZoneType.class) long value,
-            @SqlType(TimestampWithTimeZoneType.class) long min,
-            @SqlType(TimestampWithTimeZoneType.class) long max)
+            @SqlType(TimestampWithTimeZoneType.NAME) long value,
+            @SqlType(TimestampWithTimeZoneType.NAME) long min,
+            @SqlType(TimestampWithTimeZoneType.NAME) long max)
     {
         return unpackMillisUtc(min) <= unpackMillisUtc(value) && unpackMillisUtc(value) <= unpackMillisUtc(max);
     }
 
     @ScalarOperator(CAST)
-    @SqlType(DateType.class)
-    public static long castToDate(@SqlType(TimestampWithTimeZoneType.class) long value)
+    @SqlType(DateType.NAME)
+    public static long castToDate(@SqlType(TimestampWithTimeZoneType.NAME) long value)
     {
         // round down the current timestamp to days
         ISOChronology chronology = unpackChronology(value);
@@ -114,37 +114,37 @@ public final class TimestampWithTimeZoneOperators
     }
 
     @ScalarOperator(CAST)
-    @SqlType(TimeType.class)
-    public static long castToTime(@SqlType(TimestampWithTimeZoneType.class) long value)
+    @SqlType(TimeType.NAME)
+    public static long castToTime(@SqlType(TimestampWithTimeZoneType.NAME) long value)
     {
         return modulo24Hour(unpackChronology(value), unpackMillisUtc(value));
     }
 
     @ScalarOperator(CAST)
-    @SqlType(TimeWithTimeZoneType.class)
-    public static long castToTimeWithTimeZone(@SqlType(TimestampWithTimeZoneType.class) long value)
+    @SqlType(TimeWithTimeZoneType.NAME)
+    public static long castToTimeWithTimeZone(@SqlType(TimestampWithTimeZoneType.NAME) long value)
     {
         int millis = modulo24Hour(unpackChronology(value), unpackMillisUtc(value));
         return packDateTimeWithZone(millis, unpackZoneKey(value));
     }
 
     @ScalarOperator(CAST)
-    @SqlType(TimestampType.class)
-    public static long castToTimestamp(@SqlType(TimestampWithTimeZoneType.class) long value)
+    @SqlType(TimestampType.NAME)
+    public static long castToTimestamp(@SqlType(TimestampWithTimeZoneType.NAME) long value)
     {
         return unpackMillisUtc(value);
     }
 
     @ScalarOperator(CAST)
-    @SqlType(VarcharType.class)
-    public static Slice castToSlice(@SqlType(TimestampWithTimeZoneType.class) long value)
+    @SqlType(VarcharType.NAME)
+    public static Slice castToSlice(@SqlType(TimestampWithTimeZoneType.NAME) long value)
     {
         return Slices.copiedBuffer(printTimestampWithTimeZone(value), UTF_8);
     }
 
     @ScalarOperator(HASH_CODE)
-    @SqlType(BigintType.class)
-    public static long hashCode(@SqlType(TimestampWithTimeZoneType.class) long value)
+    @SqlType(BigintType.NAME)
+    public static long hashCode(@SqlType(TimestampWithTimeZoneType.NAME) long value)
     {
         long millis = unpackMillisUtc(value);
         return (int) (millis ^ (millis >>> 32));

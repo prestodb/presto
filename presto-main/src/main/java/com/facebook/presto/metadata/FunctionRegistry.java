@@ -180,7 +180,7 @@ public class FunctionRegistry
     {
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
 
-        FunctionListBuilder builder = new FunctionListBuilder()
+        FunctionListBuilder builder = new FunctionListBuilder(typeManager)
                 .window("row_number", BIGINT, ImmutableList.<Type>of(), RowNumberFunction.class)
                 .window("rank", BIGINT, ImmutableList.<Type>of(), RankFunction.class)
                 .window("dense_rank", BIGINT, ImmutableList.<Type>of(), DenseRankFunction.class)
@@ -509,7 +509,7 @@ public class FunctionRegistry
         return Optional.absent();
     }
 
-    private static List<Type> parameterTypes(Method method)
+    private static List<Type> parameterTypes(TypeManager typeManager, Method method)
     {
         Annotation[][] parameterAnnotations = method.getParameterAnnotations();
 
@@ -530,7 +530,7 @@ public class FunctionRegistry
                 }
             }
             checkArgument(explicitType != null, "Method %s argument %s does not have a @SqlType annotation", method, i);
-            types.add(type(explicitType));
+            types.add(type(typeManager, explicitType));
         }
         return types.build();
     }
@@ -544,14 +544,11 @@ public class FunctionRegistry
         return parameterTypes;
     }
 
-    private static Type type(SqlType explicitType)
+    private static Type type(TypeManager typeManager, SqlType explicitType)
     {
-        try {
-            return (Type) explicitType.value().getMethod("getInstance").invoke(null);
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
+        Type type = typeManager.getType(explicitType.value());
+        checkNotNull(type, "No type found for '%s'", explicitType.value());
+        return type;
     }
 
     public static Type type(Class<?> clazz)
@@ -588,6 +585,12 @@ public class FunctionRegistry
     {
         private final List<FunctionInfo> functions = new ArrayList<>();
         private final Multimap<OperatorType, FunctionInfo> operators = ArrayListMultimap.create();
+        private final TypeManager typeManager;
+
+        public FunctionListBuilder(TypeManager typeManager)
+        {
+            this.typeManager = checkNotNull(typeManager, "typeManager is null");
+        }
 
         public FunctionListBuilder window(String name, Type returnType, List<? extends Type> argumentTypes, Class<? extends WindowFunction> functionClass)
         {
@@ -619,7 +622,7 @@ public class FunctionRegistry
 
         public FunctionListBuilder aggregate(Class<?> aggregationDefinition)
         {
-            functions.addAll(GenericAggregationFunctionFactory.fromAggregationDefinition(aggregationDefinition).listFunctions());
+            functions.addAll(GenericAggregationFunctionFactory.fromAggregationDefinition(aggregationDefinition, typeManager).listFunctions());
             return this;
         }
 
@@ -668,8 +671,8 @@ public class FunctionRegistry
             }
             SqlType returnTypeAnnotation = method.getAnnotation(SqlType.class);
             checkArgument(returnTypeAnnotation != null, "Method %s return type does not have a @SqlType annotation", method);
-            Type returnType = type(returnTypeAnnotation);
-            Signature signature = new Signature(name.toLowerCase(), returnType, parameterTypes(method));
+            Type returnType = type(typeManager, returnTypeAnnotation);
+            Signature signature = new Signature(name.toLowerCase(), returnType, parameterTypes(typeManager, method));
 
             verifyMethodSignature(method, signature.getReturnType(), signature.getArgumentTypes());
 
@@ -715,7 +718,7 @@ public class FunctionRegistry
             MethodHandle methodHandle = lookup().unreflect(method);
             OperatorType operatorType = scalarOperator.value();
 
-            List<Type> parameterTypes = parameterTypes(method);
+            List<Type> parameterTypes = parameterTypes(typeManager, method);
 
             Type returnType;
             if (operatorType == OperatorType.HASH_CODE) {
@@ -725,7 +728,7 @@ public class FunctionRegistry
             else {
                 SqlType explicitType = method.getAnnotation(SqlType.class);
                 checkArgument(explicitType != null, "Method %s return type does not have a @SqlType annotation", method);
-                returnType = type(explicitType);
+                returnType = type(typeManager, explicitType);
 
                 verifyMethodSignature(method, returnType, parameterTypes);
             }

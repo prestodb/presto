@@ -46,123 +46,123 @@ public final class IntervalDayTimeOperators
     }
 
     @ScalarOperator(ADD)
-    @SqlType(IntervalDayTimeType.class)
-    public static long add(@SqlType(IntervalDayTimeType.class) long left, @SqlType(IntervalDayTimeType.class) long right)
+    @SqlType(IntervalDayTimeType.NAME)
+    public static long add(@SqlType(IntervalDayTimeType.NAME) long left, @SqlType(IntervalDayTimeType.NAME) long right)
     {
         return left + right;
     }
 
     @ScalarOperator(SUBTRACT)
-    @SqlType(IntervalDayTimeType.class)
-    public static long subtract(@SqlType(IntervalDayTimeType.class) long left, @SqlType(IntervalDayTimeType.class) long right)
+    @SqlType(IntervalDayTimeType.NAME)
+    public static long subtract(@SqlType(IntervalDayTimeType.NAME) long left, @SqlType(IntervalDayTimeType.NAME) long right)
     {
         return left - right;
     }
 
     @ScalarOperator(MULTIPLY)
-    @SqlType(IntervalDayTimeType.class)
-    public static long multiplyByBigint(@SqlType(IntervalDayTimeType.class) long left, @SqlType(BigintType.class) long right)
+    @SqlType(IntervalDayTimeType.NAME)
+    public static long multiplyByBigint(@SqlType(IntervalDayTimeType.NAME) long left, @SqlType(BigintType.NAME) long right)
     {
         return left * right;
     }
 
     @ScalarOperator(MULTIPLY)
-    @SqlType(IntervalDayTimeType.class)
-    public static long multiplyByDouble(@SqlType(IntervalDayTimeType.class) long left, @SqlType(DoubleType.class) double right)
+    @SqlType(IntervalDayTimeType.NAME)
+    public static long multiplyByDouble(@SqlType(IntervalDayTimeType.NAME) long left, @SqlType(DoubleType.NAME) double right)
     {
         return (long) (left * right);
     }
 
     @ScalarOperator(MULTIPLY)
-    @SqlType(IntervalDayTimeType.class)
-    public static long bigintMultiply(@SqlType(BigintType.class) long left, @SqlType(IntervalDayTimeType.class) long right)
+    @SqlType(IntervalDayTimeType.NAME)
+    public static long bigintMultiply(@SqlType(BigintType.NAME) long left, @SqlType(IntervalDayTimeType.NAME) long right)
     {
         return left * right;
     }
 
     @ScalarOperator(MULTIPLY)
-    @SqlType(IntervalDayTimeType.class)
-    public static long doubleMultiply(@SqlType(DoubleType.class) double left, @SqlType(IntervalDayTimeType.class) long right)
+    @SqlType(IntervalDayTimeType.NAME)
+    public static long doubleMultiply(@SqlType(DoubleType.NAME) double left, @SqlType(IntervalDayTimeType.NAME) long right)
     {
         return (long) (left * right);
     }
 
     @ScalarOperator(DIVIDE)
-    @SqlType(IntervalDayTimeType.class)
-    public static long divideByDouble(@SqlType(IntervalDayTimeType.class) long left, @SqlType(DoubleType.class) double right)
+    @SqlType(IntervalDayTimeType.NAME)
+    public static long divideByDouble(@SqlType(IntervalDayTimeType.NAME) long left, @SqlType(DoubleType.NAME) double right)
     {
         return (long) (left / right);
     }
 
     @ScalarOperator(NEGATION)
-    @SqlType(IntervalDayTimeType.class)
-    public static long negate(@SqlType(IntervalDayTimeType.class) long value)
+    @SqlType(IntervalDayTimeType.NAME)
+    public static long negate(@SqlType(IntervalDayTimeType.NAME) long value)
     {
         return -value;
     }
 
     @ScalarOperator(EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean equal(@SqlType(IntervalDayTimeType.class) long left, @SqlType(IntervalDayTimeType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean equal(@SqlType(IntervalDayTimeType.NAME) long left, @SqlType(IntervalDayTimeType.NAME) long right)
     {
         return left == right;
     }
 
     @ScalarOperator(NOT_EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean notEqual(@SqlType(IntervalDayTimeType.class) long left, @SqlType(IntervalDayTimeType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean notEqual(@SqlType(IntervalDayTimeType.NAME) long left, @SqlType(IntervalDayTimeType.NAME) long right)
     {
         return left != right;
     }
 
     @ScalarOperator(LESS_THAN)
-    @SqlType(BooleanType.class)
-    public static boolean lessThan(@SqlType(IntervalDayTimeType.class) long left, @SqlType(IntervalDayTimeType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean lessThan(@SqlType(IntervalDayTimeType.NAME) long left, @SqlType(IntervalDayTimeType.NAME) long right)
     {
         return left < right;
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean lessThanOrEqual(@SqlType(IntervalDayTimeType.class) long left, @SqlType(IntervalDayTimeType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean lessThanOrEqual(@SqlType(IntervalDayTimeType.NAME) long left, @SqlType(IntervalDayTimeType.NAME) long right)
     {
         return left <= right;
     }
 
     @ScalarOperator(GREATER_THAN)
-    @SqlType(BooleanType.class)
-    public static boolean greaterThan(@SqlType(IntervalDayTimeType.class) long left, @SqlType(IntervalDayTimeType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean greaterThan(@SqlType(IntervalDayTimeType.NAME) long left, @SqlType(IntervalDayTimeType.NAME) long right)
     {
         return left > right;
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean greaterThanOrEqual(@SqlType(IntervalDayTimeType.class) long left, @SqlType(IntervalDayTimeType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean greaterThanOrEqual(@SqlType(IntervalDayTimeType.NAME) long left, @SqlType(IntervalDayTimeType.NAME) long right)
     {
         return left >= right;
     }
 
     @ScalarOperator(BETWEEN)
-    @SqlType(BooleanType.class)
+    @SqlType(BooleanType.NAME)
     public static boolean between(
-            @SqlType(IntervalDayTimeType.class) long value,
-            @SqlType(IntervalDayTimeType.class) long min,
-            @SqlType(IntervalDayTimeType.class) long max)
+            @SqlType(IntervalDayTimeType.NAME) long value,
+            @SqlType(IntervalDayTimeType.NAME) long min,
+            @SqlType(IntervalDayTimeType.NAME) long max)
     {
         return min <= value && value <= max;
     }
 
     @ScalarOperator(CAST)
-    @SqlType(VarcharType.class)
-    public static Slice castToSlice(@SqlType(IntervalDayTimeType.class) long value)
+    @SqlType(VarcharType.NAME)
+    public static Slice castToSlice(@SqlType(IntervalDayTimeType.NAME) long value)
     {
         return Slices.copiedBuffer(SqlIntervalDayTime.formatMillis(value), UTF_8);
     }
 
     @ScalarOperator(HASH_CODE)
-    @SqlType(BigintType.class)
-    public static long hashCode(@SqlType(IntervalDayTimeType.class) long value)
+    @SqlType(BigintType.NAME)
+    public static long hashCode(@SqlType(IntervalDayTimeType.NAME) long value)
     {
         return (int) (value ^ (value >>> 32));
     }

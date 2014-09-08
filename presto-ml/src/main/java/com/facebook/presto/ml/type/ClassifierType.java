@@ -22,6 +22,7 @@ public class ClassifierType
         extends ModelType
 {
     public static final ClassifierType CLASSIFIER = new ClassifierType();
+    public static final String NAME = "Classifier";
 
     @JsonCreator
     public ClassifierType()
@@ -36,6 +37,6 @@ public class ClassifierType
     @Override
     public String getName()
     {
-        return "Classifier";
+        return NAME;
     }
 }

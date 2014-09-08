@@ -107,7 +107,7 @@ public final class MaxByAggregations
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type value, Type key)
     {
-        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(NULLABLE_INPUT_CHANNEL, value.getClass()), new ParameterMetadata(NULLABLE_INPUT_CHANNEL, key.getClass()), new ParameterMetadata(BLOCK_INDEX));
+        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(NULLABLE_INPUT_CHANNEL, value), new ParameterMetadata(NULLABLE_INPUT_CHANNEL, key), new ParameterMetadata(BLOCK_INDEX));
     }
 
     public static void input(MaxByState state, Block value, Block key, int position)
