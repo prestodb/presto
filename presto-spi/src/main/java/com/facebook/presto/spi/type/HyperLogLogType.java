@@ -30,11 +30,6 @@ public class HyperLogLogType
     public static final HyperLogLogType HYPER_LOG_LOG = new HyperLogLogType();
     public static final String NAME = "HyperLogLog";
 
-    public static HyperLogLogType getInstance()
-    {
-        return HYPER_LOG_LOG;
-    }
-
     @JsonCreator
     public HyperLogLogType()
     {

@@ -25,11 +25,6 @@ public final class IntervalDayTimeType
     public static final IntervalDayTimeType INTERVAL_DAY_TIME = new IntervalDayTimeType();
     public static final String NAME = "interval day to second";
 
-    public static IntervalDayTimeType getInstance()
-    {
-        return INTERVAL_DAY_TIME;
-    }
-
     private IntervalDayTimeType()
     {
         super(NAME, long.class, SIZE_OF_LONG);

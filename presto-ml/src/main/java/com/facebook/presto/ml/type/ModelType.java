@@ -35,11 +35,6 @@ public class ModelType
     {
     }
 
-    public static ModelType getInstance()
-    {
-        return MODEL;
-    }
-
     @Override
     public String getName()
     {

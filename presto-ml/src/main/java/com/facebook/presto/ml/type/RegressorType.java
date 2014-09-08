@@ -29,11 +29,6 @@ public class RegressorType
     {
     }
 
-    public static RegressorType getInstance()
-    {
-        return REGRESSOR;
-    }
-
     @Override
     public String getName()
     {

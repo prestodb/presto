@@ -25,11 +25,6 @@ public final class BooleanType
     public static final BooleanType BOOLEAN = new BooleanType();
     public static final String NAME = "boolean";
 
-    public static BooleanType getInstance()
-    {
-        return BOOLEAN;
-    }
-
     private BooleanType()
     {
         super(NAME, boolean.class, SIZE_OF_BYTE);

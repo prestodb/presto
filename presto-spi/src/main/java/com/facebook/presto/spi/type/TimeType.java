@@ -29,11 +29,6 @@ public final class TimeType
     public static final TimeType TIME = new TimeType();
     public static final String NAME = "time";
 
-    public static TimeType getInstance()
-    {
-        return TIME;
-    }
-
     private TimeType()
     {
         super(NAME, long.class, SIZE_OF_LONG);

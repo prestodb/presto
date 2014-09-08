@@ -25,11 +25,6 @@ public final class IntervalYearMonthType
     public static final IntervalYearMonthType INTERVAL_YEAR_MONTH = new IntervalYearMonthType();
     public static final String NAME = "interval year to month";
 
-    public static IntervalYearMonthType getInstance()
-    {
-        return INTERVAL_YEAR_MONTH;
-    }
-
     private IntervalYearMonthType()
     {
         super(NAME, long.class, SIZE_OF_LONG);

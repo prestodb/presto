@@ -25,11 +25,6 @@ public final class DoubleType
     public static final DoubleType DOUBLE = new DoubleType();
     public static final String NAME = "double";
 
-    public static DoubleType getInstance()
-    {
-        return DOUBLE;
-    }
-
     private DoubleType()
     {
         super(NAME, double.class, SIZE_OF_DOUBLE);

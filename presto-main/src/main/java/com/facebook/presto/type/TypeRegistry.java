@@ -21,8 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,14 +37,13 @@ import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.ColorType.COLOR;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.RegexpType.REGEXP;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -115,15 +112,5 @@ public final class TypeRegistry
     public static void verifyTypeClass(Type type)
     {
         checkNotNull(type, "type is null");
-        Method getInstanceMethod = null;
-        try {
-            getInstanceMethod = type.getClass().getMethod("getInstance");
-        }
-        catch (NoSuchMethodException e) {
-            checkArgument(false, "Type %s does not have a public static getInstance() method", type.getClass().getName());
-        }
-        checkArgument(Modifier.isStatic(getInstanceMethod.getModifiers()), "%s must be static", getInstanceMethod);
-        checkArgument(Modifier.isPublic(getInstanceMethod.getModifiers()), "%s must be public", getInstanceMethod);
-        checkArgument(Type.class.isAssignableFrom(getInstanceMethod.getReturnType()), "%s must be public", getInstanceMethod);
     }
 }
