@@ -29,11 +29,6 @@ public class ClassifierType
     {
     }
 
-    public static ClassifierType getInstance()
-    {
-        return CLASSIFIER;
-    }
-
     @Override
     public String getName()
     {

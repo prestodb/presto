@@ -28,11 +28,6 @@ public class VarcharType
     public static final VarcharType VARCHAR = new VarcharType();
     public static final String NAME = "varchar";
 
-    public static VarcharType getInstance()
-    {
-        return VARCHAR;
-    }
-
     @JsonCreator
     public VarcharType()
     {

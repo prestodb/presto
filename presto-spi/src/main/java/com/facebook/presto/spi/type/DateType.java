@@ -34,11 +34,6 @@ public final class DateType
     public static final DateType DATE = new DateType();
     public static final String NAME = "date";
 
-    public static DateType getInstance()
-    {
-        return DATE;
-    }
-
     private DateType()
     {
         super(NAME, long.class, SIZE_OF_LONG);

@@ -33,11 +33,6 @@ public class VarbinaryType
         super(NAME, Slice.class);
     }
 
-    public static VarbinaryType getInstance()
-    {
-        return VARBINARY;
-    }
-
     @Override
     public boolean isComparable()
     {

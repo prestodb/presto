@@ -21,11 +21,8 @@ import com.facebook.presto.byteCode.FieldDefinition;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.util.array.BooleanBigArray;
 import com.facebook.presto.util.array.ByteBigArray;
 import com.facebook.presto.util.array.DoubleBigArray;
@@ -57,8 +54,14 @@ import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
+import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -110,15 +113,17 @@ public class StateCompiler
                 type(Object.class),
                 type(AccumulatorStateSerializer.class));
 
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
+
         // Generate constructor
         definition.declareDefaultConstructor(a(PUBLIC));
 
         List<StateField> fields = enumerateFields(clazz);
-        generateGetSerializedType(definition, fields);
+        generateGetSerializedType(definition, fields, callSiteBinder);
         generateSerialize(definition, clazz, fields);
         generateDeserialize(definition, clazz, fields);
 
-        Class<? extends AccumulatorStateSerializer> serializerClass = defineClass(definition, AccumulatorStateSerializer.class, classLoader);
+        Class<? extends AccumulatorStateSerializer> serializerClass = defineClass(definition, AccumulatorStateSerializer.class, callSiteBinder.getBindings(), classLoader);
         try {
             return (AccumulatorStateSerializer<T>) serializerClass.newInstance();
         }
@@ -127,39 +132,39 @@ public class StateCompiler
         }
     }
 
-    private static void generateGetSerializedType(ClassDefinition definition, List<StateField> fields)
+    private static void generateGetSerializedType(ClassDefinition definition, List<StateField> fields, CallSiteBinder callSiteBinder)
     {
         CompilerContext compilerContext = new CompilerContext();
         Block body = definition.declareMethod(compilerContext, a(PUBLIC), "getSerializedType", type(Type.class)).getBody();
 
-        Class<?> type;
+        Type type;
         if (fields.size() > 1) {
-            type = VarcharType.class;
+            type = VARCHAR;
         }
         else {
             Class<?> stackType = fields.get(0).getType();
             if (stackType == long.class) {
-                type = BigintType.class;
+                type = BIGINT;
             }
             else if (stackType == double.class) {
-                type = DoubleType.class;
+                type = DOUBLE;
             }
             else if (stackType == boolean.class) {
-                type = BooleanType.class;
+                type = BOOLEAN;
             }
             else if (stackType == byte.class) {
-                type = BigintType.class;
+                type = BIGINT;
             }
             else if (stackType == Slice.class) {
-                type = VarcharType.class;
+                type = VARCHAR;
             }
             else {
                 throw new IllegalArgumentException("Unsupported type: " + stackType);
             }
         }
 
-        body.comment("return %s.getInstance()", type.getSimpleName())
-                .invokeStatic(type, "getInstance", type)
+        body.comment("return %s", type.getName())
+                .append(constantType(new CompilerContext(BOOTSTRAP_METHOD), callSiteBinder, type))
                 .retObject();
     }
 

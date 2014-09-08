@@ -25,11 +25,6 @@ public final class BigintType
     public static final BigintType BIGINT = new BigintType();
     public static final String NAME = "bigint";
 
-    public static BigintType getInstance()
-    {
-        return BIGINT;
-    }
-
     private BigintType()
     {
         super(NAME, long.class, SIZE_OF_LONG);

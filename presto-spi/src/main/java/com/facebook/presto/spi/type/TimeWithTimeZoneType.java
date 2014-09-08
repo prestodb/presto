@@ -26,11 +26,6 @@ public final class TimeWithTimeZoneType
     public static final TimeWithTimeZoneType TIME_WITH_TIME_ZONE = new TimeWithTimeZoneType();
     public static final String NAME = "time with time zone";
 
-    public static TimeWithTimeZoneType getInstance()
-    {
-        return TIME_WITH_TIME_ZONE;
-    }
-
     private TimeWithTimeZoneType()
     {
         super(NAME, long.class, SIZE_OF_LONG);

@@ -29,11 +29,6 @@ public class RegexpType
     public static final RegexpType REGEXP = new RegexpType();
     public static final String NAME = "RegExp";
 
-    public static RegexpType getInstance()
-    {
-        return REGEXP;
-    }
-
     public RegexpType()
     {
         super(NAME, Pattern.class);

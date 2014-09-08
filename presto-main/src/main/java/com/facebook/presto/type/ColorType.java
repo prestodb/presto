@@ -27,11 +27,6 @@ public class ColorType
     public static final ColorType COLOR = new ColorType();
     public static final String NAME = "color";
 
-    public static ColorType getInstance()
-    {
-        return COLOR;
-    }
-
     private ColorType()
     {
         super(NAME, long.class, SIZE_OF_INT);

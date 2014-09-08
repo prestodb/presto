@@ -28,11 +28,6 @@ public class LikePatternType
     public static final LikePatternType LIKE_PATTERN = new LikePatternType();
     public static final String NAME = "LikePattern";
 
-    public static LikePatternType getInstance()
-    {
-        return LIKE_PATTERN;
-    }
-
     public LikePatternType()
     {
         super(NAME, Regex.class);

@@ -28,11 +28,6 @@ public class JsonPathType
     public static final JsonPathType JSON_PATH = new JsonPathType();
     public static final String NAME = "JsonPath";
 
-    public static JsonPathType getInstance()
-    {
-        return JSON_PATH;
-    }
-
     public JsonPathType()
     {
         super(NAME, JsonPath.class);

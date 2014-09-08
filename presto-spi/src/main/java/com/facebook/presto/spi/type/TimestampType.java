@@ -29,11 +29,6 @@ public final class TimestampType
     public static final TimestampType TIMESTAMP = new TimestampType();
     public static final String NAME = "timestamp";
 
-    public static TimestampType getInstance()
-    {
-        return TIMESTAMP;
-    }
-
     private TimestampType()
     {
         super(NAME, long.class, SIZE_OF_LONG);

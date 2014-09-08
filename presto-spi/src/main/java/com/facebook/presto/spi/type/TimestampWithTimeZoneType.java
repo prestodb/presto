@@ -26,11 +26,6 @@ public final class TimestampWithTimeZoneType
     public static final TimestampWithTimeZoneType TIMESTAMP_WITH_TIME_ZONE = new TimestampWithTimeZoneType();
     public static final String NAME = "timestamp with time zone";
 
-    public static TimestampWithTimeZoneType getInstance()
-    {
-        return TIMESTAMP_WITH_TIME_ZONE;
-    }
-
     private TimestampWithTimeZoneType()
     {
         super(NAME, long.class, SIZE_OF_LONG);
