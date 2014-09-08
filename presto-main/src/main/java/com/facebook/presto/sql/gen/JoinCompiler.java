@@ -32,7 +32,6 @@ import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.PagesHashStrategy;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
@@ -63,31 +62,53 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class JoinCompiler
 {
-    private final LoadingCache<LookupSourceCacheKey, LookupSourceFactory> lookupSourceFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<LookupSourceCacheKey, LookupSourceFactory>()
+    private final LoadingCache<CacheKey, LookupSourceFactory> lookupSourceFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
+            new CacheLoader<CacheKey, LookupSourceFactory>()
             {
                 @Override
-                public LookupSourceFactory load(LookupSourceCacheKey key)
+                public LookupSourceFactory load(CacheKey key)
                         throws Exception
                 {
                     return internalCompileLookupSourceFactory(key.getTypes(), key.getJoinChannels());
                 }
             });
 
+    private final LoadingCache<CacheKey, Class<? extends PagesHashStrategy>> hashStrategies = CacheBuilder.newBuilder().maximumSize(1000).build(
+            new CacheLoader<CacheKey, Class<? extends PagesHashStrategy>>() {
+                @Override
+                public Class<? extends PagesHashStrategy> load(CacheKey key)
+                        throws Exception
+                {
+                    return internalCompileHashStrategy(key.getTypes(), key.getJoinChannels());
+                }
+            });
+
     public LookupSourceFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels)
     {
         try {
-            return lookupSourceFactories.get(new LookupSourceCacheKey(types, joinChannels));
+            return lookupSourceFactories.get(new CacheKey(types, joinChannels));
         }
         catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
             throw Throwables.propagate(e.getCause());
         }
     }
 
-    @VisibleForTesting
-    public LookupSourceFactory internalCompileLookupSourceFactory(List<Type> types, List<Integer> joinChannels)
+    public PagesHashStrategyFactory compilePagesHashStrategyFactory(List<Type> types, List<Integer> joinChannels)
     {
-        Class<? extends PagesHashStrategy> pagesHashStrategyClass = compilePagesHashStrategy(types, joinChannels);
+        checkNotNull(types, "types is null");
+        checkNotNull(joinChannels, "joinChannels is null");
+
+        try {
+            return new PagesHashStrategyFactory(hashStrategies.get(new CacheKey(types, joinChannels)));
+        }
+        catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
+            throw Throwables.propagate(e.getCause());
+        }
+    }
+
+    private LookupSourceFactory internalCompileLookupSourceFactory(List<Type> types, List<Integer> joinChannels)
+    {
+        Class<? extends PagesHashStrategy> pagesHashStrategyClass = internalCompileHashStrategy(types, joinChannels);
 
         Class<? extends LookupSource> lookupSourceClass = IsolatedClass.isolateClass(
                 new DynamicClassLoader(getClass().getClassLoader()),
@@ -97,13 +118,7 @@ public class JoinCompiler
         return new LookupSourceFactory(lookupSourceClass, new PagesHashStrategyFactory(pagesHashStrategyClass));
     }
 
-    @VisibleForTesting
-    public PagesHashStrategyFactory compilePagesHashStrategyFactory(List<Type> types, List<Integer> joinChannels)
-    {
-        return new PagesHashStrategyFactory(compilePagesHashStrategy(types, joinChannels));
-    }
-
-    private Class<? extends PagesHashStrategy> compilePagesHashStrategy(List<Type> types, List<Integer> joinChannels)
+    private Class<? extends PagesHashStrategy> internalCompileHashStrategy(List<Type> types, List<Integer> joinChannels)
     {
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
@@ -489,12 +504,12 @@ public class JoinCompiler
         }
     }
 
-    private static final class LookupSourceCacheKey
+    private static final class CacheKey
     {
         private final List<Type> types;
         private final List<Integer> joinChannels;
 
-        private LookupSourceCacheKey(List<? extends Type> types, List<Integer> joinChannels)
+        private CacheKey(List<? extends Type> types, List<Integer> joinChannels)
         {
             this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
             this.joinChannels = ImmutableList.copyOf(checkNotNull(joinChannels, "joinChannels is null"));
@@ -522,10 +537,10 @@ public class JoinCompiler
             if (this == obj) {
                 return true;
             }
-            if (!(obj instanceof LookupSourceCacheKey)) {
+            if (!(obj instanceof CacheKey)) {
                 return false;
             }
-            LookupSourceCacheKey other = (LookupSourceCacheKey) obj;
+            CacheKey other = (CacheKey) obj;
             return Objects.equal(this.types, other.types) &&
                     Objects.equal(this.joinChannels, other.joinChannels);
         }
