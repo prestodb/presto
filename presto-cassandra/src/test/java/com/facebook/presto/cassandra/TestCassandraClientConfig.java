@@ -49,7 +49,10 @@ public class TestCassandraClientConfig
                 .setPassword(null)
                 .setClientReadTimeout(SocketOptions.DEFAULT_READ_TIMEOUT_MILLIS)
                 .setClientConnectTimeout(SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS)
-                .setClientSoLinger(null));
+                .setClientSoLinger(null)
+                .setLocalDataCenter(null)
+                .setUsedHostsPerRemoteDc(0)
+                .setUseTokenAwarePolicy(false));
     }
 
     @Test
@@ -77,6 +80,9 @@ public class TestCassandraClientConfig
                 .put("cassandra.client.read-timeout", "11")
                 .put("cassandra.client.connect-timeout", "22")
                 .put("cassandra.client.so-linger", "33")
+                .put("cassandra.local-data-center", "DataCenter1")
+                .put("cassandra.used-hosts-per-remote-dc", "1")
+                .put("cassandra.use-token-aware-policy", "true")
                 .build();
 
         CassandraClientConfig expected = new CassandraClientConfig()
@@ -100,7 +106,10 @@ public class TestCassandraClientConfig
                 .setPassword("my_password")
                 .setClientReadTimeout(11)
                 .setClientConnectTimeout(22)
-                .setClientSoLinger(33);
+                .setClientSoLinger(33)
+                .setLocalDataCenter("DataCenter1")
+                .setUsedHostsPerRemoteDc(1)
+                .setUseTokenAwarePolicy(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
