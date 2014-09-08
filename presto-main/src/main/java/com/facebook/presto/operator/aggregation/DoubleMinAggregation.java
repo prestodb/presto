@@ -27,7 +27,7 @@ public final class DoubleMinAggregation
 
     @InputFunction
     @IntermediateInputFunction
-    public static void min(DoubleMinState state, @SqlType(DoubleType.class) double value)
+    public static void min(DoubleMinState state, @SqlType(DoubleType.NAME) double value)
     {
         state.setNull(false);
         state.setDouble(Math.min(state.getDouble(), value));

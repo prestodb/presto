@@ -40,8 +40,8 @@ public final class UrlFunctions
     @Nullable
     @Description("extract protocol from url")
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice urlExtractProtocol(@SqlType(VarcharType.class) Slice url)
+    @SqlType(VarcharType.NAME)
+    public static Slice urlExtractProtocol(@SqlType(VarcharType.NAME) Slice url)
     {
         URI uri = parseUrl(url);
         return (uri == null) ? null : slice(uri.getScheme());
@@ -50,8 +50,8 @@ public final class UrlFunctions
     @Nullable
     @Description("extract host from url")
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice urlExtractHost(@SqlType(VarcharType.class) Slice url)
+    @SqlType(VarcharType.NAME)
+    public static Slice urlExtractHost(@SqlType(VarcharType.NAME) Slice url)
     {
         URI uri = parseUrl(url);
         return (uri == null) ? null : slice(uri.getHost());
@@ -60,8 +60,8 @@ public final class UrlFunctions
     @Nullable
     @Description("extract port from url")
     @ScalarFunction
-    @SqlType(BigintType.class)
-    public static Long urlExtractPort(@SqlType(VarcharType.class) Slice url)
+    @SqlType(BigintType.NAME)
+    public static Long urlExtractPort(@SqlType(VarcharType.NAME) Slice url)
     {
         URI uri = parseUrl(url);
         if ((uri == null) || (uri.getPort() < 0)) {
@@ -73,8 +73,8 @@ public final class UrlFunctions
     @Nullable
     @Description("extract part from url")
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice urlExtractPath(@SqlType(VarcharType.class) Slice url)
+    @SqlType(VarcharType.NAME)
+    public static Slice urlExtractPath(@SqlType(VarcharType.NAME) Slice url)
     {
         URI uri = parseUrl(url);
         return (uri == null) ? null : slice(uri.getPath());
@@ -83,8 +83,8 @@ public final class UrlFunctions
     @Nullable
     @Description("extract query from url")
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice urlExtractQuery(@SqlType(VarcharType.class) Slice url)
+    @SqlType(VarcharType.NAME)
+    public static Slice urlExtractQuery(@SqlType(VarcharType.NAME) Slice url)
     {
         URI uri = parseUrl(url);
         return (uri == null) ? null : slice(uri.getQuery());
@@ -93,8 +93,8 @@ public final class UrlFunctions
     @Nullable
     @Description("extract fragment from url")
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice urlExtractFragment(@SqlType(VarcharType.class) Slice url)
+    @SqlType(VarcharType.NAME)
+    public static Slice urlExtractFragment(@SqlType(VarcharType.NAME) Slice url)
     {
         URI uri = parseUrl(url);
         return (uri == null) ? null : slice(uri.getFragment());
@@ -103,8 +103,8 @@ public final class UrlFunctions
     @Nullable
     @Description("extract query parameter from url")
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice urlExtractParameter(@SqlType(VarcharType.class) Slice url, @SqlType(VarcharType.class) Slice parameterName)
+    @SqlType(VarcharType.NAME)
+    public static Slice urlExtractParameter(@SqlType(VarcharType.NAME) Slice url, @SqlType(VarcharType.NAME) Slice parameterName)
     {
         URI uri = parseUrl(url);
         if ((uri == null) || (uri.getQuery() == null)) {

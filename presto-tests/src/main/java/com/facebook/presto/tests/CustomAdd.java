@@ -22,8 +22,8 @@ public final class CustomAdd
     private CustomAdd() {}
 
     @ScalarFunction
-    @SqlType(BigintType.class)
-    public static long customAdd(@SqlType(BigintType.class) long x, @SqlType(BigintType.class) long y)
+    @SqlType(BigintType.NAME)
+    public static long customAdd(@SqlType(BigintType.NAME) long x, @SqlType(BigintType.NAME) long y)
     {
         return x + y;
     }

@@ -29,13 +29,13 @@ public final class VarianceAggregation
     private VarianceAggregation() {}
 
     @InputFunction
-    public static void doubleInput(VarianceState state, @SqlType(DoubleType.class) double value)
+    public static void doubleInput(VarianceState state, @SqlType(DoubleType.NAME) double value)
     {
         updateVarianceState(state, value);
     }
 
     @InputFunction
-    public static void bigintInput(VarianceState state, @SqlType(BigintType.class) long value)
+    public static void bigintInput(VarianceState state, @SqlType(BigintType.NAME) long value)
     {
         updateVarianceState(state, (double) value);
     }
@@ -47,7 +47,7 @@ public final class VarianceAggregation
     }
 
     @AggregationFunction(value = "variance", alias = "var_samp")
-    @OutputFunction(DoubleType.class)
+    @OutputFunction(DoubleType.NAME)
     public static void variance(VarianceState state, BlockBuilder out)
     {
         long count = state.getCount();
@@ -62,7 +62,7 @@ public final class VarianceAggregation
     }
 
     @AggregationFunction("var_pop")
-    @OutputFunction(DoubleType.class)
+    @OutputFunction(DoubleType.NAME)
     public static void variancePop(VarianceState state, BlockBuilder out)
     {
         long count = state.getCount();
@@ -77,7 +77,7 @@ public final class VarianceAggregation
     }
 
     @AggregationFunction(value = "stddev", alias = "stddev_samp")
-    @OutputFunction(DoubleType.class)
+    @OutputFunction(DoubleType.NAME)
     public static void stddev(VarianceState state, BlockBuilder out)
     {
         long count = state.getCount();
@@ -93,7 +93,7 @@ public final class VarianceAggregation
     }
 
     @AggregationFunction("stddev_pop")
-    @OutputFunction(DoubleType.class)
+    @OutputFunction(DoubleType.NAME)
     public static void stddevPop(VarianceState state, BlockBuilder out)
     {
         long count = state.getCount();

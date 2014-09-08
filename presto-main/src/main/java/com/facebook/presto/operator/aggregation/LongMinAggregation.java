@@ -27,7 +27,7 @@ public final class LongMinAggregation
 
     @InputFunction
     @IntermediateInputFunction
-    public static void min(BigintMinState state, @SqlType(BigintType.class) long value)
+    public static void min(BigintMinState state, @SqlType(BigintType.NAME) long value)
     {
         state.setNull(false);
         state.setLong(Math.min(state.getLong(), value));

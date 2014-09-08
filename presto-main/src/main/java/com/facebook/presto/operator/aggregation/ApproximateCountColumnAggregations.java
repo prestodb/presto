@@ -43,28 +43,28 @@ public final class ApproximateCountColumnAggregations
     private ApproximateCountColumnAggregations() {}
 
     @InputFunction
-    public static void booleanInput(ApproximateCountState state, @SqlType(BooleanType.class) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
+    public static void booleanInput(ApproximateCountState state, @SqlType(BooleanType.NAME) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
     {
         state.setCount(state.getCount() + sampleWeight);
         state.setSamples(state.getSamples() + 1);
     }
 
     @InputFunction
-    public static void bigintInput(ApproximateCountState state, @SqlType(BigintType.class) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
+    public static void bigintInput(ApproximateCountState state, @SqlType(BigintType.NAME) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
     {
         state.setCount(state.getCount() + sampleWeight);
         state.setSamples(state.getSamples() + 1);
     }
 
     @InputFunction
-    public static void doubleInput(ApproximateCountState state, @SqlType(DoubleType.class) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
+    public static void doubleInput(ApproximateCountState state, @SqlType(DoubleType.NAME) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
     {
         state.setCount(state.getCount() + sampleWeight);
         state.setSamples(state.getSamples() + 1);
     }
 
     @InputFunction
-    public static void varcharInput(ApproximateCountState state, @SqlType(VarcharType.class) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
+    public static void varcharInput(ApproximateCountState state, @SqlType(VarcharType.NAME) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
     {
         state.setCount(state.getCount() + sampleWeight);
         state.setSamples(state.getSamples() + 1);
@@ -77,7 +77,7 @@ public final class ApproximateCountColumnAggregations
         state.setSamples(state.getSamples() + otherState.getSamples());
     }
 
-    @OutputFunction(VarcharType.class)
+    @OutputFunction(VarcharType.NAME)
     public static void output(ApproximateCountState state, double confidence, BlockBuilder out)
     {
         String result = formatApproximateResult(state.getCount(), countError(state.getSamples(), state.getCount()), confidence, true);

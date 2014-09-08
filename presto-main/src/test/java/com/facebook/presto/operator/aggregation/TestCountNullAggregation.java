@@ -62,7 +62,7 @@ public class TestCountNullAggregation
         private CountNull() {}
 
         @InputFunction
-        public static void input(NullableBigintState state, @NullablePosition @SqlType(BigintType.class) Block block, @BlockIndex int position)
+        public static void input(NullableBigintState state, @NullablePosition @SqlType(BigintType.NAME) Block block, @BlockIndex int position)
         {
             if (block.isNull(position)) {
                 state.setLong(state.getLong() + 1);

@@ -46,8 +46,8 @@ public final class MLFunctions
     }
 
     @ScalarFunction
-    @SqlType(BigintType.class)
-    public static long classify(@SqlType(VarcharType.class) Slice featuresMap, @SqlType(ClassifierType.class) Slice modelSlice)
+    @SqlType(BigintType.NAME)
+    public static long classify(@SqlType(VarcharType.NAME) Slice featuresMap, @SqlType(ClassifierType.NAME) Slice modelSlice)
     {
         FeatureVector features = ModelUtils.jsonToFeatures(featuresMap);
         Model model = getOrLoadModel(modelSlice);
@@ -56,8 +56,8 @@ public final class MLFunctions
     }
 
     @ScalarFunction
-    @SqlType(DoubleType.class)
-    public static double regress(@SqlType(VarcharType.class) Slice featuresMap, @SqlType(RegressorType.class) Slice modelSlice)
+    @SqlType(DoubleType.NAME)
+    public static double regress(@SqlType(VarcharType.NAME) Slice featuresMap, @SqlType(RegressorType.NAME) Slice modelSlice)
     {
         FeatureVector features = ModelUtils.jsonToFeatures(featuresMap);
         Model model = getOrLoadModel(modelSlice);
@@ -79,71 +79,71 @@ public final class MLFunctions
     }
 
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice features(@SqlType(DoubleType.class) double f1)
+    @SqlType(VarcharType.NAME)
+    public static Slice features(@SqlType(DoubleType.NAME) double f1)
     {
         return featuresHelper(f1);
     }
 
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice features(@SqlType(DoubleType.class) double f1, @SqlType(DoubleType.class) double f2)
+    @SqlType(VarcharType.NAME)
+    public static Slice features(@SqlType(DoubleType.NAME) double f1, @SqlType(DoubleType.NAME) double f2)
     {
         return featuresHelper(f1, f2);
     }
 
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice features(@SqlType(DoubleType.class) double f1, @SqlType(DoubleType.class) double f2, @SqlType(DoubleType.class) double f3)
+    @SqlType(VarcharType.NAME)
+    public static Slice features(@SqlType(DoubleType.NAME) double f1, @SqlType(DoubleType.NAME) double f2, @SqlType(DoubleType.NAME) double f3)
     {
         return featuresHelper(f1, f2, f3);
     }
 
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice features(@SqlType(DoubleType.class) double f1, @SqlType(DoubleType.class) double f2, @SqlType(DoubleType.class) double f3, @SqlType(DoubleType.class) double f4)
+    @SqlType(VarcharType.NAME)
+    public static Slice features(@SqlType(DoubleType.NAME) double f1, @SqlType(DoubleType.NAME) double f2, @SqlType(DoubleType.NAME) double f3, @SqlType(DoubleType.NAME) double f4)
     {
         return featuresHelper(f1, f2, f3, f4);
     }
 
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice features(@SqlType(DoubleType.class) double f1, @SqlType(DoubleType.class) double f2, @SqlType(DoubleType.class) double f3, @SqlType(DoubleType.class) double f4, @SqlType(DoubleType.class) double f5)
+    @SqlType(VarcharType.NAME)
+    public static Slice features(@SqlType(DoubleType.NAME) double f1, @SqlType(DoubleType.NAME) double f2, @SqlType(DoubleType.NAME) double f3, @SqlType(DoubleType.NAME) double f4, @SqlType(DoubleType.NAME) double f5)
     {
         return featuresHelper(f1, f2, f3, f4, f5);
     }
 
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice features(@SqlType(DoubleType.class) double f1, @SqlType(DoubleType.class) double f2, @SqlType(DoubleType.class) double f3, @SqlType(DoubleType.class) double f4, @SqlType(DoubleType.class) double f5, @SqlType(DoubleType.class) double f6)
+    @SqlType(VarcharType.NAME)
+    public static Slice features(@SqlType(DoubleType.NAME) double f1, @SqlType(DoubleType.NAME) double f2, @SqlType(DoubleType.NAME) double f3, @SqlType(DoubleType.NAME) double f4, @SqlType(DoubleType.NAME) double f5, @SqlType(DoubleType.NAME) double f6)
     {
         return featuresHelper(f1, f2, f3, f4, f5, f6);
     }
 
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice features(@SqlType(DoubleType.class) double f1, @SqlType(DoubleType.class) double f2, @SqlType(DoubleType.class) double f3, @SqlType(DoubleType.class) double f4, @SqlType(DoubleType.class) double f5, @SqlType(DoubleType.class) double f6, @SqlType(DoubleType.class) double f7)
+    @SqlType(VarcharType.NAME)
+    public static Slice features(@SqlType(DoubleType.NAME) double f1, @SqlType(DoubleType.NAME) double f2, @SqlType(DoubleType.NAME) double f3, @SqlType(DoubleType.NAME) double f4, @SqlType(DoubleType.NAME) double f5, @SqlType(DoubleType.NAME) double f6, @SqlType(DoubleType.NAME) double f7)
     {
         return featuresHelper(f1, f2, f3, f4, f5, f6, f7);
     }
 
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice features(@SqlType(DoubleType.class) double f1, @SqlType(DoubleType.class) double f2, @SqlType(DoubleType.class) double f3, @SqlType(DoubleType.class) double f4, @SqlType(DoubleType.class) double f5, @SqlType(DoubleType.class) double f6, @SqlType(DoubleType.class) double f7, @SqlType(DoubleType.class) double f8)
+    @SqlType(VarcharType.NAME)
+    public static Slice features(@SqlType(DoubleType.NAME) double f1, @SqlType(DoubleType.NAME) double f2, @SqlType(DoubleType.NAME) double f3, @SqlType(DoubleType.NAME) double f4, @SqlType(DoubleType.NAME) double f5, @SqlType(DoubleType.NAME) double f6, @SqlType(DoubleType.NAME) double f7, @SqlType(DoubleType.NAME) double f8)
     {
         return featuresHelper(f1, f2, f3, f4, f5, f6, f7, f8);
     }
 
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice features(@SqlType(DoubleType.class) double f1, @SqlType(DoubleType.class) double f2, @SqlType(DoubleType.class) double f3, @SqlType(DoubleType.class) double f4, @SqlType(DoubleType.class) double f5, @SqlType(DoubleType.class) double f6, @SqlType(DoubleType.class) double f7, @SqlType(DoubleType.class) double f8, @SqlType(DoubleType.class) double f9)
+    @SqlType(VarcharType.NAME)
+    public static Slice features(@SqlType(DoubleType.NAME) double f1, @SqlType(DoubleType.NAME) double f2, @SqlType(DoubleType.NAME) double f3, @SqlType(DoubleType.NAME) double f4, @SqlType(DoubleType.NAME) double f5, @SqlType(DoubleType.NAME) double f6, @SqlType(DoubleType.NAME) double f7, @SqlType(DoubleType.NAME) double f8, @SqlType(DoubleType.NAME) double f9)
     {
         return featuresHelper(f1, f2, f3, f4, f5, f6, f7, f8, f9);
     }
 
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice features(@SqlType(DoubleType.class) double f1, @SqlType(DoubleType.class) double f2, @SqlType(DoubleType.class) double f3, @SqlType(DoubleType.class) double f4, @SqlType(DoubleType.class) double f5, @SqlType(DoubleType.class) double f6, @SqlType(DoubleType.class) double f7, @SqlType(DoubleType.class) double f8, @SqlType(DoubleType.class) double f9, @SqlType(DoubleType.class) double f10)
+    @SqlType(VarcharType.NAME)
+    public static Slice features(@SqlType(DoubleType.NAME) double f1, @SqlType(DoubleType.NAME) double f2, @SqlType(DoubleType.NAME) double f3, @SqlType(DoubleType.NAME) double f4, @SqlType(DoubleType.NAME) double f5, @SqlType(DoubleType.NAME) double f6, @SqlType(DoubleType.NAME) double f7, @SqlType(DoubleType.NAME) double f8, @SqlType(DoubleType.NAME) double f9, @SqlType(DoubleType.NAME) double f10)
     {
         return featuresHelper(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10);
     }

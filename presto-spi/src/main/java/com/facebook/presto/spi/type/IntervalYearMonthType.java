@@ -23,6 +23,7 @@ public final class IntervalYearMonthType
         extends AbstractFixedWidthType
 {
     public static final IntervalYearMonthType INTERVAL_YEAR_MONTH = new IntervalYearMonthType();
+    public static final String NAME = "interval year to month";
 
     public static IntervalYearMonthType getInstance()
     {
@@ -31,7 +32,7 @@ public final class IntervalYearMonthType
 
     private IntervalYearMonthType()
     {
-        super("interval year to month", long.class, SIZE_OF_LONG);
+        super(NAME, long.class, SIZE_OF_LONG);
     }
 
     @Override

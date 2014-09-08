@@ -36,13 +36,13 @@ public final class ApproximateAverageAggregations
     private ApproximateAverageAggregations() {}
 
     @InputFunction
-    public static void bigintInput(ApproximateAverageState state, @SqlType(BigintType.class) long value, @SampleWeight long sampleWeight)
+    public static void bigintInput(ApproximateAverageState state, @SqlType(BigintType.NAME) long value, @SampleWeight long sampleWeight)
     {
         doubleInput(state, (double) value, sampleWeight);
     }
 
     @InputFunction
-    public static void doubleInput(ApproximateAverageState state, @SqlType(DoubleType.class) double value, @SampleWeight long sampleWeight)
+    public static void doubleInput(ApproximateAverageState state, @SqlType(DoubleType.NAME) double value, @SampleWeight long sampleWeight)
     {
         long currentCount = state.getCount();
         double currentMean = state.getMean();
@@ -88,7 +88,7 @@ public final class ApproximateAverageAggregations
         }
     }
 
-    @OutputFunction(VarcharType.class)
+    @OutputFunction(VarcharType.NAME)
     public static void output(ApproximateAverageState state, double confidence, BlockBuilder out)
     {
         if (state.getCount() == 0) {

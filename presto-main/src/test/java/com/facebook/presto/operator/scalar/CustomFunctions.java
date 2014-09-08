@@ -26,22 +26,22 @@ public final class CustomFunctions
     private CustomFunctions() {}
 
     @ScalarFunction
-    @SqlType(BigintType.class)
-    public static long customAdd(@SqlType(BigintType.class) long x, @SqlType(BigintType.class) long y)
+    @SqlType(BigintType.NAME)
+    public static long customAdd(@SqlType(BigintType.NAME) long x, @SqlType(BigintType.NAME) long y)
     {
         return x + y;
     }
 
     @ScalarFunction("custom_is_null")
-    @SqlType(BooleanType.class)
-    public static boolean customIsNullVarchar(@Nullable @SqlType(VarcharType.class) Slice slice)
+    @SqlType(BooleanType.NAME)
+    public static boolean customIsNullVarchar(@Nullable @SqlType(VarcharType.NAME) Slice slice)
     {
         return slice == null;
     }
 
     @ScalarFunction("custom_is_null")
-    @SqlType(BooleanType.class)
-    public static boolean customIsNullBigint(@Nullable @SqlType(BigintType.class) Long value)
+    @SqlType(BooleanType.NAME)
+    public static boolean customIsNullBigint(@Nullable @SqlType(BigintType.NAME) Long value)
     {
         return value == null;
     }

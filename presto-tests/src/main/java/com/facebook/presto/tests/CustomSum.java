@@ -27,7 +27,7 @@ public final class CustomSum
 
     @InputFunction
     @IntermediateInputFunction
-    public static void input(NullableBigintState state, @SqlType(BigintType.class) long value)
+    public static void input(NullableBigintState state, @SqlType(BigintType.NAME) long value)
     {
         state.setLong(state.getLong() + value);
         state.setNull(false);

@@ -67,7 +67,7 @@ public class TestFunctionRegistry
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QFunction already registered: custom_add(bigint,bigint):bigint\\E")
     public void testDuplicateFunctions()
     {
-        List<FunctionInfo> functions = new FunctionRegistry.FunctionListBuilder()
+        List<FunctionInfo> functions = new FunctionRegistry.FunctionListBuilder(new TypeRegistry())
                 .scalar(CustomFunctions.class)
                 .getFunctions();
 
@@ -89,7 +89,7 @@ public class TestFunctionRegistry
     public void testConflictingScalarAggregation()
             throws Exception
     {
-        List<FunctionInfo> functions = new FunctionRegistry.FunctionListBuilder()
+        List<FunctionInfo> functions = new FunctionRegistry.FunctionListBuilder(new TypeRegistry())
                 .scalar(ScalarSum.class)
                 .getFunctions();
 
@@ -116,8 +116,8 @@ public class TestFunctionRegistry
         private ScalarSum() {}
 
         @ScalarFunction
-        @SqlType(BigintType.class)
-        public static long sum(@SqlType(BigintType.class) long a, @SqlType(BigintType.class) long b)
+        @SqlType(BigintType.NAME)
+        public static long sum(@SqlType(BigintType.NAME) long a, @SqlType(BigintType.NAME) long b)
         {
             return a + b;
         }

@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -27,10 +28,10 @@ public class GenericAggregationFunctionFactory
 {
     private final List<FunctionInfo> aggregations;
 
-    public static GenericAggregationFunctionFactory fromAggregationDefinition(Class<?> clazz)
+    public static GenericAggregationFunctionFactory fromAggregationDefinition(Class<?> clazz, TypeManager typeManager)
     {
-        FunctionRegistry.FunctionListBuilder builder = new FunctionRegistry.FunctionListBuilder();
-        for (InternalAggregationFunction aggregation : new AggregationCompiler().generateAggregationFunctions(clazz)) {
+        FunctionRegistry.FunctionListBuilder builder = new FunctionRegistry.FunctionListBuilder(typeManager);
+        for (InternalAggregationFunction aggregation : new AggregationCompiler(typeManager).generateAggregationFunctions(clazz)) {
             builder.aggregate(aggregation);
         }
 

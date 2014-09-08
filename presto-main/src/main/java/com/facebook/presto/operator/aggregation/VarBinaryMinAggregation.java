@@ -27,7 +27,7 @@ public final class VarBinaryMinAggregation
 
     @InputFunction
     @IntermediateInputFunction
-    public static void min(SliceState state, @SqlType(VarcharType.class) Slice value)
+    public static void min(SliceState state, @SqlType(VarcharType.NAME) Slice value)
     {
         state.setSlice(min(state.getSlice(), value));
     }

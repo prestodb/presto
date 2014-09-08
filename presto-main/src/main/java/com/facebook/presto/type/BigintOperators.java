@@ -47,29 +47,29 @@ public final class BigintOperators
     }
 
     @ScalarOperator(ADD)
-    @SqlType(BigintType.class)
-    public static long add(@SqlType(BigintType.class) long left, @SqlType(BigintType.class) long right)
+    @SqlType(BigintType.NAME)
+    public static long add(@SqlType(BigintType.NAME) long left, @SqlType(BigintType.NAME) long right)
     {
         return left + right;
     }
 
     @ScalarOperator(SUBTRACT)
-    @SqlType(BigintType.class)
-    public static long subtract(@SqlType(BigintType.class) long left, @SqlType(BigintType.class) long right)
+    @SqlType(BigintType.NAME)
+    public static long subtract(@SqlType(BigintType.NAME) long left, @SqlType(BigintType.NAME) long right)
     {
         return left - right;
     }
 
     @ScalarOperator(MULTIPLY)
-    @SqlType(BigintType.class)
-    public static long multiply(@SqlType(BigintType.class) long left, @SqlType(BigintType.class) long right)
+    @SqlType(BigintType.NAME)
+    public static long multiply(@SqlType(BigintType.NAME) long left, @SqlType(BigintType.NAME) long right)
     {
         return left * right;
     }
 
     @ScalarOperator(DIVIDE)
-    @SqlType(BigintType.class)
-    public static long divide(@SqlType(BigintType.class) long left, @SqlType(BigintType.class) long right)
+    @SqlType(BigintType.NAME)
+    public static long divide(@SqlType(BigintType.NAME) long left, @SqlType(BigintType.NAME) long right)
     {
         try {
             return left / right;
@@ -80,8 +80,8 @@ public final class BigintOperators
     }
 
     @ScalarOperator(MODULUS)
-    @SqlType(BigintType.class)
-    public static long modulus(@SqlType(BigintType.class) long left, @SqlType(BigintType.class) long right)
+    @SqlType(BigintType.NAME)
+    public static long modulus(@SqlType(BigintType.NAME) long left, @SqlType(BigintType.NAME) long right)
     {
         try {
             return left % right;
@@ -92,86 +92,86 @@ public final class BigintOperators
     }
 
     @ScalarOperator(NEGATION)
-    @SqlType(BigintType.class)
-    public static long negate(@SqlType(BigintType.class) long value)
+    @SqlType(BigintType.NAME)
+    public static long negate(@SqlType(BigintType.NAME) long value)
     {
         return -value;
     }
 
     @ScalarOperator(EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean equal(@SqlType(BigintType.class) long left, @SqlType(BigintType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean equal(@SqlType(BigintType.NAME) long left, @SqlType(BigintType.NAME) long right)
     {
         return left == right;
     }
 
     @ScalarOperator(NOT_EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean notEqual(@SqlType(BigintType.class) long left, @SqlType(BigintType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean notEqual(@SqlType(BigintType.NAME) long left, @SqlType(BigintType.NAME) long right)
     {
         return left != right;
     }
 
     @ScalarOperator(LESS_THAN)
-    @SqlType(BooleanType.class)
-    public static boolean lessThan(@SqlType(BigintType.class) long left, @SqlType(BigintType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean lessThan(@SqlType(BigintType.NAME) long left, @SqlType(BigintType.NAME) long right)
     {
         return left < right;
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean lessThanOrEqual(@SqlType(BigintType.class) long left, @SqlType(BigintType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean lessThanOrEqual(@SqlType(BigintType.NAME) long left, @SqlType(BigintType.NAME) long right)
     {
         return left <= right;
     }
 
     @ScalarOperator(GREATER_THAN)
-    @SqlType(BooleanType.class)
-    public static boolean greaterThan(@SqlType(BigintType.class) long left, @SqlType(BigintType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean greaterThan(@SqlType(BigintType.NAME) long left, @SqlType(BigintType.NAME) long right)
     {
         return left > right;
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean greaterThanOrEqual(@SqlType(BigintType.class) long left, @SqlType(BigintType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean greaterThanOrEqual(@SqlType(BigintType.NAME) long left, @SqlType(BigintType.NAME) long right)
     {
         return left >= right;
     }
 
     @ScalarOperator(BETWEEN)
-    @SqlType(BooleanType.class)
-    public static boolean between(@SqlType(BigintType.class) long value, @SqlType(BigintType.class) long min, @SqlType(BigintType.class) long max)
+    @SqlType(BooleanType.NAME)
+    public static boolean between(@SqlType(BigintType.NAME) long value, @SqlType(BigintType.NAME) long min, @SqlType(BigintType.NAME) long max)
     {
         return min <= value && value <= max;
     }
 
     @ScalarOperator(CAST)
-    @SqlType(BooleanType.class)
-    public static boolean castToBoolean(@SqlType(BigintType.class) long value)
+    @SqlType(BooleanType.NAME)
+    public static boolean castToBoolean(@SqlType(BigintType.NAME) long value)
     {
         return value != 0;
     }
 
     @ScalarOperator(CAST)
-    @SqlType(DoubleType.class)
-    public static double castToDouble(@SqlType(BigintType.class) long value)
+    @SqlType(DoubleType.NAME)
+    public static double castToDouble(@SqlType(BigintType.NAME) long value)
     {
         return value;
     }
 
     @ScalarOperator(CAST)
-    @SqlType(VarcharType.class)
-    public static Slice castToVarchar(@SqlType(BigintType.class) long value)
+    @SqlType(VarcharType.NAME)
+    public static Slice castToVarchar(@SqlType(BigintType.NAME) long value)
     {
         // todo optimize me
         return Slices.copiedBuffer(String.valueOf(value), UTF_8);
     }
 
     @ScalarOperator(HASH_CODE)
-    @SqlType(BigintType.class)
-    public static long hashCode(@SqlType(BigintType.class) long value)
+    @SqlType(BigintType.NAME)
+    public static long hashCode(@SqlType(BigintType.NAME) long value)
     {
         return (int) (value ^ (value >>> 32));
     }

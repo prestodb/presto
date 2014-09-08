@@ -26,7 +26,7 @@ public final class LongSumAggregation
 
     @InputFunction
     @IntermediateInputFunction
-    public static void sum(NullableBigintState state, @SqlType(BigintType.class) long value)
+    public static void sum(NullableBigintState state, @SqlType(BigintType.NAME) long value)
     {
         state.setNull(false);
         state.setLong(state.getLong() + value);

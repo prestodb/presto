@@ -19,7 +19,9 @@ import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.SqlType;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -39,12 +41,23 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.fromAnnotations;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
-import static com.facebook.presto.operator.aggregation.AggregationUtils.getTypeInstance;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class AggregationCompiler
 {
+    private final TypeManager typeManager;
+
+    public AggregationCompiler()
+    {
+        this(new TypeRegistry());
+    }
+
+    public AggregationCompiler(TypeManager typeManager)
+    {
+        this.typeManager = checkNotNull(typeManager, "typeManager is null");
+    }
+
     private static List<Method> findPublicStaticMethodsWithAnnotation(Class<?> clazz, Class<?> annotationClass)
     {
         ImmutableList.Builder<Method> methods = ImmutableList.builder();
@@ -97,7 +110,7 @@ public class AggregationCompiler
                 for (Method inputFunction : getInputFunctions(clazz, stateClass)) {
                     for (String name : getNames(outputFunction, aggregationAnnotation)) {
                         List<Type> inputTypes = getInputTypes(inputFunction);
-                        Type outputType = AggregationUtils.getOutputType(outputFunction, stateSerializer);
+                        Type outputType = AggregationUtils.getOutputType(outputFunction, stateSerializer, typeManager);
 
                         AggregationMetadata metadata = new AggregationMetadata(
                                 generateAggregationName(name, outputType, inputTypes),
@@ -124,7 +137,7 @@ public class AggregationCompiler
         return builder.build();
     }
 
-    private static List<ParameterMetadata> getParameterMetadata(@Nullable Method method, boolean sampleWeightAllowed)
+    private List<ParameterMetadata> getParameterMetadata(@Nullable Method method, boolean sampleWeightAllowed)
     {
         if (method == null) {
             return null;
@@ -136,7 +149,7 @@ public class AggregationCompiler
         Annotation[][] annotations = method.getParameterAnnotations();
         // Start at 1 because 0 is the STATE
         for (int i = 1; i < annotations.length; i++) {
-            builder.add(fromAnnotations(annotations[i], method.getDeclaringClass() + "." + method.getName()));
+            builder.add(fromAnnotations(annotations[i], method.getDeclaringClass() + "." + method.getName(), typeManager));
         }
         return builder.build();
     }
@@ -214,14 +227,14 @@ public class AggregationCompiler
         return inputFunctions;
     }
 
-    private static List<Type> getInputTypes(Method inputFunction)
+    private List<Type> getInputTypes(Method inputFunction)
     {
         ImmutableList.Builder<Type> builder = ImmutableList.builder();
         Annotation[][] parameterAnnotations = inputFunction.getParameterAnnotations();
         for (Annotation[] annotations : parameterAnnotations) {
             for (Annotation annotation : annotations) {
                 if (annotation instanceof SqlType) {
-                    builder.add(getTypeInstance(((SqlType) annotation).value()));
+                    builder.add(typeManager.getType(((SqlType) annotation).value()));
                 }
             }
         }

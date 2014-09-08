@@ -24,6 +24,7 @@ public final class TimestampWithTimeZoneType
         extends AbstractFixedWidthType
 {
     public static final TimestampWithTimeZoneType TIMESTAMP_WITH_TIME_ZONE = new TimestampWithTimeZoneType();
+    public static final String NAME = "timestamp with time zone";
 
     public static TimestampWithTimeZoneType getInstance()
     {
@@ -32,7 +33,7 @@ public final class TimestampWithTimeZoneType
 
     private TimestampWithTimeZoneType()
     {
-        super("timestamp with time zone", long.class, SIZE_OF_LONG);
+        super(NAME, long.class, SIZE_OF_LONG);
     }
 
     @Override

@@ -49,57 +49,57 @@ public final class DateOperators
     }
 
     @ScalarOperator(EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean equal(@SqlType(DateType.class) long left, @SqlType(DateType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean equal(@SqlType(DateType.NAME) long left, @SqlType(DateType.NAME) long right)
     {
         return left == right;
     }
 
     @ScalarOperator(NOT_EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean notEqual(@SqlType(DateType.class) long left, @SqlType(DateType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean notEqual(@SqlType(DateType.NAME) long left, @SqlType(DateType.NAME) long right)
     {
         return left != right;
     }
 
     @ScalarOperator(LESS_THAN)
-    @SqlType(BooleanType.class)
-    public static boolean lessThan(@SqlType(DateType.class) long left, @SqlType(DateType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean lessThan(@SqlType(DateType.NAME) long left, @SqlType(DateType.NAME) long right)
     {
         return left < right;
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean lessThanOrEqual(@SqlType(DateType.class) long left, @SqlType(DateType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean lessThanOrEqual(@SqlType(DateType.NAME) long left, @SqlType(DateType.NAME) long right)
     {
         return left <= right;
     }
 
     @ScalarOperator(GREATER_THAN)
-    @SqlType(BooleanType.class)
-    public static boolean greaterThan(@SqlType(DateType.class) long left, @SqlType(DateType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean greaterThan(@SqlType(DateType.NAME) long left, @SqlType(DateType.NAME) long right)
     {
         return left > right;
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    @SqlType(BooleanType.class)
-    public static boolean greaterThanOrEqual(@SqlType(DateType.class) long left, @SqlType(DateType.class) long right)
+    @SqlType(BooleanType.NAME)
+    public static boolean greaterThanOrEqual(@SqlType(DateType.NAME) long left, @SqlType(DateType.NAME) long right)
     {
         return left >= right;
     }
 
     @ScalarOperator(BETWEEN)
-    @SqlType(BooleanType.class)
-    public static boolean between(@SqlType(DateType.class) long value, @SqlType(DateType.class) long min, @SqlType(DateType.class) long max)
+    @SqlType(BooleanType.NAME)
+    public static boolean between(@SqlType(DateType.NAME) long value, @SqlType(DateType.NAME) long min, @SqlType(DateType.NAME) long max)
     {
         return min <= value && value <= max;
     }
 
     @ScalarOperator(CAST)
-    @SqlType(TimestampType.class)
-    public static long castToTimestamp(ConnectorSession session, @SqlType(DateType.class) long value)
+    @SqlType(TimestampType.NAME)
+    public static long castToTimestamp(ConnectorSession session, @SqlType(DateType.NAME) long value)
     {
         // date is encoded as milliseconds at midnight in UTC
         // convert to midnight if the session timezone
@@ -108,8 +108,8 @@ public final class DateOperators
     }
 
     @ScalarOperator(CAST)
-    @SqlType(TimestampWithTimeZoneType.class)
-    public static long castToTimestampWithTimeZone(ConnectorSession session, @SqlType(DateType.class) long value)
+    @SqlType(TimestampWithTimeZoneType.NAME)
+    public static long castToTimestampWithTimeZone(ConnectorSession session, @SqlType(DateType.NAME) long value)
     {
         // date is encoded as milliseconds at midnight in UTC
         // convert to midnight if the session timezone
@@ -119,15 +119,15 @@ public final class DateOperators
     }
 
     @ScalarOperator(CAST)
-    @SqlType(VarcharType.class)
-    public static Slice castToSlice(@SqlType(DateType.class) long value)
+    @SqlType(VarcharType.NAME)
+    public static Slice castToSlice(@SqlType(DateType.NAME) long value)
     {
         return Slices.copiedBuffer(printDate(value), UTF_8);
     }
 
     @ScalarOperator(CAST)
-    @SqlType(DateType.class)
-    public static long castFromSlice(@SqlType(VarcharType.class) Slice value)
+    @SqlType(DateType.NAME)
+    public static long castFromSlice(@SqlType(VarcharType.NAME) Slice value)
     {
         try {
             return parseDate(value.toStringUtf8());
@@ -138,8 +138,8 @@ public final class DateOperators
     }
 
     @ScalarOperator(HASH_CODE)
-    @SqlType(BigintType.class)
-    public static long hashCode(@SqlType(DateType.class) long value)
+    @SqlType(BigintType.NAME)
+    public static long hashCode(@SqlType(DateType.NAME) long value)
     {
         return (int) (value ^ (value >>> 32));
     }

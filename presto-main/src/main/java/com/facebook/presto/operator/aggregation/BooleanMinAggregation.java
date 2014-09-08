@@ -30,7 +30,7 @@ public final class BooleanMinAggregation
 
     @InputFunction
     @IntermediateInputFunction
-    public static void min(TriStateBooleanState state, @SqlType(BooleanType.class) boolean value)
+    public static void min(TriStateBooleanState state, @SqlType(BooleanType.NAME) boolean value)
     {
         // if value is false, update the min to false
         if (!value) {

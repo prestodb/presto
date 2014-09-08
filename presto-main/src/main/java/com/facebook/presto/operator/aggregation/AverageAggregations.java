@@ -33,14 +33,14 @@ public final class AverageAggregations
     private AverageAggregations() {}
 
     @InputFunction
-    public static void input(LongAndDoubleState state, @SqlType(BigintType.class) long value)
+    public static void input(LongAndDoubleState state, @SqlType(BigintType.NAME) long value)
     {
         state.setLong(state.getLong() + 1);
         state.setDouble(state.getDouble() + value);
     }
 
     @InputFunction
-    public static void input(LongAndDoubleState state, @SqlType(DoubleType.class) double value)
+    public static void input(LongAndDoubleState state, @SqlType(DoubleType.NAME) double value)
     {
         state.setLong(state.getLong() + 1);
         state.setDouble(state.getDouble() + value);
@@ -53,7 +53,7 @@ public final class AverageAggregations
         state.setDouble(state.getDouble() + otherState.getDouble());
     }
 
-    @OutputFunction(DoubleType.class)
+    @OutputFunction(DoubleType.NAME)
     public static void output(LongAndDoubleState state, BlockBuilder out)
     {
         long count = state.getLong();

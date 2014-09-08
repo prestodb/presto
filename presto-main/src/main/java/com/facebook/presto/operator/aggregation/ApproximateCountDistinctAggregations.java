@@ -41,19 +41,19 @@ public final class ApproximateCountDistinctAggregations
     private ApproximateCountDistinctAggregations() {}
 
     @InputFunction
-    public static void input(SliceState state, @SqlType(VarcharType.class) Slice value)
+    public static void input(SliceState state, @SqlType(VarcharType.NAME) Slice value)
     {
         update(state, Murmur3.hash64(value));
     }
 
     @InputFunction
-    public static void input(SliceState state, @SqlType(DoubleType.class) double value)
+    public static void input(SliceState state, @SqlType(DoubleType.NAME) double value)
     {
         update(state, Murmur3.hash64(Double.doubleToLongBits(value)));
     }
 
     @InputFunction
-    public static void input(SliceState state, @SqlType(BigintType.class) long value)
+    public static void input(SliceState state, @SqlType(BigintType.NAME) long value)
     {
         update(state, Murmur3.hash64(value));
     }
@@ -77,7 +77,7 @@ public final class ApproximateCountDistinctAggregations
         }
     }
 
-    @OutputFunction(BigintType.class)
+    @OutputFunction(BigintType.NAME)
     public static void output(SliceState state, BlockBuilder out)
     {
         if (state.getSlice() != null) {

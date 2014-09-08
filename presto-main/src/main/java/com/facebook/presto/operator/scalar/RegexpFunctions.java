@@ -41,8 +41,8 @@ public final class RegexpFunctions
     }
 
     @ScalarOperator(OperatorType.CAST)
-    @SqlType(RegexpType.class)
-    public static Pattern castToRegexp(@SqlType(VarcharType.class) Slice pattern)
+    @SqlType(RegexpType.NAME)
+    public static Pattern castToRegexp(@SqlType(VarcharType.NAME) Slice pattern)
     {
         try {
             return Pattern.compile(pattern.toString(UTF_8));
@@ -54,24 +54,24 @@ public final class RegexpFunctions
 
     @Description("returns substrings matching a regular expression")
     @ScalarFunction
-    @SqlType(BooleanType.class)
-    public static boolean regexpLike(@SqlType(VarcharType.class) Slice source, @SqlType(RegexpType.class) Pattern pattern)
+    @SqlType(BooleanType.NAME)
+    public static boolean regexpLike(@SqlType(VarcharType.NAME) Slice source, @SqlType(RegexpType.NAME) Pattern pattern)
     {
         return pattern.matcher(source.toString(UTF_8)).find();
     }
 
     @Description("removes substrings matching a regular expression")
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice regexpReplace(@SqlType(VarcharType.class) Slice source, @SqlType(RegexpType.class) Pattern pattern)
+    @SqlType(VarcharType.NAME)
+    public static Slice regexpReplace(@SqlType(VarcharType.NAME) Slice source, @SqlType(RegexpType.NAME) Pattern pattern)
     {
         return regexpReplace(source, pattern, Slices.EMPTY_SLICE);
     }
 
     @Description("replaces substrings matching a regular expression by given string")
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice regexpReplace(@SqlType(VarcharType.class) Slice source, @SqlType(RegexpType.class) Pattern pattern, @SqlType(VarcharType.class) Slice replacement)
+    @SqlType(VarcharType.NAME)
+    public static Slice regexpReplace(@SqlType(VarcharType.NAME) Slice source, @SqlType(RegexpType.NAME) Pattern pattern, @SqlType(VarcharType.NAME) Slice replacement)
     {
         Matcher matcher = pattern.matcher(source.toString(UTF_8));
         String replaced = matcher.replaceAll(replacement.toString(UTF_8));
@@ -81,8 +81,8 @@ public final class RegexpFunctions
     @Nullable
     @Description("string extracted using the given pattern")
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice regexpExtract(@SqlType(VarcharType.class) Slice source, @SqlType(RegexpType.class) Pattern pattern)
+    @SqlType(VarcharType.NAME)
+    public static Slice regexpExtract(@SqlType(VarcharType.NAME) Slice source, @SqlType(RegexpType.NAME) Pattern pattern)
     {
         return regexpExtract(source, pattern, 0);
     }
@@ -90,8 +90,8 @@ public final class RegexpFunctions
     @Nullable
     @Description("returns regex group of extracted string with a pattern")
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice regexpExtract(@SqlType(VarcharType.class) Slice source, @SqlType(RegexpType.class) Pattern pattern, @SqlType(BigintType.class) long group)
+    @SqlType(VarcharType.NAME)
+    public static Slice regexpExtract(@SqlType(VarcharType.NAME) Slice source, @SqlType(RegexpType.NAME) Pattern pattern, @SqlType(BigintType.NAME) long group)
     {
         Matcher matcher = pattern.matcher(source.toString(UTF_8));
         if ((group < 0) || (group > matcher.groupCount())) {

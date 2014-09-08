@@ -32,7 +32,7 @@ public final class EvaluateClassifierPredictionsAggregation
     private EvaluateClassifierPredictionsAggregation() {}
 
     @InputFunction
-    public static void input(EvaluateClassifierPredictionsState state, @SqlType(BigintType.class) long truth, @SqlType(BigintType.class) long prediction)
+    public static void input(EvaluateClassifierPredictionsState state, @SqlType(BigintType.NAME) long truth, @SqlType(BigintType.NAME) long prediction)
     {
         checkArgument(prediction == 1 || prediction == 0, "evaluate_predictions only supports binary classifiers");
         checkArgument(truth == 1 || truth == 0, "evaluate_predictions only supports binary classifiers");
@@ -64,7 +64,7 @@ public final class EvaluateClassifierPredictionsAggregation
         state.setFalseNegatives(state.getFalseNegatives() + scratchState.getFalseNegatives());
     }
 
-    @OutputFunction(VarcharType.class)
+    @OutputFunction(VarcharType.NAME)
     public static void output(EvaluateClassifierPredictionsState state, BlockBuilder out)
     {
         long truePositives = state.getTruePositives();

@@ -25,8 +25,8 @@ public final class CreateHll
     private CreateHll() {}
 
     @ScalarFunction
-    @SqlType(HyperLogLogType.class)
-    public static Slice createHll(@SqlType(BigintType.class) long value)
+    @SqlType(HyperLogLogType.NAME)
+    public static Slice createHll(@SqlType(BigintType.NAME) long value)
     {
         HyperLogLog hll = HyperLogLog.newInstance(4096);
         hll.add(value);
