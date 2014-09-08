@@ -20,7 +20,6 @@ import com.facebook.presto.byteCode.instruction.InvokeInstruction;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
-import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
 import java.util.List;
 
@@ -36,7 +35,7 @@ public class SqlTypeByteCodeExpression
         checkNotNull(callSiteBinder, "callSiteBinder is null");
         checkNotNull(type, "type is null");
 
-        Binding binding = callSiteBinder.bind(MethodHandles.constant(type.getClass(), type));
+        Binding binding = callSiteBinder.bind(type, Type.class);
         return new SqlTypeByteCodeExpression(type, binding, context.getDefaultBootstrapMethod());
     }
 
@@ -46,7 +45,7 @@ public class SqlTypeByteCodeExpression
 
     private SqlTypeByteCodeExpression(Type type, Binding binding, Method bootstrapMethod)
     {
-        super(type(type.getClass()));
+        super(type(Type.class));
 
         this.type = checkNotNull(type, "type is null");
         this.binding = checkNotNull(binding, "binding is null");
