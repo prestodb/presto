@@ -17,7 +17,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
@@ -42,7 +42,7 @@ public class TestDoubleStdDevPopAggregation
     @Override
     public InternalAggregationFunction getFunction()
     {
-        return metadata.resolveFunction(new QualifiedName("stddev_pop"), ImmutableList.<Type>of(DOUBLE), false).getAggregationFunction();
+        return metadata.resolveFunction(new QualifiedName("stddev_pop"), ImmutableList.of(DoubleType.NAME), false).getAggregationFunction();
     }
 
     @Override

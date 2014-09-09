@@ -36,14 +36,14 @@ public final class Expressions
         return new ConstantExpression(null, type);
     }
 
-    public static CallExpression call(Signature signature, RowExpression... arguments)
+    public static CallExpression call(Signature signature, Type returnType, RowExpression... arguments)
     {
-        return new CallExpression(signature, Arrays.asList(arguments));
+        return new CallExpression(signature, returnType, Arrays.asList(arguments));
     }
 
-    public static CallExpression call(Signature signature, List<RowExpression> arguments)
+    public static CallExpression call(Signature signature, Type returnType, List<RowExpression> arguments)
     {
-        return new CallExpression(signature, arguments);
+        return new CallExpression(signature, returnType, arguments);
     }
 
     public static InputReferenceExpression field(int field, Type type)

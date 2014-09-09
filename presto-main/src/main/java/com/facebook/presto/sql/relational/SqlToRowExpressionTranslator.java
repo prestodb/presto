@@ -85,6 +85,7 @@ import static com.facebook.presto.sql.relational.Signatures.switchSignature;
 import static com.facebook.presto.sql.relational.Signatures.tryCastSignature;
 import static com.facebook.presto.sql.relational.Signatures.whenSignature;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
+import static com.facebook.presto.type.TypeUtils.nameGetter;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithoutTimeZone;
@@ -105,7 +106,7 @@ public final class SqlToRowExpressionTranslator
         Preconditions.checkNotNull(result, "translated expression is null");
 
         if (optimize) {
-            ExpressionOptimizer optimizer = new ExpressionOptimizer(metadata.getFunctionRegistry(), session);
+            ExpressionOptimizer optimizer = new ExpressionOptimizer(metadata.getFunctionRegistry(), metadata.getTypeManager(), session);
             return optimizer.optimize(result);
         }
 
@@ -187,6 +188,7 @@ public final class SqlToRowExpressionTranslator
 
             return call(
                     castSignature(types.get(node), VARCHAR),
+                    types.get(node),
                     constant(Slices.copiedBuffer(node.getValue(), StandardCharsets.UTF_8), VARCHAR));
         }
 
@@ -239,6 +241,7 @@ public final class SqlToRowExpressionTranslator
 
             return call(
                     comparisonExpressionSignature(node.getType(), left.getType(), right.getType()),
+                    BOOLEAN,
                     left,
                     right);
         }
@@ -248,10 +251,10 @@ public final class SqlToRowExpressionTranslator
         {
             List<RowExpression> arguments = Lists.transform(node.getArguments(), processFunction(context));
 
-            List<Type> argumentTypes = Lists.transform(arguments, typeGetter());
-            Signature signature = new Signature(node.getName().getSuffix(), types.get(node), argumentTypes);
+            List<String> argumentTypes = Lists.transform(Lists.transform(arguments, typeGetter()), nameGetter());
+            Signature signature = new Signature(node.getName().getSuffix(), types.get(node).getName(), argumentTypes);
 
-            return call(signature, arguments);
+            return call(signature, types.get(node), arguments);
         }
 
         @Override
@@ -262,6 +265,7 @@ public final class SqlToRowExpressionTranslator
 
             return call(
                     arithmeticExpressionSignature(node.getType(), types.get(node), left.getType(), right.getType()),
+                    types.get(node),
                     left,
                     right);
         }
@@ -273,6 +277,7 @@ public final class SqlToRowExpressionTranslator
 
             return call(
                     arithmeticNegationSignature(types.get(node), expression.getType()),
+                    types.get(node),
                     expression);
         }
 
@@ -281,6 +286,7 @@ public final class SqlToRowExpressionTranslator
         {
             return call(
                     logicalExpressionSignature(node.getType()),
+                    BOOLEAN,
                     process(node.getLeft(), context),
                     process(node.getRight(), context));
         }
@@ -291,10 +297,10 @@ public final class SqlToRowExpressionTranslator
             RowExpression value = process(node.getExpression(), context);
 
             if (node.isSafe()) {
-                return call(tryCastSignature(types.get(node), value.getType()), value);
+                return call(tryCastSignature(types.get(node), value.getType()), types.get(node), value);
             }
 
-            return call(castSignature(types.get(node), value.getType()), value);
+            return call(castSignature(types.get(node), value.getType()), types.get(node), value);
         }
 
         @Override
@@ -303,7 +309,7 @@ public final class SqlToRowExpressionTranslator
             List<RowExpression> arguments = Lists.transform(node.getOperands(), processFunction(context));
 
             List<Type> argumentTypes = Lists.transform(arguments, typeGetter());
-            return call(coalesceSignature(types.get(node), argumentTypes), arguments);
+            return call(coalesceSignature(types.get(node), argumentTypes), types.get(node), arguments);
         }
 
         @Override
@@ -315,6 +321,7 @@ public final class SqlToRowExpressionTranslator
 
             for (WhenClause clause : node.getWhenClauses()) {
                 arguments.add(call(whenSignature(types.get(clause)),
+                        types.get(clause),
                         process(clause.getOperand(), context),
                         process(clause.getResult(), context)));
             }
@@ -327,7 +334,7 @@ public final class SqlToRowExpressionTranslator
                 arguments.add(constantNull(returnType));
             }
 
-            return call(switchSignature(returnType), arguments.build());
+            return call(switchSignature(returnType), returnType, arguments.build());
         }
 
         @Override
@@ -362,6 +369,7 @@ public final class SqlToRowExpressionTranslator
             for (WhenClause clause : Lists.reverse(node.getWhenClauses())) {
                 expression = call(
                         Signatures.ifSignature(types.get(node)),
+                        types.get(node),
                         process(clause.getOperand(), context),
                         process(clause.getResult(), context),
                         expression);
@@ -385,7 +393,7 @@ public final class SqlToRowExpressionTranslator
                 arguments.add(constantNull(types.get(node)));
             }
 
-            return call(Signatures.ifSignature(types.get(node)), arguments.build());
+            return call(Signatures.ifSignature(types.get(node)), types.get(node), arguments.build());
         }
 
         @Override
@@ -398,7 +406,7 @@ public final class SqlToRowExpressionTranslator
                 arguments.add(process(value, context));
             }
 
-            return call(Signatures.inSignature(), arguments.build());
+            return call(Signatures.inSignature(), BOOLEAN, arguments.build());
         }
 
         @Override
@@ -408,7 +416,8 @@ public final class SqlToRowExpressionTranslator
 
             return call(
                     Signatures.notSignature(),
-                    call(Signatures.isNullSignature(expression.getType()), ImmutableList.of(expression)));
+                    BOOLEAN,
+                    call(Signatures.isNullSignature(expression.getType()), BOOLEAN, ImmutableList.of(expression)));
         }
 
         @Override
@@ -416,13 +425,13 @@ public final class SqlToRowExpressionTranslator
         {
             RowExpression expression = process(node.getValue(), context);
 
-            return call(Signatures.isNullSignature(expression.getType()), expression);
+            return call(Signatures.isNullSignature(expression.getType()), BOOLEAN, expression);
         }
 
         @Override
         protected RowExpression visitNotExpression(NotExpression node, Void context)
         {
-            return call(Signatures.notSignature(), process(node.getValue(), context));
+            return call(Signatures.notSignature(), BOOLEAN, process(node.getValue(), context));
         }
 
         @Override
@@ -433,6 +442,7 @@ public final class SqlToRowExpressionTranslator
 
             return call(
                     nullIfSignature(types.get(node), first.getType(), second.getType()),
+                    types.get(node),
                     first,
                     second);
         }
@@ -446,6 +456,7 @@ public final class SqlToRowExpressionTranslator
 
             return call(
                     betweenSignature(value.getType(), min.getType(), max.getType()),
+                    BOOLEAN,
                     value,
                     min,
                     max);
@@ -459,10 +470,10 @@ public final class SqlToRowExpressionTranslator
 
             if (node.getEscape() != null) {
                 RowExpression escape = process(node.getEscape(), context);
-                return call(likeSignature(), value, call(likePatternSignature(), pattern, escape));
+                return call(likeSignature(), BOOLEAN, value, call(likePatternSignature(), LIKE_PATTERN, pattern, escape));
             }
 
-            return call(likeSignature(), value, call(castSignature(LIKE_PATTERN, VARCHAR), pattern));
+            return call(likeSignature(), BOOLEAN, value, call(castSignature(LIKE_PATTERN, VARCHAR), LIKE_PATTERN, pattern));
         }
     }
 }

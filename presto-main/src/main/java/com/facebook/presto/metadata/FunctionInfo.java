@@ -16,7 +16,6 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.operator.WindowFunctionDefinition;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -41,7 +40,7 @@ public final class FunctionInfo
     private final List<Boolean> nullableArguments;
 
     private final boolean isAggregate;
-    private final Type intermediateType;
+    private final String intermediateType;
     private final InternalAggregationFunction aggregationFunction;
     private final boolean isApproximate;
 
@@ -70,7 +69,7 @@ public final class FunctionInfo
         this.windowFunctionSupplier = checkNotNull(windowFunctionSupplier, "windowFunction is null");
     }
 
-    public FunctionInfo(Signature signature, String description, Type intermediateType, InternalAggregationFunction function, boolean isApproximate)
+    public FunctionInfo(Signature signature, String description, String intermediateType, InternalAggregationFunction function, boolean isApproximate)
     {
         this.signature = signature;
         this.description = description;
@@ -147,17 +146,17 @@ public final class FunctionInfo
         return isApproximate;
     }
 
-    public Type getReturnType()
+    public String getReturnType()
     {
         return signature.getReturnType();
     }
 
-    public List<Type> getArgumentTypes()
+    public List<String> getArgumentTypes()
     {
         return signature.getArgumentTypes();
     }
 
-    public Type getIntermediateType()
+    public String getIntermediateType()
     {
         return intermediateType;
     }

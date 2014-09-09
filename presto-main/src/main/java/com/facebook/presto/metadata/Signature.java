@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
@@ -27,15 +26,15 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public final class Signature
 {
     private final String name;
-    private final Type returnType;
-    private final List<Type> argumentTypes;
+    private final String returnType;
+    private final List<String> argumentTypes;
     private final boolean internal;
 
     @JsonCreator
     public Signature(
             @JsonProperty("name") String name,
-            @JsonProperty("returnType") Type returnType,
-            @JsonProperty("argumentTypes") List<? extends Type> argumentTypes,
+            @JsonProperty("returnType") String returnType,
+            @JsonProperty("argumentTypes") List<String> argumentTypes,
             @JsonProperty("internal") boolean internal)
     {
         checkNotNull(name, "name is null");
@@ -48,22 +47,22 @@ public final class Signature
         this.internal = internal;
     }
 
-    public Signature(String name, Type returnType, List<? extends Type> argumentTypes)
+    public Signature(String name, String returnType, List<String> argumentTypes)
     {
         this(name, returnType, argumentTypes, false);
     }
 
-    public Signature(String name, Type returnType, Type... argumentTypes)
+    public Signature(String name, String returnType, String... argumentTypes)
     {
         this(name, returnType, ImmutableList.copyOf(argumentTypes), false);
     }
 
-    public static Signature internalFunction(String name, Type returnType, Type... argumentTypes)
+    public static Signature internalFunction(String name, String returnType, String... argumentTypes)
     {
         return new Signature(name, returnType, ImmutableList.copyOf(argumentTypes), true);
     }
 
-    public static Signature internalFunction(String name, Type returnType, List<Type> argumentTypes)
+    public static Signature internalFunction(String name, String returnType, List<String> argumentTypes)
     {
         return new Signature(name, returnType, argumentTypes, true);
     }
@@ -75,13 +74,13 @@ public final class Signature
     }
 
     @JsonProperty
-    public Type getReturnType()
+    public String getReturnType()
     {
         return returnType;
     }
 
     @JsonProperty
-    public List<Type> getArgumentTypes()
+    public List<String> getArgumentTypes()
     {
         return argumentTypes;
     }

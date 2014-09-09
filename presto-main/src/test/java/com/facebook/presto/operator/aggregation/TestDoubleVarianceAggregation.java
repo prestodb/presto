@@ -17,7 +17,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import org.apache.commons.math3.stat.descriptive.moment.Variance;
@@ -42,7 +42,7 @@ public class TestDoubleVarianceAggregation
     @Override
     public InternalAggregationFunction getFunction()
     {
-        return metadata.resolveFunction(new QualifiedName("var_samp"), ImmutableList.<Type>of(DOUBLE), false).getAggregationFunction();
+        return metadata.resolveFunction(new QualifiedName("var_samp"), ImmutableList.of(DoubleType.NAME), false).getAggregationFunction();
     }
 
     @Override

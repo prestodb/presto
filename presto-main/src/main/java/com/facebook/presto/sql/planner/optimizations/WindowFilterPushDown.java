@@ -52,7 +52,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 public class WindowFilterPushDown
         extends PlanOptimizer
 {
-    private static final Signature ROW_NUMBER_SIGNATURE = new Signature("row_number", BigintType.BIGINT, ImmutableList.<Type>of());
+    private static final Signature ROW_NUMBER_SIGNATURE = new Signature("row_number", BigintType.NAME, ImmutableList.<String>of());
 
     @Override
     public PlanNode optimize(PlanNode plan, ConnectorSession session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)

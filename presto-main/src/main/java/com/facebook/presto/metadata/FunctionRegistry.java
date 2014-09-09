@@ -102,6 +102,7 @@ import com.facebook.presto.type.TimestampWithTimeZoneOperators;
 import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharOperators;
 import com.facebook.presto.util.IterableTransformer;
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
@@ -114,6 +115,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
@@ -154,6 +156,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.RegexpType.REGEXP;
+import static com.facebook.presto.type.TypeUtils.nameGetter;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
@@ -300,7 +303,7 @@ public class FunctionRegistry
         return Iterables.any(functions.get(name), isAggregationPredicate());
     }
 
-    public FunctionInfo resolveFunction(QualifiedName name, List<? extends Type> parameterTypes, final boolean approximate)
+    public FunctionInfo resolveFunction(QualifiedName name, List<String> parameterTypes, final boolean approximate)
     {
         List<FunctionInfo> candidates = IterableTransformer.on(functions.get(name)).select(new Predicate<FunctionInfo>() {
             @Override
@@ -319,7 +322,7 @@ public class FunctionRegistry
 
         // search for coerced match
         for (FunctionInfo functionInfo : candidates) {
-            if (canCoerce(parameterTypes, functionInfo.getArgumentTypes())) {
+            if (canCoerce(resolveTypes(parameterTypes, typeManager), resolveTypes(functionInfo.getArgumentTypes(), typeManager))) {
                 return functionInfo;
             }
         }
@@ -345,14 +348,15 @@ public class FunctionRegistry
 
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
-            Type parameterType = parameterTypes.get(0);
+            Type parameterType = typeManager.getType(parameterTypes.get(0));
+            checkNotNull(parameterType, "Type %s not foudn", parameterTypes.get(0));
             checkArgument(parameterType.getJavaType() == type.getJavaType(),
                     "Expected type %s to use Java type %s, but Java type is %s",
                     type,
                     parameterType.getJavaType(),
                     type.getJavaType());
 
-            MethodHandle identity = MethodHandles.identity(parameterTypes.get(0).getJavaType());
+            MethodHandle identity = MethodHandles.identity(parameterType.getJavaType());
             return new FunctionInfo(
                     getMagicLiteralFunctionSignature(type),
                     null,
@@ -385,12 +389,23 @@ public class FunctionRegistry
 
         // search for coerced match
         for (FunctionInfo operatorInfo : candidates) {
-            if (canCoerce(argumentTypes, operatorInfo.getArgumentTypes())) {
+            if (canCoerce(argumentTypes, resolveTypes(operatorInfo.getArgumentTypes(), typeManager))) {
                 return operatorInfo;
             }
         }
 
         throw new OperatorNotFoundException(operatorType, argumentTypes);
+    }
+
+    private static List<Type> resolveTypes(List<String> typeNames, final TypeManager typeManager)
+    {
+        return FluentIterable.from(typeNames).transform(new Function<String, Type>() {
+            @Override
+            public Type apply(String type)
+            {
+                return checkNotNull(typeManager.getType(type), "Type '%s' not found", type);
+            }
+        }).toList();
     }
 
     public FunctionInfo getCoercion(Type fromType, Type toType)
@@ -403,9 +418,11 @@ public class FunctionRegistry
     {
         Iterable<FunctionInfo> candidates = functions.getOperators(operatorType);
 
+        List<String> argumentTypeNames = FluentIterable.from(argumentTypes).transform(nameGetter()).toList();
+
         // search for exact match
         for (FunctionInfo operatorInfo : candidates) {
-            if (operatorInfo.getReturnType().equals(returnType) && operatorInfo.getArgumentTypes().equals(argumentTypes)) {
+            if (operatorInfo.getReturnType().equals(returnType.getName()) && operatorInfo.getArgumentTypes().equals(argumentTypeNames)) {
                 return operatorInfo;
             }
         }
@@ -413,7 +430,7 @@ public class FunctionRegistry
         // if identity cast, return a custom operator info
         if ((operatorType == OperatorType.CAST) && (argumentTypes.size() == 1) && argumentTypes.get(0).equals(returnType)) {
             MethodHandle identity = MethodHandles.identity(returnType.getJavaType());
-            return operatorInfo(OperatorType.CAST, returnType, argumentTypes, identity, false, ImmutableList.of(false));
+            return operatorInfo(OperatorType.CAST, returnType.getName(), FluentIterable.from(argumentTypes).transform(nameGetter()).toList(), identity, false, ImmutableList.of(false));
         }
 
         throw new OperatorNotFoundException(operatorType, argumentTypes, returnType);
@@ -572,8 +589,8 @@ public class FunctionRegistry
     public static Signature getMagicLiteralFunctionSignature(Type type)
     {
         return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getName(),
-                type,
-                ImmutableList.of(type(type.getJavaType())));
+                type.getName(),
+                Lists.transform(ImmutableList.of(type(type.getJavaType())), nameGetter()));
     }
 
     public static boolean isSupportedLiteralType(Type type)
@@ -595,7 +612,7 @@ public class FunctionRegistry
         public FunctionListBuilder window(String name, Type returnType, List<? extends Type> argumentTypes, Class<? extends WindowFunction> functionClass)
         {
             WindowFunctionSupplier windowFunctionSupplier = new ReflectionWindowFunctionSupplier<>(
-                    new Signature(name, returnType, ImmutableList.copyOf(argumentTypes)),
+                    new Signature(name, returnType.getName(), Lists.transform(ImmutableList.copyOf(argumentTypes), nameGetter())),
                     functionClass);
 
             functions.add(new FunctionInfo(windowFunctionSupplier.getSignature(), windowFunctionSupplier.getDescription(), windowFunctionSupplier));
@@ -616,7 +633,8 @@ public class FunctionRegistry
             name = name.toLowerCase();
 
             String description = getDescription(function.getClass());
-            functions.add(new FunctionInfo(new Signature(name, function.getFinalType(), ImmutableList.copyOf(function.getParameterTypes())), description, function.getIntermediateType(), function, function.isApproximate()));
+            Signature signature = new Signature(name, function.getFinalType().getName(), Lists.transform(ImmutableList.copyOf(function.getParameterTypes()), nameGetter()));
+            functions.add(new FunctionInfo(signature, description, function.getIntermediateType().getName(), function, function.isApproximate()));
             return this;
         }
 
@@ -634,7 +652,7 @@ public class FunctionRegistry
 
         private FunctionListBuilder operator(OperatorType operatorType, Type returnType, List<Type> parameterTypes, MethodHandle function, boolean nullable, List<Boolean> nullableArguments)
         {
-            FunctionInfo operatorInfo = operatorInfo(operatorType, returnType, parameterTypes, function, nullable, nullableArguments);
+            FunctionInfo operatorInfo = operatorInfo(operatorType, returnType.getName(), Lists.transform(parameterTypes, nameGetter()), function, nullable, nullableArguments);
             operators.put(operatorType, operatorInfo);
             functions.add(operatorInfo);
             return this;
@@ -672,9 +690,9 @@ public class FunctionRegistry
             SqlType returnTypeAnnotation = method.getAnnotation(SqlType.class);
             checkArgument(returnTypeAnnotation != null, "Method %s return type does not have a @SqlType annotation", method);
             Type returnType = type(typeManager, returnTypeAnnotation);
-            Signature signature = new Signature(name.toLowerCase(), returnType, parameterTypes(typeManager, method));
+            Signature signature = new Signature(name.toLowerCase(), returnType.getName(), Lists.transform(parameterTypes(typeManager, method), nameGetter()));
 
-            verifyMethodSignature(method, signature.getReturnType(), signature.getArgumentTypes());
+            verifyMethodSignature(method, signature.getReturnType(), signature.getArgumentTypes(), typeManager);
 
             List<Boolean> nullableArguments = getNullableArguments(method);
 
@@ -730,7 +748,7 @@ public class FunctionRegistry
                 checkArgument(explicitType != null, "Method %s return type does not have a @SqlType annotation", method);
                 returnType = type(typeManager, explicitType);
 
-                verifyMethodSignature(method, returnType, parameterTypes);
+                verifyMethodSignature(method, returnType.getName(), Lists.transform(parameterTypes, nameGetter()), typeManager);
             }
 
             List<Boolean> nullableArguments = getNullableArguments(method);
@@ -802,7 +820,7 @@ public class FunctionRegistry
         }
     }
 
-    private static FunctionInfo operatorInfo(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes, MethodHandle method, boolean nullable, List<Boolean> nullableArguments)
+    private static FunctionInfo operatorInfo(OperatorType operatorType, String returnType, List<String> argumentTypes, MethodHandle method, boolean nullable, List<Boolean> nullableArguments)
     {
         operatorType.validateSignature(returnType, ImmutableList.copyOf(argumentTypes));
 
@@ -810,8 +828,11 @@ public class FunctionRegistry
         return new FunctionInfo(signature, operatorType.getOperator(), true, method, true, nullable, nullableArguments);
     }
 
-    private static void verifyMethodSignature(Method method, Type returnType, List<Type> argumentTypes)
+    private static void verifyMethodSignature(Method method, String returnTypeName, List<String> argumentTypeNames, TypeManager typeManager)
     {
+        Type returnType = typeManager.getType(returnTypeName);
+        checkNotNull(returnType, "returnType is null");
+        List<Type> argumentTypes = resolveTypes(argumentTypeNames, typeManager);
         checkArgument(Primitives.unwrap(method.getReturnType()) == returnType.getJavaType(),
                 "Expected method %s return type to be %s (%s)",
                 method,

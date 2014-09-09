@@ -13,7 +13,11 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.databind.JsonDeserializer;
@@ -24,10 +28,6 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestSignature
@@ -39,7 +39,7 @@ public class TestSignature
         objectMapperProvider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>of(Type.class, new TypeDeserializer(new TypeRegistry())));
         JsonCodec<Signature> codec = new JsonCodecFactory(objectMapperProvider, true).jsonCodec(Signature.class);
 
-        Signature expected = new Signature("function", BIGINT, ImmutableList.of(BOOLEAN, DOUBLE, VARCHAR));
+        Signature expected = new Signature("function", BigintType.NAME, ImmutableList.of(BooleanType.NAME, DoubleType.NAME, VarcharType.NAME));
 
         String json = codec.toJson(expected);
         Signature actual = codec.fromJson(json);

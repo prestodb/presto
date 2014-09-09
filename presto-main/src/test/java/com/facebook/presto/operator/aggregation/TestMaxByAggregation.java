@@ -16,7 +16,9 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import org.testng.annotations.Test;
@@ -26,8 +28,6 @@ import java.util.Set;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertNotNull;
 
 public class TestMaxByAggregation
@@ -47,7 +47,7 @@ public class TestMaxByAggregation
 
         for (Type keyType : orderableTypes) {
             for (Type valueType : metadata.getTypeManager().getTypes()) {
-                assertNotNull(metadata.getExactFunction(new Signature("max_by", valueType, valueType, keyType)));
+                assertNotNull(metadata.getExactFunction(new Signature("max_by", valueType.getName(), valueType.getName(), keyType.getName())));
             }
         }
     }
@@ -56,7 +56,7 @@ public class TestMaxByAggregation
     public void testNull()
             throws Exception
     {
-        InternalAggregationFunction doubleDouble = metadata.getExactFunction(new Signature("max_by", DOUBLE, DOUBLE, DOUBLE)).getAggregationFunction();
+        InternalAggregationFunction doubleDouble = metadata.getExactFunction(new Signature("max_by", DoubleType.NAME, DoubleType.NAME, DoubleType.NAME)).getAggregationFunction();
         assertAggregation(
                 doubleDouble,
                 1.0,
@@ -70,7 +70,7 @@ public class TestMaxByAggregation
     public void testDoubleDouble()
             throws Exception
     {
-        InternalAggregationFunction doubleDouble = metadata.getExactFunction(new Signature("max_by", DOUBLE, DOUBLE, DOUBLE)).getAggregationFunction();
+        InternalAggregationFunction doubleDouble = metadata.getExactFunction(new Signature("max_by", DoubleType.NAME, DoubleType.NAME, DoubleType.NAME)).getAggregationFunction();
         assertAggregation(
                 doubleDouble,
                 1.0,
@@ -98,7 +98,7 @@ public class TestMaxByAggregation
     public void testDoubleVarchar()
             throws Exception
     {
-        InternalAggregationFunction doubleVarchar = metadata.getExactFunction(new Signature("max_by", VARCHAR, VARCHAR, DOUBLE)).getAggregationFunction();
+        InternalAggregationFunction doubleVarchar = metadata.getExactFunction(new Signature("max_by", VarcharType.NAME, VarcharType.NAME, DoubleType.NAME)).getAggregationFunction();
         assertAggregation(
                 doubleVarchar,
                 1.0,

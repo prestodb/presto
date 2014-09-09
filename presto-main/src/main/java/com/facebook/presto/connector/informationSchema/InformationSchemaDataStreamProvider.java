@@ -39,7 +39,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.SplitManager;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
@@ -66,7 +65,6 @@ import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
-import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Sets.union;
 import static java.lang.String.format;
 
@@ -218,15 +216,6 @@ public class InformationSchemaDataStreamProvider
                 continue;
             }
 
-            Iterable<String> arguments = transform(function.getArgumentTypes(), new Function<Type, String>()
-            {
-                @Override
-                public String apply(Type type)
-                {
-                    return type.getName();
-                }
-            });
-
             String functionType;
             if (function.isAggregate()) {
                 functionType = "aggregate";
@@ -243,8 +232,8 @@ public class InformationSchemaDataStreamProvider
 
             table.add(
                     function.getName().toString(),
-                    Joiner.on(", ").join(arguments),
-                    function.getReturnType().getName(),
+                    Joiner.on(", ").join(function.getArgumentTypes()),
+                    function.getReturnType(),
                     functionType,
                     nullToEmpty(function.getDescription()));
         }

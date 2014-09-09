@@ -23,6 +23,8 @@ import com.facebook.presto.operator.RowPageBuilder;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.base.Optional;
@@ -48,7 +50,7 @@ public class TestEvaluateClassifierPredictions
         typeRegistry.addType(new RegressorType());
         typeRegistry.addType(new ModelType());
         metadata.addFunctions(new MLFunctionFactory(typeRegistry).listFunctions());
-        InternalAggregationFunction aggregation = metadata.getExactFunction(new Signature("evaluate_classifier_predictions", VARCHAR, BIGINT, BIGINT)).getAggregationFunction();
+        InternalAggregationFunction aggregation = metadata.getExactFunction(new Signature("evaluate_classifier_predictions", VarcharType.NAME, BigintType.NAME, BigintType.NAME)).getAggregationFunction();
         Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0).createAccumulator();
         accumulator.addInput(getPage());
         Block block = accumulator.evaluateFinal();
