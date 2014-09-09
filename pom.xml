@@ -618,12 +618,6 @@
                     <version>1.0.3</version>
                 </plugin>
 
-                <plugin>
-                    <groupId>io.takari.maven.plugins</groupId>
-                    <artifactId>provisio-maven-plugin</artifactId>
-                    <version>0.1.6</version>
-                </plugin>
-
                 <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
                 <plugin>
                     <!--suppress MavenModelInspection -->
@@ -737,6 +731,13 @@
                 <groupId>io.takari.maven.plugins</groupId>
                 <artifactId>presto-maven-plugin</artifactId>
                 <version>0.1.5</version>
+                <extensions>true</extensions>
+            </plugin>
+
+            <plugin>
+                <groupId>io.takari.maven.plugins</groupId>
+                <artifactId>provisio-maven-plugin</artifactId>
+                <version>0.1.7</version>
                 <extensions>true</extensions>
             </plugin>
         </plugins>
