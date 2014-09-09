@@ -119,6 +119,7 @@ public final class Signature
                 Objects.equals(this.internal, other.internal);
     }
 
+    @Override
     public String toString()
     {
         return (internal ? "%" : "") + name + "(" + Joiner.on(",").join(argumentTypes) + "):" + returnType;
