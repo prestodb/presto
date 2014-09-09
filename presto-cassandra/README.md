@@ -105,6 +105,11 @@ cassandra.client.connect-timeout=5000
 #cassandra.client.so-linger=-1
 ```
 
+# RetryPolicy; PeakNetworkTrafficRetryPloicy may help on "not enough replicas" exception
+# (advanced)
+# Options: DEFAULT, PEAK_NETWORK, DOWNGRADING_CONSISTENCY, FALLTHROUGH
+cassandra.retrypolicyclass=DEFAULT
+
 ## Notes
 - only tested with Apache Cassandra 2.0.3 (but probably works for Cassandra 1.2.x too)
 - internally uses Datastax Java Driver 2.0 and CQL3

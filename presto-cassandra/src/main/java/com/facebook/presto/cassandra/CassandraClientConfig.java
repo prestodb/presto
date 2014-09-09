@@ -15,6 +15,7 @@ package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.SocketOptions;
+import com.facebook.presto.cassandra.CassandraClientModule.RetryPolicyClass;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 
@@ -59,6 +60,7 @@ public class CassandraClientConfig
     private int clientReadTimeout = SocketOptions.DEFAULT_READ_TIMEOUT_MILLIS;
     private int clientConnectTimeout = SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS;
     private Integer clientSoLinger;
+    private RetryPolicyClass retryPolicyClass = RetryPolicyClass.DEFAULT;
 
     @Min(0)
     public int getLimitForPartitionKeySelect()
@@ -332,6 +334,18 @@ public class CassandraClientConfig
     public CassandraClientConfig setClientSoLinger(Integer clientSoLinger)
     {
         this.clientSoLinger = clientSoLinger;
+        return this;
+    }
+
+    public RetryPolicyClass getRetryPolicyClass()
+    {
+        return retryPolicyClass;
+    }
+
+    @Config("cassandra.retrypolicyclass")
+    public CassandraClientConfig setRetryPolicyClass(RetryPolicyClass retryPolicyClass)
+    {
+        this.retryPolicyClass = retryPolicyClass;
         return this;
     }
 }
