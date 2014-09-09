@@ -15,6 +15,7 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Function;
 
 public final class TypeUtils
 {
@@ -38,5 +39,16 @@ public final class TypeUtils
             return leftIsNull && rightIsNull;
         }
         return type.equalTo(leftBlock, leftPosition, rightBlock, rightPosition);
+    }
+
+    public static Function<Type, String> nameGetter()
+    {
+        return new Function<Type, String>() {
+            @Override
+            public String apply(Type input)
+            {
+                return input.getName();
+            }
+        };
     }
 }

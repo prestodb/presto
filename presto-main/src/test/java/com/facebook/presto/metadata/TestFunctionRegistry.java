@@ -16,6 +16,8 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.operator.scalar.CustomFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.HyperLogLogType;
+import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.SqlType;
 import com.facebook.presto.type.TypeRegistry;
@@ -29,7 +31,6 @@ import java.util.List;
 
 import static com.facebook.presto.metadata.FunctionInfo.nameGetter;
 import static com.facebook.presto.metadata.FunctionRegistry.getMagicLiteralFunctionSignature;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.google.common.base.Functions.toStringFunction;
@@ -46,8 +47,8 @@ public class TestFunctionRegistry
         FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
         FunctionInfo exactOperator = registry.getExactOperator(OperatorType.CAST, ImmutableList.of(HYPER_LOG_LOG), HYPER_LOG_LOG);
         assertEquals(exactOperator.getSignature().getName(), OperatorType.CAST.name());
-        assertEquals(exactOperator.getArgumentTypes(), ImmutableList.of(HYPER_LOG_LOG));
-        assertEquals(exactOperator.getReturnType(), HYPER_LOG_LOG);
+        assertEquals(exactOperator.getArgumentTypes(), ImmutableList.of(HyperLogLogType.NAME));
+        assertEquals(exactOperator.getReturnType(), HyperLogLogType.NAME);
     }
 
     @Test
@@ -55,13 +56,13 @@ public class TestFunctionRegistry
     {
         Signature signature = getMagicLiteralFunctionSignature(TIMESTAMP_WITH_TIME_ZONE);
         assertEquals(signature.getName(), "$literal$timestamp with time zone");
-        assertEquals(signature.getArgumentTypes(), ImmutableList.of(BIGINT));
-        assertEquals(signature.getReturnType(), TIMESTAMP_WITH_TIME_ZONE);
+        assertEquals(signature.getArgumentTypes(), ImmutableList.of(BigintType.NAME));
+        assertEquals(signature.getReturnType(), TimestampWithTimeZoneType.NAME);
 
         FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
-        FunctionInfo function = registry.resolveFunction(new QualifiedName(signature.getName()), signature.getArgumentTypes(), false);
-        assertEquals(function.getArgumentTypes(), ImmutableList.of(BIGINT));
-        assertEquals(function.getReturnType(), TIMESTAMP_WITH_TIME_ZONE);
+        FunctionInfo function = registry.resolveFunction(QualifiedName.of(signature.getName()), signature.getArgumentTypes(), false);
+        assertEquals(function.getArgumentTypes(), ImmutableList.of(BigintType.NAME));
+        assertEquals(signature.getReturnType(), TimestampWithTimeZoneType.NAME);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QFunction already registered: custom_add(bigint,bigint):bigint\\E")

@@ -200,7 +200,7 @@ public class DistributedLogicalPlanner
                 Signature signature = functions.get(entry.getKey());
                 FunctionInfo function = metadata.getExactFunction(signature);
 
-                Symbol intermediateSymbol = allocator.newSymbol(function.getName().getSuffix(), function.getIntermediateType());
+                Symbol intermediateSymbol = allocator.newSymbol(function.getName().getSuffix(), metadata.getType(function.getIntermediateType()));
                 intermediateCalls.put(intermediateSymbol, entry.getValue());
                 intermediateFunctions.put(intermediateSymbol, signature);
                 if (masks.containsKey(entry.getKey())) {

@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
@@ -49,11 +50,13 @@ import static com.google.common.base.Predicates.instanceOf;
 public class ExpressionOptimizer
 {
     private final FunctionRegistry registry;
+    private final TypeManager typeManager;
     private final ConnectorSession session;
 
-    public ExpressionOptimizer(FunctionRegistry registry, ConnectorSession session)
+    public ExpressionOptimizer(FunctionRegistry registry, TypeManager typeManager, ConnectorSession session)
     {
         this.registry = registry;
+        this.typeManager = typeManager;
         this.session = session;
     }
 
@@ -146,7 +149,7 @@ public class ExpressionOptimizer
                 }
             }
 
-            return call(signature, arguments);
+            return call(signature, typeManager.getType(signature.getReturnType()), arguments);
         }
     }
 }

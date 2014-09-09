@@ -31,7 +31,7 @@ public interface Metadata
 {
     Type getType(String typeName);
 
-    FunctionInfo resolveFunction(QualifiedName name, List<? extends Type> parameterTypes, boolean approximate);
+    FunctionInfo resolveFunction(QualifiedName name, List<String> parameterTypes, boolean approximate);
 
     @NotNull
     FunctionInfo getExactFunction(Signature handle);

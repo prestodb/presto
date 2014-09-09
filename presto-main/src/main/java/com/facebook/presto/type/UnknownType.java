@@ -22,10 +22,11 @@ public final class UnknownType
         extends AbstractFixedWidthType
 {
     public static final UnknownType UNKNOWN = new UnknownType();
+    public static final String NAME = "unknown";
 
     private UnknownType()
     {
-        super("unknown", void.class, 0);
+        super(NAME, void.class, 0);
     }
 
     @Override

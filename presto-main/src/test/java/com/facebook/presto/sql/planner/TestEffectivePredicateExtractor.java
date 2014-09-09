@@ -45,6 +45,7 @@ import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.type.UnknownType;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -71,7 +72,6 @@ import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.or;
 import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 
 @Test(singleThreaded = true)
 public class TestEffectivePredicateExtractor
@@ -677,7 +677,7 @@ public class TestEffectivePredicateExtractor
 
     private static Signature fakeFunctionHandle(String name)
     {
-        return new Signature(name, UNKNOWN, ImmutableList.<Type>of());
+        return new Signature(name, UnknownType.NAME, ImmutableList.<String>of());
     }
 
     private Set<Expression> normalizeConjuncts(Expression... conjuncts)
