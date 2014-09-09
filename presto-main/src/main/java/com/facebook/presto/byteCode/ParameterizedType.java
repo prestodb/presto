@@ -175,7 +175,7 @@ public class ParameterizedType
     public String getGenericSignature()
     {
         StringBuilder sb = new StringBuilder();
-        if (primitiveType != null) {
+        if (primitiveType != null || arrayComponentType != null) {
             return type;
         }
         sb.append('L').append(className);
