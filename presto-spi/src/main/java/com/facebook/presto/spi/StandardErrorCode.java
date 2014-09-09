@@ -41,6 +41,7 @@ public enum StandardErrorCode
 
     INSUFFICIENT_RESOURCES(0x0002_0000),
     EXCEEDED_MEMORY_LIMIT(0x0002_0001),
+    QUERY_QUEUE_FULL(0x0002_0002),
 
     // Connectors can use error codes starting at EXTERNAL
     EXTERNAL(0x0100_0000);
