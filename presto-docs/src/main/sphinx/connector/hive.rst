@@ -26,14 +26,6 @@ Presto includes Hive connectors for multiple versions of Hadoop:
 * ``hive-cdh4``: Cloudera CDH 4
 * ``hive-cdh5``: Cloudera CDH 5
 
-To configure the Hive connector, create a catalog properties file
-``etc/catalog/tpch.properties`` with the following contents:
-
-.. code-block:: none
-
-    connector.name=hive-cdh4
-    hive.metastore.uri=thrift://example.net:9083
-
 Create ``etc/catalog/hive.properties`` with the following contents
 to mount the ``hive-cdh4`` connector as the ``hive`` catalog,
 replacing ``hive-cdh4`` with the proper connector for your version
