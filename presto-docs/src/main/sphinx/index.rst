@@ -15,3 +15,4 @@ Presto Documentation
     migration
     spi
     release
+    catalogs
