@@ -50,6 +50,8 @@ public class HiveClientConfig
     private boolean allowDropTable;
     private boolean allowRenameTable;
 
+    private boolean allowBrokenWrites;
+
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
     private Duration metastoreRefreshInterval = new Duration(2, TimeUnit.MINUTES);
     private int maxMetastoreRefreshThreads = 100;
@@ -188,6 +190,21 @@ public class HiveClientConfig
     public HiveClientConfig setAllowRenameTable(boolean allowRenameTable)
     {
         this.allowRenameTable = allowRenameTable;
+        return this;
+    }
+
+    @Deprecated
+    public boolean getAllowBrokenWrites()
+    {
+        return allowBrokenWrites;
+    }
+
+    @Deprecated
+    @Config("hive.allow-broken-writes")
+    @ConfigDescription("Allow hive connector to write data even when data will likely be corrupt")
+    public HiveClientConfig setAllowBrokenWrites(boolean allowBrokenWrites)
+    {
+        this.allowBrokenWrites = allowBrokenWrites;
         return this;
     }
 
