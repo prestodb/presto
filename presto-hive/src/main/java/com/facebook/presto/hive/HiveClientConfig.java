@@ -50,6 +50,8 @@ public class HiveClientConfig
     private boolean allowDropTable;
     private boolean allowRenameTable;
 
+    private boolean allowCorruptWritesForTesting;
+
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
     private Duration metastoreRefreshInterval = new Duration(2, TimeUnit.MINUTES);
     private int maxMetastoreRefreshThreads = 100;
@@ -191,13 +193,28 @@ public class HiveClientConfig
         return this;
     }
 
+    @Deprecated
+    public boolean getAllowCorruptWritesForTesting()
+    {
+        return allowCorruptWritesForTesting;
+    }
+
+    @Deprecated
+    @Config("hive.allow-corrupt-writes-for-testing")
+    @ConfigDescription("Allow Hive connector to write data even when data will likely be corrupt")
+    public HiveClientConfig setAllowCorruptWritesForTesting(boolean allowCorruptWritesForTesting)
+    {
+        this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
+        return this;
+    }
+
     public boolean getAllowDropTable()
     {
         return this.allowDropTable;
     }
 
     @Config("hive.allow-drop-table")
-    @ConfigDescription("Allow hive connector to drop table")
+    @ConfigDescription("Allow Hive connector to drop table")
     public HiveClientConfig setAllowDropTable(boolean allowDropTable)
     {
         this.allowDropTable = allowDropTable;
