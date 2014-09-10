@@ -40,6 +40,7 @@ public final class Signature
     private final List<TypeParameter> typeParameters;
     private final TypeSignature returnType;
     private final List<TypeSignature> argumentTypes;
+    private final boolean variableArity;
     private final boolean internal;
 
     @JsonCreator
@@ -48,6 +49,7 @@ public final class Signature
             @JsonProperty("typeParameters") List<TypeParameter> typeParameters,
             @JsonProperty("returnType") String returnType,
             @JsonProperty("argumentTypes") List<String> argumentTypes,
+            @JsonProperty("variableArity") boolean variableArity,
             @JsonProperty("internal") boolean internal)
     {
         checkNotNull(name, "name is null");
@@ -67,12 +69,13 @@ public final class Signature
                 return parseTypeSignature(input);
             }
         }).toList();
+        this.variableArity = variableArity;
         this.internal = internal;
     }
 
     public Signature(String name, String returnType, List<String> argumentTypes)
     {
-        this(name, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, false);
+        this(name, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, false, false);
     }
 
     public Signature(String name, String returnType, String... argumentTypes)
@@ -97,7 +100,7 @@ public final class Signature
 
     public static Signature internalFunction(String name, String returnType, List<String> argumentTypes)
     {
-        return new Signature(name, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, true);
+        return new Signature(name, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, false, true);
     }
 
     @JsonProperty
@@ -131,6 +134,12 @@ public final class Signature
     }
 
     @JsonProperty
+    public boolean isVariableArity()
+    {
+        return variableArity;
+    }
+
+    @JsonProperty
     public List<TypeParameter> getTypeParameters()
     {
         return typeParameters;
@@ -139,12 +148,12 @@ public final class Signature
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, typeParameters, returnType, argumentTypes, internal);
+        return Objects.hash(name, typeParameters, returnType, argumentTypes, variableArity, internal);
     }
 
     Signature withAlias(String name)
     {
-        return new Signature(name, typeParameters, getReturnType(), getArgumentTypes(), internal);
+        return new Signature(name, typeParameters, getReturnType(), getArgumentTypes(), variableArity, internal);
     }
 
     @Override
@@ -161,6 +170,7 @@ public final class Signature
                 Objects.equals(this.typeParameters, other.typeParameters) &&
                 Objects.equals(this.returnType, other.returnType) &&
                 Objects.equals(this.argumentTypes, other.argumentTypes) &&
+                Objects.equals(this.variableArity, other.variableArity) &&
                 Objects.equals(this.internal, other.internal);
     }
 
@@ -182,7 +192,7 @@ public final class Signature
             return false;
         }
 
-        return matchArguments(boundParameters, unboundParameters, argumentTypes, types, allowCoercion, typeManager);
+        return matchArguments(boundParameters, unboundParameters, argumentTypes, types, allowCoercion, variableArity, typeManager);
     }
 
     public boolean match(List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
@@ -193,17 +203,31 @@ public final class Signature
             unboundParameters.put(parameter.getName(), parameter);
         }
 
-        return matchArguments(boundParameters, unboundParameters, argumentTypes, types, allowCoercion, typeManager);
+        return matchArguments(boundParameters, unboundParameters, argumentTypes, types, allowCoercion, variableArity, typeManager);
     }
 
-    private static boolean matchArguments(Map<String, Type> boundParameters, Map<String, TypeParameter> unboundParameters, List<TypeSignature> argumentTypes, List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
+    private static boolean matchArguments(
+            Map<String, Type> boundParameters,
+            Map<String, TypeParameter> unboundParameters,
+            List<TypeSignature> argumentTypes,
+            List<? extends Type> types,
+            boolean allowCoercion,
+            boolean varArgs,
+            TypeManager typeManager)
     {
-        if (argumentTypes.size() != types.size()) {
-            return false;
+        if (varArgs) {
+            if (types.size() < argumentTypes.size() - 1) {
+                return false;
+            }
+        }
+        else {
+            if (argumentTypes.size() != types.size()) {
+                return false;
+            }
         }
 
         for (int i = 0; i < types.size(); i++) {
-            // Get the current argument signature
+            // Get the current argument signature, or the last one, if this is a varargs function
             TypeSignature typeSignature = argumentTypes.get(Math.min(i, argumentTypes.size() - 1));
             Type type = types.get(i);
             if (!matchAndBind(boundParameters, unboundParameters, typeSignature, type, allowCoercion, typeManager)) {
