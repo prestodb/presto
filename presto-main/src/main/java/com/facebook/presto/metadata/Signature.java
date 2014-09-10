@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.type.TypeSignature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.type.TypeSignature;
+import com.facebook.presto.type.UnknownType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
@@ -28,9 +29,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import static com.facebook.presto.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.FunctionRegistry.canCoerce;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
+import static com.facebook.presto.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -251,6 +252,25 @@ public final class Signature
             }
         }
 
+        // Recurse into component types
+        if (!signature.getParameters().isEmpty()) {
+            if (type.getTypeParameters().size() != signature.getParameters().size()) {
+                return false;
+            }
+            for (int i = 0; i < signature.getParameters().size(); i++) {
+                Type componentType = type.getTypeParameters().get(i);
+                TypeSignature componentSignature = signature.getParameters().get(i);
+                if (!matchAndBind(boundParameters, unboundParameters, componentSignature, componentType, allowCoercion, typeManager)) {
+                    return false;
+                }
+            }
+        }
+
+        if (type.equals(UnknownType.UNKNOWN) && allowCoercion) {
+            // The unknown type can be coerced to any type, so don't bind the parameters, since nothing can be coerced to the unknown type
+            return true;
+        }
+
         // Bind parameter, if this is a free type parameter
         if (unboundParameters.containsKey(signature.getBase())) {
             TypeParameter typeParameter = unboundParameters.get(signature.getBase());
@@ -260,6 +280,11 @@ public final class Signature
             unboundParameters.remove(signature.getBase());
             boundParameters.put(signature.getBase(), type);
             return true;
+        }
+
+        // We've already checked all the components, so just match the base type
+        if (!signature.getParameters().isEmpty()) {
+            return parseTypeSignature(type.getName()).getBase().equals(signature.getBase());
         }
 
         if (allowCoercion) {

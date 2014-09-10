@@ -61,6 +61,9 @@ public class TestFunctionRegistry
             if (operatorType == OperatorType.CAST) {
                 continue;
             }
+            if (function.isUnbound()) {
+                continue;
+            }
             FunctionInfo exactOperator = registry.resolveOperator(operatorType, resolveTypes(function.getSignature().getArgumentTypes(), typeManager));
             assertEquals(exactOperator.getSignature(), function.getSignature());
             foundOperator = true;

@@ -11,24 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.type;
+package com.facebook.presto.type;
+
+import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 
-public interface TypeManager
+public interface ParametricType
 {
-    /**
-     * Gets the type with the specified case insensitive name, or null if not found.
-     */
-    Type getType(String typeName);
+    String getName();
 
-    /**
-     * Gets an instance of the metatype with the specified case insensitive name, or null if not found.
-     */
-    Type getParameterizedType(String metaTypeName, List<String> typeNames);
-
-    /**
-     * Gets a list of all registered types.
-     */
-    List<Type> getTypes();
+    Type createType(List<Type> types);
 }
