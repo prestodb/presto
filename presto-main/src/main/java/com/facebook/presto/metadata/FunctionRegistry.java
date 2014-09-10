@@ -320,7 +320,7 @@ public class FunctionRegistry
 
             // lookup the type
             Type type = typeManager.getType(typeName);
-            checkArgument(type != null, "Type %s not registered", typeName);
+            checkNotNull(type, "Type %s not registered", typeName);
 
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
