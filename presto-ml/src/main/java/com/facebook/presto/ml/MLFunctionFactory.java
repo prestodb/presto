@@ -19,7 +19,7 @@ import com.facebook.presto.spi.type.TypeManager;
 
 import java.util.List;
 
-import static com.facebook.presto.metadata.FunctionRegistry.FunctionListBuilder;
+import com.facebook.presto.metadata.FunctionListBuilder;
 import static com.facebook.presto.ml.type.ClassifierType.CLASSIFIER;
 import static com.facebook.presto.ml.type.RegressorType.REGRESSOR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
