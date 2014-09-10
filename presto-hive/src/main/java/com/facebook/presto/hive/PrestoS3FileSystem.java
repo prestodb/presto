@@ -92,6 +92,7 @@ public class PrestoS3FileSystem
     public static final String S3_MAX_ERROR_RETRIES = "presto.s3.max-error-retries";
     public static final String S3_MAX_CLIENT_RETRIES = "presto.s3.max-client-retries";
     public static final String S3_MAX_BACKOFF_TIME = "presto.s3.max-backoff-time";
+    public static final String S3_MAX_RETRY_TIME = "presto.s3.max-retry-time";
     public static final String S3_CONNECT_TIMEOUT = "presto.s3.connect-timeout";
     public static final String S3_SOCKET_TIMEOUT = "presto.s3.socket-timeout";
     public static final String S3_MAX_CONNECTIONS = "presto.s3.max-connections";
@@ -111,6 +112,7 @@ public class PrestoS3FileSystem
     private File stagingDirectory;
     private int maxClientRetries;
     private Duration maxBackoffTime;
+    private Duration maxRetryTime;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -126,6 +128,7 @@ public class PrestoS3FileSystem
         this.stagingDirectory = new File(conf.get(S3_STAGING_DIRECTORY, defaults.getS3StagingDirectory().toString()));
         this.maxClientRetries = conf.getInt(S3_MAX_CLIENT_RETRIES, defaults.getS3MaxClientRetries());
         this.maxBackoffTime = Duration.valueOf(conf.get(S3_MAX_BACKOFF_TIME, defaults.getS3MaxBackoffTime().toString()));
+        this.maxRetryTime = Duration.valueOf(conf.get(S3_MAX_RETRY_TIME, defaults.getS3MaxRetryTime().toString()));
         int maxErrorRetries = conf.getInt(S3_MAX_ERROR_RETRIES, defaults.getS3MaxErrorRetries());
         boolean sslEnabled = conf.getBoolean(S3_SSL_ENABLED, defaults.isS3SslEnabled());
         Duration connectTimeout = Duration.valueOf(conf.get(S3_CONNECT_TIMEOUT, defaults.getS3ConnectTimeout().toString()));
@@ -249,7 +252,7 @@ public class PrestoS3FileSystem
     {
         return new FSDataInputStream(
                 new BufferedFSInputStream(
-                        new PrestoS3InputStream(s3, uri.getHost(), path, maxClientRetries, maxBackoffTime),
+                        new PrestoS3InputStream(s3, uri.getHost(), path, maxClientRetries, maxBackoffTime, maxRetryTime),
                         bufferSize));
     }
 
@@ -375,7 +378,7 @@ public class PrestoS3FileSystem
         try {
             return retry()
                     .maxAttempts(maxClientRetries)
-                    .exponentialBackoff(new Duration(1, TimeUnit.SECONDS), maxBackoffTime, 2.0)
+                    .exponentialBackoff(new Duration(1, TimeUnit.SECONDS), maxBackoffTime, maxRetryTime, 2.0)
                     .stopOn(InterruptedException.class)
                     .run("getS3ObjectMetadata", new Callable<ObjectMetadata>()
                     {
@@ -455,12 +458,13 @@ public class PrestoS3FileSystem
         private final Path path;
         private final int maxClientRetry;
         private final Duration maxBackoffTime;
+        private final Duration maxRetryTime;
 
         private boolean closed;
         private S3ObjectInputStream in;
         private long position;
 
-        public PrestoS3InputStream(AmazonS3 s3, String host, Path path, int maxClientRetry, Duration maxBackoffTime)
+        public PrestoS3InputStream(AmazonS3 s3, String host, Path path, int maxClientRetry, Duration maxBackoffTime, Duration maxRetryTime)
         {
             this.s3 = checkNotNull(s3, "s3 is null");
             this.host = checkNotNull(host, "host is null");
@@ -469,6 +473,7 @@ public class PrestoS3FileSystem
             checkArgument(maxClientRetry >= 0, "maxClientRetries cannot be negative");
             this.maxClientRetry = maxClientRetry;
             this.maxBackoffTime = checkNotNull(maxBackoffTime, "maxBackoffTime is null");
+            this.maxRetryTime = checkNotNull(maxRetryTime, "maxRetryTime is null");
         }
 
         @Override
@@ -531,7 +536,7 @@ public class PrestoS3FileSystem
             try {
                 int bytesRead = retry()
                         .maxAttempts(maxClientRetry)
-                        .exponentialBackoff(new Duration(1, TimeUnit.SECONDS), maxBackoffTime, 2.0)
+                        .exponentialBackoff(new Duration(1, TimeUnit.SECONDS), maxBackoffTime, maxRetryTime, 2.0)
                         .stopOn(InterruptedException.class)
                         .run("readStream", new Callable<Integer>()
                         {
@@ -578,7 +583,7 @@ public class PrestoS3FileSystem
             try {
                 return retry()
                         .maxAttempts(maxClientRetry)
-                        .exponentialBackoff(new Duration(1, TimeUnit.SECONDS), maxBackoffTime, 2.0)
+                        .exponentialBackoff(new Duration(1, TimeUnit.SECONDS), maxBackoffTime, maxRetryTime, 2.0)
                         .stopOn(InterruptedException.class)
                         .run("getS3Object", new Callable<S3Object>()
                         {
