@@ -99,17 +99,14 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.lang.invoke.MethodHandle;
@@ -121,8 +118,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.metadata.FunctionInfo.isAggregationPredicate;
-import static com.facebook.presto.metadata.FunctionInfo.isHiddenPredicate;
+import static com.facebook.presto.metadata.ParametricFunctionUtils.isAggregationPredicate;
+import static com.facebook.presto.metadata.ParametricFunctionUtils.isHiddenPredicate;
 import static com.facebook.presto.operator.aggregation.ApproximateCountAggregation.APPROXIMATE_COUNT_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -138,7 +135,6 @@ import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.RegexpType.REGEXP;
 import static com.facebook.presto.type.TypeUtils.nameGetter;
-import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -260,17 +256,17 @@ public class FunctionRegistry
         addFunctions(builder.getFunctions());
     }
 
-    public final synchronized void addFunctions(List<FunctionInfo> functions)
+    public final synchronized void addFunctions(List<? extends ParametricFunction> functions)
     {
-        for (FunctionInfo function : functions) {
-            checkArgument(this.functions.get(function.getSignature()) == null,
-                    "Function already registered: %s", function.getSignature());
+        for (ParametricFunction function : functions) {
+            for (ParametricFunction existingFunction : this.functions.list()) {
+                checkArgument(!function.getSignature().equals(existingFunction.getSignature()), "Function already registered: %s", function.getSignature());
+            }
         }
-
         this.functions = new FunctionMap(this.functions, functions);
     }
 
-    public List<FunctionInfo> list()
+    public List<ParametricFunction> list()
     {
         return FluentIterable.from(functions.list())
                 .filter(not(isHiddenPredicate()))
@@ -284,31 +280,39 @@ public class FunctionRegistry
 
     public FunctionInfo resolveFunction(QualifiedName name, List<String> parameterTypes, final boolean approximate)
     {
-        List<FunctionInfo> candidates = IterableTransformer.on(functions.get(name)).select(new Predicate<FunctionInfo>() {
+        List<ParametricFunction> candidates = IterableTransformer.on(functions.get(name)).select(new Predicate<ParametricFunction>() {
             @Override
-            public boolean apply(FunctionInfo input)
+            public boolean apply(ParametricFunction input)
             {
                 return input.isScalar() || input.isApproximate() == approximate;
             }
         }).list();
 
+        List<Type> resolvedTypes = resolveTypes(parameterTypes, typeManager);
         // search for exact match
-        for (FunctionInfo functionInfo : candidates) {
-            if (functionInfo.getArgumentTypes().equals(parameterTypes)) {
-                return functionInfo;
+        FunctionInfo match = null;
+        for (ParametricFunction function : candidates) {
+            if (function.getSignature().match(resolvedTypes, false, typeManager)) {
+                checkArgument(match == null, "Ambiguous call to %s with parameters %s", name, parameterTypes);
+                match = function.specialize(resolvedTypes);
             }
         }
 
+        if (match != null) {
+            return match;
+        }
+
         // search for coerced match
-        for (FunctionInfo functionInfo : candidates) {
-            if (canCoerce(resolveTypes(parameterTypes, typeManager), resolveTypes(functionInfo.getArgumentTypes(), typeManager))) {
-                return functionInfo;
+        for (ParametricFunction function : candidates) {
+            if (function.getSignature().match(resolvedTypes, true, typeManager)) {
+                // TODO: This should also check for ambiguities
+                return function.specialize(resolvedTypes);
             }
         }
 
         List<String> expectedParameters = new ArrayList<>();
-        for (FunctionInfo functionInfo : candidates) {
-            expectedParameters.add(format("%s(%s)", name, Joiner.on(", ").join(functionInfo.getArgumentTypes())));
+        for (ParametricFunction function : candidates) {
+            expectedParameters.add(format("%s(%s)", name, Joiner.on(", ").join(function.getSignature().getArgumentTypes())));
         }
         String parameters = Joiner.on(", ").join(parameterTypes);
         String message = format("Function %s not registered", name);
@@ -360,11 +364,21 @@ public class FunctionRegistry
                 return null;
             }
         }
-        return functions.get(signature);
+
+        Iterable<ParametricFunction> candidates = functions.get(QualifiedName.of(signature.getName()));
+        // search for exact match
+        for (ParametricFunction operator : candidates) {
+            Type returnType = typeManager.getType(signature.getReturnType());
+            List<Type> argumentTypes = resolveTypes(signature.getArgumentTypes(), typeManager);
+            if (operator.getSignature().match(returnType, argumentTypes, false, typeManager)) {
+                return operator.specialize(returnType, argumentTypes);
+            }
+        }
+        return null;
     }
 
     @VisibleForTesting
-    public List<FunctionInfo> listOperators()
+    public List<ParametricFunction> listOperators()
     {
         final Set<String> operatorNames = FluentIterable.from(Arrays.asList(OperatorType.values())).transform(new Function<OperatorType, String>() {
             @Override
@@ -373,9 +387,9 @@ public class FunctionRegistry
                 return mangleOperatorName(input);
             }
         }).toSet();
-        return FluentIterable.from(functions.functionsByName.values()).filter(new Predicate<FunctionInfo>() {
+        return FluentIterable.from(functions.functions.values()).filter(new Predicate<ParametricFunction>() {
             @Override
-            public boolean apply(FunctionInfo input)
+            public boolean apply(ParametricFunction input)
             {
                 return operatorNames.contains(input.getSignature().getName());
             }
@@ -417,14 +431,12 @@ public class FunctionRegistry
     private FunctionInfo getExactOperator(OperatorType operatorType, List<? extends Type> argumentTypes, Type returnType)
             throws OperatorNotFoundException
     {
-        Iterable<FunctionInfo> candidates = functions.get(QualifiedName.of(mangleOperatorName(operatorType)));
-
-        List<String> argumentTypeNames = FluentIterable.from(argumentTypes).transform(nameGetter()).toList();
+        Iterable<ParametricFunction> candidates = functions.get(QualifiedName.of(mangleOperatorName(operatorType)));
 
         // search for exact match
-        for (FunctionInfo operatorInfo : candidates) {
-            if (operatorInfo.getReturnType().equals(returnType.getName()) && operatorInfo.getArgumentTypes().equals(argumentTypeNames)) {
-                return operatorInfo;
+        for (ParametricFunction operator : candidates) {
+            if (operator.getSignature().match(returnType, argumentTypes, false, typeManager)) {
+                return operator.createFunction(returnType, argumentTypes);
             }
         }
 
@@ -561,11 +573,11 @@ public class FunctionRegistry
     {
         operatorType.validateSignature(returnType, ImmutableList.copyOf(argumentTypes));
 
-        Signature signature = new Signature(mangleOperatorName(operatorType), returnType, argumentTypes, true);
+        Signature signature = Signature.internalOperator(operatorType.name(), returnType, argumentTypes);
         return new FunctionInfo(signature, operatorType.getOperator(), true, method, true, nullable, nullableArguments);
     }
 
-    private static String mangleOperatorName(OperatorType operatorType)
+    public static String mangleOperatorName(OperatorType operatorType)
     {
         return mangleOperatorName(operatorType.name());
     }
@@ -584,48 +596,42 @@ public class FunctionRegistry
 
     private static class FunctionMap
     {
-        private final Multimap<QualifiedName, FunctionInfo> functionsByName;
-        private final Map<Signature, FunctionInfo> functionsBySignature;
+        private final Multimap<QualifiedName, ParametricFunction> functions;
 
         public FunctionMap()
         {
-            functionsByName = ImmutableListMultimap.of();
-            functionsBySignature = ImmutableMap.of();
+            functions = ImmutableListMultimap.of();
         }
 
-        public FunctionMap(FunctionMap map, Iterable<FunctionInfo> functions)
+        public FunctionMap(FunctionMap map, Iterable<? extends ParametricFunction> functions)
         {
-            functionsByName = ImmutableListMultimap.<QualifiedName, FunctionInfo>builder()
-                    .putAll(map.functionsByName)
-                    .putAll(Multimaps.index(functions, FunctionInfo.nameGetter()))
-                    .build();
-
-            functionsBySignature = ImmutableMap.<Signature, FunctionInfo>builder()
-                    .putAll(map.functionsBySignature)
-                    .putAll(Maps.uniqueIndex(functions, FunctionInfo.handleGetter()))
+            this.functions = ImmutableListMultimap.<QualifiedName, ParametricFunction>builder()
+                    .putAll(map.functions)
+                    .putAll(Multimaps.index(functions, new Function<ParametricFunction, QualifiedName>() {
+                        @Override
+                        public QualifiedName apply(ParametricFunction input)
+                        {
+                            return QualifiedName.of(input.getSignature().getName());
+                        }
+                    }))
                     .build();
 
             // Make sure all functions with the same name are aggregations or none of them are
-            for (Map.Entry<QualifiedName, Collection<FunctionInfo>> entry : functionsByName.asMap().entrySet()) {
-                Collection<FunctionInfo> infos = entry.getValue();
-                checkState(Iterables.all(infos, isAggregationPredicate()) || !Iterables.any(infos, isAggregationPredicate()),
+            for (Map.Entry<QualifiedName, Collection<ParametricFunction>> entry : this.functions.asMap().entrySet()) {
+                Collection<ParametricFunction> values = entry.getValue();
+                checkState(Iterables.all(values, isAggregationPredicate()) || !Iterables.any(values, isAggregationPredicate()),
                         "'%s' is both an aggregation and a scalar function", entry.getKey());
             }
         }
 
-        public List<FunctionInfo> list()
+        public List<ParametricFunction> list()
         {
-            return ImmutableList.copyOf(functionsByName.values());
+            return ImmutableList.copyOf(functions.values());
         }
 
-        public Collection<FunctionInfo> get(QualifiedName name)
+        public Collection<ParametricFunction> get(QualifiedName name)
         {
-            return functionsByName.get(name);
-        }
-
-        public FunctionInfo get(Signature signature)
-        {
-            return functionsBySignature.get(signature);
+            return functions.get(name);
         }
     }
 }

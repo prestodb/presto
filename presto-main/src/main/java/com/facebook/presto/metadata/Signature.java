@@ -13,64 +13,91 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.type.TypeSignature;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
+import static com.facebook.presto.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.metadata.FunctionRegistry.canCoerce;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class Signature
 {
     private final String name;
-    private final String returnType;
-    private final List<String> argumentTypes;
+    private final List<TypeParameter> typeParameters;
+    private final TypeSignature returnType;
+    private final List<TypeSignature> argumentTypes;
     private final boolean internal;
 
     @JsonCreator
     public Signature(
             @JsonProperty("name") String name,
+            @JsonProperty("typeParameters") List<TypeParameter> typeParameters,
             @JsonProperty("returnType") String returnType,
             @JsonProperty("argumentTypes") List<String> argumentTypes,
             @JsonProperty("internal") boolean internal)
     {
         checkNotNull(name, "name is null");
+        checkNotNull(typeParameters, "typeParameters is null");
         checkNotNull(returnType, "returnType is null");
         checkNotNull(argumentTypes, "argumentTypes is null");
 
         this.name = name;
-        this.returnType = returnType;
-        this.argumentTypes = ImmutableList.copyOf(argumentTypes);
+        this.typeParameters = ImmutableList.copyOf(typeParameters);
+        this.returnType = parseTypeSignature(checkNotNull(returnType, "returnType is null"));
+        this.argumentTypes = FluentIterable.from(argumentTypes).transform(new Function<String, TypeSignature>()
+        {
+            @Override
+            public TypeSignature apply(String input)
+            {
+                checkNotNull(input, "input is null");
+                return parseTypeSignature(input);
+            }
+        }).toList();
         this.internal = internal;
     }
 
     public Signature(String name, String returnType, List<String> argumentTypes)
     {
-        this(name, returnType, argumentTypes, false);
+        this(name, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, false);
     }
 
     public Signature(String name, String returnType, String... argumentTypes)
     {
-        this(name, returnType, ImmutableList.copyOf(argumentTypes), false);
+        this(name, returnType, ImmutableList.copyOf(argumentTypes));
+    }
+
+    public static Signature internalOperator(String name, String returnType, List<String> argumentTypes)
+    {
+        return internalFunction(mangleOperatorName(name), returnType, argumentTypes);
     }
 
     public static Signature internalOperator(String name, String returnType, String... argumentTypes)
     {
-        return new Signature(mangleOperatorName(name), returnType, ImmutableList.copyOf(argumentTypes), true);
+        return internalFunction(mangleOperatorName(name), returnType, ImmutableList.copyOf(argumentTypes));
     }
 
     public static Signature internalFunction(String name, String returnType, String... argumentTypes)
     {
-        return new Signature(name, returnType, ImmutableList.copyOf(argumentTypes), true);
+        return internalFunction(name, returnType, ImmutableList.copyOf(argumentTypes));
     }
 
     public static Signature internalFunction(String name, String returnType, List<String> argumentTypes)
     {
-        return new Signature(name, returnType, argumentTypes, true);
+        return new Signature(name, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, true);
     }
 
     @JsonProperty
@@ -82,13 +109,19 @@ public final class Signature
     @JsonProperty
     public String getReturnType()
     {
-        return returnType;
+        return returnType.toString();
     }
 
     @JsonProperty
     public List<String> getArgumentTypes()
     {
-        return argumentTypes;
+        return FluentIterable.from(argumentTypes).transform(new Function<TypeSignature, String>() {
+            @Override
+            public String apply(TypeSignature input)
+            {
+                return input.toString();
+            }
+        }).toList();
     }
 
     @JsonProperty
@@ -97,15 +130,21 @@ public final class Signature
         return internal;
     }
 
+    @JsonProperty
+    public List<TypeParameter> getTypeParameters()
+    {
+        return typeParameters;
+    }
+
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, returnType, argumentTypes, internal);
+        return Objects.hash(name, typeParameters, returnType, argumentTypes, internal);
     }
 
     Signature withAlias(String name)
     {
-        return new Signature(name, returnType, argumentTypes, internal);
+        return new Signature(name, typeParameters, getReturnType(), getArgumentTypes(), internal);
     }
 
     @Override
@@ -119,6 +158,7 @@ public final class Signature
         }
         Signature other = (Signature) obj;
         return Objects.equals(this.name, other.name) &&
+                Objects.equals(this.typeParameters, other.typeParameters) &&
                 Objects.equals(this.returnType, other.returnType) &&
                 Objects.equals(this.argumentTypes, other.argumentTypes) &&
                 Objects.equals(this.internal, other.internal);
@@ -127,6 +167,150 @@ public final class Signature
     @Override
     public String toString()
     {
-        return (internal ? "%" : "") + name + "(" + Joiner.on(",").join(argumentTypes) + "):" + returnType;
+        return (internal ? "%" : "") + name + (typeParameters.isEmpty() ? "" : "<" + Joiner.on(",").join(typeParameters) + ">") + "(" + Joiner.on(",").join(argumentTypes) + "):" + returnType;
+    }
+
+    public boolean match(Type returnType, List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
+    {
+        Map<String, Type> boundParameters = new HashMap<>();
+        Map<String, TypeParameter> unboundParameters = new HashMap<>();
+        for (TypeParameter parameter : typeParameters) {
+            unboundParameters.put(parameter.getName(), parameter);
+        }
+
+        if (!matchAndBind(boundParameters, unboundParameters, this.returnType, returnType, allowCoercion, typeManager)) {
+            return false;
+        }
+
+        return matchArguments(boundParameters, unboundParameters, argumentTypes, types, allowCoercion, typeManager);
+    }
+
+    public boolean match(List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
+    {
+        Map<String, Type> boundParameters = new HashMap<>();
+        Map<String, TypeParameter> unboundParameters = new HashMap<>();
+        for (TypeParameter parameter : typeParameters) {
+            unboundParameters.put(parameter.getName(), parameter);
+        }
+
+        return matchArguments(boundParameters, unboundParameters, argumentTypes, types, allowCoercion, typeManager);
+    }
+
+    private static boolean matchArguments(Map<String, Type> boundParameters, Map<String, TypeParameter> unboundParameters, List<TypeSignature> argumentTypes, List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
+    {
+        if (argumentTypes.size() != types.size()) {
+            return false;
+        }
+
+        for (int i = 0; i < types.size(); i++) {
+            // Get the current argument signature
+            TypeSignature typeSignature = argumentTypes.get(Math.min(i, argumentTypes.size() - 1));
+            Type type = types.get(i);
+            if (!matchAndBind(boundParameters, unboundParameters, typeSignature, type, allowCoercion, typeManager)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static boolean matchAndBind(Map<String, Type> boundParameters, Map<String, TypeParameter> unboundParameters, TypeSignature signature, Type type, boolean allowCoercion, TypeManager typeManager)
+    {
+        // If this parameter is already bound, then match (with coercion)
+        if (boundParameters.containsKey(signature.getBase())) {
+            checkArgument(signature.getParameters().isEmpty(), "Unexpected parameteric type");
+            if (allowCoercion) {
+                return canCoerce(type, boundParameters.get(signature.getBase()));
+            }
+            else {
+                return type.equals(boundParameters.get(signature.getBase()));
+            }
+        }
+
+        // Bind parameter, if this is a free type parameter
+        if (unboundParameters.containsKey(signature.getBase())) {
+            TypeParameter typeParameter = unboundParameters.get(signature.getBase());
+            if (!typeParameter.canBind(type)) {
+                return false;
+            }
+            unboundParameters.remove(signature.getBase());
+            boundParameters.put(signature.getBase(), type);
+            return true;
+        }
+
+        if (allowCoercion) {
+            return canCoerce(type, typeManager.getType(signature.getBase()));
+        }
+        else {
+            return type.equals(typeManager.getType(signature.getBase()));
+        }
+    }
+
+    public static TypeParameter typeParameter(String name)
+    {
+        return new TypeParameter(name, false);
+    }
+
+    public static TypeParameter typeParameter(String name, boolean comparableRequired)
+    {
+        return new TypeParameter(name, comparableRequired);
+    }
+
+    public static final class TypeParameter
+    {
+        private final String name;
+        private final boolean comparableRequired;
+
+        @JsonCreator
+        public TypeParameter(@JsonProperty("name") String name, @JsonProperty("comparableRequired") boolean comparableRequired)
+        {
+            this.name = checkNotNull(name, "name is null");
+            this.comparableRequired = comparableRequired;
+        }
+
+        @JsonProperty
+        public String getName()
+        {
+            return name;
+        }
+
+        @JsonProperty
+        public boolean isComparableRequired()
+        {
+            return comparableRequired;
+        }
+
+        public boolean canBind(Type type)
+        {
+            return !comparableRequired || type.isComparable();
+        }
+
+        @Override
+        public String toString()
+        {
+            return comparableRequired ? name + ":comparable" : name;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            TypeParameter other = (TypeParameter) o;
+
+            return Objects.equals(this.name, other.name) &&
+                    Objects.equals(this.comparableRequired, other.comparableRequired);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(name, comparableRequired);
+        }
     }
 }

@@ -84,7 +84,7 @@ public class FunctionListBuilder
             Regex.class,
             JsonPath.class);
 
-    private final List<FunctionInfo> functions = new ArrayList<>();
+    private final List<ParametricFunction> functions = new ArrayList<>();
     private final TypeManager typeManager;
 
     public FunctionListBuilder(TypeManager typeManager)
@@ -153,6 +153,13 @@ public class FunctionListBuilder
         catch (IllegalAccessException e) {
             throw Throwables.propagate(e);
         }
+        return this;
+    }
+
+    public FunctionListBuilder parametricScalar(ParametricFunction parametricFunction)
+    {
+        checkNotNull(parametricFunction, "parametricFunction is null");
+        functions.add(parametricFunction);
         return this;
     }
 
@@ -350,7 +357,7 @@ public class FunctionListBuilder
         return parameterTypes;
     }
 
-    public List<FunctionInfo> getFunctions()
+    public List<ParametricFunction> getFunctions()
     {
         return ImmutableList.copyOf(functions);
     }

@@ -16,10 +16,10 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.operator.WindowFunctionDefinition;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
@@ -32,6 +32,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public final class FunctionInfo
+        implements ParametricFunction
 {
     private final Signature signature;
     private final String description;
@@ -106,6 +107,7 @@ public final class FunctionInfo
         this.methodHandle = checkNotNull(function, "function is null");
     }
 
+    @Override
     public Signature getSignature()
     {
         return signature;
@@ -116,31 +118,43 @@ public final class FunctionInfo
         return QualifiedName.of(signature.getName());
     }
 
+    @Override
     public String getDescription()
     {
         return description;
     }
 
+    @Override
     public boolean isHidden()
     {
         return hidden;
     }
 
+    @Override
     public boolean isAggregate()
     {
         return isAggregate;
     }
 
+    @Override
     public boolean isWindow()
     {
         return isWindow;
     }
 
+    @Override
     public boolean isScalar()
     {
         return !isWindow && !isAggregate;
     }
 
+    @Override
+    public boolean isUnbound()
+    {
+        return false;
+    }
+
+    @Override
     public boolean isApproximate()
     {
         return isApproximate;
@@ -161,6 +175,18 @@ public final class FunctionInfo
         return intermediateType;
     }
 
+    @Override
+    public FunctionInfo specialize(List<? extends Type> types)
+    {
+        return this;
+    }
+
+    @Override
+    public FunctionInfo specialize(Type returnType, List<? extends Type> types)
+    {
+        return this;
+    }
+
     public WindowFunctionDefinition bindWindowFunction(List<Integer> inputs)
     {
         checkState(isWindow, "not a window function");
@@ -179,6 +205,7 @@ public final class FunctionInfo
         return methodHandle;
     }
 
+    @Override
     public boolean isDeterministic()
     {
         return deterministic;
@@ -225,18 +252,6 @@ public final class FunctionInfo
                 .toString();
     }
 
-    public static Function<FunctionInfo, QualifiedName> nameGetter()
-    {
-        return new Function<FunctionInfo, QualifiedName>()
-        {
-            @Override
-            public QualifiedName apply(FunctionInfo input)
-            {
-                return input.getName();
-            }
-        };
-    }
-
     public static Function<FunctionInfo, Signature> handleGetter()
     {
         return new Function<FunctionInfo, Signature>()
@@ -245,30 +260,6 @@ public final class FunctionInfo
             public Signature apply(FunctionInfo input)
             {
                 return input.getSignature();
-            }
-        };
-    }
-
-    public static Predicate<FunctionInfo> isAggregationPredicate()
-    {
-        return new Predicate<FunctionInfo>()
-        {
-            @Override
-            public boolean apply(FunctionInfo functionInfo)
-            {
-                return functionInfo.isAggregate();
-            }
-        };
-    }
-
-    public static Predicate<FunctionInfo> isHiddenPredicate()
-    {
-        return new Predicate<FunctionInfo>()
-        {
-            @Override
-            public boolean apply(FunctionInfo functionInfo)
-            {
-                return functionInfo.isHidden();
             }
         };
     }

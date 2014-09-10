@@ -28,14 +28,13 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.metadata.FunctionInfo.nameGetter;
 import static com.facebook.presto.metadata.FunctionRegistry.getMagicLiteralFunctionSignature;
-import static com.facebook.presto.metadata.FunctionRegistry.resolveTypes;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
+import static com.facebook.presto.metadata.FunctionRegistry.resolveTypes;
 import static com.facebook.presto.metadata.FunctionRegistry.unmangleOperator;
+import static com.facebook.presto.metadata.ParametricFunctionUtils.nameGetter;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static com.google.common.base.Functions.toStringFunction;
 import static com.google.common.collect.Lists.transform;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -59,15 +58,13 @@ public class TestFunctionRegistry
         TypeRegistry typeManager = new TypeRegistry();
         FunctionRegistry registry = new FunctionRegistry(typeManager, true);
         boolean foundOperator = false;
-        for (FunctionInfo functionInfo : registry.listOperators()) {
-            OperatorType operatorType = unmangleOperator(functionInfo.getSignature().getName());
+        for (ParametricFunction function : registry.listOperators()) {
+            OperatorType operatorType = unmangleOperator(function.getSignature().getName());
             if (operatorType == OperatorType.CAST) {
                 continue;
             }
-            FunctionInfo exactOperator = registry.resolveOperator(operatorType, resolveTypes(functionInfo.getArgumentTypes(), typeManager));
-            assertEquals(exactOperator.getSignature().getName().toLowerCase(), functionInfo.getName().toString().toLowerCase());
-            assertEquals(exactOperator.getArgumentTypes(), functionInfo.getArgumentTypes());
-            assertEquals(exactOperator.getReturnType(), functionInfo.getReturnType());
+            FunctionInfo exactOperator = registry.resolveOperator(operatorType, resolveTypes(function.getSignature().getArgumentTypes(), typeManager));
+            assertEquals(exactOperator.getSignature(), function.getSignature());
             foundOperator = true;
         }
         assertTrue(foundOperator);
@@ -90,16 +87,16 @@ public class TestFunctionRegistry
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QFunction already registered: custom_add(bigint,bigint):bigint\\E")
     public void testDuplicateFunctions()
     {
-        List<FunctionInfo> functions = new FunctionListBuilder(new TypeRegistry())
+        List<ParametricFunction> functions = new FunctionListBuilder(new TypeRegistry())
                 .scalar(CustomFunctions.class)
                 .getFunctions();
 
-        functions = FluentIterable.from(functions).filter(new Predicate<FunctionInfo>()
+        functions = FluentIterable.from(functions).filter(new Predicate<ParametricFunction>()
         {
             @Override
-            public boolean apply(FunctionInfo input)
+            public boolean apply(ParametricFunction input)
             {
-                return input.getName().toString().equals("custom_add");
+                return input.getSignature().getName().equals("custom_add");
             }
         }).toList();
 
@@ -112,7 +109,7 @@ public class TestFunctionRegistry
     public void testConflictingScalarAggregation()
             throws Exception
     {
-        List<FunctionInfo> functions = new FunctionListBuilder(new TypeRegistry())
+        List<ParametricFunction> functions = new FunctionListBuilder(new TypeRegistry())
                 .scalar(ScalarSum.class)
                 .getFunctions();
 
@@ -125,8 +122,8 @@ public class TestFunctionRegistry
             throws Exception
     {
         FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
-        List<FunctionInfo> functions = registry.list();
-        List<String> names = transform(transform(functions, nameGetter()), toStringFunction());
+        List<ParametricFunction> functions = registry.list();
+        List<String> names = transform(functions, nameGetter());
 
         assertTrue(names.contains("length"), "Expected function names " + names + " to contain 'length'");
         assertTrue(names.contains("stddev"), "Expected function names " + names + " to contain 'stddev'");

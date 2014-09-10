@@ -161,13 +161,13 @@ public class MetadataManager
     }
 
     @Override
-    public List<FunctionInfo> listFunctions()
+    public List<ParametricFunction> listFunctions()
     {
         return functions.list();
     }
 
     @Override
-    public void addFunctions(List<FunctionInfo> functionInfos)
+    public void addFunctions(List<? extends ParametricFunction> functionInfos)
     {
         functions.addFunctions(functionInfos);
     }

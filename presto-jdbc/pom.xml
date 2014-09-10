@@ -156,6 +156,10 @@
                                     <shadedPattern>${shadeBase}.client</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>com.facebook.presto.type</pattern>
+                                    <shadedPattern>${shadeBase}.type</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>com.fasterxml.jackson</pattern>
                                     <shadedPattern>${shadeBase}.jackson</shadedPattern>
                                 </relocation>
