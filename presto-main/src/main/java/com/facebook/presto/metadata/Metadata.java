@@ -19,7 +19,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Optional;
-import com.google.common.collect.Multimap;
 
 import javax.validation.constraints.NotNull;
 
@@ -43,12 +42,7 @@ public interface Metadata
 
     void addFunctions(List<FunctionInfo> functions);
 
-    void addOperators(Multimap<OperatorType, FunctionInfo> operators);
-
     FunctionInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
-            throws OperatorNotFoundException;
-
-    FunctionInfo getExactOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException;
 
     @NotNull

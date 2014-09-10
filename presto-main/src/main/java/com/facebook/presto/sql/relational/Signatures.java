@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
@@ -26,7 +27,9 @@ import com.google.common.collect.Lists;
 
 import java.util.List;
 
+import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.metadata.Signature.internalFunction;
+import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.type.TypeUtils.nameGetter;
 
 public final class Signatures
@@ -34,7 +37,7 @@ public final class Signatures
     public static final String IF = "IF";
     public static final String NULL_IF = "NULL_IF";
     public static final String SWITCH = "SWITCH";
-    public static final String CAST = "CAST";
+    public static final String CAST = mangleOperatorName("CAST");
     public static final String TRY_CAST = "TRY_CAST";
     public static final String IS_NULL = "IS_NULL";
     public static final String COALESCE = "COALESCE";
@@ -52,7 +55,7 @@ public final class Signatures
 
     public static Signature betweenSignature(Type valueType, Type minType, Type maxType)
     {
-        return internalFunction("BETWEEN", BooleanType.NAME, valueType.getName(), minType.getName(), maxType.getName());
+        return internalOperator("BETWEEN", BooleanType.NAME, valueType.getName(), minType.getName(), maxType.getName());
     }
 
     public static Signature likeSignature()
@@ -67,6 +70,7 @@ public final class Signatures
 
     public static Signature castSignature(Type returnType, Type valueType)
     {
+        // Name has already been mangled, so don't use internalOperator
         return internalFunction(CAST, returnType.getName(), valueType.getName());
     }
 
@@ -82,16 +86,21 @@ public final class Signatures
 
     public static Signature arithmeticNegationSignature(Type returnType, Type valueType)
     {
-        return internalFunction("NEGATION", returnType.getName(), valueType.getName());
+        return internalOperator("NEGATION", returnType.getName(), valueType.getName());
     }
 
     public static Signature arithmeticExpressionSignature(ArithmeticExpression.Type expressionType, Type returnType, Type leftType, Type rightType)
     {
-        return internalFunction(expressionType.name(), returnType.getName(), leftType.getName(), rightType.getName());
+        return internalOperator(expressionType.name(), returnType.getName(), leftType.getName(), rightType.getName());
     }
 
     public static Signature comparisonExpressionSignature(ComparisonExpression.Type expressionType, Type leftType, Type rightType)
     {
+        for (OperatorType operatorType : OperatorType.values()) {
+            if (operatorType.name().equals(expressionType.name())) {
+                return internalOperator(expressionType.name(), BooleanType.NAME, leftType.getName(), rightType.getName());
+            }
+        }
         return internalFunction(expressionType.name(), BooleanType.NAME, leftType.getName(), rightType.getName());
     }
 

@@ -24,7 +24,6 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMultimap;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -32,6 +31,8 @@ import java.util.List;
 import static com.facebook.presto.metadata.FunctionInfo.nameGetter;
 import static com.facebook.presto.metadata.FunctionRegistry.getMagicLiteralFunctionSignature;
 import static com.facebook.presto.metadata.FunctionRegistry.resolveTypes;
+import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
+import static com.facebook.presto.metadata.FunctionRegistry.unmangleOperator;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.google.common.base.Functions.toStringFunction;
@@ -46,8 +47,8 @@ public class TestFunctionRegistry
     public void testIdentityCast()
     {
         FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
-        FunctionInfo exactOperator = registry.getExactOperator(OperatorType.CAST, ImmutableList.of(HYPER_LOG_LOG), HYPER_LOG_LOG);
-        assertEquals(exactOperator.getSignature().getName(), OperatorType.CAST.name());
+        FunctionInfo exactOperator = registry.getCoercion(HYPER_LOG_LOG, HYPER_LOG_LOG);
+        assertEquals(exactOperator.getSignature().getName(), mangleOperatorName(OperatorType.CAST.name()));
         assertEquals(exactOperator.getArgumentTypes(), ImmutableList.of(HyperLogLogType.NAME));
         assertEquals(exactOperator.getReturnType(), HyperLogLogType.NAME);
     }
@@ -59,7 +60,7 @@ public class TestFunctionRegistry
         FunctionRegistry registry = new FunctionRegistry(typeManager, true);
         boolean foundOperator = false;
         for (FunctionInfo functionInfo : registry.listOperators()) {
-            OperatorType operatorType = OperatorType.valueOf(functionInfo.getName().toString().toUpperCase());
+            OperatorType operatorType = unmangleOperator(functionInfo.getSignature().getName());
             if (operatorType == OperatorType.CAST) {
                 continue;
             }
@@ -103,8 +104,8 @@ public class TestFunctionRegistry
         }).toList();
 
         FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
-        registry.addFunctions(functions, ImmutableMultimap.<OperatorType, FunctionInfo>of());
-        registry.addFunctions(functions, ImmutableMultimap.<OperatorType, FunctionInfo>of());
+        registry.addFunctions(functions);
+        registry.addFunctions(functions);
     }
 
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "'sum' is both an aggregation and a scalar function")
@@ -116,7 +117,7 @@ public class TestFunctionRegistry
                 .getFunctions();
 
         FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
-        registry.addFunctions(functions, ImmutableMultimap.<OperatorType, FunctionInfo>of());
+        registry.addFunctions(functions);
     }
 
     @Test

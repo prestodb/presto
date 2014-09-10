@@ -440,7 +440,7 @@ public class ExpressionAnalyzer
             }
 
             try {
-                metadata.getExactOperator(OperatorType.CAST, type, ImmutableList.of(VARCHAR));
+                metadata.getFunctionRegistry().getCoercion(VARCHAR, type);
             }
             catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
@@ -576,7 +576,7 @@ public class ExpressionAnalyzer
             Type value = process(node.getExpression(), context);
             if (value != UNKNOWN) {
                 try {
-                    metadata.getExactOperator(OperatorType.CAST, type, ImmutableList.of(value));
+                    metadata.getFunctionRegistry().getCoercion(value, type);
                 }
                 catch (OperatorNotFoundException e) {
                     throw new SemanticException(TYPE_MISMATCH, node, "Cannot cast %s to %s", value, type);

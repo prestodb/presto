@@ -59,48 +59,50 @@ public class ByteCodeExpressionVisitor
     public ByteCodeNode visitCall(CallExpression call, final CompilerContext context)
     {
         ByteCodeGenerator generator;
-        switch (call.getSignature().getName()) {
-            // lazy evaluation
-            case IF:
-                generator = new IfCodeGenerator();
-                break;
-            case NULL_IF:
-                generator = new NullIfCodeGenerator();
-                break;
-            case SWITCH:
-                // (SWITCH <expr> (WHEN <expr> <expr>) (WHEN <expr> <expr>) <expr>)
-                generator = new SwitchCodeGenerator();
-                break;
-            // special-cased in function registry
-            case CAST:
-                generator = new CastCodeGenerator();
-                break;
-            case TRY_CAST:
-                generator = new TryCastCodeGenerator();
-                break;
-            // functions that take null as input
-            case IS_NULL:
-                generator = new IsNullCodeGenerator();
-                break;
-            case "IS_DISTINCT_FROM":
-                generator = new IsDistinctFromCodeGenerator();
-                break;
-            case COALESCE:
-                generator = new CoalesceCodeGenerator();
-                break;
-            // functions that require varargs and/or complex types (e.g., lists)
-            case IN:
-                generator = new InCodeGenerator();
-                break;
-            // optimized implementations (shortcircuiting behavior)
-            case "AND":
-                generator = new AndCodeGenerator();
-                break;
-            case "OR":
-                generator = new OrCodeGenerator();
-                break;
-            default:
-                generator = new FunctionCallCodeGenerator();
+        // special-cased in function registry
+        if (call.getSignature().getName().equals(CAST)) {
+            generator = new CastCodeGenerator();
+        }
+        else {
+            switch (call.getSignature().getName()) {
+                // lazy evaluation
+                case IF:
+                    generator = new IfCodeGenerator();
+                    break;
+                case NULL_IF:
+                    generator = new NullIfCodeGenerator();
+                    break;
+                case SWITCH:
+                    // (SWITCH <expr> (WHEN <expr> <expr>) (WHEN <expr> <expr>) <expr>)
+                    generator = new SwitchCodeGenerator();
+                    break;
+                case TRY_CAST:
+                    generator = new TryCastCodeGenerator();
+                    break;
+                // functions that take null as input
+                case IS_NULL:
+                    generator = new IsNullCodeGenerator();
+                    break;
+                case "IS_DISTINCT_FROM":
+                    generator = new IsDistinctFromCodeGenerator();
+                    break;
+                case COALESCE:
+                    generator = new CoalesceCodeGenerator();
+                    break;
+                // functions that require varargs and/or complex types (e.g., lists)
+                case IN:
+                    generator = new InCodeGenerator();
+                    break;
+                // optimized implementations (shortcircuiting behavior)
+                case "AND":
+                    generator = new AndCodeGenerator();
+                    break;
+                case "OR":
+                    generator = new OrCodeGenerator();
+                    break;
+                default:
+                    generator = new FunctionCallCodeGenerator();
+            }
         }
 
         ByteCodeGeneratorContext generatorContext = new ByteCodeGeneratorContext(
