@@ -75,7 +75,7 @@ public class RetryDriver
         return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptionWhiteList);
     }
 
-    public final RetryDriver exponentialBackoff(Duration minSleepTime, Duration maxSleepTime, double scaleFactor)
+    public final RetryDriver exponentialBackoff(Duration minSleepTime, Duration maxSleepTime, Duration maxRetryTime, double scaleFactor)
     {
         return new RetryDriver(maxRetryAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptionWhiteList);
     }
