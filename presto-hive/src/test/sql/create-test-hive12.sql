@@ -74,3 +74,10 @@ ALTER TABLE presto_test_types_orc SET FILEFORMAT ORC;
 INSERT INTO TABLE presto_test_types_orc
 SELECT * FROM presto_test_types_textfile
 ;
+
+
+ALTER TABLE presto_test_types_textfile ADD COLUMNS (new_column INT);
+ALTER TABLE presto_test_types_sequencefile ADD COLUMNS (new_column INT);
+ALTER TABLE presto_test_types_rctext ADD COLUMNS (new_column INT);
+ALTER TABLE presto_test_types_rcbinary ADD COLUMNS (new_column INT);
+ALTER TABLE presto_test_types_orc ADD COLUMNS (new_column INT);
