@@ -38,9 +38,9 @@ public interface Metadata
     boolean isAggregationFunction(QualifiedName name);
 
     @NotNull
-    List<FunctionInfo> listFunctions();
+    List<ParametricFunction> listFunctions();
 
-    void addFunctions(List<FunctionInfo> functions);
+    void addFunctions(List<? extends ParametricFunction> functions);
 
     FunctionInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException;

@@ -15,10 +15,11 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.ColumnHandle;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
@@ -27,6 +28,7 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.RecordProjectOperator;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator;
@@ -43,9 +45,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
-import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
-import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.InterpretedFilterFunction;
 import com.facebook.presto.sql.planner.InterpretedProjectionFunction;
@@ -175,7 +175,7 @@ public final class FunctionAssertions
         compiler = new ExpressionCompiler(metadata);
     }
 
-    public FunctionAssertions addFunctions(List<FunctionInfo> functionInfos)
+    public FunctionAssertions addFunctions(List<ParametricFunction> functionInfos)
     {
         metadata.addFunctions(functionInfos);
         return this;

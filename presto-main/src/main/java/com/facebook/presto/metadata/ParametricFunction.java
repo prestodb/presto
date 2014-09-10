@@ -11,12 +11,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.metadata;
+
+import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 
-public interface FunctionFactory
+public interface ParametricFunction
 {
-    List<ParametricFunction> listFunctions();
+    Signature getSignature();
+
+    boolean isScalar();
+
+    boolean isAggregate();
+
+    boolean isHidden();
+
+    boolean isApproximate();
+
+    boolean isWindow();
+
+    boolean isDeterministic();
+
+    boolean isUnbound();
+
+    String getDescription();
+
+    FunctionInfo specialize(List<? extends Type> types);
+
+    FunctionInfo specialize(Type returnType, List<? extends Type> types);
 }

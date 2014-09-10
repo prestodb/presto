@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
+import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.metadata.Partition;
 import com.facebook.presto.metadata.PartitionResult;
 import com.facebook.presto.metadata.QualifiedTableName;
@@ -210,7 +211,7 @@ public class InformationSchemaDataStreamProvider
     private InternalTable buildFunctions()
     {
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_INTERNAL_FUNCTIONS));
-        for (FunctionInfo function : metadata.listFunctions()) {
+        for (ParametricFunction function : metadata.listFunctions()) {
             if (function.isApproximate()) {
                 continue;
             }
@@ -230,9 +231,9 @@ public class InformationSchemaDataStreamProvider
             }
 
             table.add(
-                    function.getName().toString(),
-                    Joiner.on(", ").join(function.getArgumentTypes()),
-                    function.getReturnType(),
+                    function.getSignature().getName(),
+                    Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
+                    function.getSignature().getReturnType(),
                     functionType,
                     nullToEmpty(function.getDescription()));
         }

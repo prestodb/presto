@@ -14,12 +14,12 @@
 package com.facebook.presto.ml;
 
 import com.facebook.presto.metadata.FunctionFactory;
-import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionListBuilder;
+import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.spi.type.TypeManager;
 
 import java.util.List;
 
-import com.facebook.presto.metadata.FunctionListBuilder;
 import static com.facebook.presto.ml.type.ClassifierType.CLASSIFIER;
 import static com.facebook.presto.ml.type.RegressorType.REGRESSOR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -36,7 +36,7 @@ public class MLFunctionFactory
     }
 
     @Override
-    public List<FunctionInfo> listFunctions()
+    public List<ParametricFunction> listFunctions()
     {
         return new FunctionListBuilder(typeManager)
                 .aggregate(new LearnAggregation(CLASSIFIER, BIGINT))
