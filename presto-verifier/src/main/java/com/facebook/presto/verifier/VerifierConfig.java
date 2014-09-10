@@ -65,6 +65,7 @@ public class VerifierConfig
     private String additionalJdbcDriverPath;
     private String testJdbcDriverName;
     private String controlJdbcDriverName;
+    private Duration flushTimeout = new Duration(5, TimeUnit.MINUTES);
 
     @NotNull
     public String getSkipCorrectnessRegex()
@@ -526,6 +527,19 @@ public class VerifierConfig
     public VerifierConfig setControlJdbcDriverName(String controlJdbcDriverName)
     {
         this.controlJdbcDriverName = controlJdbcDriverName;
+        return this;
+    }
+
+    public Duration getFlushTimeout()
+    {
+        return flushTimeout;
+    }
+
+    @ConfigDescription("Duration for which to flush logs before shutdown")
+    @Config("flush-timeout")
+    public VerifierConfig setFlushTimeout(Duration flushTimeout)
+    {
+        this.flushTimeout = flushTimeout;
         return this;
     }
 }
