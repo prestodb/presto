@@ -15,7 +15,13 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Function;
+import com.google.common.collect.FluentIterable;
+
+import java.util.List;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class TypeUtils
 {
@@ -50,5 +56,16 @@ public final class TypeUtils
                 return input.getName();
             }
         };
+    }
+
+    public static List<Type> resolveTypes(List<String> typeNames, final TypeManager typeManager)
+    {
+        return FluentIterable.from(typeNames).transform(new Function<String, Type>() {
+            @Override
+            public Type apply(String type)
+            {
+                return checkNotNull(typeManager.getType(type), "Type '%s' not found", type);
+            }
+        }).toList();
     }
 }
