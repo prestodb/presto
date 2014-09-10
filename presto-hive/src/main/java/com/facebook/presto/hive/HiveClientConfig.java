@@ -72,6 +72,7 @@ public class HiveClientConfig
     private int s3MaxClientRetries = 3;
     private int s3MaxErrorRetries = 10;
     private Duration s3MaxBackoffTime = new Duration(10, TimeUnit.MINUTES);
+    private Duration s3MaxRetryTime = new Duration(10, TimeUnit.MINUTES);
     private Duration s3ConnectTimeout = new Duration(5, TimeUnit.SECONDS);
     private Duration s3SocketTimeout = new Duration(5, TimeUnit.SECONDS);
     private int s3MaxConnections = 500;
@@ -494,6 +495,20 @@ public class HiveClientConfig
     public HiveClientConfig setS3MaxBackoffTime(Duration s3MaxBackoffTime)
     {
         this.s3MaxBackoffTime = s3MaxBackoffTime;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    @NotNull
+    public Duration getS3MaxRetryTime()
+    {
+        return s3MaxRetryTime;
+    }
+
+    @Config("hive.s3.max-retry-time")
+    public HiveClientConfig setS3MaxRetryTime(Duration s3MaxRetryTime)
+    {
+        this.s3MaxRetryTime = s3MaxRetryTime;
         return this;
     }
 

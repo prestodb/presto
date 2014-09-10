@@ -2,6 +2,12 @@
 Release 0.80
 ============
 
+Hive Changes
+------------
+
+* The maximum retry time for the Hive S3 file system can be configured
+  by setting ``hive.s3.max-retry-time``.
+
 General Changes
 ---------------
 
