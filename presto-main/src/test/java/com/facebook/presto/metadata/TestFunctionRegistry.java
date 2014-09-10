@@ -31,6 +31,7 @@ import java.util.List;
 
 import static com.facebook.presto.metadata.FunctionInfo.nameGetter;
 import static com.facebook.presto.metadata.FunctionRegistry.getMagicLiteralFunctionSignature;
+import static com.facebook.presto.metadata.FunctionRegistry.resolveTypes;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.google.common.base.Functions.toStringFunction;
@@ -49,6 +50,26 @@ public class TestFunctionRegistry
         assertEquals(exactOperator.getSignature().getName(), OperatorType.CAST.name());
         assertEquals(exactOperator.getArgumentTypes(), ImmutableList.of(HyperLogLogType.NAME));
         assertEquals(exactOperator.getReturnType(), HyperLogLogType.NAME);
+    }
+
+    @Test
+    public void testExactMatchBeforeCoercion()
+    {
+        TypeRegistry typeManager = new TypeRegistry();
+        FunctionRegistry registry = new FunctionRegistry(typeManager, true);
+        boolean foundOperator = false;
+        for (FunctionInfo functionInfo : registry.listOperators()) {
+            OperatorType operatorType = OperatorType.valueOf(functionInfo.getName().toString().toUpperCase());
+            if (operatorType == OperatorType.CAST) {
+                continue;
+            }
+            FunctionInfo exactOperator = registry.resolveOperator(operatorType, resolveTypes(functionInfo.getArgumentTypes(), typeManager));
+            assertEquals(exactOperator.getSignature().getName().toLowerCase(), functionInfo.getName().toString().toLowerCase());
+            assertEquals(exactOperator.getArgumentTypes(), functionInfo.getArgumentTypes());
+            assertEquals(exactOperator.getReturnType(), functionInfo.getReturnType());
+            foundOperator = true;
+        }
+        assertTrue(foundOperator);
     }
 
     @Test

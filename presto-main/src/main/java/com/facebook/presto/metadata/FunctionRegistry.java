@@ -102,6 +102,7 @@ import com.facebook.presto.type.TimestampWithTimeZoneOperators;
 import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharOperators;
 import com.facebook.presto.util.IterableTransformer;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -375,6 +376,12 @@ public class FunctionRegistry
         return functions.get(signature);
     }
 
+    @VisibleForTesting
+    public List<FunctionInfo> listOperators()
+    {
+        return ImmutableList.copyOf(functions.byOperator.values());
+    }
+
     public FunctionInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
@@ -382,7 +389,7 @@ public class FunctionRegistry
 
         // search for exact match
         for (FunctionInfo operatorInfo : candidates) {
-            if (operatorInfo.getArgumentTypes().equals(argumentTypes)) {
+            if (operatorInfo.getArgumentTypes().equals(Lists.transform(argumentTypes, nameGetter()))) {
                 return operatorInfo;
             }
         }
@@ -397,7 +404,7 @@ public class FunctionRegistry
         throw new OperatorNotFoundException(operatorType, argumentTypes);
     }
 
-    private static List<Type> resolveTypes(List<String> typeNames, final TypeManager typeManager)
+    public static List<Type> resolveTypes(List<String> typeNames, final TypeManager typeManager)
     {
         return FluentIterable.from(typeNames).transform(new Function<String, Type>() {
             @Override
