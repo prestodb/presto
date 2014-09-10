@@ -27,13 +27,10 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.SqlType;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Multimap;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import org.joni.Regex;
@@ -88,7 +85,6 @@ public class FunctionListBuilder
             JsonPath.class);
 
     private final List<FunctionInfo> functions = new ArrayList<>();
-    private final Multimap<OperatorType, FunctionInfo> operators = ArrayListMultimap.create();
     private final TypeManager typeManager;
 
     public FunctionListBuilder(TypeManager typeManager)
@@ -140,7 +136,6 @@ public class FunctionListBuilder
     private FunctionListBuilder operator(OperatorType operatorType, Type returnType, List<Type> parameterTypes, MethodHandle function, boolean nullable, List<Boolean> nullableArguments)
     {
         FunctionInfo operatorInfo = operatorInfo(operatorType, returnType.getName(), Lists.transform(parameterTypes, nameGetter()), function, nullable, nullableArguments);
-        operators.put(operatorType, operatorInfo);
         functions.add(operatorInfo);
         return this;
     }
@@ -358,10 +353,5 @@ public class FunctionListBuilder
     public List<FunctionInfo> getFunctions()
     {
         return ImmutableList.copyOf(functions);
-    }
-
-    public Multimap<OperatorType, FunctionInfo> getOperators()
-    {
-        return ImmutableMultimap.copyOf(operators);
     }
 }

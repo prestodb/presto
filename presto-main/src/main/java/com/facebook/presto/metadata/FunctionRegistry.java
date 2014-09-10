@@ -88,7 +88,6 @@ import com.facebook.presto.type.TimeOperators;
 import com.facebook.presto.type.TimeWithTimeZoneOperators;
 import com.facebook.presto.type.TimestampOperators;
 import com.facebook.presto.type.TimestampWithTimeZoneOperators;
-import com.facebook.presto.type.TypeUtils;
 import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharOperators;
 import com.facebook.presto.util.IterableTransformer;
@@ -135,6 +134,7 @@ import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.RegexpType.REGEXP;
 import static com.facebook.presto.type.TypeUtils.nameGetter;
+import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -146,6 +146,7 @@ import static java.lang.String.format;
 public class FunctionRegistry
 {
     private static final String MAGIC_LITERAL_FUNCTION_PREFIX = "$literal$";
+    private static final String OPERATOR_PREFIX = "$operator$";
 
     // hack: java classes for types that can be used with magic literals
     private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class);
@@ -252,17 +253,17 @@ public class FunctionRegistry
                     .aggregate(ApproximateCountColumnAggregations.class);
         }
 
-        addFunctions(builder.getFunctions(), builder.getOperators());
+        addFunctions(builder.getFunctions());
     }
 
-    public final synchronized void addFunctions(List<FunctionInfo> functions, Multimap<OperatorType, FunctionInfo> operators)
+    public final synchronized void addFunctions(List<FunctionInfo> functions)
     {
         for (FunctionInfo function : functions) {
             checkArgument(this.functions.get(function.getSignature()) == null,
                     "Function already registered: %s", function.getSignature());
         }
 
-        this.functions = new FunctionMap(this.functions, functions, operators);
+        this.functions = new FunctionMap(this.functions, functions);
     }
 
     public List<FunctionInfo> list()
@@ -296,7 +297,7 @@ public class FunctionRegistry
 
         // search for coerced match
         for (FunctionInfo functionInfo : candidates) {
-            if (canCoerce(TypeUtils.resolveTypes(parameterTypes, typeManager), TypeUtils.resolveTypes(functionInfo.getArgumentTypes(), typeManager))) {
+            if (canCoerce(resolveTypes(parameterTypes, typeManager), resolveTypes(functionInfo.getArgumentTypes(), typeManager))) {
                 return functionInfo;
             }
         }
@@ -346,29 +347,32 @@ public class FunctionRegistry
 
     public FunctionInfo getExactFunction(Signature signature)
     {
+        // TODO: Remove this hack once identity casts are properly registered
+        if (signature.getName().startsWith(OPERATOR_PREFIX)) {
+            try {
+                return getExactOperator(unmangleOperator(signature.getName()), resolveTypes(signature.getArgumentTypes(), typeManager), typeManager.getType(signature.getReturnType()));
+            }
+            catch (OperatorNotFoundException e) {
+                return null;
+            }
+        }
         return functions.get(signature);
     }
 
     public FunctionInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
-        Iterable<FunctionInfo> candidates = functions.getOperators(operatorType);
-
-        // search for exact match
-        for (FunctionInfo operatorInfo : candidates) {
-            if (operatorInfo.getArgumentTypes().equals(argumentTypes)) {
-                return operatorInfo;
+        try {
+            return resolveFunction(QualifiedName.of(mangleOperatorName(operatorType)), Lists.transform(argumentTypes, nameGetter()), false);
+        }
+        catch (PrestoException e) {
+            if (e.getErrorCode().getCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
+                throw new OperatorNotFoundException(operatorType, argumentTypes);
+            }
+            else {
+                throw e;
             }
         }
-
-        // search for coerced match
-        for (FunctionInfo operatorInfo : candidates) {
-            if (canCoerce(argumentTypes, TypeUtils.resolveTypes(operatorInfo.getArgumentTypes(), typeManager))) {
-                return operatorInfo;
-            }
-        }
-
-        throw new OperatorNotFoundException(operatorType, argumentTypes);
     }
 
     public FunctionInfo getCoercion(Type fromType, Type toType)
@@ -376,10 +380,10 @@ public class FunctionRegistry
         return getExactOperator(OperatorType.CAST, ImmutableList.of(fromType), toType);
     }
 
-    public FunctionInfo getExactOperator(OperatorType operatorType, List<? extends Type> argumentTypes, Type returnType)
+    private FunctionInfo getExactOperator(OperatorType operatorType, List<? extends Type> argumentTypes, Type returnType)
             throws OperatorNotFoundException
     {
-        Iterable<FunctionInfo> candidates = functions.getOperators(operatorType);
+        Iterable<FunctionInfo> candidates = functions.get(QualifiedName.of(mangleOperatorName(operatorType)));
 
         List<String> argumentTypeNames = FluentIterable.from(argumentTypes).transform(nameGetter()).toList();
 
@@ -523,24 +527,38 @@ public class FunctionRegistry
     {
         operatorType.validateSignature(returnType, ImmutableList.copyOf(argumentTypes));
 
-        Signature signature = new Signature(operatorType.name(), returnType, argumentTypes, true);
+        Signature signature = new Signature(mangleOperatorName(operatorType), returnType, argumentTypes, true);
         return new FunctionInfo(signature, operatorType.getOperator(), true, method, true, nullable, nullableArguments);
+    }
+
+    private static String mangleOperatorName(OperatorType operatorType)
+    {
+        return mangleOperatorName(operatorType.name());
+    }
+
+    public static String mangleOperatorName(String operatorName)
+    {
+        return OPERATOR_PREFIX + operatorName;
+    }
+
+    private static OperatorType unmangleOperator(String mangledName)
+    {
+        checkArgument(mangledName.startsWith(OPERATOR_PREFIX), "%s is not a mangled operator name", mangledName);
+        return OperatorType.valueOf(mangledName.substring(OPERATOR_PREFIX.length()));
     }
 
     private static class FunctionMap
     {
         private final Multimap<QualifiedName, FunctionInfo> functionsByName;
         private final Map<Signature, FunctionInfo> functionsBySignature;
-        private final Multimap<OperatorType, FunctionInfo> byOperator;
 
         public FunctionMap()
         {
             functionsByName = ImmutableListMultimap.of();
             functionsBySignature = ImmutableMap.of();
-            byOperator = ImmutableListMultimap.of();
         }
 
-        public FunctionMap(FunctionMap map, Iterable<FunctionInfo> functions, Multimap<OperatorType, FunctionInfo> operators)
+        public FunctionMap(FunctionMap map, Iterable<FunctionInfo> functions)
         {
             functionsByName = ImmutableListMultimap.<QualifiedName, FunctionInfo>builder()
                     .putAll(map.functionsByName)
@@ -550,11 +568,6 @@ public class FunctionRegistry
             functionsBySignature = ImmutableMap.<Signature, FunctionInfo>builder()
                     .putAll(map.functionsBySignature)
                     .putAll(Maps.uniqueIndex(functions, FunctionInfo.handleGetter()))
-                    .build();
-
-            byOperator = ImmutableListMultimap.<OperatorType, FunctionInfo>builder()
-                    .putAll(map.byOperator)
-                    .putAll(operators)
                     .build();
 
             // Make sure all functions with the same name are aggregations or none of them are
@@ -578,11 +591,6 @@ public class FunctionRegistry
         public FunctionInfo get(Signature signature)
         {
             return functionsBySignature.get(signature);
-        }
-
-        public Collection<FunctionInfo> getOperators(OperatorType operatorType)
-        {
-            return byOperator.get(operatorType);
         }
     }
 }

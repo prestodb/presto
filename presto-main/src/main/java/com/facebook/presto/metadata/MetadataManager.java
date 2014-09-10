@@ -35,10 +35,8 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
@@ -171,13 +169,7 @@ public class MetadataManager
     @Override
     public void addFunctions(List<FunctionInfo> functionInfos)
     {
-        functions.addFunctions(functionInfos, ImmutableMultimap.<OperatorType, FunctionInfo>of());
-    }
-
-    @Override
-    public void addOperators(Multimap<OperatorType, FunctionInfo> operators)
-    {
-        functions.addFunctions(ImmutableList.<FunctionInfo>of(), operators);
+        functions.addFunctions(functionInfos);
     }
 
     @Override
@@ -185,13 +177,6 @@ public class MetadataManager
             throws OperatorNotFoundException
     {
         return functions.resolveOperator(operatorType, argumentTypes);
-    }
-
-    @Override
-    public FunctionInfo getExactOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
-            throws OperatorNotFoundException
-    {
-        return functions.getExactOperator(operatorType, argumentTypes, returnType);
     }
 
     @Override
