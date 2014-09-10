@@ -1318,6 +1318,9 @@ public abstract class AbstractTestHiveClient
                     }
                 }
 
+                // NEW COLUMN
+                assertTrue(cursor.isNull(columnIndex.get("new_column")));
+
                 long newCompletedBytes = cursor.getCompletedBytes();
                 assertTrue(newCompletedBytes >= completedBytes);
                 assertTrue(newCompletedBytes <= hiveSplit.getLength());
