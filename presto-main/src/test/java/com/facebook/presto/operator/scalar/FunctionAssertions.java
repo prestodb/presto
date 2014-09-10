@@ -16,7 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.FunctionRegistry.FunctionListBuilder;
+import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.DriverContext;

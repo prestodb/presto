@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
-import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Domain;
@@ -24,7 +23,6 @@ import com.facebook.presto.spi.Marker;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -77,6 +75,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.DomainUtils.simplifyDomain;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
@@ -537,7 +536,7 @@ public class PlanPrinter
 
         try {
             ColumnMetadata columnMetadata  = metadata.getColumnMetadata(table, column);
-            MethodHandle method = metadata.getExactOperator(OperatorType.CAST, VarcharType.VARCHAR, ImmutableList.of(columnMetadata.getType()))
+            MethodHandle method = metadata.getFunctionRegistry().getCoercion(columnMetadata.getType(), VARCHAR)
                     .getMethodHandle();
 
             for (Range range : domain.getRanges()) {

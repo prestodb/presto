@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Objects;
 
+import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class Signature
@@ -55,6 +56,11 @@ public final class Signature
     public Signature(String name, String returnType, String... argumentTypes)
     {
         this(name, returnType, ImmutableList.copyOf(argumentTypes), false);
+    }
+
+    public static Signature internalOperator(String name, String returnType, String... argumentTypes)
+    {
+        return new Signature(mangleOperatorName(name), returnType, ImmutableList.copyOf(argumentTypes), true);
     }
 
     public static Signature internalFunction(String name, String returnType, String... argumentTypes)
