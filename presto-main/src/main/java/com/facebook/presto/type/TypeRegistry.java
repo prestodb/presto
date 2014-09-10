@@ -15,6 +15,9 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.base.Function;
+import com.google.common.base.Joiner;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -44,6 +47,7 @@ import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.RegexpType.REGEXP;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -52,6 +56,7 @@ public final class TypeRegistry
         implements TypeManager
 {
     private final ConcurrentMap<String, Type> types = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
 
     public TypeRegistry()
     {
@@ -93,7 +98,45 @@ public final class TypeRegistry
     @Override
     public Type getType(String typeName)
     {
-        return types.get(typeName.toLowerCase());
+        String key = typeName.toLowerCase();
+        Type type = types.get(key);
+        if (type == null) {
+            instantiateParametricType(key);
+            return types.get(key);
+        }
+        return type;
+    }
+
+    @Override
+    public Type getParameterizedType(String parametricTypeName, List<String> typeNames)
+    {
+        List<String> lowerCaseTypeNames = FluentIterable.from(typeNames).transform(new Function<String, String>() {
+            @Override
+            public String apply(String input)
+            {
+                return input.toLowerCase();
+            }
+        }).toList();
+
+        return getType(parametricTypeName.toLowerCase() + "<" + Joiner.on(",").join(lowerCaseTypeNames) + ">");
+    }
+
+    private synchronized void instantiateParametricType(String typeName)
+    {
+        if (types.containsKey(typeName)) {
+            return;
+        }
+        TypeSignature signature = TypeSignature.parseTypeSignature(typeName);
+        ImmutableList.Builder<Type> parameterTypes = ImmutableList.builder();
+        for (TypeSignature parameter : signature.getParameters()) {
+            parameterTypes.add(getType(parameter.toString()));
+        }
+
+        ParametricType parametricType = parametricTypes.get(signature.getBase());
+        checkNotNull(parametricType, "parameteric type %s does not exist", signature.getBase());
+        Type instantiatedType = parametricType.createType(parameterTypes.build());
+        checkState(instantiatedType.getName().equalsIgnoreCase(typeName), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType.getName(), typeName);
+        addType(instantiatedType);
     }
 
     @Override
@@ -107,6 +150,13 @@ public final class TypeRegistry
         verifyTypeClass(type);
         Type existingType = types.putIfAbsent(type.getName().toLowerCase(), type);
         checkState(existingType == null || existingType.equals(type), "Type %s is already registered", type.getName());
+    }
+
+    public void addParametricType(ParametricType parametricType)
+    {
+        checkArgument(!parametricTypes.containsKey(parametricType.getName()),
+                "Parametric type already registered: %s", parametricType.getName());
+        parametricTypes.putIfAbsent(parametricType.getName(), parametricType);
     }
 
     public static void verifyTypeClass(Type type)

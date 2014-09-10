@@ -72,6 +72,12 @@ public class TestKafkaPlugin
         }
 
         @Override
+        public Type getParameterizedType(String metaTypeName, List<String> typeNames)
+        {
+            return null;
+        }
+
+        @Override
         public List<Type> getTypes()
         {
             return ImmutableList.of();
