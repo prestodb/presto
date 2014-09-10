@@ -122,6 +122,7 @@ import static com.facebook.presto.metadata.ParametricFunctionUtils.isAggregation
 import static com.facebook.presto.metadata.ParametricFunctionUtils.isHiddenPredicate;
 import static com.facebook.presto.operator.aggregation.ApproximateCountAggregation.APPROXIMATE_COUNT_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
+import static com.facebook.presto.operator.scalar.IdentityCastParametricFunction.IDENTITY_CAST;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -244,7 +245,8 @@ public class FunctionRegistry
                 .scalar(TimestampWithTimeZoneOperators.class)
                 .scalar(DateTimeOperators.class)
                 .scalar(HyperLogLogOperators.class)
-                .scalar(LikeFunctions.class);
+                .scalar(LikeFunctions.class)
+                .parametricScalar(IDENTITY_CAST);
 
         if (experimentalSyntaxEnabled) {
             builder.aggregate(ApproximateAverageAggregations.class)
@@ -355,16 +357,6 @@ public class FunctionRegistry
 
     public FunctionInfo getExactFunction(Signature signature)
     {
-        // TODO: Remove this hack once identity casts are properly registered
-        if (signature.getName().startsWith(OPERATOR_PREFIX)) {
-            try {
-                return getExactOperator(unmangleOperator(signature.getName()), resolveTypes(signature.getArgumentTypes(), typeManager), typeManager.getType(signature.getReturnType()));
-            }
-            catch (OperatorNotFoundException e) {
-                return null;
-            }
-        }
-
         Iterable<ParametricFunction> candidates = functions.get(QualifiedName.of(signature.getName()));
         // search for exact match
         for (ParametricFunction operator : candidates) {
@@ -431,22 +423,12 @@ public class FunctionRegistry
     private FunctionInfo getExactOperator(OperatorType operatorType, List<? extends Type> argumentTypes, Type returnType)
             throws OperatorNotFoundException
     {
-        Iterable<ParametricFunction> candidates = functions.get(QualifiedName.of(mangleOperatorName(operatorType)));
+        FunctionInfo functionInfo = getExactFunction(Signature.internalOperator(operatorType.name(), returnType.getName(), Lists.transform(argumentTypes, nameGetter())));
 
-        // search for exact match
-        for (ParametricFunction operator : candidates) {
-            if (operator.getSignature().match(returnType, argumentTypes, false, typeManager)) {
-                return operator.createFunction(returnType, argumentTypes);
-            }
+        if (functionInfo == null) {
+            throw new OperatorNotFoundException(operatorType, argumentTypes, returnType);
         }
-
-        // if identity cast, return a custom operator info
-        if ((operatorType == OperatorType.CAST) && (argumentTypes.size() == 1) && argumentTypes.get(0).equals(returnType)) {
-            MethodHandle identity = MethodHandles.identity(returnType.getJavaType());
-            return operatorInfo(OperatorType.CAST, returnType.getName(), FluentIterable.from(argumentTypes).transform(nameGetter()).toList(), identity, false, ImmutableList.of(false));
-        }
-
-        throw new OperatorNotFoundException(operatorType, argumentTypes, returnType);
+        return functionInfo;
     }
 
     public static boolean canCoerce(List<? extends Type> actualTypes, List<Type> expectedTypes)
