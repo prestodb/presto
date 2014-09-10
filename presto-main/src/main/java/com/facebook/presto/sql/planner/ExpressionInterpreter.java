@@ -529,8 +529,8 @@ public class ExpressionInterpreter
 
             Type commonType = FunctionRegistry.getCommonSuperType(firstType, secondType).get();
 
-            FunctionInfo firstCast = metadata.getExactOperator(OperatorType.CAST, commonType, ImmutableList.of(firstType));
-            FunctionInfo secondCast = metadata.getExactOperator(OperatorType.CAST, commonType, ImmutableList.of(secondType));
+            FunctionInfo firstCast = metadata.getFunctionRegistry().getCoercion(firstType, commonType);
+            FunctionInfo secondCast = metadata.getFunctionRegistry().getCoercion(secondType, commonType);
 
             // cast(first as <common type>) == cast(second as <common type>)
             boolean equal = (Boolean) invokeOperator(
@@ -744,7 +744,7 @@ public class ExpressionInterpreter
                 throw new IllegalArgumentException("Unsupported type: " + node.getType());
             }
 
-            FunctionInfo operatorInfo = metadata.getExactOperator(OperatorType.CAST, type, types(node.getExpression()));
+            FunctionInfo operatorInfo = metadata.getFunctionRegistry().getCoercion(expressionTypes.get(node.getExpression()), type);
 
             try {
                 return invoke(session, operatorInfo.getMethodHandle(), ImmutableList.of(value));
