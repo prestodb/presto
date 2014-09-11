@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Optional;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
 import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
@@ -27,7 +28,7 @@ public class ColumnarTextHiveRecordCursorProvider
         implements HiveRecordCursorProvider
 {
     @Override
-    public Optional<HiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns, DateTimeZone hiveStorageTimeZone)
+    public Optional<HiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns, DateTimeZone hiveStorageTimeZone, TypeManager typeManager)
     {
         if (usesColumnarTextSerDe(split)) {
             return Optional.<HiveRecordCursor>of(new ColumnarTextHiveRecordCursor<>(
@@ -37,7 +38,8 @@ public class ColumnarTextHiveRecordCursorProvider
                     split.getPartitionKeys(),
                     columns,
                     hiveStorageTimeZone,
-                    DateTimeZone.forID(split.getSession().getTimeZoneKey().getId())));
+                    DateTimeZone.forID(split.getSession().getTimeZoneKey().getId()),
+                    typeManager));
         }
         return Optional.absent();
     }

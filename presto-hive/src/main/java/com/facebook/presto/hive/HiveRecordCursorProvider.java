@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Optional;
 import org.apache.hadoop.mapred.RecordReader;
 import org.joda.time.DateTimeZone;
@@ -25,5 +26,6 @@ public interface HiveRecordCursorProvider
             HiveSplit split,
             RecordReader<?, ?> recordReader,
             List<HiveColumnHandle> columns,
-            DateTimeZone hiveStorageTimeZone);
+            DateTimeZone hiveStorageTimeZone,
+            TypeManager typeManager);
 }

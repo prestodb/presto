@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.type.DoubleType;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
@@ -25,7 +26,7 @@ public class TestHiveColumnHandle
     @Test
     public void testRoundTrip()
     {
-        HiveColumnHandle expected = new HiveColumnHandle("client", "name", 42, HiveType.FLOAT, 88, true);
+        HiveColumnHandle expected = new HiveColumnHandle("client", "name", 42, HiveType.HIVE_FLOAT, DoubleType.NAME, 88, true);
 
         String json = codec.toJson(expected);
         HiveColumnHandle actual = codec.fromJson(json);

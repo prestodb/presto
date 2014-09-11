@@ -16,8 +16,11 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
@@ -32,6 +35,7 @@ public class HivePlugin
     private final String name;
     private Map<String, String> optionalConfig = ImmutableMap.of();
     private HiveMetastore metastore;
+    private TypeManager typeManager;
 
     public HivePlugin(String name)
     {
@@ -45,6 +49,12 @@ public class HivePlugin
         this.metastore = metastore;
     }
 
+    @Inject
+    public void setTypeManager(TypeManager typeManager)
+    {
+        this.typeManager = checkNotNull(typeManager, "typeManager is null");
+    }
+
     @Override
     public void setOptionalConfig(Map<String, String> optionalConfig)
     {
@@ -55,7 +65,7 @@ public class HivePlugin
     public <T> List<T> getServices(Class<T> type)
     {
         if (type == ConnectorFactory.class) {
-            return ImmutableList.of(type.cast(new HiveConnectorFactory(name, optionalConfig, getClassLoader(), metastore)));
+            return ImmutableList.of(type.cast(new HiveConnectorFactory(name, optionalConfig, getClassLoader(), metastore, typeManager)));
         }
         return ImmutableList.of();
     }

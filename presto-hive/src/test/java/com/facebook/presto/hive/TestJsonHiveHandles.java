@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.type.DoubleType;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
@@ -52,7 +53,8 @@ public class TestJsonHiveHandles
             .put("clientId", "hive")
             .put("name", "column")
             .put("ordinalPosition", 42)
-            .put("hiveType", "FLOAT")
+            .put("hiveType", "float")
+            .put("typeName", "double")
             .put("hiveColumnIndex", -1)
             .put("partitionKey", true)
             .build();
@@ -88,7 +90,7 @@ public class TestJsonHiveHandles
     public void testColumnHandleSerialize()
             throws Exception
     {
-        HiveColumnHandle columnHandle = new HiveColumnHandle("hive", "column", 42, HiveType.FLOAT, -1, true);
+        HiveColumnHandle columnHandle = new HiveColumnHandle("hive", "column", 42, HiveType.HIVE_FLOAT, DoubleType.NAME, -1, true);
 
         assertTrue(objectMapper.canSerialize(HiveColumnHandle.class));
         String json = objectMapper.writeValueAsString(columnHandle);
@@ -105,7 +107,7 @@ public class TestJsonHiveHandles
 
         assertEquals(columnHandle.getName(), "column");
         assertEquals(columnHandle.getOrdinalPosition(), 42);
-        assertEquals(columnHandle.getHiveType(), HiveType.FLOAT);
+        assertEquals(columnHandle.getHiveType(), HiveType.HIVE_FLOAT);
         assertEquals(columnHandle.getHiveColumnIndex(), -1);
         assertEquals(columnHandle.isPartitionKey(), true);
     }

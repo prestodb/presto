@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.util.SerDeUtils;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
@@ -56,6 +57,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.MAP;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.LIST;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.STRUCT;
 
 class GenericHiveRecordCursor<K, V extends Writable>
         extends HiveRecordCursor
@@ -98,7 +102,8 @@ class GenericHiveRecordCursor<K, V extends Writable>
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
-            DateTimeZone sessionTimeZone)
+            DateTimeZone sessionTimeZone,
+            TypeManager typeManager)
     {
         checkNotNull(recordReader, "recordReader is null");
         checkArgument(totalBytes >= 0, "totalBytes is negative");
@@ -141,7 +146,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
             HiveColumnHandle column = columns.get(i);
 
             names[i] = column.getName();
-            types[i] = column.getType();
+            types[i] = typeManager.getType(column.getTypeName());
             hiveTypes[i] = column.getHiveType();
 
             if (!column.isPartitionKey()) {
@@ -395,7 +400,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
         if (fieldData == null) {
             nulls[column] = true;
         }
-        else if (hiveTypes[column] == HiveType.MAP || hiveTypes[column] == HiveType.LIST || hiveTypes[column] == HiveType.STRUCT) {
+        else if (hiveTypes[column].getCategory() == MAP || hiveTypes[column].getCategory() == LIST || hiveTypes[column].getCategory() == STRUCT) {
             // temporarily special case MAP, LIST, and STRUCT types as strings
             slices[column] = Slices.wrappedBuffer(SerDeUtils.getJsonBytes(sessionTimeZone, fieldData, fieldInspectors[column]));
             nulls[column] = false;

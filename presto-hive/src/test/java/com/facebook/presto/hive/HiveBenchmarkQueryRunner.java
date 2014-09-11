@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import io.airlift.testing.FileUtils;
@@ -70,7 +71,8 @@ public final class HiveBenchmarkQueryRunner
                 "hive",
                 ImmutableMap.of("node.environment", "test"),
                 HiveBenchmarkQueryRunner.class.getClassLoader(),
-                metastore);
+                metastore,
+                new TypeRegistry());
 
         Map<String, String> hiveCatalogConfig = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.uri", "thrift://none.invalid")

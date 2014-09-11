@@ -27,6 +27,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -104,7 +105,8 @@ public abstract class AbstractTestHiveClientS3
                 new NamenodeStats(),
                 new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig)),
                 new HadoopDirectoryLister(),
-                sameThreadExecutor());
+                sameThreadExecutor(),
+                new TypeRegistry());
     }
 
     @Test

@@ -25,10 +25,8 @@ import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorUtils;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.TextInputFormat;
@@ -100,11 +98,6 @@ public final class HiveUtil
         String name = schema.getProperty(FILE_INPUT_FORMAT);
         checkArgument(name != null, "missing property: %s", FILE_INPUT_FORMAT);
         return name;
-    }
-
-    static PrimitiveObjectInspector.PrimitiveCategory convertNativeHiveType(String type)
-    {
-        return PrimitiveObjectInspectorUtils.getTypeEntryFromTypeName(type).primitiveCategory;
     }
 
     public static Function<ConnectorPartition, String> partitionIdGetter()
