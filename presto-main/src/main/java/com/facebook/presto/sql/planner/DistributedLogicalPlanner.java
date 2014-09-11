@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -48,6 +49,8 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -167,11 +170,8 @@ public class DistributedLogicalPlanner
                 return current;
             }
             else {
-                PlanNode sink = new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols());
-                current.setRoot(sink)
-                        .setHashOutputPartitioning(node.getDistinctSymbols());
-
-                PlanNode exchange = new ExchangeNode(idAllocator.getNextId(), current.getId(), sink.getOutputSymbols());
+                createHashPartitionedPlan(current, current.getRoot(), node.getDistinctSymbols());
+                PlanNode exchange = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
                 MarkDistinctNode markNode = new MarkDistinctNode(idAllocator.getNextId(), exchange, node.getMarkerSymbol(), node.getDistinctSymbols());
                 return createFixedDistributionPlan(markNode)
                         .addChild(current.build());
@@ -213,18 +213,37 @@ public class DistributedLogicalPlanner
 
             // create partial aggregation plan
             AggregationNode partialAggregation = new AggregationNode(idAllocator.getNextId(), plan.getRoot(), groupBy, intermediateCalls, intermediateFunctions, intermediateMask, PARTIAL, sampleWeight, confidence);
-            plan.setRoot(new SinkNode(idAllocator.getNextId(), partialAggregation, partialAggregation.getOutputSymbols()));
-
-            // create final aggregation plan
-            ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), plan.getId(), plan.getRoot().getOutputSymbols());
-            AggregationNode finalAggregation = new AggregationNode(idAllocator.getNextId(), source, groupBy, finalCalls, functions, ImmutableMap.<Symbol, Symbol>of(), FINAL, Optional.<Symbol>absent(), confidence);
 
             if (groupBy.isEmpty()) {
+                plan.setRoot(new SinkNode(idAllocator.getNextId(), partialAggregation, partialAggregation.getOutputSymbols()));
+                // create final aggregation plan
+                ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), plan.getId(), plan.getRoot().getOutputSymbols());
+                AggregationNode finalAggregation = new AggregationNode(idAllocator.getNextId(),
+                        source,
+                        groupBy,
+                        finalCalls,
+                        functions,
+                        ImmutableMap.<Symbol, Symbol>of(),
+                        FINAL,
+                        Optional.<Symbol>absent(),
+                        confidence);
                 plan = createSingleNodePlan(finalAggregation)
                         .addChild(plan.build());
             }
             else {
-                plan.setHashOutputPartitioning(groupBy);
+                createHashPartitionedPlan(plan, partialAggregation, groupBy);
+                // create final aggregation plan
+                ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), plan.getId(), partialAggregation.getOutputSymbols());
+                AggregationNode finalAggregation = new AggregationNode(idAllocator.getNextId(),
+                        source,
+                        groupBy,
+                        finalCalls,
+                        functions,
+                        ImmutableMap.<Symbol, Symbol>of(),
+                        FINAL,
+                        Optional.<Symbol>absent(),
+                        confidence);
+
                 plan = createFixedDistributionPlan(finalAggregation)
                         .addChild(plan.build());
             }
@@ -247,7 +266,7 @@ public class DistributedLogicalPlanner
                             .addChild(current.build());
                 }
                 else {
-                    current.setHashOutputPartitioning(partitionedBy);
+                    createHashPartitionedPlan(current, current.getRoot(), partitionedBy);
                     current = createFixedDistributionPlan(source)
                             .addChild(current.build());
                 }
@@ -267,7 +286,7 @@ public class DistributedLogicalPlanner
                 current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
 
                 ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
-                current.setHashOutputPartitioning(partitionedBy);
+                createHashPartitionedPlan(current, current.getRoot(), partitionedBy);
                 current = createFixedDistributionPlan(source)
                         .addChild(current.build());
             }
@@ -286,7 +305,7 @@ public class DistributedLogicalPlanner
                 current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
 
                 ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
-                current.setHashOutputPartitioning(partitionedBy);
+                createHashPartitionedPlan(current, current.getRoot(), partitionedBy);
                 current = createFixedDistributionPlan(source)
                         .addChild(current.build());
             }
@@ -545,11 +564,8 @@ public class DistributedLogicalPlanner
             SubPlanBuilder current = node.getProbeSource().accept(this, context);
 
             if (distributedIndexJoins && current.isDistributed()) {
-                PlanNode sink = new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols());
-                current.setRoot(sink)
-                        .setHashOutputPartitioning(Lists.transform(node.getCriteria(), probeGetter()));
-
-                PlanNode exchange = new ExchangeNode(idAllocator.getNextId(), current.getId(), sink.getOutputSymbols());
+                createHashPartitionedPlan(current, current.getRoot(), Lists.transform(node.getCriteria(), probeGetter()));
+                PlanNode exchange = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
                 return createFixedDistributionPlan(new IndexJoinNode(node.getId(), node.getType(), exchange, node.getIndexSource(), node.getCriteria()))
                         .addChild(current.build());
             }
@@ -592,6 +608,27 @@ public class DistributedLogicalPlanner
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
 
+        private void createHashPartitionedPlan(SubPlanBuilder plan, PlanNode source, List<Symbol> partitionedBy)
+        {
+            Symbol hashSymbol = allocator.newSymbol("$hashValue", BigintType.BIGINT);
+            ProjectNode projectNode = createProjectNode(source, hashSymbol, partitionedBy);
+            plan.setRoot(new SinkNode(idAllocator.getNextId(), projectNode, projectNode.getOutputSymbols()));
+            plan.setHashOutputPartitioning(partitionedBy, projectNode.getOutputSymbols().indexOf(hashSymbol));
+        }
+
+        private ProjectNode createProjectNode(PlanNode source, Symbol hashSymbol, List<Symbol> partitioningSymbols)
+        {
+            ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
+            for (Symbol symbol : source.getOutputSymbols()) {
+                Expression expression = new QualifiedNameReference(symbol.toQualifiedName());
+                projections.put(symbol, expression);
+            }
+
+            Expression hashExpression = getHashExpression(partitioningSymbols);
+            projections.put(hashSymbol, hashExpression);
+            return new ProjectNode(idAllocator.getNextId(), source, projections.build());
+        }
+
         public SubPlanBuilder createSingleNodePlan(PlanNode root)
         {
             return new SubPlanBuilder(new PlanFragmentId(nextSubPlanId()), allocator, PlanDistribution.NONE, root, null);
@@ -628,5 +665,23 @@ public class DistributedLogicalPlanner
         {
             return String.valueOf(nextFragmentId++);
         }
+    }
+
+    private static Expression getHashExpression(List<Symbol> partitioningSymbols)
+    {
+        Expression hashExpression = new LongLiteral("1");
+
+        for (Symbol symbol : partitioningSymbols) {
+            hashExpression = getHashFunctionCall(hashExpression, symbol);
+        }
+        return hashExpression;
+    }
+
+    private static Expression getHashFunctionCall(Expression previousHashValue, Symbol symbol)
+    {
+
+        FunctionCall functionCall = new FunctionCall(QualifiedName.of("hash_code"), null, false, ImmutableList.<Expression>of(new QualifiedNameReference(symbol.toQualifiedName())));
+        List<Expression> arguments = ImmutableList.of(previousHashValue, functionCall);
+        return new FunctionCall(QualifiedName.of("hash"), arguments);
     }
 }

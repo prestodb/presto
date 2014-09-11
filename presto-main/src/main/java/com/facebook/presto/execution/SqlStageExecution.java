@@ -409,7 +409,7 @@ public class SqlStageExecution
             ImmutableMap.Builder<String, PagePartitionFunction> buffers = ImmutableMap.builder();
             for (int nodeIndex = 0; nodeIndex < parentNodes.size(); nodeIndex++) {
                 Node node = parentNodes.get(nodeIndex);
-                buffers.put(node.getNodeIdentifier(), new HashPagePartitionFunction(nodeIndex, parentNodes.size(), fragment.getPartitioningChannels(), fragment.getTypes()));
+                buffers.put(node.getNodeIdentifier(), new HashPagePartitionFunction(nodeIndex, parentNodes.size(), fragment.getPartitioningChannels(), fragment.getHashChannel().get(), fragment.getTypes()));
             }
 
             newOutputBuffers = startingOutputBuffers

@@ -120,7 +120,6 @@ public class TpchMetadata
         return builder.build();
     }
 
-    @Override
     public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return null;
