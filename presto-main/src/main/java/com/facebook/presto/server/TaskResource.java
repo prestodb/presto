@@ -57,6 +57,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.execution.TaskInfo.summarizeTaskInfo;
+import static com.facebook.presto.server.AsyncResponseHandler.bindAsyncResponse;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -155,7 +156,8 @@ public class TaskResource
 
         // For hard timeout, add an additional 5 seconds to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(maxWait.toMillis() + 5000, MILLISECONDS);
-        AsyncResponseUtils.registerAsyncResponse(asyncResponse, futureTaskInfo, timeout, executor);
+        bindAsyncResponse(asyncResponse, futureTaskInfo, executor)
+                .withTimeout(timeout);
     }
 
     @DELETE
@@ -228,15 +230,12 @@ public class TaskResource
 
         // For hard timeout, add an additional 5 seconds to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(DEFAULT_MAX_WAIT_TIME.toMillis() + 5000, MILLISECONDS);
-        AsyncResponseUtils.registerAsyncResponse(
-                asyncResponse,
-                responseFuture,
-                timeout,
-                executor,
-                Response.status(Status.NO_CONTENT)
-                        .header(PRESTO_PAGE_TOKEN, token)
-                        .header(PRESTO_PAGE_NEXT_TOKEN, token)
-                        .build());
+        bindAsyncResponse(asyncResponse, responseFuture, executor)
+                .withTimeout(timeout,
+                        Response.status(Status.NO_CONTENT)
+                                .header(PRESTO_PAGE_TOKEN, token)
+                                .header(PRESTO_PAGE_NEXT_TOKEN, token)
+                                .build());
     }
 
     @DELETE
