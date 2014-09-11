@@ -419,38 +419,6 @@
             </dependency>
 
             <dependency>
-                <groupId>com.nesscomputing.components</groupId>
-                <artifactId>ness-pg-embedded</artifactId>
-                <version>2.6.2</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.nesscomputing.components</groupId>
-                        <artifactId>ness-config</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>com.nesscomputing.migratory</groupId>
-                        <artifactId>migratory-core</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>com.google.code.findbugs</groupId>
-                        <artifactId>jsr305</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.jdbi</groupId>
-                        <artifactId>jdbi</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>commons-configuration</groupId>
-                        <artifactId>commons-configuration</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>postgresql</groupId>
-                        <artifactId>postgresql</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
                 <groupId>org.jruby.jcodings</groupId>
                 <artifactId>jcodings</artifactId>
                 <version>1.0.8</version>
@@ -543,6 +511,12 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>testing-mysql-server</artifactId>
+                <version>0.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>testing-postgresql-server</artifactId>
                 <version>0.1</version>
             </dependency>
         </dependencies>

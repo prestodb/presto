@@ -145,9 +145,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.nesscomputing.components</groupId>
-            <artifactId>ness-pg-embedded</artifactId>
-            <scope>test</scope>
+            <groupId>io.airlift</groupId>
+            <artifactId>testing-postgresql-server</artifactId>
         </dependency>
     </dependencies>
 </project>
