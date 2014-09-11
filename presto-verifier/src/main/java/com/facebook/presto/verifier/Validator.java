@@ -150,7 +150,10 @@ public class Validator
             sb.append("TIMEOUT\n");
         }
         else {
-            sb.append("SKIPPED");
+            sb.append("SKIPPED: ");
+            if (getControlResult().getException() != null) {
+                sb.append(getControlResult().getException().getMessage());
+            }
         }
         return sb.toString();
     }
