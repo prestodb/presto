@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockUtils;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
@@ -42,6 +43,7 @@ import static org.testng.Assert.assertEquals;
 public class TestInterpretedProjectionFunction
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
+    private static final Metadata METADATA = new MetadataManager();
 
     @Test
     public void testBooleanExpression()
@@ -170,12 +172,11 @@ public class TestInterpretedProjectionFunction
             int position,
             Block... blocks)
     {
-        MetadataManager metadata = new MetadataManager();
         InterpretedProjectionFunction projectionFunction = new InterpretedProjectionFunction(
-                createExpression(expression, metadata, symbolTypes),
+                createExpression(expression, METADATA, symbolTypes),
                 symbolTypes,
                 symbolToInputMappings,
-                metadata,
+                METADATA,
                 SQL_PARSER,
                 new ConnectorSession("user", "test", "catalog", "schema", UTC_KEY, Locale.ENGLISH, null, null)
         );
