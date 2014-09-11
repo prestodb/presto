@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.ml;
 
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.ml.type.ClassifierType;
@@ -40,11 +41,12 @@ import static org.testng.Assert.assertEquals;
 
 public class TestEvaluateClassifierPredictions
 {
+    private final Metadata metadata = new MetadataManager();
+
     @Test
     public void testEvaluateClassifierPredictions()
             throws Exception
     {
-        MetadataManager metadata = new MetadataManager();
         TypeRegistry typeRegistry = new TypeRegistry();
         typeRegistry.addType(new ClassifierType());
         typeRegistry.addType(new RegressorType());
