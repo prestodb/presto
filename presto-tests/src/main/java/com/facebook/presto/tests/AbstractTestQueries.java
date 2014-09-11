@@ -77,7 +77,7 @@ public abstract class AbstractTestQueries
             .scalar(CreateHll.class)
             .getFunctions();
 
-    public AbstractTestQueries(QueryRunner queryRunner)
+    protected AbstractTestQueries(QueryRunner queryRunner)
     {
         super(queryRunner);
     }
