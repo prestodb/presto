@@ -569,7 +569,7 @@
                     <configuration combine.children="append">
                         <argLine>-Duser.timezone=${test.timezone} -Xmx2g -Xms2g -XX:MaxPermSize=512m</argLine>
                         <parallel>methods</parallel>
-                        <threadCount>4</threadCount>
+                        <threadCount>8</threadCount>
                         <perCoreThreadCount>true</perCoreThreadCount>
                         <systemPropertyVariables>
                             <file.encoding>${project.build.sourceEncoding}</file.encoding>
