@@ -16,6 +16,8 @@ package com.facebook.presto.tests;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
+import com.google.common.base.Optional;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -27,9 +29,19 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
 {
-    private final ConnectorSession sampledSession;
+    private final Optional<ConnectorSession> sampledSession;
 
-    public AbstractTestIntegrationSmokeTest(QueryRunner queryRunner, ConnectorSession sampledSession)
+    protected AbstractTestIntegrationSmokeTest(QueryRunner queryRunner)
+    {
+        this(queryRunner, Optional.<ConnectorSession>absent());
+    }
+
+    protected AbstractTestIntegrationSmokeTest(QueryRunner queryRunner, ConnectorSession sampledSession)
+    {
+        this(queryRunner, Optional.of(checkNotNull(sampledSession, "sampledSession is null")));
+    }
+
+    private AbstractTestIntegrationSmokeTest(QueryRunner queryRunner, Optional<ConnectorSession> sampledSession)
     {
         super(queryRunner);
         this.sampledSession = checkNotNull(sampledSession, "sampledSession is null");
@@ -48,7 +60,7 @@ public abstract class AbstractTestIntegrationSmokeTest
     public void testApproximateQuerySum()
             throws Exception
     {
-        assertApproximateQuery(sampledSession, "SELECT SUM(totalprice) FROM orders APPROXIMATE AT 99.999 CONFIDENCE", "SELECT 2 * SUM(totalprice) FROM orders");
+        assertApproximateQuery("SELECT SUM(totalprice) FROM orders APPROXIMATE AT 99.999 CONFIDENCE", "SELECT 2 * SUM(totalprice) FROM orders");
     }
 
     @Test
@@ -164,5 +176,13 @@ public abstract class AbstractTestIntegrationSmokeTest
                 .row("comment", "varchar", true, false, "")
                 .build();
         assertEquals(actualColumns, expectedColumns);
+    }
+
+    protected void assertApproximateQuery(@Language("SQL") String actual, @Language("SQL") String expected)
+            throws Exception
+    {
+        if (sampledSession.isPresent()) {
+            assertApproximateQuery(sampledSession.get(), actual, expected);
+        }
     }
 }
