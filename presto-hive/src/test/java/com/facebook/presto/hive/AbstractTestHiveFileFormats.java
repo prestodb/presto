@@ -16,6 +16,8 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Function;
@@ -51,6 +53,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveClient.getType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -82,6 +85,7 @@ public abstract class AbstractTestHiveFileFormats
 {
     private static final int NUM_ROWS = 1000;
     private static final double EPSILON = 0.001;
+    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
 
     private static final List<ObjectInspector> FIELD_INSPECTORS = ImmutableList.of(
                 javaStringObjectInspector,
@@ -221,7 +225,8 @@ public abstract class AbstractTestHiveFileFormats
     {
         List<HiveColumnHandle> columns = new ArrayList<>();
         for (int i = 0; i < COLUMN_NAMES.size(); i++) {
-            columns.add(new HiveColumnHandle("client_id=0", COLUMN_NAMES.get(i), i, HiveType.getHiveType(FIELD_INSPECTORS.get(i)), i, false));
+            HiveType hiveType = HiveType.getHiveType(FIELD_INSPECTORS.get(i));
+            columns.add(new HiveColumnHandle("client_id=0", COLUMN_NAMES.get(i), i, hiveType, getType(FIELD_INSPECTORS.get(i)).getName(), i, false));
         }
         return columns;
     }
@@ -297,7 +302,7 @@ public abstract class AbstractTestHiveFileFormats
             for (int i = 2; i < TEST_VALUES.size(); i++) {
                 Object fieldFromCursor;
 
-                Type type = HiveType.getHiveType(FIELD_INSPECTORS.get(i)).getNativeType();
+                Type type = getType(FIELD_INSPECTORS.get(i));
                 if (BOOLEAN.equals(type)) {
                     fieldFromCursor = cursor.getBoolean(i);
                 }

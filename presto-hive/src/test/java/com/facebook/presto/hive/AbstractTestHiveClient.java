@@ -38,7 +38,10 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.ViewNotFoundException;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -61,6 +64,8 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
+import static com.facebook.presto.hive.HiveType.HIVE_INT;
+import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveUtil.partitionIdGetter;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -156,11 +161,11 @@ public abstract class AbstractTestHiveClient
 
         invalidTableHandle = new HiveTableHandle("hive", database, INVALID_TABLE, SESSION);
 
-        dsColumn = new HiveColumnHandle(connectorId, "ds", 0, HiveType.STRING, -1, true);
-        fileFormatColumn = new HiveColumnHandle(connectorId, "file_format", 1, HiveType.STRING, -1, true);
-        dummyColumn = new HiveColumnHandle(connectorId, "dummy", 2, HiveType.INT, -1, true);
-        intColumn = new HiveColumnHandle(connectorId, "t_int", 0, HiveType.INT, -1, true);
-        invalidColumnHandle = new HiveColumnHandle(connectorId, INVALID_COLUMN, 0, HiveType.STRING, 0, false);
+        dsColumn = new HiveColumnHandle(connectorId, "ds", 0, HIVE_STRING, VarcharType.NAME, -1, true);
+        fileFormatColumn = new HiveColumnHandle(connectorId, "file_format", 1, HIVE_STRING, VarcharType.NAME, -1, true);
+        dummyColumn = new HiveColumnHandle(connectorId, "dummy", 2, HIVE_INT, BigintType.NAME, -1, true);
+        intColumn = new HiveColumnHandle(connectorId, "t_int", 0, HIVE_INT, BigintType.NAME, -1, true);
+        invalidColumnHandle = new HiveColumnHandle(connectorId, INVALID_COLUMN, 0, HIVE_STRING, VarcharType.NAME, 0, false);
 
         partitions = ImmutableSet.<ConnectorPartition>builder()
                 .add(new HivePartition(tablePartitionFormat,
@@ -239,7 +244,8 @@ public abstract class AbstractTestHiveClient
                 false,
                 true,
                 hiveClientConfig.getHiveStorageFormat(),
-                false);
+                false,
+                new TypeRegistry());
 
         metadata = client;
         splitManager = client;

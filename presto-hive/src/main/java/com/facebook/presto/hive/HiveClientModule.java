@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastore;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.net.HostAndPort;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
@@ -43,11 +44,13 @@ public class HiveClientModule
 {
     private final String connectorId;
     private final HiveMetastore metastore;
+    private final TypeManager typeManager;
 
-    public HiveClientModule(String connectorId, HiveMetastore metastore)
+    public HiveClientModule(String connectorId, HiveMetastore metastore, TypeManager typeManager)
     {
         this.connectorId = connectorId;
         this.metastore = metastore;
+        this.typeManager = typeManager;
     }
 
     @Override
@@ -77,6 +80,8 @@ public class HiveClientModule
         binder.bind(DiscoveryLocatedHiveCluster.class).in(Scopes.SINGLETON);
         binder.bind(HiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
         discoveryBinder(binder).bindSelector("hive-metastore");
+
+        binder.bind(TypeManager.class).toInstance(typeManager);
     }
 
     @ForHiveClient

@@ -18,6 +18,7 @@ import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -40,6 +41,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.Callable;
 
+import static com.facebook.presto.hive.HiveClient.getType;
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnIndexGetter;
 import static com.facebook.presto.hive.HiveColumnHandle.isPartitionKeyPredicate;
 import static com.facebook.presto.hive.HiveColumnHandle.nativeTypeGetter;
@@ -70,14 +72,16 @@ public class HiveRecordSet
     private final Configuration configuration;
     private final List<HiveRecordCursorProvider> cursorProviders;
     private final DateTimeZone timeZone;
+    private final TypeManager typeManager;
 
-    public HiveRecordSet(HdfsEnvironment hdfsEnvironment, HiveSplit split, List<HiveColumnHandle> columns, List<HiveRecordCursorProvider> cursorProviders, DateTimeZone timeZone)
+    public HiveRecordSet(HdfsEnvironment hdfsEnvironment, HiveSplit split, List<HiveColumnHandle> columns, List<HiveRecordCursorProvider> cursorProviders, DateTimeZone timeZone, TypeManager typeManager)
     {
         this.split = checkNotNull(split, "split is null");
         this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
-        this.columnTypes = ImmutableList.copyOf(Iterables.transform(columns, nativeTypeGetter()));
+        this.columnTypes = ImmutableList.copyOf(Iterables.transform(columns, nativeTypeGetter(typeManager)));
         this.cursorProviders = ImmutableList.copyOf(checkNotNull(cursorProviders, "cursor providers is null"));
         this.timeZone = checkNotNull(timeZone, "timeZone is null");
+        this.typeManager = checkNotNull(typeManager, "typeManager is null");
 
         // determine which hive columns we will read
         List<HiveColumnHandle> readColumns = ImmutableList.copyOf(filter(columns, not(isPartitionKeyPredicate())));
@@ -111,7 +115,7 @@ public class HiveRecordSet
         RecordReader<?, ?> recordReader = createRecordReader(split, configuration, path);
 
         for (HiveRecordCursorProvider provider : cursorProviders) {
-            Optional<HiveRecordCursor> cursor = provider.createHiveRecordCursor(split, recordReader, columns, timeZone);
+            Optional<HiveRecordCursor> cursor = provider.createHiveRecordCursor(split, recordReader, columns, timeZone, typeManager);
             if (cursor.isPresent()) {
                 return cursor.get();
             }
@@ -126,8 +130,8 @@ public class HiveRecordSet
         for (StructField field : getTableObjectInspector(schema).getAllStructFieldRefs()) {
             if (field.getFieldObjectInspector().getCategory() == ObjectInspector.Category.PRIMITIVE) {
                 PrimitiveObjectInspector inspector = (PrimitiveObjectInspector) field.getFieldObjectInspector();
-                HiveType hiveType = HiveType.getSupportedHiveType(inspector.getPrimitiveCategory());
-                return new HiveColumnHandle(clientId, field.getFieldName(), index, hiveType, index, false);
+                HiveType hiveType = HiveType.getSupportedHiveType(inspector.getTypeName());
+                return new HiveColumnHandle(clientId, field.getFieldName(), index, hiveType, getType(inspector).getName(), index, false);
             }
             index++;
         }
