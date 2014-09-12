@@ -453,9 +453,7 @@ public class StatementResource
         {
             checkNotNull(queryInfo, "queryInfo is null");
             StageInfo outputStage = queryInfo.getOutputStage();
-            if (outputStage == null) {
-                checkNotNull(outputStage, "outputStage is null");
-            }
+            checkNotNull(outputStage, "outputStage is null");
 
             List<String> names = queryInfo.getFieldNames();
             List<Type> types = outputStage.getTypes();

@@ -188,7 +188,7 @@ public class MockRemoteTaskFactory
         public void noMoreSplits(PlanNodeId sourceId)
         {
             noMoreSplits.add(sourceId);
-            if (noMoreSplits.containsAll(fragment.getSources())) {
+            if (noMoreSplits.containsAll(fragment.getSourceIds())) {
                 taskStateMachine.finished();
             }
         }
