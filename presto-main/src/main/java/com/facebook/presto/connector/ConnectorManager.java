@@ -156,7 +156,7 @@ public class ConnectorManager
         }
 
         ConnectorHandleResolver connectorHandleResolver = connector.getHandleResolver();
-        checkNotNull("Connector %s does not have a handle resolver", connectorId);
+        checkNotNull(connectorHandleResolver, "Connector %s does not have a handle resolver", connectorId);
 
         ConnectorRecordSinkProvider connectorRecordSinkProvider = null;
         try {
