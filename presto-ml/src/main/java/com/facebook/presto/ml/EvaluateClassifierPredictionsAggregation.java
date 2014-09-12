@@ -23,6 +23,8 @@ import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.SqlType;
 
+import java.util.Locale;
+
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -75,9 +77,9 @@ public final class EvaluateClassifierPredictionsAggregation
         StringBuilder sb = new StringBuilder();
         long correct = trueNegatives + truePositives;
         long total = truePositives + trueNegatives + falsePositives + falseNegatives;
-        sb.append(String.format("Accuracy: %d/%d (%.2f%%)\n", correct, total, 100.0 * correct / (double) total));
-        sb.append(String.format("Precision: %d/%d (%.2f%%)\n", truePositives, truePositives + falsePositives, 100.0 * truePositives / (double) (truePositives + falsePositives)));
-        sb.append(String.format("Recall: %d/%d (%.2f%%)", truePositives, truePositives + falseNegatives, 100.0 * truePositives / (double) (truePositives + falseNegatives)));
+        sb.append(String.format(Locale.US, "Accuracy: %d/%d (%.2f%%)\n", correct, total, 100.0 * correct / (double) total));
+        sb.append(String.format(Locale.US, "Precision: %d/%d (%.2f%%)\n", truePositives, truePositives + falsePositives, 100.0 * truePositives / (double) (truePositives + falsePositives)));
+        sb.append(String.format(Locale.US, "Recall: %d/%d (%.2f%%)", truePositives, truePositives + falseNegatives, 100.0 * truePositives / (double) (truePositives + falseNegatives)));
 
         VARCHAR.writeString(out, sb.toString());
     }
