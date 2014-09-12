@@ -62,6 +62,7 @@ public class SinkNode
         return outputSymbols;
     }
 
+    @Override
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitSink(this, context);

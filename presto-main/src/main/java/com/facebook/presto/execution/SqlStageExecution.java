@@ -273,6 +273,7 @@ public class SqlStageExecution
         }
     }
 
+    @Override
     public StageInfo getStageInfo()
     {
         try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
@@ -915,6 +916,7 @@ public class SqlStageExecution
         }
     }
 
+    @Override
     public void cancel(boolean force)
     {
         checkState(!Thread.holdsLock(this), "Can not cancel while holding a lock on this");

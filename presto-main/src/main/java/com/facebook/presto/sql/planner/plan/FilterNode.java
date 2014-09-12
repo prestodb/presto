@@ -65,6 +65,7 @@ public class FilterNode
         return source;
     }
 
+    @Override
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitFilter(this, context);
