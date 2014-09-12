@@ -219,8 +219,8 @@ Presto accesses data via *connectors*, which are mounted in catalogs.
 The connector provides all of the schemas and tables inside of the catalog.
 For example, the Hive connector maps each Hive database to a schema,
 so if the Hive connector is mounted as the ``hive`` catalog, and Hive
-contains a table ``bar`` in database ``foo``, that table would be accessed
-in Presto as ``hive.foo.bar``.
+contains a table ``clicks`` in database ``web``, that table would be accessed
+in Presto as ``hive.web.clicks``.
 
 Catalogs are registered by creating a catalog properties file
 in the ``etc/catalog`` directory.
