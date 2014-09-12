@@ -64,6 +64,7 @@ public final class Table
     public static class TableMapper
             implements ResultSetMapper<Table>
     {
+        @Override
         public Table map(int index, ResultSet r, StatementContext ctx)
                 throws SQLException
         {

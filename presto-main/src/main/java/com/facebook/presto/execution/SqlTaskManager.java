@@ -159,6 +159,7 @@ public class SqlTaskManager
         }, 0, 1, TimeUnit.SECONDS);
     }
 
+    @Override
     @PreDestroy
     public void close()
     {

@@ -107,6 +107,7 @@ public class TableScanNode
         return table;
     }
 
+    @Override
     @JsonProperty("outputSymbols")
     public List<Symbol> getOutputSymbols()
     {
@@ -162,11 +163,13 @@ public class TableScanNode
         return builder.toString();
     }
 
+    @Override
     public List<PlanNode> getSources()
     {
         return ImmutableList.of();
     }
 
+    @Override
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitTableScan(this, context);

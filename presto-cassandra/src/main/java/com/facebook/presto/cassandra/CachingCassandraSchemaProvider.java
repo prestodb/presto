@@ -337,6 +337,7 @@ public class CachingCassandraSchemaProvider
     {
         return new Function<String, String>()
         {
+            @Override
             public String apply(String str)
             {
                 return str.toLowerCase();

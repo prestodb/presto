@@ -24,6 +24,7 @@ public abstract class Expression
         return visitor.visitExpression(this, context);
     }
 
+    @Override
     public final String toString()
     {
         return ExpressionFormatter.formatExpression(this);

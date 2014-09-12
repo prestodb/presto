@@ -99,6 +99,7 @@ public class DoWhileLoop
         this.endLabel = endLabel;
     }
 
+    @Override
     public String getComment()
     {
         return comment;

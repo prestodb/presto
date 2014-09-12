@@ -383,6 +383,7 @@ public class PipelineContext
     {
         return new Function<PipelineContext, PipelineStats>()
         {
+            @Override
             public PipelineStats apply(PipelineContext pipelineContext)
             {
                 return pipelineContext.getPipelineStats();

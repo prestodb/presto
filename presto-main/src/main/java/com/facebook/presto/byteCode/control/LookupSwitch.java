@@ -80,6 +80,7 @@ public class LookupSwitch
         this.cases = ImmutableSortedSet.copyOf(cases);
     }
 
+    @Override
     public String getComment()
     {
         return comment;

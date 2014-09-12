@@ -309,6 +309,7 @@ public class OperatorContext
     {
         return new Function<OperatorContext, OperatorStats>()
         {
+            @Override
             public OperatorStats apply(OperatorContext operatorContext)
             {
                 return operatorContext.getOperatorStats();

@@ -122,6 +122,7 @@ public class IfStatement
         this.ifFalse = ifFalse;
     }
 
+    @Override
     public String getComment()
     {
         return comment;

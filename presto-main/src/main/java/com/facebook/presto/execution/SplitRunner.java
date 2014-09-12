@@ -26,5 +26,6 @@ public interface SplitRunner
     ListenableFuture<?> processFor(Duration duration)
             throws Exception;
 
+    @Override
     void close();
 }

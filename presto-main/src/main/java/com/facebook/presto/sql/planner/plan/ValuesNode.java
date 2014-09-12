@@ -46,6 +46,7 @@ public class ValuesNode
         }
     }
 
+    @Override
     @JsonProperty
     public List<Symbol> getOutputSymbols()
     {
@@ -64,6 +65,7 @@ public class ValuesNode
         return ImmutableList.of();
     }
 
+    @Override
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitValues(this, context);

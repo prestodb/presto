@@ -48,6 +48,7 @@ public class ProjectNode
         return ImmutableList.copyOf(outputs.values());
     }
 
+    @Override
     public List<Symbol> getOutputSymbols()
     {
         return ImmutableList.copyOf(outputs.keySet());
@@ -71,6 +72,7 @@ public class ProjectNode
         return source;
     }
 
+    @Override
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitProject(this, context);

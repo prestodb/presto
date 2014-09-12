@@ -235,6 +235,7 @@ public final class SymbolExtractor
             return null;
         }
 
+        @Override
         public Void visitIndexSource(IndexSourceNode node, Void context)
         {
             builder.addAll(node.getAssignments().keySet());

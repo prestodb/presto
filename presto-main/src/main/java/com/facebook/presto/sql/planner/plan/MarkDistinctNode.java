@@ -77,6 +77,7 @@ public class MarkDistinctNode
         return distinctSymbols;
     }
 
+    @Override
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitMarkDistinct(this, context);

@@ -31,6 +31,7 @@ public class BasicInstruction
         this.opCode = opCode;
     }
 
+    @Override
     public void accept(MethodVisitor visitor)
     {
         visitor.visitInsn(opCode);

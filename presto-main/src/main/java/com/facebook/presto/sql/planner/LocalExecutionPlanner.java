@@ -397,6 +397,7 @@ public class LocalExecutionPlanner
             List<Integer> partitionChannels = ImmutableList.copyOf(getChannelsForSymbols(partitionBySymbols, source.getLayout()));
             List<Type> partitionTypes = ImmutableList.copyOf(Iterables.transform(partitionChannels, new Function<Integer, Type>()
             {
+                @Override
                 public Type apply(Integer input)
                 {
                     return source.getTypes().get(input);
@@ -436,6 +437,7 @@ public class LocalExecutionPlanner
             List<Integer> partitionChannels = ImmutableList.copyOf(getChannelsForSymbols(partitionBySymbols, source.getLayout()));
             List<Type> partitionTypes = ImmutableList.copyOf(Iterables.transform(partitionChannels, new Function<Integer, Type>()
             {
+                @Override
                 public Type apply(Integer input)
                 {
                     return source.getTypes().get(input);

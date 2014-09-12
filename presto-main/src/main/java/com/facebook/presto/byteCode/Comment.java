@@ -35,6 +35,7 @@ public class Comment
         return comment;
     }
 
+    @Override
     public void accept(MethodVisitor visitor)
     {
     }

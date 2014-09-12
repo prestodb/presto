@@ -109,6 +109,7 @@ public class WhileLoop
         this.endLabel = endLabel;
     }
 
+    @Override
     public String getComment()
     {
         return comment;

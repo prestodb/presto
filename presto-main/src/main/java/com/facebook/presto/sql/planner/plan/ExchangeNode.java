@@ -55,6 +55,7 @@ public class ExchangeNode
         return ImmutableList.of();
     }
 
+    @Override
     @JsonProperty("outputs")
     public List<Symbol> getOutputSymbols()
     {
