@@ -55,6 +55,7 @@ public class TableWriterOperator
             checkNotNull(recordTypes, "types is null");
             this.recordTypes = ImmutableList.copyOf(Iterables.transform(recordTypes, new Function<Type, Type>()
             {
+                @Override
                 public Type apply(Type type)
                 {
                     return type;

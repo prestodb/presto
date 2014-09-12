@@ -71,6 +71,7 @@ public class SingleColumn
         return Objects.hashCode(alias, expression);
     }
 
+    @Override
     public String toString()
     {
         if (alias.isPresent()) {

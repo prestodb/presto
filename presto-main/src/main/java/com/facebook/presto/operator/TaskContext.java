@@ -336,6 +336,7 @@ public class TaskContext
     {
         return new Function<TaskContext, TaskStats>()
         {
+            @Override
             public TaskStats apply(TaskContext taskContext)
             {
                 return taskContext.getTaskStats();

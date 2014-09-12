@@ -307,6 +307,7 @@ public class DriverContext
     {
         return new Function<DriverContext, DriverStats>()
         {
+            @Override
             public DriverStats apply(DriverContext driverContext)
             {
                 return driverContext.getDriverStats();

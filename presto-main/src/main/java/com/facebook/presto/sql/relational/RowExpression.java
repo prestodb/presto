@@ -20,9 +20,12 @@ public abstract class RowExpression
 {
     public abstract Type getType();
 
+    @Override
     public abstract boolean equals(Object other);
+    @Override
     public abstract int hashCode();
 
+    @Override
     public abstract String toString();
 
     public static Function<RowExpression, Type> typeGetter()

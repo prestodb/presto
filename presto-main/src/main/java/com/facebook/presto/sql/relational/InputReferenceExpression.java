@@ -39,6 +39,7 @@ public final class InputReferenceExpression
         return field;
     }
 
+    @Override
     @JsonProperty
     public Type getType()
     {
