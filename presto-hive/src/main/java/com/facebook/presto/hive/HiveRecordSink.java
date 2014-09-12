@@ -27,14 +27,20 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordSink;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
@@ -43,7 +49,7 @@ import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.io.Text;
@@ -59,6 +65,8 @@ import java.util.Properties;
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveType.columnTypeToHiveType;
 import static com.facebook.presto.hive.HiveType.hiveTypeNameGetter;
+import static com.facebook.presto.hive.HiveUtil.isArrayType;
+import static com.facebook.presto.hive.HiveUtil.isMapType;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -83,10 +91,10 @@ public class HiveRecordSink
     private final RecordWriter recordWriter;
     private final SettableStructObjectInspector tableInspector;
     private final List<StructField> structFields;
+    private final List<Type> columnTypes;
     private final Object row;
     private final int sampleWeightField;
-
-    private final List<Type> columnTypes;
+    private final ConnectorSession connectorSession;
 
     private int field = -1;
 
@@ -95,9 +103,10 @@ public class HiveRecordSink
         fieldCount = handle.getColumnNames().size();
 
         sampleWeightField = handle.getColumnNames().indexOf(SAMPLE_WEIGHT_COLUMN_NAME);
+        columnTypes = ImmutableList.copyOf(handle.getColumnTypes());
+        connectorSession = handle.getConnectorSession();
 
-        Iterable<HiveType> hiveTypes = transform(handle.getColumnTypes(), columnTypeToHiveType());
-        Iterable<String> hiveTypeNames = transform(hiveTypes, hiveTypeNameGetter());
+        Iterable<String> hiveTypeNames = transform(transform(handle.getColumnTypes(), columnTypeToHiveType()), hiveTypeNameGetter());
 
         Properties properties = new Properties();
         properties.setProperty(META_TABLE_COLUMNS, Joiner.on(',').join(handle.getColumnNames()));
@@ -106,11 +115,9 @@ public class HiveRecordSink
         serializer = initializeSerializer(conf, properties, new LazyBinaryColumnarSerDe());
         recordWriter = createRecordWriter(target, conf, properties, new RCFileOutputFormat());
 
-        tableInspector = getStandardStructObjectInspector(handle.getColumnNames(), getJavaObjectInspectors(hiveTypes));
+        tableInspector = getStandardStructObjectInspector(handle.getColumnNames(), getJavaObjectInspectors(columnTypes));
         structFields = ImmutableList.copyOf(tableInspector.getAllStructFieldRefs());
         row = tableInspector.create();
-
-        columnTypes = ImmutableList.copyOf(handle.getColumnTypes());
     }
 
     @Override
@@ -206,6 +213,11 @@ public class HiveRecordSink
         checkState(field != -1, "not in record");
         checkState(field < fieldCount, "all fields already set");
 
+        Type type = columnTypes.get(field);
+        if (isMapType(type) || isArrayType(type)) {
+            // Hive expects a List<>/Map<> to write, so decode the value
+            value = TypeJsonUtils.stackRepresentationToObject(connectorSession, Slices.utf8Slice((String) value), type);
+        }
         tableInspector.setStructFieldData(row, structFields.get(field), value);
         field++;
         if (field == sampleWeightField) {
@@ -235,37 +247,45 @@ public class HiveRecordSink
         }
     }
 
-    private static List<ObjectInspector> getJavaObjectInspectors(Iterable<HiveType> hiveTypes)
+    private static List<ObjectInspector> getJavaObjectInspectors(Iterable<Type> types)
     {
         ImmutableList.Builder<ObjectInspector> list = ImmutableList.builder();
-        for (HiveType type : hiveTypes) {
+        for (Type type : types) {
             list.add(getJavaObjectInspector(type));
         }
         return list.build();
     }
 
-    private static PrimitiveObjectInspector getJavaObjectInspector(HiveType type)
+    private static ObjectInspector getJavaObjectInspector(Type type)
     {
-        if (type.equals(HiveType.HIVE_BOOLEAN)) {
+        if (type.equals(BooleanType.BOOLEAN)) {
             return javaBooleanObjectInspector;
         }
-        else if (type.equals(HiveType.HIVE_LONG)) {
+        else if (type.equals(BigintType.BIGINT)) {
             return javaLongObjectInspector;
         }
-        else if (type.equals(HiveType.HIVE_DOUBLE)) {
+        else if (type.equals(DoubleType.DOUBLE)) {
             return javaDoubleObjectInspector;
         }
-        else if (type.equals(HiveType.HIVE_STRING)) {
+        else if (type.equals(VarcharType.VARCHAR)) {
             return javaStringObjectInspector;
         }
-        else if (type.equals(HiveType.HIVE_BINARY)) {
+        else if (type.equals(VarbinaryType.VARBINARY)) {
             return javaByteArrayObjectInspector;
         }
-        else if (type.equals(HiveType.HIVE_DATE)) {
+        else if (type.equals(DateType.DATE)) {
             return javaDateObjectInspector;
         }
-        else if (type.equals(HiveType.HIVE_TIMESTAMP)) {
+        else if (type.equals(TimestampType.TIMESTAMP)) {
             return javaTimestampObjectInspector;
+        }
+        else if (isArrayType(type)) {
+            return ObjectInspectorFactory.getStandardListObjectInspector(getJavaObjectInspector(type.getTypeParameters().get(0)));
+        }
+        else if (isMapType(type)) {
+            ObjectInspector keyObjectInspector = getJavaObjectInspector(type.getTypeParameters().get(0));
+            ObjectInspector valueObjectInspector = getJavaObjectInspector(type.getTypeParameters().get(1));
+            return ObjectInspectorFactory.getStandardMapObjectInspector(keyObjectInspector, valueObjectInspector);
         }
         throw new IllegalArgumentException("unsupported type: " + type);
     }

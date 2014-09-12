@@ -4,6 +4,14 @@ Migrating From Hive
 
 Presto uses ANSI SQL syntax and semantics, whereas Hive uses a SQL-like language called HiveQL which is loosely modeled after MySQL (which itself has many differences from ANSI SQL).
 
+Use ANSI SQL syntax for arrays
+------------------------------
+
+Arrays are indexed starting from 1, not from 0::
+
+    SELECT my_array[1] AS first_element
+    FROM ...
+
 Use ANSI SQL syntax for identifiers and strings
 -----------------------------------------------
 

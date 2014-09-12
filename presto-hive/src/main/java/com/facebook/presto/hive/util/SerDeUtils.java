@@ -65,7 +65,7 @@ public final class SerDeUtils
     {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator generator = new JsonFactory().createGenerator(out)) {
-            serializeObject(sessionTimeZone, generator, object, objectInspector);
+            serializeObject(sessionTimeZone, generator, object, objectInspector, null);
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
@@ -73,30 +73,30 @@ public final class SerDeUtils
         return out.toByteArray();
     }
 
-    private static void serializeObject(DateTimeZone sessionTimeZone, JsonGenerator generator, Object object, ObjectInspector inspector)
+    private static void serializeObject(DateTimeZone sessionTimeZone, JsonGenerator generator, Object object, ObjectInspector inspector, JsonContext context)
             throws IOException
     {
         switch (inspector.getCategory()) {
             case PRIMITIVE:
-                serializePrimitive(sessionTimeZone, generator, object, (PrimitiveObjectInspector) inspector);
+                serializePrimitive(sessionTimeZone, generator, object, (PrimitiveObjectInspector) inspector, context);
                 return;
             case LIST:
-                serializeList(sessionTimeZone, generator, object, (ListObjectInspector) inspector);
+                serializeList(sessionTimeZone, generator, object, (ListObjectInspector) inspector, context);
                 return;
             case MAP:
-                serializeMap(sessionTimeZone, generator, object, (MapObjectInspector) inspector);
+                serializeMap(sessionTimeZone, generator, object, (MapObjectInspector) inspector, context);
                 return;
             case STRUCT:
-                serializeStruct(sessionTimeZone, generator, object, (StructObjectInspector) inspector);
+                serializeStruct(sessionTimeZone, generator, object, (StructObjectInspector) inspector, context);
                 return;
             case UNION:
-                serializeUnion(sessionTimeZone, generator, object, (UnionObjectInspector) inspector);
+                serializeUnion(sessionTimeZone, generator, object, (UnionObjectInspector) inspector, context);
                 return;
         }
         throw new RuntimeException("Unknown object inspector category: " + inspector.getCategory());
     }
 
-    private static void serializePrimitive(DateTimeZone sessionTimeZone, JsonGenerator generator, Object object, PrimitiveObjectInspector inspector)
+    private static void serializePrimitive(DateTimeZone sessionTimeZone, JsonGenerator generator, Object object, PrimitiveObjectInspector inspector, JsonContext context)
             throws IOException
     {
         if (object == null) {
@@ -130,10 +130,20 @@ public final class SerDeUtils
                 generator.writeString(((StringObjectInspector) inspector).getPrimitiveJavaObject(object));
                 return;
             case DATE:
-                generator.writeString(formatDate(object, (DateObjectInspector) inspector));
+                if (context == JsonContext.JSON_STACK) {
+                    generator.writeNumber(formatDateAsLong(object, (DateObjectInspector) inspector));
+                }
+                else {
+                    generator.writeString(formatDate(object, (DateObjectInspector) inspector));
+                }
                 return;
             case TIMESTAMP:
-                generator.writeString(formatTimestamp(sessionTimeZone, object, (TimestampObjectInspector) inspector));
+                if (context == JsonContext.JSON_STACK) {
+                    generator.writeNumber(formatTimestampAsLong(object, (TimestampObjectInspector) inspector));
+                }
+                else {
+                    generator.writeString(formatTimestamp(sessionTimeZone, object, (TimestampObjectInspector) inspector));
+                }
                 return;
             case BINARY:
                 generator.writeBinary(((BinaryObjectInspector) inspector).getPrimitiveJavaObject(object));
@@ -142,7 +152,7 @@ public final class SerDeUtils
         throw new RuntimeException("Unknown primitive type: " + inspector.getPrimitiveCategory());
     }
 
-    private static void serializeList(DateTimeZone sessionTimeZone, JsonGenerator generator, Object object, ListObjectInspector inspector)
+    private static void serializeList(DateTimeZone sessionTimeZone, JsonGenerator generator, Object object, ListObjectInspector inspector, JsonContext context)
             throws IOException
     {
         List<?> list = inspector.getList(object);
@@ -155,12 +165,12 @@ public final class SerDeUtils
 
         generator.writeStartArray();
         for (Object element : list) {
-            serializeObject(sessionTimeZone, generator, element, elementInspector);
+            serializeObject(sessionTimeZone, generator, element, elementInspector, context == null ? JsonContext.JSON_STACK : context);
         }
         generator.writeEndArray();
     }
 
-    private static void serializeMap(DateTimeZone sessionTimeZone, JsonGenerator generator, Object object, MapObjectInspector inspector)
+    private static void serializeMap(DateTimeZone sessionTimeZone, JsonGenerator generator, Object object, MapObjectInspector inspector, JsonContext context)
             throws IOException
     {
         Map<?, ?> map = inspector.getMap(object);
@@ -177,13 +187,13 @@ public final class SerDeUtils
             // Hive skips map entries with null keys
             if (entry.getKey() != null) {
                 generator.writeFieldName(getPrimitiveAsString(sessionTimeZone, entry.getKey(), keyInspector));
-                serializeObject(sessionTimeZone, generator, entry.getValue(), valueInspector);
+                serializeObject(sessionTimeZone, generator, entry.getValue(), valueInspector, context == null ? JsonContext.JSON_STACK : context);
             }
         }
         generator.writeEndObject();
     }
 
-    private static void serializeStruct(DateTimeZone sessionTimeZone, JsonGenerator generator, Object object, StructObjectInspector inspector)
+    private static void serializeStruct(DateTimeZone sessionTimeZone, JsonGenerator generator, Object object, StructObjectInspector inspector, JsonContext context)
             throws IOException
     {
         if (object == null) {
@@ -191,15 +201,34 @@ public final class SerDeUtils
             return;
         }
 
+        if (context == JsonContext.JSON_STACK) {
+            // Write struct as a json encoded string
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            try (JsonGenerator structGenerator = new JsonFactory().createGenerator(out)) {
+                serializeStructHelper(sessionTimeZone, object, inspector, structGenerator);
+            }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
+            generator.writeString(out.toString());
+        }
+        else {
+            serializeStructHelper(sessionTimeZone, object, inspector, generator);
+        }
+    }
+
+    private static void serializeStructHelper(DateTimeZone sessionTimeZone, Object object, StructObjectInspector inspector, JsonGenerator generator)
+            throws IOException
+    {
         generator.writeStartObject();
         for (StructField field : inspector.getAllStructFieldRefs()) {
             generator.writeFieldName(field.getFieldName());
-            serializeObject(sessionTimeZone, generator, inspector.getStructFieldData(object, field), field.getFieldObjectInspector());
+            serializeObject(sessionTimeZone, generator, inspector.getStructFieldData(object, field), field.getFieldObjectInspector(), JsonContext.JSON);
         }
         generator.writeEndObject();
     }
 
-    private static void serializeUnion(DateTimeZone sessionTimeZone, JsonGenerator generator, Object object, UnionObjectInspector inspector)
+    private static void serializeUnion(DateTimeZone sessionTimeZone, JsonGenerator generator, Object object, UnionObjectInspector inspector, JsonContext context)
             throws IOException
     {
         if (object == null) {
@@ -208,9 +237,28 @@ public final class SerDeUtils
         }
 
         byte tag = inspector.getTag(object);
+        if (context == JsonContext.JSON_STACK) {
+            // Write union as a json encoded string
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            try (JsonGenerator unionGenerator = new JsonFactory().createGenerator(out)) {
+                serializeUnionHelper(sessionTimeZone, object, inspector, tag, unionGenerator);
+            }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
+            generator.writeString(out.toString());
+        }
+        else {
+            serializeUnionHelper(sessionTimeZone, object, inspector, tag, generator);
+        }
+    }
+
+    private static void serializeUnionHelper(DateTimeZone sessionTimeZone, Object object, UnionObjectInspector inspector, byte tag, JsonGenerator generator)
+            throws IOException
+    {
         generator.writeStartObject();
         generator.writeFieldName(String.valueOf(tag));
-        serializeObject(sessionTimeZone, generator, inspector.getField(object), inspector.getObjectInspectors().get(tag));
+        serializeObject(sessionTimeZone, generator, inspector.getField(object), inspector.getObjectInspectors().get(tag), JsonContext.JSON);
         generator.writeEndObject();
     }
 
@@ -255,6 +303,24 @@ public final class SerDeUtils
         return DATE_FORMATTER.withZone(DateTimeZone.UTC).print(utcMillis);
     }
 
+    private static long formatDateAsLong(Object object, DateObjectInspector inspector)
+    {
+        // handle broken ObjectInspectors
+        if (object instanceof DateWritable) {
+            int days = ((DateWritable) object).getDays();
+            return days * MILLIS_IN_DAY;
+        }
+
+        Date date = inspector.getPrimitiveJavaObject(object);
+        return date.getTime() - date.getTimezoneOffset() * 60 * 1000;
+    }
+
+    private static long formatTimestampAsLong(Object object, TimestampObjectInspector inspector)
+    {
+        Timestamp timestamp = getTimestamp(object, inspector);
+        return timestamp.getTime();
+    }
+
     private static String formatTimestamp(DateTimeZone sessionTimeZone, Object object, TimestampObjectInspector inspector)
     {
         Timestamp timestamp = getTimestamp(object, inspector);
@@ -268,5 +334,11 @@ public final class SerDeUtils
             return ((TimestampWritable) object).getTimestamp();
         }
         return inspector.getPrimitiveJavaObject(object);
+    }
+
+    public enum JsonContext
+    {
+        JSON_STACK,
+        JSON
     }
 }

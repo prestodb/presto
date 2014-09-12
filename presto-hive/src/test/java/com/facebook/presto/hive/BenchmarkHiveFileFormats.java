@@ -799,7 +799,7 @@ public final class BenchmarkHiveFileFormats
                     column.getColumnName(),
                     ordinal,
                     HiveType.getHiveType(inspector),
-                    getType(inspector).getName(),
+                    getType(inspector, TYPE_MANAGER).getName(),
                     ordinal,
                     false));
         }

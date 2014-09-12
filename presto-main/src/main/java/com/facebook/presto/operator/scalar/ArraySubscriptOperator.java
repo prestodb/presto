@@ -148,7 +148,8 @@ public class ArraySubscriptOperator
         private final long index;
         private final ExtractorType type;
 
-        private CacheKey(long index, ExtractorType type) {
+        private CacheKey(long index, ExtractorType type)
+        {
             this.index = index;
             this.type = type;
         }

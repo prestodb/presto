@@ -44,7 +44,7 @@ public class GenericHiveRecordCursorProvider
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager)
     {
-        RecordReader<?, ?> recordReader = HiveUtil.createRecordReader(clientId, configuration, path, start, length, schema, columns);
+        RecordReader<?, ?> recordReader = HiveUtil.createRecordReader(clientId, configuration, path, start, length, schema, columns, typeManager);
 
         return Optional.<HiveRecordCursor>of(new GenericHiveRecordCursor<>(
                 genericRecordReader(recordReader),

@@ -51,7 +51,7 @@ public class ColumnarTextHiveRecordCursorProvider
             return Optional.absent();
         }
 
-        RecordReader<?, ?> recordReader = HiveUtil.createRecordReader(clientId, configuration, path, start, length, schema, columns);
+        RecordReader<?, ?> recordReader = HiveUtil.createRecordReader(clientId, configuration, path, start, length, schema, columns, typeManager);
 
         return Optional.<HiveRecordCursor>of(new ColumnarTextHiveRecordCursor<>(
                 columnarTextRecordReader(recordReader),
