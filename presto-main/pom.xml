@@ -301,7 +301,6 @@
         <dependency>
             <groupId>io.airlift.tpch</groupId>
             <artifactId>tpch</artifactId>
-            <version>0.2</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
