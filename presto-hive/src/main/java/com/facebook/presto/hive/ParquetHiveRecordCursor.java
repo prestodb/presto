@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.shaded.com.google.common.io.Closeables;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -46,6 +47,8 @@ import parquet.io.api.RecordMaterializer;
 import parquet.schema.GroupType;
 import parquet.schema.MessageType;
 
+import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -57,6 +60,7 @@ import static com.facebook.presto.hive.HiveBooleanParser.isTrue;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
+import static com.facebook.presto.hive.util.SerDeUtils.JsonContext;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -346,7 +350,7 @@ class ParquetHiveRecordCursor
                     readContext.getReadSupportMetadata());
 
             TaskAttemptContext taskContext = ContextUtil.newTaskAttemptContext(configuration, new TaskAttemptID());
-            ParquetRecordReader<Void> realReader = new ParquetRecordReader<>(readSupport);
+            ParquetRecordReader<Void> realReader = new PrestoParquetRecordReader(readSupport);
             realReader.initialize(split, taskContext);
             return realReader;
         }
@@ -359,17 +363,44 @@ class ParquetHiveRecordCursor
         }
     }
 
+    public class PrestoParquetRecordReader
+            extends ParquetRecordReader<Void>
+    {
+        private final PrestoReadSupport readSupport;
+
+        public PrestoParquetRecordReader(PrestoReadSupport readSupport)
+        {
+            super(readSupport);
+            this.readSupport = readSupport;
+        }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            try {
+                super.close();
+            }
+            finally {
+                this.readSupport.close();
+            }
+        }
+    }
+
     public class PrestoReadSupport
             extends ReadSupport<Void>
+            implements Closeable
     {
         private final List<HiveColumnHandle> columns;
         private final List<Converter> converters;
+        private final List<Closeable> converterCloseables;
 
         public PrestoReadSupport(List<HiveColumnHandle> columns, MessageType messageType)
         {
             this.columns = columns;
 
             ImmutableList.Builder<Converter> converters = ImmutableList.builder();
+            ImmutableList.Builder<Closeable> closeableBuilder = ImmutableList.builder();
             for (int i = 0; i < columns.size(); i++) {
                 HiveColumnHandle column = columns.get(i);
                 if (!column.isPartitionKey() && column.getHiveColumnIndex() < messageType.getFieldCount()) {
@@ -381,11 +412,15 @@ class ParquetHiveRecordCursor
                         GroupType groupType = parquetType.asGroupType();
                         switch (groupType.getOriginalType()) {
                             case LIST:
-                                converters.add(new ParquetJsonColumnConverter(new ParquetListJsonConverter(groupType.getName(), null, groupType), i));
+                                ParquetJsonColumnConverter listConverter = new ParquetJsonColumnConverter(new ParquetListJsonConverter(groupType.getName(), null, groupType, null), i);
+                                converters.add(listConverter);
+                                closeableBuilder.add(listConverter);
                                 break;
                             case MAP:
                             case MAP_KEY_VALUE: // original versions of Parquet have map and entry swapped
-                                converters.add(new ParquetJsonColumnConverter(new ParquetMapJsonConverter(groupType.getName(), null, groupType), i));
+                                ParquetJsonColumnConverter mapConverter = new ParquetJsonColumnConverter(new ParquetMapJsonConverter(groupType.getName(), null, groupType, null), i);
+                                converters.add(mapConverter);
+                                closeableBuilder.add(mapConverter);
                                 break;
                             case UTF8:
                             case ENUM:
@@ -395,6 +430,7 @@ class ParquetHiveRecordCursor
                 }
             }
             this.converters = converters.build();
+            this.converterCloseables = closeableBuilder.build();
         }
 
         @Override
@@ -422,6 +458,15 @@ class ParquetHiveRecordCursor
                 ReadContext readContext)
         {
             return new ParquetRecordConverter(converters);
+        }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            for (Closeable closeable : converterCloseables) {
+                Closeables.closeQuietly(closeable);
+            }
         }
     }
 
@@ -559,6 +604,7 @@ class ParquetHiveRecordCursor
 
     public class ParquetJsonColumnConverter
             extends GroupConverter
+            implements Closeable
     {
         private final DynamicSliceOutput out = new DynamicSliceOutput(1024);
 
@@ -609,9 +655,17 @@ class ParquetHiveRecordCursor
             }
             slices[fieldIndex] = out.copySlice();
         }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            Closeables.closeQuietly(jsonConverter);
+        }
     }
 
     private interface JsonConverter
+            extends Closeable
     {
         void beforeValue(JsonGenerator generator);
 
@@ -624,22 +678,114 @@ class ParquetHiveRecordCursor
     {
     }
 
-    private static JsonConverter createJsonConverter(String columnName, String fieldName, parquet.schema.Type type)
+    private static JsonConverter createJsonConverter(String columnName, String fieldName, parquet.schema.Type type, JsonContext context)
     {
         if (type.isPrimitive()) {
             return new ParquetPrimitiveJsonConverter(fieldName);
         }
         else if (type.getOriginalType() == LIST) {
-            return new ParquetListJsonConverter(columnName, fieldName, type.asGroupType());
+            return new ParquetListJsonConverter(columnName, fieldName, type.asGroupType(), context);
         }
         else if (type.getOriginalType() == MAP) {
-            return new ParquetMapJsonConverter(columnName, fieldName, type.asGroupType());
+            return new ParquetMapJsonConverter(columnName, fieldName, type.asGroupType(), context);
         }
         else if (type.getOriginalType() == null) {
             // struct does not have an original type
-            return new ParquetStructJsonConverter(columnName, fieldName, type.asGroupType());
+            if (context == JsonContext.JSON_STACK) {
+                return new ParquetStructJsonStackConverter(columnName, fieldName, type.asGroupType());
+            }
+            else {
+                return new ParquetStructJsonConverter(columnName, fieldName, type.asGroupType());
+            }
         }
         throw new IllegalArgumentException("Unsupported type " + type);
+    }
+
+    private static class ParquetStructJsonStackConverter
+            extends GroupedJsonConverter
+    {
+        private final String fieldName;
+        private final List<JsonConverter> converters;
+        private JsonGenerator generator;
+        private ByteArrayOutputStream outputStream;
+        private JsonGenerator innerGenerator;
+
+        public ParquetStructJsonStackConverter(String columnName, String fieldName, GroupType entryType)
+        {
+            this.fieldName = fieldName;
+            ImmutableList.Builder<JsonConverter> converters = ImmutableList.builder();
+            for (parquet.schema.Type fieldType : entryType.getFields()) {
+                converters.add(createJsonConverter(columnName + "." + fieldType.getName(), fieldType.getName(), fieldType, JsonContext.JSON));
+            }
+            this.converters = converters.build();
+        }
+
+        @Override
+        public Converter getConverter(int fieldIndex)
+        {
+            return (Converter) converters.get(fieldIndex);
+        }
+
+        @Override
+        public void beforeValue(JsonGenerator generator)
+        {
+            this.generator = generator;
+            this.outputStream = new ByteArrayOutputStream();
+            try {
+                this.innerGenerator = new JsonFactory().createGenerator(this.outputStream);
+            }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
+            for (JsonConverter converter : converters) {
+                converter.beforeValue(innerGenerator);
+            }
+        }
+
+        @Override
+        public void start()
+        {
+            try {
+                writeFieldNameIfSet(generator, fieldName);
+                outputStream.reset();
+                innerGenerator.writeStartObject();
+            }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
+        }
+
+        @Override
+        public void end()
+        {
+            try {
+                innerGenerator.writeEndObject();
+                innerGenerator.flush();
+                // Use trim because there might be a space before the '{' because of data in the innerGenerator before reset() was called
+                generator.writeString(outputStream.toString().trim());
+            }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
+        }
+
+        @Override
+        public void afterValue()
+        {
+            for (JsonConverter converter : converters) {
+                converter.afterValue();
+            }
+        }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            for (JsonConverter converter : converters) {
+                Closeables.closeQuietly(converter);
+            }
+            Closeables.closeQuietly(innerGenerator);
+        }
     }
 
     private static class ParquetStructJsonConverter
@@ -654,7 +800,7 @@ class ParquetHiveRecordCursor
             this.fieldName = fieldName;
             ImmutableList.Builder<JsonConverter> converters = ImmutableList.builder();
             for (parquet.schema.Type fieldType : entryType.getFields()) {
-                converters.add(createJsonConverter(columnName + "." + fieldType.getName(), fieldType.getName(), fieldType));
+                converters.add(createJsonConverter(columnName + "." + fieldType.getName(), fieldType.getName(), fieldType, JsonContext.JSON));
             }
             this.converters = converters.build();
         }
@@ -704,6 +850,15 @@ class ParquetHiveRecordCursor
                 converter.afterValue();
             }
         }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            for (JsonConverter converter : converters) {
+                Closeables.closeQuietly(converter);
+            }
+        }
     }
 
     private static class ParquetListJsonConverter
@@ -713,7 +868,7 @@ class ParquetHiveRecordCursor
         private final String fieldName;
         private JsonGenerator generator;
 
-        public ParquetListJsonConverter(String columnName, String fieldName, GroupType listType)
+        public ParquetListJsonConverter(String columnName, String fieldName, GroupType listType, JsonContext context)
         {
             this.fieldName = fieldName;
 
@@ -722,7 +877,7 @@ class ParquetHiveRecordCursor
                     columnName,
                     listType.getFieldCount());
 
-            elementConverter = new ParquetListEntryJsonConverter(fieldName, listType.getType(0).asGroupType());
+            elementConverter = new ParquetListEntryJsonConverter(fieldName, listType.getType(0).asGroupType(), context);
         }
 
         @Override
@@ -769,6 +924,13 @@ class ParquetHiveRecordCursor
         {
             elementConverter.afterValue();
         }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            Closeables.closeQuietly(elementConverter);
+        }
     }
 
     private static class ParquetListEntryJsonConverter
@@ -777,7 +939,7 @@ class ParquetHiveRecordCursor
     {
         private final JsonConverter elementConverter;
 
-        public ParquetListEntryJsonConverter(String columnName, GroupType elementType)
+        public ParquetListEntryJsonConverter(String columnName, GroupType elementType, JsonContext context)
         {
             checkArgument(elementType.getOriginalType() == null,
                     "Expected LIST column '%s' field to be type STRUCT, but is %s",
@@ -794,7 +956,7 @@ class ParquetHiveRecordCursor
                     columnName,
                     elementType.getFieldName(0));
 
-            elementConverter = createJsonConverter(columnName + ".element", null, elementType.getType(0));
+            elementConverter = createJsonConverter(columnName + ".element", null, elementType.getType(0), context == null ? JsonContext.JSON_STACK : context);
         }
 
         @Override
@@ -827,6 +989,13 @@ class ParquetHiveRecordCursor
         {
             elementConverter.afterValue();
         }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            Closeables.closeQuietly(elementConverter);
+        }
     }
 
     private static class ParquetMapJsonConverter
@@ -836,7 +1005,7 @@ class ParquetHiveRecordCursor
         private final String fieldName;
         private JsonGenerator generator;
 
-        public ParquetMapJsonConverter(String columnName, String fieldName, GroupType mapType)
+        public ParquetMapJsonConverter(String columnName, String fieldName, GroupType mapType, JsonContext context)
         {
             this.fieldName = fieldName;
 
@@ -856,7 +1025,7 @@ class ParquetHiveRecordCursor
                         entryType);
             }
 
-            entryConverter = new ParquetMapEntryJsonConverter(columnName + ".entry", entryType.asGroupType());
+            entryConverter = new ParquetMapEntryJsonConverter(columnName + ".entry", entryType.asGroupType(), context);
         }
 
         @Override
@@ -903,6 +1072,13 @@ class ParquetHiveRecordCursor
         {
             entryConverter.afterValue();
         }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            Closeables.closeQuietly(entryConverter);
+        }
     }
 
     private static class ParquetMapEntryJsonConverter
@@ -912,7 +1088,7 @@ class ParquetHiveRecordCursor
         private final JsonConverter keyConverter;
         private final JsonConverter valueConverter;
 
-        public ParquetMapEntryJsonConverter(String columnName, GroupType entryType)
+        public ParquetMapEntryJsonConverter(String columnName, GroupType entryType, JsonContext context)
         {
             // original version of parquet used null for entry due to a bug
             if (entryType.getOriginalType() != null) {
@@ -942,7 +1118,7 @@ class ParquetHiveRecordCursor
                     entryGroupType.getType(0));
 
             keyConverter = new ParquetMapKeyJsonConverter();
-            valueConverter = createJsonConverter(columnName + ".value", null, entryGroupType.getFields().get(1));
+            valueConverter = createJsonConverter(columnName + ".value", null, entryGroupType.getFields().get(1), context == null ? JsonContext.JSON_STACK : context);
         }
 
         @Override
@@ -979,6 +1155,14 @@ class ParquetHiveRecordCursor
         {
             keyConverter.afterValue();
             valueConverter.afterValue();
+        }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            Closeables.closeQuietly(keyConverter);
+            Closeables.closeQuietly(valueConverter);
         }
     }
 
@@ -1125,6 +1309,12 @@ class ParquetHiveRecordCursor
                 throw Throwables.propagate(e);
             }
         }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+        }
     }
 
     private static class ParquetMapKeyJsonConverter
@@ -1246,6 +1436,12 @@ class ParquetHiveRecordCursor
             catch (IOException e) {
                 throw Throwables.propagate(e);
             }
+        }
+
+        @Override
+        public void close()
+                throws IOException
+        {
         }
     }
 

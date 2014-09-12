@@ -48,6 +48,8 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -1339,7 +1341,7 @@ public abstract class AbstractTestHiveClient
                         assertNull(row.getField(index));
                     }
                     else {
-                        assertEquals(row.getField(index), "{\"test key\":\"test value\"}");
+                        assertEquals(row.getField(index), ImmutableMap.of("test key", "test value"));
                     }
                 }
 
@@ -1350,7 +1352,7 @@ public abstract class AbstractTestHiveClient
                         assertNull(row.getField(index));
                     }
                     else {
-                        assertEquals(row.getField(index), "[\"abc\",\"xyz\",\"data\"]");
+                        assertEquals(row.getField(index), ImmutableList.of("abc", "xyz", "data"));
                     }
                 }
 
@@ -1361,10 +1363,9 @@ public abstract class AbstractTestHiveClient
                         assertNull(row.getField(index));
                     }
                     else {
-                        String expectedJson = "[" +
-                                "{\"s_string\":\"test abc\",\"s_double\":0.1}," +
-                                "{\"s_string\":\"test xyz\",\"s_double\":0.2}]";
-                        assertEquals(row.getField(index), expectedJson);
+                        String expectedJson1 = "{\"s_string\":\"test abc\",\"s_double\":0.1}";
+                        String expectedJson2 = "{\"s_string\":\"test xyz\",\"s_double\":0.2}";
+                        assertEquals(row.getField(index), ImmutableList.of(expectedJson1, expectedJson2));
                     }
                 }
 
@@ -1375,10 +1376,9 @@ public abstract class AbstractTestHiveClient
                         assertNull(row.getField(index));
                     }
                     else {
-                        String expectedJson = "{\"1\":[" +
-                                "{\"s_string\":\"test abc\",\"s_double\":0.1}," +
-                                "{\"s_string\":\"test xyz\",\"s_double\":0.2}]}";
-                        assertEquals(row.getField(index), expectedJson);
+                        String expectedJson1 = "{\"s_string\":\"test abc\",\"s_double\":0.1}";
+                        String expectedJson2 = "{\"s_string\":\"test xyz\",\"s_double\":0.2}";
+                        assertEquals(row.getField(index), ImmutableMap.of(1L, ImmutableList.of(expectedJson1, expectedJson2)));
                     }
                 }
 
@@ -1495,6 +1495,12 @@ public abstract class AbstractTestHiveClient
                 }
                 else if (DATE.equals(column.getType())) {
                     assertInstanceOf(value, SqlDate.class);
+                }
+                else if (column.getType() instanceof ArrayType) {
+                    assertInstanceOf(value, List.class);
+                }
+                else if (column.getType() instanceof MapType) {
+                    assertInstanceOf(value, Map.class);
                 }
                 else {
                     fail("Unknown primitive type " + columnIndex);

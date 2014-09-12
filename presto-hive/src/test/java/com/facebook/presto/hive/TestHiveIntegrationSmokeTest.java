@@ -70,4 +70,40 @@ public class TestHiveIntegrationSmokeTest
 
         assertFalse(queryRunner.tableExists(getSession(), "test_types_table"));
     }
+
+    // TODO: These should be moved to another class, when more connectors support arrays
+    @Test
+    public void testArrays()
+            throws Exception
+    {
+        assertQuery("CREATE TABLE tmp_array1 AS SELECT ARRAY[1, 2, NULL] AS col", "SELECT 1");
+        assertQuery("SELECT col[2] FROM tmp_array1", "SELECT 2");
+        assertQuery("SELECT col[3] FROM tmp_array1", "SELECT NULL");
+
+        assertQuery("CREATE TABLE tmp_array2 AS SELECT ARRAY[1.0, 2.5, 3.5] AS col", "SELECT 1");
+        assertQuery("SELECT col[2] FROM tmp_array2", "SELECT 2.5");
+
+        assertQuery("CREATE TABLE tmp_array3 AS SELECT ARRAY['puppies', 'kittens', NULL] AS col", "SELECT 1");
+        assertQuery("SELECT col[2] FROM tmp_array3", "SELECT 'kittens'");
+        assertQuery("SELECT col[3] FROM tmp_array3", "SELECT NULL");
+
+        assertQuery("CREATE TABLE tmp_array4 AS SELECT ARRAY[TRUE, NULL] AS col", "SELECT 1");
+        assertQuery("SELECT col[1] FROM tmp_array4", "SELECT TRUE");
+        assertQuery("SELECT col[2] FROM tmp_array4", "SELECT NULL");
+
+        assertQuery("CREATE TABLE tmp_array5 AS SELECT ARRAY[ARRAY[1, 2], NULL, ARRAY[3, 4]] AS col", "SELECT 1");
+        assertQuery("SELECT col[1][2] FROM tmp_array5", "SELECT 2");
+
+        assertQuery("CREATE TABLE tmp_array6 AS SELECT ARRAY[ARRAY['\"hi\"'], NULL, ARRAY['puppies']] AS col", "SELECT 1");
+        assertQuery("SELECT col[1][1] FROM tmp_array6", "SELECT '\"hi\"'");
+        assertQuery("SELECT col[3][1] FROM tmp_array6", "SELECT 'puppies'");
+    }
+
+    @Test
+    public void testTemporalArrays()
+            throws Exception
+    {
+        assertQuery("CREATE TABLE tmp_array7 AS SELECT ARRAY[DATE '2014-09-30'] AS col", "SELECT 1");
+        assertQuery("CREATE TABLE tmp_array8 AS SELECT ARRAY[TIMESTAMP '2001-08-22 03:04:05.321'] AS col", "SELECT 1");
+    }
 }

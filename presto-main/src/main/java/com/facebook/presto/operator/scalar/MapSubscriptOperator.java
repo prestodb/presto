@@ -48,8 +48,8 @@ public class MapSubscriptOperator
 {
     public static final MapSubscriptOperator MAP_SUBSCRIPT = new MapSubscriptOperator();
     private static final LoadingCache<CacheKey, JsonExtractor<?>> cache;
-    
-    static 
+
+    static
     {
         cache = CacheBuilder.newBuilder().expireAfterAccess(1, TimeUnit.MINUTES).maximumSize(1000).build(new CacheLoader<CacheKey, JsonExtractor<?>>() {
             @Override
@@ -205,7 +205,7 @@ public class MapSubscriptOperator
         JsonExtractor<?> extractor = cache.getUnchecked(new CacheKey(key.toString(), type));
         return (T) JsonExtract.extract(map, extractor);
     }
-    
+
     private static class CacheKey
     {
         private final String key;
@@ -257,7 +257,7 @@ public class MapSubscriptOperator
             return result;
         }
     }
-    
+
     private enum ExtractorType
     {
         LONG(new LongJsonExtractor()),

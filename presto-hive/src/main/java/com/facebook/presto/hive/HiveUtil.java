@@ -15,6 +15,9 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
@@ -62,6 +65,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnIndexGetter;
 import static com.facebook.presto.hive.HiveColumnHandle.isPartitionKeyPredicate;
 import static com.facebook.presto.hive.HiveType.getSupportedHiveType;
 import static com.facebook.presto.hive.RetryDriver.retry;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
@@ -99,14 +103,14 @@ public final class HiveUtil
     {
     }
 
-    public static RecordReader<?, ?> createRecordReader(String clientId, Configuration configuration, Path path, long start, long length, Properties schema, List<HiveColumnHandle> columns)
+    public static RecordReader<?, ?> createRecordReader(String clientId, Configuration configuration, Path path, long start, long length, Properties schema, List<HiveColumnHandle> columns, TypeManager typeManager)
     {
         // determine which hive columns we will read
         List<HiveColumnHandle> readColumns = ImmutableList.copyOf(filter(columns, not(isPartitionKeyPredicate())));
         if (readColumns.isEmpty()) {
             // for count(*) queries we will have "no" columns we want to read, but since hive doesn't
             // support no columns (it will read all columns instead), we must choose a single column
-            HiveColumnHandle primitiveColumn = getFirstPrimitiveColumn(clientId, schema);
+            HiveColumnHandle primitiveColumn = getFirstPrimitiveColumn(clientId, schema, typeManager);
             readColumns = ImmutableList.of(primitiveColumn);
         }
         ArrayList<Integer> readHiveColumnIndexes = new ArrayList<>(transform(readColumns, hiveColumnIndexGetter()));
@@ -148,7 +152,7 @@ public final class HiveUtil
         }
     }
 
-    static HiveColumnHandle getFirstPrimitiveColumn(String clientId, Properties schema)
+    static HiveColumnHandle getFirstPrimitiveColumn(String clientId, Properties schema, TypeManager typeManager)
     {
         List<? extends StructField> allStructFieldRefs = getTableObjectInspector(schema).getAllStructFieldRefs();
         checkArgument(!allStructFieldRefs.isEmpty(), "Table doesn't have any columns");
@@ -157,18 +161,18 @@ public final class HiveUtil
         for (StructField field : allStructFieldRefs) {
             ObjectInspector inspector = field.getFieldObjectInspector();
             if (inspector.getCategory() == ObjectInspector.Category.PRIMITIVE) {
-                return createHiveColumnHandle(clientId, index, field, inspector);
+                return createHiveColumnHandle(clientId, index, field, inspector, typeManager);
             }
             index++;
         }
 
         StructField field = allStructFieldRefs.get(0);
-        return createHiveColumnHandle(clientId, index, field, field.getFieldObjectInspector());
+        return createHiveColumnHandle(clientId, index, field, field.getFieldObjectInspector(), typeManager);
     }
 
-    private static HiveColumnHandle createHiveColumnHandle(String clientId, int index, StructField field, ObjectInspector inspector)
+    private static HiveColumnHandle createHiveColumnHandle(String clientId, int index, StructField field, ObjectInspector inspector, TypeManager typeManager)
     {
-        return new HiveColumnHandle(clientId, field.getFieldName(), index, getSupportedHiveType(inspector), getType(inspector).getName(), index, false);
+        return new HiveColumnHandle(clientId, field.getFieldName(), index, getSupportedHiveType(inspector), getType(inspector, typeManager).getName(), index, false);
     }
 
     static InputFormat<?, ?> getInputFormat(Configuration configuration, Properties schema, boolean symlinkTarget)
@@ -349,5 +353,20 @@ public final class HiveUtil
         data = data.substring(VIEW_PREFIX.length());
         data = data.substring(0, data.length() - VIEW_SUFFIX.length());
         return new String(base64().decode(data), UTF_8);
+    }
+
+    public static boolean isArrayType(Type type)
+    {
+        return parseTypeSignature(type.getName()).getBase().equals(StandardTypes.ARRAY);
+    }
+
+    public static boolean isMapType(Type type)
+    {
+        return parseTypeSignature(type.getName()).getBase().equals(StandardTypes.MAP);
+    }
+
+    public static boolean isArrayOrMap(HiveType hiveType)
+    {
+        return hiveType.getCategory() == Category.LIST || hiveType.getCategory() == Category.MAP;
     }
 }

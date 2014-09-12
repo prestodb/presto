@@ -42,6 +42,7 @@ import com.facebook.presto.spi.SerializableNativeValue;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.ViewNotFoundException;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Function;
@@ -74,11 +75,15 @@ import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
+
+import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -393,7 +398,9 @@ public class HiveClient
             // ignore unsupported types rather than failing
             HiveType hiveType = getHiveType(field.getFieldObjectInspector());
             if (hiveType != null && (includeSampleWeight || !field.getFieldName().equals(SAMPLE_WEIGHT_COLUMN_NAME))) {
-                columns.add(new HiveColumnHandle(connectorId, field.getFieldName(), hiveColumnIndex, hiveType, getType(field.getFieldObjectInspector()).getName(), hiveColumnIndex, false));
+                Type type = getType(field.getFieldObjectInspector(), typeManager);
+                checkNotNull(type, "Unsupported hive type: %s", field.getFieldObjectInspector().getTypeName());
+                columns.add(new HiveColumnHandle(connectorId, field.getFieldName(), hiveColumnIndex, hiveType, type.getName(), hiveColumnIndex, false));
             }
             hiveColumnIndex++;
         }
@@ -438,16 +445,28 @@ public class HiveClient
         }
     }
 
-    public static Type getType(ObjectInspector fieldInspector)
+    @Nullable
+    public static Type getType(ObjectInspector fieldInspector, TypeManager typeManager)
     {
         switch (fieldInspector.getCategory()) {
             case PRIMITIVE:
                 PrimitiveCategory primitiveCategory = ((PrimitiveObjectInspector) fieldInspector).getPrimitiveCategory();
                 return getPrimitiveType(primitiveCategory);
             case MAP:
-                return VARCHAR;
+                MapObjectInspector mapObjectInspector = checkType(fieldInspector, MapObjectInspector.class, "fieldInspector");
+                Type keyType = getType(mapObjectInspector.getMapKeyObjectInspector(), typeManager);
+                Type valueType = getType(mapObjectInspector.getMapValueObjectInspector(), typeManager);
+                if (keyType == null || valueType == null) {
+                    return null;
+                }
+                return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(keyType.getName(), valueType.getName()));
             case LIST:
-                return VARCHAR;
+                ListObjectInspector listObjectInspector = checkType(fieldInspector, ListObjectInspector.class, "fieldInspector");
+                Type elementType = getType(listObjectInspector.getListElementObjectInspector(), typeManager);
+                if (elementType == null) {
+                    return null;
+                }
+                return typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(elementType.getName()));
             case STRUCT:
                 return VARCHAR;
             default:
@@ -614,7 +633,8 @@ public class HiveClient
                 columnTypes.build(),
                 tableMetadata.getOwner(),
                 targetPath.toString(),
-                targetPath.toString());
+                targetPath.toString(),
+                session);
         }
 
         // use a per-user temporary directory to avoid permission problems
@@ -634,7 +654,8 @@ public class HiveClient
                 columnTypes.build(),
                 tableMetadata.getOwner(),
                 targetPath.toString(),
-                temporaryPath.toString());
+                temporaryPath.toString(),
+                session);
     }
 
     @Override
