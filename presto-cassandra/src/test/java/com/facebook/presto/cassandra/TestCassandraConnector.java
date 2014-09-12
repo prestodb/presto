@@ -53,6 +53,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -220,6 +221,9 @@ public class TestCassandraConnector
                     cursor.getBoolean(columnIndex);
                 }
                 else if (BIGINT.equals(type)) {
+                    cursor.getLong(columnIndex);
+                }
+                else if (TIMESTAMP.equals(type)) {
                     cursor.getLong(columnIndex);
                 }
                 else if (DOUBLE.equals(type)) {
