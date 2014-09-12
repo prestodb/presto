@@ -8,5 +8,7 @@ Connectors
     connector/cassandra
     connector/hive
     connector/jmx
+    connector/mysql
+    connector/postgresql
     connector/sys
     connector/tpch
