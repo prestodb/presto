@@ -23,6 +23,7 @@ import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.spi.type.TimestampType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
@@ -57,7 +58,7 @@ public enum CassandraType
     INET(VarcharType.VARCHAR, InetAddress.class),
     INT(BigintType.BIGINT, Integer.class),
     TEXT(VarcharType.VARCHAR, String.class),
-    TIMESTAMP(BigintType.BIGINT, Date.class),
+    TIMESTAMP(TimestampType.TIMESTAMP, Date.class),
     UUID(VarcharType.VARCHAR, java.util.UUID.class),
     TIMEUUID(VarcharType.VARCHAR, java.util.UUID.class),
     VARCHAR(VarcharType.VARCHAR, String.class),

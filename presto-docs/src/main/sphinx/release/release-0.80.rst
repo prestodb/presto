@@ -22,6 +22,7 @@ Cassandra Changes
 -----------------
 
 * Update Cassandra driver to 2.1.0.
+* Map Cassandra ``TIMESTAMP`` type to Presto ``TIMESTAMP`` type.
 
 General Changes
 ---------------
