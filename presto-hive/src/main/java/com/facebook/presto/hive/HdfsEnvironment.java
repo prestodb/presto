@@ -38,7 +38,7 @@ public class HdfsEnvironment
     public Configuration getConfiguration(Path path)
     {
         URI uri = path.toUri();
-        if ("file".equals(uri.getScheme())) {
+        if ("file".equals(uri.getScheme()) || "maprfs".equals(uri.getScheme())) {
             return new Configuration();
         }
 
