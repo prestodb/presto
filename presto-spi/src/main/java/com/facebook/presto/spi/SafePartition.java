@@ -11,19 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.example;
+package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.SafeRecordSetProvider;
-
-import java.util.List;
-
-public class ExampleRecordSetProvider
-        implements SafeRecordSetProvider<ExampleColumnHandle, ExampleSplit>
+public interface SafePartition<CH extends ConnectorColumnHandle>
 {
-    @Override
-    public RecordSet getRecordSet(ExampleSplit split, List<ExampleColumnHandle> columns)
-    {
-        return new ExampleRecordSet(split, columns);
-    }
+    /**
+     * Get the unique id of this partition within the scope of the table.
+     */
+    String getPartitionId();
+
+    /**
+     * Gets the TupleDomain that provides a bound on the tuples within this Partition.
+     */
+    TupleDomain<CH> getTupleDomain();
 }

@@ -11,19 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.example;
-
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.SafeRecordSetProvider;
+package com.facebook.presto.spi;
 
 import java.util.List;
 
-public class ExampleRecordSetProvider
-        implements SafeRecordSetProvider<ExampleColumnHandle, ExampleSplit>
+public interface SafeRecordSetProvider<CH extends ConnectorColumnHandle, S extends ConnectorSplit>
 {
-    @Override
-    public RecordSet getRecordSet(ExampleSplit split, List<ExampleColumnHandle> columns)
-    {
-        return new ExampleRecordSet(split, columns);
-    }
+    RecordSet getRecordSet(S split, List<CH> columns);
 }

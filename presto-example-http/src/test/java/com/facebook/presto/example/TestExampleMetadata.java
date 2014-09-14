@@ -43,7 +43,7 @@ public class TestExampleMetadata
 {
     private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
     private static final String CONNECTOR_ID = "TEST";
-    private static final ExampleTableHandle NUMBERS_TABLE_HANDLE = new ExampleTableHandle(CONNECTOR_ID, "example", "numbers");
+    private static final ExampleTableHandle NUMBERS_TABLE_HANDLE = new ExampleTableHandle("example", "numbers");
     private ExampleMetadata metadata;
     private URI metadataUri;
 
@@ -55,7 +55,7 @@ public class TestExampleMetadata
         assertNotNull(metadataUrl, "metadataUrl is null");
         metadataUri = metadataUrl.toURI();
         ExampleClient client = new ExampleClient(new ExampleConfig().setMetadata(metadataUri), CATALOG_CODEC);
-        metadata = new ExampleMetadata(new ExampleConnectorId(CONNECTOR_ID), client);
+        metadata = new ExampleMetadata(client);
     }
 
     @Test
@@ -78,18 +78,18 @@ public class TestExampleMetadata
     {
         // known table
         assertEquals(metadata.getColumnHandles(NUMBERS_TABLE_HANDLE), ImmutableMap.of(
-                "text", new ExampleColumnHandle(CONNECTOR_ID, "text", VARCHAR, 0),
-                "value", new ExampleColumnHandle(CONNECTOR_ID, "value", BIGINT, 1)));
+                "text", new ExampleColumnHandle("text", VARCHAR, 0),
+                "value", new ExampleColumnHandle("value", BIGINT, 1)));
 
         // unknown table
         try {
-            metadata.getColumnHandles(new ExampleTableHandle(CONNECTOR_ID, "unknown", "unknown"));
+            metadata.getColumnHandles(new ExampleTableHandle("unknown", "unknown"));
             fail("Expected getColumnHandle of unknown table to throw a TableNotFoundException");
         }
         catch (TableNotFoundException expected) {
         }
         try {
-            metadata.getColumnHandles(new ExampleTableHandle(CONNECTOR_ID, "example", "unknown"));
+            metadata.getColumnHandles(new ExampleTableHandle("example", "unknown"));
             fail("Expected getColumnHandle of unknown table to throw a TableNotFoundException");
         }
         catch (TableNotFoundException expected) {
@@ -107,9 +107,9 @@ public class TestExampleMetadata
                 new ColumnMetadata("value", BIGINT, 1, false)));
 
         // unknown tables should produce null
-        assertNull(metadata.getTableMetadata(new ExampleTableHandle(CONNECTOR_ID, "unknown", "unknown")));
-        assertNull(metadata.getTableMetadata(new ExampleTableHandle(CONNECTOR_ID, "example", "unknown")));
-        assertNull(metadata.getTableMetadata(new ExampleTableHandle(CONNECTOR_ID, "unknown", "numbers")));
+        assertNull(metadata.getTableMetadata(new ExampleTableHandle("unknown", "unknown")));
+        assertNull(metadata.getTableMetadata(new ExampleTableHandle("example", "unknown")));
+        assertNull(metadata.getTableMetadata(new ExampleTableHandle("unknown", "numbers")));
     }
 
     @Test
@@ -135,7 +135,7 @@ public class TestExampleMetadata
     @Test
     public void getColumnMetadata()
     {
-        assertEquals(metadata.getColumnMetadata(NUMBERS_TABLE_HANDLE, new ExampleColumnHandle(CONNECTOR_ID, "text", VARCHAR, 0)),
+        assertEquals(metadata.getColumnMetadata(NUMBERS_TABLE_HANDLE, new ExampleColumnHandle("text", VARCHAR, 0)),
                 new ColumnMetadata("text", VARCHAR, 0, false));
 
         // example connector assumes that the table handle and column handle are

@@ -22,7 +22,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestExampleTableHandle
 {
-    private final ExampleTableHandle tableHandle = new ExampleTableHandle("connectorId", "schemaName", "tableName");
+    private final ExampleTableHandle tableHandle = new ExampleTableHandle("schemaName", "tableName");
 
     @Test
     public void testJsonRoundTrip()
@@ -37,10 +37,8 @@ public class TestExampleTableHandle
     public void testEquivalence()
     {
         EquivalenceTester.equivalenceTester()
-                .addEquivalentGroup(new ExampleTableHandle("connector", "schema", "table"), new ExampleTableHandle("connector", "schema", "table"))
-                .addEquivalentGroup(new ExampleTableHandle("connectorX", "schema", "table"), new ExampleTableHandle("connectorX", "schema", "table"))
-                .addEquivalentGroup(new ExampleTableHandle("connector", "schemaX", "table"), new ExampleTableHandle("connector", "schemaX", "table"))
-                .addEquivalentGroup(new ExampleTableHandle("connector", "schema", "tableX"), new ExampleTableHandle("connector", "schema", "tableX"))
+                .addEquivalentGroup(new ExampleTableHandle("schema", "table"), new ExampleTableHandle("schema", "table"))
+                .addEquivalentGroup(new ExampleTableHandle("schemaX", "table"), new ExampleTableHandle("schemaX", "table"))
                 .check();
     }
 }

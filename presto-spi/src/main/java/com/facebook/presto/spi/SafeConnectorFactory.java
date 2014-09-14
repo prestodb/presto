@@ -11,19 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.example;
+package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.SafeRecordSetProvider;
+import java.util.Map;
 
-import java.util.List;
-
-public class ExampleRecordSetProvider
-        implements SafeRecordSetProvider<ExampleColumnHandle, ExampleSplit>
+public interface SafeConnectorFactory<
+        TH extends ConnectorTableHandle,
+        CH extends ConnectorColumnHandle,
+        S extends ConnectorSplit,
+        IH extends ConnectorIndexHandle,
+        OTH extends ConnectorOutputTableHandle,
+        ITH extends ConnectorInsertTableHandle,
+        P extends ConnectorPartition>
 {
-    @Override
-    public RecordSet getRecordSet(ExampleSplit split, List<ExampleColumnHandle> columns)
-    {
-        return new ExampleRecordSet(split, columns);
-    }
+    String getName();
+
+    SafeConnector<TH, CH, S, IH, OTH, ITH, P> create(Map<String, String> config);
 }

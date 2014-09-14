@@ -11,19 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.example;
-
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.SafeRecordSetProvider;
+package com.facebook.presto.spi;
 
 import java.util.List;
+import java.util.Set;
 
-public class ExampleRecordSetProvider
-        implements SafeRecordSetProvider<ExampleColumnHandle, ExampleSplit>
+public interface SafeIndexResolver<TH extends ConnectorTableHandle, CH extends ConnectorColumnHandle, IH extends ConnectorIndexHandle>
 {
-    @Override
-    public RecordSet getRecordSet(ExampleSplit split, List<ExampleColumnHandle> columns)
-    {
-        return new ExampleRecordSet(split, columns);
-    }
+    // TODO: should we allow partial index resolutions? (e.g. only index on colA when asking for an index on colA and colB)
+    ConnectorResolvedIndex resolveIndex(TH tableHandle, Set<CH> indexableColumns, TupleDomain<CH> tupleDomain);
+
+    Index getIndex(IH indexHandle, List<CH> lookupSchema, List<CH> outputSchema);
 }

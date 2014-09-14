@@ -25,25 +25,16 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public final class ExampleTableHandle
         implements ConnectorTableHandle
 {
-    private final String connectorId;
     private final String schemaName;
     private final String tableName;
 
     @JsonCreator
     public ExampleTableHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
         this.schemaName = checkNotNull(schemaName, "schemaName is null");
         this.tableName = checkNotNull(tableName, "tableName is null");
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -66,7 +57,7 @@ public final class ExampleTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(connectorId, schemaName, tableName);
+        return Objects.hashCode(schemaName, tableName);
     }
 
     @Override
@@ -80,14 +71,13 @@ public final class ExampleTableHandle
         }
 
         ExampleTableHandle other = (ExampleTableHandle) obj;
-        return Objects.equal(this.connectorId, other.connectorId) &&
-                Objects.equal(this.schemaName, other.schemaName) &&
+        return Objects.equal(this.schemaName, other.schemaName) &&
                 Objects.equal(this.tableName, other.tableName);
     }
 
     @Override
     public String toString()
     {
-        return Joiner.on(":").join(connectorId, schemaName, tableName);
+        return Joiner.on(":").join(schemaName, tableName);
     }
 }

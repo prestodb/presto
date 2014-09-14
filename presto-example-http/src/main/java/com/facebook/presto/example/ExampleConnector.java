@@ -13,72 +13,46 @@
  */
 package com.facebook.presto.example;
 
-import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexResolver;
-import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
-import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.ConnectorIndexHandle;
+import com.facebook.presto.spi.ReadOnlySafeConnector;
 
 import javax.inject.Inject;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ExampleConnector
-    implements Connector
+        extends ReadOnlySafeConnector<ExampleTableHandle, ExampleColumnHandle, ExampleSplit, ConnectorIndexHandle, ExamplePartition>
 {
     private final ExampleMetadata metadata;
     private final ExampleSplitManager splitManager;
     private final ExampleRecordSetProvider recordSetProvider;
-    private final ExampleHandleResolver handleResolver;
 
     @Inject
     public ExampleConnector(
             ExampleMetadata metadata,
             ExampleSplitManager splitManager,
-            ExampleRecordSetProvider recordSetProvider,
-            ExampleHandleResolver handleResolver)
+            ExampleRecordSetProvider recordSetProvider)
     {
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
         this.recordSetProvider = checkNotNull(recordSetProvider, "recordSetProvider is null");
-        this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
     }
 
     @Override
-    public ConnectorMetadata getMetadata()
+    public ExampleMetadata getMetadata()
     {
         return metadata;
     }
 
     @Override
-    public ConnectorSplitManager getSplitManager()
+    public ExampleSplitManager getSplitManager()
     {
         return splitManager;
     }
 
     @Override
-    public ConnectorRecordSetProvider getRecordSetProvider()
+    public ExampleRecordSetProvider getRecordSetProvider()
     {
         return recordSetProvider;
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return handleResolver;
-    }
-
-    @Override
-    public ConnectorRecordSinkProvider getRecordSinkProvider()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ConnectorIndexResolver getIndexResolver()
-    {
-        throw new UnsupportedOperationException();
     }
 }

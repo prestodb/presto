@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.example;
 
-import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.SafeConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -52,7 +52,7 @@ public class ExamplePlugin
     @Override
     public synchronized <T> List<T> getServices(Class<T> type)
     {
-        if (type == ConnectorFactory.class) {
+        if (type == SafeConnectorFactory.class) {
             return ImmutableList.of(type.cast(new ExampleConnectorFactory(typeManager, getOptionalConfig())));
         }
         return ImmutableList.of();

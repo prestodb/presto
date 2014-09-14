@@ -39,10 +39,10 @@ public class TestExampleRecordSetProvider
     public void testGetRecordSet()
             throws Exception
     {
-        ExampleRecordSetProvider recordSetProvider = new ExampleRecordSetProvider(new ExampleConnectorId("test"));
-        RecordSet recordSet = recordSetProvider.getRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
-                new ExampleColumnHandle("test", "text", VARCHAR, 0),
-                new ExampleColumnHandle("test", "value", BIGINT, 1)));
+        ExampleRecordSetProvider recordSetProvider = new ExampleRecordSetProvider();
+        RecordSet recordSet = recordSetProvider.getRecordSet(new ExampleSplit("schema", "table", dataUri), ImmutableList.of(
+                new ExampleColumnHandle("text", VARCHAR, 0),
+                new ExampleColumnHandle("value", BIGINT, 1)));
         assertNotNull(recordSet, "recordSet is null");
 
         RecordCursor cursor = recordSet.cursor();
