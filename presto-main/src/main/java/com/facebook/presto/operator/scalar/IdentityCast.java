@@ -27,12 +27,12 @@ import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class IdentityCastParametricFunction
+public class IdentityCast
         extends ParametricOperator
 {
-    public static final IdentityCastParametricFunction IDENTITY_CAST = new IdentityCastParametricFunction();
+    public static final IdentityCast IDENTITY_CAST = new IdentityCast();
 
-    protected IdentityCastParametricFunction()
+    protected IdentityCast()
     {
         super(OperatorType.CAST, ImmutableList.of(typeParameter("T")), "T", ImmutableList.of("T"));
     }
