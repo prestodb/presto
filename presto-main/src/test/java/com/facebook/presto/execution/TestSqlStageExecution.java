@@ -429,6 +429,11 @@ public class TestSqlStageExecution
                         failures);
             }
 
+            public void finished()
+            {
+                taskStateMachine.finished();
+            }
+
             @Override
             public void start()
             {
@@ -447,9 +452,6 @@ public class TestSqlStageExecution
             public void noMoreSplits(PlanNodeId sourceId)
             {
                 noMoreSplits.add(sourceId);
-                if (noMoreSplits.containsAll(fragment.getSourceIds())) {
-                    taskStateMachine.finished();
-                }
             }
 
             @Override
