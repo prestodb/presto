@@ -46,6 +46,7 @@ import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.ColorType.COLOR;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
+import static com.facebook.presto.type.MapParametricType.MAP;
 import static com.facebook.presto.type.RegexpType.REGEXP;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -91,6 +92,7 @@ public final class TypeRegistry
         addType(JSON_PATH);
         addType(COLOR);
         addParametricType(ARRAY);
+        addParametricType(MAP);
 
         for (Type type : types) {
             addType(type);

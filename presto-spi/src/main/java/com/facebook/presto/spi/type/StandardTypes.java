@@ -29,6 +29,7 @@ public final class StandardTypes
     public static final String VARBINARY = "varbinary";
     public static final String VARCHAR = "varchar";
     public static final String ARRAY = "array";
+    public static final String MAP = "map";
 
     private StandardTypes() {}
 }

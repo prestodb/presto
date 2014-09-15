@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 
 import java.util.List;
 
+import static com.facebook.presto.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public enum OperatorType
@@ -154,7 +155,16 @@ public enum OperatorType
                 void validateSignature(String returnType, List<String> argumentTypes)
                 {
                     validateOperatorSignature(this, returnType, argumentTypes, 2);
-                    checkArgument(argumentTypes.get(1).equals(StandardTypes.BIGINT), "[] operator requires a BIGINT, got %s", argumentTypes.get(1));
+                    checkArgument(argumentTypes.get(0).equals(StandardTypes.ARRAY) || argumentTypes.get(0).equals(StandardTypes.MAP), "First argument must be an ARRAY or MAP");
+                    if (argumentTypes.get(0).equals(StandardTypes.ARRAY)) {
+                        checkArgument(argumentTypes.get(1).equals(StandardTypes.BIGINT), "Second argument must be a BIGINT");
+                        String elementType = parseTypeSignature(argumentTypes.get(0)).getParameters().get(0).toString();
+                        checkArgument(returnType.equals(elementType), "[] return type does not match ARRAY element type");
+                    }
+                    else {
+                        String valueType = parseTypeSignature(argumentTypes.get(0)).getParameters().get(1).toString();
+                        checkArgument(returnType.equals(valueType), "[] return type does not match MAP value type");
+                    }
                 }
             },
 

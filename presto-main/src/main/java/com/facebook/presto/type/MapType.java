@@ -30,41 +30,55 @@ import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
-public class ArrayType
+public class MapType
         extends AbstractVariableWidthType
 {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer()));
 
-    private final Type elementType;
+    private final Type keyType;
+    private final Type valueType;
 
-    public ArrayType(Type elementType)
+    public MapType(Type keyType, Type valueType)
     {
-        super(format("array<%s>", elementType.getName()), Slice.class);
-        this.elementType = checkNotNull(elementType, "elementType is null");
+        super(format("map<%s,%s>", keyType, valueType), Slice.class);
+        this.keyType = keyType;
+        this.valueType = valueType;
     }
 
-    public Type getElementType()
-    {
-        return elementType;
-    }
-
-    /**
-     * Takes a list of stack types and converts them to the stack representation of an array
-     */
-    public static Slice toStackRepresentation(List<?> values)
+    public static Slice toStackRepresentation(Map<?, ?> value)
     {
         try {
-            return Slices.utf8Slice(OBJECT_MAPPER.writeValueAsString(values));
+            Map<String, Object> map = new HashMap<>();
+            for (Map.Entry<?, ?> entry : value.entrySet()) {
+                if (entry.getKey() instanceof Slice) {
+                    map.put(((Slice) entry.getKey()).toStringUtf8(), entry.getValue());
+                }
+                else {
+                    map.put(entry.getKey().toString(), entry.getValue());
+                }
+            }
+            return Slices.utf8Slice(OBJECT_MAPPER.writeValueAsString(map));
         }
         catch (JsonProcessingException e) {
             throw Throwables.propagate(e);
         }
+    }
+
+    public Type getKeyType()
+    {
+        return keyType;
+    }
+
+    public Type getValueType()
+    {
+        return valueType;
     }
 
     @Override
@@ -117,6 +131,6 @@ public class ArrayType
     @Override
     public List<Type> getTypeParameters()
     {
-        return ImmutableList.of(getElementType());
+        return ImmutableList.of(getKeyType(), getValueType());
     }
 }

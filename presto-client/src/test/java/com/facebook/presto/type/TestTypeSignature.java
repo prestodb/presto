@@ -39,6 +39,7 @@ public class TestTypeSignature
         assertSignature("map", ImmutableList.of("bigint", "bigint"));
         assertSignature("map", ImmutableList.of("bigint", "array<bigint>"));
         assertSignature("map", ImmutableList.of("bigint", "map<bigint,map<varchar,bigint>>"));
+        assertSignature("array", ImmutableList.of("timestamp with time zone"));
         try {
             parseTypeSignature("blah<>");
             fail("Type signatures with zero parameters should fail to parse");
