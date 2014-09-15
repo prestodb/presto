@@ -17,6 +17,7 @@ import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.QueryOptions;
 import com.datastax.driver.core.SocketOptions;
 import com.datastax.driver.core.policies.ExponentialReconnectionPolicy;
+import com.google.common.primitives.Ints;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -102,8 +103,8 @@ public class CassandraClientModule
         clusterBuilder.withRetryPolicy(config.getRetryPolicy().getPolicy());
 
         SocketOptions socketOptions = new SocketOptions();
-        socketOptions.setReadTimeoutMillis(config.getClientReadTimeout());
-        socketOptions.setConnectTimeoutMillis(config.getClientConnectTimeout());
+        socketOptions.setReadTimeoutMillis(Ints.checkedCast(config.getClientReadTimeout().toMillis()));
+        socketOptions.setConnectTimeoutMillis(Ints.checkedCast(config.getClientConnectTimeout().toMillis()));
         if (config.getClientSoLinger() != null) {
             socketOptions.setSoLinger(config.getClientSoLinger());
         }
