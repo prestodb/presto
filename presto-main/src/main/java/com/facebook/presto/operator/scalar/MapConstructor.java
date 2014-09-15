@@ -51,7 +51,8 @@ import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.metadata.FunctionRegistry.canCoerce;
-import static com.facebook.presto.metadata.Signature.TypeParameter;
+
+import com.facebook.presto.metadata.TypeParameter;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
