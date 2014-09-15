@@ -23,6 +23,8 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+
 public class TestCassandraClientConfig
 {
     @Test
@@ -47,8 +49,8 @@ public class TestCassandraClientConfig
                 .setAllowDropTable(false)
                 .setUsername(null)
                 .setPassword(null)
-                .setClientReadTimeout(SocketOptions.DEFAULT_READ_TIMEOUT_MILLIS)
-                .setClientConnectTimeout(SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS)
+                .setClientReadTimeout(new Duration(SocketOptions.DEFAULT_READ_TIMEOUT_MILLIS, MILLISECONDS))
+                .setClientConnectTimeout(new Duration(SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS, MILLISECONDS))
                 .setClientSoLinger(null)
                 .setRetryPolicy(RetryPolicyType.DEFAULT));
     }
@@ -75,8 +77,8 @@ public class TestCassandraClientConfig
                 .put("cassandra.allow-drop-table", "true")
                 .put("cassandra.username", "my_username")
                 .put("cassandra.password", "my_password")
-                .put("cassandra.client.read-timeout", "11")
-                .put("cassandra.client.connect-timeout", "22")
+                .put("cassandra.client.read-timeout", "11ms")
+                .put("cassandra.client.connect-timeout", "22ms")
                 .put("cassandra.client.so-linger", "33")
                 .put("cassandra.retry-policy", "BACKOFF")
                 .build();
@@ -100,8 +102,8 @@ public class TestCassandraClientConfig
                 .setAllowDropTable(true)
                 .setUsername("my_username")
                 .setPassword("my_password")
-                .setClientReadTimeout(11)
-                .setClientConnectTimeout(22)
+                .setClientReadTimeout(new Duration(11, MILLISECONDS))
+                .setClientConnectTimeout(new Duration(22, MILLISECONDS))
                 .setClientSoLinger(33)
                 .setRetryPolicy(RetryPolicyType.BACKOFF);
 

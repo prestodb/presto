@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
+import io.airlift.units.MaxDuration;
+import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -33,6 +35,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class CassandraClientConfig
 {
@@ -56,8 +59,8 @@ public class CassandraClientConfig
     private boolean allowDropTable;
     private String username;
     private String password;
-    private int clientReadTimeout = SocketOptions.DEFAULT_READ_TIMEOUT_MILLIS;
-    private int clientConnectTimeout = SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS;
+    private Duration clientReadTimeout = new Duration(SocketOptions.DEFAULT_READ_TIMEOUT_MILLIS, MILLISECONDS);
+    private Duration clientConnectTimeout = new Duration(SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS, MILLISECONDS);
     private Integer clientSoLinger;
     private RetryPolicyType retryPolicy = RetryPolicyType.DEFAULT;
 
@@ -297,27 +300,29 @@ public class CassandraClientConfig
         return this;
     }
 
-    @Min(1)
-    public int getClientReadTimeout()
+    @MinDuration("1ms")
+    @MaxDuration("1h")
+    public Duration getClientReadTimeout()
     {
         return clientReadTimeout;
     }
 
     @Config("cassandra.client.read-timeout")
-    public CassandraClientConfig setClientReadTimeout(int clientReadTimeout)
+    public CassandraClientConfig setClientReadTimeout(Duration clientReadTimeout)
     {
         this.clientReadTimeout = clientReadTimeout;
         return this;
     }
 
-    @Min(1)
-    public int getClientConnectTimeout()
+    @MinDuration("1ms")
+    @MaxDuration("1h")
+    public Duration getClientConnectTimeout()
     {
         return clientConnectTimeout;
     }
 
     @Config("cassandra.client.connect-timeout")
-    public CassandraClientConfig setClientConnectTimeout(int clientConnectTimeout)
+    public CassandraClientConfig setClientConnectTimeout(Duration clientConnectTimeout)
     {
         this.clientConnectTimeout = clientConnectTimeout;
         return this;

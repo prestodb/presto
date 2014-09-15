@@ -110,13 +110,13 @@ Property Name                                      Description
 ``cassandra.transport-factory-options``            Allows for the specification of arbitrary options to be passed to
                                                    the Thrift connection factory.
 
-``cassandra.client.read-timeout``                  Number of milliseconds the Cassandra driver will wait for an
+``cassandra.client.read-timeout``                  Maximum time the Cassandra driver will wait for an
                                                    answer to a query from one Cassandra node. Note that the underlying
                                                    Cassandra driver may retry a query against more than one node in
                                                    the event of a read timeout. Increasing this may help with queries
                                                    that use an index.
 
-``cassandra.client.connect-timeout``               Number of milliseconds the Cassandra driver will wait to establish
+``cassandra.client.connect-timeout``               Maximum time the Cassandra driver will wait to establish
                                                    a connection to a Cassandra node. Increasing this may help with
                                                    heavily loaded Cassandra clusters.
 
