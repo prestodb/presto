@@ -17,6 +17,7 @@ import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
+import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraSession;
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createSampledSession;
 import static io.airlift.tpch.TpchTable.ORDERS;
 
@@ -28,5 +29,14 @@ public class TestCassandraIntegrationSmokeTest
             throws Exception
     {
         super(createCassandraQueryRunner(ORDERS), createSampledSession());
+    }
+
+    @Test
+    public void testStringPartitionKey()
+    {
+        TestCassandraConnector.createOrReplaceKeyspace("example");
+        TestCassandraConnector.createTestData("example", "test_key_text");
+        queryRunner.execute(createCassandraSession("example"), "select * from example.test_key_text where key='key 0001'");
+
     }
 }

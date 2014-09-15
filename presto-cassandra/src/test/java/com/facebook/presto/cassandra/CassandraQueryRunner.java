@@ -79,7 +79,7 @@ public final class CassandraQueryRunner
         return createCassandraSession(TPCH_SAMPLED_SCHEMA);
     }
 
-    private static ConnectorSession createCassandraSession(String schema)
+    public static ConnectorSession createCassandraSession(String schema)
     {
         return new ConnectorSession("user", "test", "cassandra", schema, UTC_KEY, ENGLISH, null, null);
     }

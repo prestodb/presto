@@ -17,6 +17,8 @@ import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.utils.Bytes;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
@@ -24,6 +26,8 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.InetAddresses;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -218,6 +222,17 @@ public enum CassandraType
         }
     }
 
+    public static Comparable<?> getColumnValueForPartitionKey(Row row, int i, CassandraType cassandraType, List<CassandraType> typeArguments)
+    {
+        if (row.isNull(i)) {
+            return null;
+        }
+        if (cassandraType == ASCII || cassandraType == TEXT || cassandraType == VARCHAR) {
+            return Slices.utf8Slice(row.getString(i));
+        }
+        return getColumnValue(row, i, cassandraType, typeArguments);
+    }
+
     private static String buildSetValue(Row row, int i, CassandraType elemType)
     {
         return buildArrayValue(row.getSet(i, elemType.javaType), elemType);
@@ -403,6 +418,40 @@ public enum CassandraType
             case MAP:
             default:
                 throw new IllegalStateException("Back conversion not implemented for " + this);
+        }
+    }
+
+    public Comparable<?> getValueForPartitionKey(Comparable<?> comparable)
+    {
+        switch (this) {
+            case ASCII:
+            case TEXT:
+            case VARCHAR:
+                if (comparable instanceof Slice) {
+                    return ((Slice) comparable).toStringUtf8();
+                }
+                return comparable;
+            case BIGINT:
+            case BOOLEAN:
+            case DOUBLE:
+            case INET:
+            case INT:
+            case FLOAT:
+            case DECIMAL:
+            case TIMESTAMP:
+            case UUID:
+            case TIMEUUID:
+                return comparable;
+            case COUNTER:
+            case BLOB:
+            case CUSTOM:
+            case VARINT:
+            case SET:
+            case LIST:
+            case MAP:
+            default:
+                // todo should we just skip partition pruning instead of throwing an exception?
+                throw new PrestoException(StandardErrorCode.NOT_SUPPORTED.toErrorCode(), "Unsupport partition key type: " + this);
         }
     }
 
