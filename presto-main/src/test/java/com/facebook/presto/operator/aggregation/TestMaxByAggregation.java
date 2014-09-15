@@ -18,15 +18,21 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.MapType;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static com.google.common.base.Predicates.and;
+import static com.google.common.base.Predicates.instanceOf;
+import static com.google.common.base.Predicates.not;
 import static org.testng.Assert.assertNotNull;
 
 public class TestMaxByAggregation
@@ -44,8 +50,11 @@ public class TestMaxByAggregation
             }
         }).toSet();
 
+        // TODO: Include these in the test once MAX_BY works with parametric types
+        List<Type> valueTypes = FluentIterable.from(metadata.getTypeManager().getTypes()).filter(and(not(instanceOf(ArrayType.class)), not(instanceOf(MapType.class)))).toList();
+
         for (Type keyType : orderableTypes) {
-            for (Type valueType : metadata.getTypeManager().getTypes()) {
+            for (Type valueType : valueTypes) {
                 assertNotNull(metadata.getExactFunction(new Signature("max_by", valueType.getName(), valueType.getName(), keyType.getName())));
             }
         }

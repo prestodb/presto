@@ -175,6 +175,11 @@ public final class FunctionAssertions
         compiler = new ExpressionCompiler(metadata);
     }
 
+    public Metadata getMetadata()
+    {
+        return metadata;
+    }
+
     public FunctionAssertions addFunctions(List<ParametricFunction> functionInfos)
     {
         metadata.addFunctions(functionInfos);
