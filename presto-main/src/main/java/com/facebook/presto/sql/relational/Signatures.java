@@ -105,6 +105,11 @@ public final class Signatures
         return internalFunction(ARRAY_CONSTRUCTOR, returnType.getName(), Lists.transform(argumentTypes, nameGetter()));
     }
 
+    public static Signature arrayConstructorSignature(String returnType, List<String> argumentTypes)
+    {
+        return internalFunction(ARRAY_CONSTRUCTOR, returnType, argumentTypes);
+    }
+
     public static Signature comparisonExpressionSignature(ComparisonExpression.Type expressionType, Type leftType, Type rightType)
     {
         for (OperatorType operatorType : OperatorType.values()) {

@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import java.lang.invoke.MethodHandle;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.operator.WindowFunctionDefinition.window;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -176,13 +177,7 @@ public final class FunctionInfo
     }
 
     @Override
-    public FunctionInfo specialize(List<? extends Type> types)
-    {
-        return this;
-    }
-
-    @Override
-    public FunctionInfo specialize(Type returnType, List<? extends Type> types)
+    public FunctionInfo specialize(Map<String, Type> types, int arity)
     {
         return this;
     }

@@ -22,6 +22,7 @@ import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.TypeParameter;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.ByteCodeUtils;
@@ -31,8 +32,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
@@ -50,15 +49,10 @@ import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
-import static com.facebook.presto.metadata.FunctionRegistry.canCoerce;
-
-import com.facebook.presto.metadata.TypeParameter;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
 import static com.facebook.presto.type.MapParametricType.MAP;
-import static com.facebook.presto.type.TypeUtils.nameGetter;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.invoke.MethodHandles.lookup;
 
@@ -105,32 +99,22 @@ public final class MapConstructor
     }
 
     @Override
-    public FunctionInfo specialize(List<? extends Type> types)
+    public FunctionInfo specialize(Map<String, Type> types, int arity)
     {
-        checkArgument(!types.isEmpty() && types.size() % 2 == 0, "Expected an even number of type arguments");
-        checkArgument(ImmutableSet.copyOf(types).size() <= 2, "Can only construct maps from up to two types, got %s", ImmutableSet.copyOf(types));
-        Type keyType = types.get(0);
-        Type valueType = types.get(1);
-        for (int i = 0; i < types.size(); i++) {
-            Type type = types.get(i);
-            if (i % 2 == 0) {
-                checkArgument(canCoerce(type, keyType), "Arguments must alternate key, value, key, value");
-            }
-            else {
-                checkArgument(canCoerce(type, valueType), "Arguments must alternate key, value, key, value");
-            }
-        }
-
-        // Coercions may be required, and those are added by the caller. Rewrite the types, to the signature we're going to generate
-        ImmutableList.Builder<Type> actualTypeBuilder = ImmutableList.builder();
-        for (int i = 0; i < types.size() / 2; i++) {
-            actualTypeBuilder.add(keyType);
-            actualTypeBuilder.add(valueType);
-        }
-        types = actualTypeBuilder.build();
+        Type keyType = types.get("K");
+        Type valueType = types.get("V");
 
         ImmutableList.Builder<Class<?>> builder = ImmutableList.builder();
-        for (Type type : types) {
+        ImmutableList.Builder<String> actualArgumentNames = ImmutableList.builder();
+        for (int i = 0; i < arity; i++) {
+            Type type;
+            if (i % 2 == 0) {
+                type = keyType;
+            }
+            else {
+                type = valueType;
+            }
+            actualArgumentNames.add(type.getName());
             if (type.getJavaType().isPrimitive()) {
                 builder.add(Primitives.wrap(type.getJavaType()));
             }
@@ -149,15 +133,9 @@ public final class MapConstructor
             throw Throwables.propagate(e);
         }
         Type mapType = typeManager.getParameterizedType(MAP.getName(), ImmutableList.of(keyType.getName(), valueType.getName()));
-        Signature signature = new Signature("map", ImmutableList.<TypeParameter>of(), mapType.getName(), Lists.transform(types, nameGetter()), false, true);
+        Signature signature = new Signature("map", ImmutableList.<TypeParameter>of(), mapType.getName(), actualArgumentNames.build(), false, true);
         List<Boolean> nullableParameters = ImmutableList.copyOf(Collections.nCopies(stackTypes.size(), true));
         return new FunctionInfo(signature, "Constructs a map of the given entries", true, methodHandle, true, false, nullableParameters);
-    }
-
-    @Override
-    public FunctionInfo specialize(Type returnType, List<? extends Type> types)
-    {
-        return specialize(types);
     }
 
     private static Class<?> generateMapConstructor(List<Class<?>> stackTypes)

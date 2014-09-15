@@ -36,7 +36,6 @@ import com.facebook.presto.operator.aggregation.MergeHyperLogLogAggregation;
 import com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation;
 import com.facebook.presto.operator.aggregation.VarBinaryMinAggregation;
 import com.facebook.presto.operator.aggregation.VarianceAggregation;
-import com.facebook.presto.operator.scalar.ArrayConstructor;
 import com.facebook.presto.operator.scalar.ArrayFunctions;
 import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.operator.scalar.DateTimeFunctions;
@@ -126,6 +125,7 @@ import static com.facebook.presto.operator.aggregation.ApproximateCountAggregati
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.scalar.ArraySubscriptOperator.ARRAY_SUBSCRIPT;
 import static com.facebook.presto.operator.scalar.ArrayCardinalityFunction.ARRAY_CARDINALITY;
+import static com.facebook.presto.operator.scalar.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static com.facebook.presto.operator.scalar.IdentityCastParametricFunction.IDENTITY_CAST;
 import static com.facebook.presto.operator.scalar.MapSubscriptOperator.MAP_SUBSCRIPT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -253,7 +253,7 @@ public class FunctionRegistry
                 .scalar(LikeFunctions.class)
                 .scalar(ArrayFunctions.class)
                 .parametricScalar(IDENTITY_CAST)
-                .parametricScalar(new ArrayConstructor(typeManager))
+                .parametricScalar(ARRAY_CONSTRUCTOR)
                 .parametricScalar(ARRAY_SUBSCRIPT)
                 .parametricScalar(ARRAY_CARDINALITY)
                 .parametricScalar(MAP_SUBSCRIPT);
@@ -304,9 +304,10 @@ public class FunctionRegistry
         // search for exact match
         FunctionInfo match = null;
         for (ParametricFunction function : candidates) {
-            if (function.getSignature().match(resolvedTypes, false, typeManager)) {
+            Map<String, Type> boundTypeParameters = function.getSignature().bindTypeParameters(resolvedTypes, false, typeManager);
+            if (boundTypeParameters != null) {
                 checkArgument(match == null, "Ambiguous call to %s with parameters %s", name, parameterTypes);
-                match = function.specialize(resolvedTypes);
+                match = function.specialize(boundTypeParameters, resolvedTypes.size());
             }
         }
 
@@ -316,9 +317,10 @@ public class FunctionRegistry
 
         // search for coerced match
         for (ParametricFunction function : candidates) {
-            if (function.getSignature().match(resolvedTypes, true, typeManager)) {
+            Map<String, Type> boundTypeParameters = function.getSignature().bindTypeParameters(resolvedTypes, true, typeManager);
+            if (boundTypeParameters != null) {
                 // TODO: This should also check for ambiguities
-                return function.specialize(resolvedTypes);
+                return function.specialize(boundTypeParameters, resolvedTypes.size());
             }
         }
 
@@ -372,8 +374,9 @@ public class FunctionRegistry
         for (ParametricFunction operator : candidates) {
             Type returnType = typeManager.getType(signature.getReturnType());
             List<Type> argumentTypes = resolveTypes(signature.getArgumentTypes(), typeManager);
-            if (operator.getSignature().match(returnType, argumentTypes, false, typeManager)) {
-                return operator.specialize(returnType, argumentTypes);
+            Map<String, Type> boundTypeParameters = operator.getSignature().bindTypeParameters(returnType, argumentTypes, false, typeManager);
+            if (boundTypeParameters != null) {
+                return operator.specialize(boundTypeParameters, signature.getArgumentTypes().size());
             }
         }
         return null;

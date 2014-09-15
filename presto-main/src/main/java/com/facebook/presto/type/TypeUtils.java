@@ -17,6 +17,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.collect.FluentIterable;
 
 import java.util.List;
@@ -67,5 +68,10 @@ public final class TypeUtils
                 return checkNotNull(typeManager.getType(type), "Type '%s' not found", type);
             }
         }).toList();
+    }
+
+    public static String parameterizedTypeName(String base, String... argumentNames)
+    {
+        return base + "<" + Joiner.on(",").join(argumentNames) + ">";
     }
 }

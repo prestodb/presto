@@ -18,10 +18,8 @@ import com.facebook.presto.metadata.ParametricOperator;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.ArrayType;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -33,11 +31,11 @@ import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
-import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
@@ -80,23 +78,14 @@ public class ArraySubscriptOperator
     }
 
     @Override
-    public FunctionInfo specialize(List<? extends Type> types)
+    public FunctionInfo specialize(Map<String, Type> types, int arity)
     {
-        checkArgument(types.size() == 2, "Expected two types, got %s", types);
-        checkArgument(types.get(0) instanceof ArrayType, "Expected an array type as the first type");
-        checkArgument(types.get(1) instanceof BigintType, "Expected bigint type as second type");
-        ArrayType arrayType = (ArrayType) types.get(0);
-        Type elementType = arrayType.getElementType();
+        checkArgument(types.size() == 1, "Expected one type, got %s", types);
+        Type elementType = types.get("E");
 
         MethodHandle methodHandle = METHOD_HANDLES.get(elementType.getJavaType());
         checkNotNull(methodHandle, "methodHandle is null");
-        return new FunctionInfo(Signature.internalOperator(SUBSCRIPT.name(), elementType.getName(), arrayType.getName(), StandardTypes.BIGINT), "Array subscript", true, methodHandle, true, true, ImmutableList.of(false, false));
-    }
-
-    @Override
-    public FunctionInfo specialize(Type returnType, List<? extends Type> types)
-    {
-        return specialize(types);
+        return new FunctionInfo(Signature.internalOperator(SUBSCRIPT.name(), elementType.getName(), parameterizedTypeName("array", elementType.getName()), StandardTypes.BIGINT), "Array subscript", true, methodHandle, true, true, ImmutableList.of(false, false));
     }
 
     public static Boolean booleanElementAccessor(Slice array, long index)
