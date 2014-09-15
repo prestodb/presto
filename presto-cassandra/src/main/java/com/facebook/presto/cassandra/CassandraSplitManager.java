@@ -54,7 +54,6 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.toCQLCompatibleString;
 import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.EXTERNAL;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
@@ -214,11 +213,9 @@ public class CassandraSplitManager
                 }
                 Comparable<?> value = range.getSingleValue();
 
-                // todo should we just skip partition pruning instead of throwing an exception?
-                checkArgument(value instanceof Boolean || value instanceof String || value instanceof Double || value instanceof Long,
-                        "Only Boolean, String, Double and Long partition keys are supported");
+                CassandraType valueType = columnHandle.getCassandraType();
+                columnValues.add(valueType.getValueForPartitionKey(value));
 
-                columnValues.add(value);
             }
             partitionColumnValues.add(columnValues.build());
         }
