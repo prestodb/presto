@@ -24,6 +24,8 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 
+import javax.annotation.Nullable;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -181,7 +183,8 @@ public final class Signature
         return (internal ? "%" : "") + name + (typeParameters.isEmpty() ? "" : "<" + Joiner.on(",").join(typeParameters) + ">") + "(" + Joiner.on(",").join(argumentTypes) + "):" + returnType;
     }
 
-    public boolean match(Type returnType, List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
+    @Nullable
+    public Map<String, Type> bindTypeParameters(Type returnType, List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
     {
         Map<String, Type> boundParameters = new HashMap<>();
         Map<String, TypeParameter> unboundParameters = new HashMap<>();
@@ -190,13 +193,18 @@ public final class Signature
         }
 
         if (!matchAndBind(boundParameters, unboundParameters, this.returnType, returnType, allowCoercion, typeManager)) {
-            return false;
+            return null;
         }
 
-        return matchArguments(boundParameters, unboundParameters, argumentTypes, types, allowCoercion, variableArity, typeManager);
+        if (!matchArguments(boundParameters, unboundParameters, argumentTypes, types, allowCoercion, variableArity, typeManager)) {
+            return null;
+        }
+
+        return boundParameters;
     }
 
-    public boolean match(List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
+    @Nullable
+    public Map<String, Type> bindTypeParameters(List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
     {
         Map<String, Type> boundParameters = new HashMap<>();
         Map<String, TypeParameter> unboundParameters = new HashMap<>();
@@ -204,7 +212,11 @@ public final class Signature
             unboundParameters.put(parameter.getName(), parameter);
         }
 
-        return matchArguments(boundParameters, unboundParameters, argumentTypes, types, allowCoercion, variableArity, typeManager);
+        if (!matchArguments(boundParameters, unboundParameters, argumentTypes, types, allowCoercion, variableArity, typeManager)) {
+            return null;
+        }
+
+        return boundParameters;
     }
 
     private static boolean matchArguments(

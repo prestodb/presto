@@ -18,16 +18,15 @@ import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.ArrayType;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
-import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.invoke.MethodHandles.lookup;
 
@@ -74,16 +73,10 @@ public final class ArrayCardinalityFunction
     }
 
     @Override
-    public FunctionInfo specialize(List<? extends Type> types)
+    public FunctionInfo specialize(Map<String, Type> types, int arity)
     {
-        checkArgument(ImmutableSet.copyOf(types).size() == 1, "Cardinality expects only one argument");
-        checkArgument(types.get(0) instanceof ArrayType, "Expected an array type");
-        return new FunctionInfo(new Signature("cardinality", StandardTypes.BIGINT, types.get(0).getName()), "Returns the cardinality (length) of the array", false, METHOD_HANDLE, true, true, ImmutableList.of(false));
-    }
-
-    @Override
-    public FunctionInfo specialize(Type returnType, List<? extends Type> types)
-    {
-        return specialize(types);
+        checkArgument(types.size() == 1, "Cardinality expects only one argument");
+        Type type = types.get("E");
+        return new FunctionInfo(new Signature("cardinality", StandardTypes.BIGINT, parameterizedTypeName("array", type.getName())), "Returns the cardinality (length) of the array", false, METHOD_HANDLE, true, true, ImmutableList.of(false));
     }
 }

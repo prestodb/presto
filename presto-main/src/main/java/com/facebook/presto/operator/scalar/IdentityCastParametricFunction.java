@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.Signature.typeParameter;
@@ -45,17 +45,11 @@ public class IdentityCastParametricFunction
     }
 
     @Override
-    public FunctionInfo specialize(List<? extends Type> types)
+    public FunctionInfo specialize(Map<String, Type> types, int arity)
     {
         checkArgument(types.size() == 1, "Expected only one type");
-        Type type = types.get(0);
+        Type type = types.get("T");
         MethodHandle identity = MethodHandles.identity(type.getJavaType());
         return operatorInfo(OperatorType.CAST, type.getName(), ImmutableList.of(type.getName()), identity, false, ImmutableList.of(false));
-    }
-
-    @Override
-    public FunctionInfo specialize(Type returnType, List<? extends Type> types)
-    {
-        return specialize(types);
     }
 }

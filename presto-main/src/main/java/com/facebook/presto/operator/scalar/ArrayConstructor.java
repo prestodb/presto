@@ -23,7 +23,6 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.ByteCodeUtils;
 import com.facebook.presto.sql.gen.CompilerUtils;
 import com.facebook.presto.type.ArrayType;
@@ -33,7 +32,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
@@ -42,6 +40,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.byteCode.Access.FINAL;
 import static com.facebook.presto.byteCode.Access.PRIVATE;
@@ -53,14 +52,14 @@ import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.relational.Signatures.arrayConstructorSignature;
-import static com.facebook.presto.type.ArrayParametricType.ARRAY;
+import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.invoke.MethodHandles.lookup;
 
 public final class ArrayConstructor
         extends ParametricScalar
 {
+    public static final ArrayConstructor ARRAY_CONSTRUCTOR = new ArrayConstructor();
     private static final Signature SIGNATURE = new Signature("array_constructor", ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("E"), true, true);
     private static final MethodHandle EMPTY_ARRAY_CONSTRUCTOR;
 
@@ -73,13 +72,6 @@ public final class ArrayConstructor
             throw Throwables.propagate(e);
         }
         EMPTY_ARRAY_CONSTRUCTOR = methodHandle;
-    }
-
-    private final TypeManager typeManager;
-
-    public ArrayConstructor(TypeManager typeManager)
-    {
-        this.typeManager = checkNotNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -108,17 +100,17 @@ public final class ArrayConstructor
     }
 
     @Override
-    public FunctionInfo specialize(List<? extends Type> types)
+    public FunctionInfo specialize(Map<String, Type> types, int arity)
     {
         // Check to see if we're creating an empty, un-specialized array
         if (types.isEmpty()) {
-            Type unknownArray = typeManager.getParameterizedType(ARRAY.getName(), ImmutableList.of(UnknownType.NAME));
-            return new FunctionInfo(arrayConstructorSignature(unknownArray, ImmutableList.<Type>of()), "", true, EMPTY_ARRAY_CONSTRUCTOR, true, false, ImmutableList.<Boolean>of());
+            return new FunctionInfo(arrayConstructorSignature(parameterizedTypeName("array", UnknownType.NAME), ImmutableList.<String>of()), "", true, EMPTY_ARRAY_CONSTRUCTOR, true, false, ImmutableList.<Boolean>of());
         }
 
-        checkArgument(ImmutableSet.copyOf(types).size() == 1, "Can only construct arrays from exactly matching types");
+        checkArgument(types.size() == 1, "Can only construct arrays from exactly matching types");
         ImmutableList.Builder<Class<?>> builder = ImmutableList.builder();
-        for (Type type : types) {
+        Type type = types.get("E");
+        for (int i = 0; i < arity; i++) {
             if (type.getJavaType().isPrimitive()) {
                 builder.add(Primitives.wrap(type.getJavaType()));
             }
@@ -136,15 +128,8 @@ public final class ArrayConstructor
         catch (ReflectiveOperationException e) {
             throw Throwables.propagate(e);
         }
-        Type arrayType = typeManager.getParameterizedType(ARRAY.getName(), ImmutableList.of(types.get(0).getName()));
         List<Boolean> nullableParameters = ImmutableList.copyOf(Collections.nCopies(stackTypes.size(), true));
-        return new FunctionInfo(arrayConstructorSignature(arrayType, types), "Constructs an array of the given elements", true, methodHandle, true, false, nullableParameters);
-    }
-
-    @Override
-    public FunctionInfo specialize(Type returnType, List<? extends Type> types)
-    {
-        return specialize(types);
+        return new FunctionInfo(arrayConstructorSignature(parameterizedTypeName("array", type.getName()), Collections.nCopies(arity, type.getName())), "Constructs an array of the given elements", true, methodHandle, true, false, nullableParameters);
     }
 
     public static Slice emptyArrayConstructor()

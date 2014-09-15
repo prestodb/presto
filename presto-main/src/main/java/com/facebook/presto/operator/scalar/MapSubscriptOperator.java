@@ -17,7 +17,6 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.ParametricOperator;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.MapType;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -27,14 +26,14 @@ import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
-import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.metadata.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.operator.scalar.JsonExtract.JsonExtractor;
 import static com.facebook.presto.operator.scalar.JsonExtract.generateExtractor;
+import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NULL;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
@@ -59,22 +58,12 @@ public class MapSubscriptOperator
     }
 
     @Override
-    public FunctionInfo specialize(List<? extends Type> types)
+    public FunctionInfo specialize(Map<String, Type> types, int arity)
     {
-        checkArgument(types.size() == 2, "Expected two types, got %s", types);
-        checkArgument(types.get(0) instanceof MapType, "Expected a map type as the first type");
-        MapType mapType = (MapType) types.get(0);
-        checkArgument(mapType.getKeyType().equals(types.get(1)), "Unsupported key type: %s, for %s", types.get(1), mapType.getName());
-        Type valueType = mapType.getValueType();
-        Type keyType = mapType.getKeyType();
+        Type keyType = types.get("K");
+        Type valueType = types.get("V");
 
-        return new FunctionInfo(new Signature(SUBSCRIPT.name(), valueType.getName(), mapType.getName(), keyType.getName()), "Map subscript", true, lookupMethod(keyType.getJavaType(), valueType.getJavaType()), true, true, ImmutableList.of(false, false));
-    }
-
-    @Override
-    public FunctionInfo specialize(Type returnType, List<? extends Type> types)
-    {
-        return specialize(types);
+        return new FunctionInfo(new Signature(SUBSCRIPT.name(), valueType.getName(), parameterizedTypeName("map", keyType.getName(), valueType.getName()), keyType.getName()), "Map subscript", true, lookupMethod(keyType.getJavaType(), valueType.getJavaType()), true, true, ImmutableList.of(false, false));
     }
 
     private static MethodHandle lookupMethod(Class<?> keyJavaType, Class<?> valueJavaType)
