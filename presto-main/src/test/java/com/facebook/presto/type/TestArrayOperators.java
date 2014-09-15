@@ -61,6 +61,21 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testArrayContains()
+            throws Exception
+    {
+        assertFunction("CONTAINS(ARRAY [1, 2, 3], 2)", true);
+        assertFunction("CONTAINS(ARRAY [1, 2, 3], 5)", false);
+        assertFunction("CONTAINS(ARRAY [1, NULL, 3], 1)", true);
+        assertFunction("CONTAINS(ARRAY [1, 2.0, 3], 3.0)", true);
+        assertFunction("CONTAINS(ARRAY [1.0, 2.5, 3.0], 2.2)", false);
+        assertFunction("CONTAINS(ARRAY ['puppies', 'kittens'], 'kittens')", true);
+        assertFunction("CONTAINS(ARRAY ['puppies', 'kittens'], 'lizards')", false);
+        assertFunction("CONTAINS(ARRAY [TRUE, FALSE], TRUE)", true);
+        assertFunction("CONTAINS(ARRAY [FALSE], TRUE)", false);
+    }
+
+    @Test
     public void testCardinality()
             throws Exception
     {
