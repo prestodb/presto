@@ -16,6 +16,7 @@ package com.facebook.presto.discovery;
 import com.facebook.presto.guice.AbstractConfigurationAwareModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.discovery.client.ServiceDescriptor;
@@ -40,6 +41,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
@@ -100,6 +102,14 @@ public class EmbeddedDiscoveryModule
         public List<ServiceDescriptor> selectAllServices()
         {
             return ImmutableList.copyOf(inventory.getServiceDescriptors(getType()));
+        }
+
+        @Override
+        public ListenableFuture<List<ServiceDescriptor>> refresh()
+        {
+            // todo modify Service inventory to be async
+            inventory.updateServiceInventory();
+            return immediateFuture(selectAllServices());
         }
     }
 
