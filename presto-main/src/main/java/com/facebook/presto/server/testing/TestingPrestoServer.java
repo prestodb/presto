@@ -157,6 +157,8 @@ public class TestingPrestoServer
         serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
         announcer = injector.getInstance(Announcer.class);
 
+        announcer.forceAnnounce();
+
         refreshNodes();
     }
 
@@ -248,6 +250,7 @@ public class TestingPrestoServer
         // update announcement
         announcer.removeServiceAnnouncement(announcement.getId());
         announcer.addServiceAnnouncement(serviceAnnouncement(announcement.getType()).addProperties(properties).build());
+        announcer.forceAnnounce();
     }
 
     private static ServiceAnnouncement getPrestoAnnouncement(Set<ServiceAnnouncement> announcements)
