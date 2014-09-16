@@ -52,8 +52,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.metadata.PrestoNode.getIdentifierFunction;
-import static com.facebook.presto.util.Types.checkType;
+import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -119,7 +118,7 @@ public class RaptorSplitManager
             return new FixedSplitSource(connectorId, ImmutableList.<ConnectorSplit>of());
         }
 
-        Map<String, Node> nodesById = uniqueIndex(nodeManager.getActiveNodes(), getIdentifierFunction());
+        Map<String, Node> nodesById = uniqueIndex(nodeManager.getActiveNodes(), nodeIdentifier());
 
         List<ConnectorSplit> splits = new ArrayList<>();
 
@@ -271,6 +270,18 @@ public class RaptorSplitManager
                 }
 
                 return new RaptorPartition(tablePartition.getPartitionId(), TupleDomain.withColumnDomains(builder.build()));
+            }
+        };
+    }
+
+    private static Function<Node, String> nodeIdentifier()
+    {
+        return new Function<Node, String>()
+        {
+            @Override
+            public String apply(Node node)
+            {
+                return node.getNodeIdentifier();
             }
         };
     }

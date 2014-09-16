@@ -44,8 +44,8 @@ import java.util.UUID;
 import static com.facebook.presto.raptor.metadata.PartitionKey.partitionNameGetter;
 import static com.facebook.presto.raptor.metadata.ShardManagerDaoUtils.createShardTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.SqlUtils.runIgnoringConstraintViolation;
+import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.collect.Maps.immutableEntry;
 
 public class DatabaseShardManager

@@ -47,7 +47,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.metadata.PrestoNode.getIdentifierFunction;
+import static com.facebook.presto.raptor.util.Nodes.nodeIdentifier;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -121,7 +121,7 @@ public class ShardCleaner
         public void run()
         {
             try {
-                Map<String, Node> activeNodes = Maps.uniqueIndex(nodeManager.getActiveNodes(), getIdentifierFunction());
+                Map<String, Node> activeNodes = Maps.uniqueIndex(nodeManager.getActiveNodes(), nodeIdentifier());
                 Iterable<String> shardNodes = shardManager.getAllNodesInUse();
 
                 ImmutableList.Builder<ListenableFuture<Void>> builder = ImmutableList.builder();
