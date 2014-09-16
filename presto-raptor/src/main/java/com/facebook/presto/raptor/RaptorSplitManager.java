@@ -52,6 +52,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.raptor.util.Nodes.nodeIdentifier;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -270,18 +271,6 @@ public class RaptorSplitManager
                 }
 
                 return new RaptorPartition(tablePartition.getPartitionId(), TupleDomain.withColumnDomains(builder.build()));
-            }
-        };
-    }
-
-    private static Function<Node, String> nodeIdentifier()
-    {
-        return new Function<Node, String>()
-        {
-            @Override
-            public String apply(Node node)
-            {
-                return node.getNodeIdentifier();
             }
         };
     }
