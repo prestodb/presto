@@ -24,8 +24,6 @@ import static com.facebook.presto.operator.aggregation.state.TriStateBooleanStat
 @AggregationFunction("max")
 public final class BooleanMaxAggregation
 {
-    public static final InternalAggregationFunction BOOLEAN_MAX = new AggregationCompiler().generateAggregationFunction(BooleanMaxAggregation.class);
-
     private BooleanMaxAggregation() {}
 
     @InputFunction

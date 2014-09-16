@@ -13,22 +13,20 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import org.apache.commons.math3.stat.descriptive.moment.Variance;
+
+import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestLongVarianceAggregation
         extends AbstractTestAggregationFunction
 {
-    protected final MetadataManager metadata = new MetadataManager();
-
     @Override
     public Block getSequenceBlock(int start, int length)
     {
@@ -37,12 +35,6 @@ public class TestLongVarianceAggregation
             BIGINT.writeLong(blockBuilder, i);
         }
         return blockBuilder.build();
-    }
-
-    @Override
-    public InternalAggregationFunction getFunction()
-    {
-        return metadata.resolveFunction(new QualifiedName("variance"), ImmutableList.of(StandardTypes.BIGINT), false).getAggregationFunction();
     }
 
     @Override
@@ -59,5 +51,17 @@ public class TestLongVarianceAggregation
 
         Variance variance = new Variance();
         return variance.evaluate(values);
+    }
+
+    @Override
+    protected String getFunctionName()
+    {
+        return "variance";
+    }
+
+    @Override
+    protected List<String> getFunctionParameterTypes()
+    {
+        return ImmutableList.of(StandardTypes.BIGINT);
     }
 }

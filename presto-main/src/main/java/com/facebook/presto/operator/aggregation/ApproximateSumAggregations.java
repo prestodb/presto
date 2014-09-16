@@ -16,25 +16,18 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.VarianceState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.SqlType;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 
 import static com.facebook.presto.operator.aggregation.AggregationUtils.mergeVarianceState;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.updateVarianceState;
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.formatApproximateResult;
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.sumError;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 @AggregationFunction(value = "sum", approximate = true)
 public final class ApproximateSumAggregations
 {
-    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_SUM_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateSumAggregations.class, VARCHAR, ImmutableList.<Type>of(DOUBLE));
-    public static final InternalAggregationFunction LONG_APPROXIMATE_SUM_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateSumAggregations.class, VARCHAR, ImmutableList.<Type>of(BIGINT));
-
     private ApproximateSumAggregations() {}
 
     @InputFunction

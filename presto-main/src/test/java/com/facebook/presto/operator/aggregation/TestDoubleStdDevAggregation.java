@@ -13,22 +13,20 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
+
+import java.util.List;
 
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class TestDoubleStdDevAggregation
         extends AbstractTestAggregationFunction
 {
-    protected final MetadataManager metadata = new MetadataManager();
-
     @Override
     public Block getSequenceBlock(int start, int length)
     {
@@ -37,12 +35,6 @@ public class TestDoubleStdDevAggregation
             DOUBLE.writeDouble(blockBuilder, (double) i);
         }
         return blockBuilder.build();
-    }
-
-    @Override
-    public InternalAggregationFunction getFunction()
-    {
-        return metadata.resolveFunction(new QualifiedName("stddev"), ImmutableList.of(StandardTypes.DOUBLE), false).getAggregationFunction();
     }
 
     @Override
@@ -59,5 +51,17 @@ public class TestDoubleStdDevAggregation
 
         StandardDeviation stdDev = new StandardDeviation();
         return stdDev.evaluate(values);
+    }
+
+    @Override
+    protected String getFunctionName()
+    {
+        return "stddev";
+    }
+
+    @Override
+    protected List<String> getFunctionParameterTypes()
+    {
+        return ImmutableList.of(StandardTypes.DOUBLE);
     }
 }

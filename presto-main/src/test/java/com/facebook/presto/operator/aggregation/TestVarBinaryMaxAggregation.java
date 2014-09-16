@@ -16,13 +16,16 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.base.Charsets;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
+import java.util.List;
+
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 
 public class TestVarBinaryMaxAggregation
@@ -39,12 +42,6 @@ public class TestVarBinaryMaxAggregation
     }
 
     @Override
-    public InternalAggregationFunction getFunction()
-    {
-        return VAR_BINARY_MAX;
-    }
-
-    @Override
     public Object getExpectedValue(int start, int length)
     {
         if (length == 0) {
@@ -56,5 +53,17 @@ public class TestVarBinaryMaxAggregation
             max = (max == null) ? slice : Ordering.natural().max(max, slice);
         }
         return max.toString(Charsets.UTF_8);
+    }
+
+    @Override
+    protected String getFunctionName()
+    {
+        return "max";
+    }
+
+    @Override
+    protected List<String> getFunctionParameterTypes()
+    {
+        return ImmutableList.of(StandardTypes.VARCHAR);
     }
 }

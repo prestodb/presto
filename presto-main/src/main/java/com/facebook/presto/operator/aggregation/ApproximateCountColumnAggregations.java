@@ -17,26 +17,16 @@ import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.SqlType;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.countError;
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.formatApproximateResult;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 @AggregationFunction(value = "count", approximate = true)
 public final class ApproximateCountColumnAggregations
 {
-    public static final InternalAggregationFunction BOOLEAN_APPROXIMATE_COUNT_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateCountColumnAggregations.class, VARCHAR, ImmutableList.<Type>of(BOOLEAN));
-    public static final InternalAggregationFunction LONG_APPROXIMATE_COUNT_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateCountColumnAggregations.class, VARCHAR, ImmutableList.<Type>of(BIGINT));
-    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_COUNT_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateCountColumnAggregations.class, VARCHAR, ImmutableList.<Type>of(DOUBLE));
-    public static final InternalAggregationFunction VARBINARY_APPROXIMATE_COUNT_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateCountColumnAggregations.class, VARCHAR, ImmutableList.<Type>of(VARCHAR));
-
     private ApproximateCountColumnAggregations() {}
 
     @InputFunction

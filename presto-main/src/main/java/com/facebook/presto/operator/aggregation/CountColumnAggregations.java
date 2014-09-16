@@ -28,7 +28,6 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 public final class CountColumnAggregations
 {
     public static final InternalAggregationFunction COUNT_BOOLEAN_COLUMN = new AggregationCompiler().generateAggregationFunction(CountColumnAggregations.class, BIGINT, ImmutableList.<Type>of(BOOLEAN));
-    public static final InternalAggregationFunction COUNT_LONG_COLUMN = new AggregationCompiler().generateAggregationFunction(CountColumnAggregations.class, BIGINT, ImmutableList.<Type>of(BIGINT));
     public static final InternalAggregationFunction COUNT_VARCHAR_COLUMN = new AggregationCompiler().generateAggregationFunction(CountColumnAggregations.class, BIGINT, ImmutableList.<Type>of(VARCHAR));
 
     private CountColumnAggregations() {}

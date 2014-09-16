@@ -50,6 +50,18 @@ public abstract class AbstractTestApproximateAggregationFunction
     }
 
     @Override
+    protected boolean isApproximate()
+    {
+        return true;
+    }
+
+    @Override
+    protected List<String> getFunctionParameterTypes()
+    {
+        return ImmutableList.of(getType().getName());
+    }
+
+    @Override
     public Block getSequenceBlock(int start, int length)
     {
         BlockBuilder blockBuilder = getType().createBlockBuilder(new BlockBuilderStatus());

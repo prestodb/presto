@@ -16,8 +16,11 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.collect.ImmutableList;
 
-import static com.facebook.presto.operator.aggregation.LongMaxAggregation.LONG_MAX;
+import java.util.List;
+
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestLongMaxAggregation
@@ -34,17 +37,23 @@ public class TestLongMaxAggregation
     }
 
     @Override
-    public InternalAggregationFunction getFunction()
-    {
-        return LONG_MAX;
-    }
-
-    @Override
     public Number getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;
         }
         return (long) start + length - 1;
+    }
+
+    @Override
+    protected String getFunctionName()
+    {
+        return "max";
+    }
+
+    @Override
+    protected List<String> getFunctionParameterTypes()
+    {
+        return ImmutableList.of(StandardTypes.BIGINT);
     }
 }

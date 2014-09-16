@@ -13,18 +13,31 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.operator.aggregation.state.NullableBigintState;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
+import com.facebook.presto.type.TypeRegistry;
+import com.google.common.collect.ImmutableList;
+import org.testng.annotations.BeforeClass;
+
+import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestCountNullAggregation
         extends AbstractTestAggregationFunction
 {
+    @BeforeClass
+    public void setup()
+    {
+        InternalAggregationFunction function = new AggregationCompiler().generateAggregationFunction(CountNull.class);
+        functionRegistry.addFunctions(new FunctionListBuilder(new TypeRegistry()).aggregate(function).getFunctions());
+    }
+
     @Override
     public Block getSequenceBlock(int start, int length)
     {
@@ -33,12 +46,6 @@ public class TestCountNullAggregation
             BIGINT.writeLong(blockBuilder, i);
         }
         return blockBuilder.build();
-    }
-
-    @Override
-    public InternalAggregationFunction getFunction()
-    {
-        return new AggregationCompiler().generateAggregationFunction(CountNull.class);
     }
 
     @Override
@@ -76,5 +83,17 @@ public class TestCountNullAggregation
             state.setLong(state.getLong() + scratchState.getLong());
             state.setNull(state.isNull() && scratchState.isNull());
         }
+    }
+
+    @Override
+    protected String getFunctionName()
+    {
+        return "count_null";
+    }
+
+    @Override
+    protected List<String> getFunctionParameterTypes()
+    {
+        return ImmutableList.of(StandardTypes.BIGINT);
     }
 }
