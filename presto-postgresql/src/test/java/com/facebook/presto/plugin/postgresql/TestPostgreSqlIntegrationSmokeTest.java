@@ -13,33 +13,32 @@
  */
 package com.facebook.presto.plugin.postgresql;
 
-import com.facebook.presto.tests.AbstractTestQueries;
+import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import io.airlift.testing.postgresql.TestingPostgreSqlServer;
-import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 
-import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.airlift.tpch.TpchTable.ORDERS;
 
 @Test
-public class TestPostgreSqlDistributedQueries
-        extends AbstractTestQueries
+public class TestPostgreSqlIntegrationSmokeTest
+        extends AbstractTestIntegrationSmokeTest
 {
     private final TestingPostgreSqlServer postgreSqlServer;
 
-    public TestPostgreSqlDistributedQueries()
+    public TestPostgreSqlIntegrationSmokeTest()
             throws Exception
     {
         this(new TestingPostgreSqlServer("testuser", "tpch"));
     }
 
-    public TestPostgreSqlDistributedQueries(TestingPostgreSqlServer postgreSqlServer)
+    public TestPostgreSqlIntegrationSmokeTest(TestingPostgreSqlServer postgreSqlServer)
             throws Exception
     {
-        super(createPostgreSqlQueryRunner(postgreSqlServer, TpchTable.getTables()));
+        super(PostgreSqlQueryRunner.createPostgreSqlQueryRunner(postgreSqlServer, ORDERS));
         this.postgreSqlServer = postgreSqlServer;
     }
 
