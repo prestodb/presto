@@ -26,6 +26,11 @@ previously specifying a value such as ``25``, change it to ``25ms``.
 General Changes
 ---------------
 
-* Fix hang in verifier, if an exception occurred
-* Fix :func:`chr` function
-* Fix JDBC client hanging the JVM on shutdown
+* Fix hang in verifier when an exception occurs.
+* Fix :func:`chr` function to work with unicode code points instead of ASCII code points.
+* Fix JDBC client hanging the JVM on shutdown.
+* Fix incorrect parsing of function arguments.
+* The bytecode compiler now caches generated code for join and group by queries, which should improve performance and CPU efficiency for these types of queries.
+* Improve planning performance for certain trivial queries over tables with lots of partitions.
+* Avoid creating large output pages. This should mitigate some cases of "Remote page is too large" errors.
+* The coordinator/worker communication layer is now fully asynchronous.  Specifically, long-poll requests no longer tie up a thread on the worker.  This makes heavily loaded clusters more efficient.
