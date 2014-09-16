@@ -21,6 +21,8 @@ import com.google.common.net.HostAndPort;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.jetty.JettyHttpClient;
+import io.airlift.http.client.jetty.JettyIoPool;
+import io.airlift.http.client.jetty.JettyIoPoolConfig;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 
@@ -52,6 +54,7 @@ class QueryExecutor
                 new HttpClientConfig()
                         .setConnectTimeout(new Duration(10, TimeUnit.SECONDS))
                         .setSocksProxy(socksProxy),
+                new JettyIoPool("presto-jdbc", new JettyIoPoolConfig()),
                 ImmutableSet.of(new UserAgentRequestFilter(userAgent)));
     }
 

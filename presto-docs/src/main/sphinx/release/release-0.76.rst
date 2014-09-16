@@ -28,3 +28,4 @@ General Changes
 
 * Fix hang in verifier, if an exception occurred
 * Fix :func:`chr` function
+* Fix JDBC client hanging the JVM on shutdown
