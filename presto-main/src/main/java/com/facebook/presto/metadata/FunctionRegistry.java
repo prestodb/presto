@@ -252,11 +252,11 @@ public class FunctionRegistry
                 .scalar(HyperLogLogOperators.class)
                 .scalar(LikeFunctions.class)
                 .scalar(ArrayFunctions.class)
-                .parametricScalar(IDENTITY_CAST)
-                .parametricScalar(ARRAY_CONSTRUCTOR)
-                .parametricScalar(ARRAY_SUBSCRIPT)
-                .parametricScalar(ARRAY_CARDINALITY)
-                .parametricScalar(MAP_SUBSCRIPT);
+                .function(ARRAY_CONSTRUCTOR)
+                .function(ARRAY_SUBSCRIPT)
+                .function(ARRAY_CARDINALITY)
+                .function(MAP_SUBSCRIPT)
+                .function(IDENTITY_CAST);
 
         if (experimentalSyntaxEnabled) {
             builder.aggregate(ApproximateAverageAggregations.class)
