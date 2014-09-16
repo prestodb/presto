@@ -225,7 +225,7 @@
 
     <profiles>
         <profile>
-            <id>kafka-integration</id>
+            <id>ci</id>
             <build>
                 <plugins>
                     <plugin>
