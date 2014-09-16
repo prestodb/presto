@@ -15,50 +15,66 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.QueryRunner;
+import com.google.common.base.Optional;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public abstract class AbstractTestApproximateQueries
         extends AbstractTestQueries
 {
-    private final ConnectorSession defaultSampledSession;
+    private final Optional<ConnectorSession> sampledSession;
 
-    protected AbstractTestApproximateQueries(QueryRunner queryRunner, ConnectorSession defaultSampledSession)
+    protected AbstractTestApproximateQueries(QueryRunner queryRunner)
+    {
+        this(queryRunner, Optional.<ConnectorSession>absent());
+    }
+
+    protected AbstractTestApproximateQueries(QueryRunner queryRunner, ConnectorSession sampledSession)
+    {
+        this(queryRunner, Optional.of(checkNotNull(sampledSession, "sampledSession is null")));
+    }
+
+    private AbstractTestApproximateQueries(QueryRunner queryRunner, Optional<ConnectorSession> sampledSession)
     {
         super(queryRunner);
-        this.defaultSampledSession = defaultSampledSession;
+        this.sampledSession = checkNotNull(sampledSession, "sampledSession is null");
     }
 
     @Test
     public void testApproximateQueryCount()
             throws Exception
     {
-        checkState(defaultSampledSession != null, "no defaultSampledSession found");
-        assertApproximateQuery(defaultSampledSession, "SELECT COUNT(*) FROM orders APPROXIMATE AT 99.999 CONFIDENCE", "SELECT 2 * COUNT(*) FROM orders");
+        assertApproximateQuery("SELECT COUNT(*) FROM orders APPROXIMATE AT 99.999 CONFIDENCE", "SELECT 2 * COUNT(*) FROM orders");
     }
 
     @Test
     public void testApproximateQueryCountCustkey()
             throws Exception
     {
-        checkState(defaultSampledSession != null, "no defaultSampledSession found");
-        assertApproximateQuery(defaultSampledSession, "SELECT COUNT(custkey) FROM orders APPROXIMATE AT 99.999 CONFIDENCE", "SELECT 2 * COUNT(custkey) FROM orders");
+        assertApproximateQuery("SELECT COUNT(custkey) FROM orders APPROXIMATE AT 99.999 CONFIDENCE", "SELECT 2 * COUNT(custkey) FROM orders");
     }
 
     @Test
     public void testApproximateQuerySum()
             throws Exception
     {
-        checkState(defaultSampledSession != null, "no defaultSampledSession found");
-        assertApproximateQuery(defaultSampledSession, "SELECT SUM(totalprice) FROM orders APPROXIMATE AT 99.999 CONFIDENCE", "SELECT 2 * SUM(totalprice) FROM orders");
+        assertApproximateQuery("SELECT SUM(totalprice) FROM orders APPROXIMATE AT 99.999 CONFIDENCE", "SELECT 2 * SUM(totalprice) FROM orders");
     }
 
     @Test
     public void testApproximateQueryAverage()
             throws Exception
     {
-        checkState(defaultSampledSession != null, "no defaultSampledSession found");
-        assertApproximateQuery(defaultSampledSession, "SELECT AVG(totalprice) FROM orders APPROXIMATE AT 99.999 CONFIDENCE", "SELECT AVG(totalprice) FROM orders");
+        assertApproximateQuery("SELECT AVG(totalprice) FROM orders APPROXIMATE AT 99.999 CONFIDENCE", "SELECT AVG(totalprice) FROM orders");
+    }
+
+    protected void assertApproximateQuery(@Language("SQL") String actual, @Language("SQL") String expected)
+            throws Exception
+    {
+        if (sampledSession.isPresent()) {
+            assertApproximateQuery(sampledSession.get(), actual, expected);
+        }
     }
 }

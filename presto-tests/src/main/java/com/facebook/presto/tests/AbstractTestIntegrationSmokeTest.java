@@ -123,6 +123,10 @@ public abstract class AbstractTestIntegrationSmokeTest
     public void testTableSampleSystem()
             throws Exception
     {
+        if (!sampledSession.isPresent()) {
+             return;
+        }
+
         int total = computeActual("SELECT orderkey FROM orders").getMaterializedRows().size();
 
         boolean sampleSizeFound = false;
@@ -141,11 +145,15 @@ public abstract class AbstractTestIntegrationSmokeTest
             throws Exception
     {
         MaterializedResult actualSchemas = computeActual("SHOW SCHEMAS").toJdbcTypes();
-        MaterializedResult expectedSchemas = MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR)
-                .row("tpch")
-                .row("tpch_sampled")
-                .build();
-        assertTrue(actualSchemas.getMaterializedRows().containsAll(expectedSchemas.getMaterializedRows()));
+
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR)
+                .row("tpch");
+
+        if (sampledSession.isPresent()) {
+            resultBuilder.row("tpch_sampled");
+        }
+
+        assertTrue(actualSchemas.getMaterializedRows().containsAll(resultBuilder.build().getMaterializedRows()));
     }
 
     @Test

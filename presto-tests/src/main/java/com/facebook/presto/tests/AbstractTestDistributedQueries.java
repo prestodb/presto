@@ -41,12 +41,12 @@ public abstract class AbstractTestDistributedQueries
 {
     protected AbstractTestDistributedQueries(QueryRunner queryRunner)
     {
-        this(queryRunner, null);
+        super(queryRunner);
     }
 
-    protected AbstractTestDistributedQueries(QueryRunner queryRunner, ConnectorSession defaultSampledSession)
+    protected AbstractTestDistributedQueries(QueryRunner queryRunner, ConnectorSession sampledSession)
     {
-        super(queryRunner, defaultSampledSession);
+        super(queryRunner, sampledSession);
     }
 
     private void assertCreateTable(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
