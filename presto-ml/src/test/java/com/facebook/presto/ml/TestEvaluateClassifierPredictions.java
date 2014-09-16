@@ -33,7 +33,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import java.text.DecimalFormat;
 import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -60,11 +59,10 @@ public class TestEvaluateClassifierPredictions
 
         String output = VARCHAR.getSlice(block, 0).toStringUtf8();
         List<String> parts = ImmutableList.copyOf(Splitter.on('\n').split(output));
-        DecimalFormat df2 = new DecimalFormat("#,##0.00");
         assertEquals(parts.size(), 3);
-        assertEquals(parts.get(0), "Accuracy: 1/2 (" + df2.format(50.00) + "%)");
-        assertEquals(parts.get(1), "Precision: 1/1 (" + df2.format(100.00) + "%)");
-        assertEquals(parts.get(2), "Recall: 1/2 (" + df2.format(50.00) + "%)");
+        assertEquals(parts.get(0), "Accuracy: 1/2 (50.00%)");
+        assertEquals(parts.get(1), "Precision: 1/1 (100.00%)");
+        assertEquals(parts.get(2), "Recall: 1/2 (50.00%)");
     }
 
     private static Page getPage()
