@@ -156,7 +156,7 @@ public class FunctionListBuilder
         return this;
     }
 
-    public FunctionListBuilder parametricScalar(ParametricFunction parametricFunction)
+    public FunctionListBuilder function(ParametricFunction parametricFunction)
     {
         checkNotNull(parametricFunction, "parametricFunction is null");
         functions.add(parametricFunction);
