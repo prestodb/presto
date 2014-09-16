@@ -309,11 +309,16 @@ public final class Signature
 
     public static TypeParameter typeParameter(String name)
     {
-        return new TypeParameter(name, false);
+        return new TypeParameter(name, false, false);
     }
 
-    public static TypeParameter typeParameter(String name, boolean comparableRequired)
+    public static TypeParameter comparableTypeParameter(String name)
     {
-        return new TypeParameter(name, comparableRequired);
+        return new TypeParameter(name, true, false);
+    }
+
+    public static TypeParameter orderableTypeParameter(String name)
+    {
+        return new TypeParameter(name, false, true);
     }
 }

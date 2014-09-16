@@ -26,6 +26,7 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -87,7 +88,7 @@ public class TestSignature
         assertNotNull(signature.bindTypeParameters(ImmutableList.of(typeManager.getType("array<bigint>")), true, typeManager));
         assertNull(signature.bindTypeParameters(ImmutableList.of(BIGINT), true, typeManager));
 
-        signature = new Signature("contains", ImmutableList.of(typeParameter("T", true)), "T", ImmutableList.of("array<T>", "T"), false, true);
+        signature = new Signature("contains", ImmutableList.of(comparableTypeParameter("T")), "T", ImmutableList.of("array<T>", "T"), false, true);
         assertNotNull(signature.bindTypeParameters(ImmutableList.of(typeManager.getType("array<bigint>"), BIGINT), true, typeManager));
         assertNull(signature.bindTypeParameters(ImmutableList.of(typeManager.getType("array<bigint>"), VARCHAR), true, typeManager));
         assertNull(signature.bindTypeParameters(ImmutableList.of(typeManager.getType("array<HyperLogLog>"), HYPER_LOG_LOG), true, typeManager));
