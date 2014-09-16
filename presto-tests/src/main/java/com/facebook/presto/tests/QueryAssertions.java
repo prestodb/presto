@@ -28,6 +28,7 @@ import org.intellij.lang.annotations.Language;
 import java.util.List;
 
 import static com.facebook.presto.util.Types.checkType;
+import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -52,11 +53,11 @@ public final class QueryAssertions
     {
         long start = System.nanoTime();
         MaterializedResult actualResults = actualQueryRunner.execute(actualSession, actual).toJdbcTypes();
-        Duration actualTime = Duration.nanosSince(start);
+        Duration actualTime = nanosSince(start);
 
         long expectedStart = System.nanoTime();
         MaterializedResult expectedResults = h2QueryRunner.execute(expected, actualResults.getTypes());
-        log.info("FINISHED in presto: %s, h2: %s, total: %s", actualTime, Duration.nanosSince(expectedStart), Duration.nanosSince(start));
+        log.info("FINISHED in presto: %s, h2: %s, total: %s", actualTime, nanosSince(expectedStart), nanosSince(start));
 
         if (ensureOrdering) {
             assertEquals(actualResults.getMaterializedRows(), expectedResults.getMaterializedRows());
@@ -92,7 +93,7 @@ public final class QueryAssertions
     {
         long start = System.nanoTime();
         MaterializedResult actualResults = queryRunner.execute(session, actual);
-        log.info("FINISHED in %s", Duration.nanosSince(start));
+        log.info("FINISHED in %s", nanosSince(start));
 
         MaterializedResult expectedResults = h2QueryRunner.execute(expected, actualResults.getTypes());
         assertApproximatelyEqual(actualResults.getMaterializedRows(), expectedResults.getMaterializedRows());
@@ -144,9 +145,10 @@ public final class QueryAssertions
 
     public static void copyTable(QueryRunner queryRunner, QualifiedTableName table, ConnectorSession session)
     {
+        long start = System.nanoTime();
         log.info("Running import for %s", table.getTableName());
         @Language("SQL") String sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getTableName(), table);
         long rows = checkType(queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0), Long.class, "rows");
-        log.info("Imported %s rows for %s", rows, table.getTableName());
+        log.info("Imported %s rows for %s in %s", rows, table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 }
