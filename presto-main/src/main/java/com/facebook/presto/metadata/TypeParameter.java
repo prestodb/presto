@@ -25,12 +25,17 @@ public final class TypeParameter
 {
     private final String name;
     private final boolean comparableRequired;
+    private final boolean orderableRequired;
 
     @JsonCreator
-    public TypeParameter(@JsonProperty("name") String name, @JsonProperty("comparableRequired") boolean comparableRequired)
+    public TypeParameter(
+            @JsonProperty("name") String name,
+            @JsonProperty("comparableRequired") boolean comparableRequired,
+            @JsonProperty("orderableRequired") boolean orderableRequired)
     {
         this.name = checkNotNull(name, "name is null");
         this.comparableRequired = comparableRequired;
+        this.orderableRequired = orderableRequired;
     }
 
     @JsonProperty
@@ -45,15 +50,28 @@ public final class TypeParameter
         return comparableRequired;
     }
 
+    @JsonProperty
+    public boolean isOrderableRequired()
+    {
+        return orderableRequired;
+    }
+
     public boolean canBind(Type type)
     {
-        return !comparableRequired || type.isComparable();
+        return (!comparableRequired || type.isComparable()) && (!orderableRequired || type.isOrderable());
     }
 
     @Override
     public String toString()
     {
-        return comparableRequired ? name + ":comparable" : name;
+        String value = name;
+        if (comparableRequired) {
+            value += ":comparable";
+        }
+        if (orderableRequired) {
+            value += ":orderable";
+        }
+        return value;
     }
 
     @Override
@@ -69,12 +87,13 @@ public final class TypeParameter
         TypeParameter other = (TypeParameter) o;
 
         return Objects.equals(this.name, other.name) &&
-                Objects.equals(this.comparableRequired, other.comparableRequired);
+                Objects.equals(this.comparableRequired, other.comparableRequired) &&
+                Objects.equals(this.orderableRequired, other.orderableRequired);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, comparableRequired);
+        return Objects.hash(name, comparableRequired, orderableRequired);
     }
 }
