@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import com.google.inject.Module;
+import io.airlift.log.Logger;
 import io.airlift.testing.Assertions;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
@@ -44,6 +45,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class DistributedQueryRunner
         implements QueryRunner
 {
+    private static final Logger log = Logger.get(DistributedQueryRunner.class);
     private static final String ENVIRONMENT = "testing";
 
     private final TestingDiscoveryServer discoveryServer;
@@ -60,7 +62,9 @@ public class DistributedQueryRunner
         checkNotNull(defaultSession, "defaultSession is null");
 
         try {
+            long start = System.nanoTime();
             discoveryServer = closer.register(new TestingDiscoveryServer(ENVIRONMENT));
+            log.info("Created TestingDiscoveryServer in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
             ImmutableList.Builder<TestingPrestoServer> servers = ImmutableList.builder();
             coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true));
@@ -84,15 +88,19 @@ public class DistributedQueryRunner
             Assertions.assertLessThan(nanosSince(start), new Duration(10, SECONDS));
             MILLISECONDS.sleep(10);
         }
+        log.info("Announced servers in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
+        start = System.nanoTime();
         for (TestingPrestoServer server : servers) {
             server.getMetadata().addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
         }
+        log.info("Added functions in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
     private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri, boolean coordinator)
             throws Exception
     {
+        long start = System.nanoTime();
         ImmutableMap.Builder<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.client.timeout", "10m")
                 .put("exchange.http-client.read-timeout", "1h")
@@ -105,6 +113,8 @@ public class DistributedQueryRunner
         }
 
         TestingPrestoServer server = new TestingPrestoServer(coordinator, properties.build(), ENVIRONMENT, discoveryUri, ImmutableList.<Module>of());
+
+        log.info("Created TestingPrestoServer in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
         return server;
     }
@@ -146,9 +156,11 @@ public class DistributedQueryRunner
     @Override
     public void installPlugin(Plugin plugin)
     {
+        long start = System.nanoTime();
         for (TestingPrestoServer server : servers) {
             server.installPlugin(plugin);
         }
+        log.info("Installed plugin %s in %s", plugin.getClass().getSimpleName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
     public void createCatalog(String catalogName, String connectorName)
@@ -159,12 +171,14 @@ public class DistributedQueryRunner
     @Override
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
+        long start = System.nanoTime();
         for (TestingPrestoServer server : servers) {
             server.createCatalog(catalogName, connectorName, properties);
         }
+        log.info("Created catalog %s in %s", catalogName, nanosSince(start).convertToMostSuccinctTimeUnit());
 
         // wait for all nodes to announce the new catalog
-        long start = System.nanoTime();
+        start = System.nanoTime();
         while (!isConnectionVisibleToAllNodes(catalogName)) {
             Assertions.assertLessThan(nanosSince(start), new Duration(100, SECONDS), "waiting form connector " + connectorName + " to be initialized in every node");
             try {
@@ -175,6 +189,7 @@ public class DistributedQueryRunner
                 throw Throwables.propagate(e);
             }
         }
+        log.info("Announced catalog %s in %s", catalogName, nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
     private boolean isConnectionVisibleToAllNodes(String connectorId)
