@@ -22,3 +22,9 @@ The :doc:`/connector/cassandra` configuration properties
 are now specified using a duration rather than milliseconds (this makes
 them consistent with all other such properties in Presto). If you were
 previously specifying a value such as ``25``, change it to ``25ms``.
+
+General Changes
+---------------
+
+* Fix hang in verifier, if an exception occurred
+* Fix :func:`chr` function
