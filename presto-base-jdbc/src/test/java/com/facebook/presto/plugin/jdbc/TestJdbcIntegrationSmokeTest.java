@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import com.facebook.presto.tests.AbstractTestQueries;
-import io.airlift.tpch.TpchTable;
+import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 
 import static com.facebook.presto.plugin.jdbc.JdbcQueryRunner.createJdbcQueryRunner;
+import static io.airlift.tpch.TpchTable.ORDERS;
 
-public class TestJdbcDistributedQueries
-        extends AbstractTestQueries
+public class TestJdbcIntegrationSmokeTest
+        extends AbstractTestIntegrationSmokeTest
 {
-    public TestJdbcDistributedQueries()
+    public TestJdbcIntegrationSmokeTest()
             throws Exception
     {
-        super(createJdbcQueryRunner(TpchTable.getTables()));
+        super(createJdbcQueryRunner(ORDERS));
     }
 }
