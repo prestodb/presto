@@ -16,12 +16,18 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.AbstractFixedWidthType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -33,16 +39,24 @@ import static com.facebook.presto.operator.aggregation.AggregationTestUtils.asse
 import static com.google.common.base.Predicates.and;
 import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Predicates.not;
+import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static org.testng.Assert.assertNotNull;
 
 public class TestMaxByAggregation
 {
     private static final MetadataManager metadata = new MetadataManager();
 
+    @BeforeClass
+    public void setup()
+    {
+        ((TypeRegistry) metadata.getTypeManager()).addType(CustomDoubleType.CUSTOM_DOUBLE);
+    }
+
     @Test
     public void testAllRegistered()
     {
-        Set<Type> orderableTypes = FluentIterable.from(metadata.getTypeManager().getTypes()).filter(new Predicate<Type>() {
+        Set<Type> orderableTypes = FluentIterable.from(metadata.getTypeManager().getTypes()).filter(new Predicate<Type>()
+        {
             @Override
             public boolean apply(Type input)
             {
@@ -138,5 +152,84 @@ public class TestMaxByAggregation
     private static Page createPage(String[] values, Double[] keys)
     {
         return new Page(createStringsBlock(values), createDoublesBlock(keys));
+    }
+
+    private static class CustomDoubleType
+            extends AbstractFixedWidthType
+    {
+        public static final CustomDoubleType CUSTOM_DOUBLE = new CustomDoubleType();
+        public static final String NAME = "custom_double";
+
+        private CustomDoubleType()
+        {
+            super(NAME, double.class, SIZE_OF_DOUBLE);
+        }
+
+        @Override
+        public boolean isComparable()
+        {
+            return true;
+        }
+
+        @Override
+        public boolean isOrderable()
+        {
+            return true;
+        }
+
+        @Override
+        public Object getObjectValue(ConnectorSession session, Block block, int position)
+        {
+            if (block.isNull(position)) {
+                return null;
+            }
+            return block.getDouble(position, 0);
+        }
+
+        @Override
+        public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+        {
+            long leftValue = leftBlock.getLong(leftPosition, 0);
+            long rightValue = rightBlock.getLong(rightPosition, 0);
+            return leftValue == rightValue;
+        }
+
+        @Override
+        public int hash(Block block, int position)
+        {
+            long value = block.getLong(position, 0);
+            return (int) (value ^ (value >>> 32));
+        }
+
+        @Override
+        public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+        {
+            double leftValue = leftBlock.getDouble(leftPosition, 0);
+            double rightValue = rightBlock.getDouble(rightPosition, 0);
+            return Double.compare(leftValue, rightValue);
+        }
+
+        @Override
+        public void appendTo(Block block, int position, BlockBuilder blockBuilder)
+        {
+            if (block.isNull(position)) {
+                blockBuilder.appendNull();
+            }
+            else {
+                blockBuilder.writeDouble(block.getDouble(position, 0)).closeEntry();
+            }
+        }
+
+        @Override
+        public double getDouble(Block block, int position)
+        {
+            return block.getDouble(position, 0);
+        }
+
+        @Override
+        public void writeDouble(BlockBuilder blockBuilder, double value)
+        {
+            blockBuilder.writeDouble(value).closeEntry();
+        }
     }
 }

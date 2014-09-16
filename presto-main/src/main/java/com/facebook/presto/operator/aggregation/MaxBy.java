@@ -14,72 +14,76 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.byteCode.DynamicClassLoader;
+import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.ParametricAggregation;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.state.MaxByState;
 import com.facebook.presto.operator.aggregation.state.MaxByStateFactory;
 import com.facebook.presto.operator.aggregation.state.MaxByStateSerializer;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.reflect.Method;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
+import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
+import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 
-public final class MaxByAggregations
+public class MaxBy
+        extends ParametricAggregation
 {
+    public static final MaxBy MAX_BY = new MaxBy();
     private static final String NAME = "max_by";
     private static final Method OUTPUT_FUNCTION;
     private static final Method INPUT_FUNCTION;
     private static final Method COMBINE_FUNCTION;
+    private static final Signature SIGNATURE = new Signature(NAME, ImmutableList.of(orderableTypeParameter("K"), typeParameter("V")), "V", ImmutableList.of("V", "K"), false, false);
 
     static {
         try {
-            OUTPUT_FUNCTION = MaxByAggregations.class.getMethod("output", MaxByState.class, BlockBuilder.class);
-            INPUT_FUNCTION = MaxByAggregations.class.getMethod("input", MaxByState.class, Block.class, Block.class, int.class);
-            COMBINE_FUNCTION = MaxByAggregations.class.getMethod("combine", MaxByState.class, MaxByState.class);
+            OUTPUT_FUNCTION = MaxBy.class.getMethod("output", MaxByState.class, BlockBuilder.class);
+            INPUT_FUNCTION = MaxBy.class.getMethod("input", MaxByState.class, Block.class, Block.class, int.class);
+            COMBINE_FUNCTION = MaxBy.class.getMethod("combine", MaxByState.class, MaxByState.class);
         }
         catch (NoSuchMethodException e) {
             throw Throwables.propagate(e);
         }
     }
 
-    private MaxByAggregations() {}
-
-    public static List<InternalAggregationFunction> getAggregations(TypeManager typeManager)
+    @Override
+    public Signature getSignature()
     {
-        ImmutableList.Builder<InternalAggregationFunction> builder = ImmutableList.builder();
+        return SIGNATURE;
+    }
 
-        Set<Type> orderableTypes = FluentIterable.from(typeManager.getTypes()).filter(new Predicate<Type>() {
-            @Override
-            public boolean apply(Type input)
-            {
-                return input.isOrderable();
-            }
-        }).toSet();
+    @Override
+    public String getDescription()
+    {
+        return "Returns the value of the first argument, associated with the maximum value of the second argument";
+    }
 
-        for (Type keyType : orderableTypes) {
-            for (Type valueType : typeManager.getTypes()) {
-                builder.add(generateAggregation(valueType, keyType));
-            }
-        }
-
-        return builder.build();
+    @Override
+    public FunctionInfo specialize(Map<String, Type> types, int arity)
+    {
+        Type keyType = types.get("K");
+        Type valueType = types.get("V");
+        Signature signature = new Signature(NAME, valueType.getName(), valueType.getName(), keyType.getName());
+        InternalAggregationFunction aggregation = generateAggregation(valueType, keyType);
+        return new FunctionInfo(signature, getDescription(), aggregation.getIntermediateType().getName(), aggregation, false);
     }
 
     private static InternalAggregationFunction generateAggregation(Type valueType, Type keyType)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(MaxByAggregations.class.getClassLoader());
+        DynamicClassLoader classLoader = new DynamicClassLoader(MaxBy.class.getClassLoader());
 
         MaxByStateSerializer stateSerializer = new MaxByStateSerializer();
         Type intermediateType = stateSerializer.getSerializedType();
