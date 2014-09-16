@@ -27,7 +27,7 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.util.Types.checkType;
+import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.UUID.randomUUID;
 
