@@ -24,8 +24,6 @@ import static com.facebook.presto.operator.aggregation.state.TriStateBooleanStat
 @AggregationFunction("min")
 public final class BooleanMinAggregation
 {
-    public static final InternalAggregationFunction BOOLEAN_MIN = new AggregationCompiler().generateAggregationFunction(BooleanMinAggregation.class);
-
     private BooleanMinAggregation() {}
 
     @InputFunction

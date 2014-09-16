@@ -21,8 +21,6 @@ import com.facebook.presto.type.SqlType;
 @AggregationFunction("min")
 public final class LongMinAggregation
 {
-    public static final InternalAggregationFunction LONG_MIN = new AggregationCompiler().generateAggregationFunction(LongMinAggregation.class);
-
     private LongMinAggregation() {}
 
     @InputFunction

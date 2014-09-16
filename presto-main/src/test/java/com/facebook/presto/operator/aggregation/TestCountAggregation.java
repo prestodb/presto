@@ -16,8 +16,10 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.google.common.collect.ImmutableList;
 
-import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
+import java.util.List;
+
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestCountAggregation
@@ -34,12 +36,6 @@ public class TestCountAggregation
     }
 
     @Override
-    public InternalAggregationFunction getFunction()
-    {
-        return COUNT;
-    }
-
-    @Override
     public Number getExpectedValue(int start, int length)
     {
         return (long) length;
@@ -49,5 +45,17 @@ public class TestCountAggregation
     public Object getExpectedValueIncludingNulls(int start, int length, int lengthIncludingNulls)
     {
         return (long) lengthIncludingNulls;
+    }
+
+    @Override
+    protected String getFunctionName()
+    {
+        return "count";
+    }
+
+    @Override
+    protected List<String> getFunctionParameterTypes()
+    {
+        return ImmutableList.of();
     }
 }

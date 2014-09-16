@@ -16,8 +16,11 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.collect.ImmutableList;
 
-import static com.facebook.presto.operator.aggregation.DoubleMinAggregation.DOUBLE_MIN;
+import java.util.List;
+
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class TestDoubleMinAggregation
@@ -34,17 +37,23 @@ public class TestDoubleMinAggregation
     }
 
     @Override
-    public InternalAggregationFunction getFunction()
-    {
-        return DOUBLE_MIN;
-    }
-
-    @Override
     public Number getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;
         }
         return (double) start;
+    }
+
+    @Override
+    protected String getFunctionName()
+    {
+        return "min";
+    }
+
+    @Override
+    protected List<String> getFunctionParameterTypes()
+    {
+        return ImmutableList.of(StandardTypes.DOUBLE);
     }
 }

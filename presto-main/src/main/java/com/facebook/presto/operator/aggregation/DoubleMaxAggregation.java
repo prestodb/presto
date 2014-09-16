@@ -21,8 +21,6 @@ import com.facebook.presto.type.SqlType;
 @AggregationFunction("max")
 public final class DoubleMaxAggregation
 {
-    public static final InternalAggregationFunction DOUBLE_MAX = new AggregationCompiler().generateAggregationFunction(DoubleMaxAggregation.class);
-
     private DoubleMaxAggregation() {}
 
     @InputFunction

@@ -21,8 +21,6 @@ import io.airlift.slice.Slice;
 @AggregationFunction("min")
 public final class VarBinaryMinAggregation
 {
-    public static final InternalAggregationFunction VAR_BINARY_MIN = new AggregationCompiler().generateAggregationFunction(VarBinaryMinAggregation.class);
-
     private VarBinaryMinAggregation() {}
 
     @InputFunction

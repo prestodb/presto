@@ -19,7 +19,6 @@ import com.google.common.base.Predicates;
 
 import java.util.List;
 
-import static com.facebook.presto.operator.aggregation.ApproximateCountColumnAggregations.DOUBLE_APPROXIMATE_COUNT_AGGREGATION;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class TestApproximateCountDoubleAggregation
@@ -41,8 +40,8 @@ public class TestApproximateCountDoubleAggregation
     }
 
     @Override
-    public InternalAggregationFunction getFunction()
+    protected String getFunctionName()
     {
-        return DOUBLE_APPROXIMATE_COUNT_AGGREGATION;
+        return "count";
     }
 }
