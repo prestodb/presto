@@ -63,6 +63,7 @@ public class NodeScheduler
     private final int maxSplitsPerNode;
     private final int maxSplitsPerNodePerTaskWhenFull;
     private final NodeTaskMap nodeTaskMap;
+    private final boolean doubleScheduling;
 
     @Inject
     public NodeScheduler(NodeManager nodeManager, NodeSchedulerConfig config, NodeTaskMap nodeTaskMap)
@@ -71,6 +72,7 @@ public class NodeScheduler
         this.minCandidates = config.getMinCandidates();
         this.locationAwareScheduling = config.isLocationAwareSchedulingEnabled();
         this.includeCoordinator = config.isIncludeCoordinator();
+        this.doubleScheduling = config.isMultipleTasksPerNodeEnabled();
         this.maxSplitsPerNode = config.getMaxSplitsPerNode();
         this.maxSplitsPerNodePerTaskWhenFull = config.getMaxPendingSplitsPerNodePerTask();
         this.nodeTaskMap = checkNotNull(nodeTaskMap, "nodeTaskMap is null");
@@ -185,7 +187,11 @@ public class NodeScheduler
         {
             checkArgument(limit > 0, "limit must be at least 1");
 
-            return ImmutableList.copyOf(FluentIterable.from(lazyShuffle(nodeMap.get().get().getNodesByHostAndPort().values())).limit(limit));
+            FluentIterable<Node> nodes = FluentIterable.from(lazyShuffle(nodeMap.get().get().getNodesByHostAndPort().values()));
+            if (doubleScheduling) {
+                nodes = nodes.cycle();
+            }
+            return nodes.limit(limit).toList();
         }
 
         /**
