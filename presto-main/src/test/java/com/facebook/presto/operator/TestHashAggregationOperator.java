@@ -15,12 +15,16 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -41,8 +45,6 @@ import static com.facebook.presto.operator.OperatorAssertion.toPages;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.operator.aggregation.AverageAggregations.LONG_AVERAGE;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
-import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_BOOLEAN_COLUMN;
-import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_VARCHAR_COLUMN;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
 import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -83,6 +85,9 @@ public class TestHashAggregationOperator
     public void testHashAggregation()
             throws Exception
     {
+        MetadataManager metadata = new MetadataManager();
+        InternalAggregationFunction countVarcharColumn = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of(StandardTypes.VARCHAR), false).getAggregationFunction();
+        InternalAggregationFunction countBooleanColumn = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of(StandardTypes.BOOLEAN), false).getAggregationFunction();
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .addSequencePage(10, 100, 0, 100, 0, 500)
                 .addSequencePage(10, 100, 0, 200, 0, 500)
@@ -98,8 +103,8 @@ public class TestHashAggregationOperator
                         LONG_SUM.bind(ImmutableList.of(3), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
                         LONG_AVERAGE.bind(ImmutableList.of(3), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
                         VAR_BINARY_MAX.bind(ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        COUNT_VARCHAR_COLUMN.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        COUNT_BOOLEAN_COLUMN.bind(ImmutableList.of(4), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)),
+                        countVarcharColumn.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        countBooleanColumn.bind(ImmutableList.of(4), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)),
                 100_000);
 
         Operator operator = operatorFactory.createOperator(driverContext);

@@ -1,0 +1,124 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.operator.aggregation;
+
+import com.facebook.presto.byteCode.DynamicClassLoader;
+import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.ParametricAggregation;
+import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
+import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
+import com.facebook.presto.operator.aggregation.state.LongState;
+import com.facebook.presto.operator.aggregation.state.StateCompiler;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
+
+import java.lang.reflect.Method;
+import java.util.List;
+import java.util.Map;
+
+import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+
+public class CountColumn
+        extends ParametricAggregation
+{
+    public static final CountColumn COUNT_COLUMN = new CountColumn();
+    private static final String NAME = "count";
+    private static final Signature SIGNATURE = new Signature(NAME, ImmutableList.of(typeParameter("T")), StandardTypes.BIGINT, ImmutableList.of("T"), false, false);
+    private static final Method INPUT_FUNCTION;
+    private static final Method COMBINE_FUNCTION;
+
+    static {
+        try {
+            INPUT_FUNCTION = CountColumn.class.getMethod("input", LongState.class, Block.class, int.class);
+            COMBINE_FUNCTION = CountColumn.class.getMethod("combine", LongState.class, LongState.class);
+        }
+        catch (NoSuchMethodException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    @Override
+    public Signature getSignature()
+    {
+        return SIGNATURE;
+    }
+
+    @Override
+    public String getDescription()
+    {
+        return "Counts the non-null values";
+    }
+
+    @Override
+    public FunctionInfo specialize(Map<String, Type> types, int arity)
+    {
+        Type type = types.get("T");
+        Signature signature = new Signature(NAME, StandardTypes.BIGINT, type.getName());
+        InternalAggregationFunction aggregation = generateAggregation(type);
+        return new FunctionInfo(signature, getDescription(), aggregation.getIntermediateType().getName(), aggregation, false);
+    }
+
+    private static InternalAggregationFunction generateAggregation(Type type)
+    {
+        DynamicClassLoader classLoader = new DynamicClassLoader(CountColumn.class.getClassLoader());
+
+        AccumulatorStateSerializer<LongState> stateSerializer = new StateCompiler().generateStateSerializer(LongState.class, classLoader);
+        AccumulatorStateFactory<LongState> stateFactory = new StateCompiler().generateStateFactory(LongState.class, classLoader);
+        Type intermediateType = stateSerializer.getSerializedType();
+
+        List<Type> inputTypes = ImmutableList.of(type);
+
+        AggregationMetadata metadata = new AggregationMetadata(
+                generateAggregationName(NAME, BIGINT, inputTypes),
+                createInputParameterMetadata(type),
+                INPUT_FUNCTION,
+                null,
+                null,
+                COMBINE_FUNCTION,
+                null,
+                LongState.class,
+                stateSerializer,
+                stateFactory,
+                BIGINT,
+                false);
+
+        GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
+        return new GenericAggregationFunction(NAME, inputTypes, intermediateType, BIGINT, false, false, factory);
+    }
+
+    private static List<ParameterMetadata> createInputParameterMetadata(Type type)
+    {
+        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(INPUT_CHANNEL, type), new ParameterMetadata(BLOCK_INDEX));
+    }
+
+    public static void input(LongState state, Block block, int index)
+    {
+        state.setLong(state.getLong() + 1);
+    }
+
+    public static void combine(LongState state, LongState otherState)
+    {
+        state.setLong(state.getLong() + otherState.getLong());
+    }
+}

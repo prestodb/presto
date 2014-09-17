@@ -23,7 +23,6 @@ import com.facebook.presto.operator.aggregation.ApproximateSumAggregations;
 import com.facebook.presto.operator.aggregation.AverageAggregations;
 import com.facebook.presto.operator.aggregation.BooleanMaxAggregation;
 import com.facebook.presto.operator.aggregation.BooleanMinAggregation;
-import com.facebook.presto.operator.aggregation.CountColumnAggregations;
 import com.facebook.presto.operator.aggregation.CountIfAggregation;
 import com.facebook.presto.operator.aggregation.DoubleMaxAggregation;
 import com.facebook.presto.operator.aggregation.DoubleMinAggregation;
@@ -122,12 +121,13 @@ import static com.facebook.presto.metadata.ParametricFunctionUtils.isAggregation
 import static com.facebook.presto.metadata.ParametricFunctionUtils.isHiddenPredicate;
 import static com.facebook.presto.operator.aggregation.ApproximateCountAggregation.APPROXIMATE_COUNT_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
-import static com.facebook.presto.operator.scalar.ArraySubscriptOperator.ARRAY_SUBSCRIPT;
+import static com.facebook.presto.operator.aggregation.CountColumn.COUNT_COLUMN;
+import static com.facebook.presto.operator.aggregation.MaxBy.MAX_BY;
 import static com.facebook.presto.operator.scalar.ArrayCardinalityFunction.ARRAY_CARDINALITY;
 import static com.facebook.presto.operator.scalar.ArrayConstructor.ARRAY_CONSTRUCTOR;
-import static com.facebook.presto.operator.scalar.MapSubscriptOperator.MAP_SUBSCRIPT;
+import static com.facebook.presto.operator.scalar.ArraySubscriptOperator.ARRAY_SUBSCRIPT;
 import static com.facebook.presto.operator.scalar.IdentityCast.IDENTITY_CAST;
-import static com.facebook.presto.operator.aggregation.MaxBy.MAX_BY;
+import static com.facebook.presto.operator.scalar.MapSubscriptOperator.MAP_SUBSCRIPT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -211,7 +211,6 @@ public class FunctionRegistry
                 .aggregate(ApproximateLongPercentileAggregations.class)
                 .aggregate(ApproximateDoublePercentileAggregations.class)
                 .aggregate(CountIfAggregation.class)
-                .aggregate(CountColumnAggregations.class)
                 .aggregate(BooleanMinAggregation.class)
                 .aggregate(BooleanMaxAggregation.class)
                 .aggregate(DoubleMinAggregation.class)
@@ -256,7 +255,8 @@ public class FunctionRegistry
                 .function(ARRAY_CARDINALITY)
                 .function(MAP_SUBSCRIPT)
                 .function(IDENTITY_CAST)
-                .function(MAX_BY);
+                .function(MAX_BY)
+                .function(COUNT_COLUMN);
 
         if (experimentalSyntaxEnabled) {
             builder.aggregate(ApproximateAverageAggregations.class)
