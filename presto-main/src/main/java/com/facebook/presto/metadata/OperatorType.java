@@ -19,7 +19,7 @@ import com.google.common.base.Joiner;
 
 import java.util.List;
 
-import static com.facebook.presto.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public enum OperatorType

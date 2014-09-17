@@ -11,23 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.type;
+package com.facebook.presto.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
+import static java.util.Collections.unmodifiableList;
 
 public class TypeSignature
 {
@@ -36,10 +32,12 @@ public class TypeSignature
 
     private TypeSignature(String base, List<TypeSignature> parameters)
     {
-        this.base = checkNotNull(base, "base is null");
+        checkArgument(base != null, "base is null");
+        this.base = base;
         checkArgument(!base.isEmpty(), "base is empty");
         checkArgument(!Pattern.matches(".*[<>,].*", base), "Bad characters in base type: %s", base);
-        this.parameters = ImmutableList.copyOf(checkNotNull(parameters, "parameters is null"));
+        checkArgument(parameters != null, "parameters is null");
+        this.parameters = unmodifiableList(new ArrayList<>(parameters));
     }
 
     @Override
@@ -48,7 +46,16 @@ public class TypeSignature
     {
         String typeName = base;
         if (!parameters.isEmpty()) {
-            typeName += "<" + Joiner.on(",").join(parameters) + ">";
+            typeName += "<";
+            boolean first = true;
+            for (TypeSignature parameter : parameters) {
+                if (!first) {
+                    typeName += ",";
+                }
+                first = false;
+                typeName += parameter.toString();
+            }
+            typeName += ">";
         }
 
         return typeName;
@@ -70,7 +77,7 @@ public class TypeSignature
     public static TypeSignature parseTypeSignature(String signature)
     {
         if (!signature.contains("<")) {
-            return new TypeSignature(signature, ImmutableList.<TypeSignature>of());
+            return new TypeSignature(signature, unmodifiableList(new ArrayList<TypeSignature>()));
         }
 
         String baseName = null;
@@ -131,5 +138,19 @@ public class TypeSignature
     public int hashCode()
     {
         return Objects.hash(base, parameters);
+    }
+
+    private static void checkArgument(boolean argument, String format, Object...args)
+    {
+        if (!argument) {
+            throw new IllegalArgumentException(format(format, args));
+        }
+    }
+
+    private static void checkState(boolean argument, String format, Object...args)
+    {
+        if (!argument) {
+            throw new IllegalStateException(format(format, args));
+        }
     }
 }

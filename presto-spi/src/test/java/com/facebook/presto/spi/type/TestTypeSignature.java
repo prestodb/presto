@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.type;
+package com.facebook.presto.spi.type;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.client;
 
-import com.facebook.presto.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.unmodifiableIterable;
