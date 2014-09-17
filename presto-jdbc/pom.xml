@@ -156,7 +156,19 @@
                                     <shadedPattern>${shadeBase}.client</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>com.facebook.presto.type</pattern>
+                                    <pattern>com.facebook.presto.spi</pattern>
+                                    <shadedPattern>${shadeBase}.type</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.facebook.presto.spi.block</pattern>
+                                    <shadedPattern>${shadeBase}.type</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.facebook.presto.spi.classloader</pattern>
+                                    <shadedPattern>${shadeBase}.type</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.facebook.presto.spi.type</pattern>
                                     <shadedPattern>${shadeBase}.type</shadedPattern>
                                 </relocation>
                                 <relocation>
