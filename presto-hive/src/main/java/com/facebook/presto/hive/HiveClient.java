@@ -99,6 +99,7 @@ import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnHandle;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveType.columnTypeToHiveType;
 import static com.facebook.presto.hive.HiveType.getHiveType;
@@ -130,6 +131,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.Double.parseDouble;
 import static java.lang.Long.parseLong;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
@@ -1044,8 +1046,8 @@ public class HiveClient
                         List<Partition> partitions = metastore.getPartitionsByNames(tableName.getSchemaName(), tableName.getTableName(), partitionNameBatch);
                         checkState(partitionNameBatch.size() == partitions.size(), "expected %s partitions but found %s", partitionNameBatch.size(), partitions.size());
 
-                        // verify all partitions are online
                         for (Partition partition : partitions) {
+                            // verify the partition is online
                             String protectMode = partition.getParameters().get(ProtectMode.PARAMETER_NAME);
                             String partName = makePartName(table.getPartitionKeys(), partition.getValues());
                             if (protectMode != null && getProtectModeFromString(protectMode).offline) {
@@ -1054,6 +1056,27 @@ public class HiveClient
                             String prestoOffline = partition.getParameters().get(PRESTO_OFFLINE);
                             if (!isNullOrEmpty(prestoOffline)) {
                                 throw new PartitionOfflineException(tableName, partName, format("Partition '%s' is offline for Presto: %s", partName, prestoOffline));
+                            }
+
+                            // Verify that the partition schema matches the table schema.
+                            // Either adding or dropping columns from the end of the table
+                            // without modifying existing partitions is allowed, but every
+                            // but every column that exists in both the table and partition
+                            // must have the same type.
+                            List<FieldSchema> tableColumns = table.getSd().getCols();
+                            List<FieldSchema> partitionColumns = partition.getSd().getCols();
+                            for (int i = 0; i < min(partitionColumns.size(), tableColumns.size()); i++) {
+                                String tableType = tableColumns.get(i).getType();
+                                String partitionType = partitionColumns.get(i).getType();
+                                if (!tableType.equals(partitionType)) {
+                                    throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH.toErrorCode(), format(
+                                            "Table '%s' partition '%s' column '%s' type '%s' does not match table column type '%s'",
+                                            tableName,
+                                            partName,
+                                            partitionColumns.get(i).getName(),
+                                            partitionType,
+                                            tableType));
+                                }
                             }
                         }
 
@@ -1317,7 +1340,7 @@ public class HiveClient
                             ++count;
                         }
 
-                        currentSize = Math.min(maxBatchSize, currentSize * 2);
+                        currentSize = min(maxBatchSize, currentSize * 2);
                         return builder.build();
                     }
                 };
