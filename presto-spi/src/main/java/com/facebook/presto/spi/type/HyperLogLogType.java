@@ -28,12 +28,11 @@ public class HyperLogLogType
         extends AbstractVariableWidthType
 {
     public static final HyperLogLogType HYPER_LOG_LOG = new HyperLogLogType();
-    public static final String NAME = "HyperLogLog";
 
     @JsonCreator
     public HyperLogLogType()
     {
-        super(NAME, Slice.class);
+        super(StandardTypes.HYPER_LOG_LOG, Slice.class);
     }
 
     @Override

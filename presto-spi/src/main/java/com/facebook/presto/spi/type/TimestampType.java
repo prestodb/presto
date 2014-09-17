@@ -27,11 +27,10 @@ public final class TimestampType
         extends AbstractFixedWidthType
 {
     public static final TimestampType TIMESTAMP = new TimestampType();
-    public static final String NAME = "timestamp";
 
     private TimestampType()
     {
-        super(NAME, long.class, SIZE_OF_LONG);
+        super(StandardTypes.TIMESTAMP, long.class, SIZE_OF_LONG);
     }
 
     @Override

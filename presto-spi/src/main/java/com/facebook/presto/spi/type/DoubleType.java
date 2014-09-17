@@ -23,11 +23,10 @@ public final class DoubleType
         extends AbstractFixedWidthType
 {
     public static final DoubleType DOUBLE = new DoubleType();
-    public static final String NAME = "double";
 
     private DoubleType()
     {
-        super(NAME, double.class, SIZE_OF_DOUBLE);
+        super(StandardTypes.DOUBLE, double.class, SIZE_OF_DOUBLE);
     }
 
     @Override

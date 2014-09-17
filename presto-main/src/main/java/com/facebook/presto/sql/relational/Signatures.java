@@ -15,9 +15,8 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
@@ -50,22 +49,22 @@ public final class Signatures
     // **************** sql operators ****************
     public static Signature notSignature()
     {
-        return new Signature("not", BooleanType.NAME, ImmutableList.of(BooleanType.NAME));
+        return new Signature("not", StandardTypes.BOOLEAN, ImmutableList.of(StandardTypes.BOOLEAN));
     }
 
     public static Signature betweenSignature(Type valueType, Type minType, Type maxType)
     {
-        return internalOperator("BETWEEN", BooleanType.NAME, valueType.getName(), minType.getName(), maxType.getName());
+        return internalOperator("BETWEEN", StandardTypes.BOOLEAN, valueType.getName(), minType.getName(), maxType.getName());
     }
 
     public static Signature likeSignature()
     {
-        return internalFunction("LIKE", BooleanType.NAME, VarcharType.NAME, LikePatternType.NAME);
+        return internalFunction("LIKE", StandardTypes.BOOLEAN, StandardTypes.VARCHAR, LikePatternType.NAME);
     }
 
     public static Signature likePatternSignature()
     {
-        return internalFunction("LIKE_PATTERN", LikePatternType.NAME, VarcharType.NAME, VarcharType.NAME);
+        return internalFunction("LIKE_PATTERN", LikePatternType.NAME, StandardTypes.VARCHAR, StandardTypes.VARCHAR);
     }
 
     public static Signature castSignature(Type returnType, Type valueType)
@@ -81,7 +80,7 @@ public final class Signatures
 
     public static Signature logicalExpressionSignature(LogicalBinaryExpression.Type expressionType)
     {
-        return internalFunction(expressionType.name(), BooleanType.NAME, BooleanType.NAME, BooleanType.NAME);
+        return internalFunction(expressionType.name(), StandardTypes.BOOLEAN, StandardTypes.BOOLEAN, StandardTypes.BOOLEAN);
     }
 
     public static Signature arithmeticNegationSignature(Type returnType, Type valueType)
@@ -98,10 +97,10 @@ public final class Signatures
     {
         for (OperatorType operatorType : OperatorType.values()) {
             if (operatorType.name().equals(expressionType.name())) {
-                return internalOperator(expressionType.name(), BooleanType.NAME, leftType.getName(), rightType.getName());
+                return internalOperator(expressionType.name(), StandardTypes.BOOLEAN, leftType.getName(), rightType.getName());
             }
         }
-        return internalFunction(expressionType.name(), BooleanType.NAME, leftType.getName(), rightType.getName());
+        return internalFunction(expressionType.name(), StandardTypes.BOOLEAN, leftType.getName(), rightType.getName());
     }
 
     // **************** special forms (lazy evaluation, etc) ****************
@@ -128,13 +127,13 @@ public final class Signatures
     // **************** functions that require varargs and/or complex types (e.g., lists) ****************
     public static Signature inSignature()
     {
-        return internalFunction(IN, BooleanType.NAME);
+        return internalFunction(IN, StandardTypes.BOOLEAN);
     }
 
     // **************** functions that need to do special null handling ****************
     public static Signature isNullSignature(Type argumentType)
     {
-        return internalFunction(IS_NULL, BooleanType.NAME, argumentType.getName());
+        return internalFunction(IS_NULL, StandardTypes.BOOLEAN, argumentType.getName());
     }
 
     public static Signature coalesceSignature(Type returnType, List<Type> argumentTypes)

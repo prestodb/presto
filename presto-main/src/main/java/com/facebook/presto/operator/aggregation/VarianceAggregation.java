@@ -15,8 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.VarianceState;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 
 import static com.facebook.presto.operator.aggregation.AggregationUtils.mergeVarianceState;
@@ -29,13 +28,13 @@ public final class VarianceAggregation
     private VarianceAggregation() {}
 
     @InputFunction
-    public static void doubleInput(VarianceState state, @SqlType(DoubleType.NAME) double value)
+    public static void doubleInput(VarianceState state, @SqlType(StandardTypes.DOUBLE) double value)
     {
         updateVarianceState(state, value);
     }
 
     @InputFunction
-    public static void bigintInput(VarianceState state, @SqlType(BigintType.NAME) long value)
+    public static void bigintInput(VarianceState state, @SqlType(StandardTypes.BIGINT) long value)
     {
         updateVarianceState(state, (double) value);
     }
@@ -47,7 +46,7 @@ public final class VarianceAggregation
     }
 
     @AggregationFunction(value = "variance", alias = "var_samp")
-    @OutputFunction(DoubleType.NAME)
+    @OutputFunction(StandardTypes.DOUBLE)
     public static void variance(VarianceState state, BlockBuilder out)
     {
         long count = state.getCount();
@@ -62,7 +61,7 @@ public final class VarianceAggregation
     }
 
     @AggregationFunction("var_pop")
-    @OutputFunction(DoubleType.NAME)
+    @OutputFunction(StandardTypes.DOUBLE)
     public static void variancePop(VarianceState state, BlockBuilder out)
     {
         long count = state.getCount();
@@ -77,7 +76,7 @@ public final class VarianceAggregation
     }
 
     @AggregationFunction(value = "stddev", alias = "stddev_samp")
-    @OutputFunction(DoubleType.NAME)
+    @OutputFunction(StandardTypes.DOUBLE)
     public static void stddev(VarianceState state, BlockBuilder out)
     {
         long count = state.getCount();
@@ -93,7 +92,7 @@ public final class VarianceAggregation
     }
 
     @AggregationFunction("stddev_pop")
-    @OutputFunction(DoubleType.NAME)
+    @OutputFunction(StandardTypes.DOUBLE)
     public static void stddevPop(VarianceState state, BlockBuilder out)
     {
         long count = state.getCount();

@@ -15,8 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.DigestAndPercentileState;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
@@ -37,7 +36,7 @@ public final class ApproximateLongPercentileAggregations
     private ApproximateLongPercentileAggregations() {}
 
     @InputFunction
-    public static void input(DigestAndPercentileState state, @SqlType(BigintType.NAME) long value, @SqlType(DoubleType.NAME) double percentile)
+    public static void input(DigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DOUBLE) double percentile)
     {
         QuantileDigest digest = state.getDigest();
 
@@ -56,7 +55,7 @@ public final class ApproximateLongPercentileAggregations
     }
 
     @InputFunction
-    public static void weightedInput(DigestAndPercentileState state, @SqlType(BigintType.NAME) long value, @SqlType(BigintType.NAME) long weight, @SqlType(DoubleType.NAME) double percentile)
+    public static void weightedInput(DigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType(StandardTypes.DOUBLE) double percentile)
     {
         QuantileDigest digest = state.getDigest();
 
@@ -92,7 +91,7 @@ public final class ApproximateLongPercentileAggregations
         state.setPercentile(otherState.getPercentile());
     }
 
-    @OutputFunction(BigintType.NAME)
+    @OutputFunction(StandardTypes.BIGINT)
     public static void output(DigestAndPercentileState state, BlockBuilder out)
     {
         QuantileDigest digest = state.getDigest();

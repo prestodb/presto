@@ -23,11 +23,10 @@ public final class IntervalDayTimeType
         extends AbstractFixedWidthType
 {
     public static final IntervalDayTimeType INTERVAL_DAY_TIME = new IntervalDayTimeType();
-    public static final String NAME = "interval day to second";
 
     private IntervalDayTimeType()
     {
-        super(NAME, long.class, SIZE_OF_LONG);
+        super(StandardTypes.INTERVAL_DAY_TO_SECOND, long.class, SIZE_OF_LONG);
     }
 
     @Override

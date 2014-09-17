@@ -25,12 +25,11 @@ public class VarbinaryType
         extends AbstractVariableWidthType
 {
     public static final VarbinaryType VARBINARY = new VarbinaryType();
-    public static final String NAME = "varbinary";
 
     @JsonCreator
     public VarbinaryType()
     {
-        super(NAME, Slice.class);
+        super(StandardTypes.VARBINARY, Slice.class);
     }
 
     @Override

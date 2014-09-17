@@ -19,8 +19,7 @@ import com.facebook.presto.operator.aggregation.InputFunction;
 import com.facebook.presto.operator.aggregation.OutputFunction;
 import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 
 import java.util.Locale;
@@ -34,7 +33,7 @@ public final class EvaluateClassifierPredictionsAggregation
     private EvaluateClassifierPredictionsAggregation() {}
 
     @InputFunction
-    public static void input(EvaluateClassifierPredictionsState state, @SqlType(BigintType.NAME) long truth, @SqlType(BigintType.NAME) long prediction)
+    public static void input(EvaluateClassifierPredictionsState state, @SqlType(StandardTypes.BIGINT) long truth, @SqlType(StandardTypes.BIGINT) long prediction)
     {
         checkArgument(prediction == 1 || prediction == 0, "evaluate_predictions only supports binary classifiers");
         checkArgument(truth == 1 || truth == 0, "evaluate_predictions only supports binary classifiers");
@@ -66,7 +65,7 @@ public final class EvaluateClassifierPredictionsAggregation
         state.setFalseNegatives(state.getFalseNegatives() + scratchState.getFalseNegatives());
     }
 
-    @OutputFunction(VarcharType.NAME)
+    @OutputFunction(StandardTypes.VARCHAR)
     public static void output(EvaluateClassifierPredictionsState state, BlockBuilder out)
     {
         long truePositives = state.getTruePositives();

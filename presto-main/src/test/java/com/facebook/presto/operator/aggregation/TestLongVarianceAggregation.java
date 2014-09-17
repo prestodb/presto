@@ -17,7 +17,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import org.apache.commons.math3.stat.descriptive.moment.Variance;
@@ -42,7 +42,7 @@ public class TestLongVarianceAggregation
     @Override
     public InternalAggregationFunction getFunction()
     {
-        return metadata.resolveFunction(new QualifiedName("variance"), ImmutableList.of(BigintType.NAME), false).getAggregationFunction();
+        return metadata.resolveFunction(new QualifiedName("variance"), ImmutableList.of(StandardTypes.BIGINT), false).getAggregationFunction();
     }
 
     @Override

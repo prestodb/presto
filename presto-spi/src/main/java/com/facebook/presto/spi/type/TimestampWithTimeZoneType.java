@@ -24,11 +24,10 @@ public final class TimestampWithTimeZoneType
         extends AbstractFixedWidthType
 {
     public static final TimestampWithTimeZoneType TIMESTAMP_WITH_TIME_ZONE = new TimestampWithTimeZoneType();
-    public static final String NAME = "timestamp with time zone";
 
     private TimestampWithTimeZoneType()
     {
-        super(NAME, long.class, SIZE_OF_LONG);
+        super(StandardTypes.TIMESTAMP_WITH_TIME_ZONE, long.class, SIZE_OF_LONG);
     }
 
     @Override

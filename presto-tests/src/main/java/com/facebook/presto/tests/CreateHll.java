@@ -14,8 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.operator.scalar.ScalarFunction;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.HyperLogLogType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
@@ -25,8 +24,8 @@ public final class CreateHll
     private CreateHll() {}
 
     @ScalarFunction
-    @SqlType(HyperLogLogType.NAME)
-    public static Slice createHll(@SqlType(BigintType.NAME) long value)
+    @SqlType(StandardTypes.HYPER_LOG_LOG)
+    public static Slice createHll(@SqlType(StandardTypes.BIGINT) long value)
     {
         HyperLogLog hll = HyperLogLog.newInstance(4096);
         hll.add(value);

@@ -17,7 +17,7 @@ import com.facebook.presto.operator.aggregation.state.NullableBigintState;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -62,7 +62,7 @@ public class TestCountNullAggregation
         private CountNull() {}
 
         @InputFunction
-        public static void input(NullableBigintState state, @NullablePosition @SqlType(BigintType.NAME) Block block, @BlockIndex int position)
+        public static void input(NullableBigintState state, @NullablePosition @SqlType(StandardTypes.BIGINT) Block block, @BlockIndex int position)
         {
             if (block.isNull(position)) {
                 state.setLong(state.getLong() + 1);

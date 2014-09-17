@@ -17,7 +17,7 @@ import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer
 import com.facebook.presto.operator.aggregation.state.HyperLogLogState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.HyperLogLogType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
@@ -31,7 +31,7 @@ public final class MergeHyperLogLogAggregation
 
     @InputFunction
     @IntermediateInputFunction
-    public static void merge(HyperLogLogState state, @SqlType(HyperLogLogType.NAME) Slice value)
+    public static void merge(HyperLogLogState state, @SqlType(StandardTypes.HYPER_LOG_LOG) Slice value)
     {
         HyperLogLog input = HyperLogLog.newInstance(value);
 
@@ -47,7 +47,7 @@ public final class MergeHyperLogLogAggregation
         }
     }
 
-    @OutputFunction(HyperLogLogType.NAME)
+    @OutputFunction(StandardTypes.HYPER_LOG_LOG)
     public static void output(HyperLogLogState state, BlockBuilder out)
     {
         serializer.serialize(state, out);

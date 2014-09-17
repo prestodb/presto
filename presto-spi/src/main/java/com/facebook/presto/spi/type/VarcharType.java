@@ -26,12 +26,11 @@ public class VarcharType
         extends AbstractVariableWidthType
 {
     public static final VarcharType VARCHAR = new VarcharType();
-    public static final String NAME = "varchar";
 
     @JsonCreator
     public VarcharType()
     {
-        super(NAME, Slice.class);
+        super(StandardTypes.VARCHAR, Slice.class);
     }
 
     @Override

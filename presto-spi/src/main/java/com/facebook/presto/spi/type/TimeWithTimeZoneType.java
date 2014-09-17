@@ -24,11 +24,10 @@ public final class TimeWithTimeZoneType
         extends AbstractFixedWidthType
 {
     public static final TimeWithTimeZoneType TIME_WITH_TIME_ZONE = new TimeWithTimeZoneType();
-    public static final String NAME = "time with time zone";
 
     private TimeWithTimeZoneType()
     {
-        super(NAME, long.class, SIZE_OF_LONG);
+        super(StandardTypes.TIME_WITH_TIME_ZONE, long.class, SIZE_OF_LONG);
     }
 
     @Override

@@ -23,11 +23,10 @@ public final class IntervalYearMonthType
         extends AbstractFixedWidthType
 {
     public static final IntervalYearMonthType INTERVAL_YEAR_MONTH = new IntervalYearMonthType();
-    public static final String NAME = "interval year to month";
 
     private IntervalYearMonthType()
     {
-        super(NAME, long.class, SIZE_OF_LONG);
+        super(StandardTypes.INTERVAL_YEAR_TO_MONTH, long.class, SIZE_OF_LONG);
     }
 
     @Override

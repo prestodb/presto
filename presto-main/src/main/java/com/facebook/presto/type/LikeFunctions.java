@@ -16,8 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.ScalarOperator;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 import org.jcodings.specific.UTF8Encoding;
 import org.joni.Option;
@@ -51,8 +50,8 @@ public final class LikeFunctions
 
     // TODO: this should not be callable from SQL
     @ScalarFunction(value = "like", hidden = true)
-    @SqlType(BooleanType.NAME)
-    public static boolean like(@SqlType(VarcharType.NAME) Slice value, @SqlType(LikePatternType.NAME) Regex pattern)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean like(@SqlType(StandardTypes.VARCHAR) Slice value, @SqlType(LikePatternType.NAME) Regex pattern)
     {
         // Joni doesn't handle invalid UTF-8, so replace invalid characters
         byte[] bytes = value.getBytes();
@@ -65,14 +64,14 @@ public final class LikeFunctions
 
     @ScalarOperator(OperatorType.CAST)
     @SqlType(LikePatternType.NAME)
-    public static Regex likePattern(@SqlType(VarcharType.NAME) Slice pattern)
+    public static Regex likePattern(@SqlType(StandardTypes.VARCHAR) Slice pattern)
     {
         return likeToPattern(pattern.toStringUtf8(), '0', false);
     }
 
     @ScalarFunction
     @SqlType(LikePatternType.NAME)
-    public static Regex likePattern(@SqlType(VarcharType.NAME) Slice pattern, @SqlType(VarcharType.NAME) Slice escape)
+    public static Regex likePattern(@SqlType(StandardTypes.VARCHAR) Slice pattern, @SqlType(StandardTypes.VARCHAR) Slice escape)
     {
         return likeToPattern(pattern.toStringUtf8(), getEscapeChar(escape), true);
     }

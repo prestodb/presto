@@ -13,9 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
 
@@ -26,22 +24,22 @@ public final class CustomFunctions
     private CustomFunctions() {}
 
     @ScalarFunction
-    @SqlType(BigintType.NAME)
-    public static long customAdd(@SqlType(BigintType.NAME) long x, @SqlType(BigintType.NAME) long y)
+    @SqlType(StandardTypes.BIGINT)
+    public static long customAdd(@SqlType(StandardTypes.BIGINT) long x, @SqlType(StandardTypes.BIGINT) long y)
     {
         return x + y;
     }
 
     @ScalarFunction("custom_is_null")
-    @SqlType(BooleanType.NAME)
-    public static boolean customIsNullVarchar(@Nullable @SqlType(VarcharType.NAME) Slice slice)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean customIsNullVarchar(@Nullable @SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         return slice == null;
     }
 
     @ScalarFunction("custom_is_null")
-    @SqlType(BooleanType.NAME)
-    public static boolean customIsNullBigint(@Nullable @SqlType(BigintType.NAME) Long value)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean customIsNullBigint(@Nullable @SqlType(StandardTypes.BIGINT) Long value)
     {
         return value == null;
     }
