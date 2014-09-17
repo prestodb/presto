@@ -255,6 +255,11 @@ public final class ByteCodeUtils
 
     public static ByteCodeNode generateWrite(CallSiteBinder callSiteBinder, CompilerContext context, Variable wasNullVariable, Type type)
     {
+        if (type.getJavaType() == void.class) {
+            return new Block(context).comment("output.appendNull();")
+                    .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
+                    .pop();
+        }
         String methodName = "write" + Primitives.wrap(type.getJavaType()).getSimpleName();
 
         // the stack contains [output, value]
