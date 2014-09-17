@@ -22,6 +22,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
+import io.airlift.tpch.TpchTable;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 
@@ -30,6 +31,7 @@ import java.util.List;
 import static com.facebook.presto.util.Types.checkType;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -123,6 +125,21 @@ public final class QueryAssertions
             }
             assertTrue(Math.abs(actualValue - expectedValue) < error);
         }
+    }
+
+    public static void copyTpchTables(
+            QueryRunner queryRunner,
+            String sourceCatalog,
+            String sourceSchema, ConnectorSession session,
+            Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        log.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
+        long startTime = System.nanoTime();
+        for (TpchTable<?> table : tables) {
+            copyTable(queryRunner, sourceCatalog, sourceSchema, table.getTableName().toLowerCase(), session);
+        }
+        log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
     }
 
     public static void copyAllTables(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, ConnectorSession session)
