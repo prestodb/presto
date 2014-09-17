@@ -30,6 +30,7 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.RecordSink;
@@ -109,6 +110,7 @@ public abstract class AbstractTestHiveClient
     protected SchemaTableName tableBucketedStringInt;
     protected SchemaTableName tableBucketedBigintBoolean;
     protected SchemaTableName tableBucketedDoubleFloat;
+    protected SchemaTableName tablePartitionSchemaChange;
 
     protected SchemaTableName temporaryCreateTable;
     protected SchemaTableName temporaryCreateSampledTable;
@@ -150,6 +152,7 @@ public abstract class AbstractTestHiveClient
         tableBucketedStringInt = new SchemaTableName(database, "presto_test_bucketed_by_string_int");
         tableBucketedBigintBoolean = new SchemaTableName(database, "presto_test_bucketed_by_bigint_boolean");
         tableBucketedDoubleFloat = new SchemaTableName(database, "presto_test_bucketed_by_double_float");
+        tablePartitionSchemaChange = new SchemaTableName(database, "presto_test_partition_schema_change");
 
         temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
         temporaryCreateSampledTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
@@ -786,6 +789,15 @@ public abstract class AbstractTestHiveClient
         ConnectorSplit split = Iterables.getFirst(getAllSplits(splitManager.getPartitionSplits(table, partitionResult.getPartitions())), null);
         RecordSet recordSet = recordSetProvider.getRecordSet(split, ImmutableList.of(invalidColumnHandle));
         recordSet.cursor();
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Table '.*\\.presto_test_partition_schema_change' partition 'ds=2012-12-29' column 't_data' type 'string' does not match table column type 'bigint'")
+    public void testPartitionSchemaMismatch()
+            throws Exception
+    {
+        ConnectorTableHandle table = getTableHandle(tablePartitionSchemaChange);
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(table, TupleDomain.<ConnectorColumnHandle>all());
+        getAllSplits(splitManager.getPartitionSplits(table, partitionResult.getPartitions()));
     }
 
     @Test
