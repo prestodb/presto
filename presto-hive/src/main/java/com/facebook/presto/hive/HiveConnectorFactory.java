@@ -23,7 +23,6 @@ import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorRecordSinkPro
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorSplitManager;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Throwables;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
@@ -51,11 +50,6 @@ public class HiveConnectorFactory
     private final ClassLoader classLoader;
     private final HiveMetastore metastore;
     private final TypeManager typeManager;
-
-    public HiveConnectorFactory(String name, Map<String, String> optionalConfig, ClassLoader classLoader)
-    {
-        this(name, optionalConfig, classLoader, null, new TypeRegistry());
-    }
 
     public HiveConnectorFactory(String name, Map<String, String> optionalConfig, ClassLoader classLoader, HiveMetastore metastore, TypeManager typeManager)
     {

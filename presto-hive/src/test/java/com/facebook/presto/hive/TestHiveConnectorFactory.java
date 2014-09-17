@@ -18,6 +18,7 @@ import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorHandleResolve
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorMetadata;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorRecordSetProvider;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorSplitManager;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -40,7 +41,9 @@ public class TestHiveConnectorFactory
                         .put("node.environment", "test")
                         .put("hive.metastore.uri", metastoreUri)
                         .build(),
-                HiveConnector.class.getClassLoader());
+                HiveConnector.class.getClassLoader(),
+                null,
+                new TypeRegistry());
 
         Connector connector = connectorFactory.create("hive-test", ImmutableMap.<String, String>of());
         assertInstanceOf(connector.getMetadata(), ClassLoaderSafeConnectorMetadata.class);
