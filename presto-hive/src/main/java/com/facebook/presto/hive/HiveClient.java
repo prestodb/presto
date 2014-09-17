@@ -1059,7 +1059,7 @@ public class HiveClient
 
                         return partitions;
                     }
-                    catch (NoSuchObjectException | NullPointerException | IllegalStateException | IllegalArgumentException e) {
+                    catch (PrestoException | NoSuchObjectException | NullPointerException | IllegalStateException | IllegalArgumentException e) {
                         throw Throwables.propagate(e);
                     }
                     catch (MetaException | RuntimeException e) {
