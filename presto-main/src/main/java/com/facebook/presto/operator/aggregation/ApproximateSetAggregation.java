@@ -17,10 +17,7 @@ import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer
 import com.facebook.presto.operator.aggregation.state.HyperLogLogState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.HyperLogLogType;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
@@ -34,7 +31,7 @@ public final class ApproximateSetAggregation
     private ApproximateSetAggregation() {}
 
     @InputFunction
-    public static void input(HyperLogLogState state, @SqlType(DoubleType.NAME) double value)
+    public static void input(HyperLogLogState state, @SqlType(StandardTypes.DOUBLE) double value)
     {
         HyperLogLog hll = getOrCreateHyperLogLog(state);
         state.addMemoryUsage(-hll.estimatedInMemorySize());
@@ -43,7 +40,7 @@ public final class ApproximateSetAggregation
     }
 
     @InputFunction
-    public static void input(HyperLogLogState state, @SqlType(VarcharType.NAME) Slice value)
+    public static void input(HyperLogLogState state, @SqlType(StandardTypes.VARCHAR) Slice value)
     {
         HyperLogLog hll = getOrCreateHyperLogLog(state);
         state.addMemoryUsage(-hll.estimatedInMemorySize());
@@ -52,7 +49,7 @@ public final class ApproximateSetAggregation
     }
 
     @InputFunction
-    public static void input(HyperLogLogState state, @SqlType(BigintType.NAME) long value)
+    public static void input(HyperLogLogState state, @SqlType(StandardTypes.BIGINT) long value)
     {
         HyperLogLog hll = getOrCreateHyperLogLog(state);
         state.addMemoryUsage(-hll.estimatedInMemorySize());
@@ -88,7 +85,7 @@ public final class ApproximateSetAggregation
         }
     }
 
-    @OutputFunction(HyperLogLogType.NAME)
+    @OutputFunction(StandardTypes.HYPER_LOG_LOG)
     public static void evaluateFinal(HyperLogLogState state, BlockBuilder out)
     {
         SERIALIZER.serialize(state, out);

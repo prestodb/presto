@@ -15,8 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.LongAndDoubleState;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
@@ -33,14 +32,14 @@ public final class AverageAggregations
     private AverageAggregations() {}
 
     @InputFunction
-    public static void input(LongAndDoubleState state, @SqlType(BigintType.NAME) long value)
+    public static void input(LongAndDoubleState state, @SqlType(StandardTypes.BIGINT) long value)
     {
         state.setLong(state.getLong() + 1);
         state.setDouble(state.getDouble() + value);
     }
 
     @InputFunction
-    public static void input(LongAndDoubleState state, @SqlType(DoubleType.NAME) double value)
+    public static void input(LongAndDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
     {
         state.setLong(state.getLong() + 1);
         state.setDouble(state.getDouble() + value);
@@ -53,7 +52,7 @@ public final class AverageAggregations
         state.setDouble(state.getDouble() + otherState.getDouble());
     }
 
-    @OutputFunction(DoubleType.NAME)
+    @OutputFunction(StandardTypes.DOUBLE)
     public static void output(LongAndDoubleState state, BlockBuilder out)
     {
         long count = state.getLong();

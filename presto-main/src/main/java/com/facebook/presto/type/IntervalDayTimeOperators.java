@@ -14,12 +14,8 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.ScalarOperator;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.SqlIntervalDayTime;
-import com.facebook.presto.spi.type.IntervalDayTimeType;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -46,123 +42,123 @@ public final class IntervalDayTimeOperators
     }
 
     @ScalarOperator(ADD)
-    @SqlType(IntervalDayTimeType.NAME)
-    public static long add(@SqlType(IntervalDayTimeType.NAME) long left, @SqlType(IntervalDayTimeType.NAME) long right)
+    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+    public static long add(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
         return left + right;
     }
 
     @ScalarOperator(SUBTRACT)
-    @SqlType(IntervalDayTimeType.NAME)
-    public static long subtract(@SqlType(IntervalDayTimeType.NAME) long left, @SqlType(IntervalDayTimeType.NAME) long right)
+    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+    public static long subtract(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
         return left - right;
     }
 
     @ScalarOperator(MULTIPLY)
-    @SqlType(IntervalDayTimeType.NAME)
-    public static long multiplyByBigint(@SqlType(IntervalDayTimeType.NAME) long left, @SqlType(BigintType.NAME) long right)
+    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+    public static long multiplyByBigint(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.BIGINT) long right)
     {
         return left * right;
     }
 
     @ScalarOperator(MULTIPLY)
-    @SqlType(IntervalDayTimeType.NAME)
-    public static long multiplyByDouble(@SqlType(IntervalDayTimeType.NAME) long left, @SqlType(DoubleType.NAME) double right)
+    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+    public static long multiplyByDouble(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.DOUBLE) double right)
     {
         return (long) (left * right);
     }
 
     @ScalarOperator(MULTIPLY)
-    @SqlType(IntervalDayTimeType.NAME)
-    public static long bigintMultiply(@SqlType(BigintType.NAME) long left, @SqlType(IntervalDayTimeType.NAME) long right)
+    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+    public static long bigintMultiply(@SqlType(StandardTypes.BIGINT) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
         return left * right;
     }
 
     @ScalarOperator(MULTIPLY)
-    @SqlType(IntervalDayTimeType.NAME)
-    public static long doubleMultiply(@SqlType(DoubleType.NAME) double left, @SqlType(IntervalDayTimeType.NAME) long right)
+    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+    public static long doubleMultiply(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
         return (long) (left * right);
     }
 
     @ScalarOperator(DIVIDE)
-    @SqlType(IntervalDayTimeType.NAME)
-    public static long divideByDouble(@SqlType(IntervalDayTimeType.NAME) long left, @SqlType(DoubleType.NAME) double right)
+    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+    public static long divideByDouble(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.DOUBLE) double right)
     {
         return (long) (left / right);
     }
 
     @ScalarOperator(NEGATION)
-    @SqlType(IntervalDayTimeType.NAME)
-    public static long negate(@SqlType(IntervalDayTimeType.NAME) long value)
+    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+    public static long negate(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value)
     {
         return -value;
     }
 
     @ScalarOperator(EQUAL)
-    @SqlType(BooleanType.NAME)
-    public static boolean equal(@SqlType(IntervalDayTimeType.NAME) long left, @SqlType(IntervalDayTimeType.NAME) long right)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean equal(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
         return left == right;
     }
 
     @ScalarOperator(NOT_EQUAL)
-    @SqlType(BooleanType.NAME)
-    public static boolean notEqual(@SqlType(IntervalDayTimeType.NAME) long left, @SqlType(IntervalDayTimeType.NAME) long right)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean notEqual(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
         return left != right;
     }
 
     @ScalarOperator(LESS_THAN)
-    @SqlType(BooleanType.NAME)
-    public static boolean lessThan(@SqlType(IntervalDayTimeType.NAME) long left, @SqlType(IntervalDayTimeType.NAME) long right)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean lessThan(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
         return left < right;
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    @SqlType(BooleanType.NAME)
-    public static boolean lessThanOrEqual(@SqlType(IntervalDayTimeType.NAME) long left, @SqlType(IntervalDayTimeType.NAME) long right)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean lessThanOrEqual(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
         return left <= right;
     }
 
     @ScalarOperator(GREATER_THAN)
-    @SqlType(BooleanType.NAME)
-    public static boolean greaterThan(@SqlType(IntervalDayTimeType.NAME) long left, @SqlType(IntervalDayTimeType.NAME) long right)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean greaterThan(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
         return left > right;
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    @SqlType(BooleanType.NAME)
-    public static boolean greaterThanOrEqual(@SqlType(IntervalDayTimeType.NAME) long left, @SqlType(IntervalDayTimeType.NAME) long right)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean greaterThanOrEqual(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
         return left >= right;
     }
 
     @ScalarOperator(BETWEEN)
-    @SqlType(BooleanType.NAME)
+    @SqlType(StandardTypes.BOOLEAN)
     public static boolean between(
-            @SqlType(IntervalDayTimeType.NAME) long value,
-            @SqlType(IntervalDayTimeType.NAME) long min,
-            @SqlType(IntervalDayTimeType.NAME) long max)
+            @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value,
+            @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long min,
+            @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long max)
     {
         return min <= value && value <= max;
     }
 
     @ScalarOperator(CAST)
-    @SqlType(VarcharType.NAME)
-    public static Slice castToSlice(@SqlType(IntervalDayTimeType.NAME) long value)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice castToSlice(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value)
     {
         return Slices.copiedBuffer(SqlIntervalDayTime.formatMillis(value), UTF_8);
     }
 
     @ScalarOperator(HASH_CODE)
-    @SqlType(BigintType.NAME)
-    public static long hashCode(@SqlType(IntervalDayTimeType.NAME) long value)
+    @SqlType(StandardTypes.BIGINT)
+    public static long hashCode(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value)
     {
         return (int) (value ^ (value >>> 32));
     }

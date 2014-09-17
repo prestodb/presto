@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
-import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 
 @AggregationFunction("sum")
@@ -26,7 +26,7 @@ public final class DoubleSumAggregation
 
     @InputFunction
     @IntermediateInputFunction
-    public static void sum(NullableDoubleState state, @SqlType(DoubleType.NAME) double value)
+    public static void sum(NullableDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
     {
         state.setNull(false);
         state.setDouble(state.getDouble() + value);

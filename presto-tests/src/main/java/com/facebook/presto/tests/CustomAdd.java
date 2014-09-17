@@ -14,7 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.operator.scalar.ScalarFunction;
-import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 
 public final class CustomAdd
@@ -22,8 +22,8 @@ public final class CustomAdd
     private CustomAdd() {}
 
     @ScalarFunction
-    @SqlType(BigintType.NAME)
-    public static long customAdd(@SqlType(BigintType.NAME) long x, @SqlType(BigintType.NAME) long y)
+    @SqlType(StandardTypes.BIGINT)
+    public static long customAdd(@SqlType(StandardTypes.BIGINT) long x, @SqlType(StandardTypes.BIGINT) long y)
     {
         return x + y;
     }

@@ -16,12 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.TimestampType;
-import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.chrono.ISOChronology;
@@ -49,57 +44,57 @@ public final class DateOperators
     }
 
     @ScalarOperator(EQUAL)
-    @SqlType(BooleanType.NAME)
-    public static boolean equal(@SqlType(DateType.NAME) long left, @SqlType(DateType.NAME) long right)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean equal(@SqlType(StandardTypes.DATE) long left, @SqlType(StandardTypes.DATE) long right)
     {
         return left == right;
     }
 
     @ScalarOperator(NOT_EQUAL)
-    @SqlType(BooleanType.NAME)
-    public static boolean notEqual(@SqlType(DateType.NAME) long left, @SqlType(DateType.NAME) long right)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean notEqual(@SqlType(StandardTypes.DATE) long left, @SqlType(StandardTypes.DATE) long right)
     {
         return left != right;
     }
 
     @ScalarOperator(LESS_THAN)
-    @SqlType(BooleanType.NAME)
-    public static boolean lessThan(@SqlType(DateType.NAME) long left, @SqlType(DateType.NAME) long right)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean lessThan(@SqlType(StandardTypes.DATE) long left, @SqlType(StandardTypes.DATE) long right)
     {
         return left < right;
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    @SqlType(BooleanType.NAME)
-    public static boolean lessThanOrEqual(@SqlType(DateType.NAME) long left, @SqlType(DateType.NAME) long right)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean lessThanOrEqual(@SqlType(StandardTypes.DATE) long left, @SqlType(StandardTypes.DATE) long right)
     {
         return left <= right;
     }
 
     @ScalarOperator(GREATER_THAN)
-    @SqlType(BooleanType.NAME)
-    public static boolean greaterThan(@SqlType(DateType.NAME) long left, @SqlType(DateType.NAME) long right)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean greaterThan(@SqlType(StandardTypes.DATE) long left, @SqlType(StandardTypes.DATE) long right)
     {
         return left > right;
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    @SqlType(BooleanType.NAME)
-    public static boolean greaterThanOrEqual(@SqlType(DateType.NAME) long left, @SqlType(DateType.NAME) long right)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean greaterThanOrEqual(@SqlType(StandardTypes.DATE) long left, @SqlType(StandardTypes.DATE) long right)
     {
         return left >= right;
     }
 
     @ScalarOperator(BETWEEN)
-    @SqlType(BooleanType.NAME)
-    public static boolean between(@SqlType(DateType.NAME) long value, @SqlType(DateType.NAME) long min, @SqlType(DateType.NAME) long max)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean between(@SqlType(StandardTypes.DATE) long value, @SqlType(StandardTypes.DATE) long min, @SqlType(StandardTypes.DATE) long max)
     {
         return min <= value && value <= max;
     }
 
     @ScalarOperator(CAST)
-    @SqlType(TimestampType.NAME)
-    public static long castToTimestamp(ConnectorSession session, @SqlType(DateType.NAME) long value)
+    @SqlType(StandardTypes.TIMESTAMP)
+    public static long castToTimestamp(ConnectorSession session, @SqlType(StandardTypes.DATE) long value)
     {
         // date is encoded as milliseconds at midnight in UTC
         // convert to midnight if the session timezone
@@ -108,8 +103,8 @@ public final class DateOperators
     }
 
     @ScalarOperator(CAST)
-    @SqlType(TimestampWithTimeZoneType.NAME)
-    public static long castToTimestampWithTimeZone(ConnectorSession session, @SqlType(DateType.NAME) long value)
+    @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
+    public static long castToTimestampWithTimeZone(ConnectorSession session, @SqlType(StandardTypes.DATE) long value)
     {
         // date is encoded as milliseconds at midnight in UTC
         // convert to midnight if the session timezone
@@ -119,15 +114,15 @@ public final class DateOperators
     }
 
     @ScalarOperator(CAST)
-    @SqlType(VarcharType.NAME)
-    public static Slice castToSlice(@SqlType(DateType.NAME) long value)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice castToSlice(@SqlType(StandardTypes.DATE) long value)
     {
         return Slices.copiedBuffer(printDate(value), UTF_8);
     }
 
     @ScalarOperator(CAST)
-    @SqlType(DateType.NAME)
-    public static long castFromSlice(@SqlType(VarcharType.NAME) Slice value)
+    @SqlType(StandardTypes.DATE)
+    public static long castFromSlice(@SqlType(StandardTypes.VARCHAR) Slice value)
     {
         try {
             return parseDate(value.toStringUtf8());
@@ -138,8 +133,8 @@ public final class DateOperators
     }
 
     @ScalarOperator(HASH_CODE)
-    @SqlType(BigintType.NAME)
-    public static long hashCode(@SqlType(DateType.NAME) long value)
+    @SqlType(StandardTypes.BIGINT)
+    public static long hashCode(@SqlType(StandardTypes.DATE) long value)
     {
         return (int) (value ^ (value >>> 32));
     }

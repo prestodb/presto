@@ -15,11 +15,8 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.LongState;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
 
@@ -37,25 +34,25 @@ public final class CountColumnAggregations
     private CountColumnAggregations() {}
 
     @InputFunction
-    public static void booleanInput(LongState state, @SqlType(BooleanType.NAME) Block block, @BlockIndex int index)
+    public static void booleanInput(LongState state, @SqlType(StandardTypes.BOOLEAN) Block block, @BlockIndex int index)
     {
         state.setLong(state.getLong() + 1);
     }
 
     @InputFunction
-    public static void doubleInput(LongState state, @SqlType(DoubleType.NAME) Block block, @BlockIndex int index)
+    public static void doubleInput(LongState state, @SqlType(StandardTypes.DOUBLE) Block block, @BlockIndex int index)
     {
         state.setLong(state.getLong() + 1);
     }
 
     @InputFunction
-    public static void varcharInput(LongState state, @SqlType(VarcharType.NAME) Block block, @BlockIndex int index)
+    public static void varcharInput(LongState state, @SqlType(StandardTypes.VARCHAR) Block block, @BlockIndex int index)
     {
         state.setLong(state.getLong() + 1);
     }
 
     @InputFunction
-    public static void bigintInput(LongState state, @SqlType(BigintType.NAME) Block block, @BlockIndex int index)
+    public static void bigintInput(LongState state, @SqlType(StandardTypes.BIGINT) Block block, @BlockIndex int index)
     {
         state.setLong(state.getLong() + 1);
     }

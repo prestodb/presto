@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.UnknownType;
 import com.google.common.base.Joiner;
 
@@ -155,7 +154,7 @@ public enum OperatorType
                 void validateSignature(String returnType, List<String> argumentTypes)
                 {
                     validateOperatorSignature(this, returnType, argumentTypes, 1);
-                    checkArgument(returnType.equals(BigintType.NAME), "%s operator must return a BIGINT: %s", this, formatSignature(this, returnType, argumentTypes));
+                    checkArgument(returnType.equals(StandardTypes.BIGINT), "%s operator must return a BIGINT: %s", this, formatSignature(this, returnType, argumentTypes));
                 }
             };
 
@@ -183,7 +182,7 @@ public enum OperatorType
     private static void validateComparisonOperatorSignature(OperatorType operatorType, String returnType, List<String> argumentTypes, int expectedArgumentCount)
     {
         validateOperatorSignature(operatorType, returnType, argumentTypes, expectedArgumentCount);
-        checkArgument(returnType.equals(BooleanType.NAME), "%s operator must return a BOOLEAN: %s", operatorType, formatSignature(operatorType, returnType, argumentTypes));
+        checkArgument(returnType.equals(StandardTypes.BOOLEAN), "%s operator must return a BOOLEAN: %s", operatorType, formatSignature(operatorType, returnType, argumentTypes));
     }
 
     private static String formatSignature(OperatorType operatorType, String returnType, List<String> argumentTypes)

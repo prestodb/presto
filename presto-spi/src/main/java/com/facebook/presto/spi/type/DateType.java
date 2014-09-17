@@ -32,11 +32,10 @@ public final class DateType
         extends AbstractFixedWidthType
 {
     public static final DateType DATE = new DateType();
-    public static final String NAME = "date";
 
     private DateType()
     {
-        super(NAME, long.class, SIZE_OF_LONG);
+        super(StandardTypes.DATE, long.class, SIZE_OF_LONG);
     }
 
     @Override

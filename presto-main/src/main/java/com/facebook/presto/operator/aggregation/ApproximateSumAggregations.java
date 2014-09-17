@@ -15,10 +15,8 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.VarianceState;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
@@ -40,7 +38,7 @@ public final class ApproximateSumAggregations
     private ApproximateSumAggregations() {}
 
     @InputFunction
-    public static void input(ApproximateDoubleSumState state, @SqlType(DoubleType.NAME) double value, @SampleWeight long sampleWeight)
+    public static void input(ApproximateDoubleSumState state, @SqlType(StandardTypes.DOUBLE) double value, @SampleWeight long sampleWeight)
     {
         state.setWeightedCount(state.getWeightedCount() + sampleWeight);
         state.setSum(state.getSum() + value * sampleWeight);
@@ -55,7 +53,7 @@ public final class ApproximateSumAggregations
         mergeVarianceState(state, otherState);
     }
 
-    @OutputFunction(VarcharType.NAME)
+    @OutputFunction(StandardTypes.VARCHAR)
     public static void output(ApproximateDoubleSumState state, double confidence, BlockBuilder out)
     {
         if (state.getWeightedCount() == 0) {
@@ -72,7 +70,7 @@ public final class ApproximateSumAggregations
     }
 
     @InputFunction
-    public static void input(ApproximateLongSumState state, @SqlType(BigintType.NAME) long value, @SampleWeight long sampleWeight)
+    public static void input(ApproximateLongSumState state, @SqlType(StandardTypes.BIGINT) long value, @SampleWeight long sampleWeight)
     {
         state.setWeightedCount(state.getWeightedCount() + sampleWeight);
         state.setSum(state.getSum() + value * sampleWeight);
@@ -87,7 +85,7 @@ public final class ApproximateSumAggregations
         mergeVarianceState(state, otherState);
     }
 
-    @OutputFunction(VarcharType.NAME)
+    @OutputFunction(StandardTypes.VARCHAR)
     public static void evaluateFinal(ApproximateLongSumState state, double confidence, BlockBuilder out)
     {
         if (state.getWeightedCount() == 0) {

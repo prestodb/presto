@@ -23,11 +23,10 @@ public final class BooleanType
         extends AbstractFixedWidthType
 {
     public static final BooleanType BOOLEAN = new BooleanType();
-    public static final String NAME = "boolean";
 
     private BooleanType()
     {
-        super(NAME, boolean.class, SIZE_OF_BYTE);
+        super(StandardTypes.BOOLEAN, boolean.class, SIZE_OF_BYTE);
     }
 
     @Override

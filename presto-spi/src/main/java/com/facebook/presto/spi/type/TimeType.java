@@ -27,11 +27,10 @@ public final class TimeType
         extends AbstractFixedWidthType
 {
     public static final TimeType TIME = new TimeType();
-    public static final String NAME = "time";
 
     private TimeType()
     {
-        super(NAME, long.class, SIZE_OF_LONG);
+        super(StandardTypes.TIME, long.class, SIZE_OF_LONG);
     }
 
     @Override

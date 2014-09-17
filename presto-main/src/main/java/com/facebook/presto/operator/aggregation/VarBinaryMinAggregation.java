@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.SliceState;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
 
@@ -27,7 +27,7 @@ public final class VarBinaryMinAggregation
 
     @InputFunction
     @IntermediateInputFunction
-    public static void min(SliceState state, @SqlType(VarcharType.NAME) Slice value)
+    public static void min(SliceState state, @SqlType(StandardTypes.VARCHAR) Slice value)
     {
         state.setSlice(min(state.getSlice(), value));
     }

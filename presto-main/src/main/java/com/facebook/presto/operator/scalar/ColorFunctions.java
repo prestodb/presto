@@ -13,10 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.ColorType;
 import com.facebook.presto.type.SqlType;
 import com.google.common.annotations.VisibleForTesting;
@@ -85,7 +82,7 @@ public final class ColorFunctions
 
     @ScalarFunction
     @SqlType(ColorType.NAME)
-    public static long color(@SqlType(VarcharType.NAME) Slice color)
+    public static long color(@SqlType(StandardTypes.VARCHAR) Slice color)
     {
         int rgb = parseRgb(color);
 
@@ -106,7 +103,7 @@ public final class ColorFunctions
 
     @ScalarFunction
     @SqlType(ColorType.NAME)
-    public static long rgb(@SqlType(BigintType.NAME) long red, @SqlType(BigintType.NAME) long green, @SqlType(BigintType.NAME) long blue)
+    public static long rgb(@SqlType(StandardTypes.BIGINT) long red, @SqlType(StandardTypes.BIGINT) long green, @SqlType(StandardTypes.BIGINT) long blue)
     {
         checkArgument(red >= 0 && red <= 255, "red must be between 0 and 255");
         checkArgument(green >= 0 && green <= 255, "green must be between 0 and 255");
@@ -124,9 +121,9 @@ public final class ColorFunctions
     @ScalarFunction
     @SqlType(ColorType.NAME)
     public static long color(
-            @SqlType(DoubleType.NAME) double value,
-            @SqlType(DoubleType.NAME) double low,
-            @SqlType(DoubleType.NAME) double high,
+            @SqlType(StandardTypes.DOUBLE) double value,
+            @SqlType(StandardTypes.DOUBLE) double low,
+            @SqlType(StandardTypes.DOUBLE) double high,
             @SqlType(ColorType.NAME) long lowColor,
             @SqlType(ColorType.NAME) long highColor)
     {
@@ -141,7 +138,7 @@ public final class ColorFunctions
      */
     @ScalarFunction
     @SqlType(ColorType.NAME)
-    public static long color(@SqlType(DoubleType.NAME) double fraction, @SqlType(ColorType.NAME) long lowColor, @SqlType(ColorType.NAME) long highColor)
+    public static long color(@SqlType(StandardTypes.DOUBLE) double fraction, @SqlType(ColorType.NAME) long lowColor, @SqlType(ColorType.NAME) long highColor)
     {
         Preconditions.checkArgument(lowColor >= 0, "lowColor not a valid RGB color");
         Preconditions.checkArgument(highColor >= 0, "highColor not a valid RGB color");
@@ -153,8 +150,8 @@ public final class ColorFunctions
     }
 
     @ScalarFunction
-    @SqlType(VarcharType.NAME)
-    public static Slice render(@SqlType(VarcharType.NAME) Slice value, @SqlType(ColorType.NAME) long color)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice render(@SqlType(StandardTypes.VARCHAR) Slice value, @SqlType(ColorType.NAME) long color)
     {
         StringBuilder builder = new StringBuilder(value.length());
 
@@ -167,38 +164,38 @@ public final class ColorFunctions
     }
 
     @ScalarFunction
-    @SqlType(VarcharType.NAME)
-    public static Slice render(@SqlType(BigintType.NAME) long value, @SqlType(ColorType.NAME) long color)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice render(@SqlType(StandardTypes.BIGINT) long value, @SqlType(ColorType.NAME) long color)
     {
         return render(Slices.copiedBuffer(Long.toString(value), Charsets.UTF_8), color);
     }
 
     @ScalarFunction
-    @SqlType(VarcharType.NAME)
-    public static Slice render(@SqlType(DoubleType.NAME) double value, @SqlType(ColorType.NAME) long color)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice render(@SqlType(StandardTypes.DOUBLE) double value, @SqlType(ColorType.NAME) long color)
     {
         return render(Slices.copiedBuffer(Double.toString(value), Charsets.UTF_8), color);
     }
 
     @ScalarFunction
-    @SqlType(VarcharType.NAME)
-    public static Slice render(@SqlType(BooleanType.NAME) boolean value)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice render(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return value ? RENDERED_TRUE : RENDERED_FALSE;
     }
 
     @ScalarFunction
-    @SqlType(VarcharType.NAME)
-    public static Slice bar(@SqlType(DoubleType.NAME) double percent, @SqlType(BigintType.NAME) long width)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice bar(@SqlType(StandardTypes.DOUBLE) double percent, @SqlType(StandardTypes.BIGINT) long width)
     {
         return bar(percent, width, rgb(255, 0, 0), rgb(0, 255, 0));
     }
 
     @ScalarFunction
-    @SqlType(VarcharType.NAME)
+    @SqlType(StandardTypes.VARCHAR)
     public static Slice bar(
-            @SqlType(DoubleType.NAME) double percent,
-            @SqlType(BigintType.NAME) long width,
+            @SqlType(StandardTypes.DOUBLE) double percent,
+            @SqlType(StandardTypes.BIGINT) long width,
             @SqlType(ColorType.NAME) long lowColor,
             @SqlType(ColorType.NAME) long highColor)
     {

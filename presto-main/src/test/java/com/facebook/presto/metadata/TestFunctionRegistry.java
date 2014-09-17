@@ -15,9 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.scalar.CustomFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunction;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.HyperLogLogType;
-import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.SqlType;
 import com.facebook.presto.type.TypeRegistry;
@@ -48,8 +46,8 @@ public class TestFunctionRegistry
         FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
         FunctionInfo exactOperator = registry.getCoercion(HYPER_LOG_LOG, HYPER_LOG_LOG);
         assertEquals(exactOperator.getSignature().getName(), mangleOperatorName(OperatorType.CAST.name()));
-        assertEquals(exactOperator.getArgumentTypes(), ImmutableList.of(HyperLogLogType.NAME));
-        assertEquals(exactOperator.getReturnType(), HyperLogLogType.NAME);
+        assertEquals(exactOperator.getArgumentTypes(), ImmutableList.of(StandardTypes.HYPER_LOG_LOG));
+        assertEquals(exactOperator.getReturnType(), StandardTypes.HYPER_LOG_LOG);
     }
 
     @Test
@@ -75,13 +73,13 @@ public class TestFunctionRegistry
     {
         Signature signature = getMagicLiteralFunctionSignature(TIMESTAMP_WITH_TIME_ZONE);
         assertEquals(signature.getName(), "$literal$timestamp with time zone");
-        assertEquals(signature.getArgumentTypes(), ImmutableList.of(BigintType.NAME));
-        assertEquals(signature.getReturnType(), TimestampWithTimeZoneType.NAME);
+        assertEquals(signature.getArgumentTypes(), ImmutableList.of(StandardTypes.BIGINT));
+        assertEquals(signature.getReturnType(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
 
         FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
         FunctionInfo function = registry.resolveFunction(QualifiedName.of(signature.getName()), signature.getArgumentTypes(), false);
-        assertEquals(function.getArgumentTypes(), ImmutableList.of(BigintType.NAME));
-        assertEquals(signature.getReturnType(), TimestampWithTimeZoneType.NAME);
+        assertEquals(function.getArgumentTypes(), ImmutableList.of(StandardTypes.BIGINT));
+        assertEquals(signature.getReturnType(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QFunction already registered: custom_add(bigint,bigint):bigint\\E")
@@ -136,8 +134,8 @@ public class TestFunctionRegistry
         private ScalarSum() {}
 
         @ScalarFunction
-        @SqlType(BigintType.NAME)
-        public static long sum(@SqlType(BigintType.NAME) long a, @SqlType(BigintType.NAME) long b)
+        @SqlType(StandardTypes.BIGINT)
+        public static long sum(@SqlType(StandardTypes.BIGINT) long a, @SqlType(StandardTypes.BIGINT) long b)
         {
             return a + b;
         }
