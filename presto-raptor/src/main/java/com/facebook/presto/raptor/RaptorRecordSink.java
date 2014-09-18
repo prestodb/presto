@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.operator.PageBuilder;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.raptor.storage.ColumnFileHandle;
 import com.facebook.presto.raptor.storage.LocalStorageManager;
 import com.facebook.presto.spi.RecordSink;

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 
 public interface LookupSource
