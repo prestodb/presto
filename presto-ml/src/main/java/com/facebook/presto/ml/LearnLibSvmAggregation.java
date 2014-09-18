@@ -14,7 +14,7 @@
 package com.facebook.presto.ml;
 
 import com.facebook.presto.ml.type.RegressorType;
-import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;

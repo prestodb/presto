@@ -23,7 +23,7 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.operator.HttpPageBufferClient.PageResponseHandler;
 import com.facebook.presto.operator.HttpPageBufferClient.PagesResponse;
-import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.NodeManager;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
