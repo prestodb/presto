@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 

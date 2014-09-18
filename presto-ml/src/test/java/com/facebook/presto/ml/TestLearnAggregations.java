@@ -14,7 +14,7 @@
 package com.facebook.presto.ml;
 
 import com.facebook.presto.ml.type.ClassifierType;
-import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.operator.RowPageBuilder;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.spi.block.Block;

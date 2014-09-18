@@ -16,7 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.spi.ConnectorSession;
