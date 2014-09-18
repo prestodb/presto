@@ -123,21 +123,21 @@ public class OperatorContext
         addInputUserNanos.getAndAdd(nanosBetween(intervalUserStart.get(), currentThreadUserTime()));
 
         if (page != null) {
-            inputDataSize.update(page.getDataSize().toBytes());
+            inputDataSize.update(page.getSizeInBytes());
             inputPositions.update(page.getPositionCount());
         }
     }
 
-    public void recordGeneratedInput(DataSize dataSize, long positions, long readNanos)
+    public void recordGeneratedInput(long sizeInBytes, long positions)
     {
-        inputDataSize.update(dataSize.toBytes());
-        inputPositions.update(positions);
-        addInputWallNanos.getAndAdd(readNanos);
+        recordGeneratedInput(sizeInBytes, positions, 0);
     }
 
-    public void recordGeneratedInput(DataSize dataSize, long positions)
+    public void recordGeneratedInput(long sizeInBytes, long positions, long readNanos)
     {
-        recordGeneratedInput(dataSize, positions, 0);
+        inputDataSize.update(sizeInBytes);
+        inputPositions.update(positions);
+        addInputWallNanos.getAndAdd(readNanos);
     }
 
     public void recordGetOutput(Page page)
@@ -148,14 +148,14 @@ public class OperatorContext
         getOutputUserNanos.getAndAdd(nanosBetween(intervalUserStart.get(), currentThreadUserTime()));
 
         if (page != null) {
-            outputDataSize.update(page.getDataSize().toBytes());
+            outputDataSize.update(page.getSizeInBytes());
             outputPositions.update(page.getPositionCount());
         }
     }
 
-    public void recordGeneratedOutput(DataSize dataSize, long positions)
+    public void recordGeneratedOutput(long sizeInBytes, long positions)
     {
-        outputDataSize.update(dataSize.toBytes());
+        outputDataSize.update(sizeInBytes);
         outputPositions.update(positions);
     }
 

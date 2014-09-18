@@ -140,7 +140,7 @@ public class AlignmentOperator
         }
 
         Page page = new Page(blocks);
-        operatorContext.recordGeneratedInput(page.getDataSize(), page.getPositionCount());
+        operatorContext.recordGeneratedInput(page.getSizeInBytes(), page.getPositionCount());
         return page;
     }
 

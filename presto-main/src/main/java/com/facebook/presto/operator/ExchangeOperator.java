@@ -14,9 +14,9 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -179,7 +179,7 @@ public class ExchangeOperator
     {
         Page page = exchangeClient.pollPage();
         if (page != null) {
-            operatorContext.recordGeneratedInput(page.getDataSize(), page.getPositionCount());
+            operatorContext.recordGeneratedInput(page.getSizeInBytes(), page.getPositionCount());
         }
         return page;
     }
