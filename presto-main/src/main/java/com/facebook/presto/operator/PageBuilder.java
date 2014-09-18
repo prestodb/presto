@@ -18,13 +18,14 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.spi.block.BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES;
 import static com.facebook.presto.spi.block.BlockBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Collections.unmodifiableList;
+import static java.util.Objects.requireNonNull;
 
 public class PageBuilder
 {
@@ -35,7 +36,7 @@ public class PageBuilder
 
     public PageBuilder(List<? extends Type> types)
     {
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        this.types = unmodifiableList(new ArrayList<>(requireNonNull(types, "types is null")));
         int maxBlockSizeInBytes;
         if (!types.isEmpty()) {
             maxBlockSizeInBytes = (int) (1.0 * DEFAULT_MAX_PAGE_SIZE_IN_BYTES / types.size());
