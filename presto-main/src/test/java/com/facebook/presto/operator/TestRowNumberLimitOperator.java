@@ -143,7 +143,7 @@ public class TestRowNumberLimitOperator
         for (Page page : pages) {
             int rowNumberChannel = page.getChannelCount() - 1;
             for (int i = 0; i < page.getPositionCount(); i++) {
-                BIGINT.writeLong(builder, page.getLong(BIGINT, rowNumberChannel, i));
+                BIGINT.writeLong(builder, BIGINT.getLong(page.getBlock(rowNumberChannel), i));
             }
         }
         return builder.build();
