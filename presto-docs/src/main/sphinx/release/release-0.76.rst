@@ -53,6 +53,10 @@ and the actual data in existing partitions was not numeric. The Hive
 connector now detects this scenario and fails the query after the
 partition metadata has been read.
 
+The property ``hive.storage-format`` is broken and has been disabled. It
+sets the storage format on the metadata but always writes the table using
+``RCBINARY``. This will be implemented in a future release.
+
 General Changes
 ---------------
 

@@ -358,7 +358,8 @@ public class HiveClientConfig
         return hiveStorageFormat;
     }
 
-    @Config("hive.storage-format")
+    // TODO: this is currently broken
+    // @Config("hive.storage-format")
     public HiveClientConfig setHiveStorageFormat(HiveStorageFormat hiveStorageFormat)
     {
         this.hiveStorageFormat = hiveStorageFormat;
