@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.Page;
+
 public interface JoinProbeFactory
 {
     JoinProbe createJoinProbe(LookupSource lookupSource, Page page);

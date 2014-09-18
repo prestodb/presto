@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.serde.BlocksFileWriter;

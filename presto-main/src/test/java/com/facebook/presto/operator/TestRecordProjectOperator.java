@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.InMemoryRecordSet;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.InfiniteRecordSet;
 import com.facebook.presto.testing.MaterializedResult;

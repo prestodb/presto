@@ -19,7 +19,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.Page;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;

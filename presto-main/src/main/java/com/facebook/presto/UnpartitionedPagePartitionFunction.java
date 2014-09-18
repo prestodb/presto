@@ -13,7 +13,7 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.Page;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.google.common.base.Objects;
 

@@ -16,7 +16,7 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.serde.BlocksFileEncoding;
