@@ -14,6 +14,8 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <dep.hadoop.version>1.0.3-mapr-3.0.3</dep.hadoop.version>
+        <twitter.lzo.version>1.0.3-mapr-3.0.3</twitter.lzo.version>
     </properties>
 
     <repositories>
@@ -55,7 +57,7 @@
         <dependency>
             <groupId>com.hadoop.gplcompression</groupId>
             <artifactId>hadoop-lzo</artifactId>
-            <version>0.4.18</version>
+            <version>${twitter.lzo.version}</version>
             <scope>runtime</scope>
         </dependency>
 
