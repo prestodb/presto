@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.operator.aggregation.state.VarianceState;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.CaseFormat;
+import com.google.common.base.Function;
 
 import javax.annotation.Nullable;
 
@@ -79,5 +82,19 @@ public final class AggregationUtils
         sb.append(CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, baseName.toLowerCase()));
 
         return sb.toString();
+    }
+
+    // used by aggregation compiler
+    @SuppressWarnings("UnusedDeclaration")
+    public static Function<Integer, Block> pageBlockGetter(final Page page)
+    {
+        return new Function<Integer, Block>()
+        {
+            @Override
+            public Block apply(Integer input)
+            {
+                return page.getBlock(input);
+            }
+        };
     }
 }

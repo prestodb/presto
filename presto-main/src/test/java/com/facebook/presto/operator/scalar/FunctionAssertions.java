@@ -437,7 +437,7 @@ public final class FunctionAssertions
             assertEquals(page.getPositionCount(), 1);
             assertEquals(page.getChannelCount(), 1);
 
-            assertTrue(page.getBoolean(operator.getTypes().get(0), 0, 0));
+            assertTrue(operator.getTypes().get(0).getBoolean(page.getBlock(0), 0));
             value = true;
         }
         else {

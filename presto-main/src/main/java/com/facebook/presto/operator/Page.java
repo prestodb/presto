@@ -14,11 +14,8 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
@@ -70,31 +67,6 @@ public class Page
         return blocks[channel];
     }
 
-    public boolean getBoolean(Type type, int channel, int position)
-    {
-        return type.getBoolean(getBlock(channel), position);
-    }
-
-    public long getLong(Type type, int channel, int position)
-    {
-        return type.getLong(getBlock(channel), position);
-    }
-
-    public double getDouble(Type type, int channel, int position)
-    {
-        return type.getDouble(getBlock(channel), position);
-    }
-
-    public Slice getSlice(Type type, int channel, int position)
-    {
-        return type.getSlice(getBlock(channel), position);
-    }
-
-    public boolean isNull(Type type, int channel, int position)
-    {
-        return getBlock(channel).isNull(position);
-    }
-
     public Block[] getSingleValueBlocks(int position)
     {
         Block[] row = new Block[blocks.length];
@@ -112,17 +84,5 @@ public class Page
                 .add("channelCount", getChannelCount())
                 .addValue("@" + Integer.toHexString(System.identityHashCode(this)))
                 .toString();
-    }
-
-    public Function<Integer, Block> blockGetter()
-    {
-        return new Function<Integer, Block>()
-        {
-            @Override
-            public Block apply(Integer input)
-            {
-                return getBlock(input);
-            }
-        };
     }
 }
