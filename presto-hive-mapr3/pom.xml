@@ -16,6 +16,17 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
     </properties>
 
+    <repositories>
+        <repository>
+        <id>mapr-releases</id>
+        <url>http://repository.mapr.com/maven/</url>
+        </repository>
+        <repository>
+        <id>twitter-twttr</id>
+        <url>http://maven.twttr.com//</url>
+        </repository>
+    </repositories>
+
     <dependencies>
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -32,6 +43,49 @@
             <groupId>com.facebook.presto.hadoop</groupId>
             <artifactId>hadoop-apache1</artifactId>
             <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-core</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- for mapr -->
+        <dependency>
+            <groupId>com.hadoop.gplcompression</groupId>
+            <artifactId>hadoop-lzo</artifactId>
+            <version>0.4.18</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.mapr.hadoop</groupId>
+            <artifactId>maprfs-core</artifactId>
+            <version>${dep.hadoop.version}</version>
+            <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>junit</groupId>
+                    <artifactId>junit</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.mapr.util</groupId>
+                    <artifactId>baseutils</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.mapr.hadoop</groupId>
+                    <artifactId>maprfs-jni</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.mapr.hadoop</groupId>
+                    <artifactId>maprfs</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- for testing -->
