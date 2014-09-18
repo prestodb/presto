@@ -72,6 +72,10 @@ public class TestCassandraIntegrationSmokeTest
                 "cassandra.native-protocol-port", "9142",
                 "cassandra.allow-drop-table", "true"));
 
+        TestCassandraConnector.createOrReplaceKeyspace("example");
+        TestCassandraConnector.createTestData("example", "test_key_text");
+        queryRunner.execute(createSession("example"), "select * from example.test_key_text where key='" + String.format("key %04d", 1) + "'");
+
         log.info("Loading data...");
         long startTime = System.nanoTime();
         copyTable(queryRunner, "tpch", TpchMetadata.TINY_SCHEMA_NAME, "orders", createSession("tpch"));
