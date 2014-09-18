@@ -68,15 +68,6 @@ public class Page
         return blocks[channel];
     }
 
-    public Block[] getSingleValueBlocks(int position)
-    {
-        Block[] row = new Block[blocks.length];
-        for (int i = 0; i < blocks.length; i++) {
-            row[i] = blocks[i].getSingleValueBlock(position);
-        }
-        return row;
-    }
-
     @Override
     public String toString()
     {
