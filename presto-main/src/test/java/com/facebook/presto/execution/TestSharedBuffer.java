@@ -40,6 +40,7 @@ import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.execution.BufferResult.emptyResults;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -50,7 +51,7 @@ public class TestSharedBuffer
 {
     private static final Duration NO_WAIT = new Duration(0, TimeUnit.MILLISECONDS);
     private static final Duration MAX_WAIT = new Duration(1, TimeUnit.SECONDS);
-    private static final DataSize PAGE_SIZE = createPage(42).getDataSize();
+    private static final DataSize PAGE_SIZE = new DataSize(createPage(42).getSizeInBytes(), BYTE);
     private static final TaskId TASK_ID = new TaskId("query", "stage", "task");
 
     private static final ImmutableList<BigintType> TYPES = ImmutableList.of(BIGINT);

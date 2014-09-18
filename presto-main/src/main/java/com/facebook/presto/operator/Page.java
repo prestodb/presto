@@ -15,27 +15,34 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 
 import java.util.Arrays;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Page
 {
     private final Block[] blocks;
     private final int positionCount;
+    private final long sizeInBytes;
 
     public Page(Block... blocks)
     {
-        this(blocks[0].getPositionCount(), blocks);
+        this(determinePositionCount(blocks), blocks);
     }
 
     public Page(int positionCount, Block... blocks)
     {
-        Preconditions.checkNotNull(blocks, "blocks is null");
+        checkNotNull(blocks, "blocks is null");
         this.blocks = Arrays.copyOf(blocks, blocks.length);
         this.positionCount = positionCount;
+
+        long sizeInBytes = 0;
+        for (Block block : blocks) {
+            sizeInBytes += block.getSizeInBytes();
+        }
+        this.sizeInBytes = sizeInBytes;
     }
 
     public int getChannelCount()
@@ -48,13 +55,9 @@ public class Page
         return positionCount;
     }
 
-    public DataSize getDataSize()
+    public long getSizeInBytes()
     {
-        long dataSize = 0;
-        for (Block block : blocks) {
-            dataSize += block.getSizeInBytes();
-        }
-        return new DataSize(dataSize, Unit.BYTE);
+        return sizeInBytes;
     }
 
     public Block[] getBlocks()
@@ -84,5 +87,13 @@ public class Page
                 .add("channelCount", getChannelCount())
                 .addValue("@" + Integer.toHexString(System.identityHashCode(this)))
                 .toString();
+    }
+
+    private static int determinePositionCount(Block... blocks)
+    {
+        checkNotNull(blocks, "blocks is null");
+        checkArgument(blocks.length != 0, "blocks is empty");
+
+        return blocks[0].getPositionCount();
     }
 }

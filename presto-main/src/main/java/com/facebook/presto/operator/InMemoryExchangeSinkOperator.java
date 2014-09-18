@@ -86,7 +86,7 @@ public class InMemoryExchangeSinkOperator
         checkNotNull(page, "page is null");
         checkState(!finished, "Already finished");
         inMemoryExchange.addPage(page);
-        operatorContext.recordGeneratedOutput(page.getDataSize(), page.getPositionCount());
+        operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
     }
 
     @Override
