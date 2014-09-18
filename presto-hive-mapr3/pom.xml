@@ -15,17 +15,12 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.hadoop.version>1.0.3-mapr-3.0.3</dep.hadoop.version>
-        <twitter.lzo.version>0.4.18</twitter.lzo.version>
     </properties>
 
     <repositories>
         <repository>
         <id>mapr-releases</id>
         <url>http://repository.mapr.com/maven/</url>
-        </repository>
-        <repository>
-        <id>twitter-twttr</id>
-        <url>http://maven.twttr.com//</url>
         </repository>
     </repositories>
 
@@ -54,12 +49,6 @@
         </dependency>
 
         <!-- for mapr -->
-        <dependency>
-            <groupId>com.hadoop.gplcompression</groupId>
-            <artifactId>hadoop-lzo</artifactId>
-            <version>${twitter.lzo.version}</version>
-            <scope>runtime</scope>
-        </dependency>
 
         <dependency>
             <groupId>com.mapr.hadoop</groupId>
