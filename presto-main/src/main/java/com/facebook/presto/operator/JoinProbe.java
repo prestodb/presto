@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.PageBuilder;
+
 public interface JoinProbe
 {
     int getChannelCount();

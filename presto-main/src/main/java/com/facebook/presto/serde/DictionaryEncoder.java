@@ -15,7 +15,7 @@ package com.facebook.presto.serde;
 
 import com.facebook.presto.block.dictionary.DictionaryBlockEncoding;
 import com.facebook.presto.operator.GroupByHash;
-import com.facebook.presto.operator.PageBuilder;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
