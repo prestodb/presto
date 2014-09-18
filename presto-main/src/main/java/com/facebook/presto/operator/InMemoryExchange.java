@@ -141,7 +141,7 @@ public class InMemoryExchange
             return;
         }
         buffer.add(page);
-        bufferBytes += page.getDataSize().toBytes();
+        bufferBytes += page.getSizeInBytes();
         // TODO: record memory usage using OperatorContext.setMemoryReservation()
         notifyBlockedReaders();
     }
@@ -169,7 +169,7 @@ public class InMemoryExchange
     {
         Page page = buffer.poll();
         if (page != null) {
-            bufferBytes -= page.getDataSize().toBytes();
+            bufferBytes -= page.getSizeInBytes();
         }
         if (bufferBytes < maxBufferedBytes) {
             notifyBlockedWriters();

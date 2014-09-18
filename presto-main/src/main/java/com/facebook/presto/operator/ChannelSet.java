@@ -17,9 +17,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
-
-import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class ChannelSet
 {
@@ -37,9 +34,9 @@ public class ChannelSet
         return hash.getTypes().get(0);
     }
 
-    public DataSize getEstimatedSize()
+    public long getEstimatedSizeInBytes()
     {
-        return new DataSize(hash.getEstimatedSize(), BYTE);
+        return hash.getEstimatedSize();
     }
 
     public int size()

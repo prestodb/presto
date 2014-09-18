@@ -101,7 +101,7 @@ public class IndexSnapshotBuilder
 
     public boolean tryAddPage(Page page)
     {
-        memoryInBytes += page.getDataSize().toBytes();
+        memoryInBytes += page.getSizeInBytes();
         if (isMemoryExceeded()) {
             return false;
         }
@@ -136,7 +136,7 @@ public class IndexSnapshotBuilder
         }
         Page missingKeysPage = missingKeysPageBuilder.build();
 
-        memoryInBytes += missingKeysPage.getDataSize().toBytes();
+        memoryInBytes += missingKeysPage.getSizeInBytes();
         if (isMemoryExceeded()) {
             return null;
         }

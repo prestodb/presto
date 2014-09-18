@@ -233,7 +233,7 @@ public class SharedBuffer
         // add page
         masterBuffer.add(page);
         pagesAdded.incrementAndGet();
-        bufferedBytes += page.getDataSize().toBytes();
+        bufferedBytes += page.getSizeInBytes();
 
         processPendingReads();
     }
@@ -265,7 +265,7 @@ public class SharedBuffer
         int listOffset = Ints.checkedCast(sequenceId - masterSequenceId.get());
         while (listOffset < masterBuffer.size()) {
             Page page = masterBuffer.get(listOffset++);
-            bytes += page.getDataSize().toBytes();
+            bytes += page.getSizeInBytes();
             // break (and don't add) if this page would exceed the limit
             if (!pages.isEmpty() && bytes > maxBytes) {
                 break;
@@ -372,7 +372,7 @@ public class SharedBuffer
 
                 for (int i = 0; i < pagesToRemove; i++) {
                     Page page = masterBuffer.removeFirst();
-                    bufferedBytes -= page.getDataSize().toBytes();
+                    bufferedBytes -= page.getSizeInBytes();
                 }
 
                 // refill buffer from queued pages

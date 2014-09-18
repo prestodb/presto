@@ -127,14 +127,14 @@ public class MockExchangeRequestProcessor
         // add pages up to the size limit
         List<Page> responsePages = new ArrayList<>();
         responsePages.add(page);
-        long responseSize = page.getDataSize().toBytes();
+        long responseSize = page.getSizeInBytes();
         while (responseSize < maxSize.toBytes()) {
             page = pages.poll();
             if (page == null) {
                 break;
             }
             responsePages.add(page);
-            responseSize += page.getDataSize().toBytes();
+            responseSize += page.getSizeInBytes();
         }
 
         // update sequence id

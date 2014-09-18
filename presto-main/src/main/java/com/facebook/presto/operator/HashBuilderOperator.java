@@ -156,7 +156,7 @@ public class HashBuilderOperator
         checkState(!isFinished(), "Operator is already finished");
 
         pagesIndex.addPage(page);
-        operatorContext.recordGeneratedOutput(page.getDataSize(), page.getPositionCount());
+        operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
     }
 
     @Override

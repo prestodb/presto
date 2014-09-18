@@ -402,7 +402,7 @@ public class StatementResource
                 if (page == null) {
                     break;
                 }
-                bytes += page.getDataSize().toBytes();
+                bytes += page.getSizeInBytes();
                 pages.add(new RowIterable(session, types, page));
 
                 // only wait on first call

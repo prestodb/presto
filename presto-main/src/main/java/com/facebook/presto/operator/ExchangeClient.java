@@ -196,7 +196,7 @@ public class ExchangeClient
 
         if (page != null) {
             synchronized (this) {
-                bufferBytes -= page.getDataSize().toBytes();
+                bufferBytes -= page.getSizeInBytes();
             }
             if (!closed.get() && pageBuffer.peek() == NO_MORE_PAGES) {
                 closed.set(true);
@@ -306,11 +306,11 @@ public class ExchangeClient
         // notify all blocked callers
         notifyBlockedCallers();
 
-        bufferBytes += page.getDataSize().toBytes();
+        bufferBytes += page.getSizeInBytes();
         successfulRequests++;
 
         // AVG_n = AVG_(n-1) * (n-1)/n + VALUE_n / n
-        averageBytesPerRequest = (long) (1.0 * averageBytesPerRequest * (successfulRequests - 1) / successfulRequests + page.getDataSize().toBytes() / successfulRequests);
+        averageBytesPerRequest = (long) (1.0 * averageBytesPerRequest * (successfulRequests - 1) / successfulRequests + page.getSizeInBytes() / successfulRequests);
 
         scheduleRequestIfNecessary();
     }

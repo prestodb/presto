@@ -151,7 +151,7 @@ public class SetBuilderOperator
 
         ChannelSet channelSet = channelSetBuilder.build();
         setSupplier.setChannelSet(channelSet);
-        operatorContext.recordGeneratedOutput(channelSet.getEstimatedSize(), channelSet.size());
+        operatorContext.recordGeneratedOutput(channelSet.getEstimatedSizeInBytes(), channelSet.size());
         finished = true;
     }
 

@@ -118,7 +118,7 @@ public class InMemoryExchangeSourceOperator
     {
         Page page = exchange.removePage();
         if (page != null) {
-            operatorContext.recordGeneratedInput(page.getDataSize(), page.getPositionCount());
+            operatorContext.recordGeneratedInput(page.getSizeInBytes(), page.getPositionCount());
         }
         return page;
     }
