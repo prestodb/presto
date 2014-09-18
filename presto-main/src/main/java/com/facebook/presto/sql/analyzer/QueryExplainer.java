@@ -39,6 +39,7 @@ public class QueryExplainer
     private final SqlParser sqlParser;
     private final boolean experimentalSyntaxEnabled;
     private final boolean distributedIndexJoinsEnabled;
+    private final boolean distributedJoinsEnabled;
 
     public QueryExplainer(
             ConnectorSession session,
@@ -46,7 +47,8 @@ public class QueryExplainer
             Metadata metadata,
             SqlParser sqlParser,
             boolean experimentalSyntaxEnabled,
-            boolean distributedIndexJoinsEnabled)
+            boolean distributedIndexJoinsEnabled,
+            boolean distributedJoinsEnabled)
     {
         this.session = checkNotNull(session, "session is null");
         this.planOptimizers = checkNotNull(planOptimizers, "planOptimizers is null");
@@ -54,6 +56,7 @@ public class QueryExplainer
         this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
         this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
         this.distributedIndexJoinsEnabled = distributedIndexJoinsEnabled;
+        this.distributedJoinsEnabled = distributedJoinsEnabled;
     }
 
     public String getPlan(Statement statement, ExplainType.Type planType)
@@ -113,6 +116,6 @@ public class QueryExplainer
         LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata);
         Plan plan = logicalPlanner.plan(analysis);
 
-        return new DistributedLogicalPlanner(session, metadata, idAllocator).createSubPlans(plan, false, distributedIndexJoinsEnabled);
+        return new DistributedLogicalPlanner(session, metadata, idAllocator).createSubPlans(plan, false, distributedIndexJoinsEnabled, distributedJoinsEnabled);
     }
 }

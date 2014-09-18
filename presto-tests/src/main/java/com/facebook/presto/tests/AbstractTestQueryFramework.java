@@ -155,6 +155,6 @@ public abstract class AbstractTestQueryFramework
         Metadata metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), new TypeRegistry(), new SystemTablesMetadata());
         FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true);
         List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, sqlParser, new SplitManager(new SystemSplitManager(new InMemoryNodeManager())), new IndexManager(), featuresConfig).get();
-        return new QueryExplainer(queryRunner.getDefaultSession(), optimizers, metadata, sqlParser, featuresConfig.isExperimentalSyntaxEnabled(), featuresConfig.isDistributedIndexJoinsEnabled());
+        return new QueryExplainer(queryRunner.getDefaultSession(), optimizers, metadata, sqlParser, featuresConfig.isExperimentalSyntaxEnabled(), featuresConfig.isDistributedIndexJoinsEnabled(), featuresConfig.isDistributedJoinsEnabled());
     }
 }

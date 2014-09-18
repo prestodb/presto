@@ -53,6 +53,7 @@ public class CreateViewTask
     private final List<PlanOptimizer> planOptimizers;
     private final boolean experimentalSyntaxEnabled;
     private final boolean distributedIndexJoinsEnabled;
+    private final boolean distributedJoinsEnabled;
 
     @Inject
     public CreateViewTask(JsonCodec<ViewDefinition> codec, SqlParser sqlParser, List<PlanOptimizer> planOptimizers, FeaturesConfig featuresConfig)
@@ -63,6 +64,7 @@ public class CreateViewTask
         checkNotNull(featuresConfig, "featuresConfig is null");
         this.experimentalSyntaxEnabled = featuresConfig.isExperimentalSyntaxEnabled();
         this.distributedIndexJoinsEnabled = featuresConfig.isDistributedIndexJoinsEnabled();
+        this.distributedJoinsEnabled = featuresConfig.isDistributedJoinsEnabled();
     }
 
     @Override
@@ -84,7 +86,7 @@ public class CreateViewTask
 
     public Analysis analyzeStatement(Statement statement, ConnectorSession session, Metadata metadata)
     {
-        QueryExplainer explainer = new QueryExplainer(session, planOptimizers, metadata, sqlParser, experimentalSyntaxEnabled, distributedIndexJoinsEnabled);
+        QueryExplainer explainer = new QueryExplainer(session, planOptimizers, metadata, sqlParser, experimentalSyntaxEnabled, distributedIndexJoinsEnabled, distributedJoinsEnabled);
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, Optional.of(explainer), experimentalSyntaxEnabled);
         return analyzer.analyze(statement);
     }
