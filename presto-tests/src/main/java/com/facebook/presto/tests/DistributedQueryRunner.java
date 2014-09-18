@@ -110,6 +110,7 @@ public class DistributedQueryRunner
                 .put("distributed-index-joins-enabled", "true");
         if (coordinator) {
             properties.put("node-scheduler.include-coordinator", "false");
+            properties.put("distributed-joins-enabled", "true");
         }
 
         TestingPrestoServer server = new TestingPrestoServer(coordinator, properties.build(), ENVIRONMENT, discoveryUri, ImmutableList.<Module>of());
