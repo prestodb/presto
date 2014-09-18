@@ -14,10 +14,10 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
-import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 
 import java.util.Arrays;
+
+import static java.util.Objects.requireNonNull;
 
 public class Page
 {
@@ -32,7 +32,7 @@ public class Page
 
     public Page(int positionCount, Block... blocks)
     {
-        Preconditions.checkNotNull(blocks, "blocks is null");
+        requireNonNull(blocks, "blocks is null");
         this.blocks = Arrays.copyOf(blocks, blocks.length);
         this.positionCount = positionCount;
 
@@ -80,16 +80,17 @@ public class Page
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
-                .add("positionCount", positionCount)
-                .add("channelCount", getChannelCount())
-                .addValue("@" + Integer.toHexString(System.identityHashCode(this)))
-                .toString();
+        StringBuilder builder = new StringBuilder("Page{");
+        builder.append("positions=").append(positionCount);
+        builder.append(", channels=").append(getChannelCount());
+        builder.append('}');
+        builder.append("@").append(Integer.toHexString(System.identityHashCode(this)));
+        return builder.toString();
     }
 
     private static int determinePositionCount(Block... blocks)
     {
-        Preconditions.checkNotNull(blocks, "blocks is null");
+        requireNonNull(blocks, "blocks is null");
         if (blocks.length == 0) {
             throw new IllegalArgumentException("blocks is empty");
         }
