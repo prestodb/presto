@@ -15,7 +15,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.hadoop.version>1.0.3-mapr-3.0.3</dep.hadoop.version>
-        <twitter.lzo.version>1.0.3-mapr-3.0.3</twitter.lzo.version>
+        <twitter.lzo.version>0.4.18</twitter.lzo.version>
     </properties>
 
     <repositories>
@@ -113,6 +113,21 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>com.ning.maven.plugins</groupId>
+                <artifactId>maven-duplicate-finder-plugin</artifactId>
+                <configuration>
+                  <failBuildInCaseOfConflict>false</failBuildInCaseOfConflict>
+                </configuration>
+                <executions>
+                  <execution>
+                    <phase>verify</phase>
+                    <goals>
+                      <goal>check</goal>
+                    </goals>
+                  </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
