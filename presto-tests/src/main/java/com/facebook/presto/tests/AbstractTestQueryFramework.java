@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.connector.system.SystemSplitManager;
+import com.facebook.presto.connector.system.SystemTablesMetadata;
 import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ConnectorSession;
@@ -149,9 +152,9 @@ public abstract class AbstractTestQueryFramework
 
     private QueryExplainer getQueryExplainer()
     {
-        Metadata metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), new TypeRegistry());
+        Metadata metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), new TypeRegistry(), new SystemTablesMetadata());
         FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true);
-        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, sqlParser, new SplitManager(), new IndexManager(), featuresConfig).get();
+        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, sqlParser, new SplitManager(new SystemSplitManager(new InMemoryNodeManager())), new IndexManager(), featuresConfig).get();
         return new QueryExplainer(queryRunner.getDefaultSession(), optimizers, metadata, sqlParser, featuresConfig.isExperimentalSyntaxEnabled(), featuresConfig.isDistributedIndexJoinsEnabled());
     }
 }

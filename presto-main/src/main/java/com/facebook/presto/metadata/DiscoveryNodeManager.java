@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.util.IterableTransformer;
@@ -35,7 +36,6 @@ import java.net.URISyntaxException;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.connector.system.SystemSplitManager.SYSTEM_DATASOURCE;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
@@ -120,7 +120,7 @@ public final class DiscoveryNodeManager
                     }
 
                     // always add system data source
-                    byDataSourceBuilder.put(SYSTEM_DATASOURCE, node);
+                    byDataSourceBuilder.put(SystemTablesManager.CONNECTOR_ID, node);
                 }
                 else {
                     inactiveNodesBuilder.add(node);
