@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.split;
 
+import com.facebook.presto.connector.system.SystemRecordSetProvider;
+import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorColumnHandle;
@@ -36,8 +38,9 @@ public class PageSourceManager
     private final ConcurrentMap<String, ConnectorPageSourceProvider> pageSourceProviders = new ConcurrentHashMap<>();
 
     @Inject
-    public PageSourceManager()
+    public PageSourceManager(SystemRecordSetProvider systemRecordSetProvider)
     {
+        pageSourceProviders.put(SystemTablesManager.CONNECTOR_ID, new RecordPageSourceProvider(systemRecordSetProvider));
     }
 
     public void addConnectorPageSourceProvider(String connectorId, ConnectorPageSourceProvider connectorPageSourceProvider)

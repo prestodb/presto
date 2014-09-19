@@ -22,9 +22,7 @@ import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -83,8 +81,7 @@ public class BenchmarkPageProcessor
 
         handCodedProcessor = new Tpch1FilterAndProject();
 
-        MetadataManager metadata = new MetadataManager(new FeaturesConfig(), new TypeRegistry());
-        compiledProcessor = new ExpressionCompiler(metadata).compilePageProcessor(FILTER, ImmutableList.of(PROJECT));
+        compiledProcessor = new ExpressionCompiler(new MetadataManager()).compilePageProcessor(FILTER, ImmutableList.of(PROJECT));
     }
 
     @Benchmark

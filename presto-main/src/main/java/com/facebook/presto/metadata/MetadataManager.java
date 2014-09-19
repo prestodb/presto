@@ -14,6 +14,8 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
+import com.facebook.presto.connector.system.SystemTablesManager;
+import com.facebook.presto.connector.system.SystemTablesMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -32,12 +34,12 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
@@ -70,7 +72,7 @@ import static java.lang.String.format;
 public class MetadataManager
         implements Metadata
 {
-    private final Set<String> globalConnectors = Sets.newConcurrentHashSet();
+    private final SystemTablesMetadata systemMetadata;
     private final ConcurrentMap<String, ConnectorMetadataEntry> informationSchemasByCatalog = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ConnectorMetadataEntry> connectorsByCatalog = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ConnectorMetadata> connectorsById = new ConcurrentHashMap<>();
@@ -78,22 +80,26 @@ public class MetadataManager
     private final TypeManager typeManager;
     private final JsonCodec<ViewDefinition> viewCodec;
 
+    @VisibleForTesting
     public MetadataManager()
     {
-        this(new FeaturesConfig(), new TypeRegistry());
+        this(new FeaturesConfig(), new TypeRegistry(), new SystemTablesMetadata());
     }
 
-    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager)
+    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager, SystemTablesMetadata systemMetadata)
     {
-        this(featuresConfig, typeManager, createTestingViewCodec());
+        this(featuresConfig, typeManager, createTestingViewCodec(), systemMetadata);
     }
 
     @Inject
-    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager, JsonCodec<ViewDefinition> viewCodec)
+    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager, JsonCodec<ViewDefinition> viewCodec, SystemTablesMetadata systemMetadata)
     {
         functions = new FunctionRegistry(typeManager, featuresConfig.isExperimentalSyntaxEnabled());
         this.typeManager = checkNotNull(typeManager, "types is null");
         this.viewCodec = checkNotNull(viewCodec, "viewCodec is null");
+        this.systemMetadata = checkNotNull(systemMetadata, "systemMetadata is null");
+
+        connectorsById.put(SystemTablesManager.CONNECTOR_ID, systemMetadata);
     }
 
     public synchronized void addConnectorMetadata(String connectorId, String catalogName, ConnectorMetadata connectorMetadata)
@@ -122,18 +128,6 @@ public class MetadataManager
 
         connectorsById.put(connectorId, metadata);
         informationSchemasByCatalog.put(catalogName, new ConnectorMetadataEntry(connectorId, metadata));
-    }
-
-    public synchronized void addGlobalSchemaMetadata(String connectorId, ConnectorMetadata connectorMetadata)
-    {
-        checkNotNull(connectorId, "connectorId is null");
-        checkNotNull(connectorMetadata, "connectorMetadata is null");
-
-        checkArgument(!globalConnectors.contains(connectorId), "Global connector '%s' is already registered", connectorId);
-        checkArgument(!connectorsById.containsKey(connectorId), "Connector '%s' is already registered", connectorId);
-
-        connectorsById.put(connectorId, connectorMetadata);
-        globalConnectors.add(connectorId);
     }
 
     @Override
@@ -464,9 +458,7 @@ public class MetadataManager
     {
         ImmutableList.Builder<ConnectorMetadataEntry> builder = ImmutableList.builder();
 
-        for (String connectorId : globalConnectors) {
-            builder.add(new ConnectorMetadataEntry(connectorId, connectorsById.get(connectorId)));
-        }
+        builder.add(new ConnectorMetadataEntry(SystemTablesManager.CONNECTOR_ID, systemMetadata));
 
         ConnectorMetadataEntry entry = informationSchemasByCatalog.get(catalogName);
         if (entry != null) {

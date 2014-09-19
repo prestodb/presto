@@ -35,10 +35,7 @@ import com.facebook.presto.split.RecordPageSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.google.inject.Inject;
 
-import javax.annotation.Nullable;
-
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -71,7 +68,6 @@ public class ConnectorManager
             RecordSinkManager recordSinkManager,
             HandleResolver handleResolver,
             Map<String, ConnectorFactory> connectorFactories,
-            Map<String, Connector> globalConnectors,
             NodeManager nodeManager)
     {
         this.metadataManager = metadataManager;
@@ -82,11 +78,6 @@ public class ConnectorManager
         this.handleResolver = handleResolver;
         this.nodeManager = nodeManager;
         this.connectorFactories.putAll(connectorFactories);
-
-        // add the global connectors
-        for (Entry<String, Connector> entry : globalConnectors.entrySet()) {
-            addGlobalConnector(entry.getKey(), entry.getValue());
-        }
     }
 
     public void addConnectorFactory(ConnectorFactory connectorFactory)
@@ -122,12 +113,7 @@ public class ConnectorManager
         addConnector(catalogName, connectorId, connector);
     }
 
-    public void addGlobalConnector(String connectorId, Connector connector)
-    {
-        addConnector(null, connectorId, connector);
-    }
-
-    private void addConnector(@Nullable String catalogName, String connectorId, Connector connector)
+    private void addConnector(String catalogName, String connectorId, Connector connector)
     {
         ConnectorMetadata connectorMetadata = connector.getMetadata();
         checkState(connectorMetadata != null, "Connector %s can not provide metadata", connectorId);
@@ -177,16 +163,11 @@ public class ConnectorManager
         // IMPORTANT: all the instances need to be fetched from the connector *before* we add them to the corresponding managers.
         // Otherwise, a broken connector would leave the managers in an inconsistent state with respect to each other
 
-        if (catalogName != null) {
-            metadataManager.addConnectorMetadata(connectorId, catalogName, connectorMetadata);
+        metadataManager.addConnectorMetadata(connectorId, catalogName, connectorMetadata);
 
-            metadataManager.addInformationSchemaMetadata(makeInformationSchemaConnectorId(connectorId), catalogName, new InformationSchemaMetadata(catalogName));
-            splitManager.addConnectorSplitManager(makeInformationSchemaConnectorId(connectorId), new InformationSchemaSplitManager(nodeManager));
-            pageSourceManager.addConnectorPageSourceProvider(makeInformationSchemaConnectorId(connectorId), new InformationSchemaPageSourceProvider(metadataManager, splitManager));
-        }
-        else {
-            metadataManager.addGlobalSchemaMetadata(connectorId, connectorMetadata);
-        }
+        metadataManager.addInformationSchemaMetadata(makeInformationSchemaConnectorId(connectorId), catalogName, new InformationSchemaMetadata(catalogName));
+        splitManager.addConnectorSplitManager(makeInformationSchemaConnectorId(connectorId), new InformationSchemaSplitManager(nodeManager));
+        pageSourceManager.addConnectorPageSourceProvider(makeInformationSchemaConnectorId(connectorId), new InformationSchemaPageSourceProvider(metadataManager, splitManager));
 
         splitManager.addConnectorSplitManager(connectorId, connectorSplitManager);
         handleResolver.addHandleResolver(connectorId, connectorHandleResolver);

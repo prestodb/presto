@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.connector.system.SystemRecordSetProvider;
 import com.facebook.presto.execution.TestSqlTaskManager.MockExchangeClientSupplier;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.ColumnHandle;
@@ -27,7 +28,6 @@ import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceManager;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.CompilerConfig;
@@ -42,7 +42,6 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -86,9 +85,9 @@ public final class TaskTestUtils
 
     public static LocalExecutionPlanner createTestingPlanner()
     {
-        MetadataManager metadata = new MetadataManager(new FeaturesConfig(), new TypeRegistry());
+        MetadataManager metadata = new MetadataManager();
 
-        PageSourceManager pageSourceManager = new PageSourceManager();
+        PageSourceManager pageSourceManager = new PageSourceManager(new SystemRecordSetProvider());
         pageSourceManager.addConnectorPageSourceProvider("test", new TestingPageSourceProvider());
         return new LocalExecutionPlanner(
                 metadata,

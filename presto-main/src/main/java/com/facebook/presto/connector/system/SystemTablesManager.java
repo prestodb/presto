@@ -31,6 +31,7 @@ import java.util.Set;
 //
 public class SystemTablesManager
 {
+    public static final String CONNECTOR_ID = "system";
     private final SystemTablesMetadata metadata;
     private final SystemSplitManager splitManager;
     private final SystemRecordSetProvider recordSetProvider;

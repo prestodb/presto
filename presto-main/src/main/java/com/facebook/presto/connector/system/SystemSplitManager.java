@@ -44,7 +44,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class SystemSplitManager
         implements ConnectorSplitManager
 {
-    public static final String SYSTEM_DATASOURCE = "system";
     private final NodeManager nodeManager;
     private final ConcurrentMap<SchemaTableName, SystemTable> tables = new ConcurrentHashMap<>();
 
@@ -76,7 +75,7 @@ public class SystemSplitManager
     {
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
-            return new FixedSplitSource(SYSTEM_DATASOURCE, ImmutableList.<ConnectorSplit>of());
+            return new FixedSplitSource(SystemTablesManager.CONNECTOR_ID, ImmutableList.<ConnectorSplit>of());
         }
 
         ConnectorPartition partition = Iterables.getOnlyElement(partitions);
@@ -90,12 +89,12 @@ public class SystemSplitManager
             for (Node node : nodeManager.getActiveNodes()) {
                 splits.add(new SystemSplit(systemPartition.getTableHandle(), node.getHostAndPort()));
             }
-            return new FixedSplitSource(SYSTEM_DATASOURCE, splits.build());
+            return new FixedSplitSource(SystemTablesManager.CONNECTOR_ID, splits.build());
         }
 
         HostAddress address = nodeManager.getCurrentNode().getHostAndPort();
         ConnectorSplit split = new SystemSplit(systemPartition.getTableHandle(), address);
-        return new FixedSplitSource(SYSTEM_DATASOURCE, ImmutableList.of(split));
+        return new FixedSplitSource(SystemTablesManager.CONNECTOR_ID, ImmutableList.of(split));
     }
 
     public static class SystemPartition
