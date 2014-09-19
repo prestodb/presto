@@ -11,58 +11,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 
-import java.io.Closeable;
+import java.util.ArrayList;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Collections.unmodifiableList;
+import static java.util.Objects.requireNonNull;
 
-public class RecordProjectOperator
-        implements Operator, Closeable
+public class RecordPageSource
+        implements ConnectorPageSource
 {
     private static final int ROWS_PER_REQUEST = 4096;
-    private final OperatorContext operatorContext;
     private final RecordCursor cursor;
     private final List<Type> types;
     private final PageBuilder pageBuilder;
-    private boolean finishing;
-    private long completedBytes;
-    private long readTimeNanos;
+    private boolean closed;
 
-    public RecordProjectOperator(OperatorContext operatorContext, RecordSet recordSet)
+    public RecordPageSource(RecordSet recordSet)
     {
-        this(operatorContext, recordSet.getColumnTypes(), recordSet.cursor());
+        this(requireNonNull(recordSet, "recordSet is null").getColumnTypes(), recordSet.cursor());
     }
 
-    public RecordProjectOperator(OperatorContext operatorContext, List<Type> columnTypes, RecordCursor cursor)
+    public RecordPageSource(List<Type> types, RecordCursor cursor)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.cursor = checkNotNull(cursor, "cursor is null");
-
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (Type columnType : columnTypes) {
-            types.add(columnType);
-        }
-        this.types = types.build();
-
-        pageBuilder = new PageBuilder(getTypes());
-    }
-
-    @Override
-    public OperatorContext getOperatorContext()
-    {
-        return operatorContext;
+        this.cursor = requireNonNull(cursor, "cursor is null");
+        this.types = unmodifiableList(new ArrayList<>(requireNonNull(types, "types is null")));
+        this.pageBuilder = new PageBuilder(this.types);
     }
 
     public RecordCursor getCursor()
@@ -71,52 +50,40 @@ public class RecordProjectOperator
     }
 
     @Override
-    public List<Type> getTypes()
+    public long getTotalBytes()
     {
-        return types;
+        return cursor.getTotalBytes();
     }
 
     @Override
-    public void finish()
+    public long getCompletedBytes()
     {
-        close();
+        return cursor.getCompletedBytes();
+    }
+
+    @Override
+    public long getReadTimeNanos()
+    {
+        return cursor.getReadTimeNanos();
     }
 
     @Override
     public void close()
     {
-        finishing = true;
+        closed = true;
         cursor.close();
     }
 
     @Override
     public boolean isFinished()
     {
-        return finishing && pageBuilder.isEmpty();
+        return closed && pageBuilder.isEmpty();
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public Page getNextPage()
     {
-        return NOT_BLOCKED;
-    }
-
-    @Override
-    public boolean needsInput()
-    {
-        return false;
-    }
-
-    @Override
-    public void addInput(Page page)
-    {
-        throw new UnsupportedOperationException(getClass().getName() + " can not take input");
-    }
-
-    @Override
-    public Page getOutput()
-    {
-        if (!finishing) {
+        if (!closed) {
             int i;
             for (i = 0; i < ROWS_PER_REQUEST; i++) {
                 if (pageBuilder.isFull()) {
@@ -124,7 +91,7 @@ public class RecordProjectOperator
                 }
 
                 if (!cursor.advanceNextPosition()) {
-                    finishing = true;
+                    closed = true;
                     break;
                 }
 
@@ -135,7 +102,7 @@ public class RecordProjectOperator
                         output.appendNull();
                     }
                     else {
-                        Type type = getTypes().get(column);
+                        Type type = types.get(column);
                         Class<?> javaType = type.getJavaType();
                         if (javaType == boolean.class) {
                             type.writeBoolean(output, cursor.getBoolean(column));
@@ -156,16 +123,10 @@ public class RecordProjectOperator
                     }
                 }
             }
-
-            long endCompletedBytes = cursor.getCompletedBytes();
-            long endReadTimeNanos = cursor.getReadTimeNanos();
-            operatorContext.recordGeneratedInput(endCompletedBytes - completedBytes, i, endReadTimeNanos - readTimeNanos);
-            completedBytes = endCompletedBytes;
-            readTimeNanos = endReadTimeNanos;
         }
 
-        // only return a full page is buffer is full or we are finishing
-        if (pageBuilder.isEmpty() || (!finishing && !pageBuilder.isFull())) {
+        // only return a page if the buffer is full or we are finishing
+        if (pageBuilder.isEmpty() || (!closed && !pageBuilder.isFull())) {
             return null;
         }
 

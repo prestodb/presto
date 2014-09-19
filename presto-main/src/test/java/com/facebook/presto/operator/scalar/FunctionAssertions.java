@@ -25,25 +25,25 @@ import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.GenericPageProcessor;
 import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.operator.ProjectionFunction;
-import com.facebook.presto.operator.RecordProjectOperator;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.operator.ValuesOperator;
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.InMemoryRecordSet;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -154,7 +154,7 @@ public final class FunctionAssertions
             .put(new Symbol("bound_null_string"), VARCHAR)
             .build();
 
-    private static final DataStreamProvider DATA_STREAM_PROVIDER = new TestDataStreamProvider();
+    private static final PageSourceProvider PAGE_SOURCE_PROVIDER = new TestPageSourceProvider();
     private static final PlanNodeId SOURCE_ID = new PlanNodeId("scan");
 
     private final ConnectorSession session;
@@ -565,7 +565,7 @@ public final class FunctionAssertions
             return new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                     0,
                     SOURCE_ID,
-                    DATA_STREAM_PROVIDER,
+                    PAGE_SOURCE_PROVIDER,
                     cursorProcessor,
                     pageProcessor,
                     ImmutableList.<ColumnHandle>of(),
@@ -614,11 +614,11 @@ public final class FunctionAssertions
                 .addDriverContext();
     }
 
-    private static class TestDataStreamProvider
-            implements DataStreamProvider
+    private static class TestPageSourceProvider
+            implements PageSourceProvider
     {
         @Override
-        public Operator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
+        public ConnectorPageSource createPageSource(Split split, List<ColumnHandle> columns)
         {
             assertInstanceOf(split.getConnectorSplit(), FunctionAssertions.TestSplit.class);
             FunctionAssertions.TestSplit testSplit = (FunctionAssertions.TestSplit) split.getConnectorSplit();
@@ -632,10 +632,10 @@ public final class FunctionAssertions
                         "%el%",
                         null
                 ).build();
-                return new RecordProjectOperator(operatorContext, records);
+                return new RecordPageSource(records);
             }
             else {
-                return new ValuesOperator(operatorContext, ImmutableList.copyOf(INPUT_TYPES.values()), ImmutableList.of(SOURCE_PAGE));
+                return new FixedPageSource(ImmutableList.of(SOURCE_PAGE));
             }
         }
     }

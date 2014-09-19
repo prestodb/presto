@@ -11,16 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.split;
-
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.spi.ConnectorColumnHandle;
-import com.facebook.presto.spi.ConnectorSplit;
+package com.facebook.presto.spi;
 
 import java.util.List;
 
-public interface ConnectorDataStreamProvider
+public interface ConnectorPageSourceProvider
 {
-    Operator createNewDataStream(OperatorContext operatorContext, ConnectorSplit split, List<ConnectorColumnHandle> columns);
+    ConnectorPageSource createPageSource(ConnectorSplit split, List<ConnectorColumnHandle> columns);
 }

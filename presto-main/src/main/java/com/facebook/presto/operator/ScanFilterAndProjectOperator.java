@@ -15,19 +15,23 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Suppliers;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import javax.annotation.concurrent.GuardedBy;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -40,7 +44,7 @@ public class ScanFilterAndProjectOperator
 
     private final OperatorContext operatorContext;
     private final PlanNodeId planNodeId;
-    private final DataStreamProvider dataStreamProvider;
+    private final PageSourceProvider pageSourceProvider;
     private final List<Type> types;
     private final List<ColumnHandle> columns;
     private final PageBuilder pageBuilder;
@@ -51,7 +55,7 @@ public class ScanFilterAndProjectOperator
     private RecordCursor cursor;
 
     @GuardedBy("this")
-    private Operator operator;
+    private ConnectorPageSource pageSource;
 
     private Page currentPage;
     private int currentPosition;
@@ -64,7 +68,7 @@ public class ScanFilterAndProjectOperator
     protected ScanFilterAndProjectOperator(
             OperatorContext operatorContext,
             PlanNodeId sourceId,
-            DataStreamProvider dataStreamProvider,
+            PageSourceProvider pageSourceProvider,
             CursorProcessor cursorProcessor,
             PageProcessor pageProcessor,
             Iterable<ColumnHandle> columns,
@@ -74,7 +78,7 @@ public class ScanFilterAndProjectOperator
         this.pageProcessor = checkNotNull(pageProcessor, "pageProcessor is null");
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.planNodeId = checkNotNull(sourceId, "sourceId is null");
-        this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
+        this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceManager is null");
         this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
         this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
 
@@ -97,14 +101,14 @@ public class ScanFilterAndProjectOperator
     public synchronized void addSplit(Split split)
     {
         checkNotNull(split, "split is null");
-        checkState(cursor == null && operator == null, "split already set");
+        checkState(cursor == null && pageSource == null, "split already set");
 
-        Operator dataStream = dataStreamProvider.createNewDataStream(operatorContext, split, columns);
-        if (dataStream instanceof RecordProjectOperator) {
-            cursor = ((RecordProjectOperator) dataStream).getCursor();
+        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(split, columns);
+        if (pageSource instanceof RecordPageSource) {
+            cursor = ((RecordPageSource) pageSource).getCursor();
         }
         else {
-            operator = dataStream;
+            this.pageSource = pageSource;
         }
 
         Object splitInfo = split.getInfo();
@@ -116,7 +120,7 @@ public class ScanFilterAndProjectOperator
     @Override
     public synchronized void noMoreSplits()
     {
-        if (cursor == null && operator == null) {
+        if (cursor == null && pageSource == null) {
             finishing = true;
         }
     }
@@ -136,8 +140,13 @@ public class ScanFilterAndProjectOperator
     @Override
     public void close()
     {
-        if (operator != null) {
-            operator.finish();
+        if (pageSource != null) {
+            try {
+                pageSource.close();
+            }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
         }
         else if (cursor != null) {
             cursor.close();
@@ -148,7 +157,7 @@ public class ScanFilterAndProjectOperator
     @Override
     public final boolean isFinished()
     {
-        if (operator != null && operator.isFinished()) {
+        if (pageSource != null && pageSource.isFinished()) {
             finishing = true;
         }
 
@@ -158,9 +167,6 @@ public class ScanFilterAndProjectOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        if (operator != null) {
-            return operator.isBlocked();
-        }
         return NOT_BLOCKED;
     }
 
@@ -194,7 +200,7 @@ public class ScanFilterAndProjectOperator
             }
             else {
                 if (currentPage == null) {
-                    currentPage = operator.getOutput();
+                    currentPage = pageSource.getNextPage();
                     currentPosition = 0;
                 }
 
@@ -225,7 +231,7 @@ public class ScanFilterAndProjectOperator
         private final CursorProcessor cursorProcessor;
         private final PageProcessor pageProcessor;
         private final PlanNodeId sourceId;
-        private final DataStreamProvider dataStreamProvider;
+        private final PageSourceProvider pageSourceProvider;
         private final List<ColumnHandle> columns;
         private final List<Type> types;
         private boolean closed;
@@ -233,7 +239,7 @@ public class ScanFilterAndProjectOperator
         public ScanFilterAndProjectOperatorFactory(
                 int operatorId,
                 PlanNodeId sourceId,
-                DataStreamProvider dataStreamProvider,
+                PageSourceProvider pageSourceProvider,
                 CursorProcessor cursorProcessor,
                 PageProcessor pageProcessor,
                 Iterable<ColumnHandle> columns,
@@ -243,7 +249,7 @@ public class ScanFilterAndProjectOperator
             this.cursorProcessor = checkNotNull(cursorProcessor, "cursorProcessor is null");
             this.pageProcessor = checkNotNull(pageProcessor, "pageProcessor is null");
             this.sourceId = checkNotNull(sourceId, "sourceId is null");
-            this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
+            this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceProvider is null");
             this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
             this.types = checkNotNull(types, "types is null");
         }
@@ -268,7 +274,7 @@ public class ScanFilterAndProjectOperator
             return new ScanFilterAndProjectOperator(
                     operatorContext,
                     sourceId,
-                    dataStreamProvider,
+                    pageSourceProvider,
                     cursorProcessor,
                     pageProcessor,
                     columns,

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.connector;
 
-import com.facebook.presto.connector.informationSchema.InformationSchemaDataStreamProvider;
 import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
+import com.facebook.presto.connector.informationSchema.InformationSchemaPageSourceProvider;
 import com.facebook.presto.connector.informationSchema.InformationSchemaSplitManager;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.HandleResolver;
@@ -25,13 +25,13 @@ import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.split.ConnectorDataStreamProvider;
-import com.facebook.presto.split.DataStreamManager;
-import com.facebook.presto.split.RecordSetDataStreamProvider;
+import com.facebook.presto.split.PageSourceManager;
+import com.facebook.presto.split.RecordPageSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.google.inject.Inject;
 
@@ -52,7 +52,7 @@ public class ConnectorManager
 
     private final MetadataManager metadataManager;
     private final SplitManager splitManager;
-    private final DataStreamManager dataStreamManager;
+    private final PageSourceManager pageSourceManager;
     private final IndexManager indexManager;
 
     private final RecordSinkManager recordSinkManager;
@@ -66,7 +66,7 @@ public class ConnectorManager
     @Inject
     public ConnectorManager(MetadataManager metadataManager,
             SplitManager splitManager,
-            DataStreamManager dataStreamManager,
+            PageSourceManager pageSourceManager,
             IndexManager indexManager,
             RecordSinkManager recordSinkManager,
             HandleResolver handleResolver,
@@ -76,7 +76,7 @@ public class ConnectorManager
     {
         this.metadataManager = metadataManager;
         this.splitManager = splitManager;
-        this.dataStreamManager = dataStreamManager;
+        this.pageSourceManager = pageSourceManager;
         this.indexManager = indexManager;
         this.recordSinkManager = recordSinkManager;
         this.handleResolver = handleResolver;
@@ -135,16 +135,16 @@ public class ConnectorManager
         ConnectorSplitManager connectorSplitManager = connector.getSplitManager();
         checkState(connectorSplitManager != null, "Connector %s does not have a split manager", connectorId);
 
-        ConnectorDataStreamProvider connectorDataStreamProvider = null;
+        ConnectorPageSourceProvider connectorPageSourceProvider = null;
         if (connector instanceof InternalConnector) {
             try {
-                connectorDataStreamProvider = ((InternalConnector) connector).getDataStreamProvider();
+                connectorPageSourceProvider = ((InternalConnector) connector).getPageSourceProvider();
             }
             catch (UnsupportedOperationException ignored) {
             }
         }
 
-        if (connectorDataStreamProvider == null) {
+        if (connectorPageSourceProvider == null) {
             ConnectorRecordSetProvider connectorRecordSetProvider = null;
             try {
                 connectorRecordSetProvider = connector.getRecordSetProvider();
@@ -152,7 +152,7 @@ public class ConnectorManager
             catch (UnsupportedOperationException ignored) {
             }
             checkState(connectorRecordSetProvider != null, "Connector %s does not have a data stream provider", connectorId);
-            connectorDataStreamProvider = new RecordSetDataStreamProvider(connectorRecordSetProvider);
+            connectorPageSourceProvider = new RecordPageSourceProvider(connectorRecordSetProvider);
         }
 
         ConnectorHandleResolver connectorHandleResolver = connector.getHandleResolver();
@@ -182,7 +182,7 @@ public class ConnectorManager
 
             metadataManager.addInformationSchemaMetadata(makeInformationSchemaConnectorId(connectorId), catalogName, new InformationSchemaMetadata(catalogName));
             splitManager.addConnectorSplitManager(makeInformationSchemaConnectorId(connectorId), new InformationSchemaSplitManager(nodeManager));
-            dataStreamManager.addConnectorDataStreamProvider(makeInformationSchemaConnectorId(connectorId), new InformationSchemaDataStreamProvider(metadataManager, splitManager));
+            pageSourceManager.addConnectorPageSourceProvider(makeInformationSchemaConnectorId(connectorId), new InformationSchemaPageSourceProvider(metadataManager, splitManager));
         }
         else {
             metadataManager.addGlobalSchemaMetadata(connectorId, connectorMetadata);
@@ -190,7 +190,7 @@ public class ConnectorManager
 
         splitManager.addConnectorSplitManager(connectorId, connectorSplitManager);
         handleResolver.addHandleResolver(connectorId, connectorHandleResolver);
-        dataStreamManager.addConnectorDataStreamProvider(connectorId, connectorDataStreamProvider);
+        pageSourceManager.addConnectorPageSourceProvider(connectorId, connectorPageSourceProvider);
 
         if (connectorRecordSinkProvider != null) {
             recordSinkManager.addConnectorRecordSinkProvider(connectorId, connectorRecordSinkProvider);

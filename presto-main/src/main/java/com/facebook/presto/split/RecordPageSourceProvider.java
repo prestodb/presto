@@ -13,30 +13,30 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.RecordProjectOperator;
 import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.RecordPageSource;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class RecordSetDataStreamProvider
-        implements ConnectorDataStreamProvider
+public class RecordPageSourceProvider
+        implements ConnectorPageSourceProvider
 {
     private ConnectorRecordSetProvider recordSetProvider;
 
-    public RecordSetDataStreamProvider(ConnectorRecordSetProvider recordSetProvider)
+    public RecordPageSourceProvider(ConnectorRecordSetProvider recordSetProvider)
     {
         this.recordSetProvider = checkNotNull(recordSetProvider, "recordSetProvider is null");
     }
 
     @Override
-    public Operator createNewDataStream(OperatorContext operatorContext, ConnectorSplit split, List<ConnectorColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
-        return new RecordProjectOperator(operatorContext, recordSetProvider.getRecordSet(split, columns));
+        return new RecordPageSource(recordSetProvider.getRecordSet(split, columns));
     }
 }

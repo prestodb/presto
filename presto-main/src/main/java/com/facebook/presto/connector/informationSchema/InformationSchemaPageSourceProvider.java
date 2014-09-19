@@ -25,18 +25,17 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.ViewDefinition;
-import com.facebook.presto.operator.AlignmentOperator;
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.FixedPageSource;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.SplitManager;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -48,6 +47,7 @@ import io.airlift.slice.Slice;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -68,31 +68,40 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Sets.union;
 import static java.lang.String.format;
 
-public class InformationSchemaDataStreamProvider
-        implements ConnectorDataStreamProvider
+public class InformationSchemaPageSourceProvider
+        implements ConnectorPageSourceProvider
 {
     private final Metadata metadata;
     private final SplitManager splitManager;
 
     @Inject
-    public InformationSchemaDataStreamProvider(Metadata metadata, SplitManager splitManager)
+    public InformationSchemaPageSourceProvider(Metadata metadata, SplitManager splitManager)
     {
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
     }
 
     @Override
-    public Operator createNewDataStream(OperatorContext operatorContext, ConnectorSplit split, List<ConnectorColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
         InternalTable table = getInternalTable(split, columns);
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
-        ImmutableList.Builder<Iterable<Block>> channels = ImmutableList.builder();
+
+        List<Integer> channels = new ArrayList<>();
         for (ConnectorColumnHandle column : columns) {
             String columnName = checkType(column, InformationSchemaColumnHandle.class, "column").getColumnName();
-            types.add(table.getType(columnName));
-            channels.add(table.getColumn(columnName));
+            int columnIndex = table.getColumnIndex(columnName);
+            channels.add(columnIndex);
         }
-        return new AlignmentOperator(operatorContext, types.build(), channels.build());
+
+        ImmutableList.Builder<Page> pages = ImmutableList.builder();
+        for (Page page : table.getPages()) {
+            Block[] blocks = new Block[channels.size()];
+            for (int index = 0; index < blocks.length; index++) {
+                blocks[index] = page.getBlock(channels.get(index));
+            }
+            pages.add(new Page(page.getPositionCount(), blocks));
+        }
+        return new FixedPageSource(pages.build());
     }
 
     private InternalTable getInternalTable(ConnectorSplit connectorSplit, List<ConnectorColumnHandle> columns)

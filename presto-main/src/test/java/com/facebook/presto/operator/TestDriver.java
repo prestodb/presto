@@ -18,12 +18,14 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializingOperator;
 import com.google.common.collect.ImmutableList;
@@ -132,12 +134,12 @@ public class TestDriver
         final List<Type> types = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(99, "values"),
                 sourceId,
-                new DataStreamProvider()
+                new PageSourceProvider()
                 {
                     @Override
-                    public Operator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
+                    public ConnectorPageSource createPageSource(Split split, List<ColumnHandle> columns)
                     {
-                        return new ValuesOperator(driverContext.addOperatorContext(0, "values"), types, rowPagesBuilder(types)
+                        return new FixedPageSource(rowPagesBuilder(types)
                                 .addSequencePage(10, 20, 30, 40)
                                 .build());
                     }
@@ -236,12 +238,12 @@ public class TestDriver
         // create a table scan operator that does not block, which will cause the driver loop to busy wait
         TableScanOperator source = new NotBlockedTableScanOperator(driverContext.addOperatorContext(99, "values"),
                 sourceId,
-                new DataStreamProvider()
+                new PageSourceProvider()
                 {
                     @Override
-                    public Operator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
+                    public ConnectorPageSource createPageSource(Split split, List<ColumnHandle> columns)
                     {
-                        return new ValuesOperator(driverContext.addOperatorContext(0, "values"), types, rowPagesBuilder(types)
+                        return new FixedPageSource(rowPagesBuilder(types)
                                 .addSequencePage(10, 20, 30, 40)
                                 .build());
                     }
@@ -422,11 +424,11 @@ public class TestDriver
         public NotBlockedTableScanOperator(
                 OperatorContext operatorContext,
                 PlanNodeId planNodeId,
-                DataStreamProvider dataStreamProvider,
+                PageSourceProvider pageSourceProvider,
                 List<Type> types,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, dataStreamProvider, types, columns);
+            super(operatorContext, planNodeId, pageSourceProvider, types, columns);
         }
 
         @Override

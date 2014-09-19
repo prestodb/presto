@@ -13,15 +13,12 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.operator.AlignmentOperator;
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.raptor.storage.LocalStorageManager;
 import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -32,34 +29,34 @@ import java.util.List;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class RaptorDataStreamProvider
-        implements ConnectorDataStreamProvider
+public class RaptorPageSourceProvider
+        implements ConnectorPageSourceProvider
 {
     private final LocalStorageManager storageManager;
 
     @Inject
-    public RaptorDataStreamProvider(LocalStorageManager storageManager)
+    public RaptorPageSourceProvider(LocalStorageManager storageManager)
     {
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
     }
 
     @Override
-    public Operator createNewDataStream(OperatorContext operatorContext, ConnectorSplit split, List<ConnectorColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
         RaptorSplit raptorSplit = checkType(split, RaptorSplit.class, "split");
         checkNotNull(columns, "columns is null");
 
         if (columns.isEmpty()) {
-            return createNoColumnsOperator(operatorContext, raptorSplit);
+            return createNoColumnsOperator(raptorSplit);
         }
-        return createAlignmentOperator(operatorContext, columns, raptorSplit);
+        return createAlignmentOperator(columns, raptorSplit);
     }
 
-    public Operator createNoColumnsOperator(OperatorContext operatorContext, RaptorSplit raptorSplit)
+    public ConnectorPageSource createNoColumnsOperator(RaptorSplit raptorSplit)
     {
         RaptorColumnHandle countColumnHandle = raptorSplit.getCountColumnHandle();
         Iterable<Block> blocks = storageManager.getBlocks(raptorSplit.getShardUuid(), countColumnHandle);
-        return new NoColumnsOperator(operatorContext, Iterables.transform(blocks, new Function<Block, Integer>()
+        return new NoColumnsPageSource(Iterables.transform(blocks, new Function<Block, Integer>()
         {
             @Override
             public Integer apply(Block input)
@@ -69,15 +66,12 @@ public class RaptorDataStreamProvider
         }));
     }
 
-    public Operator createAlignmentOperator(OperatorContext operatorContext, List<ConnectorColumnHandle> columns, RaptorSplit raptorSplit)
+    public ConnectorPageSource createAlignmentOperator(List<ConnectorColumnHandle> columns, RaptorSplit raptorSplit)
     {
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
         ImmutableList.Builder<Iterable<Block>> channels = ImmutableList.builder();
         for (ConnectorColumnHandle column : columns) {
-            RaptorColumnHandle raptorColumnHandle = checkType(column, RaptorColumnHandle.class, "column");
-            types.add(raptorColumnHandle.getColumnType());
             channels.add(storageManager.getBlocks(raptorSplit.getShardUuid(), column));
         }
-        return new AlignmentOperator(operatorContext, types.build(), channels.build());
+        return new RaptorPageSource(channels.build());
     }
 }

@@ -15,12 +15,11 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.spi.ConnectorPageSource;
 
 import java.util.List;
 
-public interface DataStreamProvider
+public interface PageSourceProvider
 {
-    Operator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns);
+    ConnectorPageSource createPageSource(Split split, List<ColumnHandle> columns);
 }
