@@ -44,10 +44,8 @@ import io.airlift.slice.Slices;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
-import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
-import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
@@ -112,8 +110,8 @@ public class HiveRecordSink
         properties.setProperty(META_TABLE_COLUMNS, Joiner.on(',').join(handle.getColumnNames()));
         properties.setProperty(META_TABLE_COLUMN_TYPES, Joiner.on(':').join(hiveTypeNames));
 
-        serializer = initializeSerializer(conf, properties, new LazyBinaryColumnarSerDe());
-        recordWriter = createRecordWriter(target, conf, properties, new RCFileOutputFormat());
+        serializer = initializeSerializer(conf, properties, handle.getHiveStorageFormat().getSerDe());
+        recordWriter = createRecordWriter(target, conf, properties, handle.getHiveStorageFormat().getOutputFormat());
 
         tableInspector = getStandardStructObjectInspector(handle.getColumnNames(), getJavaObjectInspectors(columnTypes));
         structFields = ImmutableList.copyOf(tableInspector.getAllStructFieldRefs());
@@ -226,23 +224,25 @@ public class HiveRecordSink
     }
 
     @SuppressWarnings("deprecation")
-    private static Serializer initializeSerializer(Configuration conf, Properties properties, Serializer serializer)
+    private static Serializer initializeSerializer(Configuration conf, Properties properties, String serializerName)
     {
         try {
-            serializer.initialize(conf, properties);
+            Serializer result = (Serializer) Class.forName(serializerName).getConstructor().newInstance();
+            result.initialize(conf, properties);
+            return result;
         }
-        catch (SerDeException e) {
+        catch (SerDeException | ReflectiveOperationException e) {
             throw Throwables.propagate(e);
         }
-        return serializer;
     }
 
-    private static RecordWriter createRecordWriter(Path target, JobConf conf, Properties properties, HiveOutputFormat<?, ?> outputFormat)
+    private static RecordWriter createRecordWriter(Path target, JobConf conf, Properties properties, String outputFormatName)
     {
         try {
-            return outputFormat.getHiveRecordWriter(conf, target, Text.class, false, properties, Reporter.NULL);
+            Object writer = Class.forName(outputFormatName).getConstructor().newInstance();
+            return ((HiveOutputFormat<?, ?>) writer).getHiveRecordWriter(conf, target, Text.class, false, properties, Reporter.NULL);
         }
-        catch (IOException e) {
+        catch (IOException | ReflectiveOperationException e) {
             throw Throwables.propagate(e);
         }
     }

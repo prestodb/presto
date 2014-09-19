@@ -37,6 +37,7 @@ public class HiveOutputTableHandle
     private final String targetPath;
     private final String temporaryPath;
     private final ConnectorSession connectorSession;
+    private final HiveStorageFormat hiveStorageFormat;
 
     @JsonCreator
     public HiveOutputTableHandle(
@@ -48,7 +49,8 @@ public class HiveOutputTableHandle
             @JsonProperty("tableOwner") String tableOwner,
             @JsonProperty("targetPath") String targetPath,
             @JsonProperty("temporaryPath") String temporaryPath,
-            @JsonProperty("connectorSession") ConnectorSession connectorSession)
+            @JsonProperty("connectorSession") ConnectorSession connectorSession,
+            @JsonProperty("hiveStorageFormat") HiveStorageFormat hiveStorageFormat)
     {
         this.clientId = checkNotNull(clientId, "clientId is null");
         this.schemaName = checkNotNull(schemaName, "schemaName is null");
@@ -57,12 +59,14 @@ public class HiveOutputTableHandle
         this.targetPath = checkNotNull(targetPath, "targetPath is null");
         this.temporaryPath = checkNotNull(temporaryPath, "temporaryPath is null");
         this.connectorSession = checkNotNull(connectorSession, "session is null");
+        this.hiveStorageFormat = checkNotNull(hiveStorageFormat, "hiveStorageFormat is null");
 
         checkNotNull(columnNames, "columnNames is null");
         checkNotNull(columnTypes, "columnTypes is null");
         checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes sizes don't match");
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.columnTypes = ImmutableList.copyOf(columnTypes);
+
     }
 
     @JsonProperty
@@ -117,6 +121,12 @@ public class HiveOutputTableHandle
     public ConnectorSession getConnectorSession()
     {
         return connectorSession;
+    }
+
+    @JsonProperty
+    public HiveStorageFormat getHiveStorageFormat()
+    {
+        return hiveStorageFormat;
     }
 
     @Override
