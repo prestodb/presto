@@ -89,6 +89,7 @@ import static org.testng.Assert.fail;
 public class TestSqlStageExecution
 {
     public static final ConnectorSession SESSION = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+    public static final TaskId OUT = new TaskId("query", "stage", "out");
     private NodeTaskMap nodeTaskMap;
     private InMemoryNodeManager nodeManager;
     private NodeScheduler nodeScheduler;
@@ -185,7 +186,7 @@ public class TestSqlStageExecution
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stageExecutor"));
 
         OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
-                .withBuffer("out", new UnpartitionedPagePartitionFunction())
+                .withBuffer(OUT, new UnpartitionedPagePartitionFunction())
                 .withNoMoreBufferIds();
 
         StageExecutionPlan tableScanPlan = createTableScanPlan("test", splitCount);
@@ -215,7 +216,7 @@ public class TestSqlStageExecution
             nodeManager.addNode("foo", new PrestoNode("other", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
 
             OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
-                    .withBuffer("out", new UnpartitionedPagePartitionFunction())
+                    .withBuffer(OUT, new UnpartitionedPagePartitionFunction())
                     .withNoMoreBufferIds();
 
             stageExecution = new SqlStageExecution(new QueryId("query"),

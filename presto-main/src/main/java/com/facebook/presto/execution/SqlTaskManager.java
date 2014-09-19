@@ -224,7 +224,7 @@ public class SqlTaskManager
     }
 
     @Override
-    public ListenableFuture<BufferResult> getTaskResults(TaskId taskId, String outputName, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> getTaskResults(TaskId taskId, TaskId outputName, long startingSequenceId, DataSize maxSize)
     {
         checkNotNull(taskId, "taskId is null");
         checkNotNull(outputName, "outputName is null");
@@ -235,7 +235,7 @@ public class SqlTaskManager
     }
 
     @Override
-    public TaskInfo abortTaskResults(TaskId taskId, String outputId)
+    public TaskInfo abortTaskResults(TaskId taskId, TaskId outputId)
     {
         checkNotNull(taskId, "taskId is null");
         checkNotNull(outputId, "outputId is null");

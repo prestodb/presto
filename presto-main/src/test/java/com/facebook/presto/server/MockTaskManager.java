@@ -144,7 +144,7 @@ public class MockTaskManager
     }
 
     @Override
-    public ListenableFuture<BufferResult> getTaskResults(TaskId taskId, String outputId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> getTaskResults(TaskId taskId, TaskId outputId, long startingSequenceId, DataSize maxSize)
     {
         checkNotNull(taskId, "taskId is null");
         checkNotNull(outputId, "outputId is null");
@@ -161,7 +161,7 @@ public class MockTaskManager
     }
 
     @Override
-    public synchronized TaskInfo abortTaskResults(TaskId taskId, String outputId)
+    public synchronized TaskInfo abortTaskResults(TaskId taskId, TaskId outputId)
     {
         checkNotNull(taskId, "taskId is null");
         checkNotNull(outputId, "outputId is null");
@@ -222,7 +222,7 @@ public class MockTaskManager
             sharedBuffer.setNoMorePages();
         }
 
-        public void abortResults(String outputId)
+        public void abortResults(TaskId outputId)
         {
             sharedBuffer.abort(outputId);
         }
@@ -237,7 +237,7 @@ public class MockTaskManager
             taskStateMachine.cancel();
         }
 
-        public ListenableFuture<BufferResult> getResults(String outputId, long startingSequenceId, DataSize maxSize)
+        public ListenableFuture<BufferResult> getResults(TaskId outputId, long startingSequenceId, DataSize maxSize)
         {
             return sharedBuffer.get(outputId, startingSequenceId, maxSize);
         }

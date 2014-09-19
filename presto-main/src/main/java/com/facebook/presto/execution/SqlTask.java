@@ -224,7 +224,7 @@ public class SqlTask
         return getTaskInfo();
     }
 
-    public ListenableFuture<BufferResult> getTaskResults(String outputName, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> getTaskResults(TaskId outputName, long startingSequenceId, DataSize maxSize)
     {
         checkNotNull(outputName, "outputName is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
@@ -234,7 +234,7 @@ public class SqlTask
         return sharedBuffer.get(outputName, startingSequenceId, maxSize);
     }
 
-    public TaskInfo abortTaskResults(String outputId)
+    public TaskInfo abortTaskResults(TaskId outputId)
     {
         checkNotNull(outputId, "outputId is null");
 

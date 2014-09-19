@@ -184,10 +184,10 @@ public class HttpRemoteTask
                 pendingSplits.put(entry.getKey(), scheduledSplit);
             }
 
-            List<BufferInfo> bufferStates = ImmutableList.copyOf(transform(outputBuffers.getBuffers().keySet(), new Function<String, BufferInfo>()
+            List<BufferInfo> bufferStates = ImmutableList.copyOf(transform(outputBuffers.getBuffers().keySet(), new Function<TaskId, BufferInfo>()
             {
                 @Override
-                public BufferInfo apply(String outputId)
+                public BufferInfo apply(TaskId outputId)
                 {
                     return new BufferInfo(outputId, false, 0, 0);
                 }
