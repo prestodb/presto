@@ -428,6 +428,10 @@ public class StatementResource
             if (!outputStage.getState().isDone()) {
                 for (TaskInfo taskInfo : outputStage.getTasks()) {
                     List<BufferInfo> buffers = taskInfo.getOutputBuffers().getBuffers();
+                    if (buffers.isEmpty()) {
+                        // output buffer has not been created yet
+                        continue;
+                    }
                     Preconditions.checkState(buffers.size() == 1,
                             "Expected a single output buffer for task %s, but found %s",
                             taskInfo.getTaskId(),
