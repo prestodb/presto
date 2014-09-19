@@ -219,12 +219,6 @@
             <artifactId>presto-benchmark</artifactId>
             <scope>test</scope>
         </dependency>
-
-        <dependency>
-            <groupId>io.airlift.tpch</groupId>
-            <artifactId>tpch</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <build>
