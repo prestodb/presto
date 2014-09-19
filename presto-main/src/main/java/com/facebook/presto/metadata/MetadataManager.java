@@ -72,6 +72,9 @@ import static java.lang.String.format;
 public class MetadataManager
         implements Metadata
 {
+    private static final String SYS_SCHEMA_NAME = "sys";
+    private static final String INFORMATION_SCHEMA_NAME = "information_schema";
+
     private final SystemTablesMetadata systemMetadata;
     private final ConcurrentMap<String, ConnectorMetadataEntry> informationSchemasByCatalog = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ConnectorMetadataEntry> connectorsByCatalog = new ConcurrentHashMap<>();
@@ -189,9 +192,9 @@ public class MetadataManager
     {
         checkNotNull(table, "table is null");
 
-        SchemaTableName tableName = table.asSchemaTableName();
-        for (ConnectorMetadataEntry entry : allConnectorsFor(table.getCatalogName())) {
-            ConnectorTableHandle tableHandle = entry.getMetadata().getTableHandle(session, tableName);
+        ConnectorMetadataEntry entry = getConnectorFor(table);
+        if (entry != null) {
+            ConnectorTableHandle tableHandle = entry.getMetadata().getTableHandle(session, table.asSchemaTableName());
             if (tableHandle != null) {
                 return Optional.of(new TableHandle(entry.getConnectorId(), tableHandle));
             }
@@ -405,8 +408,9 @@ public class MetadataManager
     @Override
     public Optional<ViewDefinition> getView(ConnectorSession session, QualifiedTableName viewName)
     {
-        SchemaTablePrefix prefix = viewName.asSchemaTableName().toSchemaTablePrefix();
-        for (ConnectorMetadataEntry entry : allConnectorsFor(viewName.getCatalogName())) {
+        ConnectorMetadataEntry entry = getConnectorFor(viewName);
+        if (entry != null) {
+            SchemaTablePrefix prefix = viewName.asSchemaTableName().toSchemaTablePrefix();
             Map<SchemaTableName, String> views = entry.getMetadata().getViews(session, prefix);
             String view = views.get(viewName.asSchemaTableName());
             if (view != null) {
@@ -471,6 +475,21 @@ public class MetadataManager
         }
 
         return builder.build();
+    }
+
+    private ConnectorMetadataEntry getConnectorFor(QualifiedTableName name)
+    {
+        String catalog = name.getCatalogName();
+        String schema = name.getSchemaName();
+
+        if (schema.equals(SYS_SCHEMA_NAME)) {
+            return new ConnectorMetadataEntry(SystemTablesManager.CONNECTOR_ID, systemMetadata);
+        }
+        else if (schema.equals(INFORMATION_SCHEMA_NAME)) {
+            return informationSchemasByCatalog.get(catalog);
+        }
+
+        return connectorsByCatalog.get(catalog);
     }
 
     private ConnectorMetadata lookupConnectorFor(TableHandle tableHandle)
