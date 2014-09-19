@@ -70,7 +70,7 @@ public interface TaskManager
      * NOTE: this design assumes that only tasks and buffers that will
      * eventually exist are queried.
      */
-    ListenableFuture<BufferResult> getTaskResults(TaskId taskId, String outputName, long startingSequenceId, DataSize maxSize);
+    ListenableFuture<BufferResult> getTaskResults(TaskId taskId, TaskId outputName, long startingSequenceId, DataSize maxSize);
 
     /**
      * Aborts a result buffer for a task.  If the task or buffer has not been
@@ -80,5 +80,5 @@ public interface TaskManager
      * NOTE: this design assumes that only tasks and buffers that will
      * eventually exist are queried.
      */
-    TaskInfo abortTaskResults(TaskId taskId, String outputId);
+    TaskInfo abortTaskResults(TaskId taskId, TaskId outputId);
 }

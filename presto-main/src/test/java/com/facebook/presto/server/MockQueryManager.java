@@ -58,6 +58,7 @@ public class MockQueryManager
         implements QueryManager
 {
     public static final List<Type> TYPES = ImmutableList.<Type>of(VARCHAR);
+    public static final TaskId OUT = new TaskId("query", "stage", "out");
 
     private final MockTaskManager mockTaskManager;
     private final LocationFactory locationFactory;
@@ -121,7 +122,7 @@ public class MockQueryManager
                 outputTaskId,
                 null,
                 ImmutableList.<TaskSource>of(),
-                INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer("out", new UnpartitionedPagePartitionFunction()).withNoMoreBufferIds());
+                INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, new UnpartitionedPagePartitionFunction()).withNoMoreBufferIds());
 
         SimpleQuery simpleQuery = new SimpleQuery(outputTaskId, locationFactory.createQueryLocation(outputTaskId.getQueryId()), mockTaskManager, locationFactory);
         queries.put(outputTaskId.getQueryId(), simpleQuery);

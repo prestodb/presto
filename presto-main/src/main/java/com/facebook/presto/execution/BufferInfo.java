@@ -21,14 +21,14 @@ import com.google.common.base.Preconditions;
 
 public class BufferInfo
 {
-    private final String bufferId;
+    private final TaskId bufferId;
     private final boolean finished;
     private final int bufferedPages;
     private final long pagesSent;
 
     @JsonCreator
     public BufferInfo(
-            @JsonProperty("bufferId") String bufferId,
+            @JsonProperty("bufferId") TaskId bufferId,
             @JsonProperty("finished") boolean finished,
             @JsonProperty("bufferedPages") int bufferedPages,
             @JsonProperty("pagesSent") long pagesSent)
@@ -42,7 +42,7 @@ public class BufferInfo
     }
 
     @JsonProperty
-    public String getBufferId()
+    public TaskId getBufferId()
     {
         return bufferId;
     }
@@ -98,12 +98,12 @@ public class BufferInfo
                 .toString();
     }
 
-    public static Function<BufferInfo, String> bufferIdGetter()
+    public static Function<BufferInfo, TaskId> bufferIdGetter()
     {
-        return new Function<BufferInfo, String>()
+        return new Function<BufferInfo, TaskId>()
         {
             @Override
-            public String apply(BufferInfo taskInfo)
+            public TaskId apply(BufferInfo taskInfo)
             {
                 return taskInfo.getBufferId();
             }

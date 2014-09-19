@@ -178,7 +178,7 @@ public class TaskResource
     @Path("{taskId}/results/{outputId}/{token}")
     @Produces(PRESTO_PAGES)
     public void getResults(@PathParam("taskId") final TaskId taskId,
-            @PathParam("outputId") String outputId,
+            @PathParam("outputId") TaskId outputId,
             @PathParam("token") final long token,
             @Suspended AsyncResponse asyncResponse)
             throws InterruptedException
@@ -241,7 +241,7 @@ public class TaskResource
     @DELETE
     @Path("{taskId}/results/{outputId}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response abortResults(@PathParam("taskId") TaskId taskId, @PathParam("outputId") String outputId, @Context UriInfo uriInfo)
+    public Response abortResults(@PathParam("taskId") TaskId taskId, @PathParam("outputId") TaskId outputId, @Context UriInfo uriInfo)
     {
         checkNotNull(taskId, "taskId is null");
         checkNotNull(outputId, "outputId is null");

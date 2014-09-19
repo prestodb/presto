@@ -27,6 +27,7 @@ import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.spi.Page;
@@ -437,8 +438,8 @@ public class StatementResource
                             taskInfo.getTaskId(),
                             buffers);
 
-                    String bufferId = Iterables.getOnlyElement(buffers).getBufferId();
-                    URI uri = uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath(bufferId).build();
+                    TaskId bufferId = Iterables.getOnlyElement(buffers).getBufferId();
+                    URI uri = uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath(bufferId.toString()).build();
                     exchangeClient.addLocation(uri);
                 }
             }
