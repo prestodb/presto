@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.connector.InternalConnector;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
@@ -27,7 +27,7 @@ import javax.inject.Inject;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class RaptorConnector
-        implements InternalConnector
+        implements Connector
 {
     private final RaptorMetadata metadata;
     private final RaptorSplitManager splitManager;
