@@ -104,7 +104,7 @@ public class DistributedLogicalPlanner
     private class Visitor
             extends PlanVisitor<Void, SubPlanBuilder>
     {
-        private int nextFragmentId = 0;
+        private int nextFragmentId;
 
         private final SymbolAllocator allocator;
         private final boolean createSingleNodePlan;
@@ -639,11 +639,6 @@ public class DistributedLogicalPlanner
         public SubPlanBuilder createCoordinatorOnlyPlan(PlanNode root)
         {
             return new SubPlanBuilder(new PlanFragmentId(nextSubPlanId()), allocator, PlanDistribution.COORDINATOR_ONLY, root, null);
-        }
-
-        private SubPlanBuilder createSubPlan(PlanNode root, PlanDistribution distribution, PlanNodeId partitionedSourceId)
-        {
-            return new SubPlanBuilder(new PlanFragmentId(nextSubPlanId()), allocator, distribution, root, partitionedSourceId);
         }
 
         private String nextSubPlanId()
