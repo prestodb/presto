@@ -16,8 +16,8 @@ package com.facebook.presto.operator.index;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.Page;
-import com.facebook.presto.operator.PageBuilder;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.UnloadedIndexKeyRecordSet.UnloadedIndexKeyRecordCursor;
@@ -101,7 +101,7 @@ public class IndexSnapshotBuilder
 
     public boolean tryAddPage(Page page)
     {
-        memoryInBytes += page.getDataSize().toBytes();
+        memoryInBytes += page.getSizeInBytes();
         if (isMemoryExceeded()) {
             return false;
         }
@@ -136,7 +136,7 @@ public class IndexSnapshotBuilder
         }
         Page missingKeysPage = missingKeysPageBuilder.build();
 
-        memoryInBytes += missingKeysPage.getDataSize().toBytes();
+        memoryInBytes += missingKeysPage.getSizeInBytes();
         if (isMemoryExceeded()) {
             return null;
         }

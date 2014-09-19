@@ -27,7 +27,7 @@ import com.facebook.presto.operator.GenericPageProcessor;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.RecordProjectOperator;
@@ -432,7 +432,7 @@ public final class FunctionAssertions
             assertEquals(page.getPositionCount(), 1);
             assertEquals(page.getChannelCount(), 1);
 
-            assertTrue(page.getBoolean(operator.getTypes().get(0), 0, 0));
+            assertTrue(operator.getTypes().get(0).getBoolean(page.getBlock(0), 0));
             value = true;
         }
         else {

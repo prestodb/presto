@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -140,7 +141,7 @@ public class AlignmentOperator
         }
 
         Page page = new Page(blocks);
-        operatorContext.recordGeneratedInput(page.getDataSize(), page.getPositionCount());
+        operatorContext.recordGeneratedInput(page.getSizeInBytes(), page.getPositionCount());
         return page;
     }
 

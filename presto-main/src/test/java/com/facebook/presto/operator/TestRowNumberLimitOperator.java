@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -143,7 +144,7 @@ public class TestRowNumberLimitOperator
         for (Page page : pages) {
             int rowNumberChannel = page.getChannelCount() - 1;
             for (int i = 0; i < page.getPositionCount(); i++) {
-                BIGINT.writeLong(builder, page.getLong(BIGINT, rowNumberChannel, i));
+                BIGINT.writeLong(builder, BIGINT.getLong(page.getBlock(rowNumberChannel), i));
             }
         }
         return builder.build();

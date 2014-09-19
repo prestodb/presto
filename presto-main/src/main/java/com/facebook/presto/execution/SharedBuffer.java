@@ -16,7 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.PagePartitionFunction;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.Page;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -233,7 +233,7 @@ public class SharedBuffer
         // add page
         masterBuffer.add(page);
         pagesAdded.incrementAndGet();
-        bufferedBytes += page.getDataSize().toBytes();
+        bufferedBytes += page.getSizeInBytes();
 
         processPendingReads();
     }
@@ -265,7 +265,7 @@ public class SharedBuffer
         int listOffset = Ints.checkedCast(sequenceId - masterSequenceId.get());
         while (listOffset < masterBuffer.size()) {
             Page page = masterBuffer.get(listOffset++);
-            bytes += page.getDataSize().toBytes();
+            bytes += page.getSizeInBytes();
             // break (and don't add) if this page would exceed the limit
             if (!pages.isEmpty() && bytes > maxBytes) {
                 break;
@@ -372,7 +372,7 @@ public class SharedBuffer
 
                 for (int i = 0; i < pagesToRemove; i++) {
                     Page page = masterBuffer.removeFirst();
-                    bufferedBytes -= page.getDataSize().toBytes();
+                    bufferedBytes -= page.getSizeInBytes();
                 }
 
                 // refill buffer from queued pages

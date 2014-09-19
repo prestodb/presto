@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.base.Optional;

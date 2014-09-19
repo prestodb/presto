@@ -15,6 +15,8 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamProvider;
@@ -22,7 +24,6 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -31,7 +32,6 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class ScanFilterAndProjectOperator
         implements SourceOperator, Closeable
@@ -184,7 +184,7 @@ public class ScanFilterAndProjectOperator
                 int rowsProcessed = cursorProcessor.process(operatorContext.getSession(), cursor, ROWS_PER_PAGE, pageBuilder);
                 long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
                 long elapsedNanos = cursor.getReadTimeNanos() - readTimeNanos;
-                operatorContext.recordGeneratedInput(new DataSize(bytesProcessed, BYTE), rowsProcessed, elapsedNanos);
+                operatorContext.recordGeneratedInput(bytesProcessed, rowsProcessed, elapsedNanos);
                 completedBytes = cursor.getCompletedBytes();
                 readTimeNanos = cursor.getReadTimeNanos();
 

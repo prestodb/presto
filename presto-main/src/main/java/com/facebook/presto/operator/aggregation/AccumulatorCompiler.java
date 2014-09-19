@@ -23,7 +23,7 @@ import com.facebook.presto.byteCode.NamedParameterDefinition;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.ForLoop;
 import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -232,7 +232,7 @@ public class AccumulatorCompiler
                 .pushThis()
                 .getField(maskChannelField)
                 .getVariable("page")
-                .invokeVirtual(type(Page.class), "blockGetter", type(Function.class, Integer.class, com.facebook.presto.spi.block.Block.class))
+                .invokeStatic(type(AggregationUtils.class), "pageBlockGetter", type(Function.class, Integer.class, com.facebook.presto.spi.block.Block.class), type(Page.class))
                 .invokeVirtual(Optional.class, "transform", Optional.class, Function.class)
                 .invokeVirtual(Optional.class, "orNull", Object.class)
                 .checkCast(com.facebook.presto.spi.block.Block.class)
@@ -243,7 +243,7 @@ public class AccumulatorCompiler
                     .pushThis()
                     .getField(sampleWeightChannelField)
                     .getVariable("page")
-                    .invokeVirtual(type(Page.class), "blockGetter", type(Function.class, Integer.class, com.facebook.presto.spi.block.Block.class))
+                    .invokeStatic(type(AggregationUtils.class), "pageBlockGetter", type(Function.class, Integer.class, com.facebook.presto.spi.block.Block.class), type(Page.class))
                     .invokeVirtual(Optional.class, "transform", Optional.class, Function.class)
                     .invokeVirtual(Optional.class, "get", Object.class)
                     .checkCast(com.facebook.presto.spi.block.Block.class)

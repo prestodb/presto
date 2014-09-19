@@ -14,6 +14,8 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

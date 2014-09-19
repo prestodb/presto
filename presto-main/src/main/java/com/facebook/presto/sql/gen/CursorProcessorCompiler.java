@@ -24,7 +24,7 @@ import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.CursorProcessor;
-import com.facebook.presto.operator.PageBuilder;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.BlockBuilder;

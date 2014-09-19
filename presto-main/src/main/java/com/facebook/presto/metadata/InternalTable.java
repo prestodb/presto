@@ -14,8 +14,8 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.block.BlockUtils;
-import com.facebook.presto.operator.Page;
-import com.facebook.presto.operator.PageBuilder;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;

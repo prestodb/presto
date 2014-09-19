@@ -15,7 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Predicate;

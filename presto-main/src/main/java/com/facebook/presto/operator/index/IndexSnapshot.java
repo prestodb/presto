@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.index;
 
 import com.facebook.presto.operator.LookupSource;
-import com.facebook.presto.operator.PageBuilder;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 
 import javax.annotation.concurrent.Immutable;
