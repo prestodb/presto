@@ -15,3 +15,4 @@ General Changes
 
 * Fix expression optimizer, so that it runs in linear time instead of exponential time.
 * Add :func:`cardinality` for maps
+* Fixed ``hive.storage-format`` option for Hive

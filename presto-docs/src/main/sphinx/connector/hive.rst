@@ -79,6 +79,8 @@ Property Name                                      Description                  
                                                    configuration files. These files must exist on the
                                                    machines running Presto. Only specify this if
                                                    absolutely necessary to access HDFS.
+
+``hive.storage-format``                            The default file format used when creating new tables        ``RCBINARY``
 ================================================== ============================================================ ==========
 
 Querying Hive Tables
