@@ -15,9 +15,9 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.google.common.collect.Lists;
 
 import javax.inject.Inject;
@@ -30,38 +30,37 @@ import static com.facebook.presto.metadata.ColumnHandle.connectorHandleGetter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class DataStreamManager
-        implements DataStreamProvider
+public class PageSourceManager
+        implements PageSourceProvider
 {
-    private final ConcurrentMap<String, ConnectorDataStreamProvider> dataStreamProviders = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, ConnectorPageSourceProvider> pageSourceProviders = new ConcurrentHashMap<>();
 
     @Inject
-    public DataStreamManager()
+    public PageSourceManager()
     {
     }
 
-    public void addConnectorDataStreamProvider(String connectorId, ConnectorDataStreamProvider connectorDataStreamProvider)
+    public void addConnectorPageSourceProvider(String connectorId, ConnectorPageSourceProvider connectorPageSourceProvider)
     {
-        dataStreamProviders.put(connectorId, connectorDataStreamProvider);
+        pageSourceProviders.put(connectorId, connectorPageSourceProvider);
     }
 
     @Override
-    public Operator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(Split split, List<ColumnHandle> columns)
     {
-        checkNotNull(operatorContext, "operatorContext is null");
         checkNotNull(split, "split is null");
         checkNotNull(columns, "columns is null");
 
         List<ConnectorColumnHandle> handles = Lists.transform(columns, connectorHandleGetter());
 
-        return getDataStreamProvider(split).createNewDataStream(operatorContext, split.getConnectorSplit(), handles);
+        return getPageSourceProvider(split).createPageSource(split.getConnectorSplit(), handles);
     }
 
-    private ConnectorDataStreamProvider getDataStreamProvider(Split split)
+    private ConnectorPageSourceProvider getPageSourceProvider(Split split)
     {
-        ConnectorDataStreamProvider provider = dataStreamProviders.get(split.getConnectorId());
+        ConnectorPageSourceProvider provider = pageSourceProviders.get(split.getConnectorId());
 
-        checkArgument(provider != null, "No data stream provider for '%s", split.getConnectorId());
+        checkArgument(provider != null, "No page stream provider for '%s", split.getConnectorId());
 
         return provider;
     }

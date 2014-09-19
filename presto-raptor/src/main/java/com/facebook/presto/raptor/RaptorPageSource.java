@@ -11,37 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.raptor;
 
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-public class AlignmentOperator
-        implements Operator
+public class RaptorPageSource
+        implements ConnectorPageSource
 {
-    private final OperatorContext operatorContext;
-    private final List<Type> types;
-
     private final List<Iterator<Block>> iterators;
     private final List<BlockPosition> blockPositions;
 
     private boolean finished;
+    private long sizeInBytes;
 
-    public AlignmentOperator(OperatorContext operatorContext, List<Type> types, Iterable<Iterable<Block>> channels)
+    public RaptorPageSource(Iterable<Iterable<Block>> channels)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-
         ImmutableList.Builder<Iterator<Block>> iterators = ImmutableList.builder();
         for (Iterable<Block> channel : channels) {
             iterators.add(channel.iterator());
@@ -55,6 +48,7 @@ public class AlignmentOperator
             }
         }
         else {
+            // no data
             for (Iterator<Block> iterator : this.iterators) {
                 checkState(!iterator.hasNext());
             }
@@ -63,19 +57,25 @@ public class AlignmentOperator
     }
 
     @Override
-    public OperatorContext getOperatorContext()
+    public long getTotalBytes()
     {
-        return operatorContext;
+        return sizeInBytes;
     }
 
     @Override
-    public List<Type> getTypes()
+    public long getCompletedBytes()
     {
-        return types;
+        return sizeInBytes;
     }
 
     @Override
-    public void finish()
+    public long getReadTimeNanos()
+    {
+        return 0;
+    }
+
+    @Override
+    public void close()
     {
         finished = true;
     }
@@ -87,25 +87,7 @@ public class AlignmentOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
-    }
-
-    @Override
-    public boolean needsInput()
-    {
-        return false;
-    }
-
-    @Override
-    public void addInput(Page page)
-    {
-        throw new UnsupportedOperationException(getClass().getName() + " cannot take input");
-    }
-
-    @Override
-    public Page getOutput()
+    public Page getNextPage()
     {
         if (finished) {
             return null;
@@ -141,7 +123,7 @@ public class AlignmentOperator
         }
 
         Page page = new Page(blocks);
-        operatorContext.recordGeneratedInput(page.getSizeInBytes(), page.getPositionCount());
+        sizeInBytes += page.getSizeInBytes();
         return page;
     }
 

@@ -14,10 +14,10 @@
 package com.facebook.presto.connector;
 
 import com.facebook.presto.spi.Connector;
-import com.facebook.presto.split.ConnectorDataStreamProvider;
+import com.facebook.presto.spi.ConnectorPageSourceProvider;
 
 public interface InternalConnector
     extends Connector
 {
-    ConnectorDataStreamProvider getDataStreamProvider();
+    ConnectorPageSourceProvider getPageSourceProvider();
 }

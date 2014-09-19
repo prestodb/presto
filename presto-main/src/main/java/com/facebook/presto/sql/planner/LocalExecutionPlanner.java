@@ -69,7 +69,7 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.split.MappedRecordSet;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -168,7 +168,7 @@ public class LocalExecutionPlanner
     private final Metadata metadata;
     private final SqlParser sqlParser;
 
-    private final DataStreamProvider dataStreamProvider;
+    private final PageSourceProvider pageSourceProvider;
     private final IndexManager indexManager;
     private final RecordSinkManager recordSinkManager;
     private final Supplier<ExchangeClient> exchangeClientSupplier;
@@ -181,7 +181,7 @@ public class LocalExecutionPlanner
     public LocalExecutionPlanner(
             Metadata metadata,
             SqlParser sqlParser,
-            DataStreamProvider dataStreamProvider,
+            PageSourceProvider pageSourceProvider,
             IndexManager indexManager,
             RecordSinkManager recordSinkManager,
             Supplier<ExchangeClient> exchangeClientSupplier,
@@ -191,7 +191,7 @@ public class LocalExecutionPlanner
             TaskManagerConfig taskManagerConfig)
     {
         checkNotNull(compilerConfig, "compilerConfig is null");
-        this.dataStreamProvider = dataStreamProvider;
+        this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceProvider is null");
         this.indexManager = checkNotNull(indexManager, "indexManager is null");
         this.exchangeClientSupplier = exchangeClientSupplier;
         this.metadata = checkNotNull(metadata, "metadata is null");
@@ -786,7 +786,7 @@ public class LocalExecutionPlanner
                     SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
                             sourceNode.getId(),
-                            dataStreamProvider,
+                            pageSourceProvider,
                             cursorProcessor,
                             pageProcessor,
                             columns,
@@ -847,7 +847,7 @@ public class LocalExecutionPlanner
                 OperatorFactory operatorFactory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                         context.getNextOperatorId(),
                         sourceNode.getId(),
-                        dataStreamProvider,
+                        pageSourceProvider,
                         new GenericCursorProcessor(filterFunction, projectionFunctions),
                         new GenericPageProcessor(filterFunction, projectionFunctions),
                         columns,
@@ -889,7 +889,7 @@ public class LocalExecutionPlanner
             }
 
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
-            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), node.getId(), dataStreamProvider, types, columns);
+            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), node.getId(), pageSourceProvider, types, columns);
             return new PhysicalOperation(operatorFactory, outputMappings.build());
         }
 

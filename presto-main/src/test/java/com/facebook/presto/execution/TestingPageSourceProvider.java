@@ -13,14 +13,12 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.operator.ValuesOperator;
 import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.ConnectorDataStreamProvider;
+import com.facebook.presto.spi.FixedPageSource;
+import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -28,19 +26,18 @@ import java.util.List;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class TestingDataStreamProvider
-        implements ConnectorDataStreamProvider
+public class TestingPageSourceProvider
+        implements ConnectorPageSourceProvider
 {
     @Override
-    public Operator createNewDataStream(OperatorContext operatorContext, ConnectorSplit split, List<ConnectorColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
-        checkNotNull(operatorContext, "operatorContext is null");
         checkNotNull(columns, "columns is null");
         checkType(split, TestingSplit.class, "split");
 
         // TODO: check for !columns.isEmpty() -- currently, it breaks TestSqlTaskManager
         // and fixing it requires allowing TableScan nodes with no assignments
 
-        return new ValuesOperator(operatorContext, ImmutableList.<Type>of(), ImmutableList.of(new Page(1)));
+        return new FixedPageSource(ImmutableList.of(new Page(1)));
     }
 }

@@ -11,63 +11,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.raptor;
 
-import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
-import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.RowPageBuilder.rowPageBuilder;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
-public class TestAlignmentOperator
+public class TestRaptorPageSource
 {
-    private ExecutorService executor;
-    private DriverContext driverContext;
-
-    @BeforeMethod
-    public void setUp()
-    {
-        executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        ConnectorSession session = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
-        driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
-                .addPipelineContext(true, true)
-                .addDriverContext();
-    }
-
-    @AfterMethod
-    public void tearDown()
-    {
-        executor.shutdownNow();
-    }
+    private static final ImmutableList<Type> TYPES = ImmutableList.<Type>of(VARCHAR, BIGINT);
 
     @Test
     public void testAlignment()
             throws Exception
     {
-        Operator operator = createAlignmentOperator();
-
         List<Page> expected = rowPagesBuilder(VARCHAR, BIGINT)
                 .row("alice", 0)
                 .row("bob", 1)
@@ -85,21 +56,33 @@ public class TestAlignmentOperator
                 .row("dave", 11)
                 .build();
 
-        assertOperatorEquals(operator, expected);
+        RaptorPageSource raptorDataSource = createRaptorDataSource();
+        List<Page> actual = new ArrayList<>();
+        while (!raptorDataSource.isFinished()) {
+            Page nextPage = raptorDataSource.getNextPage();
+            if (nextPage != null) {
+                actual.add(nextPage);
+            }
+        }
+
+        assertEquals(actual.size(), expected.size());
+
+        for (int i = 0; i < actual.size(); i++) {
+            assertPageEquals(TYPES, actual.get(i), expected.get(i));
+        }
     }
 
     @Test
     public void testFinish()
             throws Exception
     {
-        Operator operator = createAlignmentOperator();
+        RaptorPageSource raptorDataSource = createRaptorDataSource();
 
         // verify initial state
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), false);
+        assertEquals(raptorDataSource.isFinished(), false);
 
         // read first page
-        assertPageEquals(operator.getTypes(), operator.getOutput(), rowPageBuilder(VARCHAR, BIGINT)
+        assertPageEquals(TYPES, raptorDataSource.getNextPage(), rowPageBuilder(TYPES)
                 .row("alice", 0)
                 .row("bob", 1)
                 .row("charlie", 2)
@@ -107,11 +90,10 @@ public class TestAlignmentOperator
                 .build());
 
         // verify state
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), false);
+        assertEquals(raptorDataSource.isFinished(), false);
 
         // read second page
-        assertPageEquals(operator.getTypes(), operator.getOutput(), rowPageBuilder(VARCHAR, BIGINT)
+        assertPageEquals(TYPES, raptorDataSource.getNextPage(), rowPageBuilder(TYPES)
                 .row("alice", 4)
                 .row("bob", 5)
                 .row("charlie", 6)
@@ -119,19 +101,17 @@ public class TestAlignmentOperator
                 .build());
 
         // verify state
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), false);
+        assertEquals(raptorDataSource.isFinished(), false);
 
         // finish
-        operator.finish();
+        raptorDataSource.close();
 
         // verify state
-        assertEquals(operator.isFinished(), true);
-        assertEquals(operator.needsInput(), false);
-        assertEquals(operator.getOutput(), null);
+        assertEquals(raptorDataSource.isFinished(), true);
+        assertEquals(raptorDataSource.getNextPage(), null);
     }
 
-    private Operator createAlignmentOperator()
+    private static RaptorPageSource createRaptorDataSource()
     {
         Iterable<Block> channel0 = ImmutableList.of(
                 createStringsBlock("alice", "bob", "charlie", "dave"),
@@ -140,7 +120,6 @@ public class TestAlignmentOperator
 
         Iterable<Block> channel1 = ImmutableList.of(createLongSequenceBlock(0, 12));
 
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, AlignmentOperator.class.getSimpleName());
-        return new AlignmentOperator(operatorContext, ImmutableList.<Type>of(VARCHAR, BIGINT), ImmutableList.of(channel0, channel1));
+        return new RaptorPageSource(ImmutableList.of(channel0, channel1));
     }
 }

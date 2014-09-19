@@ -45,18 +45,20 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
+import com.facebook.presto.operator.PageSourceOperator;
 import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.DataStreamManager;
+import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
@@ -113,7 +115,7 @@ public class LocalQueryRunner
     private final TypeRegistry typeRegistry;
     private final MetadataManager metadata;
     private final SplitManager splitManager;
-    private final DataStreamManager dataStreamProvider;
+    private final PageSourceManager pageSourceManager;
     private final IndexManager indexManager;
     private final RecordSinkManager recordSinkManager;
 
@@ -132,7 +134,7 @@ public class LocalQueryRunner
         this.typeRegistry = new TypeRegistry();
         this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), typeRegistry);
         this.splitManager = new SplitManager();
-        this.dataStreamProvider = new DataStreamManager();
+        this.pageSourceManager = new PageSourceManager();
         this.indexManager = new IndexManager();
         this.recordSinkManager = new RecordSinkManager();
 
@@ -153,7 +155,7 @@ public class LocalQueryRunner
         this.connectorManager = new ConnectorManager(
                 metadata,
                 splitManager,
-                dataStreamProvider,
+                pageSourceManager,
                 indexManager,
                 recordSinkManager,
                 new HandleResolver(),
@@ -349,7 +351,7 @@ public class LocalQueryRunner
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
                 metadata,
                 sqlParser,
-                dataStreamProvider,
+                pageSourceManager,
                 indexManager,
                 recordSinkManager,
                 null,
@@ -471,7 +473,8 @@ public class LocalQueryRunner
             public Operator createOperator(DriverContext driverContext)
             {
                 OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, "BenchmarkSource");
-                return dataStreamProvider.createNewDataStream(operatorContext, split, columnHandles);
+                ConnectorPageSource pageSource = pageSourceManager.createPageSource(split, columnHandles);
+                return new PageSourceOperator(pageSource, columnTypes, operatorContext);
             }
 
             @Override

@@ -26,7 +26,7 @@ import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.DataStreamManager;
+import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -88,12 +88,12 @@ public final class TaskTestUtils
     {
         MetadataManager metadata = new MetadataManager(new FeaturesConfig(), new TypeRegistry());
 
-        DataStreamManager dataStreamProvider = new DataStreamManager();
-        dataStreamProvider.addConnectorDataStreamProvider("test", new TestingDataStreamProvider());
+        PageSourceManager pageSourceManager = new PageSourceManager();
+        pageSourceManager.addConnectorPageSourceProvider("test", new TestingPageSourceProvider());
         return new LocalExecutionPlanner(
                 metadata,
                 new SqlParser(),
-                dataStreamProvider,
+                pageSourceManager,
                 new IndexManager(),
                 new RecordSinkManager(),
                 new MockExchangeClientSupplier(),

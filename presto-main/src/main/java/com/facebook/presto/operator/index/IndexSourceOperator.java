@@ -14,15 +14,16 @@
 package com.facebook.presto.operator.index;
 
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.operator.PageSourceOperator;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.FinishedOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.operator.RecordProjectOperator;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.spi.Index;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -145,7 +146,7 @@ public class IndexSourceOperator
         // Normalize the incoming RecordSet to something that can be consumed by the index
         RecordSet normalizedRecordSet = probeKeyNormalizer.apply(indexSplit.getKeyRecordSet());
         RecordSet result = index.lookup(normalizedRecordSet);
-        source = new RecordProjectOperator(operatorContext, result);
+        source = new PageSourceOperator(new RecordPageSource(result), result.getColumnTypes(), operatorContext);
 
         operatorContext.setInfoSupplier(Suppliers.ofInstance(split.getInfo()));
     }

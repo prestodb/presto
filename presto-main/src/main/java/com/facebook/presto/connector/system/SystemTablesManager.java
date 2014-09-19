@@ -33,14 +33,14 @@ public class SystemTablesManager
 {
     private final SystemTablesMetadata metadata;
     private final SystemSplitManager splitManager;
-    private final SystemRecordSetProvider dataStreamProvider;
+    private final SystemRecordSetProvider recordSetProvider;
 
     @Inject
-    public SystemTablesManager(SystemTablesMetadata metadata, SystemSplitManager splitManager, SystemRecordSetProvider dataStreamProvider, Set<SystemTable> tables)
+    public SystemTablesManager(SystemTablesMetadata metadata, SystemSplitManager splitManager, SystemRecordSetProvider recordSetProvider, Set<SystemTable> tables)
     {
         this.metadata = metadata;
         this.splitManager = splitManager;
-        this.dataStreamProvider = dataStreamProvider;
+        this.recordSetProvider = recordSetProvider;
         for (SystemTable table : tables) {
             addTable(table);
         }
@@ -50,6 +50,6 @@ public class SystemTablesManager
     {
         metadata.addTable(systemTable.getTableMetadata());
         splitManager.addTable(systemTable);
-        dataStreamProvider.addTable(systemTable);
+        recordSetProvider.addTable(systemTable);
     }
 }

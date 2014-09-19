@@ -36,7 +36,7 @@ public class RaptorModule
         binder.bind(RaptorConnector.class).in(Scopes.SINGLETON);
         binder.bind(RaptorMetadata.class).in(Scopes.SINGLETON);
         binder.bind(RaptorSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(RaptorDataStreamProvider.class).in(Scopes.SINGLETON);
+        binder.bind(RaptorPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(RaptorRecordSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(RaptorHandleResolver.class).in(Scopes.SINGLETON);
     }
