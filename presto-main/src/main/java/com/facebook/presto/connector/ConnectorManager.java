@@ -136,22 +136,22 @@ public class ConnectorManager
         checkState(connectorSplitManager != null, "Connector %s does not have a split manager", connectorId);
 
         ConnectorPageSourceProvider connectorPageSourceProvider = null;
-        if (connector instanceof InternalConnector) {
-            try {
-                connectorPageSourceProvider = ((InternalConnector) connector).getPageSourceProvider();
-            }
-            catch (UnsupportedOperationException ignored) {
-            }
+        try {
+            connectorPageSourceProvider = connector.getPageSourceProvider();
+            checkNotNull(connectorPageSourceProvider, "Connector %s returned a null page source provider", connectorId);
+        }
+        catch (UnsupportedOperationException ignored) {
         }
 
         if (connectorPageSourceProvider == null) {
             ConnectorRecordSetProvider connectorRecordSetProvider = null;
             try {
                 connectorRecordSetProvider = connector.getRecordSetProvider();
+                checkNotNull(connectorRecordSetProvider, "Connector %s returned a null record set provider", connectorId);
             }
             catch (UnsupportedOperationException ignored) {
             }
-            checkState(connectorRecordSetProvider != null, "Connector %s does not have a data stream provider", connectorId);
+            checkState(connectorRecordSetProvider != null, "Connector %s has neither a PageSource or RecordSet provider", connectorId);
             connectorPageSourceProvider = new RecordPageSourceProvider(connectorRecordSetProvider);
         }
 
