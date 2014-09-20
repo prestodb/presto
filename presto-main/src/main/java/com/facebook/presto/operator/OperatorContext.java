@@ -119,7 +119,7 @@ public class OperatorContext
     public void recordAddInput(Page page)
     {
         addInputCalls.incrementAndGet();
-        addInputWallNanos.getAndAdd(nanosBetween(intervalWallStart.get(), System.nanoTime()));
+        recordInputWallNanos(nanosBetween(intervalWallStart.get(), System.nanoTime()));
         addInputCpuNanos.getAndAdd(nanosBetween(intervalCpuStart.get(), currentThreadCpuTime()));
         addInputUserNanos.getAndAdd(nanosBetween(intervalUserStart.get(), currentThreadUserTime()));
 
@@ -138,7 +138,12 @@ public class OperatorContext
     {
         inputDataSize.update(sizeInBytes);
         inputPositions.update(positions);
-        addInputWallNanos.getAndAdd(readNanos);
+        recordInputWallNanos(readNanos);
+    }
+
+    public long recordInputWallNanos(long readNanos)
+    {
+        return addInputWallNanos.getAndAdd(readNanos);
     }
 
     public void recordGetOutput(Page page)
