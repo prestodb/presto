@@ -186,4 +186,10 @@ public final class HiveType
     {
         return hiveTypeName.hashCode();
     }
+
+    @Override
+    public String toString()
+    {
+        return hiveTypeName;
+    }
 }
