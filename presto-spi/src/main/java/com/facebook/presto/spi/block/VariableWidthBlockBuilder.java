@@ -66,7 +66,7 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
-    protected Slice getRawSlice()
+    protected Slice getRawSlice(int position)
     {
         return sliceOutput.getUnderlyingSlice();
     }
@@ -92,7 +92,7 @@ public class VariableWidthBlockBuilder
     @Override
     public int getSizeInBytes()
     {
-        long size = getRawSlice().length() + SizeOf.sizeOf(offsets) + SizeOf.sizeOf(valueIsNull);
+        long size = sliceOutput.getUnderlyingSlice().length() + SizeOf.sizeOf(offsets) + SizeOf.sizeOf(valueIsNull);
         if (size > Integer.MAX_VALUE) {
             return Integer.MAX_VALUE;
         }

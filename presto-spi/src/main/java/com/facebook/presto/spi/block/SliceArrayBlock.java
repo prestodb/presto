@@ -18,46 +18,49 @@ import io.airlift.slice.Slice;
 
 import java.util.Arrays;
 
-public class VariableWidthBlock
+public class SliceArrayBlock
         extends AbstractVariableWidthBlock
 {
     private final int positionCount;
-    private final Slice slice;
-    private final int[] offsets;
-    private final boolean[] valueIsNull;
+    private final Slice[] values;
 
-    public VariableWidthBlock(int positionCount, Slice slice, int[] offsets, boolean[] valueIsNull)
+    public SliceArrayBlock(int positionCount, Slice[] values)
     {
         this.positionCount = positionCount;
-        this.slice = slice;
 
-        if (offsets.length < positionCount + 1) {
-            throw new IllegalArgumentException("offsets length is less than positionCount");
+        if (values.length < positionCount) {
+            throw new IllegalArgumentException("values length is less than positionCount");
         }
-        this.offsets = offsets;
+        this.values = values;
+    }
 
-        if (valueIsNull.length < positionCount) {
-            throw new IllegalArgumentException("valueIsNull length is less than positionCount");
-        }
-        this.valueIsNull = valueIsNull;
+    Slice[] getValues()
+    {
+        return values;
     }
 
     @Override
-    protected final int getPositionOffset(int position)
+    protected Slice getRawSlice(int position)
     {
-        return offsets[position];
+        return values[position];
     }
 
     @Override
-    public int getLength(int position)
+    protected int getPositionOffset(int position)
     {
-        return offsets[position + 1] - offsets[position];
+        return 0;
     }
 
     @Override
     protected boolean isEntryNull(int position)
     {
-        return valueIsNull[position];
+        return values[position] == null;
+    }
+
+    @Override
+    public BlockEncoding getEncoding()
+    {
+        return new SliceArrayBlockEncoding();
     }
 
     @Override
@@ -67,19 +70,20 @@ public class VariableWidthBlock
     }
 
     @Override
+    public int getLength(int position)
+    {
+        return values[position].length();
+    }
+
+    @Override
     public int getSizeInBytes()
     {
-        long size = slice.length() + SizeOf.sizeOf(offsets) + SizeOf.sizeOf(valueIsNull);
+        // todo how to include the size of the distinct slice instances
+        long size = SizeOf.sizeOf(values);
         if (size > Integer.MAX_VALUE) {
             return Integer.MAX_VALUE;
         }
         return (int) size;
-    }
-
-    @Override
-    protected Slice getRawSlice(int position)
-    {
-        return slice;
     }
 
     @Override
@@ -90,17 +94,15 @@ public class VariableWidthBlock
             throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
         }
 
-        int[] newOffsets = Arrays.copyOfRange(offsets, positionOffset, positionOffset + length + 1);
-        boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
-        return new VariableWidthBlock(length, slice, newOffsets, newValueIsNull);
+        Slice[] newValues = Arrays.copyOfRange(values, positionOffset, positionOffset + length);
+        return new SliceArrayBlock(length, newValues);
     }
 
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("VariableWidthBlock{");
+        StringBuilder sb = new StringBuilder("SliceArrayBlock{");
         sb.append("positionCount=").append(getPositionCount());
-        sb.append(", slice=").append(slice);
         sb.append('}');
         return sb.toString();
     }
