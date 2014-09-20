@@ -228,6 +228,7 @@ public final class BenchmarkHiveFileFormats
                                 .add(new OrcRecordCursorProvider())
                                 .build(),
                         ImmutableList.<HivePageSourceFactory>builder()
+                                .add(new OrcPageSourceFactory(TYPE_MANAGER))
                                 .build()))
                 .build();
 
@@ -288,7 +289,7 @@ public final class BenchmarkHiveFileFormats
                     long result = 0;
                     start = System.nanoTime();
                     for (int loop = 0; loop < loopCount; loop++) {
-                        result = benchmarkReadBigint(
+                        result = benchmarkReadNone(
                                 createFileSplit(benchmarkFile.getFile(compressionType)),
                                 createPartitionProperties(benchmarkFile),
                                 recordCursorProvider
@@ -303,7 +304,7 @@ public final class BenchmarkHiveFileFormats
                     long result = 0;
                     start = System.nanoTime();
                     for (int loop = 0; loop < loopCount; loop++) {
-                        result = benchmarkReadBigint(
+                        result = benchmarkReadNone(
                                 createFileSplit(benchmarkFile.getFile(compressionType)),
                                 createPartitionProperties(benchmarkFile),
                                 pageSourceFactory
@@ -1577,7 +1578,7 @@ public final class BenchmarkHiveFileFormats
         if (recordCursorProvider instanceof GenericHiveRecordCursorProvider) {
             return "generic";
         }
-        return "custom";
+        return "cursor";
     }
 
     private static FileSplit createFileSplit(File file)
