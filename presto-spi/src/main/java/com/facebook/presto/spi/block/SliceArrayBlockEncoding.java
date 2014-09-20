@@ -21,11 +21,11 @@ import io.airlift.slice.SliceOutput;
 import static com.facebook.presto.spi.block.EncoderUtil.decodeNullBits;
 import static com.facebook.presto.spi.block.EncoderUtil.encodeNullsAsBits;
 
-public class VariableWidthBlockEncoding
+public class SliceArrayBlockEncoding
         implements BlockEncoding
 {
-    public static final BlockEncodingFactory<VariableWidthBlockEncoding> FACTORY = new VariableWidthBlockEncodingFactory();
-    private static final String NAME = "VARIABLE_WIDTH";
+    public static final BlockEncodingFactory<SliceArrayBlockEncoding> FACTORY = new SliceArrayBlockEncodingFactory();
+    private static final String NAME = "SLICE_ARRAY";
 
     @Override
     public String getName()
@@ -37,35 +37,38 @@ public class VariableWidthBlockEncoding
     public void writeBlock(SliceOutput sliceOutput, Block block)
     {
         // The down casts here are safe because it is the block itself the provides this encoding implementation.
-        AbstractVariableWidthBlock variableWidthBlock = (AbstractVariableWidthBlock) block;
+        SliceArrayBlock sliceArrayBlock = (SliceArrayBlock) block;
 
-        int positionCount = variableWidthBlock.getPositionCount();
+        int positionCount = sliceArrayBlock.getPositionCount();
         sliceOutput.appendInt(positionCount);
 
-        // offsets
-        int totalLength = 0;
+        // lengths
         for (int position = 0; position < positionCount; position++) {
-            int length = variableWidthBlock.getLength(position);
+            int length = 0;
+            if (!sliceArrayBlock.isNull(position)) {
+                length = sliceArrayBlock.getLength(position);
+            }
             sliceOutput.appendInt(length);
-            totalLength += length;
         }
 
-        encodeNullsAsBits(sliceOutput, variableWidthBlock);
+        encodeNullsAsBits(sliceOutput, sliceArrayBlock);
 
         // write last null bits
         if ((positionCount & 0b111) > 0) {
             byte value = 0;
             int mask = 0b1000_0000;
             for (int position = positionCount & ~0b111; position < positionCount; position++) {
-                value |= variableWidthBlock.isNull(position) ? mask : 0;
+                value |= sliceArrayBlock.isNull(position) ? mask : 0;
                 mask >>>= 1;
             }
             sliceOutput.appendByte(value);
         }
 
-        sliceOutput
-                .appendInt(totalLength)
-                .writeBytes(variableWidthBlock.getRawSlice(0), variableWidthBlock.getPositionOffset(0), totalLength);
+        for (Slice value : sliceArrayBlock.getValues()) {
+            if (value != null) {
+                sliceOutput.writeBytes(value);
+            }
+        }
     }
 
     @Override
@@ -83,14 +86,18 @@ public class VariableWidthBlockEncoding
 
         boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount);
 
-        int blockSize = sliceInput.readInt();
-        Slice slice = sliceInput.readSlice(blockSize);
+        Slice[] values = new Slice[positionCount];
+        for (int position = 0; position < positionCount; position++) {
+            if (!valueIsNull[position]) {
+                values[position] = sliceInput.readSlice(offsets[position + 1] - offsets[position]);
+            }
+        }
 
-        return new VariableWidthBlock(positionCount, slice, offsets, valueIsNull);
+        return new SliceArrayBlock(positionCount, values);
     }
 
-    public static class VariableWidthBlockEncodingFactory
-            implements BlockEncodingFactory<VariableWidthBlockEncoding>
+    public static class SliceArrayBlockEncodingFactory
+            implements BlockEncodingFactory<SliceArrayBlockEncoding>
     {
         @Override
         public String getName()
@@ -99,13 +106,13 @@ public class VariableWidthBlockEncoding
         }
 
         @Override
-        public VariableWidthBlockEncoding readEncoding(TypeManager manager, BlockEncodingSerde serde, SliceInput input)
+        public SliceArrayBlockEncoding readEncoding(TypeManager manager, BlockEncodingSerde serde, SliceInput input)
         {
-            return new VariableWidthBlockEncoding();
+            return new SliceArrayBlockEncoding();
         }
 
         @Override
-        public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, VariableWidthBlockEncoding blockEncoding)
+        public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, SliceArrayBlockEncoding blockEncoding)
         {
         }
     }

@@ -59,6 +59,7 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.block.FixedWidthBlockEncoding;
+import com.facebook.presto.spi.block.SliceArrayBlockEncoding;
 import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -263,6 +264,7 @@ public class ServerMainModule
         blockEncodingFactoryBinder.addBinding().toInstance(RunLengthBlockEncoding.FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(DictionaryBlockEncoding.FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(SnappyBlockEncoding.FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(SliceArrayBlockEncoding.FACTORY);
 
         // thread visualizer
         jaxrsBinder(binder).bind(ThreadResource.class);
