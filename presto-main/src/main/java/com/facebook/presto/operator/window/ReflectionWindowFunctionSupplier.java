@@ -17,12 +17,14 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
+import com.google.common.collect.Lists;
 
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 
+import static com.facebook.presto.type.TypeUtils.nameGetter;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
@@ -32,7 +34,7 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
 
     public ReflectionWindowFunctionSupplier(String name, Type returnType, List<? extends Type> argumentTypes, Class<T> type)
     {
-        this(new Signature(name, returnType, argumentTypes), type);
+        this(new Signature(name, returnType.getName(), Lists.transform(argumentTypes, nameGetter())), type);
     }
 
     public ReflectionWindowFunctionSupplier(Signature signature, Class<T> type)

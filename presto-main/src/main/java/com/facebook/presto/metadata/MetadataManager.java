@@ -35,10 +35,8 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
@@ -59,7 +57,6 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.metadata.ColumnHandle.fromConnectorHandle;
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
-import static com.facebook.presto.metadata.MetadataUtil.checkColumnName;
 import static com.facebook.presto.metadata.QualifiedTableName.convertFromSchemaTableName;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
@@ -146,7 +143,7 @@ public class MetadataManager
     }
 
     @Override
-    public FunctionInfo resolveFunction(QualifiedName name, List<? extends Type> parameterTypes, boolean approximate)
+    public FunctionInfo resolveFunction(QualifiedName name, List<String> parameterTypes, boolean approximate)
     {
         return functions.resolveFunction(name, parameterTypes, approximate);
     }
@@ -164,21 +161,15 @@ public class MetadataManager
     }
 
     @Override
-    public List<FunctionInfo> listFunctions()
+    public List<ParametricFunction> listFunctions()
     {
         return functions.list();
     }
 
     @Override
-    public void addFunctions(List<FunctionInfo> functionInfos)
+    public void addFunctions(List<? extends ParametricFunction> functionInfos)
     {
-        functions.addFunctions(functionInfos, ImmutableMultimap.<OperatorType, FunctionInfo>of());
-    }
-
-    @Override
-    public void addOperators(Multimap<OperatorType, FunctionInfo> operators)
-    {
-        functions.addFunctions(ImmutableList.<FunctionInfo>of(), operators);
+        functions.addFunctions(functionInfos);
     }
 
     @Override
@@ -186,13 +177,6 @@ public class MetadataManager
             throws OperatorNotFoundException
     {
         return functions.resolveOperator(operatorType, argumentTypes);
-    }
-
-    @Override
-    public FunctionInfo getExactOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
-            throws OperatorNotFoundException
-    {
-        return functions.getExactOperator(operatorType, argumentTypes, returnType);
     }
 
     @Override
@@ -259,21 +243,6 @@ public class MetadataManager
             }
         }
         return ImmutableList.copyOf(tables);
-    }
-
-    @Override
-    public Optional<ColumnHandle> getColumnHandle(TableHandle tableHandle, String columnName)
-    {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkColumnName(columnName);
-
-        ConnectorColumnHandle handle = lookupConnectorFor(tableHandle).getColumnHandle(tableHandle.getConnectorHandle(), columnName);
-
-        if (handle == null) {
-            return Optional.absent();
-        }
-
-        return Optional.of(new ColumnHandle(tableHandle.getConnectorId(), handle));
     }
 
     @Override

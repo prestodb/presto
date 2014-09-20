@@ -194,8 +194,7 @@ public class StatementClient
             if (response.getStatusCode() != HttpStatus.SERVICE_UNAVAILABLE.code()) {
                 gone.set(true);
                 if (!response.hasValue()) {
-                    throw new RuntimeException(format("Error fetching next at %s returned an invalid response", request.getUri()),
-                            response.getException());
+                    throw new RuntimeException(format("Error fetching next at %s returned an invalid response: %s", request.getUri(), response), response.getException());
                 }
                 throw new RuntimeException(format("Error fetching next at %s returned %s: %s",
                         request.getUri(),

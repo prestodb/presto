@@ -16,8 +16,11 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.collect.ImmutableList;
 
-import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
+import java.util.List;
+
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class TestDoubleSumAggregation
@@ -34,12 +37,6 @@ public class TestDoubleSumAggregation
     }
 
     @Override
-    public InternalAggregationFunction getFunction()
-    {
-        return DOUBLE_SUM;
-    }
-
-    @Override
     public Number getExpectedValue(int start, int length)
     {
         if (length == 0) {
@@ -51,5 +48,17 @@ public class TestDoubleSumAggregation
             sum += i;
         }
         return sum;
+    }
+
+    @Override
+    protected String getFunctionName()
+    {
+        return "sum";
+    }
+
+    @Override
+    protected List<String> getFunctionParameterTypes()
+    {
+        return ImmutableList.of(StandardTypes.DOUBLE);
     }
 }

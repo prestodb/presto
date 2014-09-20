@@ -14,10 +14,10 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.operator.aggregation.ApproximateCountAggregation.APPROXIMATE_COUNT_AGGREGATION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestApproximateCountAggregation
@@ -36,8 +36,14 @@ public class TestApproximateCountAggregation
     }
 
     @Override
-    public InternalAggregationFunction getFunction()
+    protected String getFunctionName()
     {
-        return APPROXIMATE_COUNT_AGGREGATION;
+        return "count";
+    }
+
+    @Override
+    protected List<String> getFunctionParameterTypes()
+    {
+        return ImmutableList.of();
     }
 }

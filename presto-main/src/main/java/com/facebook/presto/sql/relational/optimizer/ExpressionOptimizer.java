@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
@@ -49,11 +50,13 @@ import static com.google.common.base.Predicates.instanceOf;
 public class ExpressionOptimizer
 {
     private final FunctionRegistry registry;
+    private final TypeManager typeManager;
     private final ConnectorSession session;
 
-    public ExpressionOptimizer(FunctionRegistry registry, ConnectorSession session)
+    public ExpressionOptimizer(FunctionRegistry registry, TypeManager typeManager, ConnectorSession session)
     {
         this.registry = registry;
+        this.typeManager = typeManager;
         this.session = session;
     }
 
@@ -82,31 +85,34 @@ public class ExpressionOptimizer
         {
             FunctionInfo function;
             Signature signature = call.getSignature();
-            switch (signature.getName()) {
-                // TODO: optimize these special forms
-                case IF:
-                case NULL_IF:
-                case SWITCH:
-                case TRY_CAST:
-                case IS_NULL:
-                case "IS_DISTINCT_FROM":
-                case COALESCE:
-                case "AND":
-                case "OR":
-                case IN:
-                    return call;
-                case CAST:
-                    if (call.getArguments().get(0).getType().equals(UnknownType.UNKNOWN)) {
-                        return constantNull(call.getType());
-                    }
-                    function = registry.getCoercion(call.getArguments().get(0).getType(), call.getType());
-                    break;
-                default:
-                    function = registry.getExactFunction(signature);
-                    if (function == null) {
-                        // TODO: temporary hack to deal with magic timestamp literal functions which don't have an "exact" form and need to be "resolved"
-                        function = registry.resolveFunction(QualifiedName.of(signature.getName()), signature.getArgumentTypes(), false);
-                    }
+
+            if (signature.getName().equals(CAST)) {
+                if (call.getArguments().get(0).getType().equals(UnknownType.UNKNOWN)) {
+                    return constantNull(call.getType());
+                }
+                function = registry.getCoercion(call.getArguments().get(0).getType(), call.getType());
+            }
+            else {
+                switch (signature.getName()) {
+                    // TODO: optimize these special forms
+                    case IF:
+                    case NULL_IF:
+                    case SWITCH:
+                    case TRY_CAST:
+                    case IS_NULL:
+                    case "IS_DISTINCT_FROM":
+                    case COALESCE:
+                    case "AND":
+                    case "OR":
+                    case IN:
+                        return call;
+                    default:
+                        function = registry.getExactFunction(signature);
+                        if (function == null) {
+                            // TODO: temporary hack to deal with magic timestamp literal functions which don't have an "exact" form and need to be "resolved"
+                            function = registry.resolveFunction(QualifiedName.of(signature.getName()), signature.getArgumentTypes(), false);
+                        }
+                }
             }
 
             List<RowExpression> arguments = Lists.transform(call.getArguments(), new Function<RowExpression, RowExpression>()
@@ -146,7 +152,7 @@ public class ExpressionOptimizer
                 }
             }
 
-            return call(signature, arguments);
+            return call(signature, typeManager.getType(signature.getReturnType()), arguments);
         }
     }
 }

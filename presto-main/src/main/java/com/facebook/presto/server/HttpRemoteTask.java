@@ -20,7 +20,7 @@ import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.execution.BufferInfo;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.RemoteTask;
-import com.facebook.presto.execution.SharedBuffer.QueueState;
+import com.facebook.presto.execution.SharedBuffer.BufferState;
 import com.facebook.presto.execution.SharedBufferInfo;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -200,7 +200,7 @@ public class HttpRemoteTask
                     TaskState.PLANNED,
                     location,
                     DateTime.now(),
-                    new SharedBufferInfo(QueueState.OPEN, 0, 0, bufferStates),
+                    new SharedBufferInfo(BufferState.OPEN, 0, 0, bufferStates),
                     ImmutableSet.<PlanNodeId>of(),
                     taskStats,
                     ImmutableList.<ExecutionFailureInfo>of()));
@@ -379,9 +379,11 @@ public class HttpRemoteTask
         currentRequest = future;
         currentRequestStartNanos = System.nanoTime();
 
-        Futures.addCallback(future, new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri()), executor);
-
+        // The needsUpdate flag needs to be set to false BEFORE adding the Future callback since callback might change the flag value
+        // and does so without grabbing the instance lock.
         needsUpdate.set(false);
+
+        Futures.addCallback(future, new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri()), executor);
     }
 
     private synchronized List<TaskSource> getSources()
@@ -733,7 +735,7 @@ public class HttpRemoteTask
                     callback.success(response.getValue());
                 }
                 else if (response.getStatusCode() == HttpStatus.SERVICE_UNAVAILABLE.code()) {
-                    callback.failed(new RuntimeException("Server at %s returned SERVICE_UNAVAILABLE"));
+                    callback.failed(new RuntimeException(format("Server at %s returned SERVICE_UNAVAILABLE", uri)));
                 }
                 else {
                     // Something is broken in the server or the client, so fail the task immediately (includes 500 errors)

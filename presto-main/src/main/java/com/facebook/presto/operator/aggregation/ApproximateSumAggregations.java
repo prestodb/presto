@@ -15,32 +15,23 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.VarianceState;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 
 import static com.facebook.presto.operator.aggregation.AggregationUtils.mergeVarianceState;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.updateVarianceState;
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.formatApproximateResult;
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.sumError;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 @AggregationFunction(value = "sum", approximate = true)
 public final class ApproximateSumAggregations
 {
-    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_SUM_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateSumAggregations.class, VARCHAR, ImmutableList.<Type>of(DOUBLE));
-    public static final InternalAggregationFunction LONG_APPROXIMATE_SUM_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateSumAggregations.class, VARCHAR, ImmutableList.<Type>of(BIGINT));
-
     private ApproximateSumAggregations() {}
 
     @InputFunction
-    public static void input(ApproximateDoubleSumState state, @SqlType(DoubleType.class) double value, @SampleWeight long sampleWeight)
+    public static void input(ApproximateDoubleSumState state, @SqlType(StandardTypes.DOUBLE) double value, @SampleWeight long sampleWeight)
     {
         state.setWeightedCount(state.getWeightedCount() + sampleWeight);
         state.setSum(state.getSum() + value * sampleWeight);
@@ -55,7 +46,7 @@ public final class ApproximateSumAggregations
         mergeVarianceState(state, otherState);
     }
 
-    @OutputFunction(VarcharType.class)
+    @OutputFunction(StandardTypes.VARCHAR)
     public static void output(ApproximateDoubleSumState state, double confidence, BlockBuilder out)
     {
         if (state.getWeightedCount() == 0) {
@@ -72,7 +63,7 @@ public final class ApproximateSumAggregations
     }
 
     @InputFunction
-    public static void input(ApproximateLongSumState state, @SqlType(BigintType.class) long value, @SampleWeight long sampleWeight)
+    public static void input(ApproximateLongSumState state, @SqlType(StandardTypes.BIGINT) long value, @SampleWeight long sampleWeight)
     {
         state.setWeightedCount(state.getWeightedCount() + sampleWeight);
         state.setSum(state.getSum() + value * sampleWeight);
@@ -87,7 +78,7 @@ public final class ApproximateSumAggregations
         mergeVarianceState(state, otherState);
     }
 
-    @OutputFunction(VarcharType.class)
+    @OutputFunction(StandardTypes.VARCHAR)
     public static void evaluateFinal(ApproximateLongSumState state, double confidence, BlockBuilder out)
     {
         if (state.getWeightedCount() == 0) {

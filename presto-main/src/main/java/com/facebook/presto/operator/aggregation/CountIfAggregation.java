@@ -14,18 +14,16 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.LongState;
-import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 
 @AggregationFunction("count_if")
 public final class CountIfAggregation
 {
-    public static final InternalAggregationFunction COUNT_IF = new AggregationCompiler().generateAggregationFunction(CountIfAggregation.class);
-
     private CountIfAggregation() {}
 
     @InputFunction
-    public static void input(LongState state, @SqlType(BooleanType.class) boolean value)
+    public static void input(LongState state, @SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         if (value) {
             state.setLong(state.getLong() + 1);

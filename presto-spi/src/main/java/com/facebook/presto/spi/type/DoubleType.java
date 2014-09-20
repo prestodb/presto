@@ -24,14 +24,9 @@ public final class DoubleType
 {
     public static final DoubleType DOUBLE = new DoubleType();
 
-    public static DoubleType getInstance()
-    {
-        return DOUBLE;
-    }
-
     private DoubleType()
     {
-        super("double", double.class, SIZE_OF_DOUBLE);
+        super(StandardTypes.DOUBLE, double.class, SIZE_OF_DOUBLE);
     }
 
     @Override

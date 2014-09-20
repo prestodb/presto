@@ -25,6 +25,7 @@ import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
 import com.facebook.presto.execution.SplitSource;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.HandleResolver;
@@ -44,16 +45,20 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
+import com.facebook.presto.operator.PageSourceOperator;
 import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.DataStreamManager;
+import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
@@ -110,7 +115,7 @@ public class LocalQueryRunner
     private final TypeRegistry typeRegistry;
     private final MetadataManager metadata;
     private final SplitManager splitManager;
-    private final DataStreamManager dataStreamProvider;
+    private final PageSourceManager pageSourceManager;
     private final IndexManager indexManager;
     private final RecordSinkManager recordSinkManager;
 
@@ -129,7 +134,7 @@ public class LocalQueryRunner
         this.typeRegistry = new TypeRegistry();
         this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), typeRegistry);
         this.splitManager = new SplitManager();
-        this.dataStreamProvider = new DataStreamManager();
+        this.pageSourceManager = new PageSourceManager();
         this.indexManager = new IndexManager();
         this.recordSinkManager = new RecordSinkManager();
 
@@ -150,7 +155,7 @@ public class LocalQueryRunner
         this.connectorManager = new ConnectorManager(
                 metadata,
                 splitManager,
-                dataStreamProvider,
+                pageSourceManager,
                 indexManager,
                 recordSinkManager,
                 new HandleResolver(),
@@ -203,6 +208,18 @@ public class LocalQueryRunner
     {
         nodeManager.addCurrentNodeDatasource(catalogName);
         connectorManager.createConnection(catalogName, connectorFactory, properties);
+    }
+
+    @Override
+    public void installPlugin(Plugin plugin)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
+    {
+        throw new UnsupportedOperationException();
     }
 
     public LocalQueryRunner printPlan()
@@ -311,10 +328,12 @@ public class LocalQueryRunner
         assertFormattedSql(sqlParser, statement);
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true);
+        FeaturesConfig featuresConfig = new FeaturesConfig()
+                .setExperimentalSyntaxEnabled(true)
+                .setDistributedIndexJoinsEnabled(false);
         PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, sqlParser, splitManager, indexManager, featuresConfig);
 
-        QueryExplainer queryExplainer = new QueryExplainer(session, planOptimizersFactory.get(), metadata, sqlParser, featuresConfig.isExperimentalSyntaxEnabled());
+        QueryExplainer queryExplainer = new QueryExplainer(session, planOptimizersFactory.get(), metadata, sqlParser, featuresConfig.isExperimentalSyntaxEnabled(), featuresConfig.isDistributedIndexJoinsEnabled());
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, Optional.of(queryExplainer), featuresConfig.isExperimentalSyntaxEnabled());
 
         Analysis analysis = analyzer.analyze(statement);
@@ -324,7 +343,7 @@ public class LocalQueryRunner
             System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata));
         }
 
-        SubPlan subplan = new DistributedLogicalPlanner(session, metadata, idAllocator).createSubPlans(plan, true);
+        SubPlan subplan = new DistributedLogicalPlanner(session, metadata, idAllocator).createSubPlans(plan, true, featuresConfig.isDistributedIndexJoinsEnabled());
         if (!subplan.getChildren().isEmpty()) {
             throw new AssertionError("Expected subplan to have no children");
         }
@@ -332,12 +351,14 @@ public class LocalQueryRunner
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
                 metadata,
                 sqlParser,
-                dataStreamProvider,
+                pageSourceManager,
                 indexManager,
                 recordSinkManager,
                 null,
                 compiler,
-                new CompilerConfig().setInterpreterEnabled(false) // make sure tests fail if compiler breaks
+                new IndexJoinLookupStats(),
+                new CompilerConfig().setInterpreterEnabled(false), // make sure tests fail if compiler breaks
+                new TaskManagerConfig()
         );
 
         // plan query
@@ -452,7 +473,8 @@ public class LocalQueryRunner
             public Operator createOperator(DriverContext driverContext)
             {
                 OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, "BenchmarkSource");
-                return dataStreamProvider.createNewDataStream(operatorContext, split, columnHandles);
+                ConnectorPageSource pageSource = pageSourceManager.createPageSource(split, columnHandles);
+                return new PageSourceOperator(pageSource, columnTypes, operatorContext);
             }
 
             @Override

@@ -8,10 +8,10 @@ Presto Documentation
 
     overview
     installation
+    connector
     functions
     language
     sql
     migration
-    release
     spi
-    rest
+    release

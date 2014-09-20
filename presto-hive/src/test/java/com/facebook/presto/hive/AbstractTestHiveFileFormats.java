@@ -16,6 +16,8 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Function;
@@ -24,7 +26,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
@@ -52,12 +53,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveClient.getType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.AbstractMap.SimpleImmutableEntry;
+import static java.util.Map.Entry;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardMapObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
@@ -81,6 +85,7 @@ public abstract class AbstractTestHiveFileFormats
 {
     private static final int NUM_ROWS = 1000;
     private static final double EPSILON = 0.001;
+    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
 
     private static final List<ObjectInspector> FIELD_INSPECTORS = ImmutableList.of(
                 javaStringObjectInspector,
@@ -176,46 +181,52 @@ public abstract class AbstractTestHiveFileFormats
 
     // Pairs of <value-to-write-to-Hive, value-expected-from-Presto>
     @SuppressWarnings("unchecked")
-    private static final List<Pair<Object, Object>>  TEST_VALUES = ImmutableList.of(
-                Pair.<Object, Object>of(null, null),
-                Pair.<Object, Object>of(null, null),
-                Pair.<Object, Object>of("", Slices.EMPTY_SLICE),
-                Pair.<Object, Object>of("test", Slices.utf8Slice("test")),
-                Pair.<Object, Object>of((byte) 1, 1L),
-                Pair.<Object, Object>of((short) 2, 2L),
-                Pair.<Object, Object>of(3, 3L),
-                Pair.<Object, Object>of(4L, 4L),
-                Pair.<Object, Object>of(5.1f, 5.1),
-                Pair.<Object, Object>of(6.2, 6.2),
-                Pair.<Object, Object>of(true, true),
-                Pair.<Object, Object>of(new Timestamp(TIMESTAMP), TIMESTAMP),
-                Pair.<Object, Object>of(Slices.utf8Slice("test2"), Slices.utf8Slice("test2")),
-                Pair.<Object, Object>of(ImmutableMap.of("test", "test"), "{\"test\":\"test\"}"),
-                Pair.<Object, Object>of(ImmutableMap.of((byte) 1, (byte) 1), "{\"1\":1}"),
-                Pair.<Object, Object>of(ImmutableMap.of((short) 2, (short) 2), "{\"2\":2}"),
-                Pair.<Object, Object>of(ImmutableMap.of(3, 3), "{\"3\":3}"),
-                Pair.<Object, Object>of(ImmutableMap.of(4L, 4L), "{\"4\":4}"),
-                Pair.<Object, Object>of(ImmutableMap.of(5.0f, 5.0f), "{\"5.0\":5.0}"),
-                Pair.<Object, Object>of(ImmutableMap.of(6.0, 6.0), "{\"6.0\":6.0}"),
-                Pair.<Object, Object>of(ImmutableMap.of(true, true), "{\"true\":true}"),
-                Pair.<Object, Object>of(ImmutableMap.of(new Timestamp(TIMESTAMP), new Timestamp(TIMESTAMP)), String.format("{\"%s\":\"%s\"}", TIMESTAMP_STRING, TIMESTAMP_STRING)),
-                Pair.<Object, Object>of(ImmutableList.of("test"), "[\"test\"]"),
-                Pair.<Object, Object>of(ImmutableList.of((byte) 1), "[1]"),
-                Pair.<Object, Object>of(ImmutableList.of((short) 2), "[2]"),
-                Pair.<Object, Object>of(ImmutableList.of(3), "[3]"),
-                Pair.<Object, Object>of(ImmutableList.of(4L), "[4]"),
-                Pair.<Object, Object>of(ImmutableList.of(5.0f), "[5.0]"),
-                Pair.<Object, Object>of(ImmutableList.of(6.0), "[6.0]"),
-                Pair.<Object, Object>of(ImmutableList.of(true), "[true]"),
-                Pair.<Object, Object>of(ImmutableList.of(new Timestamp(TIMESTAMP)), String.format("[\"%s\"]", TIMESTAMP_STRING)),
-                Pair.<Object, Object>of(ImmutableMap.of("test", ImmutableList.<Object>of(new Integer[] {1})), "{\"test\":[{\"s_int\":1}]}")
+    private static final List<Entry<Object, Object>> TEST_VALUES = ImmutableList.of(
+                entry(null, null),
+                entry(null, null),
+                entry("", Slices.EMPTY_SLICE),
+                entry("test", Slices.utf8Slice("test")),
+                entry((byte) 1, 1L),
+                entry((short) 2, 2L),
+                entry(3, 3L),
+                entry(4L, 4L),
+                entry(5.1f, 5.1),
+                entry(6.2, 6.2),
+                entry(true, true),
+                entry(new Timestamp(TIMESTAMP), TIMESTAMP),
+                entry(Slices.utf8Slice("test2"), Slices.utf8Slice("test2")),
+                entry(ImmutableMap.of("test", "test"), "{\"test\":\"test\"}"),
+                entry(ImmutableMap.of((byte) 1, (byte) 1), "{\"1\":1}"),
+                entry(ImmutableMap.of((short) 2, (short) 2), "{\"2\":2}"),
+                entry(ImmutableMap.of(3, 3), "{\"3\":3}"),
+                entry(ImmutableMap.of(4L, 4L), "{\"4\":4}"),
+                entry(ImmutableMap.of(5.0f, 5.0f), "{\"5.0\":5.0}"),
+                entry(ImmutableMap.of(6.0, 6.0), "{\"6.0\":6.0}"),
+                entry(ImmutableMap.of(true, true), "{\"true\":true}"),
+                entry(ImmutableMap.of(new Timestamp(TIMESTAMP), new Timestamp(TIMESTAMP)), String.format("{\"%s\":\"%s\"}", TIMESTAMP_STRING, TIMESTAMP_STRING)),
+                entry(ImmutableList.of("test"), "[\"test\"]"),
+                entry(ImmutableList.of((byte) 1), "[1]"),
+                entry(ImmutableList.of((short) 2), "[2]"),
+                entry(ImmutableList.of(3), "[3]"),
+                entry(ImmutableList.of(4L), "[4]"),
+                entry(ImmutableList.of(5.0f), "[5.0]"),
+                entry(ImmutableList.of(6.0), "[6.0]"),
+                entry(ImmutableList.of(true), "[true]"),
+                entry(ImmutableList.of(new Timestamp(TIMESTAMP)), String.format("[\"%s\"]", TIMESTAMP_STRING)),
+                entry(ImmutableMap.of("test", ImmutableList.<Object>of(new Integer[] {1})), "{\"test\":[{\"s_int\":1}]}")
         );
+
+    private static Entry<Object, Object> entry(Object key, Object value)
+    {
+        return new SimpleImmutableEntry<>(key, value);
+    }
 
     protected List<HiveColumnHandle> getColumns()
     {
         List<HiveColumnHandle> columns = new ArrayList<>();
         for (int i = 0; i < COLUMN_NAMES.size(); i++) {
-            columns.add(new HiveColumnHandle("client_id=0", COLUMN_NAMES.get(i), i, HiveType.getHiveType(FIELD_INSPECTORS.get(i)), i, false));
+            HiveType hiveType = HiveType.getHiveType(FIELD_INSPECTORS.get(i));
+            columns.add(new HiveColumnHandle("client_id=0", COLUMN_NAMES.get(i), i, hiveType, getType(FIELD_INSPECTORS.get(i)).getName(), i, false));
         }
         return columns;
     }
@@ -291,7 +302,7 @@ public abstract class AbstractTestHiveFileFormats
             for (int i = 2; i < TEST_VALUES.size(); i++) {
                 Object fieldFromCursor;
 
-                Type type = HiveType.getHiveType(FIELD_INSPECTORS.get(i)).getNativeType();
+                Type type = getType(FIELD_INSPECTORS.get(i));
                 if (BOOLEAN.equals(type)) {
                     fieldFromCursor = cursor.getBoolean(i);
                 }

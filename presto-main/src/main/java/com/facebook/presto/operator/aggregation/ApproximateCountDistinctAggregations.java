@@ -15,10 +15,8 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.SliceState;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.SqlType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -41,19 +39,19 @@ public final class ApproximateCountDistinctAggregations
     private ApproximateCountDistinctAggregations() {}
 
     @InputFunction
-    public static void input(SliceState state, @SqlType(VarcharType.class) Slice value)
+    public static void input(SliceState state, @SqlType(StandardTypes.VARCHAR) Slice value)
     {
         update(state, Murmur3.hash64(value));
     }
 
     @InputFunction
-    public static void input(SliceState state, @SqlType(DoubleType.class) double value)
+    public static void input(SliceState state, @SqlType(StandardTypes.DOUBLE) double value)
     {
         update(state, Murmur3.hash64(Double.doubleToLongBits(value)));
     }
 
     @InputFunction
-    public static void input(SliceState state, @SqlType(BigintType.class) long value)
+    public static void input(SliceState state, @SqlType(StandardTypes.BIGINT) long value)
     {
         update(state, Murmur3.hash64(value));
     }
@@ -77,7 +75,7 @@ public final class ApproximateCountDistinctAggregations
         }
     }
 
-    @OutputFunction(BigintType.class)
+    @OutputFunction(StandardTypes.BIGINT)
     public static void output(SliceState state, BlockBuilder out)
     {
         if (state.getSlice() != null) {

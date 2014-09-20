@@ -23,6 +23,11 @@ public interface TypeManager
     Type getType(String typeName);
 
     /**
+     * Gets an instance of the metatype with the specified case insensitive name, or null if not found.
+     */
+    Type getParameterizedType(String metaTypeName, List<String> typeNames);
+
+    /**
      * Gets a list of all registered types.
      */
     List<Type> getTypes();

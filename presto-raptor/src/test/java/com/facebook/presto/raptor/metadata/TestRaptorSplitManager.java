@@ -50,9 +50,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.util.Types.checkType;
 import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -93,7 +93,7 @@ public class TestRaptorSplitManager
         RaptorMetadata metadata = new RaptorMetadata(connectorId, dbi, shardManager);
 
         tableHandle = metadata.createTable(SESSION, TEST_TABLE);
-        dsColumnHandle = metadata.getColumnHandle(tableHandle, "ds");
+        dsColumnHandle = metadata.getColumnHandles(tableHandle).get("ds");
 
         UUID shardUuid1 = UUID.randomUUID();
         UUID shardUuid2 = UUID.randomUUID();

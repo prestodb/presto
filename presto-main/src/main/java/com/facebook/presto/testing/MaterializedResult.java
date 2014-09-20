@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.testing;
 
-import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.SqlDate;
@@ -165,7 +165,7 @@ public class MaterializedResult
         public Builder page(Page page)
         {
             checkNotNull(page, "page is null");
-            checkArgument(page.getChannelCount() == types.size(), "Expected a page with %s columns, but got %s columns", page.getChannelCount(), types.size());
+            checkArgument(page.getChannelCount() == types.size(), "Expected a page with %s columns, but got %s columns", types.size(), page.getChannelCount());
 
             for (int position = 0; position < page.getPositionCount(); position++) {
                 List<Object> values = new ArrayList<>(page.getChannelCount());

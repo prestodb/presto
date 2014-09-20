@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.ChannelSet.ChannelSetBuilder;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Preconditions;
@@ -151,7 +152,7 @@ public class SetBuilderOperator
 
         ChannelSet channelSet = channelSetBuilder.build();
         setSupplier.setChannelSet(channelSet);
-        operatorContext.recordGeneratedOutput(channelSet.getEstimatedSize(), channelSet.size());
+        operatorContext.recordGeneratedOutput(channelSet.getEstimatedSizeInBytes(), channelSet.size());
         finished = true;
     }
 

@@ -16,55 +16,42 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.countError;
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.formatApproximateResult;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 @AggregationFunction(value = "count", approximate = true)
 public final class ApproximateCountColumnAggregations
 {
-    public static final InternalAggregationFunction BOOLEAN_APPROXIMATE_COUNT_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateCountColumnAggregations.class, VARCHAR, ImmutableList.<Type>of(BOOLEAN));
-    public static final InternalAggregationFunction LONG_APPROXIMATE_COUNT_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateCountColumnAggregations.class, VARCHAR, ImmutableList.<Type>of(BIGINT));
-    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_COUNT_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateCountColumnAggregations.class, VARCHAR, ImmutableList.<Type>of(DOUBLE));
-    public static final InternalAggregationFunction VARBINARY_APPROXIMATE_COUNT_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateCountColumnAggregations.class, VARCHAR, ImmutableList.<Type>of(VARCHAR));
-
     private ApproximateCountColumnAggregations() {}
 
     @InputFunction
-    public static void booleanInput(ApproximateCountState state, @SqlType(BooleanType.class) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
+    public static void booleanInput(ApproximateCountState state, @SqlType(StandardTypes.BOOLEAN) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
     {
         state.setCount(state.getCount() + sampleWeight);
         state.setSamples(state.getSamples() + 1);
     }
 
     @InputFunction
-    public static void bigintInput(ApproximateCountState state, @SqlType(BigintType.class) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
+    public static void bigintInput(ApproximateCountState state, @SqlType(StandardTypes.BIGINT) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
     {
         state.setCount(state.getCount() + sampleWeight);
         state.setSamples(state.getSamples() + 1);
     }
 
     @InputFunction
-    public static void doubleInput(ApproximateCountState state, @SqlType(DoubleType.class) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
+    public static void doubleInput(ApproximateCountState state, @SqlType(StandardTypes.DOUBLE) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
     {
         state.setCount(state.getCount() + sampleWeight);
         state.setSamples(state.getSamples() + 1);
     }
 
     @InputFunction
-    public static void varcharInput(ApproximateCountState state, @SqlType(VarcharType.class) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
+    public static void varcharInput(ApproximateCountState state, @SqlType(StandardTypes.VARCHAR) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
     {
         state.setCount(state.getCount() + sampleWeight);
         state.setSamples(state.getSamples() + 1);
@@ -77,7 +64,7 @@ public final class ApproximateCountColumnAggregations
         state.setSamples(state.getSamples() + otherState.getSamples());
     }
 
-    @OutputFunction(VarcharType.class)
+    @OutputFunction(StandardTypes.VARCHAR)
     public static void output(ApproximateCountState state, double confidence, BlockBuilder out)
     {
         String result = formatApproximateResult(state.getCount(), countError(state.getSamples(), state.getCount()), confidence, true);

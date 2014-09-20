@@ -15,34 +15,25 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
-import com.google.common.collect.ImmutableList;
 
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.formatApproximateResult;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 @AggregationFunction(value = "avg", approximate = true)
 public final class ApproximateAverageAggregations
 {
-    public static final InternalAggregationFunction LONG_APPROXIMATE_AVERAGE_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateAverageAggregations.class, VARCHAR, ImmutableList.<Type>of(BIGINT));
-    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateAverageAggregations.class, VARCHAR, ImmutableList.<Type>of(DOUBLE));
-
     private ApproximateAverageAggregations() {}
 
     @InputFunction
-    public static void bigintInput(ApproximateAverageState state, @SqlType(BigintType.class) long value, @SampleWeight long sampleWeight)
+    public static void bigintInput(ApproximateAverageState state, @SqlType(StandardTypes.BIGINT) long value, @SampleWeight long sampleWeight)
     {
         doubleInput(state, (double) value, sampleWeight);
     }
 
     @InputFunction
-    public static void doubleInput(ApproximateAverageState state, @SqlType(DoubleType.class) double value, @SampleWeight long sampleWeight)
+    public static void doubleInput(ApproximateAverageState state, @SqlType(StandardTypes.DOUBLE) double value, @SampleWeight long sampleWeight)
     {
         long currentCount = state.getCount();
         double currentMean = state.getMean();
@@ -88,7 +79,7 @@ public final class ApproximateAverageAggregations
         }
     }
 
-    @OutputFunction(VarcharType.class)
+    @OutputFunction(StandardTypes.VARCHAR)
     public static void output(ApproximateAverageState state, double confidence, BlockBuilder out)
     {
         if (state.getCount() == 0) {

@@ -214,7 +214,7 @@ public class PipelineContext
         return result;
     }
 
-    private synchronized void freeMemory(long bytes)
+    public synchronized void freeMemory(long bytes)
     {
         checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
         taskContext.freeMemory(bytes);
@@ -383,6 +383,7 @@ public class PipelineContext
     {
         return new Function<PipelineContext, PipelineStats>()
         {
+            @Override
             public PipelineStats apply(PipelineContext pipelineContext)
             {
                 return pipelineContext.getPipelineStats();

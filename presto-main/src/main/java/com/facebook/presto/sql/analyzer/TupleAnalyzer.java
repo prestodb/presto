@@ -594,12 +594,12 @@ class TupleAnalyzer
                 throw new SemanticException(NOT_SUPPORTED, node, "Window frames not yet supported");
             }
 
-            List<Type> argumentTypes = Lists.transform(windowFunction.getArguments(), new Function<Expression, Type>()
+            List<String> argumentTypes = Lists.transform(windowFunction.getArguments(), new Function<Expression, String>()
             {
                 @Override
-                public Type apply(Expression input)
+                public String apply(Expression input)
                 {
-                    return analysis.getType(input);
+                    return analysis.getType(input).getName();
                 }
             });
 

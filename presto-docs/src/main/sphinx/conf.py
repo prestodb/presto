@@ -75,7 +75,7 @@ project = u'Presto'
 version = get_version()
 release = version
 
-exclude_patterns = ['_build']
+exclude_patterns = ['_build', 'rest*', 'overview/concepts*']
 
 pygments_style = 'sphinx'
 

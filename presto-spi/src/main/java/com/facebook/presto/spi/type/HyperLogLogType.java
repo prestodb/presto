@@ -29,15 +29,10 @@ public class HyperLogLogType
 {
     public static final HyperLogLogType HYPER_LOG_LOG = new HyperLogLogType();
 
-    public static HyperLogLogType getInstance()
-    {
-        return HYPER_LOG_LOG;
-    }
-
     @JsonCreator
     public HyperLogLogType()
     {
-        super("HyperLogLog", Slice.class);
+        super(StandardTypes.HYPER_LOG_LOG, Slice.class);
     }
 
     @Override

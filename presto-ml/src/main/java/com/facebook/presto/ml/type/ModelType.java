@@ -18,9 +18,13 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VariableWidthType;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+
+import java.util.List;
 
 // Layout is <size>:<model>, where
 //   size: is an int describing the length of the model bytes
@@ -33,11 +37,6 @@ public class ModelType
     @JsonCreator
     public ModelType()
     {
-    }
-
-    public static ModelType getInstance()
-    {
-        return MODEL;
     }
 
     @Override
@@ -62,6 +61,12 @@ public class ModelType
     public Class<?> getJavaType()
     {
         return Slice.class;
+    }
+
+    @Override
+    public List<Type> getTypeParameters()
+    {
+        return ImmutableList.of();
     }
 
     @Override

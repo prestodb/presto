@@ -54,13 +54,11 @@ public class UnloadedIndexKeyRecordSet
         GroupByHash groupByHash = new GroupByHash(types, allChannels, 10_000);
         for (UpdateRequest request : requests) {
             IntList positions = new IntArrayList();
-
-            int startPosition = request.getStartPosition();
             Block[] blocks = request.getBlocks();
 
             // Move through the positions while advancing the cursors in lockstep
             int positionCount = blocks[0].getPositionCount();
-            for (int position = startPosition; position < positionCount; position++) {
+            for (int position = 0; position < positionCount; position++) {
                 // We are reading ahead in the cursors, so we need to filter any nulls since they can not join
                 if (!containsNullValue(position, blocks) && groupByHash.putIfAbsent(position, blocks) == nextDistinctId) {
                     nextDistinctId++;

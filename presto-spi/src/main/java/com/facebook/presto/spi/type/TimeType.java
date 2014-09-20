@@ -28,14 +28,9 @@ public final class TimeType
 {
     public static final TimeType TIME = new TimeType();
 
-    public static TimeType getInstance()
-    {
-        return TIME;
-    }
-
     private TimeType()
     {
-        super("time", long.class, SIZE_OF_LONG);
+        super(StandardTypes.TIME, long.class, SIZE_OF_LONG);
     }
 
     @Override

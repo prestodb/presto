@@ -24,14 +24,9 @@ public final class IntervalDayTimeType
 {
     public static final IntervalDayTimeType INTERVAL_DAY_TIME = new IntervalDayTimeType();
 
-    public static IntervalDayTimeType getInstance()
-    {
-        return INTERVAL_DAY_TIME;
-    }
-
     private IntervalDayTimeType()
     {
-        super("interval day to second", long.class, SIZE_OF_LONG);
+        super(StandardTypes.INTERVAL_DAY_TO_SECOND, long.class, SIZE_OF_LONG);
     }
 
     @Override

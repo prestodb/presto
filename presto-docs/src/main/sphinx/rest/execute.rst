@@ -3,7 +3,7 @@ Execute Resource
 ================
 
 .. function:: POST /v1/execute
-   
+
    :Body: SQL Query to execute
    :Header "X-Presto-User": User to execute statement on behalf of (optional)
    :Header "X-Presto-Source": Source of query

@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.TriStateBooleanState;
-import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.FALSE_VALUE;
@@ -24,13 +24,11 @@ import static com.facebook.presto.operator.aggregation.state.TriStateBooleanStat
 @AggregationFunction("max")
 public final class BooleanMaxAggregation
 {
-    public static final InternalAggregationFunction BOOLEAN_MAX = new AggregationCompiler().generateAggregationFunction(BooleanMaxAggregation.class);
-
     private BooleanMaxAggregation() {}
 
     @InputFunction
     @IntermediateInputFunction
-    public static void max(TriStateBooleanState state, @SqlType(BooleanType.class) boolean value)
+    public static void max(TriStateBooleanState state, @SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         // if value is true, update the max to true
         if (value) {

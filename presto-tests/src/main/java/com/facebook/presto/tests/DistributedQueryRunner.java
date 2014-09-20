@@ -24,12 +24,14 @@ import com.facebook.presto.testing.QueryRunner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Closer;
 import com.google.inject.Module;
+import io.airlift.log.Logger;
 import io.airlift.testing.Assertions;
-import io.airlift.testing.Closeables;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -43,11 +45,14 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class DistributedQueryRunner
         implements QueryRunner
 {
+    private static final Logger log = Logger.get(DistributedQueryRunner.class);
     private static final String ENVIRONMENT = "testing";
 
     private final TestingDiscoveryServer discoveryServer;
     private final TestingPrestoServer coordinator;
     private final List<TestingPrestoServer> servers;
+
+    private final Closer closer = Closer.create();
 
     private final TestingPrestoClient prestoClient;
 
@@ -57,14 +62,17 @@ public class DistributedQueryRunner
         checkNotNull(defaultSession, "defaultSession is null");
 
         try {
-            discoveryServer = new TestingDiscoveryServer(ENVIRONMENT);
+            long start = System.nanoTime();
+            discoveryServer = closer.register(new TestingDiscoveryServer(ENVIRONMENT));
+            log.info("Created TestingDiscoveryServer in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
             ImmutableList.Builder<TestingPrestoServer> servers = ImmutableList.builder();
-            coordinator = createTestingPrestoServer(discoveryServer.getBaseUrl(), true);
+            coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true));
             servers.add(coordinator);
 
             for (int i = 1; i < workersCount; i++) {
-                servers.add(createTestingPrestoServer(discoveryServer.getBaseUrl(), false));
+                TestingPrestoServer worker = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), false));
+                servers.add(worker);
             }
             this.servers = servers.build();
         }
@@ -73,33 +81,40 @@ public class DistributedQueryRunner
             throw e;
         }
 
-        this.prestoClient = new TestingPrestoClient(coordinator, defaultSession);
+        this.prestoClient = closer.register(new TestingPrestoClient(coordinator, defaultSession));
 
         long start = System.nanoTime();
         while (!allNodesGloballyVisible()) {
             Assertions.assertLessThan(nanosSince(start), new Duration(10, SECONDS));
             MILLISECONDS.sleep(10);
         }
+        log.info("Announced servers in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
+        start = System.nanoTime();
         for (TestingPrestoServer server : servers) {
             server.getMetadata().addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
         }
+        log.info("Added functions in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
     private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri, boolean coordinator)
             throws Exception
     {
+        long start = System.nanoTime();
         ImmutableMap.Builder<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.client.timeout", "10m")
                 .put("exchange.http-client.read-timeout", "1h")
                 .put("compiler.interpreter-enabled", "false")
-                .put("compiler.new-bytecode-generator-enabled", "true")
-                .put("datasources", "system");
+                .put("task.max-index-memory", "128kB") // causes index joins to fault load
+                .put("datasources", "system")
+                .put("distributed-index-joins-enabled", "true");
         if (coordinator) {
             properties.put("node-scheduler.include-coordinator", "false");
         }
 
         TestingPrestoServer server = new TestingPrestoServer(coordinator, properties.build(), ENVIRONMENT, discoveryUri, ImmutableList.<Module>of());
+
+        log.info("Created TestingPrestoServer in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
         return server;
     }
@@ -114,6 +129,11 @@ public class DistributedQueryRunner
             }
         }
         return true;
+    }
+
+    public TestingPrestoClient getClient()
+    {
+        return prestoClient;
     }
 
     @Override
@@ -133,11 +153,14 @@ public class DistributedQueryRunner
         return coordinator;
     }
 
+    @Override
     public void installPlugin(Plugin plugin)
     {
+        long start = System.nanoTime();
         for (TestingPrestoServer server : servers) {
             server.installPlugin(plugin);
         }
+        log.info("Installed plugin %s in %s", plugin.getClass().getSimpleName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
     public void createCatalog(String catalogName, String connectorName)
@@ -145,14 +168,17 @@ public class DistributedQueryRunner
         createCatalog(catalogName, connectorName, ImmutableMap.<String, String>of());
     }
 
+    @Override
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
+        long start = System.nanoTime();
         for (TestingPrestoServer server : servers) {
             server.createCatalog(catalogName, connectorName, properties);
         }
+        log.info("Created catalog %s in %s", catalogName, nanosSince(start).convertToMostSuccinctTimeUnit());
 
         // wait for all nodes to announce the new catalog
-        long start = System.nanoTime();
+        start = System.nanoTime();
         while (!isConnectionVisibleToAllNodes(catalogName)) {
             Assertions.assertLessThan(nanosSince(start), new Duration(100, SECONDS), "waiting form connector " + connectorName + " to be initialized in every node");
             try {
@@ -163,6 +189,7 @@ public class DistributedQueryRunner
                 throw Throwables.propagate(e);
             }
         }
+        log.info("Announced catalog %s in %s", catalogName, nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
     private boolean isConnectionVisibleToAllNodes(String connectorId)
@@ -204,12 +231,11 @@ public class DistributedQueryRunner
     @Override
     public final void close()
     {
-        if (servers != null) {
-            for (TestingPrestoServer server : servers) {
-                Closeables.closeQuietly(server);
-            }
+        try {
+            closer.close();
         }
-        Closeables.closeQuietly(prestoClient);
-        Closeables.closeQuietly(discoveryServer);
+        catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
     }
 }

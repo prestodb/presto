@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -118,7 +119,7 @@ public class ExchangeClient
         for (HttpPageBufferClient client : allClients.values()) {
             exchangeStatus.add(client.getStatus());
         }
-        return new ExchangeClientStatus(bufferBytes, averageBytesPerRequest, bufferedPages, exchangeStatus.build());
+        return new ExchangeClientStatus(bufferBytes, averageBytesPerRequest, bufferedPages, noMoreLocations, exchangeStatus.build());
     }
 
     public synchronized void addLocation(URI location)
@@ -196,7 +197,7 @@ public class ExchangeClient
 
         if (page != null) {
             synchronized (this) {
-                bufferBytes -= page.getDataSize().toBytes();
+                bufferBytes -= page.getSizeInBytes();
             }
             if (!closed.get() && pageBuffer.peek() == NO_MORE_PAGES) {
                 closed.set(true);
@@ -306,11 +307,11 @@ public class ExchangeClient
         // notify all blocked callers
         notifyBlockedCallers();
 
-        bufferBytes += page.getDataSize().toBytes();
+        bufferBytes += page.getSizeInBytes();
         successfulRequests++;
 
         // AVG_n = AVG_(n-1) * (n-1)/n + VALUE_n / n
-        averageBytesPerRequest = (long) (1.0 * averageBytesPerRequest * (successfulRequests - 1) / successfulRequests + page.getDataSize().toBytes() / successfulRequests);
+        averageBytesPerRequest = (long) (1.0 * averageBytesPerRequest * (successfulRequests - 1) / successfulRequests + page.getSizeInBytes() / successfulRequests);
 
         scheduleRequestIfNecessary();
     }

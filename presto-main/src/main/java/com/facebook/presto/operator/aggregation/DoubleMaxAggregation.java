@@ -15,19 +15,17 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.InitialDoubleValue;
 import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
-import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 
 @AggregationFunction("max")
 public final class DoubleMaxAggregation
 {
-    public static final InternalAggregationFunction DOUBLE_MAX = new AggregationCompiler().generateAggregationFunction(DoubleMaxAggregation.class);
-
     private DoubleMaxAggregation() {}
 
     @InputFunction
     @IntermediateInputFunction
-    public static void max(DoubleMaxState state, @SqlType(DoubleType.class) double value)
+    public static void max(DoubleMaxState state, @SqlType(StandardTypes.DOUBLE) double value)
     {
         state.setNull(false);
         state.setDouble(Math.max(state.getDouble(), value));

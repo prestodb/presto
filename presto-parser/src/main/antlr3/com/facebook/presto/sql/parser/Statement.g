@@ -49,6 +49,7 @@ tokens {
     RIGHT_JOIN;
     FULL_JOIN;
     COMPARE;
+    SUBSCRIPT;
     IS_NULL;
     IS_NOT_NULL;
     IS_DISTINCT_FROM;
@@ -192,14 +193,14 @@ orderOrLimitQuerySpec
 
 queryExprBody
     : ( queryTerm -> queryTerm )
-      ( UNION setQuant? queryTerm       -> ^(UNION $queryExprBody queryTerm setQuant?)
-      | EXCEPT setQuant? queryTerm      -> ^(EXCEPT $queryExprBody queryTerm setQuant?)
+      ( UNION s=setQuant? queryTerm       -> ^(UNION $queryExprBody queryTerm $s?)
+      | EXCEPT s=setQuant? queryTerm      -> ^(EXCEPT $queryExprBody queryTerm $s?)
       )*
     ;
 
 queryTerm
     : ( queryPrimary -> queryPrimary )
-      ( INTERSECT setQuant? queryPrimary -> ^(INTERSECT $queryTerm queryPrimary setQuant?) )*
+      ( INTERSECT s=setQuant? queryPrimary -> ^(INTERSECT $queryTerm queryPrimary $s?) )*
     ;
 
 queryPrimary
@@ -227,11 +228,6 @@ simpleQuery
       whereClause?
       groupClause?
       havingClause?
-    ;
-
-restrictedSelectStmt
-    : selectClause
-      fromClause
     ;
 
 approximateClause
@@ -420,12 +416,18 @@ numericFactor
     ;
 
 exprWithTimeZone
-    : (exprPrimary -> exprPrimary)
+    : (subscriptExpression -> subscriptExpression)
       (
         // todo this should have a full tree node to preserve the syntax
-        AT TIME ZONE STRING           -> ^(FUNCTION_CALL ^(QNAME IDENT["at_time_zone"]) $exprWithTimeZone STRING)
+        AT TIME ZONE STRING             -> ^(FUNCTION_CALL ^(QNAME IDENT["at_time_zone"]) $exprWithTimeZone STRING)
       | AT TIME ZONE intervalLiteral    -> ^(FUNCTION_CALL ^(QNAME IDENT["at_time_zone"]) $exprWithTimeZone intervalLiteral)
       )?
+    ;
+
+subscriptExpression
+    : (exprPrimary -> exprPrimary)
+      ( '[' expr ']' -> ^(SUBSCRIPT $subscriptExpression expr) )*
+    | caseExpression
     ;
 
 exprPrimary
@@ -436,15 +438,14 @@ exprPrimary
     | number
     | bool
     | STRING
-    | caseExpression
     | ('(' expr ')') => ('(' expr ')' -> expr)
     | subquery
     ;
 
 qnameOrFunction
     : (qname -> qname)
-      ( ('(' '*' ')' over?                          -> ^(FUNCTION_CALL $qnameOrFunction over?))
-      | ('(' setQuant? expr? (',' expr)* ')' over?  -> ^(FUNCTION_CALL $qnameOrFunction over? setQuant? expr*))
+      ( '(' '*' ')' over?                            -> ^(FUNCTION_CALL $qnameOrFunction over?)
+      | '(' (setQuant? expr (',' expr)*)? ')' over?  -> ^(FUNCTION_CALL $qnameOrFunction over? setQuant? expr*)
       )?
     ;
 
@@ -485,7 +486,12 @@ literal
     | (TIME) => TIME STRING           -> ^(TIME STRING)
     | (TIMESTAMP) => TIMESTAMP STRING -> ^(TIMESTAMP STRING)
     | (INTERVAL) => intervalLiteral
+    | (ARRAY) => arrayConstructor
     | ident STRING                    -> ^(LITERAL ident STRING)
+    ;
+
+arrayConstructor
+    : ARRAY '[' (expr (',' expr)*)? ']'     -> ^(ARRAY expr*)
     ;
 
 intervalLiteral
@@ -825,6 +831,7 @@ ROW: 'ROW';
 WITH: 'WITH';
 RECURSIVE: 'RECURSIVE';
 VALUES: 'VALUES';
+ARRAY: 'ARRAY';
 CREATE: 'CREATE';
 TABLE: 'TABLE';
 VIEW: 'VIEW';

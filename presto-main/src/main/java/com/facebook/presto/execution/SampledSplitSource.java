@@ -51,6 +51,7 @@ public class SampledSplitSource
         List<Split> nextBatch = splitSource.getNextBatch(maxSize);
         Iterable<Split> sampleIterable = Iterables.filter(nextBatch, new Predicate<Split>()
         {
+            @Override
             public boolean apply(@Nullable Split input)
             {
                 return ThreadLocalRandom.current().nextDouble() < sampleRatio;

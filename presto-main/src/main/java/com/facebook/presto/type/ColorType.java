@@ -25,15 +25,11 @@ public class ColorType
         extends AbstractFixedWidthType
 {
     public static final ColorType COLOR = new ColorType();
-
-    public static ColorType getInstance()
-    {
-        return COLOR;
-    }
+    public static final String NAME = "color";
 
     private ColorType()
     {
-        super("color", long.class, SIZE_OF_INT);
+        super(NAME, long.class, SIZE_OF_INT);
     }
 
     @Override

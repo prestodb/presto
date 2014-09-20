@@ -15,7 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.PagePartitionFunction;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
-import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.Page;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 

@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>24</version>
+        <version>27</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.75-SNAPSHOT</version>
+    <version>0.77-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -44,7 +44,7 @@
 
         <dep.antlr.version>3.4</dep.antlr.version>
         <dep.slice.version>0.7</dep.slice.version>
-        <dep.airlift.version>0.93-SNAPSHOT</dep.airlift.version>
+        <dep.airlift.version>0.95-SNAPSHOT</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
 
         <cli.skip-execute>true</cli.skip-execute>
@@ -56,6 +56,7 @@
 
     <modules>
         <module>presto-spi</module>
+        <module>presto-kafka</module>
         <module>presto-cassandra</module>
         <module>presto-hive</module>
         <module>presto-hive-hadoop1</module>
@@ -65,6 +66,9 @@
         <module>presto-example-http</module>
         <module>presto-tpch</module>
         <module>presto-raptor</module>
+        <module>presto-base-jdbc</module>
+        <module>presto-mysql</module>
+        <module>presto-postgresql</module>
         <module>presto-client</module>
         <module>presto-parser</module>
         <module>presto-main</module>
@@ -73,9 +77,6 @@
         <module>presto-tests</module>
         <module>presto-jdbc</module>
         <module>presto-cli</module>
-
-        <!-- Important: presto-server needs to be listed *after* all plugins in order for them to be included in the tgz.
-             The dependency resolution rules in the maven assembly are broken, so presto-server can't depend on the plugins -->
         <module>presto-server</module>
         <module>presto-docs</module>
         <module>presto-verifier</module>
@@ -119,6 +120,18 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-tpch</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-base-jdbc</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-mysql</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -401,6 +414,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.postgresql</groupId>
+                <artifactId>postgresql</artifactId>
+                <version>9.3-1102-jdbc41</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.jruby.jcodings</groupId>
                 <artifactId>jcodings</artifactId>
                 <version>1.0.8</version>
@@ -461,21 +480,9 @@
             </dependency>
 
             <dependency>
-                <groupId>commons-lang</groupId>
-                <artifactId>commons-lang</artifactId>
-                <version>2.6</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.commons</groupId>
-                <artifactId>commons-lang3</artifactId>
-                <version>3.1</version>
-            </dependency>
-
-            <dependency>
                 <groupId>commons-codec</groupId>
                 <artifactId>commons-codec</artifactId>
-                <version>1.7</version>
+                <version>1.9</version>
             </dependency>
 
             <dependency>
@@ -487,21 +494,73 @@
             <dependency>
                 <groupId>io.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.20-SNAPSHOT</version>
+                <version>1.20</version>
             </dependency>
 
             <dependency>
                 <groupId>com.amazonaws</groupId>
                 <artifactId>aws-java-sdk</artifactId>
-                <version>1.7.1</version>
+                <version>1.8.9.1</version>
                 <exclusions>
                     <exclusion>
                         <groupId>commons-logging</groupId>
                         <artifactId>commons-logging</artifactId>
                     </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>testing-mysql-server</artifactId>
+                <version>0.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>testing-postgresql-server</artifactId>
+                <version>0.3</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.kafka</groupId>
+                <artifactId>kafka_2.10</artifactId>
+                <version>0.8.1.1</version>
+                <exclusions>
                     <exclusion>
-                        <groupId>joda-time</groupId>
-                        <artifactId>joda-time</artifactId>
+                        <groupId>log4j</groupId>
+                        <artifactId>log4j</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-jdk14</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.zookeeper</groupId>
+                <artifactId>zookeeper</artifactId>
+                <version>3.3.6</version>
+                <exclusions>
+                    <exclusion>
+                        <artifactId>junit</artifactId>
+                        <groupId>junit</groupId>
+                    </exclusion>
+                    <exclusion>
+                        <artifactId>log4j</artifactId>
+                        <groupId>log4j</groupId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.101tec</groupId>
+                <artifactId>zkclient</artifactId>
+                <version>0.4</version>
+                <exclusions>
+                    <exclusion>
+                        <artifactId>log4j</artifactId>
+                        <groupId>log4j</groupId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -517,13 +576,9 @@
                     <configuration combine.children="append">
                         <argLine>-Duser.timezone=${test.timezone} -Xmx2g -Xms2g -XX:MaxPermSize=512m</argLine>
                         <parallel>methods</parallel>
-                        <threadCount>4</threadCount>
-                        <perCoreThreadCount>true</perCoreThreadCount>
+                        <threadCount>8</threadCount>
                         <systemPropertyVariables>
-                            <file.encoding>${project.build.sourceEncoding}</file.encoding>
-                            <sun.jnu.encoding>${project.build.sourceEncoding}</sun.jnu.encoding>
                             <user.timezone>${test.timezone}</user.timezone>
-                            <java.awt.headless>true</java.awt.headless>
                             <java.util.logging.SimpleFormatter.format>%1$tY-%1$tm-%1$td %1$tH:%1$tM:%1$tS %4$s %5$s%6$s%n</java.util.logging.SimpleFormatter.format>
                         </systemPropertyVariables>
                     </configuration>
@@ -632,6 +687,19 @@
                                         <ignore />
                                     </action>
                                 </pluginExecution>
+                                <pluginExecution>
+                                    <pluginExecutionFilter>
+                                        <groupId>org.apache.maven.plugins</groupId>
+                                        <artifactId>maven-checkstyle-plugin</artifactId>
+                                        <versionRange>[2.11,)</versionRange>
+                                        <goals>
+                                            <goal>check</goal>
+                                        </goals>
+                                    </pluginExecutionFilter>
+                                    <action>
+                                        <ignore />
+                                    </action>
+                                </pluginExecution>
                             </pluginExecutions>
                         </lifecycleMappingMetadata>
                     </configuration>
@@ -660,6 +728,20 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>io.takari.maven.plugins</groupId>
+                <artifactId>presto-maven-plugin</artifactId>
+                <version>0.1.5</version>
+                <extensions>true</extensions>
+            </plugin>
+
+            <plugin>
+                <groupId>io.takari.maven.plugins</groupId>
+                <artifactId>provisio-maven-plugin</artifactId>
+                <version>0.1.11</version>
+                <extensions>true</extensions>
             </plugin>
         </plugins>
     </build>

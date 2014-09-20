@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.TriStateBooleanState;
-import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.FALSE_VALUE;
@@ -24,13 +24,11 @@ import static com.facebook.presto.operator.aggregation.state.TriStateBooleanStat
 @AggregationFunction("min")
 public final class BooleanMinAggregation
 {
-    public static final InternalAggregationFunction BOOLEAN_MIN = new AggregationCompiler().generateAggregationFunction(BooleanMinAggregation.class);
-
     private BooleanMinAggregation() {}
 
     @InputFunction
     @IntermediateInputFunction
-    public static void min(TriStateBooleanState state, @SqlType(BooleanType.class) boolean value)
+    public static void min(TriStateBooleanState state, @SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         // if value is false, update the min to false
         if (!value) {

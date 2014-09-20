@@ -22,6 +22,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -43,10 +44,12 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.LikeFunctions;
 import com.google.common.base.Charsets;
@@ -55,6 +58,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import org.joni.Regex;
 
@@ -69,6 +73,7 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpressions;
+import static com.facebook.presto.type.TypeUtils.nameGetter;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
@@ -527,8 +532,8 @@ public class ExpressionInterpreter
 
             Type commonType = FunctionRegistry.getCommonSuperType(firstType, secondType).get();
 
-            FunctionInfo firstCast = metadata.getExactOperator(OperatorType.CAST, commonType, ImmutableList.of(firstType));
-            FunctionInfo secondCast = metadata.getExactOperator(OperatorType.CAST, commonType, ImmutableList.of(secondType));
+            FunctionInfo firstCast = metadata.getFunctionRegistry().getCoercion(firstType, commonType);
+            FunctionInfo secondCast = metadata.getFunctionRegistry().getCoercion(secondType, commonType);
 
             // cast(first as <common type>) == cast(second as <common type>)
             boolean equal = (Boolean) invokeOperator(
@@ -612,14 +617,17 @@ public class ExpressionInterpreter
             List<Object> argumentValues = new ArrayList<>();
             for (Expression expression : node.getArguments()) {
                 Object value = process(expression, context);
-                if (value == null) {
-                    return null;
-                }
                 Type type = expressionTypes.get(expression);
                 argumentValues.add(value);
                 argumentTypes.add(type);
             }
-            FunctionInfo function = metadata.resolveFunction(node.getName(), argumentTypes, false);
+            FunctionInfo function = metadata.resolveFunction(node.getName(), Lists.transform(argumentTypes, nameGetter()), false);
+            for (int i = 0; i < argumentValues.size(); i++) {
+                Object value = argumentValues.get(i);
+                if (value == null && !function.getNullableArguments().get(i)) {
+                    return null;
+                }
+            }
 
             // do not optimize non-deterministic functions
             if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues))) {
@@ -739,7 +747,7 @@ public class ExpressionInterpreter
                 throw new IllegalArgumentException("Unsupported type: " + node.getType());
             }
 
-            FunctionInfo operatorInfo = metadata.getExactOperator(OperatorType.CAST, type, types(node.getExpression()));
+            FunctionInfo operatorInfo = metadata.getFunctionRegistry().getCoercion(expressionTypes.get(node.getExpression()), type);
 
             try {
                 return invoke(session, operatorInfo.getMethodHandle(), ImmutableList.of(value));
@@ -750,6 +758,31 @@ public class ExpressionInterpreter
                 }
                 throw e;
             }
+        }
+
+        @Override
+        protected Object visitArrayConstructor(ArrayConstructor node, Object context)
+        {
+            return visitFunctionCall(new FunctionCall(QualifiedName.of(ArrayConstructor.ARRAY_CONSTRUCTOR), node.getValues()), context);
+        }
+
+        @Override
+        protected Object visitSubscriptExpression(SubscriptExpression node, Object context)
+        {
+            Object base = process(node.getBase(), context);
+            if (base == null) {
+                return null;
+            }
+            Object index = process(node.getIndex(), context);
+            if (index == null) {
+                return null;
+            }
+
+            if (hasUnresolvedValue(base, index)) {
+                return new SubscriptExpression(toExpression(base, expressionTypes.get(node.getBase())), toExpression(index, expressionTypes.get(node.getIndex())));
+            }
+
+            return invokeOperator(OperatorType.SUBSCRIPT, types(node.getBase(), node.getIndex()), ImmutableList.of(base, index));
         }
 
         @Override

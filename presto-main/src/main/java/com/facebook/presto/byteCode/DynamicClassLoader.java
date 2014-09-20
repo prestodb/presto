@@ -15,9 +15,11 @@ package com.facebook.presto.byteCode;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 
+import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,6 +29,7 @@ public class DynamicClassLoader
         extends ClassLoader
 {
     private final ConcurrentMap<String, byte[]> pendingClasses = new ConcurrentHashMap<>();
+    private final Map<Long, MethodHandle> callsiteBindings;
 
     public DynamicClassLoader()
     {
@@ -35,7 +38,13 @@ public class DynamicClassLoader
 
     public DynamicClassLoader(ClassLoader parentClassLoader)
     {
+        this(parentClassLoader, ImmutableMap.<Long, MethodHandle>of());
+    }
+
+    public DynamicClassLoader(ClassLoader parentClassLoader, Map<Long, MethodHandle> callsiteBindings)
+    {
         super(resolveClassLoader(parentClassLoader));
+        this.callsiteBindings = ImmutableMap.copyOf(callsiteBindings);
     }
 
     public Class<?> defineClass(String className, byte[] byteCode)
@@ -66,6 +75,11 @@ public class DynamicClassLoader
         finally {
             pendingClasses.keySet().removeAll(newClasses.keySet());
         }
+    }
+
+    public Map<Long, MethodHandle> getCallsiteBindings()
+    {
+        return callsiteBindings;
     }
 
     @Override

@@ -14,11 +14,12 @@
 package com.facebook.presto.ml;
 
 import com.facebook.presto.metadata.FunctionFactory;
-import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionListBuilder;
+import com.facebook.presto.metadata.ParametricFunction;
+import com.facebook.presto.spi.type.TypeManager;
 
 import java.util.List;
 
-import static com.facebook.presto.metadata.FunctionRegistry.FunctionListBuilder;
 import static com.facebook.presto.ml.type.ClassifierType.CLASSIFIER;
 import static com.facebook.presto.ml.type.RegressorType.REGRESSOR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -27,22 +28,27 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 public class MLFunctionFactory
         implements FunctionFactory
 {
-    private static final List<FunctionInfo> FUNCTIONS = new FunctionListBuilder()
-            .aggregate(new LearnAggregation(CLASSIFIER, BIGINT))
-            .aggregate(new LearnAggregation(CLASSIFIER, DOUBLE))
-            .aggregate(new LearnAggregation(REGRESSOR, BIGINT))
-            .aggregate(new LearnAggregation(REGRESSOR, DOUBLE))
-            .aggregate(new LearnLibSvmAggregation(CLASSIFIER, BIGINT))
-            .aggregate(new LearnLibSvmAggregation(CLASSIFIER, DOUBLE))
-            .aggregate(new LearnLibSvmAggregation(REGRESSOR, BIGINT))
-            .aggregate(new LearnLibSvmAggregation(REGRESSOR, DOUBLE))
-            .aggregate(EvaluateClassifierPredictionsAggregation.class)
-            .scalar(MLFunctions.class)
-            .getFunctions();
+    private final TypeManager typeManager;
+
+    public MLFunctionFactory(TypeManager typeManager)
+    {
+        this.typeManager = typeManager;
+    }
 
     @Override
-    public List<FunctionInfo> listFunctions()
+    public List<ParametricFunction> listFunctions()
     {
-        return FUNCTIONS;
+        return new FunctionListBuilder(typeManager)
+                .aggregate(new LearnAggregation(CLASSIFIER, BIGINT))
+                .aggregate(new LearnAggregation(CLASSIFIER, DOUBLE))
+                .aggregate(new LearnAggregation(REGRESSOR, BIGINT))
+                .aggregate(new LearnAggregation(REGRESSOR, DOUBLE))
+                .aggregate(new LearnLibSvmAggregation(CLASSIFIER, BIGINT))
+                .aggregate(new LearnLibSvmAggregation(CLASSIFIER, DOUBLE))
+                .aggregate(new LearnLibSvmAggregation(REGRESSOR, BIGINT))
+                .aggregate(new LearnLibSvmAggregation(REGRESSOR, DOUBLE))
+                .aggregate(EvaluateClassifierPredictionsAggregation.class)
+                .scalar(MLFunctions.class)
+                .getFunctions();
     }
 }

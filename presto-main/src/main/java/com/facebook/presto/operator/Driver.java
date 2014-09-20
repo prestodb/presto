@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -457,6 +458,11 @@ public class Driver
 
         private DriverLockResult(int timeout, TimeUnit unit)
         {
+            acquired = tryAcquire(timeout, unit);
+        }
+
+        private boolean tryAcquire(int timeout, TimeUnit unit)
+        {
             boolean acquired = false;
             try {
                 acquired = exclusiveLock.tryLock(timeout, unit);
@@ -464,13 +470,14 @@ public class Driver
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-            this.acquired = acquired;
 
             if (acquired) {
                 synchronized (Driver.this) {
                     lockHolder = Thread.currentThread();
                 }
             }
+
+            return acquired;
         }
 
         public boolean wasAcquired()
@@ -485,20 +492,30 @@ public class Driver
                 return;
             }
 
-            // before releasing the lock, process any new sources and/or destroy the driver
-            try {
+            boolean done = false;
+            while (!done) {
+                done = true;
+                // before releasing the lock, process any new sources and/or destroy the driver
                 try {
-                    processNewSources();
+                    try {
+                        processNewSources();
+                    }
+                    finally {
+                        destroyIfNecessary();
+                    }
                 }
                 finally {
-                    destroyIfNecessary();
+                    synchronized (Driver.this) {
+                        lockHolder = null;
+                    }
+                    exclusiveLock.unlock();
+
+                    // if new sources were added after we processed them, go around and try again
+                    // in case someone else failed to acquire the lock and as a result won't update them
+                    if (!newSources.isEmpty() && state.get() == State.ALIVE && tryAcquire(0, TimeUnit.MILLISECONDS)) {
+                        done = false;
+                    }
                 }
-            }
-            finally {
-                synchronized (Driver.this) {
-                    lockHolder = null;
-                }
-                exclusiveLock.unlock();
             }
         }
     }

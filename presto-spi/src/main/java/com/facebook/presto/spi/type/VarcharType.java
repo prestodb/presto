@@ -27,15 +27,10 @@ public class VarcharType
 {
     public static final VarcharType VARCHAR = new VarcharType();
 
-    public static VarcharType getInstance()
-    {
-        return VARCHAR;
-    }
-
     @JsonCreator
     public VarcharType()
     {
-        super("varchar", Slice.class);
+        super(StandardTypes.VARCHAR, Slice.class);
     }
 
     @Override

@@ -28,14 +28,9 @@ public final class TimestampType
 {
     public static final TimestampType TIMESTAMP = new TimestampType();
 
-    public static TimestampType getInstance()
-    {
-        return TIMESTAMP;
-    }
-
     private TimestampType()
     {
-        super("timestamp", long.class, SIZE_OF_LONG);
+        super(StandardTypes.TIMESTAMP, long.class, SIZE_OF_LONG);
     }
 
     @Override

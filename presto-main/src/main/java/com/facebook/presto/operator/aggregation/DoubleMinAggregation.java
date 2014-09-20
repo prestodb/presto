@@ -15,19 +15,17 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.InitialDoubleValue;
 import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
-import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 
 @AggregationFunction("min")
 public final class DoubleMinAggregation
 {
-    public static final InternalAggregationFunction DOUBLE_MIN = new AggregationCompiler().generateAggregationFunction(DoubleMinAggregation.class);
-
     private DoubleMinAggregation() {}
 
     @InputFunction
     @IntermediateInputFunction
-    public static void min(DoubleMinState state, @SqlType(DoubleType.class) double value)
+    public static void min(DoubleMinState state, @SqlType(StandardTypes.DOUBLE) double value)
     {
         state.setNull(false);
         state.setDouble(Math.min(state.getDouble(), value));

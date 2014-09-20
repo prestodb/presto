@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -44,37 +46,51 @@ public class SimplePagesHashStrategy
     }
 
     @Override
-    public void appendTo(int blockIndex, int blockPosition, PageBuilder pageBuilder, int outputChannelOffset)
+    public void appendTo(int blockIndex, int position, PageBuilder pageBuilder, int outputChannelOffset)
     {
         for (int i = 0; i < channels.size(); i++) {
             Type type = types.get(i);
             List<Block> channel = channels.get(i);
             Block block = channel.get(blockIndex);
-            type.appendTo(block, blockPosition, pageBuilder.getBlockBuilder(outputChannelOffset));
+            type.appendTo(block, position, pageBuilder.getBlockBuilder(outputChannelOffset));
             outputChannelOffset++;
         }
     }
 
     @Override
-    public int hashPosition(int blockIndex, int blockPosition)
+    public int hashPosition(int blockIndex, int position)
     {
         int result = 0;
         for (int hashChannel : hashChannels) {
             Type type = types.get(hashChannel);
             Block block = channels.get(hashChannel).get(blockIndex);
-            result = result * 31 + type.hash(block, blockPosition);
+            result = result * 31 + TypeUtils.hashPosition(type, block, position);
         }
         return result;
     }
 
     @Override
-    public boolean positionEqualsRow(int leftBlockIndex, int leftBlockPosition, int rightPosition, Block... rightBlocks)
+    public int hashRow(int position, Block... blocks)
+    {
+        int result = 0;
+        for (int i = 0; i < hashChannels.size(); i++) {
+            int hashChannel = hashChannels.get(i);
+            Type type = types.get(hashChannel);
+            Block block = blocks[i];
+            result = result * 31 + TypeUtils.hashPosition(type, block, position);
+        }
+        return result;
+    }
+
+    @Override
+    public boolean positionEqualsRow(int leftBlockIndex, int leftPosition, int rightPosition, Block... rightBlocks)
     {
         for (int i = 0; i < hashChannels.size(); i++) {
             int hashChannel = hashChannels.get(i);
             Type type = types.get(hashChannel);
             Block leftBlock = channels.get(hashChannel).get(leftBlockIndex);
-            if (!type.equalTo(leftBlock, leftBlockPosition, rightBlocks[i], rightPosition)) {
+            Block rightBlock = rightBlocks[i];
+            if (!TypeUtils.positionEqualsPosition(type, leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
         }
@@ -82,14 +98,14 @@ public class SimplePagesHashStrategy
     }
 
     @Override
-    public boolean positionEqualsPosition(int leftBlockIndex, int leftBlockPosition, int rightBlockIndex, int rightBlockPosition)
+    public boolean positionEqualsPosition(int leftBlockIndex, int leftPosition, int rightBlockIndex, int rightPosition)
     {
         for (int hashChannel : hashChannels) {
             Type type = types.get(hashChannel);
             List<Block> channel = channels.get(hashChannel);
             Block leftBlock = channel.get(leftBlockIndex);
             Block rightBlock = channel.get(rightBlockIndex);
-            if (!type.equalTo(leftBlock, leftBlockPosition, rightBlock, rightBlockPosition)) {
+            if (!TypeUtils.positionEqualsPosition(type, leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
         }

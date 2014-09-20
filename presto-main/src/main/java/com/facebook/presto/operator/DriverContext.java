@@ -156,6 +156,12 @@ public class DriverContext
         return result;
     }
 
+    public void freeMemory(long bytes)
+    {
+        pipelineContext.freeMemory(bytes);
+        memoryReservation.getAndAdd(-bytes);
+    }
+
     public boolean isCpuTimerEnabled()
     {
         return pipelineContext.isCpuTimerEnabled();
@@ -301,6 +307,7 @@ public class DriverContext
     {
         return new Function<DriverContext, DriverStats>()
         {
+            @Override
             public DriverStats apply(DriverContext driverContext)
             {
                 return driverContext.getDriverStats();
@@ -311,5 +318,12 @@ public class DriverContext
     public boolean isPartitioned()
     {
         return partitioned;
+    }
+
+    // hack for index joins
+    @Deprecated
+    public Executor getExecutor()
+    {
+        return executor;
     }
 }

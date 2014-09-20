@@ -28,12 +28,13 @@ import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSetMultimap;
 
-import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 public class InputExtractor
 {
@@ -46,12 +47,11 @@ public class InputExtractor
 
     public List<Input> extract(PlanNode root)
     {
-        ImmutableSetMultimap.Builder<TableEntry, Column> builder = ImmutableSetMultimap.builder();
-
-        root.accept(new Visitor(builder), null);
+        Visitor visitor = new Visitor();
+        root.accept(visitor, null);
 
         ImmutableList.Builder<Input> inputBuilder = ImmutableList.builder();
-        for (Map.Entry<TableEntry, Collection<Column>> entry : builder.build().asMap().entrySet()) {
+        for (Map.Entry<TableEntry, Set<Column>> entry : visitor.getInputs().entrySet()) {
             Input input = new Input(entry.getKey().getConnectorId(), entry.getKey().getSchema(), entry.getKey().getTable(), ImmutableList.copyOf(entry.getValue()));
             inputBuilder.add(input);
         }
@@ -59,32 +59,41 @@ public class InputExtractor
         return inputBuilder.build();
     }
 
+    private static Column createColumnEntry(ColumnMetadata columnMetadata)
+    {
+        return new Column(columnMetadata.getName(), columnMetadata.getType().toString(), Optional.<SimpleDomain>absent());
+    }
+
+    private static TableEntry createTableEntry(TableMetadata table)
+    {
+        SchemaTableName schemaTable = table.getTable();
+        return new TableEntry(table.getConnectorId(), schemaTable.getSchemaName(), schemaTable.getTableName());
+    }
+
     private class Visitor
             extends PlanVisitor<Void, Void>
     {
-        private final ImmutableSetMultimap.Builder<TableEntry, Column> builder;
+        private final Map<TableEntry, Set<Column>> inputs = new HashMap<>();
 
-        public Visitor(ImmutableSetMultimap.Builder<TableEntry, Column> builder)
+        public Map<TableEntry, Set<Column>> getInputs()
         {
-            this.builder = builder;
+            return inputs;
         }
 
         @Override
         public Void visitTableScan(TableScanNode node, Void context)
         {
             TableHandle tableHandle = node.getTable();
-            TableMetadata table = metadata.getTableMetadata(tableHandle);
-            SchemaTableName schemaTable = table.getTable();
-
-            TableEntry entry = new TableEntry(table.getConnectorId(), schemaTable.getSchemaName(), schemaTable.getTableName());
             Optional<ColumnHandle> sampleWeightColumn = metadata.getSampleWeightColumnHandle(tableHandle);
 
+            Set<Column> columns = new HashSet<>();
             for (ColumnHandle columnHandle : node.getAssignments().values()) {
                 if (!columnHandle.equals(sampleWeightColumn.orNull())) {
-                    ColumnMetadata columnMetadata = metadata.getColumnMetadata(tableHandle, columnHandle);
-                    builder.put(entry, new Column(columnMetadata.getName(), columnMetadata.getType().toString(), Optional.<SimpleDomain>absent()));
+                    columns.add(createColumnEntry(metadata.getColumnMetadata(tableHandle, columnHandle)));
                 }
             }
+
+            inputs.put(createTableEntry(metadata.getTableMetadata(tableHandle)), columns);
 
             return null;
         }
@@ -93,18 +102,16 @@ public class InputExtractor
         public Void visitIndexSource(IndexSourceNode node, Void context)
         {
             TableHandle tableHandle = node.getTableHandle();
-            TableMetadata table = metadata.getTableMetadata(tableHandle);
-            SchemaTableName schemaTable = table.getTable();
-
-            TableEntry entry = new TableEntry(table.getConnectorId(), schemaTable.getSchemaName(), schemaTable.getTableName());
             Optional<ColumnHandle> sampleWeightColumn = metadata.getSampleWeightColumnHandle(tableHandle);
 
+            Set<Column> columns = new HashSet<>();
             for (ColumnHandle columnHandle : node.getAssignments().values()) {
                 if (!columnHandle.equals(sampleWeightColumn.orNull())) {
-                    ColumnMetadata columnMetadata = metadata.getColumnMetadata(tableHandle, columnHandle);
-                    builder.put(entry, new Column(columnMetadata.getName(), columnMetadata.getType().toString(), Optional.<SimpleDomain>absent()));
+                    columns.add(createColumnEntry(metadata.getColumnMetadata(tableHandle, columnHandle)));
                 }
             }
+
+            inputs.put(createTableEntry(metadata.getTableMetadata(tableHandle)), columns);
 
             return null;
         }

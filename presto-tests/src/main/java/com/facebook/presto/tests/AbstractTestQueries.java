@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionListBuilder;
+import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.DateTimeZoneIndex;
 import com.google.common.base.Function;
 import com.google.common.collect.ArrayListMultimap;
@@ -68,16 +69,29 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestQueries
         extends AbstractTestQueryFramework
 {
-    protected static final List<FunctionInfo> CUSTOM_FUNCTIONS = new FunctionRegistry.FunctionListBuilder()
+    // We can just use the default type registry, since we don't use any parametric types
+    protected static final List<ParametricFunction> CUSTOM_FUNCTIONS = new FunctionListBuilder(new TypeRegistry())
             .aggregate(CustomSum.class)
             .window("custom_rank", BIGINT, ImmutableList.<Type>of(), CustomRank.class)
             .scalar(CustomAdd.class)
             .scalar(CreateHll.class)
             .getFunctions();
 
-    public AbstractTestQueries(QueryRunner queryRunner)
+    protected AbstractTestQueries(QueryRunner queryRunner)
     {
         super(queryRunner);
+    }
+
+    @Test
+    public void testArrays()
+            throws Exception
+    {
+        assertQuery("SELECT a[1] FROM (SELECT ARRAY[orderkey] AS a FROM orders ORDER BY orderkey) t", "SELECT orderkey FROM orders");
+        assertQuery("SELECT a[1 + cast(round(rand()) AS BIGINT)] FROM (SELECT ARRAY[orderkey, orderkey] AS a FROM orders ORDER BY orderkey) t", "SELECT orderkey FROM orders");
+        assertQuery("SELECT a[1] + 1 FROM (SELECT ARRAY[orderkey] AS a FROM orders ORDER BY orderkey) t", "SELECT orderkey + 1 FROM orders");
+        assertQuery("SELECT a[1] FROM (SELECT ARRAY[orderkey + 1] AS a FROM orders ORDER BY orderkey) t", "SELECT orderkey + 1 FROM orders");
+        assertQuery("SELECT a[1][1] FROM (SELECT ARRAY[ARRAY[orderkey + 1]] AS a FROM orders ORDER BY orderkey) t", "SELECT orderkey + 1 FROM orders");
+        assertQuery("SELECT CARDINALITY(a) FROM (SELECT ARRAY[orderkey, orderkey + 1] AS a FROM orders ORDER BY orderkey) t", "SELECT 2 FROM orders");
     }
 
     @Test
@@ -834,6 +848,20 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("SELECT orderstatus FROM orders GROUP BY orderstatus");
+    }
+
+    @Test
+    public void testGroupByWithNulls()
+            throws Exception
+    {
+        assertQuery("SELECT key, COUNT(*) FROM (" +
+                "SELECT CASE " +
+                "  WHEN orderkey % 3 = 0 THEN NULL " +
+                "  WHEN orderkey % 5 = 0 THEN 0 " +
+                "  ELSE orderkey " +
+                "  END as key " +
+                "FROM lineitem) " +
+                "GROUP BY key");
     }
 
     @Test
@@ -1756,6 +1784,71 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testRowNumberLimit()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderkey, orderstatus FROM (\n" +
+                "   SELECT row_number() OVER () rn, orderkey, orderstatus\n" +
+                "   FROM orders\n" +
+                ") WHERE rn <= 5\n");
+        MaterializedResult all = computeExpected("SELECT orderkey, orderstatus FROM ORDERS", actual.getTypes());
+
+        assertEquals(actual.getMaterializedRows().size(), 5);
+        assertTrue(all.getMaterializedRows().containsAll(actual.getMaterializedRows()));
+    }
+
+    @Test
+    public void testPartitionedRowNumberLimit()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderkey, orderstatus FROM (\n" +
+                "   SELECT row_number() OVER (PARTITION BY orderstatus) rn, orderkey, orderstatus\n" +
+                "   FROM orders\n" +
+                ") WHERE rn <= 5\n");
+        MaterializedResult all = computeExpected("SELECT orderkey, orderstatus FROM ORDERS", actual.getTypes());
+
+        // there are 3 distinct orderstatus, so expect 15 rows.
+        assertEquals(actual.getMaterializedRows().size(), 15);
+        assertTrue(all.getMaterializedRows().containsAll(actual.getMaterializedRows()));
+    }
+
+    @Test
+    public void testTopNUnpartitionedWindow()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT * FROM (\n" +
+                "   SELECT row_number() OVER (ORDER BY orderkey) rn, orderkey, orderstatus\n" +
+                "   FROM orders\n" +
+                ") WHERE rn <= 5\n");
+        String sql = "SELECT row_number() OVER (), orderkey, orderstatus FROM orders ORDER BY orderkey LIMIT 5";
+        MaterializedResult expected = computeExpected(sql, actual.getTypes());
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testTopNPartitionedWindow()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT * FROM (\n" +
+                "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey, orderstatus\n" +
+                "   FROM orders\n" +
+                ") WHERE rn <= 2\n");
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR)
+                .row(1, 1, "O")
+                .row(2, 2, "O")
+                .row(1, 3, "F")
+                .row(2, 5, "F")
+                .row(1, 65, "P")
+                .row(2, 197, "P")
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
     public void testWindowFunctionWithGroupBy()
             throws Exception
     {
@@ -2532,6 +2625,7 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("SELECT orderkey FROM orders UNION SELECT custkey FROM orders");
+        assertQuery("SELECT 123 UNION DISTINCT SELECT 123 UNION ALL SELECT 123");
     }
 
     @Test
@@ -2653,6 +2747,13 @@ public abstract class AbstractTestQueries
                 "SELECT a.custkey, b.orderkey " +
                 "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 5) a " +
                 "CROSS JOIN (SELECT * FROM lineitem ORDER BY orderkey LIMIT 5) b");
+    }
+
+    @Test
+    public void testSimpleCrossJoins()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM (SELECT 1 a) x CROSS JOIN (SELECT 2 b) y");
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Implicit cross joins are not yet supported; use CROSS JOIN")

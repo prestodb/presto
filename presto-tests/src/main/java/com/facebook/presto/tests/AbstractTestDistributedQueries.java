@@ -39,9 +39,14 @@ import static org.testng.Assert.fail;
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestApproximateQueries
 {
-    protected AbstractTestDistributedQueries(QueryRunner queryRunner, ConnectorSession defaultSampledSession)
+    protected AbstractTestDistributedQueries(QueryRunner queryRunner)
     {
-        super(queryRunner, defaultSampledSession);
+        super(queryRunner);
+    }
+
+    protected AbstractTestDistributedQueries(QueryRunner queryRunner, ConnectorSession sampledSession)
+    {
+        super(queryRunner, sampledSession);
     }
 
     private void assertCreateTable(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)

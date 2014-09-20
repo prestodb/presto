@@ -25,14 +25,9 @@ public final class TimeWithTimeZoneType
 {
     public static final TimeWithTimeZoneType TIME_WITH_TIME_ZONE = new TimeWithTimeZoneType();
 
-    public static TimeWithTimeZoneType getInstance()
-    {
-        return TIME_WITH_TIME_ZONE;
-    }
-
     private TimeWithTimeZoneType()
     {
-        super("time with time zone", long.class, SIZE_OF_LONG);
+        super(StandardTypes.TIME_WITH_TIME_ZONE, long.class, SIZE_OF_LONG);
     }
 
     @Override

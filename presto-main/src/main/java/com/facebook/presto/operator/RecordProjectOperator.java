@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -20,13 +22,11 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
 
 import java.io.Closeable;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class RecordProjectOperator
         implements Operator, Closeable
@@ -157,10 +157,10 @@ public class RecordProjectOperator
                 }
             }
 
-            long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
+            long endCompletedBytes = cursor.getCompletedBytes();
             long endReadTimeNanos = cursor.getReadTimeNanos();
-            operatorContext.recordGeneratedInput(new DataSize(bytesProcessed, BYTE), i, endReadTimeNanos - readTimeNanos);
-            completedBytes += bytesProcessed;
+            operatorContext.recordGeneratedInput(endCompletedBytes - completedBytes, i, endReadTimeNanos - readTimeNanos);
+            completedBytes = endCompletedBytes;
             readTimeNanos = endReadTimeNanos;
         }
 

@@ -25,7 +25,8 @@ import java.util.concurrent.TimeUnit;
 public class QueryManagerConfig
 {
     private int scheduleSplitBatchSize = 1000;
-
+    private int maxConcurrentQueries = 1000;
+    private int maxQueuedQueries = 5000;
     private int maxPendingSplitsPerNode = 100;
 
     private int initialHashPartitions = 8;
@@ -48,6 +49,32 @@ public class QueryManagerConfig
     public QueryManagerConfig setScheduleSplitBatchSize(int scheduleSplitBatchSize)
     {
         this.scheduleSplitBatchSize = scheduleSplitBatchSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxConcurrentQueries()
+    {
+        return maxConcurrentQueries;
+    }
+
+    @Config("query.max-concurrent-queries")
+    public QueryManagerConfig setMaxConcurrentQueries(int maxConcurrentQueries)
+    {
+        this.maxConcurrentQueries = maxConcurrentQueries;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxQueuedQueries()
+    {
+        return maxQueuedQueries;
+    }
+
+    @Config("query.max-queued-queries")
+    public QueryManagerConfig setMaxQueuedQueries(int maxQueuedQueries)
+    {
+        this.maxQueuedQueries = maxQueuedQueries;
         return this;
     }
 

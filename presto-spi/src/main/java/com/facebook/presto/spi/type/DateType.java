@@ -33,14 +33,9 @@ public final class DateType
 {
     public static final DateType DATE = new DateType();
 
-    public static DateType getInstance()
-    {
-        return DATE;
-    }
-
     private DateType()
     {
-        super("date", long.class, SIZE_OF_LONG);
+        super(StandardTypes.DATE, long.class, SIZE_OF_LONG);
     }
 
     @Override

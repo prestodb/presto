@@ -24,14 +24,9 @@ public final class BooleanType
 {
     public static final BooleanType BOOLEAN = new BooleanType();
 
-    public static BooleanType getInstance()
-    {
-        return BOOLEAN;
-    }
-
     private BooleanType()
     {
-        super("boolean", boolean.class, SIZE_OF_BYTE);
+        super(StandardTypes.BOOLEAN, boolean.class, SIZE_OF_BYTE);
     }
 
     @Override

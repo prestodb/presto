@@ -22,20 +22,16 @@ public class RegressorType
         extends ModelType
 {
     public static final RegressorType REGRESSOR = new RegressorType();
+    public static final String NAME = "Regressor";
 
     @JsonCreator
     public RegressorType()
     {
     }
 
-    public static RegressorType getInstance()
-    {
-        return REGRESSOR;
-    }
-
     @Override
     public String getName()
     {
-        return "Regressor";
+        return NAME;
     }
 }

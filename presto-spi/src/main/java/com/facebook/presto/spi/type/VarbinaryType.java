@@ -29,12 +29,7 @@ public class VarbinaryType
     @JsonCreator
     public VarbinaryType()
     {
-        super("varbinary", Slice.class);
-    }
-
-    public static VarbinaryType getInstance()
-    {
-        return VARBINARY;
+        super(StandardTypes.VARBINARY, Slice.class);
     }
 
     @Override

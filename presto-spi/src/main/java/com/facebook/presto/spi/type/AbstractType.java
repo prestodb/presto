@@ -17,6 +17,10 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import io.airlift.slice.Slice;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 public abstract class AbstractType
         implements Type
 {
@@ -39,6 +43,12 @@ public abstract class AbstractType
     public final Class<?> getJavaType()
     {
         return javaType;
+    }
+
+    @Override
+    public List<Type> getTypeParameters()
+    {
+        return Collections.unmodifiableList(new ArrayList<Type>());
     }
 
     @Override

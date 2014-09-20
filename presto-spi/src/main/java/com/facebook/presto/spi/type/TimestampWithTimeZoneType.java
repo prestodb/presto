@@ -25,14 +25,9 @@ public final class TimestampWithTimeZoneType
 {
     public static final TimestampWithTimeZoneType TIMESTAMP_WITH_TIME_ZONE = new TimestampWithTimeZoneType();
 
-    public static TimestampWithTimeZoneType getInstance()
-    {
-        return TIMESTAMP_WITH_TIME_ZONE;
-    }
-
     private TimestampWithTimeZoneType()
     {
-        super("timestamp with time zone", long.class, SIZE_OF_LONG);
+        super(StandardTypes.TIMESTAMP_WITH_TIME_ZONE, long.class, SIZE_OF_LONG);
     }
 
     @Override

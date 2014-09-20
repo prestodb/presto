@@ -29,11 +29,13 @@ public class CassandraTypeWithTypeArguments
         this.typeArguments = checkNotNull(typeArguments, "typeArguments is null");
     }
 
+    @Override
     public CassandraType getCassandraType()
     {
         return cassandraType;
     }
 
+    @Override
     public List<CassandraType> getTypeArguments()
     {
         return typeArguments;

@@ -19,9 +19,10 @@ import com.facebook.presto.operator.aggregation.InputFunction;
 import com.facebook.presto.operator.aggregation.OutputFunction;
 import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
+
+import java.util.Locale;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -32,7 +33,7 @@ public final class EvaluateClassifierPredictionsAggregation
     private EvaluateClassifierPredictionsAggregation() {}
 
     @InputFunction
-    public static void input(EvaluateClassifierPredictionsState state, @SqlType(BigintType.class) long truth, @SqlType(BigintType.class) long prediction)
+    public static void input(EvaluateClassifierPredictionsState state, @SqlType(StandardTypes.BIGINT) long truth, @SqlType(StandardTypes.BIGINT) long prediction)
     {
         checkArgument(prediction == 1 || prediction == 0, "evaluate_predictions only supports binary classifiers");
         checkArgument(truth == 1 || truth == 0, "evaluate_predictions only supports binary classifiers");
@@ -64,7 +65,7 @@ public final class EvaluateClassifierPredictionsAggregation
         state.setFalseNegatives(state.getFalseNegatives() + scratchState.getFalseNegatives());
     }
 
-    @OutputFunction(VarcharType.class)
+    @OutputFunction(StandardTypes.VARCHAR)
     public static void output(EvaluateClassifierPredictionsState state, BlockBuilder out)
     {
         long truePositives = state.getTruePositives();
@@ -75,9 +76,9 @@ public final class EvaluateClassifierPredictionsAggregation
         StringBuilder sb = new StringBuilder();
         long correct = trueNegatives + truePositives;
         long total = truePositives + trueNegatives + falsePositives + falseNegatives;
-        sb.append(String.format("Accuracy: %d/%d (%.2f%%)\n", correct, total, 100.0 * correct / (double) total));
-        sb.append(String.format("Precision: %d/%d (%.2f%%)\n", truePositives, truePositives + falsePositives, 100.0 * truePositives / (double) (truePositives + falsePositives)));
-        sb.append(String.format("Recall: %d/%d (%.2f%%)", truePositives, truePositives + falseNegatives, 100.0 * truePositives / (double) (truePositives + falseNegatives)));
+        sb.append(String.format(Locale.US, "Accuracy: %d/%d (%.2f%%)\n", correct, total, 100.0 * correct / (double) total));
+        sb.append(String.format(Locale.US, "Precision: %d/%d (%.2f%%)\n", truePositives, truePositives + falsePositives, 100.0 * truePositives / (double) (truePositives + falsePositives)));
+        sb.append(String.format(Locale.US, "Recall: %d/%d (%.2f%%)", truePositives, truePositives + falseNegatives, 100.0 * truePositives / (double) (truePositives + falseNegatives)));
 
         VARCHAR.writeString(out, sb.toString());
     }

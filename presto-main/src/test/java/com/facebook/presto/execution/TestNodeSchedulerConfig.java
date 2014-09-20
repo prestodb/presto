@@ -29,7 +29,8 @@ public class TestNodeSchedulerConfig
                 .setMaxSplitsPerNode(100)
                 .setMaxPendingSplitsPerNodePerTask(10)
                 .setIncludeCoordinator(true)
-                .setLocationAwareSchedulingEnabled(true));
+                .setLocationAwareSchedulingEnabled(true)
+                .setMultipleTasksPerNodeEnabled(false));
     }
 
     @Test
@@ -41,11 +42,13 @@ public class TestNodeSchedulerConfig
                 .put("node-scheduler.include-coordinator", "false")
                 .put("node-scheduler.max-pending-splits-per-node-per-task", "11")
                 .put("node-scheduler.max-splits-per-node", "101")
+                .put("node-scheduler.multiple-tasks-per-node-enabled", "true")
                 .build();
 
         NodeSchedulerConfig expected = new NodeSchedulerConfig()
                 .setIncludeCoordinator(false)
                 .setLocationAwareSchedulingEnabled(false)
+                .setMultipleTasksPerNodeEnabled(true)
                 .setMaxSplitsPerNode(101)
                 .setMaxPendingSplitsPerNodePerTask(11)
                 .setMinCandidates(11);

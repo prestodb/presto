@@ -33,16 +33,4 @@ public class CompilerConfig
         this.interpreterEnabled = interpreterEnabled;
         return this;
     }
-
-    public boolean isUseNewByteCodeGenerator()
-    {
-        return useNewByteCodeGenerator;
-    }
-
-    @Config("compiler.new-bytecode-generator-enabled")
-    public CompilerConfig setUseNewByteCodeGenerator(boolean useNewByteCodeGenerator)
-    {
-        this.useNewByteCodeGenerator = useNewByteCodeGenerator;
-        return this;
-    }
 }

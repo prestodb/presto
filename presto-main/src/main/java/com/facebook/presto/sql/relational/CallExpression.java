@@ -26,14 +26,17 @@ public final class CallExpression
         extends RowExpression
 {
     private final Signature signature;
+    private final Type returnType;
     private final List<RowExpression> arguments;
 
-    public CallExpression(Signature signature, List<RowExpression> arguments)
+    public CallExpression(Signature signature, Type returnType, List<RowExpression> arguments)
     {
         Preconditions.checkNotNull(signature, "signature is null");
         Preconditions.checkNotNull(arguments, "arguments is null");
+        Preconditions.checkNotNull(returnType, "returnType is null");
 
         this.signature = signature;
+        this.returnType = returnType;
         this.arguments = ImmutableList.copyOf(arguments);
     }
 
@@ -45,7 +48,7 @@ public final class CallExpression
     @Override
     public Type getType()
     {
-        return signature.getReturnType();
+        return returnType;
     }
 
     public List<RowExpression> getArguments()

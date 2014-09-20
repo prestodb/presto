@@ -15,12 +15,17 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -36,14 +41,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqualsIgnoreOrder;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.operator.aggregation.AverageAggregations.LONG_AVERAGE;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
-import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_BOOLEAN_COLUMN;
-import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_VARCHAR_COLUMN;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
 import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -84,6 +86,9 @@ public class TestHashAggregationOperator
     public void testHashAggregation()
             throws Exception
     {
+        MetadataManager metadata = new MetadataManager();
+        InternalAggregationFunction countVarcharColumn = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of(StandardTypes.VARCHAR), false).getAggregationFunction();
+        InternalAggregationFunction countBooleanColumn = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of(StandardTypes.BOOLEAN), false).getAggregationFunction();
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .addSequencePage(10, 100, 0, 100, 0, 500)
                 .addSequencePage(10, 100, 0, 200, 0, 500)
@@ -95,12 +100,12 @@ public class TestHashAggregationOperator
                 ImmutableList.of(VARCHAR),
                 Ints.asList(1),
                 Step.SINGLE,
-                ImmutableList.of(aggregation(COUNT, ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        aggregation(LONG_SUM, ImmutableList.of(3), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        aggregation(LONG_AVERAGE, ImmutableList.of(3), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        aggregation(VAR_BINARY_MAX, ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        aggregation(COUNT_VARCHAR_COLUMN, ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        aggregation(COUNT_BOOLEAN_COLUMN, ImmutableList.of(4), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)),
+                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        LONG_SUM.bind(ImmutableList.of(3), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        LONG_AVERAGE.bind(ImmutableList.of(3), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        VAR_BINARY_MAX.bind(ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        countVarcharColumn.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        countBooleanColumn.bind(ImmutableList.of(4), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)),
                 100_000);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -140,10 +145,10 @@ public class TestHashAggregationOperator
                 ImmutableList.of(VARCHAR),
                 Ints.asList(1),
                 Step.SINGLE,
-                ImmutableList.of(aggregation(COUNT, ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        aggregation(LONG_SUM, ImmutableList.of(3), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        aggregation(LONG_AVERAGE, ImmutableList.of(3), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        aggregation(VAR_BINARY_MAX, ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)),
+                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        LONG_SUM.bind(ImmutableList.of(3), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        LONG_AVERAGE.bind(ImmutableList.of(3), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        VAR_BINARY_MAX.bind(ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)),
                 100_000);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -174,7 +179,7 @@ public class TestHashAggregationOperator
                 ImmutableList.of(VARCHAR),
                 Ints.asList(0),
                 Step.SINGLE,
-                ImmutableList.of(aggregation(COUNT, ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)),
+                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)),
                 100_000);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -205,7 +210,7 @@ public class TestHashAggregationOperator
                 ImmutableList.of(VARCHAR),
                 Ints.asList(0),
                 Step.SINGLE,
-                ImmutableList.of(aggregation(COUNT, ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)),
+                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)),
                 100_000);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -230,8 +235,8 @@ public class TestHashAggregationOperator
                 ImmutableList.of(BIGINT),
                 Ints.asList(1),
                 Step.SINGLE,
-                ImmutableList.of(aggregation(COUNT, ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        aggregation(LONG_AVERAGE, ImmutableList.of(1), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)),
+                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        LONG_AVERAGE.bind(ImmutableList.of(1), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)),
                 100_000);
 
         Operator operator = operatorFactory.createOperator(driverContext);

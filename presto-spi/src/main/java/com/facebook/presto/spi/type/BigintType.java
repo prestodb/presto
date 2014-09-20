@@ -24,14 +24,9 @@ public final class BigintType
 {
     public static final BigintType BIGINT = new BigintType();
 
-    public static BigintType getInstance()
-    {
-        return BIGINT;
-    }
-
     private BigintType()
     {
-        super("bigint", long.class, SIZE_OF_LONG);
+        super(StandardTypes.BIGINT, long.class, SIZE_OF_LONG);
     }
 
     @Override

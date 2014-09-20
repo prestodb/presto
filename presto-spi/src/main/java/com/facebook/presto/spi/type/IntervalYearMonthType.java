@@ -24,14 +24,9 @@ public final class IntervalYearMonthType
 {
     public static final IntervalYearMonthType INTERVAL_YEAR_MONTH = new IntervalYearMonthType();
 
-    public static IntervalYearMonthType getInstance()
-    {
-        return INTERVAL_YEAR_MONTH;
-    }
-
     private IntervalYearMonthType()
     {
-        super("interval year to month", long.class, SIZE_OF_LONG);
+        super(StandardTypes.INTERVAL_YEAR_TO_MONTH, long.class, SIZE_OF_LONG);
     }
 
     @Override

@@ -15,7 +15,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 
 import java.net.URI;
@@ -92,17 +91,5 @@ public class PrestoNode
                 .add("httpUri", httpUri)
                 .add("nodeVersion", nodeVersion)
                 .toString();
-    }
-
-    public static Function<Node, String> getIdentifierFunction()
-    {
-        return new Function<Node, String>()
-        {
-            @Override
-            public String apply(Node node)
-            {
-                return node.getNodeIdentifier();
-            }
-        };
     }
 }

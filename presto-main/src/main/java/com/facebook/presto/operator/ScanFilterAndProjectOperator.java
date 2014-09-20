@@ -14,47 +14,244 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.base.Suppliers;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 
+import javax.annotation.concurrent.GuardedBy;
+
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class ScanFilterAndProjectOperator
-        extends AbstractScanFilterAndProjectOperator
+        implements SourceOperator, Closeable
 {
+    private static final int ROWS_PER_PAGE = 16384;
+
+    private final OperatorContext operatorContext;
+    private final PlanNodeId planNodeId;
+    private final PageSourceProvider pageSourceProvider;
+    private final List<Type> types;
+    private final List<ColumnHandle> columns;
+    private final PageBuilder pageBuilder;
+    private final CursorProcessor cursorProcessor;
+    private final PageProcessor pageProcessor;
+
+    @GuardedBy("this")
+    private RecordCursor cursor;
+
+    @GuardedBy("this")
+    private ConnectorPageSource pageSource;
+
+    private Page currentPage;
+    private int currentPosition;
+
+    private boolean finishing;
+
+    private long completedBytes;
+    private long readTimeNanos;
+
+    protected ScanFilterAndProjectOperator(
+            OperatorContext operatorContext,
+            PlanNodeId sourceId,
+            PageSourceProvider pageSourceProvider,
+            CursorProcessor cursorProcessor,
+            PageProcessor pageProcessor,
+            Iterable<ColumnHandle> columns,
+            Iterable<Type> types)
+    {
+        this.cursorProcessor = checkNotNull(cursorProcessor, "cursorProcessor is null");
+        this.pageProcessor = checkNotNull(pageProcessor, "pageProcessor is null");
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+        this.planNodeId = checkNotNull(sourceId, "sourceId is null");
+        this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceManager is null");
+        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
+
+        this.pageBuilder = new PageBuilder(getTypes());
+    }
+
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
+    }
+
+    @Override
+    public PlanNodeId getSourceId()
+    {
+        return planNodeId;
+    }
+
+    @Override
+    public synchronized void addSplit(Split split)
+    {
+        checkNotNull(split, "split is null");
+        checkState(cursor == null && pageSource == null, "split already set");
+
+        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(split, columns);
+        if (pageSource instanceof RecordPageSource) {
+            cursor = ((RecordPageSource) pageSource).getCursor();
+        }
+        else {
+            this.pageSource = pageSource;
+        }
+
+        Object splitInfo = split.getInfo();
+        if (splitInfo != null) {
+            operatorContext.setInfoSupplier(Suppliers.ofInstance(splitInfo));
+        }
+    }
+
+    @Override
+    public synchronized void noMoreSplits()
+    {
+        if (cursor == null && pageSource == null) {
+            finishing = true;
+        }
+    }
+
+    @Override
+    public final List<Type> getTypes()
+    {
+        return types;
+    }
+
+    @Override
+    public final void finish()
+    {
+        close();
+    }
+
+    @Override
+    public void close()
+    {
+        if (pageSource != null) {
+            try {
+                pageSource.close();
+            }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
+        }
+        else if (cursor != null) {
+            cursor.close();
+        }
+        finishing = true;
+    }
+
+    @Override
+    public final boolean isFinished()
+    {
+        if (pageSource != null && pageSource.isFinished()) {
+            finishing = true;
+        }
+
+        return finishing && pageBuilder.isEmpty();
+    }
+
+    @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        return NOT_BLOCKED;
+    }
+
+    @Override
+    public final boolean needsInput()
+    {
+        return false;
+    }
+
+    @Override
+    public final void addInput(Page page)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Page getOutput()
+    {
+        if (!finishing) {
+            if (cursor != null) {
+                int rowsProcessed = cursorProcessor.process(operatorContext.getSession(), cursor, ROWS_PER_PAGE, pageBuilder);
+                long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
+                long elapsedNanos = cursor.getReadTimeNanos() - readTimeNanos;
+                operatorContext.recordGeneratedInput(bytesProcessed, rowsProcessed, elapsedNanos);
+                completedBytes = cursor.getCompletedBytes();
+                readTimeNanos = cursor.getReadTimeNanos();
+
+                if (rowsProcessed == 0) {
+                    finishing = true;
+                }
+            }
+            else {
+                if (currentPage == null) {
+                    currentPage = pageSource.getNextPage();
+                    currentPosition = 0;
+                }
+
+                if (currentPage != null) {
+                    currentPosition = pageProcessor.process(operatorContext.getSession(), currentPage, currentPosition, currentPage.getPositionCount(), pageBuilder);
+                    if (currentPosition == currentPage.getPositionCount()) {
+                        currentPage = null;
+                        currentPosition = 0;
+                    }
+                }
+            }
+        }
+
+        // only return a full page if buffer is full or we are finishing
+        if (pageBuilder.isEmpty() || (!finishing && !pageBuilder.isFull())) {
+            return null;
+        }
+
+        Page page = pageBuilder.build();
+        pageBuilder.reset();
+        return page;
+    }
+
     public static class ScanFilterAndProjectOperatorFactory
             implements SourceOperatorFactory
     {
         private final int operatorId;
+        private final CursorProcessor cursorProcessor;
+        private final PageProcessor pageProcessor;
         private final PlanNodeId sourceId;
-        private final DataStreamProvider dataStreamProvider;
+        private final PageSourceProvider pageSourceProvider;
         private final List<ColumnHandle> columns;
-        private final FilterFunction filterFunction;
-        private final List<ProjectionFunction> projections;
         private final List<Type> types;
         private boolean closed;
 
         public ScanFilterAndProjectOperatorFactory(
                 int operatorId,
                 PlanNodeId sourceId,
-                DataStreamProvider dataStreamProvider,
+                PageSourceProvider pageSourceProvider,
+                CursorProcessor cursorProcessor,
+                PageProcessor pageProcessor,
                 Iterable<ColumnHandle> columns,
-                FilterFunction filterFunction,
-                Iterable<? extends ProjectionFunction> projections)
+                List<Type> types)
         {
             this.operatorId = operatorId;
+            this.cursorProcessor = checkNotNull(cursorProcessor, "cursorProcessor is null");
+            this.pageProcessor = checkNotNull(pageProcessor, "pageProcessor is null");
             this.sourceId = checkNotNull(sourceId, "sourceId is null");
-            this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
+            this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceProvider is null");
             this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
-            this.filterFunction = checkNotNull(filterFunction, "filterFunction is null");
-            this.projections = ImmutableList.copyOf(checkNotNull(projections, "projections is null"));
-            this.types = toTypes(this.projections);
+            this.types = checkNotNull(types, "types is null");
         }
 
         @Override
@@ -74,7 +271,14 @@ public class ScanFilterAndProjectOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, FilterAndProjectOperator.class.getSimpleName());
-            return new ScanFilterAndProjectOperator(operatorContext, sourceId, dataStreamProvider, columns, filterFunction, projections);
+            return new ScanFilterAndProjectOperator(
+                    operatorContext,
+                    sourceId,
+                    pageSourceProvider,
+                    cursorProcessor,
+                    pageProcessor,
+                    columns,
+                    types);
         }
 
         @Override
@@ -82,74 +286,5 @@ public class ScanFilterAndProjectOperator
         {
             closed = true;
         }
-    }
-
-    private final FilterFunction filterFunction;
-    private final List<ProjectionFunction> projections;
-
-    public ScanFilterAndProjectOperator(
-            OperatorContext operatorContext,
-            PlanNodeId sourceId,
-            DataStreamProvider dataStreamProvider,
-            Iterable<ColumnHandle> columns,
-            FilterFunction filterFunction,
-            Iterable<? extends ProjectionFunction> projections)
-    {
-        super(operatorContext,
-                sourceId,
-                dataStreamProvider,
-                columns,
-                toTypes(ImmutableList.copyOf(checkNotNull(projections, "projections is null"))));
-        this.filterFunction = checkNotNull(filterFunction, "filterFunction is null");
-        this.projections = ImmutableList.copyOf(checkNotNull(projections, "projections is null"));
-    }
-
-    @Override
-    protected void filterAndProjectRowOriented(Page page, PageBuilder pageBuilder)
-    {
-        int rows = page.getPositionCount();
-
-        for (int position = 0; position < rows; position++) {
-            if (filterFunction.filter(position, page.getBlocks())) {
-                pageBuilder.declarePosition();
-                for (int i = 0; i < projections.size(); i++) {
-                    // todo: if the projection function increases the size of the data significantly, this could cause the servers to OOM
-                    projections.get(i).project(position, page.getBlocks(), pageBuilder.getBlockBuilder(i));
-                }
-            }
-        }
-    }
-
-    @Override
-    protected int filterAndProjectRowOriented(RecordCursor cursor, PageBuilder pageBuilder)
-    {
-        int completedPositions = 0;
-        for (; completedPositions < 16384; completedPositions++) {
-            if (pageBuilder.isFull()) {
-                break;
-            }
-
-            if (!cursor.advanceNextPosition()) {
-                break;
-            }
-
-            if (filterFunction.filter(cursor)) {
-                pageBuilder.declarePosition();
-                for (int channel = 0; channel < projections.size(); channel++) {
-                    // todo: if the projection function increases the size of the data significantly, this could cause the servers to OOM
-                    projections.get(channel).project(cursor, pageBuilder.getBlockBuilder(channel));
-                }
-            }
-        }
-        return completedPositions;
-    }
-
-    private static List<Type> toTypes(List<ProjectionFunction> projections)
-    {
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (ProjectionFunction projection : projections) {
-            types.add(projection.getType());
-        }
-        return types.build();
     }
 }

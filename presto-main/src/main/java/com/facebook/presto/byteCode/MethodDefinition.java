@@ -102,7 +102,7 @@ public class MethodDefinition
         }));
 
         if (!access.contains(STATIC)) {
-            getCompilerContext().declareThisVariable(type(Object.class));
+            getCompilerContext().declareThisVariable(declaringClass.getType());
         }
         int argId = 0;
         for (NamedParameterDefinition parameter : parameters) {
@@ -345,7 +345,7 @@ public class MethodDefinition
         return sb.toString();
     }
 
-    public void addLocalVariable(LocalVariableDefinition localVariable, LabelNode start, LabelNode end)
+    public void addLocalVariable(Variable localVariable, LabelNode start, LabelNode end)
     {
         localVariableNodes.add(new LocalVariableNode(localVariable, start, end));
     }

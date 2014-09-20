@@ -26,15 +26,11 @@ public class LikePatternType
         extends AbstractType
 {
     public static final LikePatternType LIKE_PATTERN = new LikePatternType();
-
-    public static LikePatternType getInstance()
-    {
-        return LIKE_PATTERN;
-    }
+    public static final String NAME = "LikePattern";
 
     public LikePatternType()
     {
-        super("LikePattern", Regex.class);
+        super(NAME, Regex.class);
     }
 
     @Override

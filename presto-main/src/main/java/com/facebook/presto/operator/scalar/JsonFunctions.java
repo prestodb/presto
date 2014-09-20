@@ -14,10 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.OperatorType;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.JsonPathType;
 import com.facebook.presto.type.SqlType;
 import com.fasterxml.jackson.core.JsonFactory;
@@ -53,16 +50,16 @@ public final class JsonFunctions
     private JsonFunctions() {}
 
     @ScalarOperator(OperatorType.CAST)
-    @SqlType(JsonPathType.class)
-    public static JsonPath castToJsonPath(@SqlType(VarcharType.class) Slice pattern)
+    @SqlType(JsonPathType.NAME)
+    public static JsonPath castToJsonPath(@SqlType(StandardTypes.VARCHAR) Slice pattern)
     {
         return new JsonPath(pattern.toString(UTF_8));
     }
 
     @Nullable
     @ScalarFunction
-    @SqlType(BigintType.class)
-    public static Long jsonArrayLength(@SqlType(VarcharType.class) Slice json)
+    @SqlType(StandardTypes.BIGINT)
+    public static Long jsonArrayLength(@SqlType(StandardTypes.VARCHAR) Slice json)
     {
         try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
@@ -90,8 +87,8 @@ public final class JsonFunctions
 
     @Nullable
     @ScalarFunction
-    @SqlType(BooleanType.class)
-    public static Boolean jsonArrayContains(@SqlType(VarcharType.class) Slice json, @SqlType(BooleanType.class) boolean value)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static Boolean jsonArrayContains(@SqlType(StandardTypes.VARCHAR) Slice json, @SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
@@ -121,8 +118,8 @@ public final class JsonFunctions
 
     @Nullable
     @ScalarFunction
-    @SqlType(BooleanType.class)
-    public static Boolean jsonArrayContains(@SqlType(VarcharType.class) Slice json, @SqlType(BigintType.class) long value)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static Boolean jsonArrayContains(@SqlType(StandardTypes.VARCHAR) Slice json, @SqlType(StandardTypes.BIGINT) long value)
     {
         try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
@@ -153,8 +150,8 @@ public final class JsonFunctions
 
     @Nullable
     @ScalarFunction
-    @SqlType(BooleanType.class)
-    public static Boolean jsonArrayContains(@SqlType(VarcharType.class) Slice json, @SqlType(DoubleType.class) double value)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static Boolean jsonArrayContains(@SqlType(StandardTypes.VARCHAR) Slice json, @SqlType(StandardTypes.DOUBLE) double value)
     {
         if (!Doubles.isFinite(value)) {
             return false;
@@ -189,8 +186,8 @@ public final class JsonFunctions
 
     @Nullable
     @ScalarFunction
-    @SqlType(BooleanType.class)
-    public static Boolean jsonArrayContains(@SqlType(VarcharType.class) Slice json, @SqlType(VarcharType.class) Slice value)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static Boolean jsonArrayContains(@SqlType(StandardTypes.VARCHAR) Slice json, @SqlType(StandardTypes.VARCHAR) Slice value)
     {
         String valueString = value.toString(Charsets.UTF_8);
 
@@ -221,8 +218,8 @@ public final class JsonFunctions
 
     @Nullable
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice jsonArrayGet(@SqlType(VarcharType.class) Slice json, @SqlType(BigintType.class) long index)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice jsonArrayGet(@SqlType(StandardTypes.VARCHAR) Slice json, @SqlType(StandardTypes.BIGINT) long index)
     {
         try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
@@ -274,24 +271,24 @@ public final class JsonFunctions
 
     @ScalarFunction
     @Nullable
-    @SqlType(VarcharType.class)
-    public static Slice jsonExtractScalar(@SqlType(VarcharType.class) Slice json, @SqlType(JsonPathType.class) JsonPath jsonPath)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice jsonExtractScalar(@SqlType(StandardTypes.VARCHAR) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
         return JsonExtract.extract(json, jsonPath.getScalarExtractor());
     }
 
     @ScalarFunction
     @Nullable
-    @SqlType(VarcharType.class)
-    public static Slice jsonExtract(@SqlType(VarcharType.class) Slice json, @SqlType(JsonPathType.class) JsonPath jsonPath)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice jsonExtract(@SqlType(StandardTypes.VARCHAR) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
         return JsonExtract.extract(json, jsonPath.getObjectExtractor());
     }
 
     @ScalarFunction
     @Nullable
-    @SqlType(BigintType.class)
-    public static Long jsonSize(@SqlType(VarcharType.class) Slice json, @SqlType(JsonPathType.class) JsonPath jsonPath)
+    @SqlType(StandardTypes.BIGINT)
+    public static Long jsonSize(@SqlType(StandardTypes.VARCHAR) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
         return JsonExtract.extract(json, jsonPath.getSizeExtractor());
     }

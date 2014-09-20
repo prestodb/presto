@@ -16,8 +16,11 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.collect.ImmutableList;
 
-import static com.facebook.presto.operator.aggregation.BooleanMaxAggregation.BOOLEAN_MAX;
+import java.util.List;
+
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
@@ -37,17 +40,23 @@ public class TestBooleanMaxAggregation
     }
 
     @Override
-    public InternalAggregationFunction getFunction()
-    {
-        return BOOLEAN_MAX;
-    }
-
-    @Override
     public Boolean getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;
         }
         return length > 1 ? TRUE : FALSE;
+    }
+
+    @Override
+    protected String getFunctionName()
+    {
+        return "max";
+    }
+
+    @Override
+    protected List<String> getFunctionParameterTypes()
+    {
+        return ImmutableList.of(StandardTypes.BOOLEAN);
     }
 }

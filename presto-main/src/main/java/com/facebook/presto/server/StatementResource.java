@@ -29,7 +29,7 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.ExchangeClient;
-import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.TimeZoneKey;
@@ -402,7 +402,7 @@ public class StatementResource
                 if (page == null) {
                     break;
                 }
-                bytes += page.getDataSize().toBytes();
+                bytes += page.getSizeInBytes();
                 pages.add(new RowIterable(session, types, page));
 
                 // only wait on first call
@@ -428,6 +428,10 @@ public class StatementResource
             if (!outputStage.getState().isDone()) {
                 for (TaskInfo taskInfo : outputStage.getTasks()) {
                     List<BufferInfo> buffers = taskInfo.getOutputBuffers().getBuffers();
+                    if (buffers.isEmpty()) {
+                        // output buffer has not been created yet
+                        continue;
+                    }
                     Preconditions.checkState(buffers.size() == 1,
                             "Expected a single output buffer for task %s, but found %s",
                             taskInfo.getTaskId(),
@@ -453,9 +457,7 @@ public class StatementResource
         {
             checkNotNull(queryInfo, "queryInfo is null");
             StageInfo outputStage = queryInfo.getOutputStage();
-            if (outputStage == null) {
-                checkNotNull(outputStage, "outputStage is null");
-            }
+            checkNotNull(outputStage, "outputStage is null");
 
             List<String> names = queryInfo.getFieldNames();
             List<Type> types = outputStage.getTypes();
