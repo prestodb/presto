@@ -96,7 +96,11 @@ public interface Block
     int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength);
 
     /**
-     * Gets the value at the specified position as a single element block.
+     * Gets the value at the specified position as a single element block.  The method
+     * must copy the data into a new block.
+     *
+     * This method is useful for operators that hold on to a single value without
+     * holding on to the entire block.
      *
      * @throws IllegalArgumentException if this position is not valid
      */
@@ -121,6 +125,10 @@ public interface Block
      * Returns a block starting at the specified position and extends for the
      * specified length.  The specified region must be entirely contained
      * within this block.
+     *
+     * The region can be a view over this block.  If this block is released
+     * the region block may also be released.  If the region block is released
+     * this block may also be released.
      */
     Block getRegion(int positionOffset, int length);
 
@@ -130,4 +138,16 @@ public interface Block
      * @throws IllegalArgumentException if this position is not valid
      */
     boolean isNull(int position);
+
+    /**
+     * Notifies the block that the data will no longer be needed.  After
+     * this method on this block may throw an {@code IllegalStateException}.
+     *
+     * This allows streaming data sources to skip sections that are not
+     * accessed in a query.
+     *
+     * NOTE: This method may not be called.  Therefore this method can not
+     * be used for reliable resource cleanup
+     */
+    void release();
 }
