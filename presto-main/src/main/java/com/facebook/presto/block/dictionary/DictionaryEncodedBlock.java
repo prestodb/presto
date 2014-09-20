@@ -174,4 +174,11 @@ public class DictionaryEncodedBlock
     {
         return Ints.checkedCast(BIGINT.getLong(idBlock, position));
     }
+
+    @Override
+    public void release()
+    {
+        dictionary.release();
+        idBlock.release();
+    }
 }
