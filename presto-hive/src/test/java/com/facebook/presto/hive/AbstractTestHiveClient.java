@@ -32,7 +32,6 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaTableName;
@@ -62,6 +61,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -72,6 +72,8 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
+import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnHandle;
+import static com.facebook.presto.hive.HiveTestUtils.DEFAULT_HIVE_DATA_STREAM_FACTORIES;
 import static com.facebook.presto.hive.HiveTestUtils.DEFAULT_HIVE_RECORD_CURSOR_PROVIDER;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
@@ -90,6 +92,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -145,6 +148,8 @@ public abstract class AbstractTestHiveClient
     protected ConnectorPartition invalidPartition;
 
     protected DateTimeZone timeZone;
+
+    protected HdfsEnvironment hdfsEnvironment;
 
     protected HiveMetastore metastoreClient;
 
@@ -259,7 +264,7 @@ public abstract class AbstractTestHiveClient
 
         metastoreClient = new CachingHiveMetastore(hiveCluster, executor, Duration.valueOf("1m"), Duration.valueOf("15s"));
 
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig));
+        hdfsEnvironment = new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig));
         HiveClient client = new HiveClient(
                 new HiveConnectorId(connectorName),
                 metastoreClient,
@@ -286,7 +291,7 @@ public abstract class AbstractTestHiveClient
         splitManager = client;
         recordSinkProvider = client;
 
-        pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, DEFAULT_HIVE_RECORD_CURSOR_PROVIDER, TYPE_MANAGER);
+        pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, DEFAULT_HIVE_RECORD_CURSOR_PROVIDER, DEFAULT_HIVE_DATA_STREAM_FACTORIES, TYPE_MANAGER);
     }
 
     @Test
@@ -876,6 +881,31 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
+    public void testTypesOrcRecordCursor()
+            throws Exception
+    {
+        if (metadata.getTableHandle(SESSION, new SchemaTableName(database, "presto_test_types_orc")) == null) {
+            return;
+        }
+
+        ConnectorTableHandle tableHandle = getTableHandle(new SchemaTableName(database, "presto_test_types_orc"));
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
+        HiveSplit hiveSplit = getHiveSplit(tableHandle);
+        List<HiveColumnHandle> columnHandles = ImmutableList.copyOf(transform(metadata.getColumnHandles(tableHandle).values(), hiveColumnHandle()));
+
+        HiveRecordSet hiveRecordSet = new HiveRecordSet(
+                hdfsEnvironment,
+                hiveSplit,
+                columnHandles,
+                ImmutableSet.<HiveRecordCursorProvider>of(new OrcRecordCursorProvider()),
+                timeZone,
+                TYPE_MANAGER);
+
+        ConnectorPageSource pageSource = new RecordPageSource(hiveRecordSet);
+        assertGetRecords("orc", tableMetadata, hiveSplit, pageSource, columnHandles);
+    }
+
+    @Test
     public void testTypesParquet()
             throws Exception
     {
@@ -1209,21 +1239,40 @@ public abstract class AbstractTestHiveClient
     {
         ConnectorTableHandle tableHandle = getTableHandle(new SchemaTableName(database, tableName));
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
-        List<ConnectorColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
-        Map<String, Integer> columnIndex = indexColumns(columnHandles);
+        HiveSplit hiveSplit = getHiveSplit(tableHandle);
 
+        List<ConnectorColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+
+        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(hiveSplit, columnHandles);
+        assertGetRecords(fileType, tableMetadata, hiveSplit, pageSource, columnHandles);
+    }
+
+    protected HiveSplit getHiveSplit(ConnectorTableHandle tableHandle)
+            throws InterruptedException
+    {
         ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
         List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), 1);
-        HiveSplit hiveSplit = checkType(getOnlyElement(splits), HiveSplit.class, "split");
+        return checkType(getOnlyElement(splits), HiveSplit.class, "split");
+    }
 
-        long rowNumber = 0;
-        long completedBytes = 0;
-        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(hiveSplit, columnHandles)) {
+    protected void assertGetRecords(
+            String fileType,
+            ConnectorTableMetadata tableMetadata,
+            HiveSplit hiveSplit,
+            ConnectorPageSource pageSource,
+            List<? extends ConnectorColumnHandle> columnHandles)
+            throws IOException
+    {
+        try {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, getTypes(columnHandles));
 
             assertPageSourceType(pageSource, fileType);
 
+            ImmutableMap<String, Integer> columnIndex = indexColumns(tableMetadata);
+
+            long rowNumber = 0;
+            long completedBytes = 0;
             for (MaterializedRow row : result) {
                 try {
                     assertValueTypes(row, tableMetadata.getColumns());
@@ -1392,6 +1441,9 @@ public abstract class AbstractTestHiveClient
             assertTrue(completedBytes <= hiveSplit.getLength());
             assertEquals(rowNumber, 100);
         }
+        finally {
+            pageSource.close();
+        }
     }
 
     private void dropTable(SchemaTableName table)
@@ -1433,9 +1485,14 @@ public abstract class AbstractTestHiveClient
         return splits.build();
     }
 
-    private static void assertRecordCursorType(RecordCursor cursor, String fileType)
+    private static void assertPageSourceType(ConnectorPageSource pageSource, String fileType)
     {
-        assertInstanceOf(cursor, recordCursorType(fileType), fileType);
+        if (pageSource instanceof RecordPageSource) {
+            assertInstanceOf(((RecordPageSource) pageSource).getCursor(), recordCursorType(fileType), fileType);
+        }
+        else {
+            assertInstanceOf(pageSource, pageSourceType(fileType), fileType);
+        }
     }
 
     private static Class<? extends HiveRecordCursor> recordCursorType(String fileType)
@@ -1455,14 +1512,14 @@ public abstract class AbstractTestHiveClient
         return GenericHiveRecordCursor.class;
     }
 
-    private static void assertPageSourceType(ConnectorPageSource pageSource, String fileType)
+    private static Class<? extends ConnectorPageSource> pageSourceType(String fileType)
     {
-        if (pageSource instanceof RecordPageSource) {
-            assertRecordCursorType(((RecordPageSource) pageSource).getCursor(), fileType);
+        switch (fileType) {
+            case "orc":
+            case "dwrf":
+                return OrcPageSource.class;
         }
-        else {
-            fail("Unexpected pageSource operator type for file type " + fileType);
-        }
+        throw new AssertionError("Filed type " + fileType + " does not use a data stream");
     }
 
     private static void assertValueTypes(MaterializedRow row, List<ColumnMetadata> schema)
@@ -1515,6 +1572,17 @@ public abstract class AbstractTestHiveClient
         for (ConnectorColumnHandle columnHandle : columnHandles) {
             HiveColumnHandle hiveColumnHandle = checkType(columnHandle, HiveColumnHandle.class, "columnHandle");
             index.put(hiveColumnHandle.getName(), i);
+            i++;
+        }
+        return index.build();
+    }
+
+    private static ImmutableMap<String, Integer> indexColumns(ConnectorTableMetadata tableMetadata)
+    {
+        ImmutableMap.Builder<String, Integer> index = ImmutableMap.builder();
+        int i = 0;
+        for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
+            index.put(columnMetadata.getName(), i);
             i++;
         }
         return index.build();

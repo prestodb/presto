@@ -138,16 +138,6 @@ public final class BenchmarkHiveFileFormats
 
         List<BenchmarkFile> benchmarkFiles = ImmutableList.of(
                 new BenchmarkFile(
-                        "orc",
-                        "orc",
-                        new org.apache.hadoop.hive.ql.io.orc.OrcInputFormat(),
-                        new org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat(),
-                        new org.apache.hadoop.hive.ql.io.orc.OrcSerde(),
-                        null,
-//                        new GenericHiveRecordCursorProvider()),  // orc needs special splits
-                        new OrcRecordCursorProvider()),
-
-                new BenchmarkFile(
                         "rc binary gzip",
                         "rc-binary.gz",
                         new RCFileInputFormat<>(),
@@ -919,6 +909,7 @@ public final class BenchmarkHiveFileFormats
             this.compressionCodec = compressionCodec;
             this.recordCursorProviders = ImmutableList.copyOf(recordCursorProviders);
 
+            serDe.initialize(new Configuration(), createTableProperties(COLUMNS));
             file = new File(DATA_DIR, "line_item." + fileExtension);
 
             Path lineitemPath = new Path(file.toURI());

@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
@@ -41,7 +42,8 @@ import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 import org.joda.time.DateTimeZone;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -50,13 +52,17 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.TimeZone;
+import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hive.AbstractTestHiveFileFormats.TestColumn.nameGetter;
 import static com.facebook.presto.hive.AbstractTestHiveFileFormats.TestColumn.partitionKeyFilter;
 import static com.facebook.presto.hive.AbstractTestHiveFileFormats.TestColumn.typeGetter;
+import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.testng.Assert.assertEquals;
@@ -68,14 +74,28 @@ public class TestHiveFileFormats
     private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "catalog", "test", TIME_ZONE_KEY, Locale.ENGLISH, null, null);
     private static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
 
-    @BeforeMethod(alwaysRun = true)
-    public void setup()
+    protected ExecutorService executor;
+
+    @BeforeClass(alwaysRun = true)
+    public void setUp()
             throws Exception
     {
         // ensure the expected timezone is configured for this VM
         assertEquals(TimeZone.getDefault().getID(),
                 "Asia/Katmandu",
                 "Timezone not configured correctly. Add -Duser.timezone=Asia/Katmandu to your JVM arguments");
+
+        executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
+    }
+
+    @AfterClass
+    public void tearDown()
+            throws Exception
+    {
+        if (executor != null) {
+            executor.shutdownNow();
+            executor = null;
+        }
     }
 
     @Test
@@ -150,7 +170,7 @@ public class TestHiveFileFormats
     }
 
     @Test
-    public void testOrc()
+    public void testOrcDataStream()
             throws Exception
     {
         HiveOutputFormat<?, ?> outputFormat = new org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat();
@@ -161,7 +181,7 @@ public class TestHiveFileFormats
         file.delete();
         try {
             FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS);
-            testCursorProvider(new OrcRecordCursorProvider(), split, inputFormat, serde, TEST_COLUMNS);
+            testDataStreamFactory(new OrcPageSourceFactory(TYPE_MANAGER), split, inputFormat, serde, TEST_COLUMNS);
         }
         finally {
             //noinspection ResultOfMethodCallIgnored
@@ -243,6 +263,41 @@ public class TestHiveFileFormats
                 TYPE_MANAGER).get();
 
         checkCursor(cursor, testColumns);
+    }
+
+    private void testDataStreamFactory(HivePageSourceFactory dataStreamFactory, FileSplit split, InputFormat<?, ?> inputFormat, SerDe serde, List<TestColumn> testColumns)
+            throws IOException
+    {
+        Properties splitProperties = new Properties();
+        splitProperties.setProperty(FILE_INPUT_FORMAT, inputFormat.getClass().getName());
+        splitProperties.setProperty(SERIALIZATION_LIB, serde.getClass().getName());
+        splitProperties.setProperty("columns", Joiner.on(',').join(transform(filter(testColumns, not(partitionKeyFilter())), nameGetter())));
+        splitProperties.setProperty("columns.types", Joiner.on(',').join(transform(filter(testColumns, not(partitionKeyFilter())), typeGetter())));
+
+        List<HivePartitionKey> partitionKeys = ImmutableList.copyOf(transform(filter(testColumns, partitionKeyFilter()), new Function<TestColumn, HivePartitionKey>() {
+            @Override
+            public HivePartitionKey apply(TestColumn input)
+            {
+                return new HivePartitionKey(input.getName(), HiveType.getHiveType(input.getObjectInspector()), (String) input.getWriteValue());
+            }
+        }));
+
+        List<HiveColumnHandle> columnHandles = getColumnHandles(testColumns);
+
+        ConnectorPageSource pageSource = dataStreamFactory.createPageSource(
+                new Configuration(),
+                SESSION,
+                split.getPath(),
+                split.getStart(),
+                split.getLength(),
+                splitProperties,
+                columnHandles,
+                partitionKeys,
+                TupleDomain.<HiveColumnHandle>all(),
+                DateTimeZone.getDefault()
+        ).get();
+
+        checkPageSource(pageSource, testColumns, getTypes(columnHandles));
     }
 
     private static boolean hasType(ObjectInspector objectInspector, PrimitiveCategory... types)

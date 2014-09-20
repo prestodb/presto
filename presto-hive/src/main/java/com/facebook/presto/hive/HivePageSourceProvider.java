@@ -49,13 +49,21 @@ public class HivePageSourceProvider
     private final Set<HiveRecordCursorProvider> cursorProviders;
     private final TypeManager typeManager;
 
+    private final Set<HivePageSourceFactory> dataStreamFactories;
+
     @Inject
-    public HivePageSourceProvider(HiveClientConfig hiveClientConfig, HdfsEnvironment hdfsEnvironment, Set<HiveRecordCursorProvider> cursorProviders, TypeManager typeManager)
+    public HivePageSourceProvider(
+            HiveClientConfig hiveClientConfig,
+            HdfsEnvironment hdfsEnvironment,
+            Set<HiveRecordCursorProvider> cursorProviders,
+            Set<HivePageSourceFactory> dataStreamFactories,
+            TypeManager typeManager)
     {
         checkNotNull(hiveClientConfig, "hiveClientConfig is null");
         this.hiveStorageTimeZone = DateTimeZone.forTimeZone(hiveClientConfig.getTimeZone());
         this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.cursorProviders = ImmutableSet.copyOf(checkNotNull(cursorProviders, "cursorProviders is null"));
+        this.dataStreamFactories = ImmutableSet.copyOf(checkNotNull(dataStreamFactories, "dataStreamFactories is null"));
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
     }
 
@@ -80,14 +88,32 @@ public class HivePageSourceProvider
         List<HivePartitionKey> partitionKeys = hiveSplit.getPartitionKeys();
         List<HiveColumnHandle> hiveColumns = ImmutableList.copyOf(transform(columns, hiveColumnHandle()));
 
-        HiveRecordCursor recordCursor = getHiveRecordCursor(clientId, session, configuration, path, start, length, schema, tupleDomain, partitionKeys, hiveColumns);
-        if (recordCursor == null) {
-            throw new RuntimeException("Configured cursor providers did not provide a cursor");
+        for (HivePageSourceFactory pageSourceFactory : dataStreamFactories) {
+            Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
+                    configuration,
+                    session,
+                    path,
+                    start,
+                    length,
+                    schema,
+                    hiveColumns,
+                    partitionKeys,
+                    tupleDomain,
+                    hiveStorageTimeZone
+            );
+            if (pageSource.isPresent()) {
+                return pageSource.get();
+            }
         }
 
-        List<Type> columnTypes = ImmutableList.copyOf(transform(hiveColumns, nativeTypeGetter(typeManager)));
-        RecordPageSource recordPageSource = new RecordPageSource(columnTypes, recordCursor);
-        return recordPageSource;
+        HiveRecordCursor recordCursor = getHiveRecordCursor(clientId, session, configuration, path, start, length, schema, tupleDomain, partitionKeys, hiveColumns);
+        if (recordCursor != null) {
+            List<Type> columnTypes = ImmutableList.copyOf(transform(hiveColumns, nativeTypeGetter(typeManager)));
+            RecordPageSource recordPageSource = new RecordPageSource(columnTypes, recordCursor);
+            return recordPageSource;
+        }
+
+        throw new RuntimeException("Could not find a file reader for split " + hiveSplit);
     }
 
     protected HiveRecordCursor getHiveRecordCursor(

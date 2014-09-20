@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -27,17 +28,21 @@ public final class HiveTestUtils
     {
     }
 
+    public static final TypeManager TYPE_MANAGER = new TypeRegistry();
+
+    public static final ImmutableSet<HivePageSourceFactory> DEFAULT_HIVE_DATA_STREAM_FACTORIES = ImmutableSet.<HivePageSourceFactory>of(
+            new OrcPageSourceFactory(TYPE_MANAGER));
+
     public static final ImmutableSet<HiveRecordCursorProvider> DEFAULT_HIVE_RECORD_CURSOR_PROVIDER = ImmutableSet.of(
             new OrcRecordCursorProvider(),
             new ParquetRecordCursorProvider(),
+            new OrcRecordCursorProvider(),
             new DwrfRecordCursorProvider(),
             new ColumnarTextHiveRecordCursorProvider(),
             new ColumnarBinaryHiveRecordCursorProvider(),
             new GenericHiveRecordCursorProvider());
 
-    public static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
-
-    public static List<Type> getTypes(List<ConnectorColumnHandle> columnHandles)
+    public static List<Type> getTypes(List<? extends ConnectorColumnHandle> columnHandles)
     {
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (ConnectorColumnHandle columnHandle : columnHandles) {

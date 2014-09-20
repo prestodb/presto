@@ -82,6 +82,8 @@ public class HiveClientConfig
 
     private List<String> resourceConfigFiles;
 
+    private boolean orcOptimizedReaderEnabled = true;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -565,6 +567,20 @@ public class HiveClientConfig
     public HiveClientConfig setS3MultipartMinPartSize(DataSize size)
     {
         this.s3MultipartMinPartSize = size;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isOrcOptimizedReaderEnabled()
+    {
+        return orcOptimizedReaderEnabled;
+    }
+
+    @Deprecated
+    @Config("hive.orc.optimized-reader.enabled")
+    public HiveClientConfig setOrcOptimizedReaderEnabled(boolean orcOptimizedReaderEnabled)
+    {
+        this.orcOptimizedReaderEnabled = orcOptimizedReaderEnabled;
         return this;
     }
 }
