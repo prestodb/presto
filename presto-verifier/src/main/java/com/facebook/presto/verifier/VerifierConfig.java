@@ -21,7 +21,6 @@ import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
-import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -134,7 +133,6 @@ public class VerifierConfig
     }
 
     @Min(1)
-    @Max(50)
     public int getThreadCount()
     {
         return threadCount;
