@@ -74,7 +74,7 @@ public class VariableWidthBlockEncoding
 
         sliceOutput
                 .appendInt(totalLength)
-                .writeBytes(variableWidthBlock.getRawSlice(), variableWidthBlock.getPositionOffset(0), totalLength);
+                .writeBytes(variableWidthBlock.getRawSlice(0), variableWidthBlock.getPositionOffset(0), totalLength);
     }
 
     @Override

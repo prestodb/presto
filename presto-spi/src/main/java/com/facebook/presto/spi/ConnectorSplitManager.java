@@ -30,4 +30,6 @@ public interface ConnectorSplitManager
      * Gets the Splits for the specified Partitions in the indicated table.
      */
     ConnectorSplitSource getPartitionSplits(ConnectorTableHandle table, List<ConnectorPartition> partitions);
+
+    ConnectorSplitSource getPartitionSplits(ConnectorTableHandle table, List<ConnectorPartition> partitions, TupleDomain<ConnectorColumnHandle> tupleDomain);
 }

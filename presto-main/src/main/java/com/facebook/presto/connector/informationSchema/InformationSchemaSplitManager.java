@@ -65,6 +65,12 @@ public class InformationSchemaSplitManager
     }
 
     @Override
+    public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle table, List<ConnectorPartition> partitions, TupleDomain<ConnectorColumnHandle> tupleDomain)
+    {
+        return getPartitionSplits(table, partitions);
+    }
+
+    @Override
     public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle table, List<ConnectorPartition> partitions)
     {
         checkNotNull(partitions, "partitions is null");

@@ -157,6 +157,18 @@ public class HiveColumnHandle
         };
     }
 
+    public static Function<HiveColumnHandle, String> nameGetter()
+    {
+        return new Function<HiveColumnHandle, String>()
+        {
+            @Override
+            public String apply(HiveColumnHandle input)
+            {
+                return input.getName();
+            }
+        };
+    }
+
     public static Function<HiveColumnHandle, Integer> hiveColumnIndexGetter()
     {
         return new Function<HiveColumnHandle, Integer>()

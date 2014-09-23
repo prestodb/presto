@@ -95,6 +95,13 @@ public class Page
         return getBlock(channel).isNull(position);
     }
 
+    public void assureLoaded()
+    {
+        for (Block block : blocks) {
+            block.assureLoaded();
+        }
+    }
+
     public Block[] getSingleValueBlocks(int position)
     {
         Block[] row = new Block[blocks.length];

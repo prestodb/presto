@@ -140,6 +140,7 @@ public class InMemoryExchange
         if (finishing) {
             return;
         }
+        page.assureLoaded();
         buffer.add(page);
         bufferBytes += page.getDataSize().toBytes();
         // TODO: record memory usage using OperatorContext.setMemoryReservation()

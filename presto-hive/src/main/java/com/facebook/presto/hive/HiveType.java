@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
@@ -41,6 +42,7 @@ import static org.apache.hadoop.hive.serde.Constants.STRING_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.STRUCT_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.TIMESTAMP_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.TINYINT_TYPE_NAME;
+import static org.apache.hadoop.hive.serde.serdeConstants.DATE_TYPE_NAME;
 import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 
 public enum HiveType
@@ -54,6 +56,7 @@ public enum HiveType
     DOUBLE(DoubleType.DOUBLE),
     STRING(VarcharType.VARCHAR),
     TIMESTAMP(TimestampType.TIMESTAMP),
+    DATE(DateType.DATE),
     BINARY(VarbinaryType.VARBINARY),
     LIST(VarcharType.VARCHAR),
     MAP(VarcharType.VARCHAR),
@@ -102,6 +105,8 @@ public enum HiveType
                 return DOUBLE;
             case STRING:
                 return STRING;
+            case DATE:
+                return DATE;
             case TIMESTAMP:
                 return TIMESTAMP;
             case BINARY:
@@ -127,6 +132,7 @@ public enum HiveType
             .put(FLOAT_TYPE_NAME, FLOAT)
             .put(DOUBLE_TYPE_NAME, DOUBLE)
             .put(STRING_TYPE_NAME, STRING)
+            .put(DATE_TYPE_NAME, DATE)
             .put(TIMESTAMP_TYPE_NAME, TIMESTAMP)
             .put(BINARY_TYPE_NAME, BINARY)
             .put(LIST_TYPE_NAME, LIST)

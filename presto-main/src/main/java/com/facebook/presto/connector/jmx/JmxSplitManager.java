@@ -59,6 +59,12 @@ public class JmxSplitManager
     }
 
     @Override
+    public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle table, List<ConnectorPartition> partitions, TupleDomain<ConnectorColumnHandle> td)
+    {
+        return getPartitionSplits(table, partitions);
+    }
+
+    @Override
     public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle table, List<ConnectorPartition> partitions)
     {
         checkNotNull(partitions, "partitions is null");

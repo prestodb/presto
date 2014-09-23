@@ -90,9 +90,18 @@ public class DistributedExecutionPlanner
         public Optional<SplitSource> visitTableScan(TableScanNode node, Void context)
         {
             // get dataSource for table
-            SplitSource splitSource = splitManager.getPartitionSplits(node.getTable(), getPartitions(node));
+            SplitSource splitSource = splitManager.getPartitionSplits(node.getTable(), getPartitions(node), getGeneratedTupleDomain(node));
 
             return Optional.of(splitSource);
+        }
+
+        private TupleDomain<ColumnHandle> getGeneratedTupleDomain(TableScanNode node)
+        {
+            if (!node.getGeneratedPartitions().isPresent()) {
+                return TupleDomain.<ColumnHandle>all();
+            }
+
+            return node.getGeneratedPartitions().get().getTupleDomainInput();
         }
 
         private List<Partition> getPartitions(TableScanNode node)

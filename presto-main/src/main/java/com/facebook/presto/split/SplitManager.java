@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Partition;
 import com.facebook.presto.metadata.PartitionResult;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -53,8 +54,22 @@ public class SplitManager
 
     public SplitSource getPartitionSplits(TableHandle handle, List<Partition> partitions)
     {
+        return getPartitionSplits(handle, partitions, TupleDomain.<ColumnHandle>all());
+    }
+
+    public SplitSource getPartitionSplits(TableHandle handle, List<Partition> partitions, TupleDomain<ColumnHandle> tupleDomain)
+    {
         ConnectorTableHandle table = handle.getConnectorHandle();
-        ConnectorSplitSource source = getConnectorSplitManager(handle).getPartitionSplits(table, Lists.transform(partitions, connectorPartitionGetter()));
+        TupleDomain<ConnectorColumnHandle> td = tupleDomain.transform(new TupleDomain.Function<ColumnHandle, ConnectorColumnHandle>()
+                {
+                    @Override
+                    public ConnectorColumnHandle apply(ColumnHandle handle)
+                    {
+                        return handle.getConnectorHandle();
+                    }
+                });
+        ConnectorSplitSource source = getConnectorSplitManager(handle).getPartitionSplits(table, Lists.transform(partitions, connectorPartitionGetter()), td);
+
         return new ConnectorAwareSplitSource(handle.getConnectorId(), source);
     }
 

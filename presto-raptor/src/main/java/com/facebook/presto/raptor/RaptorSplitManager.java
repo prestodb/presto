@@ -108,6 +108,12 @@ public class RaptorSplitManager
     }
 
     @Override
+    public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle tableHandle, List<ConnectorPartition> partitions, TupleDomain<ConnectorColumnHandle> td)
+    {
+        return getPartitionSplits(tableHandle, partitions);
+    }
+
+    @Override
     public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle tableHandle, List<ConnectorPartition> partitions)
     {
         Stopwatch splitTimer = Stopwatch.createStarted();

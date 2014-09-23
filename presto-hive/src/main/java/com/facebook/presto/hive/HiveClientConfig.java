@@ -72,7 +72,7 @@ public class HiveClientConfig
     private Duration s3ConnectTimeout = new Duration(5, TimeUnit.SECONDS);
     private File s3StagingDirectory = new File(StandardSystemProperty.JAVA_IO_TMPDIR.value());
 
-    private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
+    private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.ORC;
 
     private List<String> resourceConfigFiles;
 

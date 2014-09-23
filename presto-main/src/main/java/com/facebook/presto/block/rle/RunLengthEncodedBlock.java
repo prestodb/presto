@@ -177,6 +177,12 @@ public class RunLengthEncodedBlock
                 .toString();
     }
 
+    @Override
+    public void assureLoaded()
+    {
+        value.assureLoaded();
+    }
+
     private void checkReadablePosition(int position)
     {
         checkArgument(position >= 0 && position < positionCount, "position is not valid");

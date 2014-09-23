@@ -15,12 +15,14 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastore;
+import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.google.common.net.HostAndPort;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.multibindings.Multibinder;
 
 import javax.inject.Singleton;
 
@@ -77,6 +79,18 @@ public class HiveClientModule
         binder.bind(DiscoveryLocatedHiveCluster.class).in(Scopes.SINGLETON);
         binder.bind(HiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
         discoveryBinder(binder).bindSelector("hive-metastore");
+
+        binder.bind(ConnectorDataStreamProvider.class).to(HiveDataStreamProvider.class).in(Scopes.SINGLETON);
+
+        Multibinder<HiveDataStreamFactory> dataStreamFactoryBinder = Multibinder.newSetBinder(binder, HiveDataStreamFactory.class);
+        dataStreamFactoryBinder.addBinding().to(OrcDataStreamFactory.class).in(Scopes.SINGLETON);
+
+        Multibinder<HiveRecordCursorProvider> recordCursorProviderBinder = Multibinder.newSetBinder(binder, HiveRecordCursorProvider.class);
+        recordCursorProviderBinder.addBinding().to(ParquetRecordCursorProvider.class).in(Scopes.SINGLETON);
+        recordCursorProviderBinder.addBinding().to(DwrfRecordCursorProvider.class).in(Scopes.SINGLETON);
+        recordCursorProviderBinder.addBinding().to(ColumnarTextHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
+        recordCursorProviderBinder.addBinding().to(ColumnarBinaryHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
+        recordCursorProviderBinder.addBinding().to(GenericHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
     }
 
     @ForHiveClient

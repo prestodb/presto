@@ -18,10 +18,10 @@ import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorMetadata;
-import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorRecordSetProvider;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorRecordSinkProvider;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorSplitManager;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.google.common.base.Throwables;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
@@ -100,11 +100,12 @@ public class HiveConnectorFactory
                     .initialize();
 
             HiveClient hiveClient = injector.getInstance(HiveClient.class);
+            ConnectorDataStreamProvider dataStreamProvider = injector.getInstance(ConnectorDataStreamProvider.class);
 
             return new HiveConnector(
                     new ClassLoaderSafeConnectorMetadata(hiveClient, classLoader),
                     new ClassLoaderSafeConnectorSplitManager(hiveClient, classLoader),
-                    new ClassLoaderSafeConnectorRecordSetProvider(hiveClient, classLoader),
+                    new ClassLoaderSafeConnectorDataStreamProvider(dataStreamProvider, classLoader),
                     new ClassLoaderSafeConnectorRecordSinkProvider(hiveClient, classLoader),
                     new ClassLoaderSafeConnectorHandleResolver(hiveClient, classLoader));
         }

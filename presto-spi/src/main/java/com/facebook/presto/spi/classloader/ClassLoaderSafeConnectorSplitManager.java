@@ -48,8 +48,14 @@ public final class ClassLoaderSafeConnectorSplitManager
     @Override
     public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle table, List<ConnectorPartition> partitions)
     {
+        return getPartitionSplits(table, partitions, TupleDomain.<ConnectorColumnHandle>all());
+    }
+
+    @Override
+    public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle table, List<ConnectorPartition> partitions, TupleDomain<ConnectorColumnHandle> tupleDomain)
+    {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getPartitionSplits(table, partitions);
+            return delegate.getPartitionSplits(table, partitions, tupleDomain);
         }
     }
 
