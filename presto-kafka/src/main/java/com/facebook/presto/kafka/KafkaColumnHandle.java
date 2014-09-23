@@ -160,7 +160,7 @@ public final class KafkaColumnHandle
 
     ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(getName(), getType(), getOrdinalPosition(), isHidden());
+        return new ColumnMetadata(name, type, ordinalPosition, false, null, hidden);
     }
 
     @Override
