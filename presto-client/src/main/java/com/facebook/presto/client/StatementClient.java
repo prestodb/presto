@@ -20,14 +20,11 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
-
 import javax.annotation.concurrent.ThreadSafe;
-
 import java.io.Closeable;
 import java.net.URI;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
@@ -45,7 +42,7 @@ import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @ThreadSafe
 public class StatementClient
@@ -55,6 +52,7 @@ public class StatementClient
             "/" +
             Objects.firstNonNull(StatementClient.class.getPackage().getImplementationVersion(), "unknown");
 
+    public static final long REQUEST_TIMEOUT = SECONDS.toNanos(10);
     private final HttpClient httpClient;
     private final FullJsonResponseHandler<QueryResults> responseHandler;
     private final boolean debug;
@@ -79,7 +77,7 @@ public class StatementClient
         this.query = query;
 
         Request request = buildQueryRequest(session, query);
-        currentResults.set(httpClient.execute(request, responseHandler).getValue());
+        updateResults(request);
     }
 
     private static Request buildQueryRequest(ClientSession session, String query)
@@ -166,8 +164,13 @@ public class StatementClient
                 .setUri(current().getNextUri())
                 .build();
 
-        Exception cause = null;
+        return updateResults(request);
+    }
+
+    private boolean updateResults(Request request)
+    {
         long start = System.nanoTime();
+        Exception cause = null;
         long attempts = 0;
 
         do {
@@ -192,20 +195,20 @@ public class StatementClient
             }
 
             if (response.getStatusCode() != HttpStatus.SERVICE_UNAVAILABLE.code()) {
-                gone.set(true);
                 if (!response.hasValue()) {
-                    throw new RuntimeException(format("Error fetching next at %s returned an invalid response: %s", request.getUri(), response), response.getException());
+                    throw new RuntimeException(format("Error fetching next at %s returned an invalid response", request.getUri()),
+                            response.getException());
                 }
-                throw new RuntimeException(format("Error fetching next at %s returned %s: %s",
+                throw new RuntimeException(format("Error executing request at %s returned %s: %s",
                         request.getUri(),
                         response.getStatusCode(),
                         response.getStatusMessage()));
             }
         }
-        while ((System.nanoTime() - start) < MINUTES.toNanos(2) && !isClosed());
+        while ((System.nanoTime() - start) < REQUEST_TIMEOUT && !isClosed());
 
         gone.set(true);
-        throw new RuntimeException("Error fetching next", cause);
+        throw new RuntimeException("Request timed out (server down?)", cause);
     }
 
     public boolean cancelLeafStage()
