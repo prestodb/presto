@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
+import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Function;
@@ -152,13 +153,12 @@ public class PluginManager
         pluginsLoaded.set(true);
     }
 
-    @SuppressWarnings("UnusedDeclaration")
     private void loadPlugin(String plugin)
             throws Exception
     {
         log.info("-- Loading plugin %s --", plugin);
         URLClassLoader pluginClassLoader = buildClassLoader(plugin);
-        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(pluginClassLoader)) {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(pluginClassLoader)) {
             loadPlugin(pluginClassLoader);
         }
         log.info("-- Finished loading plugin %s --", plugin);
