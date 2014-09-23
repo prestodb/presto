@@ -28,12 +28,12 @@ public class IndexLookupSource
         implements LookupSource
 {
     private final IndexLoader indexLoader;
-    private IndexSnapshot indexSnapshot;
+    private IndexedData indexedData;
 
     public IndexLookupSource(IndexLoader indexLoader)
     {
         this.indexLoader = checkNotNull(indexLoader, "indexLoader is null");
-        indexSnapshot = indexLoader.getIndexSnapshot();
+        this.indexedData = indexLoader.getIndexSnapshot();
     }
 
     @Override
@@ -45,16 +45,11 @@ public class IndexLookupSource
     @Override
     public long getJoinPosition(int position, Block... blocks)
     {
-        // Fetch the indexSnapshot each time to avoid hanging onto old snapshots. This is an
-        // attempt to make sure we don't have too many snapshots around which results in untracked
-        // memory usage. Additionally, we may need to add other optimizations around this if it
-        // hurts our throughput too much.
-        indexSnapshot = indexLoader.getIndexSnapshot();
-
-        long joinPosition = indexSnapshot.getJoinPosition(position, blocks);
+        long joinPosition = indexedData.getJoinPosition(position, blocks);
         if (joinPosition == UNLOADED_INDEX_KEY) {
-            indexSnapshot = indexLoader.getIndexSnapshotForKeys(position, blocks);
-            joinPosition = indexSnapshot.getJoinPosition(position, blocks);
+            indexedData.close(); // Close out the old indexedData
+            indexedData = indexLoader.getIndexedDataForKeys(position, blocks);
+            joinPosition = indexedData.getJoinPosition(position, blocks);
             checkState(joinPosition != UNLOADED_INDEX_KEY);
         }
         // INVARIANT: position is -1 or a valid position greater than or equal to zero
@@ -64,7 +59,7 @@ public class IndexLookupSource
     @Override
     public long getNextJoinPosition(long currentPosition)
     {
-        long nextPosition = indexSnapshot.getNextJoinPosition(currentPosition);
+        long nextPosition = indexedData.getNextJoinPosition(currentPosition);
         checkState(nextPosition != UNLOADED_INDEX_KEY);
         // INVARIANT: currentPosition is -1 or a valid currentPosition greater than or equal to zero
         return nextPosition;
@@ -73,6 +68,12 @@ public class IndexLookupSource
     @Override
     public void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset)
     {
-        indexSnapshot.appendTo(position, pageBuilder, outputChannelOffset);
+        indexedData.appendTo(position, pageBuilder, outputChannelOffset);
+    }
+
+    @Override
+    public void close()
+    {
+        indexedData.close();
     }
 }

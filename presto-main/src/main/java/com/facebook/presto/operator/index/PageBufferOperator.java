@@ -22,28 +22,24 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import javax.annotation.concurrent.ThreadSafe;
-
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-@ThreadSafe
-public class PagesIndexBuilderOperator
-    implements Operator
+public class PageBufferOperator
+        implements Operator
 {
-    public static class PagesIndexBuilderOperatorFactory
+    public static class PageBufferOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
-        private final IndexSnapshotBuilder indexSnapshotBuilder;
-        private boolean closed;
+        private final PageBuffer pageBuffer;
 
-        public PagesIndexBuilderOperatorFactory(int operatorId, IndexSnapshotBuilder indexSnapshotBuilder)
+        public PageBufferOperatorFactory(int operatorId, PageBuffer pageBuffer)
         {
             this.operatorId = operatorId;
-            this.indexSnapshotBuilder = checkNotNull(indexSnapshotBuilder, "indexSnapshotBuilder is null");
+            this.pageBuffer = checkNotNull(pageBuffer, "pageBuffer is null");
         }
 
         @Override
@@ -55,28 +51,25 @@ public class PagesIndexBuilderOperator
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
-            checkState(!closed, "Factory is already closed");
-
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, PagesIndexBuilderOperator.class.getSimpleName());
-            return new PagesIndexBuilderOperator(operatorContext, indexSnapshotBuilder);
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, PageBufferOperator.class.getSimpleName());
+            return new PageBufferOperator(operatorContext, pageBuffer);
         }
 
         @Override
         public void close()
         {
-            closed = true;
         }
     }
 
     private final OperatorContext operatorContext;
-    private final IndexSnapshotBuilder indexSnapshotBuilder;
-
+    private final PageBuffer pageBuffer;
+    private ListenableFuture<?> blocked = NOT_BLOCKED;
     private boolean finished;
 
-    public PagesIndexBuilderOperator(OperatorContext operatorContext, IndexSnapshotBuilder indexSnapshotBuilder)
+    public PageBufferOperator(OperatorContext operatorContext, PageBuffer pageBuffer)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.indexSnapshotBuilder = checkNotNull(indexSnapshotBuilder, "indexSnapshotBuilder is null");
+        this.pageBuffer = checkNotNull(pageBuffer, "pageBuffer is null");
     }
 
     @Override
@@ -100,30 +93,39 @@ public class PagesIndexBuilderOperator
     @Override
     public boolean isFinished()
     {
-        return finished;
+        updateBlockedIfNecessary();
+        return finished && blocked == NOT_BLOCKED;
     }
 
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return NOT_BLOCKED;
+        updateBlockedIfNecessary();
+        return blocked;
     }
 
     @Override
     public boolean needsInput()
     {
-        return !finished;
+        updateBlockedIfNecessary();
+        return !finished && blocked == NOT_BLOCKED;
+    }
+
+    private void updateBlockedIfNecessary()
+    {
+        if (blocked != NOT_BLOCKED && blocked.isDone()) {
+            blocked = NOT_BLOCKED;
+        }
     }
 
     @Override
     public void addInput(Page page)
     {
         checkNotNull(page, "page is null");
-        checkState(!isFinished(), "Operator is already finished");
-
-        if (!indexSnapshotBuilder.tryAddPage(page)) {
-            finish();
-            return;
+        checkState(blocked == NOT_BLOCKED, "output is already blocked");
+        ListenableFuture<?> future = pageBuffer.add(page);
+        if (!future.isDone()) {
+            this.blocked = future;
         }
         operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
     }

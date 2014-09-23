@@ -13,11 +13,9 @@
  */
 package com.facebook.presto.operator.index;
 
-import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.LookupSourceSupplier;
 import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.index.PagesIndexBuilderOperator.PagesIndexBuilderOperatorFactory;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -33,12 +31,11 @@ public class IndexLookupSourceSupplier
     public IndexLookupSourceSupplier(
             List<Integer> indexChannels,
             List<Type> types,
-            DriverFactory indexBuildDriverFactory,
-            PagesIndexBuilderOperatorFactory pagesIndexOutput,
+            IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider,
             DataSize maxIndexMemorySize,
             IndexJoinLookupStats stats)
     {
-        this.indexLoader = new IndexLoader(indexChannels, types, indexBuildDriverFactory, pagesIndexOutput, 100_000, maxIndexMemorySize, stats);
+        this.indexLoader = new IndexLoader(indexChannels, types, indexBuildDriverFactoryProvider, 100_000, maxIndexMemorySize, stats);
     }
 
     @Override

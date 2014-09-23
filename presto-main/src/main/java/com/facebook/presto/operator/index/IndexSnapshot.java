@@ -23,10 +23,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 @Immutable
 public class IndexSnapshot
+        implements IndexedData
 {
-    public static final long UNLOADED_INDEX_KEY = -2;
-    public static final long NO_MORE_POSITIONS = -1;
-
     private final LookupSource values;
     private final LookupSource missingKeys;
 
@@ -36,11 +34,7 @@ public class IndexSnapshot
         this.missingKeys = checkNotNull(missingKeys, "missingKeys is null");
     }
 
-    /**
-     * Returns UNLOADED_INDEX_KEY if the key has not been loaded.
-     * Returns NO_MORE_POSITIONS if the key has been loaded, but has no values.
-     * Returns a valid address if the key has been loaded and has values.
-     */
+    @Override
     public long getJoinPosition(int position, Block... blocks)
     {
         long joinPosition = values.getJoinPosition(position, blocks);
@@ -55,17 +49,20 @@ public class IndexSnapshot
         return joinPosition;
     }
 
-    /**
-     * Returns the next address to join.
-     * Returns NO_MORE_POSITIONS if there are no more values to join.
-     */
+    @Override
     public long getNextJoinPosition(long currentPosition)
     {
         return values.getNextJoinPosition(currentPosition);
     }
 
+    @Override
     public void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset)
     {
         values.appendTo(position, pageBuilder, outputChannelOffset);
+    }
+
+    @Override
+    public void close()
+    {
     }
 }

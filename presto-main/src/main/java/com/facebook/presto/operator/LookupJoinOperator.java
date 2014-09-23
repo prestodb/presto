@@ -19,6 +19,7 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.io.Closeable;
 import java.util.List;
 
 import static com.facebook.presto.util.MoreFutures.tryGetUnchecked;
@@ -26,7 +27,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class LookupJoinOperator
-        implements Operator
+        implements Operator, Closeable
 {
     private final ListenableFuture<LookupSource> lookupSourceFuture;
 
@@ -91,8 +92,10 @@ public class LookupJoinOperator
 
         // if finished drop references so memory is freed early
         if (finished) {
-            lookupSource = null;
-
+            if (lookupSource != null) {
+                lookupSource.close();
+                lookupSource = null;
+            }
             probe = null;
             pageBuilder.reset();
         }
@@ -156,6 +159,15 @@ public class LookupJoinOperator
         }
 
         return null;
+    }
+
+    @Override
+    public void close()
+    {
+        if (lookupSource != null) {
+            lookupSource.close();
+            lookupSource = null;
+        }
     }
 
     private boolean joinCurrentPosition()

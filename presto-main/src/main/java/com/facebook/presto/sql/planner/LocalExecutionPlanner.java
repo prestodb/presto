@@ -41,7 +41,6 @@ import com.facebook.presto.operator.MarkDistinctOperator.MarkDistinctOperatorFac
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
@@ -60,17 +59,19 @@ import com.facebook.presto.operator.WindowFunctionDefinition;
 import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.index.FieldSetFilteringRecordSet;
+import com.facebook.presto.operator.index.IndexBuildDriverFactoryProvider;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.operator.index.IndexLookupSourceSupplier;
 import com.facebook.presto.operator.index.IndexSourceOperator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Index;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.split.MappedRecordSet;
+import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
@@ -144,7 +145,6 @@ import static com.facebook.presto.operator.DistinctLimitOperator.DistinctLimitOp
 import static com.facebook.presto.operator.TableCommitOperator.TableCommitOperatorFactory;
 import static com.facebook.presto.operator.TableCommitOperator.TableCommitter;
 import static com.facebook.presto.operator.TableWriterOperator.TableWriterOperatorFactory;
-import static com.facebook.presto.operator.index.PagesIndexBuilderOperator.PagesIndexBuilderOperatorFactory;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static com.facebook.presto.sql.planner.plan.IndexJoinNode.EquiJoinClause.indexGetter;
@@ -1042,24 +1042,15 @@ public class LocalExecutionPlanner
             PhysicalOperation indexSource = node.getIndexSource().accept(this, indexContext);
             List<Integer> indexChannels = getChannelsForSymbols(indexSymbols, indexSource.getLayout());
 
-            PagesIndexBuilderOperatorFactory pagesIndexOutput = new PagesIndexBuilderOperatorFactory(
+            IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider = new IndexBuildDriverFactoryProvider(
                     indexContext.getNextOperatorId(),
-                    indexSource.getTypes()
-            );
-
-            DriverFactory indexBuildDriverFactory = new DriverFactory(
                     indexContext.isInputDriver(),
-                    false,
-                    ImmutableList.<OperatorFactory>builder()
-                            .addAll(indexSource.getOperatorFactories())
-                            .add(pagesIndexOutput)
-                            .build());
+                    indexSource.getOperatorFactories());
 
             IndexLookupSourceSupplier indexLookupSourceSupplier = new IndexLookupSourceSupplier(
                     indexChannels,
                     indexSource.getTypes(),
-                    indexBuildDriverFactory,
-                    pagesIndexOutput,
+                    indexBuildDriverFactoryProvider,
                     maxIndexMemorySize,
                     indexJoinLookupStats);
 
