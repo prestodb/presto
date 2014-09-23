@@ -28,6 +28,7 @@ public abstract class AbstractTestIndexedQueries
             .addIndex("orders", TpchMetadata.TINY_SCALE_FACTOR, ImmutableSet.of("orderkey"))
             .addIndex("orders", TpchMetadata.TINY_SCALE_FACTOR, ImmutableSet.of("orderkey", "orderstatus"))
             .addIndex("orders", TpchMetadata.TINY_SCALE_FACTOR, ImmutableSet.of("orderkey", "custkey"))
+            .addIndex("orders", TpchMetadata.TINY_SCALE_FACTOR, ImmutableSet.of("orderstatus", "shippriority"))
             .build();
 
     protected AbstractTestIndexedQueries(QueryRunner queryRunner)
@@ -379,5 +380,22 @@ public abstract class AbstractTestIndexedQueries
         assertQuery(
                 "select count(*) from (values (1), (cast(null as bigint))) x(orderkey) join orders using (orderkey)",
                 "select count(*) from orders where orderkey = 1");
+    }
+
+    @Test
+    public void testHighCardinalityIndexJoinResult()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT *\n" +
+                "FROM (\n" +
+                "  SELECT *\n" +
+                "  FROM orders\n" +
+                "  WHERE orderkey % 10000 = 0) o1\n" +
+                "JOIN (\n" +
+                "  SELECT *\n" +
+                "  FROM orders\n" +
+                "  WHERE orderkey % 4 = 0) o2\n" +
+                "  ON o1.orderstatus = o2.orderstatus AND o1.shippriority = o2.shippriority");
     }
 }

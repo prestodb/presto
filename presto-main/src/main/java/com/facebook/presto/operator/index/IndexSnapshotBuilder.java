@@ -16,11 +16,11 @@ package com.facebook.presto.operator.index;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.UnloadedIndexKeyRecordSet.UnloadedIndexKeyRecordCursor;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -87,6 +87,11 @@ public class IndexSnapshotBuilder
         this.outputPagesIndex = new PagesIndex(outputTypes, expectedPositions, bogusOperatorContext);
         this.missingKeysIndex = new PagesIndex(missingKeysTypes.build(), expectedPositions, bogusOperatorContext);
         this.missingKeys = missingKeysIndex.createLookupSource(this.missingKeysChannels);
+    }
+
+    public List<Type> getOutputTypes()
+    {
+        return outputTypes;
     }
 
     public long getMemoryInBytes()

@@ -26,7 +26,7 @@ public class IndexJoinLookupStats
     private final CounterStat successfulIndexJoinLookupsByCacheReset = new CounterStat();
     private final CounterStat successfulIndexJoinLookupsBySingleRequest = new CounterStat();
     private final CounterStat successfulIndexJoinLookupsByLimitedRequest = new CounterStat();
-    private final CounterStat failedIndexJoinLookups = new CounterStat();
+    private final CounterStat streamedIndexJoinLookups = new CounterStat();
 
     @Managed
     @Nested
@@ -58,9 +58,9 @@ public class IndexJoinLookupStats
 
     @Managed
     @Nested
-    public CounterStat getFailedIndexJoinLookups()
+    public CounterStat getStreamedIndexJoinLookups()
     {
-        return failedIndexJoinLookups;
+        return streamedIndexJoinLookups;
     }
 
     public void recordIndexJoinLookup()
@@ -83,8 +83,8 @@ public class IndexJoinLookupStats
         successfulIndexJoinLookupsByLimitedRequest.update(1);
     }
 
-    public void recordFailedIndexJoinLookup()
+    public void recordStreamedIndexJoinLookup()
     {
-        failedIndexJoinLookups.update(1);
+        streamedIndexJoinLookups.update(1);
     }
 }

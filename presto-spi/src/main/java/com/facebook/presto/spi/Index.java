@@ -15,5 +15,6 @@ package com.facebook.presto.spi;
 
 public interface Index
 {
+    // TODO: switch RecordSet SPI usage to PageSource
     RecordSet lookup(RecordSet recordSet);
 }
