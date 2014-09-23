@@ -201,6 +201,16 @@ public class ScanFilterAndProjectOperator
             else {
                 if (currentPage == null) {
                     currentPage = pageSource.getNextPage();
+
+                    if (currentPage != null) {
+                        // update operator stats
+                        long endCompletedBytes = pageSource.getCompletedBytes();
+                        long endReadTimeNanos = pageSource.getReadTimeNanos();
+                        operatorContext.recordGeneratedInput(endCompletedBytes - completedBytes, currentPage.getPositionCount(), endReadTimeNanos - readTimeNanos);
+                        completedBytes = endCompletedBytes;
+                        readTimeNanos = endReadTimeNanos;
+                    }
+
                     currentPosition = 0;
                 }
 

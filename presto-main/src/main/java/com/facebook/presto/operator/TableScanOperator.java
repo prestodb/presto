@@ -105,6 +105,9 @@ public class TableScanOperator
     @GuardedBy("this")
     private ConnectorPageSource source;
 
+    private long completedBytes;
+    private long readTimeNanos;
+
     public TableScanOperator(
             OperatorContext operatorContext,
             PlanNodeId planNodeId,
@@ -223,6 +226,17 @@ public class TableScanOperator
         if (delegate == null) {
             return null;
         }
-        return delegate.getNextPage();
+
+        Page page = delegate.getNextPage();
+        if (page != null) {
+            // update operator stats
+            long endCompletedBytes = delegate.getCompletedBytes();
+            long endReadTimeNanos = delegate.getReadTimeNanos();
+            operatorContext.recordGeneratedInput(endCompletedBytes - completedBytes, page.getPositionCount(), endReadTimeNanos - readTimeNanos);
+            completedBytes = endCompletedBytes;
+            readTimeNanos = endReadTimeNanos;
+        }
+
+        return page;
     }
 }
