@@ -26,6 +26,7 @@ public final class HiveRecordCursorProviders
         return ImmutableList.of(
                 new ColumnarTextHiveRecordCursorProvider(),
                 new ColumnarBinaryHiveRecordCursorProvider(),
+                new ParquetHiveRecordCursorProvider(),
                 new GenericHiveRecordCursorProvider());
     }
 }

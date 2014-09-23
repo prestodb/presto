@@ -29,6 +29,10 @@ import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import parquet.hive.serde.ParquetHiveSerDe;
+import parquet.hive.DeprecatedParquetInputFormat;
+import parquet.hive.DeprecatedParquetOutputFormat;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Properties;
@@ -111,6 +115,42 @@ public class TestHiveFileFormats
                     getColumns(),
                     DateTimeZone.getDefault(),
                     new TypeRegistry());
+
+            checkCursor(cursor);
+        }
+        finally {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
+    @Test(enabled = false)
+    // The test fails with a Parquet-Hive-SerDe bug:
+    // https://github.com/Parquet/parquet-mr/issues/218
+    // will enable when the bug get fixed
+    public void testParquet()
+            throws Exception
+    {
+        JobConf jobConf = new JobConf();
+        @SuppressWarnings("rawtypes")
+        DeprecatedParquetOutputFormat outputFormat = new DeprecatedParquetOutputFormat();
+        @SuppressWarnings("deprecation")
+        DeprecatedParquetInputFormat inputFormat = new DeprecatedParquetInputFormat();
+        ParquetHiveSerDe serde = new ParquetHiveSerDe();
+        File file = File.createTempFile("presto_test", "parquet");
+        try {
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null);
+            @SuppressWarnings("unchecked")
+            RecordReader<java.lang.Void, org.apache.hadoop.io.ArrayWritable> recordReader =
+                (RecordReader<java.lang.Void, org.apache.hadoop.io.ArrayWritable>) inputFormat.getRecordReader(
+                    split,
+                    jobConf,
+                    Reporter.NULL);
+            Properties splitProperties = new Properties();
+            splitProperties.setProperty("serialization.lib", "parquet.hive.serde.ParquetHiveSerDe");
+            splitProperties.setProperty("columns", COLUMN_NAMES_STRING);
+            splitProperties.setProperty("columns.types", COLUMN_TYPES);
+            RecordCursor cursor = new ParquetHiveRecordCursor<>(recordReader, split.getLength(), splitProperties, new ArrayList<HivePartitionKey>(), getColumns());
 
             checkCursor(cursor);
         }
