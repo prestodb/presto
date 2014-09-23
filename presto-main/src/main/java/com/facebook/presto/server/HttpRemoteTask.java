@@ -94,6 +94,7 @@ import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class HttpRemoteTask
         implements RemoteTask
@@ -745,11 +746,12 @@ public class HttpRemoteTask
                             cause = new PrestoException(REMOTE_TASK_ERROR.toErrorCode(), format("Expected response from %s is empty", uri));
                         }
                         else {
-                            cause = new PrestoException(REMOTE_TASK_ERROR.toErrorCode(), format("Expected response code from %s to be %s, but was %s: %s",
+                            cause = new PrestoException(REMOTE_TASK_ERROR.toErrorCode(), format("Expected response code from %s to be %s, but was %s: %s%n%s",
                                     uri,
                                     HttpStatus.OK.code(),
                                     response.getStatusCode(),
-                                    response.getStatusMessage()));
+                                    response.getStatusMessage(),
+                                    new String(response.getNonJsonBytes(), UTF_8)));
                         }
                     }
                     callback.fatal(cause);
