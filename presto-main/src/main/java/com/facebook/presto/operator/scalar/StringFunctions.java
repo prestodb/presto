@@ -14,16 +14,17 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.Description;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import com.google.common.base.Ascii;
 import com.google.common.base.Charsets;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import javax.annotation.Nullable;
+
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -31,20 +32,20 @@ public final class StringFunctions
 {
     private StringFunctions() {}
 
-    @Description("convert ASCII character code to string")
+    @Description("convert unicode code point to a string")
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice chr(@SqlType(BigintType.class) long n)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice chr(@SqlType(StandardTypes.BIGINT) long codepoint)
     {
-        Slice slice = Slices.allocate(1);
-        slice.setByte(0, Ints.saturatedCast(n));
-        return slice;
+        char[] utf16 = Character.toChars((int) codepoint);
+        ByteBuffer utf8 = Charsets.UTF_8.encode(CharBuffer.wrap(utf16));
+        return Slices.wrappedBuffer(utf8.array(), 0, utf8.limit());
     }
 
     @Description("concatenates given strings")
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice concat(@SqlType(VarcharType.class) Slice str1, @SqlType(VarcharType.class) Slice str2)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice concat(@SqlType(StandardTypes.VARCHAR) Slice str1, @SqlType(StandardTypes.VARCHAR) Slice str2)
     {
         Slice concat = Slices.allocate(str1.length() + str2.length());
         concat.setBytes(0, str1);
@@ -54,24 +55,24 @@ public final class StringFunctions
 
     @Description("length of the given string")
     @ScalarFunction
-    @SqlType(BigintType.class)
-    public static long length(@SqlType(VarcharType.class) Slice slice)
+    @SqlType(StandardTypes.BIGINT)
+    public static long length(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         return slice.length();
     }
 
     @Description("greedily removes occurrences of a pattern in a string")
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice replace(@SqlType(VarcharType.class) Slice str, @SqlType(VarcharType.class) Slice search)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice replace(@SqlType(StandardTypes.VARCHAR) Slice str, @SqlType(StandardTypes.VARCHAR) Slice search)
     {
         return replace(str, search, Slices.EMPTY_SLICE);
     }
 
     @Description("greedily replaces occurrences of a pattern with a string")
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice replace(@SqlType(VarcharType.class) Slice str, @SqlType(VarcharType.class) Slice search, @SqlType(VarcharType.class) Slice replace)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice replace(@SqlType(StandardTypes.VARCHAR) Slice str, @SqlType(StandardTypes.VARCHAR) Slice search, @SqlType(StandardTypes.VARCHAR) Slice replace)
     {
         String replaced = str.toString(Charsets.UTF_8).replace(
                 search.toString(Charsets.UTF_8),
@@ -81,8 +82,8 @@ public final class StringFunctions
 
     @Description("reverses the given string")
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice reverse(@SqlType(VarcharType.class) Slice slice)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice reverse(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         Slice reverse = Slices.allocate(slice.length());
         for (int i = 0, j = slice.length() - 1; i < slice.length(); i++, j--) {
@@ -93,8 +94,8 @@ public final class StringFunctions
 
     @Description("returns index of first occurrence of a substring (or 0 if not found)")
     @ScalarFunction("strpos")
-    @SqlType(BigintType.class)
-    public static long stringPosition(@SqlType(VarcharType.class) Slice string, @SqlType(VarcharType.class) Slice substring)
+    @SqlType(StandardTypes.BIGINT)
+    public static long stringPosition(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice substring)
     {
         if (substring.length() > string.length()) {
             return 0;
@@ -111,16 +112,16 @@ public final class StringFunctions
 
     @Description("suffix starting at given index")
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice substr(@SqlType(VarcharType.class) Slice slice, @SqlType(BigintType.class) long start)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice substr(@SqlType(StandardTypes.VARCHAR) Slice slice, @SqlType(StandardTypes.BIGINT) long start)
     {
         return substr(slice, start, slice.length());
     }
 
     @Description("substring of given length starting at an index")
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice substr(@SqlType(VarcharType.class) Slice slice, @SqlType(BigintType.class) long start, @SqlType(BigintType.class) long length)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice substr(@SqlType(StandardTypes.VARCHAR) Slice slice, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
     {
         if ((start == 0) || (length <= 0)) {
             return Slices.EMPTY_SLICE;
@@ -153,8 +154,8 @@ public final class StringFunctions
     @Nullable
     @Description("splits a string by a delimiter and returns the specified field (counting from one)")
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice splitPart(@SqlType(VarcharType.class) Slice string, @SqlType(VarcharType.class) Slice delimiter, @SqlType(BigintType.class) long index)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice splitPart(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter, @SqlType(StandardTypes.BIGINT) long index)
     {
         checkArgument(index > 0, "Index must be greater than zero");
 
@@ -192,8 +193,8 @@ public final class StringFunctions
 
     @Description("removes spaces from the beginning of a string")
     @ScalarFunction("ltrim")
-    @SqlType(VarcharType.class)
-    public static Slice leftTrim(@SqlType(VarcharType.class) Slice slice)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice leftTrim(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         int start = firstNonSpace(slice);
         return slice.slice(start, slice.length() - start);
@@ -201,8 +202,8 @@ public final class StringFunctions
 
     @Description("removes spaces from the end of a string")
     @ScalarFunction("rtrim")
-    @SqlType(VarcharType.class)
-    public static Slice rightTrim(@SqlType(VarcharType.class) Slice slice)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice rightTrim(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         int end = lastNonSpace(slice);
         return slice.slice(0, end + 1);
@@ -210,8 +211,8 @@ public final class StringFunctions
 
     @Description("removes spaces from the beginning and end of a string")
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice trim(@SqlType(VarcharType.class) Slice slice)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice trim(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         int start = firstNonSpace(slice);
         if (start == slice.length()) {
@@ -246,8 +247,8 @@ public final class StringFunctions
 
     @Description("converts the alphabets in a string to lower case")
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice lower(@SqlType(VarcharType.class) Slice slice)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice lower(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         Slice upper = Slices.allocate(slice.length());
         for (int i = 0; i < slice.length(); i++) {
@@ -258,8 +259,8 @@ public final class StringFunctions
 
     @Description("converts all the alphabets in the string to upper case")
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice upper(@SqlType(VarcharType.class) Slice slice)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice upper(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         Slice upper = Slices.allocate(slice.length());
         for (int i = 0; i < slice.length(); i++) {
@@ -270,16 +271,16 @@ public final class StringFunctions
 
     @Description("get the largest of the given values")
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice greatest(@SqlType(VarcharType.class) Slice value1, @SqlType(VarcharType.class) Slice value2)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice greatest(@SqlType(StandardTypes.VARCHAR) Slice value1, @SqlType(StandardTypes.VARCHAR) Slice value2)
     {
         return value1.compareTo(value2) > 0 ? value1 : value2;
     }
 
     @Description("get the smallest of the given values")
     @ScalarFunction
-    @SqlType(VarcharType.class)
-    public static Slice least(@SqlType(VarcharType.class) Slice value1, @SqlType(VarcharType.class) Slice value2)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice least(@SqlType(StandardTypes.VARCHAR) Slice value1, @SqlType(StandardTypes.VARCHAR) Slice value2)
     {
         return value1.compareTo(value2) < 0 ? value1 : value2;
     }

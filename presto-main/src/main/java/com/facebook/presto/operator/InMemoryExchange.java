@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -141,7 +142,7 @@ public class InMemoryExchange
             return;
         }
         buffer.add(page);
-        bufferBytes += page.getDataSize().toBytes();
+        bufferBytes += page.getSizeInBytes();
         // TODO: record memory usage using OperatorContext.setMemoryReservation()
         notifyBlockedReaders();
     }
@@ -169,7 +170,7 @@ public class InMemoryExchange
     {
         Page page = buffer.poll();
         if (page != null) {
-            bufferBytes -= page.getDataSize().toBytes();
+            bufferBytes -= page.getSizeInBytes();
         }
         if (bufferBytes < maxBufferedBytes) {
             notifyBlockedWriters();

@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.google.common.base.Function;
 import com.google.common.base.Stopwatch;

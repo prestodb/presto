@@ -13,19 +13,21 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.block.rle.RunLengthBlockEncoding;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.SliceOutput;
 
+import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class RunLengthEncoder
         implements Encoder
 {
+    private final Type type;
     private final SliceOutput sliceOutput;
     private boolean finished;
 
@@ -33,8 +35,9 @@ public class RunLengthEncoder
     private Block lastValue;
     private RunLengthBlockEncoding encoding;
 
-    public RunLengthEncoder(SliceOutput sliceOutput)
+    public RunLengthEncoder(SliceOutput sliceOutput, Type type)
     {
+        this.type = checkNotNull(type, "type is null");
         this.sliceOutput = checkNotNull(sliceOutput, "sliceOutput is null");
     }
 
@@ -48,14 +51,13 @@ public class RunLengthEncoder
             encoding = new RunLengthBlockEncoding(block.getEncoding());
         }
 
-        BlockCursor cursor = block.cursor();
-        while (cursor.advanceNextPosition()) {
+        for (int position = 0; position < block.getPositionCount(); position++) {
             if (lastValue == null) {
-                lastValue = cursor.getSingleValueBlock();
+                lastValue = block.getSingleValueBlock(position);
             }
-            else if (!lastValue.equalTo(0, cursor)) {
+            else if (!positionEqualsPosition(type, lastValue, 0, block, position)) {
                 writeBlock();
-                lastValue = cursor.getSingleValueBlock();
+                lastValue = block.getSingleValueBlock(position);
             }
             positionCount++;
         }

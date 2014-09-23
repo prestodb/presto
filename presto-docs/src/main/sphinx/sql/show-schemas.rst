@@ -14,22 +14,15 @@ Description
 
 List the schemas in ``catalog`` or in the current catalog.
 
-Parameters
-----------
-
-catalog
-
-    Name of the catalog
-
 Examples
 --------
 
 .. code-block:: none
 
     presto:default> show schemas;
-           Schema       
+           Schema
     --------------------
-     information_schema 
-     jmx                
-     sys                
+     information_schema
+     jmx
+     sys
     (3 rows)

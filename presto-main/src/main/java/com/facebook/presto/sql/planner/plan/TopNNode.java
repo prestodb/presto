@@ -17,7 +17,6 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -36,7 +35,6 @@ public class TopNNode
     private final List<Symbol> orderBy;
     private final Map<Symbol, SortOrder> orderings;
     private final boolean partial;
-    private final Optional<Symbol> sampleWeight;
 
     @JsonCreator
     public TopNNode(@JsonProperty("id") PlanNodeId id,
@@ -44,8 +42,7 @@ public class TopNNode
             @JsonProperty("count") long count,
             @JsonProperty("orderBy") List<Symbol> orderBy,
             @JsonProperty("orderings") Map<Symbol, SortOrder> orderings,
-            @JsonProperty("partial") boolean partial,
-            @JsonProperty("sampleWeight") Optional<Symbol> sampleWeight)
+            @JsonProperty("partial") boolean partial)
     {
         super(id);
 
@@ -54,29 +51,18 @@ public class TopNNode
         Preconditions.checkNotNull(orderBy, "orderBy is null");
         Preconditions.checkArgument(!orderBy.isEmpty(), "orderBy is empty");
         Preconditions.checkArgument(orderings.size() == orderBy.size(), "orderBy and orderings sizes don't match");
-        Preconditions.checkNotNull(sampleWeight, "sampleWeight is null");
-        if (sampleWeight.isPresent()) {
-            Preconditions.checkArgument(source.getOutputSymbols().contains(sampleWeight.get()), "source does not output sample weight");
-        }
 
         this.source = source;
         this.count = count;
         this.orderBy = ImmutableList.copyOf(orderBy);
         this.orderings = ImmutableMap.copyOf(orderings);
         this.partial = partial;
-        this.sampleWeight = sampleWeight;
     }
 
     @Override
     public List<PlanNode> getSources()
     {
         return ImmutableList.of(source);
-    }
-
-    @JsonProperty("sampleWeight")
-    public Optional<Symbol> getSampleWeight()
-    {
-        return sampleWeight;
     }
 
     @JsonProperty("source")

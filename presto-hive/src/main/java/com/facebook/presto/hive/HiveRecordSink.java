@@ -218,15 +218,17 @@ public class HiveRecordSink
 
     private static PrimitiveObjectInspector getJavaObjectInspector(HiveType type)
     {
-        switch (type) {
-            case BOOLEAN:
-                return javaBooleanObjectInspector;
-            case LONG:
-                return javaLongObjectInspector;
-            case DOUBLE:
-                return javaDoubleObjectInspector;
-            case STRING:
-                return javaStringObjectInspector;
+        if (type.equals(HiveType.HIVE_BOOLEAN)) {
+            return javaBooleanObjectInspector;
+        }
+        else if (type.equals(HiveType.HIVE_LONG)) {
+            return javaLongObjectInspector;
+        }
+        else if (type.equals(HiveType.HIVE_DOUBLE)) {
+            return javaDoubleObjectInspector;
+        }
+        else if (type.equals(HiveType.HIVE_STRING)) {
+            return javaStringObjectInspector;
         }
         throw new IllegalArgumentException("unsupported type: " + type);
     }

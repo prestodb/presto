@@ -26,9 +26,12 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
 
-import static com.google.common.base.Preconditions.checkState;
+import java.util.List;
 
 // This class exists as template for code generation and for testing
 public class TwoChannelJoinProbe
@@ -37,30 +40,44 @@ public class TwoChannelJoinProbe
     public static class TwoChannelJoinProbeFactory
             implements JoinProbeFactory
     {
+        private final List<Type> types;
+
+        public TwoChannelJoinProbeFactory(List<Type> types)
+        {
+            this.types = types;
+        }
+
         @Override
         public JoinProbe createJoinProbe(LookupSource lookupSource, Page page)
         {
-            return new TwoChannelJoinProbe(lookupSource, page);
+            return new TwoChannelJoinProbe(types, lookupSource, page);
         }
     }
 
     private final LookupSource lookupSource;
-    private final BlockCursor cursorA;
-    private final BlockCursor cursorB;
-    private final BlockCursor probeCursorA;
-    private final BlockCursor probeCursorB;
-    private final BlockCursor[] probeCursors;
+    private final int positionCount;
+    private final Type typeA;
+    private final Type typeB;
+    private final Block blockA;
+    private final Block blockB;
+    private final Block probeBlockA;
+    private final Block probeBlockB;
+    private final Block[] probeBlocks;
+    private int position = -1;
 
-    public TwoChannelJoinProbe(LookupSource lookupSource, Page page)
+    public TwoChannelJoinProbe(List<Type> types, LookupSource lookupSource, Page page)
     {
         this.lookupSource = lookupSource;
-        this.cursorA = page.getBlock(0).cursor();
-        this.cursorB = page.getBlock(1).cursor();
-        this.probeCursorA = cursorA;
-        this.probeCursorB = cursorB;
-        this.probeCursors = new BlockCursor[2];
-        probeCursors[0] = probeCursorA;
-        probeCursors[1] = probeCursorB;
+        this.positionCount = page.getPositionCount();
+        this.typeA = types.get(0);
+        this.typeB = types.get(1);
+        this.blockA = page.getBlock(0);
+        this.blockB = page.getBlock(1);
+        this.probeBlockA = blockA;
+        this.probeBlockB = blockB;
+        this.probeBlocks = new Block[2];
+        probeBlocks[0] = probeBlockA;
+        probeBlocks[1] = probeBlockB;
     }
 
     @Override
@@ -72,16 +89,15 @@ public class TwoChannelJoinProbe
     @Override
     public void appendTo(PageBuilder pageBuilder)
     {
-        cursorA.appendTo(pageBuilder.getBlockBuilder(0));
-        cursorA.appendTo(pageBuilder.getBlockBuilder(1));
+        typeA.appendTo(blockA, position, pageBuilder.getBlockBuilder(0));
+        typeB.appendTo(blockB, position, pageBuilder.getBlockBuilder(1));
     }
 
     @Override
     public boolean advanceNextPosition()
     {
-        boolean advanced = cursorA.advanceNextPosition();
-        checkState(advanced == cursorB.advanceNextPosition());
-        return advanced;
+        position++;
+        return position < positionCount;
     }
 
     @Override
@@ -90,15 +106,15 @@ public class TwoChannelJoinProbe
         if (currentRowContainsNull()) {
             return -1;
         }
-        return lookupSource.getJoinPosition(probeCursors);
+        return lookupSource.getJoinPosition(position, probeBlocks);
     }
 
     private boolean currentRowContainsNull()
     {
-        if (probeCursorA.isNull()) {
+        if (probeBlockA.isNull(position)) {
             return true;
         }
-        if (probeCursorB.isNull()) {
+        if (probeBlockB.isNull(position)) {
             return true;
         }
         return false;

@@ -111,7 +111,7 @@ public class TestingPrestoServer
                 .add(new TestingNodeModule(Optional.fromNullable(environment)))
                 .add(new TestingHttpServerModule())
                 .add(new JsonModule())
-                .add(new JaxrsModule())
+                .add(new JaxrsModule(true))
                 .add(new MBeanModule())
                 .add(new TestingJmxModule())
                 .add(new InMemoryEventModule())
@@ -156,6 +156,8 @@ public class TestingPrestoServer
         nodeManager = injector.getInstance(InternalNodeManager.class);
         serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
         announcer = injector.getInstance(Announcer.class);
+
+        announcer.forceAnnounce();
 
         refreshNodes();
     }
@@ -248,6 +250,7 @@ public class TestingPrestoServer
         // update announcement
         announcer.removeServiceAnnouncement(announcement.getId());
         announcer.addServiceAnnouncement(serviceAnnouncement(announcement.getType()).addProperties(properties).build());
+        announcer.forceAnnounce();
     }
 
     private static ServiceAnnouncement getPrestoAnnouncement(Set<ServiceAnnouncement> announcements)

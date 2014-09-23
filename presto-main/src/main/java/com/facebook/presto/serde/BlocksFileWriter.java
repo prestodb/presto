@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.serde;
 
+import com.facebook.presto.operator.ChannelSet.ChannelSetBuilder;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 import com.google.common.io.OutputSupplier;
 import io.airlift.slice.OutputStreamSliceOutput;
@@ -26,6 +27,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 
+import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -35,13 +37,16 @@ public class BlocksFileWriter
     private final BlockEncodingSerde blockEncodingSerde;
     private final BlocksFileEncoding encoding;
     private final OutputSupplier<? extends OutputStream> outputSupplier;
-    private final StatsBuilder statsBuilder = new StatsBuilder();
+    private final StatsBuilder statsBuilder;
+    private final Type type;
     private Encoder encoder;
     private SliceOutput sliceOutput;
     private boolean closed;
 
-    public BlocksFileWriter(BlockEncodingSerde blockEncodingSerde, BlocksFileEncoding encoding, OutputSupplier<? extends OutputStream> outputSupplier)
+    public BlocksFileWriter(Type type, BlockEncodingSerde blockEncodingSerde, BlocksFileEncoding encoding, OutputSupplier<? extends OutputStream> outputSupplier)
     {
+        this.type = checkNotNull(type, "type is null");
+        this.statsBuilder = new StatsBuilder(type);
         this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingManager is null");
         this.encoding = checkNotNull(encoding, "encoding is null");
         this.outputSupplier = checkNotNull(outputSupplier, "outputSupplier is null");
@@ -68,7 +73,7 @@ public class BlocksFileWriter
             else {
                 sliceOutput = new OutputStreamSliceOutput(outputStream);
             }
-            encoder = encoding.createBlocksWriter(sliceOutput);
+            encoder = encoding.createBlocksWriter(type, sliceOutput);
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
@@ -128,34 +133,40 @@ public class BlocksFileWriter
     {
         private static final int MAX_UNIQUE_COUNT = 1000;
 
+        private final Type type;
+
         private long rowCount;
         private long runsCount;
         private Block lastValue;
-        private DictionaryBuilder dictionaryBuilder;
+        private ChannelSetBuilder dictionaryBuilder;
+
+        private StatsBuilder(Type type)
+        {
+            this.type = type;
+        }
 
         public void process(Block block)
         {
             checkNotNull(block, "block is null");
 
             if (dictionaryBuilder == null) {
-                dictionaryBuilder = new DictionaryBuilder(block.getType());
+                dictionaryBuilder = new ChannelSetBuilder(type, MAX_UNIQUE_COUNT, null);
             }
 
-            BlockCursor cursor = block.cursor();
-            while (cursor.advanceNextPosition()) {
+            for (int position = 0; position < block.getPositionCount(); position++) {
                 // update run length stats
-                Block value = cursor.getSingleValueBlock();
+                Block value = block.getSingleValueBlock(position);
                 if (lastValue == null) {
                     lastValue = value;
                 }
-                else if (!value.equalTo(0, lastValue, 0)) {
+                else if (!positionEqualsPosition(type, value, 0, lastValue, 0)) {
                     runsCount++;
                     lastValue = value;
                 }
 
                 // update dictionary stats
                 if (dictionaryBuilder.size() < MAX_UNIQUE_COUNT) {
-                    dictionaryBuilder.putIfAbsent(cursor);
+                    dictionaryBuilder.add(position, block);
                 }
 
                 rowCount++;

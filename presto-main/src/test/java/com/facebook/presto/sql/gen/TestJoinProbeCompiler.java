@@ -20,14 +20,14 @@ import com.facebook.presto.operator.JoinProbe;
 import com.facebook.presto.operator.JoinProbeFactory;
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.Page;
-import com.facebook.presto.operator.PageBuilder;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.operator.SequencePageBuilder;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.ValuesOperator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -40,7 +40,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
+import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -76,7 +76,8 @@ public class TestJoinProbeCompiler
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
         JoinCompiler joinCompiler = new JoinCompiler();
-        LookupSourceFactory lookupSourceFactoryFactory = joinCompiler.compileLookupSourceFactory(ImmutableList.of(VARCHAR), Ints.asList(0));
+        ImmutableList<Type> types = ImmutableList.<Type>of(VARCHAR);
+        LookupSourceFactory lookupSourceFactoryFactory = joinCompiler.compileLookupSourceFactory(types, Ints.asList(0));
 
         // crate hash strategy with a single channel blocks -- make sure there is some overlap in values
         List<Block> channel = ImmutableList.of(
@@ -90,28 +91,27 @@ public class TestJoinProbeCompiler
                 addresses.add(encodeSyntheticAddress(blockIndex, positionIndex));
             }
         }
-        LookupSource lookupSource = lookupSourceFactoryFactory.createLookupSource(addresses, ImmutableList.of(channel), operatorContext);
+        LookupSource lookupSource = lookupSourceFactoryFactory.createLookupSource(addresses, types, ImmutableList.of(channel), operatorContext);
 
         JoinProbeCompiler joinProbeCompiler = new JoinProbeCompiler();
-        JoinProbeFactory probeFactory = joinProbeCompiler.internalCompileJoinProbe(1, Ints.asList(0));
+        JoinProbeFactory probeFactory = joinProbeCompiler.internalCompileJoinProbe(types, Ints.asList(0));
 
-        Page page = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10, 10);
+        Page page = SequencePageBuilder.createSequencePage(types, 10, 10);
         JoinProbe joinProbe = probeFactory.createJoinProbe(lookupSource, page);
 
         // verify channel count
         assertEquals(joinProbe.getChannelCount(), 1);
 
-        BlockCursor probeCursor = page.getBlock(0).cursor();
-        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(VARCHAR));
+        Block probeBlock = page.getBlock(0);
+        PageBuilder pageBuilder = new PageBuilder(types);
         for (int position = 0; position < page.getPositionCount(); position++) {
-            assertTrue(probeCursor.advanceNextPosition());
             assertTrue(joinProbe.advanceNextPosition());
 
             joinProbe.appendTo(pageBuilder);
 
-            assertEquals(joinProbe.getCurrentJoinPosition(), lookupSource.getJoinPosition(probeCursor));
+            assertEquals(joinProbe.getCurrentJoinPosition(), lookupSource.getJoinPosition(position, probeBlock));
         }
         assertFalse(joinProbe.advanceNextPosition());
-        assertBlockEquals(pageBuilder.build().getBlock(0), page.getBlock(0));
+        assertPageEquals(types, pageBuilder.build(), page);
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.raptor.metadata.PartitionKey;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.TablePartition;
 import com.facebook.presto.spi.ConnectorColumnHandle;
@@ -28,7 +29,6 @@ import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.PartitionKey;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -52,8 +52,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.metadata.PrestoNode.getIdentifierFunction;
-import static com.facebook.presto.util.Types.checkType;
+import static com.facebook.presto.raptor.util.Nodes.nodeIdentifier;
+import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -95,7 +95,7 @@ public class RaptorSplitManager
 
         log.debug("Partition retrieval, raptor table %s (%d partitions): %dms", tableHandle, tablePartitions.size(), partitionTimer.elapsed(TimeUnit.MILLISECONDS));
 
-        Multimap<String, ? extends PartitionKey> allPartitionKeys = shardManager.getAllPartitionKeys(tableHandle);
+        Multimap<String, PartitionKey> allPartitionKeys = shardManager.getAllPartitionKeys(tableHandle);
         Map<String, ConnectorColumnHandle> columnHandles = metadata.getColumnHandles(tableHandle);
 
         log.debug("Partition key retrieval, raptor table %s (%d keys): %dms", tableHandle, allPartitionKeys.size(), partitionTimer.elapsed(TimeUnit.MILLISECONDS));
@@ -112,16 +112,18 @@ public class RaptorSplitManager
     {
         Stopwatch splitTimer = Stopwatch.createStarted();
 
+        RaptorTableHandle raptorTableHandle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
+
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
             return new FixedSplitSource(connectorId, ImmutableList.<ConnectorSplit>of());
         }
 
-        Map<String, Node> nodesById = uniqueIndex(nodeManager.getActiveNodes(), getIdentifierFunction());
+        Map<String, Node> nodesById = uniqueIndex(nodeManager.getActiveNodes(), nodeIdentifier());
 
         List<ConnectorSplit> splits = new ArrayList<>();
 
-        Multimap<Long, Entry<UUID, String>> partitionShardNodes = shardManager.getShardNodesByPartition(tableHandle);
+        Multimap<Long, Entry<UUID, String>> partitionShardNodes = shardManager.getShardNodesByPartition(raptorTableHandle);
 
         for (ConnectorPartition partition : partitions) {
             RaptorPartition raptorPartition = checkType(partition, RaptorPartition.class, "partition");
@@ -134,7 +136,7 @@ public class RaptorSplitManager
             for (Map.Entry<UUID, Collection<String>> entry : shardNodes.build().asMap().entrySet()) {
                 List<HostAddress> addresses = getAddressesForNodes(nodesById, entry.getValue());
                 checkState(!addresses.isEmpty(), "no host for shard %s found: %s", entry.getKey(), entry.getValue());
-                ConnectorSplit split = new RaptorSplit(entry.getKey(), addresses);
+                ConnectorSplit split = new RaptorSplit(entry.getKey(), addresses, raptorTableHandle.getCountColumnHandle());
                 splits.add(split);
             }
         }
@@ -221,7 +223,7 @@ public class RaptorSplitManager
     }
 
     private static Function<TablePartition, ConnectorPartition> partitionMapper(
-            final Multimap<String, ? extends PartitionKey> allPartitionKeys,
+            final Multimap<String, PartitionKey> allPartitionKeys,
             final Map<String, ConnectorColumnHandle> columnHandles)
     {
         return new Function<TablePartition, ConnectorPartition>()

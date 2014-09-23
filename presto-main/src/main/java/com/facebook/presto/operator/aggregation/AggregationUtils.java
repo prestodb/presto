@@ -13,9 +13,19 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.operator.aggregation.state.VarianceState;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
+import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.base.CaseFormat;
+import com.google.common.base.Function;
+
+import javax.annotation.Nullable;
+
+import java.lang.reflect.Method;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -23,58 +33,6 @@ public final class AggregationUtils
 {
     private AggregationUtils()
     {
-    }
-
-    public static AggregationFunction createIsolatedApproximateAggregation(Class<? extends AbstractApproximateAggregationFunction> aggregationClass, Type parameterType)
-    {
-        Class<? extends AggregationFunction> functionClass = IsolatedClass.isolateClass(
-                AggregationFunction.class,
-
-                aggregationClass,
-
-                AbstractApproximateAggregationFunction.class,
-                SimpleAggregationFunction.class,
-
-                AbstractApproximateAggregationFunction.GenericGroupedAccumulator.class,
-                SimpleAggregationFunction.SimpleGroupedAccumulator.class,
-
-                AbstractApproximateAggregationFunction.GenericAccumulator.class,
-                SimpleAggregationFunction.SimpleAccumulator.class);
-
-        try {
-            return functionClass
-                    .getConstructor(Type.class)
-                    .newInstance(parameterType);
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    public static AggregationFunction createIsolatedAggregation(Class<? extends AggregationFunction> aggregationClass, Type parameterType)
-    {
-        Class<? extends AggregationFunction> functionClass = IsolatedClass.isolateClass(
-                AggregationFunction.class,
-
-                aggregationClass,
-
-                AbstractAggregationFunction.class,
-                SimpleAggregationFunction.class,
-
-                AbstractAggregationFunction.GenericGroupedAccumulator.class,
-                SimpleAggregationFunction.SimpleGroupedAccumulator.class,
-
-                AbstractAggregationFunction.GenericAccumulator.class,
-                SimpleAggregationFunction.SimpleAccumulator.class);
-
-        try {
-            return functionClass
-                    .getConstructor(Type.class)
-                    .newInstance(parameterType);
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
     }
 
     public static void updateVarianceState(VarianceState state, double value)
@@ -102,5 +60,41 @@ public final class AggregationUtils
         state.setM2(state.getM2() + m2Delta);
         state.setCount(newCount);
         state.setMean(newMean);
+    }
+
+    public static Type getOutputType(@Nullable Method outputFunction, AccumulatorStateSerializer<?> serializer, TypeManager typeManager)
+    {
+        if (outputFunction == null) {
+            return serializer.getSerializedType();
+        }
+        else {
+            return typeManager.getType(outputFunction.getAnnotation(OutputFunction.class).value());
+        }
+    }
+
+    public static String generateAggregationName(String baseName, Type outputType, List<Type> inputTypes)
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, outputType.getName()));
+        for (Type inputType : inputTypes) {
+            sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, inputType.getName()));
+        }
+        sb.append(CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, baseName.toLowerCase()));
+
+        return sb.toString();
+    }
+
+    // used by aggregation compiler
+    @SuppressWarnings("UnusedDeclaration")
+    public static Function<Integer, Block> pageBlockGetter(final Page page)
+    {
+        return new Function<Integer, Block>()
+        {
+            @Override
+            public Block apply(Integer input)
+            {
+                return page.getBlock(input);
+            }
+        };
     }
 }

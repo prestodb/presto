@@ -13,49 +13,46 @@
  */
 package com.facebook.presto.operator.index;
 
-import com.facebook.presto.spi.block.BlockCursor;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.spi.block.Block;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 @ThreadSafe
 class UpdateRequest
 {
-    private final List<BlockCursor> cursors;
-    private final AtomicBoolean finished = new AtomicBoolean();
+    private final Block[] blocks;
+    private final AtomicReference<IndexSnapshot> indexSnapshotReference = new AtomicReference<>();
 
-    public UpdateRequest(BlockCursor... cursors)
+    public UpdateRequest(Block... blocks)
     {
-        this(ImmutableList.copyOf(checkNotNull(cursors, "cursors is null")));
+        this.blocks = checkNotNull(blocks, "blocks is null");
     }
 
-    public UpdateRequest(List<BlockCursor> cursors)
+    public Block[] getBlocks()
     {
-        this.cursors = ImmutableList.copyOf(checkNotNull(cursors, "cursors is null"));
+        return blocks;
     }
 
-    public BlockCursor[] duplicateCursors()
+    public void finished(IndexSnapshot indexSnapshot)
     {
-        BlockCursor[] duplicates = new BlockCursor[cursors.size()];
-        for (int i = 0; i < cursors.size(); i++) {
-            BlockCursor cursor = cursors.get(i);
-            duplicates[i] = cursor.duplicate();
-        }
-        return duplicates;
-    }
-
-    public void finished()
-    {
-        finished.set(true);
+        checkNotNull(indexSnapshot, "indexSnapshot is null");
+        checkState(indexSnapshotReference.compareAndSet(null, indexSnapshot), "Already finished!");
     }
 
     public boolean isFinished()
     {
-        return finished.get();
+        return indexSnapshotReference.get() != null;
+    }
+
+    public IndexSnapshot getFinishedIndexSnapshot()
+    {
+        IndexSnapshot indexSnapshot = indexSnapshotReference.get();
+        checkState(indexSnapshot != null, "Update request is not finished");
+        return indexSnapshot;
     }
 }

@@ -19,7 +19,6 @@ import com.google.common.base.Predicates;
 
 import java.util.List;
 
-import static com.facebook.presto.operator.aggregation.ApproximateCountColumnAggregations.LONG_APPROXIMATE_COUNT_AGGREGATION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestApproximateCountLongAggregation
@@ -41,8 +40,8 @@ public class TestApproximateCountLongAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    protected String getFunctionName()
     {
-        return LONG_APPROXIMATE_COUNT_AGGREGATION;
+        return "count";
     }
 }

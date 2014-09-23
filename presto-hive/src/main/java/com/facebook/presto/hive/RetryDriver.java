@@ -30,28 +30,54 @@ public class RetryDriver
     private static final int DEFAULT_RETRY_ATTEMPTS = 10;
     private static final Duration DEFAULT_SLEEP_TIME = Duration.valueOf("1s");
     private static final Duration DEFAULT_MAX_RETRY_TIME = Duration.valueOf("30s");
+    private static final double DEFAULT_SCALE_FACTOR = 2.0;
 
     private final int maxRetryAttempts;
-    private final Duration sleepTime;
+    private final Duration minSleepTime;
+    private final Duration maxSleepTime;
+    private final double scaleFactor;
     private final Duration maxRetryTime;
     private final List<Class<? extends Exception>> exceptionWhiteList;
 
-    private RetryDriver(int maxRetryAttempts, Duration sleepTime, Duration maxRetryTime, List<Class<? extends Exception>> exceptionWhiteList)
+    private RetryDriver(
+            int maxRetryAttempts,
+            Duration minSleepTime,
+            Duration maxSleepTime,
+            double scaleFactor,
+            Duration maxRetryTime,
+            List<Class<? extends Exception>> exceptionWhiteList)
     {
         this.maxRetryAttempts = maxRetryAttempts;
-        this.sleepTime = sleepTime;
+        this.minSleepTime = minSleepTime;
+        this.maxSleepTime = maxSleepTime;
+        this.scaleFactor = scaleFactor;
         this.maxRetryTime = maxRetryTime;
         this.exceptionWhiteList = exceptionWhiteList;
     }
 
     private RetryDriver()
     {
-        this(DEFAULT_RETRY_ATTEMPTS, DEFAULT_SLEEP_TIME, DEFAULT_MAX_RETRY_TIME, ImmutableList.<Class<? extends Exception>>of());
+        this(DEFAULT_RETRY_ATTEMPTS,
+                DEFAULT_SLEEP_TIME,
+                DEFAULT_SLEEP_TIME,
+                DEFAULT_SCALE_FACTOR,
+                DEFAULT_MAX_RETRY_TIME,
+                ImmutableList.<Class<? extends Exception>>of());
     }
 
     public static RetryDriver retry()
     {
         return new RetryDriver();
+    }
+
+    public final RetryDriver maxAttempts(int maxAttempts)
+    {
+        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptionWhiteList);
+    }
+
+    public final RetryDriver exponentialBackoff(Duration minSleepTime, Duration maxSleepTime, double scaleFactor)
+    {
+        return new RetryDriver(maxRetryAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptionWhiteList);
     }
 
     @SafeVarargs
@@ -63,7 +89,7 @@ public class RetryDriver
                 .addAll(Arrays.asList(classes))
                 .build();
 
-        return new RetryDriver(maxRetryAttempts, sleepTime, maxRetryTime, exceptions);
+        return new RetryDriver(maxRetryAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptions);
     }
 
     public RetryDriver stopOnIllegalExceptions()
@@ -94,7 +120,9 @@ public class RetryDriver
                     throw e;
                 }
                 log.debug("Failed on executing %s with attempt %d, will retry. Exception: %s", callableName, attempt, e.getMessage());
-                TimeUnit.MILLISECONDS.sleep(sleepTime.toMillis());
+
+                int delayInMs = (int) Math.min(minSleepTime.toMillis() * Math.pow(scaleFactor, attempt - 1), maxSleepTime.toMillis());
+                TimeUnit.MILLISECONDS.sleep(delayInMs);
             }
         }
     }

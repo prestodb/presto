@@ -104,7 +104,7 @@ public class TpchMetadata
             columns.add(new ColumnMetadata(column.getColumnName(), getPrestoType(column.getType()), ordinalPosition, false));
             ordinalPosition++;
         }
-        columns.add(new ColumnMetadata(ROW_NUMBER_COLUMN_NAME, BIGINT, ordinalPosition, false, true));
+        columns.add(new ColumnMetadata(ROW_NUMBER_COLUMN_NAME, BIGINT, ordinalPosition, false, null, true));
 
         SchemaTableName tableName = new SchemaTableName(schemaName, tpchTable.getTableName());
         return new ConnectorTableMetadata(tableName, columns.build());
@@ -118,25 +118,6 @@ public class TpchMetadata
             builder.put(columnMetadata.getName(), new TpchColumnHandle(columnMetadata.getName(), columnMetadata.getOrdinalPosition(), columnMetadata.getType()));
         }
         return builder.build();
-    }
-
-    @Override
-    public ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName)
-    {
-        TpchTableHandle tpchTableHandle = checkType(tableHandle, TpchTableHandle.class, "tableHandle");
-
-        if (columnName.equalsIgnoreCase(ROW_NUMBER_COLUMN_NAME)) {
-            return ROW_NUMBER_COLUMN_HANDLE;
-        }
-
-        int ordinalPosition = 0;
-        for (TpchColumn<? extends TpchEntity> column : TpchTable.getTable(tpchTableHandle.getTableName()).getColumns()) {
-            if (column.getColumnName().equalsIgnoreCase(columnName)) {
-                return new TpchColumnHandle(column.getColumnName(), ordinalPosition, getPrestoType(column.getType()));
-            }
-            ordinalPosition++;
-        }
-        return null;
     }
 
     @Override

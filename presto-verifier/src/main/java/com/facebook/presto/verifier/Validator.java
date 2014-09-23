@@ -36,6 +36,7 @@ import java.math.MathContext;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.SQLClientInfoException;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -148,6 +149,12 @@ public class Validator
             sb.append("Schema (control): " + queryPair.getControl().getSchema() + "\n");
             sb.append("TIMEOUT\n");
         }
+        else {
+            sb.append("SKIPPED: ");
+            if (getControlResult().getException() != null) {
+                sb.append(getControlResult().getException().getMessage());
+            }
+        }
         return sb.toString();
     }
 
@@ -180,10 +187,12 @@ public class Validator
 
         // query has too many rows. Consider blacklisting.
         if (controlResult.getState() == State.TOO_MANY_ROWS) {
+            testResult = new QueryResult(State.INVALID, null, null, ImmutableList.<List<Object>>of());
             return false;
         }
         // query failed in the control
         else if (controlResult.getState() != State.SUCCESS) {
+            testResult = new QueryResult(State.INVALID, null, null, ImmutableList.<List<Object>>of());
             return true;
         }
 
@@ -232,9 +241,7 @@ public class Validator
     private QueryResult executeQuery(String url, String username, String password, Query query, Duration timeout)
     {
         try (Connection connection = DriverManager.getConnection(url, username, password)) {
-            connection.setClientInfo("ApplicationName", "verifier-test-" + queryPair.getName());
-            connection.setCatalog(query.getCatalog());
-            connection.setSchema(query.getSchema());
+            trySetConnectionProperties(query, connection);
             long start = System.nanoTime();
 
             try (Statement statement = connection.createStatement()) {
@@ -277,6 +284,21 @@ public class Validator
         }
         catch (VerifierException e) {
             return new QueryResult(State.TOO_MANY_ROWS, e, null, null);
+        }
+    }
+
+    private void trySetConnectionProperties(Query query, Connection connection)
+            throws SQLException
+    {
+        // Required for jdbc drivers that do not implement all/some of these functions (eg. impala jdbc driver)
+        // For these drivers, set the database default values in the query database
+        try {
+            connection.setClientInfo("ApplicationName", "verifier-test:" + queryPair.getName());
+            connection.setCatalog(query.getCatalog());
+            connection.setSchema(query.getSchema());
+        }
+        catch (SQLClientInfoException ignored) {
+            // Do nothing
         }
     }
 
@@ -395,7 +417,9 @@ public class Validator
             @Override
             public int compare(List<Object> a, List<Object> b)
             {
-                checkArgument(a.size() == b.size(), "list sizes do not match");
+                if (a.size() != b.size()) {
+                    return Integer.compare(a.size(), b.size());
+                }
                 for (int i = 0; i < a.size(); i++) {
                     int r = comparator.compare(a.get(i), b.get(i));
                     if (r != 0) {

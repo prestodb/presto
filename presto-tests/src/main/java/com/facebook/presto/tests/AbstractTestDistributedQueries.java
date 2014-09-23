@@ -39,9 +39,14 @@ import static org.testng.Assert.fail;
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestApproximateQueries
 {
-    protected AbstractTestDistributedQueries(QueryRunner queryRunner, ConnectorSession defaultSampledSession)
+    protected AbstractTestDistributedQueries(QueryRunner queryRunner)
     {
-        super(queryRunner, defaultSampledSession);
+        super(queryRunner);
+    }
+
+    protected AbstractTestDistributedQueries(QueryRunner queryRunner, ConnectorSession sampledSession)
+    {
+        super(queryRunner, sampledSession);
     }
 
     private void assertCreateTable(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
@@ -67,7 +72,7 @@ public abstract class AbstractTestDistributedQueries
         assertCreateTable(
                 "test_limit_sampled",
                 "SELECT orderkey FROM tpch_sampled.tiny.orders ORDER BY orderkey LIMIT 10",
-                "SELECT orderkey FROM (SELECT orderkey FROM orders) UNION ALL (SELECT orderkey FROM orders) ORDER BY orderkey LIMIT 10",
+                "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
                 "SELECT 10");
     }
 
@@ -109,6 +114,34 @@ public abstract class AbstractTestDistributedQueries
                 "test_limit",
                 "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
                 "SELECT 10");
+    }
+
+    @Test
+    public void testRenameTable()
+            throws Exception
+    {
+        assertQueryTrue("CREATE TABLE test_rename AS SELECT 123 x");
+        assertQueryTrue("ALTER TABLE test_rename RENAME TO test_rename_new");
+        assertQueryTrue("DROP TABLE test_rename_new");
+
+        assertFalse(queryRunner.tableExists(getSession(), "test_rename"));
+        assertFalse(queryRunner.tableExists(getSession(), "test_rename_new"));
+    }
+
+    @Test
+    public void testInsert()
+            throws Exception
+    {
+        @Language("SQL") String query = "SELECT orderdate, orderkey FROM orders";
+
+        assertQuery("CREATE TABLE test_insert AS " + query, "SELECT count(*) FROM orders");
+        assertQuery("SELECT * FROM test_insert", query);
+
+        assertQuery("INSERT INTO test_insert " + query, "SELECT count(*) FROM orders");
+
+        assertQuery("SELECT * FROM test_insert", query + " UNION ALL " + query);
+
+        assertQueryTrue("DROP TABLE test_insert");
     }
 
     @Test
@@ -185,9 +218,9 @@ public abstract class AbstractTestDistributedQueries
         // test SHOW COLUMNS
         actual = computeActual("SHOW COLUMNS FROM meta_test_view");
 
-        expected = resultBuilder(getSession(), VARCHAR, VARCHAR, BOOLEAN, BOOLEAN)
-                .row("x", "bigint", true, false)
-                .row("y", "varchar", true, false)
+        expected = resultBuilder(getSession(), VARCHAR, VARCHAR, BOOLEAN, BOOLEAN, VARCHAR)
+                .row("x", "bigint", true, false, "")
+                .row("y", "varchar", true, false, "")
                 .build();
 
         assertEquals(actual, expected);

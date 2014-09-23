@@ -17,7 +17,6 @@ import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.airlift.units.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -28,6 +27,7 @@ import static com.facebook.presto.cassandra.MockCassandraSession.BAD_SCHEMA;
 import static com.facebook.presto.cassandra.MockCassandraSession.TEST_SCHEMA;
 import static com.facebook.presto.cassandra.MockCassandraSession.TEST_TABLE;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -44,7 +44,7 @@ public class TestCachingCassandraSchemaProvider
             throws Exception
     {
         mockSession = new MockCassandraSession(CONNECTOR_ID, new CassandraClientConfig());
-        ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(new ThreadFactoryBuilder().setDaemon(true).build()));
+        ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
         schemaProvider = new CachingCassandraSchemaProvider(
                 CONNECTOR_ID,
                 mockSession,

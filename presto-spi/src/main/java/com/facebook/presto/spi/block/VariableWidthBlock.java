@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.VariableWidthType;
+import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
+
+import java.util.Arrays;
 
 public class VariableWidthBlock
         extends AbstractVariableWidthBlock
@@ -22,20 +24,22 @@ public class VariableWidthBlock
     private final int positionCount;
     private final Slice slice;
     private final int[] offsets;
+    private final boolean[] valueIsNull;
 
-    public VariableWidthBlock(VariableWidthType type, int positionCount, Slice slice, int[] offsets)
+    public VariableWidthBlock(int positionCount, Slice slice, int[] offsets, boolean[] valueIsNull)
     {
-        super(type);
-
         this.positionCount = positionCount;
         this.slice = slice;
-        this.offsets = offsets;
-    }
 
-    @Override
-    protected int[] getOffsets()
-    {
-        return offsets;
+        if (offsets.length < positionCount + 1) {
+            throw new IllegalArgumentException("offsets length is less than positionCount");
+        }
+        this.offsets = offsets;
+
+        if (valueIsNull.length < positionCount) {
+            throw new IllegalArgumentException("valueIsNull length is less than positionCount");
+        }
+        this.valueIsNull = valueIsNull;
     }
 
     @Override
@@ -45,9 +49,31 @@ public class VariableWidthBlock
     }
 
     @Override
+    public int getLength(int position)
+    {
+        return offsets[position + 1] - offsets[position];
+    }
+
+    @Override
+    protected boolean isEntryNull(int position)
+    {
+        return valueIsNull[position];
+    }
+
+    @Override
     public int getPositionCount()
     {
         return positionCount;
+    }
+
+    @Override
+    public int getSizeInBytes()
+    {
+        long size = getRawSlice().length() + SizeOf.sizeOf(offsets) + SizeOf.sizeOf(valueIsNull);
+        if (size > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) size;
     }
 
     @Override
@@ -57,9 +83,22 @@ public class VariableWidthBlock
     }
 
     @Override
+    public Block getRegion(int positionOffset, int length)
+    {
+        int positionCount = getPositionCount();
+        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
+            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
+        }
+
+        int[] newOffsets = Arrays.copyOfRange(offsets, positionOffset, positionOffset + length + 1);
+        boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
+        return new VariableWidthBlock(length, slice, newOffsets, newValueIsNull);
+    }
+
+    @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("VariableWidthRandomAccessBlock{");
+        StringBuilder sb = new StringBuilder("VariableWidthBlock{");
         sb.append("positionCount=").append(getPositionCount());
         sb.append(", slice=").append(getRawSlice());
         sb.append('}');

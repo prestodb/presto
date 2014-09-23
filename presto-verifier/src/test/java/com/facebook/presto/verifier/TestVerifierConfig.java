@@ -35,7 +35,7 @@ public class TestVerifierConfig
                 .setSuite(null)
                 .setSource(null)
                 .setRunId(new DateTime().toString("yyyy-MM-dd"))
-                .setEventClient("human-readable")
+                .setEventClients("human-readable")
                 .setThreadCount(10)
                 .setQueryDatabase(null)
                 .setControlGateway(null)
@@ -57,7 +57,10 @@ public class TestVerifierConfig
                 .setControlSchemaOverride(null)
                 .setQuiet(false)
                 .setVerboseResultsComparison(false)
-                .setEventLogFile(null));
+                .setEventLogFile(null)
+                .setAdditionalJdbcDriverPath(null)
+                .setTestJdbcDriverName(null)
+                .setControlJdbcDriverName(null));
     }
 
     @Test
@@ -67,7 +70,7 @@ public class TestVerifierConfig
                 .put("suite", "my_suite")
                 .put("source", "my_source")
                 .put("run-id", "my_run_id")
-                .put("event-client", "file")
+                .put("event-client", "file,human-readable")
                 .put("thread-count", "1")
                 .put("blacklist", "1,2")
                 .put("whitelist", "3,4")
@@ -94,13 +97,16 @@ public class TestVerifierConfig
                 .put("control.timeout", "1s")
                 .put("control.catalog-override", "my_catalog")
                 .put("control.schema-override", "my_schema")
+                .put("additional-jdbc-driver-path", "/test/path")
+                .put("test.jdbc-driver-class", "com.facebook.exampleclass")
+                .put("control.jdbc-driver-class", "com.facebook.exampleclass")
                 .build();
 
         VerifierConfig expected = new VerifierConfig().setTestUsername("verifier-test")
                 .setSuite("my_suite")
                 .setSource("my_source")
                 .setRunId("my_run_id")
-                .setEventClient("file")
+                .setEventClients("file,human-readable")
                 .setThreadCount(1)
                 .setBlacklist("1,2")
                 .setWhitelist("3,4")
@@ -126,7 +132,10 @@ public class TestVerifierConfig
                 .setControlGateway("jdbc:presto://localhost:8081")
                 .setControlTimeout(new Duration(1, TimeUnit.SECONDS))
                 .setControlCatalogOverride("my_catalog")
-                .setControlSchemaOverride("my_schema");
+                .setControlSchemaOverride("my_schema")
+                .setAdditionalJdbcDriverPath("/test/path")
+                .setTestJdbcDriverName("com.facebook.exampleclass")
+                .setControlJdbcDriverName("com.facebook.exampleclass");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

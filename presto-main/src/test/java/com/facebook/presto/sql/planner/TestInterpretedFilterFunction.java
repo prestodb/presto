@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Input;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -33,6 +33,7 @@ import static org.testng.Assert.assertEquals;
 public class TestInterpretedFilterFunction
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
+    private static final Metadata METADATA = new MetadataManager();
 
     @Test
     public void testNullLiteral()
@@ -195,19 +196,18 @@ public class TestInterpretedFilterFunction
 
     public static void assertFilter(String expression, boolean expectedValue)
     {
-        MetadataManager metadata = new MetadataManager();
-        Expression parsed = createExpression(expression, metadata, ImmutableMap.<Symbol, Type>of());
+        Expression parsed = createExpression(expression, METADATA, ImmutableMap.<Symbol, Type>of());
         ConnectorSession session = new ConnectorSession("user", "test", "catalog", "schema", UTC_KEY, Locale.ENGLISH, null, null);
 
         InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(parsed,
                 ImmutableMap.<Symbol, Type>of(),
-                ImmutableMap.<Symbol, Input>of(),
-                metadata,
+                ImmutableMap.<Symbol, Integer>of(),
+                METADATA,
                 SQL_PARSER,
                 session
         );
 
-        boolean result = filterFunction.filter();
+        boolean result = filterFunction.filter(0);
         assertEquals(result, expectedValue);
     }
 }

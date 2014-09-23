@@ -17,18 +17,11 @@ import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 
-import static com.facebook.presto.operator.aggregation.ApproximateAverageAggregations.DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class TestDoubleApproximateAverageAggregation
         extends AbstractTestApproximateAggregationFunction
 {
-    @Override
-    public AggregationFunction getFunction()
-    {
-        return DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION;
-    }
-
     @Override
     protected Type getType()
     {
@@ -54,5 +47,11 @@ public class TestDoubleApproximateAverageAggregation
         }
 
         return sum / length;
+    }
+
+    @Override
+    protected String getFunctionName()
+    {
+        return "avg";
     }
 }

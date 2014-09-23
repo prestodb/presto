@@ -42,6 +42,6 @@ public class DenseRankFunction
         if (newPeerGroup) {
             rank++;
         }
-        output.appendLong(rank);
+        BIGINT.writeLong(output, rank);
     }
 }

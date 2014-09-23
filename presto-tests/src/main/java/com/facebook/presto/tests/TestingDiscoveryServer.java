@@ -49,6 +49,7 @@ public class TestingDiscoveryServer
 
         Map<String, String> serverProperties = ImmutableMap.<String, String>builder()
                 .put("static.db.location", tempDir.getAbsolutePath())
+                .put("discovery.store-cache-ttl", "0ms")
                 .build();
 
         Bootstrap app = new Bootstrap(
@@ -56,7 +57,7 @@ public class TestingDiscoveryServer
                 new TestingNodeModule(environment),
                 new TestingHttpServerModule(),
                 new JsonModule(),
-                new JaxrsModule(),
+                new JaxrsModule(true),
                 new DiscoveryServerModule(),
                 new DiscoveryModule(),
                 new TestingJmxModule());

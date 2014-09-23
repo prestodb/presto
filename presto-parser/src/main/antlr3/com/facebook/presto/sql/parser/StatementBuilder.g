@@ -67,8 +67,10 @@ statement returns [Statement value]
     | useCollection             { $value = $useCollection.value; }
     | createTable               { $value = $createTable.value; }
     | dropTable                 { $value = $dropTable.value; }
+    | renameTable               { $value = $renameTable.value; }
     | createView                { $value = $createView.value; }
     | dropView                  { $value = $dropView.value; }
+    | insert                    { $value = $insert.value; }
     ;
 
 query returns [Query value]
@@ -314,6 +316,15 @@ singleExpression returns [Expression value]
     : expr EOF { $value = $expr.value; }
     ;
 
+arrayValue returns [ArrayConstructor value]
+    : ^(ARRAY exprList) { $value = new ArrayConstructor($exprList.value); }
+    | ARRAY             { $value = new ArrayConstructor(ImmutableList.<Expression>of()); }
+    ;
+
+subscript returns [SubscriptExpression value]
+    : ^(SUBSCRIPT a=expr i=expr) { $value = new SubscriptExpression($a.value, $i.value); }
+    ;
+
 expr returns [Expression value]
     : NULL                    { $value = new NullLiteral(); }
     | qname                   { $value = new QualifiedNameReference($qname.value); }
@@ -332,6 +343,8 @@ expr returns [Expression value]
     | TRUE                    { $value = BooleanLiteral.TRUE_LITERAL; }
     | FALSE                   { $value = BooleanLiteral.FALSE_LITERAL; }
     | intervalValue           { $value = $intervalValue.value; }
+    | arrayValue              { $value = $arrayValue.value; }
+    | subscript               { $value = $subscript.value; }
     | predicate               { $value = $predicate.value; }
     | ^(IN_LIST exprList)     { $value = new InListExpression($exprList.value); }
     | ^(NEGATIVE e=expr)      { $value = new NegativeExpression($e.value); }
@@ -406,7 +419,8 @@ extract returns [Extract value]
     ;
 
 cast returns [Cast value]
-    : ^(CAST expr IDENT) { $value = new Cast($expr.value, $IDENT.text); }
+    : ^(CAST expr IDENT)     { $value = new Cast($expr.value, $IDENT.text, false); }
+    | ^(TRY_CAST expr IDENT) { $value = new Cast($expr.value, $IDENT.text, true); }
     ;
 
 current_time returns [CurrentTime value]
@@ -557,6 +571,10 @@ dropTable returns [Statement value]
     : ^(DROP_TABLE qname) { $value = new DropTable($qname.value); }
     ;
 
+renameTable returns [Statement value]
+    : ^(RENAME_TABLE s=qname t=qname) { $value = new RenameTable($s.value, $t.value); }
+    ;
+
 createView returns [Statement value]
     : ^(CREATE_VIEW qname query orReplace) { $value = new CreateView($qname.value, $query.value, $orReplace.value); }
     ;
@@ -568,4 +586,8 @@ dropView returns [Statement value]
 orReplace returns [boolean value]
     : OR_REPLACE { $value = true; }
     |            { $value = false; }
+	;
+
+insert returns [Statement value]
+    : ^(INSERT qname query) { $value = new Insert($qname.value, $query.value); }
     ;

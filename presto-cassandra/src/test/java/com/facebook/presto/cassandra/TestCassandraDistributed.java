@@ -13,77 +13,28 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
-import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tpch.TpchMetadata;
-import com.facebook.presto.tpch.TpchPlugin;
-import com.facebook.presto.tpch.testing.SampledTpchPlugin;
-import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
-import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
-import org.testng.annotations.AfterClass;
+import io.airlift.tpch.TpchTable;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
-import static com.facebook.presto.tests.QueryAssertions.copyAllTables;
-import static io.airlift.units.Duration.nanosSince;
-import static java.util.Locale.ENGLISH;
-import static java.util.concurrent.TimeUnit.SECONDS;
+import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
+import static com.facebook.presto.cassandra.CassandraQueryRunner.createSampledSession;
 
 @Test(singleThreaded = true)
 public class TestCassandraDistributed
         extends AbstractTestDistributedQueries
 {
-    private static final Logger log = Logger.get("TestQueries");
-    private static final String TPCH_SAMPLED_SCHEMA = "tpch_sampled";
-
     public TestCassandraDistributed()
             throws Exception
     {
-        super(createQueryRunner(), createSession(TPCH_SAMPLED_SCHEMA));
+        super(createCassandraQueryRunner(TpchTable.getTables()), createSampledSession());
     }
 
-    @AfterClass(alwaysRun = true)
-    public void destroy()
-    {
-        queryRunner.close();
-    }
-
-    private static QueryRunner createQueryRunner()
+    @Override
+    public void testRenameTable()
             throws Exception
     {
-        EmbeddedCassandraServerHelper.startEmbeddedCassandra();
-        TestCassandraConnector.createOrReplaceKeyspace("tpch");
-        TestCassandraConnector.createOrReplaceKeyspace("tpch_sampled");
-
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession("tpch"), 4);
-
-        queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("tpch", "tpch");
-
-        queryRunner.installPlugin(new SampledTpchPlugin());
-        queryRunner.createCatalog("tpch_sampled", "tpch_sampled");
-
-        queryRunner.installPlugin(new CassandraPlugin());
-        queryRunner.createCatalog("cassandra", "cassandra", ImmutableMap.of(
-                "cassandra.contact-points", "localhost",
-                "cassandra.native-protocol-port", "9142",
-                "cassandra.allow-drop-table", "true"));
-
-        log.info("Loading data...");
-        long startTime = System.nanoTime();
-        copyAllTables(queryRunner, "tpch", TpchMetadata.TINY_SCHEMA_NAME, createSession("tpch"));
-        copyAllTables(queryRunner, "tpch_sampled", TpchMetadata.TINY_SCHEMA_NAME, createSession(TPCH_SAMPLED_SCHEMA));
-        log.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
-
-        return queryRunner;
-    }
-
-    private static ConnectorSession createSession(String schema)
-    {
-        return new ConnectorSession("user", "test", "cassandra", schema, UTC_KEY, ENGLISH, null, null);
+        // Cassandra does not support renaming tables
     }
 
     @Override
@@ -98,5 +49,12 @@ public class TestCassandraDistributed
             throws Exception
     {
         // Cassandra connector currently does not support views
+    }
+
+    @Override
+    public void testInsert()
+            throws Exception
+    {
+        // Cassandra connector currently does not support insert
     }
 }

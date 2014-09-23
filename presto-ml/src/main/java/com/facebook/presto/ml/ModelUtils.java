@@ -57,12 +57,19 @@ public final class ModelUtils
 
     // These ids are serialized to disk. Do not change them.
     @VisibleForTesting
-    static final BiMap<? extends Class<? extends Model>, Integer> MODEL_SERIALIZATION_IDS = ImmutableBiMap.of(
-            SvmClassifier.class, 1,
-            SvmRegressor.class, 2,
-            FeatureVectorUnitNormalizer.class, 3,
-            ClassifierFeatureTransformer.class, 4,
-            RegressorFeatureTransformer.class, 5);
+    static final BiMap<Class<? extends Model>, Integer> MODEL_SERIALIZATION_IDS;
+
+    static {
+        ImmutableBiMap.Builder<Class<? extends Model>, Integer> builder = ImmutableBiMap.builder();
+        builder.put(SvmClassifier.class, 1);
+        builder.put(SvmRegressor.class, 2);
+        builder.put(FeatureVectorUnitNormalizer.class, 3);
+        builder.put(ClassifierFeatureTransformer.class, 4);
+        builder.put(RegressorFeatureTransformer.class, 5);
+        builder.put(FeatureUnitNormalizer.class, 6);
+
+        MODEL_SERIALIZATION_IDS = builder.build();
+    }
 
     private ModelUtils()
     {

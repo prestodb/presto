@@ -67,14 +67,14 @@ public class TestDateTimeOperators
         assertFunction("INTERVAL '3' year + DATE '2001-1-22'", new SqlDate(new DateTime(2004, 1, 22, 0, 0, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
 
         try {
-            functionAssertions.selectSingleValue("DATE '2001-1-22' + INTERVAL '3' hour");
+            functionAssertions.tryEvaluate("DATE '2001-1-22' + INTERVAL '3' hour");
             fail("Expected IllegalArgumentException");
         }
         catch (IllegalArgumentException expected) {
         }
 
         try {
-            functionAssertions.selectSingleValue("INTERVAL '3' hour + DATE '2001-1-22'");
+            functionAssertions.tryEvaluate("INTERVAL '3' hour + DATE '2001-1-22'");
             fail("Expected IllegalArgumentException");
         }
         catch (IllegalArgumentException expected) {
@@ -163,7 +163,7 @@ public class TestDateTimeOperators
         assertFunction("DATE '2001-1-22' - INTERVAL '3' day", new SqlDate(new DateTime(2001, 1, 19, 0, 0, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
 
         try {
-            functionAssertions.selectSingleValue("DATE '2001-1-22' - INTERVAL '3' hour");
+            functionAssertions.tryEvaluate("DATE '2001-1-22' - INTERVAL '3' hour");
             fail("Expected IllegalArgumentException");
         }
         catch (IllegalArgumentException expected) {

@@ -13,13 +13,12 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.operator.ChannelSet.ChannelSetBuilder;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
@@ -51,14 +50,7 @@ public class SetBuilderOperator
 
         public ListenableFuture<ChannelSet> getChannelSet()
         {
-            return Futures.transform(channelSetFuture, new Function<ChannelSet, ChannelSet>()
-            {
-                @Override
-                public ChannelSet apply(ChannelSet channelSet)
-                {
-                    return new ChannelSet(channelSet);
-                }
-            });
+            return channelSetFuture;
         }
 
         void setChannelSet(ChannelSet channelSet)
@@ -160,7 +152,7 @@ public class SetBuilderOperator
 
         ChannelSet channelSet = channelSetBuilder.build();
         setSupplier.setChannelSet(channelSet);
-        operatorContext.recordGeneratedOutput(channelSet.getEstimatedSize(), channelSet.size());
+        operatorContext.recordGeneratedOutput(channelSet.getEstimatedSizeInBytes(), channelSet.size());
         finished = true;
     }
 

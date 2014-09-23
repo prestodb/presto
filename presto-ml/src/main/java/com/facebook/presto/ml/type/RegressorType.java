@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.ml.type;
 
-import com.facebook.presto.spi.block.BlockEncodingFactory;
-import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
 import com.fasterxml.jackson.annotation.JsonCreator;
 
 // Layout is <size>:<model>, where
@@ -24,22 +22,16 @@ public class RegressorType
         extends ModelType
 {
     public static final RegressorType REGRESSOR = new RegressorType();
-
-    public static final BlockEncodingFactory<?> BLOCK_ENCODING_FACTORY = new VariableWidthBlockEncoding.VariableWidthBlockEncodingFactory(REGRESSOR);
+    public static final String NAME = "Regressor";
 
     @JsonCreator
     public RegressorType()
     {
     }
 
-    public static RegressorType getInstance()
-    {
-        return REGRESSOR;
-    }
-
     @Override
     public String getName()
     {
-        return "Regressor";
+        return NAME;
     }
 }

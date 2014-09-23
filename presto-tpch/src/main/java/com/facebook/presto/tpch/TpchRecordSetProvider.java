@@ -26,8 +26,6 @@ import java.util.List;
 
 import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
 import static com.facebook.presto.tpch.Types.checkType;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TpchRecordSetProvider
         implements ConnectorRecordSetProvider
@@ -36,9 +34,6 @@ public class TpchRecordSetProvider
     public RecordSet getRecordSet(ConnectorSplit split, List<? extends ConnectorColumnHandle> columns)
     {
         TpchSplit tpchSplit = checkType(split, TpchSplit.class, "split");
-
-        checkNotNull(columns, "columns is null");
-        checkArgument(!columns.isEmpty(), "must provide at least one column");
 
         String tableName = tpchSplit.getTableHandle().getTableName();
 

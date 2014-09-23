@@ -21,7 +21,6 @@ import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
-import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -39,7 +38,7 @@ public class VerifierConfig
     private String suite;
     private String source;
     private String runId = new DateTime().toString("yyyy-MM-dd");
-    private String eventClient = "human-readable";
+    private Set<String> eventClients = ImmutableSet.of("human-readable");
     private int threadCount = 10;
     private String queryDatabase;
     private String controlGateway;
@@ -62,6 +61,9 @@ public class VerifierConfig
     private String controlCatalogOverride;
     private String controlSchemaOverride;
     private boolean quiet;
+    private String additionalJdbcDriverPath;
+    private String testJdbcDriverName;
+    private String controlJdbcDriverName;
 
     @NotNull
     public String getSkipCorrectnessRegex()
@@ -131,7 +133,6 @@ public class VerifierConfig
     }
 
     @Min(1)
-    @Max(50)
     public int getThreadCount()
     {
         return threadCount;
@@ -264,16 +265,22 @@ public class VerifierConfig
     }
 
     @NotNull
-    public String getEventClient()
+    public Set<String> getEventClients()
     {
-        return eventClient;
+        return eventClients;
     }
 
-    @ConfigDescription("The event client to log the results to")
+    @ConfigDescription("The event client(s) to log the results to")
     @Config("event-client")
-    public VerifierConfig setEventClient(String eventClient)
+    public VerifierConfig setEventClients(String eventClients)
     {
-        this.eventClient = checkNotNull(eventClient, "eventClient is null");
+        checkNotNull(eventClients, "eventClients is null");
+        ImmutableSet.Builder<String> builder = ImmutableSet.builder();
+        for (String value : Splitter.on(',').trimResults().omitEmptyStrings().split(eventClients)) {
+            builder.add(value);
+        }
+
+        this.eventClients = builder.build();
         return this;
     }
 
@@ -475,6 +482,48 @@ public class VerifierConfig
     public VerifierConfig setControlGateway(String controlGateway)
     {
         this.controlGateway = controlGateway;
+        return this;
+    }
+
+    @Nullable
+    public String getAdditionalJdbcDriverPath()
+    {
+        return additionalJdbcDriverPath;
+    }
+
+    @ConfigDescription("Path for test jdbc driver")
+    @Config("additional-jdbc-driver-path")
+    public VerifierConfig setAdditionalJdbcDriverPath(String path)
+    {
+        this.additionalJdbcDriverPath = path;
+        return this;
+    }
+
+    @Nullable
+    public String getTestJdbcDriverName()
+    {
+        return testJdbcDriverName;
+    }
+
+    @ConfigDescription("Fully qualified test JDBC driver name")
+    @Config("test.jdbc-driver-class")
+    public VerifierConfig setTestJdbcDriverName(String testJdbcDriverName)
+    {
+        this.testJdbcDriverName = testJdbcDriverName;
+        return this;
+    }
+
+    @Nullable
+    public String getControlJdbcDriverName()
+    {
+        return controlJdbcDriverName;
+    }
+
+    @ConfigDescription("Fully qualified control JDBC driver name")
+    @Config("control.jdbc-driver-class")
+    public VerifierConfig setControlJdbcDriverName(String controlJdbcDriverName)
+    {
+        this.controlJdbcDriverName = controlJdbcDriverName;
         return this;
     }
 }

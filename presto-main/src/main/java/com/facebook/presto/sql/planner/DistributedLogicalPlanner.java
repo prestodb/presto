@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
@@ -28,13 +27,13 @@ import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
-import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.RowNumberLimitNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
@@ -43,6 +42,7 @@ import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -54,6 +54,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 
 import java.util.HashMap;
 import java.util.List;
@@ -62,6 +63,12 @@ import java.util.Map;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.sql.planner.plan.IndexJoinNode.EquiJoinClause.probeGetter;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -81,9 +88,9 @@ public class DistributedLogicalPlanner
         this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");
     }
 
-    public SubPlan createSubPlans(Plan plan, boolean createSingleNodePlan)
+    public SubPlan createSubPlans(Plan plan, boolean createSingleNodePlan, boolean distributedIndexJoins)
     {
-        Visitor visitor = new Visitor(plan.getSymbolAllocator(), createSingleNodePlan);
+        Visitor visitor = new Visitor(plan.getSymbolAllocator(), createSingleNodePlan, distributedIndexJoins);
         SubPlanBuilder builder = plan.getRoot().accept(visitor, null);
 
         SubPlan subplan = builder.build();
@@ -99,11 +106,13 @@ public class DistributedLogicalPlanner
 
         private final SymbolAllocator allocator;
         private final boolean createSingleNodePlan;
+        private final boolean distributedIndexJoins;
 
-        public Visitor(SymbolAllocator allocator, boolean createSingleNodePlan)
+        public Visitor(SymbolAllocator allocator, boolean createSingleNodePlan, boolean distributedIndexJoins)
         {
             this.allocator = allocator;
             this.createSingleNodePlan = createSingleNodePlan;
+            this.distributedIndexJoins = distributedIndexJoins;
         }
 
         @Override
@@ -153,7 +162,7 @@ public class DistributedLogicalPlanner
                 }
             }
             if (createSingleNodePlan || alreadyPartitioned || !current.isDistributed()) {
-                MarkDistinctNode markNode = new MarkDistinctNode(idAllocator.getNextId(), current.getRoot(), node.getMarkerSymbol(), node.getDistinctSymbols(), node.getSampleWeightSymbol());
+                MarkDistinctNode markNode = new MarkDistinctNode(idAllocator.getNextId(), current.getRoot(), node.getMarkerSymbol(), node.getDistinctSymbols());
                 current.setRoot(markNode);
                 return current;
             }
@@ -163,7 +172,7 @@ public class DistributedLogicalPlanner
                         .setHashOutputPartitioning(node.getDistinctSymbols());
 
                 PlanNode exchange = new ExchangeNode(idAllocator.getNextId(), current.getId(), sink.getOutputSymbols());
-                MarkDistinctNode markNode = new MarkDistinctNode(idAllocator.getNextId(), exchange, node.getMarkerSymbol(), node.getDistinctSymbols(), node.getSampleWeightSymbol());
+                MarkDistinctNode markNode = new MarkDistinctNode(idAllocator.getNextId(), exchange, node.getMarkerSymbol(), node.getDistinctSymbols());
                 return createFixedDistributionPlan(markNode)
                         .addChild(current.build());
             }
@@ -191,7 +200,7 @@ public class DistributedLogicalPlanner
                 Signature signature = functions.get(entry.getKey());
                 FunctionInfo function = metadata.getExactFunction(signature);
 
-                Symbol intermediateSymbol = allocator.newSymbol(function.getName().getSuffix(), function.getIntermediateType());
+                Symbol intermediateSymbol = allocator.newSymbol(function.getName().getSuffix(), metadata.getType(function.getIntermediateType()));
                 intermediateCalls.put(intermediateSymbol, entry.getValue());
                 intermediateFunctions.put(intermediateSymbol, signature);
                 if (masks.containsKey(entry.getKey())) {
@@ -250,6 +259,44 @@ public class DistributedLogicalPlanner
         }
 
         @Override
+        public SubPlanBuilder visitRowNumberLimit(RowNumberLimitNode node, Void context)
+        {
+            SubPlanBuilder current = node.getSource().accept(this, context);
+            if (current.isDistributed()) {
+                List<Symbol> partitionedBy = node.getPartitionBy();
+                current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
+
+                ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
+                current.setHashOutputPartitioning(partitionedBy);
+                current = createFixedDistributionPlan(source)
+                        .addChild(current.build());
+            }
+
+            current.setRoot(new RowNumberLimitNode(node.getId(), current.getRoot(), node.getPartitionBy(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition()));
+
+            return current;
+        }
+
+        @Override
+        public SubPlanBuilder visitTopNRowNumber(TopNRowNumberNode node, Void context)
+        {
+            SubPlanBuilder current = node.getSource().accept(this, context);
+            if (current.isDistributed()) {
+                List<Symbol> partitionedBy = node.getPartitionBy();
+                current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
+
+                ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
+                current.setHashOutputPartitioning(partitionedBy);
+                current = createFixedDistributionPlan(source)
+                        .addChild(current.build());
+            }
+
+            current.setRoot(new TopNRowNumberNode(node.getId(), current.getRoot(), node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition()));
+
+            return current;
+        }
+
+        @Override
         public SubPlanBuilder visitFilter(FilterNode node, Void context)
         {
             SubPlanBuilder current = node.getSource().accept(this, context);
@@ -262,14 +309,6 @@ public class DistributedLogicalPlanner
         {
             SubPlanBuilder current = node.getSource().accept(this, context);
             current.setRoot(new SampleNode(node.getId(), current.getRoot(), node.getSampleRatio(), node.getSampleType(), node.isRescaled(), node.getSampleWeightSymbol()));
-            return current;
-        }
-
-        @Override
-        public SubPlanBuilder visitMaterializeSample(MaterializeSampleNode node, Void context)
-        {
-            SubPlanBuilder current = node.getSource().accept(this, context);
-            current.setRoot(new MaterializeSampleNode(node.getId(), current.getRoot(), node.getSampleWeightSymbol()));
             return current;
         }
 
@@ -289,14 +328,14 @@ public class DistributedLogicalPlanner
             // use partial TopN plan if distributed
             boolean partial = current.isDistributed();
 
-            current.setRoot(new TopNNode(node.getId(), current.getRoot(), node.getCount(), node.getOrderBy(), node.getOrderings(), partial, node.getSampleWeight()));
+            current.setRoot(new TopNNode(node.getId(), current.getRoot(), node.getCount(), node.getOrderBy(), node.getOrderings(), partial));
 
             if (current.isDistributed()) {
                 current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
 
                 // create merge plan fragment
                 PlanNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
-                TopNNode merge = new TopNNode(idAllocator.getNextId(), source, node.getCount(), node.getOrderBy(), node.getOrderings(), false, node.getSampleWeight());
+                TopNNode merge = new TopNNode(idAllocator.getNextId(), source, node.getCount(), node.getOrderBy(), node.getOrderings(), false);
                 current = createSingleNodePlan(merge)
                         .addChild(current.build());
             }
@@ -345,14 +384,14 @@ public class DistributedLogicalPlanner
         {
             SubPlanBuilder current = node.getSource().accept(this, context);
 
-            current.setRoot(new LimitNode(node.getId(), current.getRoot(), node.getCount(), node.getSampleWeight()));
+            current.setRoot(new LimitNode(node.getId(), current.getRoot(), node.getCount()));
 
             if (current.isDistributed()) {
                 current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
 
                 // create merge plan fragment
                 PlanNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
-                LimitNode merge = new LimitNode(idAllocator.getNextId(), source, node.getCount(), node.getSampleWeight());
+                LimitNode merge = new LimitNode(idAllocator.getNextId(), source, node.getCount());
                 current = createSingleNodePlan(merge)
                         .addChild(current.build());
             }
@@ -392,14 +431,27 @@ public class DistributedLogicalPlanner
         @Override
         public SubPlanBuilder visitTableWriter(TableWriterNode node, Void context)
         {
-            // TODO: create table in pre-execution step, not here
+            // TODO: begin create table or insert in pre-execution step, not here
             // Part of the plan should be an Optional<StateChangeListener<QueryState>> and this
             // callback can create the table and abort the table creation if the query fails.
-            OutputTableHandle target = metadata.beginCreateTable(session, node.getCatalog(), node.getTableMetadata());
+            WriterTarget target = createWriterTarget(node.getTarget());
 
             SubPlanBuilder current = node.getSource().accept(this, context);
             current.setRoot(new TableWriterNode(node.getId(), current.getRoot(), target, node.getColumns(), node.getColumnNames(), node.getOutputSymbols(), node.getSampleWeightSymbol()));
             return current;
+        }
+
+        private WriterTarget createWriterTarget(WriterTarget target)
+        {
+            if (target instanceof CreateName) {
+                CreateName create = (CreateName) target;
+                return new CreateHandle(metadata.beginCreateTable(session, create.getCatalog(), create.getTableMetadata()));
+            }
+            if (target instanceof InsertReference) {
+                InsertReference insert = (InsertReference) target;
+                return new InsertHandle(metadata.beginInsert(session, insert.getHandle()));
+            }
+            throw new AssertionError("Unhandled target type: " + target.getClass().getName());
         }
 
         @Override
@@ -407,8 +459,7 @@ public class DistributedLogicalPlanner
         {
             SubPlanBuilder current = node.getSource().accept(this, context);
             checkState(current.getRoot() instanceof TableWriterNode, "table commit node must be preceeded by table writer node");
-            OutputTableHandle target = ((TableWriterNode) current.getRoot()).getTarget();
-            checkNotNull(target, "target table handle should have been constructed when we visited the table writer node");
+            WriterTarget target = ((TableWriterNode) current.getRoot()).getTarget();
 
             if (current.getDistribution() != PlanDistribution.COORDINATOR_ONLY && !createSingleNodePlan) {
                 current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
@@ -492,8 +543,20 @@ public class DistributedLogicalPlanner
         public SubPlanBuilder visitIndexJoin(IndexJoinNode node, Void context)
         {
             SubPlanBuilder current = node.getProbeSource().accept(this, context);
-            current.setRoot(new IndexJoinNode(node.getId(), node.getType(), current.getRoot(), node.getIndexSource(), node.getCriteria()));
-            return current;
+
+            if (distributedIndexJoins && current.isDistributed()) {
+                PlanNode sink = new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols());
+                current.setRoot(sink)
+                        .setHashOutputPartitioning(Lists.transform(node.getCriteria(), probeGetter()));
+
+                PlanNode exchange = new ExchangeNode(idAllocator.getNextId(), current.getId(), sink.getOutputSymbols());
+                return createFixedDistributionPlan(new IndexJoinNode(node.getId(), node.getType(), exchange, node.getIndexSource(), node.getCriteria()))
+                        .addChild(current.build());
+            }
+            else {
+                current.setRoot(new IndexJoinNode(node.getId(), node.getType(), current.getRoot(), node.getIndexSource(), node.getCriteria()));
+                return current;
+            }
         }
 
         @Override

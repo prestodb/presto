@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -156,7 +157,7 @@ public class HashBuilderOperator
         checkState(!isFinished(), "Operator is already finished");
 
         pagesIndex.addPage(page);
-        operatorContext.recordGeneratedOutput(page.getDataSize(), page.getPositionCount());
+        operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
     }
 
     @Override

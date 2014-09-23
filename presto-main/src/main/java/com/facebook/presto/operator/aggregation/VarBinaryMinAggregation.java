@@ -14,25 +14,20 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.SliceState;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
 
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-
-public class VarBinaryMinAggregation
-        extends AbstractSimpleAggregationFunction<SliceState>
+@AggregationFunction("min")
+public final class VarBinaryMinAggregation
 {
-    public static final VarBinaryMinAggregation VAR_BINARY_MIN = new VarBinaryMinAggregation();
+    private VarBinaryMinAggregation() {}
 
-    public VarBinaryMinAggregation()
+    @InputFunction
+    @IntermediateInputFunction
+    public static void min(SliceState state, @SqlType(StandardTypes.VARCHAR) Slice value)
     {
-        super(VARCHAR, VARCHAR, VARCHAR);
-    }
-
-    @Override
-    protected void processInput(SliceState state, Block block, int index)
-    {
-        state.setSlice(min(state.getSlice(), block.getSlice(index)));
+        state.setSlice(min(state.getSlice(), value));
     }
 
     private static Slice min(Slice a, Slice b)

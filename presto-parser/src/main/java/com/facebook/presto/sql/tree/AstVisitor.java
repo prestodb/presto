@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.base.Function;
+
 import javax.annotation.Nullable;
 
 public abstract class AstVisitor<R, C>
@@ -302,6 +304,16 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitArrayConstructor(ArrayConstructor node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    protected R visitSubscriptExpression(SubscriptExpression node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitLongLiteral(LongLiteral node, C context)
     {
         return visitLiteral(node, context);
@@ -397,6 +409,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitRenameTable(RenameTable node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitCreateView(CreateView node, C context)
     {
         return visitStatement(node, context);
@@ -405,5 +422,22 @@ public abstract class AstVisitor<R, C>
     protected R visitDropView(DropView node, C context)
     {
         return visitStatement(node, context);
+    }
+
+    public Function<Node, R> processFunction(final C context)
+    {
+        return new Function<Node, R>()
+        {
+            @Override
+            public R apply(Node input)
+            {
+                return process(input, context);
+            }
+        };
+    }
+
+    protected R visitInsert(Insert node, C context)
+    {
+        return visitNode(node, context);
     }
 }

@@ -34,6 +34,7 @@ public class LookupSymbolResolver
         this.bindings = ImmutableMap.copyOf(bindings);
     }
 
+    @Override
     public Object getValue(Symbol symbol)
     {
         if (!bindings.containsKey(symbol)) {

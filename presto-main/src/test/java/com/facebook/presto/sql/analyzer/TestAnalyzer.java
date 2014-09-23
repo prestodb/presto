@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.connector.system.SystemTablesMetadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableMetadata;
@@ -430,6 +431,10 @@ public class TestAnalyzer
         // coalesce
         assertFails(TYPE_MISMATCH, "SELECT COALESCE(1, 'a') FROM t1");
 
+        // cast
+        assertFails(TYPE_MISMATCH, "SELECT CAST(date '2014-01-01' AS bigint)");
+        assertFails(TYPE_MISMATCH, "SELECT TRY_CAST(date '2014-01-01' AS bigint)");
+
         // arithmetic negation
         assertFails(TYPE_MISMATCH, "SELECT -'a' FROM t1");
 
@@ -595,11 +600,25 @@ public class TestAnalyzer
         assertFails(NOT_SUPPORTED, "USE CATALOG default");
     }
 
+    @Test
+    public void testNotNullInJoinClause()
+            throws Exception
+    {
+        assertFails(NOT_SUPPORTED, "SELECT * FROM (VALUES (1)) a (x) JOIN (VALUES (2)) b ON a.x IS NOT NULL");
+    }
+
+    @Test
+    public void testIfInJoinClause()
+            throws Exception
+    {
+        assertFails(NOT_SUPPORTED, "SELECT * FROM (VALUES (1)) a (x) JOIN (VALUES (2)) b ON IF(a.x = 1, true, false)");
+    }
+
     @BeforeMethod(alwaysRun = true)
     public void setup()
             throws Exception
     {
-        MetadataManager metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), new TypeRegistry());
+        MetadataManager metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), new TypeRegistry(), new SystemTablesMetadata());
         metadata.addConnectorMetadata("tpch", "tpch", new TestingMetadata());
         metadata.addConnectorMetadata("c2", "c2", new TestingMetadata());
         metadata.addConnectorMetadata("c3", "c3", new TestingMetadata());

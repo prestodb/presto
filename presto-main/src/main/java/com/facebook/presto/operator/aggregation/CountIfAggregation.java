@@ -14,31 +14,24 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.LongState;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.SqlType;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-
-public class CountIfAggregation
-        extends AbstractAggregationFunction<LongState>
+@AggregationFunction("count_if")
+public final class CountIfAggregation
 {
-    public static final CountIfAggregation COUNT_IF = new CountIfAggregation();
+    private CountIfAggregation() {}
 
-    public CountIfAggregation()
+    @InputFunction
+    public static void input(LongState state, @SqlType(StandardTypes.BOOLEAN) boolean value)
     {
-        super(BIGINT, BIGINT, BOOLEAN);
-    }
-
-    @Override
-    protected void processInput(LongState state, Block block, int index)
-    {
-        if (block.getBoolean(index)) {
+        if (value) {
             state.setLong(state.getLong() + 1);
         }
     }
 
-    @Override
-    protected void combineState(LongState state, LongState otherState)
+    @CombineFunction
+    public static void combine(LongState state, LongState otherState)
     {
         state.setLong(state.getLong() + otherState.getLong());
     }

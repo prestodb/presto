@@ -90,7 +90,6 @@ public class TableScanNode
         checkNotNull(outputSymbols, "outputSymbols is null");
         checkNotNull(assignments, "assignments is null");
         checkArgument(assignments.keySet().containsAll(outputSymbols), "assignments does not cover all of outputSymbols");
-        checkArgument(!assignments.isEmpty(), "assignments is empty");
         checkNotNull(summarizedPartition, "summarizedPartition is null");
 
         this.table = table;
@@ -108,6 +107,7 @@ public class TableScanNode
         return table;
     }
 
+    @Override
     @JsonProperty("outputSymbols")
     public List<Symbol> getOutputSymbols()
     {
@@ -163,11 +163,13 @@ public class TableScanNode
         return builder.toString();
     }
 
+    @Override
     public List<PlanNode> getSources()
     {
         return ImmutableList.of();
     }
 
+    @Override
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitTableScan(this, context);

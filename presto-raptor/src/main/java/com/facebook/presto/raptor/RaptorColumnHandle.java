@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -25,23 +26,26 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public final class RaptorColumnHandle
         implements ConnectorColumnHandle
 {
-    // This is intentionally not named "$sampleWeight" because column names are lowercased and case insensitive
+    // This is intentionally not named "$sampleWeight" because column names are lowercase and case insensitive
     public static final String SAMPLE_WEIGHT_COLUMN_NAME = "$sample_weight";
 
     private final String connectorId;
     private final String columnName;
     private final long columnId;
+    private final Type columnType;
 
     @JsonCreator
     public RaptorColumnHandle(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("columnName") String columnName,
-            @JsonProperty("columnId") long columnId)
+            @JsonProperty("columnId") long columnId,
+            @JsonProperty("columnType") Type columnType)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null");
         this.columnName = checkNotNull(columnName, "columnName is null");
         checkArgument(columnId > 0, "columnId must be greater than zero");
         this.columnId = columnId;
+        this.columnType = checkNotNull(columnType, "columnType is null");
     }
 
     @JsonProperty
@@ -62,10 +66,16 @@ public final class RaptorColumnHandle
         return columnId;
     }
 
+    @JsonProperty
+    public Type getColumnType()
+    {
+        return columnType;
+    }
+
     @Override
     public String toString()
     {
-        return connectorId + ":" + columnName + ":" + columnId;
+        return connectorId + ":" + columnName + ":" + columnId + ":" + columnType;
     }
 
     @Override

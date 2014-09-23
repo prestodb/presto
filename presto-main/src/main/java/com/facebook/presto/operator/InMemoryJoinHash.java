@@ -13,13 +13,17 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Murmur3;
 import it.unimi.dsi.fastutil.HashCommon;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.Arrays;
+import java.util.List;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
@@ -37,10 +41,12 @@ public final class InMemoryJoinHash
     private final int mask;
     private final int[] key;
     private final int[] positionLinks;
+    private final List<Type> hashTypes;
 
-    public InMemoryJoinHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy, OperatorContext operatorContext)
+    public InMemoryJoinHash(LongArrayList addresses, List<Type> hashTypes, PagesHashStrategy pagesHashStrategy, OperatorContext operatorContext)
     {
         this.addresses = checkNotNull(addresses, "addresses is null");
+        this.hashTypes = ImmutableList.copyOf(checkNotNull(hashTypes, "hashTypes is null"));
         this.pagesHashStrategy = checkNotNull(pagesHashStrategy, "pagesHashStrategy is null");
         this.channelCount = pagesHashStrategy.getChannelCount();
 
@@ -87,12 +93,12 @@ public final class InMemoryJoinHash
     }
 
     @Override
-    public final long getJoinPosition(BlockCursor... cursors)
+    public long getJoinPosition(int position, Block... blocks)
     {
-        int pos = ((int) Murmur3.hash64(hashCursor(cursors))) & mask;
+        int pos = ((int) Murmur3.hash64(pagesHashStrategy.hashRow(position, blocks))) & mask;
 
         while (key[pos] != -1) {
-            if (positionEqualsCurrentRow(key[pos], cursors)) {
+            if (positionEqualsCurrentRow(key[pos], position, blocks)) {
                 return key[pos];
             }
             // increment position and mask to handler wrap around
@@ -107,6 +113,7 @@ public final class InMemoryJoinHash
         return positionLinks[Ints.checkedCast(currentPosition)];
     }
 
+    @Override
     public void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset)
     {
         long pageAddress = addresses.getLong(Ints.checkedCast(position));
@@ -114,15 +121,6 @@ public final class InMemoryJoinHash
         int blockPosition = decodePosition(pageAddress);
 
         pagesHashStrategy.appendTo(blockIndex, blockPosition, pageBuilder, outputChannelOffset);
-    }
-
-    private int hashCursor(BlockCursor... cursors)
-    {
-        int result = 0;
-        for (BlockCursor cursor : cursors) {
-            result = result * 31 + cursor.hash();
-        }
-        return result;
     }
 
     private int hashPosition(int position)
@@ -134,13 +132,13 @@ public final class InMemoryJoinHash
         return pagesHashStrategy.hashPosition(blockIndex, blockPosition);
     }
 
-    private boolean positionEqualsCurrentRow(int position, BlockCursor... cursors)
+    private boolean positionEqualsCurrentRow(int leftPosition, int rightPosition, Block... rightBlocks)
     {
-        long pageAddress = addresses.getLong(position);
+        long pageAddress = addresses.getLong(leftPosition);
         int blockIndex = decodeSliceIndex(pageAddress);
         int blockPosition = decodePosition(pageAddress);
 
-        return pagesHashStrategy.positionEqualsCursors(blockIndex, blockPosition, cursors);
+        return pagesHashStrategy.positionEqualsRow(blockIndex, blockPosition, rightPosition, rightBlocks);
     }
 
     private boolean positionEqualsPosition(int leftPosition, int rightPosition)

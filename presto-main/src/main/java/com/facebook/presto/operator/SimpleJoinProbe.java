@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
-
-import static com.google.common.base.Preconditions.checkState;
 
 public class SimpleJoinProbe
         implements JoinProbe
@@ -25,62 +26,66 @@ public class SimpleJoinProbe
     public static class SimpleJoinProbeFactory
             implements JoinProbeFactory
     {
+        private List<Type> types;
         private List<Integer> probeJoinChannels;
 
-        public SimpleJoinProbeFactory(List<Integer> probeJoinChannels)
+        public SimpleJoinProbeFactory(List<Type> types, List<Integer> probeJoinChannels)
         {
+            this.types = types;
             this.probeJoinChannels = probeJoinChannels;
         }
 
         @Override
         public JoinProbe createJoinProbe(LookupSource lookupSource, Page page)
         {
-            return new SimpleJoinProbe(lookupSource, page, probeJoinChannels);
+            return new SimpleJoinProbe(types, lookupSource, page, probeJoinChannels);
         }
     }
 
+    private final List<Type> types;
     private final LookupSource lookupSource;
-    private final BlockCursor[] cursors;
-    private final BlockCursor[] probeCursors;
+    private final int positionCount;
+    private final Block[] blocks;
+    private final Block[] probeBlocks;
+    private int position = -1;
 
-    private SimpleJoinProbe(LookupSource lookupSource, Page page, List<Integer> probeJoinChannels)
+    private SimpleJoinProbe(List<Type> types, LookupSource lookupSource, Page page, List<Integer> probeJoinChannels)
     {
+        this.types = types;
         this.lookupSource = lookupSource;
-        this.cursors = new BlockCursor[page.getChannelCount()];
-        this.probeCursors = new BlockCursor[probeJoinChannels.size()];
+        this.positionCount = page.getPositionCount();
+        this.blocks = new Block[page.getChannelCount()];
+        this.probeBlocks = new Block[probeJoinChannels.size()];
 
         for (int i = 0; i < page.getChannelCount(); i++) {
-            cursors[i] = page.getBlock(i).cursor();
+            blocks[i] = page.getBlock(i);
         }
 
         for (int i = 0; i < probeJoinChannels.size(); i++) {
-            probeCursors[i] = cursors[probeJoinChannels.get(i)];
+            probeBlocks[i] = blocks[probeJoinChannels.get(i)];
         }
     }
 
     @Override
     public int getChannelCount()
     {
-        return cursors.length;
+        return blocks.length;
     }
 
     @Override
     public boolean advanceNextPosition()
     {
-        // advance all cursors
-        boolean advanced = cursors[0].advanceNextPosition();
-        for (int i = 1; i < cursors.length; i++) {
-            checkState(advanced == cursors[i].advanceNextPosition());
-        }
-        return advanced;
+        position++;
+        return position < positionCount;
     }
 
     @Override
     public void appendTo(PageBuilder pageBuilder)
     {
-        for (int outputIndex = 0; outputIndex < cursors.length; outputIndex++) {
-            BlockCursor cursor = cursors[outputIndex];
-            cursor.appendTo(pageBuilder.getBlockBuilder(outputIndex));
+        for (int outputIndex = 0; outputIndex < blocks.length; outputIndex++) {
+            Type type = types.get(outputIndex);
+            Block block = blocks[outputIndex];
+            type.appendTo(block, position, pageBuilder.getBlockBuilder(outputIndex));
         }
     }
 
@@ -90,13 +95,13 @@ public class SimpleJoinProbe
         if (currentRowContainsNull()) {
             return -1;
         }
-        return lookupSource.getJoinPosition(probeCursors);
+        return lookupSource.getJoinPosition(position, probeBlocks);
     }
 
     private boolean currentRowContainsNull()
     {
-        for (BlockCursor probeCursor : probeCursors) {
-            if (probeCursor.isNull()) {
+        for (Block probeBlock : probeBlocks) {
+            if (probeBlock.isNull(position)) {
                 return true;
             }
         }

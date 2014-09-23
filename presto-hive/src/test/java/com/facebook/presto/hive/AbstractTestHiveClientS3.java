@@ -27,11 +27,11 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
-import io.airlift.log.Logger;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.api.Database;
@@ -105,7 +105,8 @@ public abstract class AbstractTestHiveClientS3
                 new NamenodeStats(),
                 new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig)),
                 new HadoopDirectoryLister(),
-                sameThreadExecutor());
+                sameThreadExecutor(),
+                new TypeRegistry());
     }
 
     @Test
@@ -138,7 +139,7 @@ public abstract class AbstractTestHiveClientS3
         Path basePath = new Path("s3://presto-test-hive/");
         Path tablePath = new Path(basePath, "presto_test_s3");
         Path filePath = new Path(tablePath, "test1.csv");
-        FileSystem fs = basePath.getFileSystem(hdfsEnvironment.getConfiguration(basePath));
+        FileSystem fs = hdfsEnvironment.getFileSystem(basePath);
 
         assertTrue(isDirectory(fs.getFileStatus(basePath)));
         assertTrue(isDirectory(fs.getFileStatus(tablePath)));
@@ -226,7 +227,7 @@ public abstract class AbstractTestHiveClientS3
             metastoreClient.dropTable(table.getSchemaName(), table.getTableName());
         }
         catch (RuntimeException e) {
-            Logger.get(getClass()).warn(e, "Failed to drop table: %s", table);
+            // this usually occurs because the table was not created
         }
     }
 

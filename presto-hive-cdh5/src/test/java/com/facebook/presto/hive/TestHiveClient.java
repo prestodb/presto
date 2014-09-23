@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.hive;
 
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
-@Test(singleThreaded = true)
+@Test
 public class TestHiveClient
         extends AbstractTestHiveClient
 {
     @Parameters({"hive.cdh5.metastoreHost", "hive.cdh5.metastorePort", "hive.cdh5.databaseName", "hive.cdh5.timeZone"})
-    @BeforeMethod
+    @BeforeClass
     @Override
     public void setup(String host, int port, String databaseName, String timeZone)
     {

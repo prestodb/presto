@@ -29,9 +29,9 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.ExchangeClient;
-import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimeZoneNotSupportedException;
 import com.facebook.presto.spi.type.Type;
@@ -73,6 +73,7 @@ import javax.ws.rs.core.UriInfo;
 import java.io.Closeable;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -389,6 +390,8 @@ public class StatementResource
                 columns = createColumnsList(queryInfo);
             }
 
+            List<Type> types = queryInfo.getOutputStage().getTypes();
+
             updateExchangeClient(queryInfo.getOutputStage());
 
             ImmutableList.Builder<RowIterable> pages = ImmutableList.builder();
@@ -399,8 +402,8 @@ public class StatementResource
                 if (page == null) {
                     break;
                 }
-                bytes += page.getDataSize().toBytes();
-                pages.add(new RowIterable(session, page));
+                bytes += page.getSizeInBytes();
+                pages.add(new RowIterable(session, types, page));
 
                 // only wait on first call
                 maxWait = new Duration(0, TimeUnit.MILLISECONDS);
@@ -425,6 +428,10 @@ public class StatementResource
             if (!outputStage.getState().isDone()) {
                 for (TaskInfo taskInfo : outputStage.getTasks()) {
                     List<BufferInfo> buffers = taskInfo.getOutputBuffers().getBuffers();
+                    if (buffers.isEmpty()) {
+                        // output buffer has not been created yet
+                        continue;
+                    }
                     Preconditions.checkState(buffers.size() == 1,
                             "Expected a single output buffer for task %s, but found %s",
                             taskInfo.getTaskId(),
@@ -450,9 +457,7 @@ public class StatementResource
         {
             checkNotNull(queryInfo, "queryInfo is null");
             StageInfo outputStage = queryInfo.getOutputStage();
-            if (outputStage == null) {
-                checkNotNull(outputStage, "outputStage is null");
-            }
+            checkNotNull(outputStage, "outputStage is null");
 
             List<String> names = queryInfo.getFieldNames();
             List<Type> types = outputStage.getTypes();
@@ -617,18 +622,20 @@ public class StatementResource
                 implements Iterable<List<Object>>
         {
             private final ConnectorSession session;
+            private final List<Type> types;
             private final Page page;
 
-            private RowIterable(ConnectorSession session, Page page)
+            private RowIterable(ConnectorSession session, List<Type> types, Page page)
             {
                 this.session = session;
+                this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
                 this.page = checkNotNull(page, "page is null");
             }
 
             @Override
             public Iterator<List<Object>> iterator()
             {
-                return new RowIterator(session, page);
+                return new RowIterator(session, types, page);
             }
         }
 
@@ -636,30 +643,32 @@ public class StatementResource
                 extends AbstractIterator<List<Object>>
         {
             private final ConnectorSession session;
-            private final BlockCursor[] cursors;
+            private final List<Type> types;
+            private final Page page;
+            private int position = -1;
 
-            private RowIterator(ConnectorSession session, Page page)
+            private RowIterator(ConnectorSession session, List<Type> types, Page page)
             {
                 this.session = session;
-                cursors = new BlockCursor[page.getChannelCount()];
-                for (int channel = 0; channel < cursors.length; channel++) {
-                    cursors[channel] = page.getBlock(channel).cursor();
-                }
+                this.types = types;
+                this.page = page;
             }
 
             @Override
             protected List<Object> computeNext()
             {
-                List<Object> row = new ArrayList<>(cursors.length);
-                for (BlockCursor cursor : cursors) {
-                    if (!cursor.advanceNextPosition()) {
-                        Preconditions.checkState(row.isEmpty(), "Page is unaligned");
-                        return endOfData();
-                    }
-
-                    row.add(cursor.getObjectValue(session));
+                position++;
+                if (position >= page.getPositionCount()) {
+                    return endOfData();
                 }
-                return row;
+
+                List<Object> values = new ArrayList<>(page.getChannelCount());
+                for (int channel = 0; channel < page.getChannelCount(); channel++) {
+                    Type type = types.get(channel);
+                    Block block = page.getBlock(channel);
+                    values.add(type.getObjectValue(session, block, position));
+                }
+                return Collections.unmodifiableList(values);
             }
         }
     }

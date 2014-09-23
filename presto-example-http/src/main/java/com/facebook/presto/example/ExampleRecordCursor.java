@@ -108,7 +108,7 @@ public class ExampleRecordCursor
 
     private String getFieldValue(int field)
     {
-        checkState(fields != null, "Cursor has not been advanced yes");
+        checkState(fields != null, "Cursor has not been advanced yet");
 
         int columnIndex = fieldToColumnIndex[field];
         return fields.get(columnIndex);

@@ -17,22 +17,24 @@ public interface Connector
 {
     ConnectorHandleResolver getHandleResolver();
 
-    /**
-     * @throws UnsupportedOperationException if this connector doesn't support writing tables
-     */
-    ConnectorOutputHandleResolver getOutputHandleResolver();
-
     ConnectorMetadata getMetadata();
+
     ConnectorSplitManager getSplitManager();
 
     /**
-     * @throws UnsupportedOperationException if this connector doesn't support reading tables
+     * @throws UnsupportedOperationException if this connector does not support reading tables page at a time
+     */
+    ConnectorPageSourceProvider getPageSourceProvider();
+
+    /**
+     * @throws UnsupportedOperationException if this connector does not support reading tables record at a time
      */
     ConnectorRecordSetProvider getRecordSetProvider();
 
     /**
-     * @throws UnsupportedOperationException if this connector doesn't support writing tables
+     * @throws UnsupportedOperationException if this connector does not support writing tables
      */
     ConnectorRecordSinkProvider getRecordSinkProvider();
+
     ConnectorIndexResolver getIndexResolver();
 }

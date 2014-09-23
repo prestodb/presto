@@ -14,148 +14,70 @@
 package com.facebook.presto.spi.type;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
-import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
-
-import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 
 // Layout is <size>:<hll>, where
 //   size: is a short describing the length of the hll bytes
 //   hll: is the serialized hll
 public class HyperLogLogType
-        implements VariableWidthType
+        extends AbstractVariableWidthType
 {
     public static final HyperLogLogType HYPER_LOG_LOG = new HyperLogLogType();
-
-    public static final BlockEncodingFactory<?> BLOCK_ENCODING_FACTORY = new VariableWidthBlockEncoding.VariableWidthBlockEncodingFactory(HYPER_LOG_LOG);
-
-    public static HyperLogLogType getInstance()
-    {
-        return HYPER_LOG_LOG;
-    }
 
     @JsonCreator
     public HyperLogLogType()
     {
+        super(StandardTypes.HYPER_LOG_LOG, Slice.class);
     }
 
     @Override
-    public String getName()
+    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
-        return "HyperLogLog";
+        if (block.isNull(position)) {
+            blockBuilder.appendNull();
+        }
+        else {
+            block.writeBytesTo(position, 0, block.getLength(position), blockBuilder);
+            blockBuilder.closeEntry();
+        }
     }
 
     @Override
-    public Class<?> getJavaType()
+    public Slice getSlice(Block block, int position)
     {
-        return Slice.class;
+        return block.getSlice(position, 0, block.getLength(position));
     }
 
     @Override
-    public int getLength(Slice slice, int offset)
+    public void writeSlice(BlockBuilder blockBuilder, Slice value)
     {
-        return getValueSize(slice, offset) + SIZE_OF_SHORT;
+        writeSlice(blockBuilder, value, 0, value.length());
     }
 
     @Override
-    public Slice getSlice(Slice slice, int offset)
+    public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
-        return slice.slice(offset + SIZE_OF_SHORT, getValueSize(slice, offset));
+        blockBuilder.writeBytes(value, offset, length).closeEntry();
     }
 
     @Override
-    public int writeSlice(SliceOutput sliceOutput, Slice value, int offset, int length)
+    public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
-        sliceOutput.writeShort(length);
-        sliceOutput.writeBytes(value, offset, length);
-        return length + SIZE_OF_SHORT;
-    }
+        if (block.isNull(position)) {
+            return null;
+        }
 
-    @Override
-    public boolean equalTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
-    {
-        throw new UnsupportedOperationException("HyperLogLog type is not comparable");
-    }
-
-    @Override
-    public boolean equalTo(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
-    {
-        throw new UnsupportedOperationException("HyperLogLog type is not comparable");
-    }
-
-    @Override
-    public int hash(Slice slice, int offset)
-    {
-        throw new UnsupportedOperationException("HyperLogLog type is not comparable");
-    }
-
-    @Override
-    public int compareTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
-    {
-        throw new UnsupportedOperationException("HyperLogLog type is not ordered");
-    }
-
-    @Override
-    public void appendTo(Slice slice, int offset, BlockBuilder blockBuilder)
-    {
-        int length = getValueSize(slice, offset);
-        blockBuilder.appendSlice(slice, offset + SIZE_OF_SHORT, length);
-    }
-
-    @Override
-    public void appendTo(Slice slice, int offset, SliceOutput sliceOutput)
-    {
-        // copy full value including length
-        int length = getLength(slice, offset);
-        sliceOutput.writeBytes(slice, offset, length);
-    }
-
-    @Override
-    public Object getObjectValue(ConnectorSession session, Slice slice, int offset)
-    {
-        return "<HyperLogLog>";
+        return new SqlVarbinary(block.getSlice(position, 0, block.getLength(position)).getBytes());
     }
 
     @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
     {
-        return new VariableWidthBlockBuilder(this, blockBuilderStatus);
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        return true;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return getClass().hashCode();
-    }
-
-    private static int getValueSize(Slice slice, int offset)
-    {
-        return slice.getShort(offset);
-    }
-
-    @Override
-    public String toString()
-    {
-        return getName();
+        return new VariableWidthBlockBuilder(blockBuilderStatus);
     }
 }

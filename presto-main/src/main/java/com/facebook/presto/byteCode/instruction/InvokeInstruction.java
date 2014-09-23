@@ -16,7 +16,7 @@ package com.facebook.presto.byteCode.instruction;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.facebook.presto.byteCode.MethodDefinition;
-import com.facebook.presto.byteCode.OpCodes;
+import com.facebook.presto.byteCode.OpCode;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.Handle;
@@ -29,11 +29,11 @@ import java.lang.reflect.Method;
 import java.util.List;
 
 import static com.facebook.presto.byteCode.MethodDefinition.methodDescription;
-import static com.facebook.presto.byteCode.OpCodes.INVOKEDYNAMIC;
-import static com.facebook.presto.byteCode.OpCodes.INVOKEINTERFACE;
-import static com.facebook.presto.byteCode.OpCodes.INVOKESPECIAL;
-import static com.facebook.presto.byteCode.OpCodes.INVOKESTATIC;
-import static com.facebook.presto.byteCode.OpCodes.INVOKEVIRTUAL;
+import static com.facebook.presto.byteCode.OpCode.INVOKEDYNAMIC;
+import static com.facebook.presto.byteCode.OpCode.INVOKEINTERFACE;
+import static com.facebook.presto.byteCode.OpCode.INVOKESPECIAL;
+import static com.facebook.presto.byteCode.OpCode.INVOKESTATIC;
+import static com.facebook.presto.byteCode.OpCode.INVOKEVIRTUAL;
 import static com.facebook.presto.byteCode.ParameterizedType.toParameterizedType;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.google.common.collect.Iterables.transform;
@@ -210,7 +210,7 @@ public class InvokeInstruction
     // Generic
     //
 
-    private static InstructionNode invoke(OpCodes invocationType, Method method)
+    private static InstructionNode invoke(OpCode invocationType, Method method)
     {
         return new InvokeInstruction(invocationType,
                 type(method.getDeclaringClass()),
@@ -219,7 +219,7 @@ public class InvokeInstruction
                 transform(ImmutableList.copyOf(method.getParameterTypes()), toParameterizedType()));
     }
 
-    private static InstructionNode invoke(OpCodes invocationType, MethodDefinition method)
+    private static InstructionNode invoke(OpCode invocationType, MethodDefinition method)
     {
         return new InvokeInstruction(invocationType,
                 method.getDeclaringClass().getType(),
@@ -228,7 +228,7 @@ public class InvokeInstruction
                 method.getParameterTypes());
     }
 
-    private static InstructionNode invoke(OpCodes invocationType, ParameterizedType target, String name, ParameterizedType returnType, Iterable<ParameterizedType> parameterTypes)
+    private static InstructionNode invoke(OpCode invocationType, ParameterizedType target, String name, ParameterizedType returnType, Iterable<ParameterizedType> parameterTypes)
     {
         return new InvokeInstruction(invocationType,
                 target,
@@ -237,7 +237,7 @@ public class InvokeInstruction
                 parameterTypes);
     }
 
-    private static InstructionNode invoke(OpCodes invocationType, Class<?> target, String name, Class<?> returnType, Iterable<Class<?>> parameterTypes)
+    private static InstructionNode invoke(OpCode invocationType, Class<?> target, String name, Class<?> returnType, Iterable<Class<?>> parameterTypes)
     {
         return new InvokeInstruction(invocationType,
                 type(target),
@@ -300,13 +300,13 @@ public class InvokeInstruction
                 ImmutableList.copyOf(bootstrapArguments));
     }
 
-    private final OpCodes opCode;
+    private final OpCode opCode;
     private final ParameterizedType target;
     private final String name;
     private final ParameterizedType returnType;
     private final List<ParameterizedType> parameterTypes;
 
-    public InvokeInstruction(OpCodes opCode,
+    public InvokeInstruction(OpCode opCode,
             ParameterizedType target,
             String name,
             ParameterizedType returnType,
@@ -319,7 +319,7 @@ public class InvokeInstruction
         this.parameterTypes = ImmutableList.copyOf(parameterTypes);
     }
 
-    public OpCodes getOpCode()
+    public OpCode getOpCode()
     {
         return opCode;
     }

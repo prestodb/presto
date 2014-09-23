@@ -13,25 +13,52 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.byteCode.DynamicClassLoader;
+import com.google.common.base.Throwables;
+
 import java.lang.invoke.CallSite;
+import java.lang.invoke.ConstantCallSite;
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.reflect.Method;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 public final class Bootstrap
 {
-    private static volatile BootstrapFunctionBinder functionBinder;
+    public static final Method BOOTSTRAP_METHOD;
+
+    static {
+        try {
+            BOOTSTRAP_METHOD = Bootstrap.class.getMethod("bootstrap", MethodHandles.Lookup.class, String.class, MethodType.class, long.class);
+        }
+        catch (NoSuchMethodException e) {
+            throw Throwables.propagate(e);
+        }
+    }
 
     private Bootstrap()
     {
     }
 
-    public static CallSite bootstrap(MethodHandles.Lookup lookup, String name, MethodType type, long bindingId)
+    public static CallSite bootstrap(MethodHandles.Lookup callerLookup, String name, MethodType type, long bindingId)
     {
-        return functionBinder.bootstrap(name, type, bindingId);
-    }
+        try {
+            ClassLoader classLoader = callerLookup.lookupClass().getClassLoader();
+            checkArgument(classLoader instanceof DynamicClassLoader, "Expected %s's classloader to be of type %s", callerLookup.lookupClass().getName(), DynamicClassLoader.class.getName());
 
-    public static void setFunctionBinder(BootstrapFunctionBinder binder)
-    {
-        functionBinder = binder;
+            DynamicClassLoader dynamicClassLoader = (DynamicClassLoader) classLoader;
+            MethodHandle target = dynamicClassLoader.getCallsiteBindings().get(bindingId);
+            checkArgument(target != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
+
+            return new ConstantCallSite(target);
+        }
+        catch (Throwable e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throw Throwables.propagate(e);
+        }
     }
 }

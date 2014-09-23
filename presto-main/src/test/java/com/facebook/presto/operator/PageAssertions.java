@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.type.Type;
+
+import java.util.List;
+
 import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
 import static org.testng.Assert.assertEquals;
 
@@ -22,11 +27,12 @@ public final class PageAssertions
     {
     }
 
-    public static void assertPageEquals(Page actualPage, Page expectedPage)
+    public static void assertPageEquals(List<? extends Type> types, Page actualPage, Page expectedPage)
     {
+        assertEquals(types.size(), actualPage.getChannelCount());
         assertEquals(actualPage.getChannelCount(), expectedPage.getChannelCount());
         for (int i = 0; i < actualPage.getChannelCount(); i++) {
-            assertBlockEquals(actualPage.getBlock(i), expectedPage.getBlock(i));
+            assertBlockEquals(types.get(i), actualPage.getBlock(i), expectedPage.getBlock(i));
         }
     }
 }

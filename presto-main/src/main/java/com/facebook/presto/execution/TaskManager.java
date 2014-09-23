@@ -17,26 +17,68 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 
 import java.util.List;
 
 public interface TaskManager
 {
+    /**
+     * Gets all of the currently tracked tasks.  This will included
+     * uninitialized, running, and completed tasks.
+     */
     List<TaskInfo> getAllTaskInfo();
 
-    void waitForStateChange(TaskId taskId, TaskState currentState, Duration maxWait)
-            throws InterruptedException;
-
+    /**
+     * Gets the info for the specified task.  If the task has not been created
+     * yet, an uninitialized task is created and the info is returned.
+     *
+     * NOTE: this design assumes that only tasks that will eventually exist are
+     * queried.
+     */
     TaskInfo getTaskInfo(TaskId taskId);
 
-    TaskInfo updateTask(ConnectorSession session, TaskId taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputIds);
+    /**
+     * Gets future info for the task after the state changes from
+     * {@code current state}. If the task has not been created yet, an
+     * uninitialized task is created and the future is returned.  If the task
+     * is already in a final state, the info is returned immediately.
+     *
+     * NOTE: this design assumes that only tasks that will eventually exist are
+     * queried.
+     */
+    ListenableFuture<TaskInfo> getTaskInfo(TaskId taskId, TaskState currentState);
 
-    BufferResult getTaskResults(TaskId taskId, String outputName, long startingSequenceId, DataSize maxSize, Duration maxWaitTime)
-            throws InterruptedException;
+    /**
+     * Updates the task plan, sources and output buffers.  If the task does not
+     * already exist, is is created and then updated.
+     */
+    TaskInfo updateTask(ConnectorSession session, TaskId taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputBuffers);
 
-    TaskInfo abortTaskResults(TaskId taskId, String outputId);
-
+    /**
+     * Cancels a task.  If the task does not already exist, is is created and then
+     * canceled.
+     */
     TaskInfo cancelTask(TaskId taskId);
+
+    /**
+     * Gets results from a task either immediately or in the future.  If the
+     * task or buffer has not been created yet, an uninitialized task is
+     * created and a future is returned.
+     *
+     * NOTE: this design assumes that only tasks and buffers that will
+     * eventually exist are queried.
+     */
+    ListenableFuture<BufferResult> getTaskResults(TaskId taskId, String outputName, long startingSequenceId, DataSize maxSize);
+
+    /**
+     * Aborts a result buffer for a task.  If the task or buffer has not been
+     * created yet, an uninitialized task is created and a the buffer is
+     * aborted.
+     *
+     * NOTE: this design assumes that only tasks and buffers that will
+     * eventually exist are queried.
+     */
+    TaskInfo abortTaskResults(TaskId taskId, String outputId);
 }

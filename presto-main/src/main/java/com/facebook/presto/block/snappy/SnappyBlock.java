@@ -13,13 +13,9 @@
  */
 package com.facebook.presto.block.snappy;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.BlockEncoding;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Objects;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.DynamicSliceOutput;
@@ -42,16 +38,14 @@ public class SnappyBlock
 {
     private static final DataSize ENCODING_BUFFER_OVERHEAD = new DataSize(1, Unit.KILOBYTE);
     private final int positionCount;
-    private final Type type;
     private final Slice compressedSlice;
     private final BlockEncoding uncompressedBlockEncoding;
 
     @GuardedBy("this")
     private Block uncompressedBlock;
 
-    public SnappyBlock(int positionCount, Type type, Slice compressedSlice, BlockEncoding uncompressedBlockEncoding)
+    public SnappyBlock(int positionCount, Slice compressedSlice, BlockEncoding uncompressedBlockEncoding)
     {
-        this.type = checkNotNull(type, "type is null");
         checkArgument(positionCount >= 0, "positionCount is negative");
         this.positionCount = positionCount;
         this.compressedSlice = checkNotNull(compressedSlice, "compressedSlice is null");
@@ -60,7 +54,6 @@ public class SnappyBlock
 
     public SnappyBlock(Block block)
     {
-        type = block.getType();
         positionCount = block.getPositionCount();
 
         uncompressedBlock = block;
@@ -73,12 +66,6 @@ public class SnappyBlock
         byte[] compressedBytes = new byte[Snappy.maxCompressedLength(uncompressedSlice.length())];
         int actualLength = Snappy.compress(uncompressedSlice.getBytes(), 0, uncompressedSlice.length(), compressedBytes, 0);
         compressedSlice = Slices.wrappedBuffer(Arrays.copyOf(compressedBytes, actualLength));
-    }
-
-    @Override
-    public Type getType()
-    {
-        return type;
     }
 
     public Slice getCompressedSlice()
@@ -114,15 +101,9 @@ public class SnappyBlock
     }
 
     @Override
-    public BlockCursor cursor()
-    {
-        return getUncompressedBlock().cursor();
-    }
-
-    @Override
     public SnappyBlockEncoding getEncoding()
     {
-        return new SnappyBlockEncoding(type, uncompressedBlockEncoding);
+        return new SnappyBlockEncoding(uncompressedBlockEncoding);
     }
 
     @Override
@@ -132,33 +113,87 @@ public class SnappyBlock
     }
 
     @Override
-    public boolean getBoolean(int position)
+    public int getLength(int position)
     {
-        return getUncompressedBlock().getBoolean(position);
+        return getUncompressedBlock().getLength(position);
     }
 
     @Override
-    public long getLong(int position)
+    public byte getByte(int position, int offset)
     {
-        return getUncompressedBlock().getLong(position);
+        return getUncompressedBlock().getByte(position, offset);
     }
 
     @Override
-    public double getDouble(int position)
+    public short getShort(int position, int offset)
     {
-        return getUncompressedBlock().getDouble(position);
+        return getUncompressedBlock().getShort(position, offset);
     }
 
     @Override
-    public Slice getSlice(int position)
+    public int getInt(int position, int offset)
     {
-        return getUncompressedBlock().getSlice(position);
+        return getUncompressedBlock().getInt(position, offset);
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, int position)
+    public long getLong(int position, int offset)
     {
-        return getUncompressedBlock().getObjectValue(session, position);
+        return getUncompressedBlock().getLong(position, offset);
+    }
+
+    @Override
+    public float getFloat(int position, int offset)
+    {
+        return getUncompressedBlock().getFloat(position, offset);
+    }
+
+    @Override
+    public double getDouble(int position, int offset)
+    {
+        return getUncompressedBlock().getDouble(position, offset);
+    }
+
+    @Override
+    public Slice getSlice(int position, int offset, int length)
+    {
+        return getUncompressedBlock().getSlice(position, offset, length);
+    }
+
+    @Override
+    public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
+    {
+        return getUncompressedBlock().bytesEqual(position, offset, otherSlice, otherOffset, length);
+    }
+
+    @Override
+    public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
+    {
+        return getUncompressedBlock().bytesCompare(position, offset, length, otherSlice, otherOffset, otherLength);
+    }
+
+    @Override
+    public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
+    {
+        getUncompressedBlock().writeBytesTo(position, offset, length, blockBuilder);
+    }
+
+    @Override
+    public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
+    {
+        return getUncompressedBlock().equals(position, offset, otherBlock, otherPosition, otherOffset, length);
+    }
+
+    @Override
+    public int hash(int position, int offset, int length)
+    {
+        return getUncompressedBlock().hash(position, offset, length);
+    }
+
+    @Override
+    public int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength)
+    {
+        return getUncompressedBlock().compareTo(leftPosition, leftOffset, leftLength, rightBlock, rightPosition, rightOffset, rightLength);
     }
 
     @Override
@@ -174,59 +209,10 @@ public class SnappyBlock
     }
 
     @Override
-    public boolean equalTo(int position, Block otherBlock, int otherPosition)
-    {
-        return getUncompressedBlock().equalTo(position, otherBlock, otherPosition);
-    }
-
-    @Override
-    public boolean equalTo(int position, BlockCursor cursor)
-    {
-        return getUncompressedBlock().equalTo(position, cursor);
-    }
-
-    @Override
-    public boolean equalTo(int position, Slice otherSlice, int otherOffset)
-    {
-        return getUncompressedBlock().equalTo(position, otherSlice, otherOffset);
-    }
-
-    @Override
-    public int hash(int position)
-    {
-        return getUncompressedBlock().hash(position);
-    }
-
-    @Override
-    public int compareTo(SortOrder sortOrder, int position, Block otherBlock, int otherPosition)
-    {
-        return getUncompressedBlock().compareTo(sortOrder, position, otherBlock, otherPosition);
-    }
-
-    @Override
-    public int compareTo(SortOrder sortOrder, int position, BlockCursor cursor)
-    {
-        return getUncompressedBlock().compareTo(sortOrder, position, cursor);
-    }
-
-    @Override
-    public int compareTo(int position, Slice otherSlice, int otherOffset)
-    {
-        return getUncompressedBlock().compareTo(position, otherSlice, otherOffset);
-    }
-
-    @Override
-    public void appendTo(int position, BlockBuilder blockBuilder)
-    {
-        getUncompressedBlock().appendTo(position, blockBuilder);
-    }
-
-    @Override
     public String toString()
     {
         return Objects.toStringHelper(this)
                 .add("positionCount", positionCount)
-                .add("type", type)
                 .add("compressedSlice", compressedSlice)
                 .toString();
     }

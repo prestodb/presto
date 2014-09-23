@@ -16,9 +16,12 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.collect.ImmutableList;
 import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 
-import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_STDDEV_INSTANCE;
+import java.util.List;
+
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestLongStdDevAggregation
@@ -29,15 +32,9 @@ public class TestLongStdDevAggregation
     {
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
         for (int i = start; i < start + length; i++) {
-            blockBuilder.appendLong(i);
+            BIGINT.writeLong(blockBuilder, i);
         }
         return blockBuilder.build();
-    }
-
-    @Override
-    public AggregationFunction getFunction()
-    {
-        return LONG_STDDEV_INSTANCE;
     }
 
     @Override
@@ -54,5 +51,17 @@ public class TestLongStdDevAggregation
 
         StandardDeviation stdDev = new StandardDeviation();
         return stdDev.evaluate(values);
+    }
+
+    @Override
+    protected String getFunctionName()
+    {
+        return "stddev_samp";
+    }
+
+    @Override
+    protected List<String> getFunctionParameterTypes()
+    {
+        return ImmutableList.of(StandardTypes.BIGINT);
     }
 }

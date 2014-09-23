@@ -15,25 +15,20 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.InitialDoubleValue;
 import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.SqlType;
 
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-
-public class DoubleMinAggregation
-        extends AbstractSimpleAggregationFunction<DoubleMinAggregation.DoubleMinState>
+@AggregationFunction("min")
+public final class DoubleMinAggregation
 {
-    public static final DoubleMinAggregation DOUBLE_MIN = new DoubleMinAggregation();
+    private DoubleMinAggregation() {}
 
-    public DoubleMinAggregation()
-    {
-        super(DOUBLE, DOUBLE, DOUBLE);
-    }
-
-    @Override
-    public void processInput(DoubleMinState state, Block block, int index)
+    @InputFunction
+    @IntermediateInputFunction
+    public static void min(DoubleMinState state, @SqlType(StandardTypes.DOUBLE) double value)
     {
         state.setNull(false);
-        state.setDouble(Math.min(state.getDouble(), block.getDouble(index)));
+        state.setDouble(Math.min(state.getDouble(), value));
     }
 
     public interface DoubleMinState

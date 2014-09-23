@@ -14,11 +14,11 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
@@ -69,25 +69,26 @@ public class TestFilterAndProjectOperator
                 .addSequencePage(100, 0, 0)
                 .build();
 
-        OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(
-                0,
-                new FilterFunction()
-                {
-                    @Override
-                    public boolean filter(BlockCursor... cursors)
-                    {
-                        long value = cursors[1].getLong();
-                        return 10 <= value && value < 20;
-                    }
+        FilterFunction filter = new FilterFunction()
+        {
+            @Override
+            public boolean filter(int position, Block... blocks)
+            {
+                long value = BIGINT.getLong(blocks[1], position);
+                return 10 <= value && value < 20;
+            }
 
-                    @Override
-                    public boolean filter(RecordCursor cursor)
-                    {
-                        long value = cursor.getLong(0);
-                        return 10 <= value && value < 20;
-                    }
-                },
-                ImmutableList.of(singleColumn(VARCHAR, 0), new Add5Projection(1)));
+            @Override
+            public boolean filter(RecordCursor cursor)
+            {
+                long value = cursor.getLong(0);
+                return 10 <= value && value < 20;
+            }
+        };
+        OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+                0,
+                new GenericPageProcessor(filter, ImmutableList.of(singleColumn(VARCHAR, 0), new Add5Projection(1))),
+                ImmutableList.<Type>of(VARCHAR, BIGINT));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
@@ -124,13 +125,13 @@ public class TestFilterAndProjectOperator
         }
 
         @Override
-        public void project(BlockCursor[] cursors, BlockBuilder output)
+        public void project(int position, Block[] blocks, BlockBuilder output)
         {
-            if (cursors[channelIndex].isNull()) {
+            if (blocks[channelIndex].isNull(position)) {
                 output.appendNull();
             }
             else {
-                output.appendLong(cursors[channelIndex].getLong() + 5);
+                BIGINT.writeLong(output, BIGINT.getLong(blocks[channelIndex], position) + 5);
             }
         }
 
@@ -141,7 +142,7 @@ public class TestFilterAndProjectOperator
                 output.appendNull();
             }
             else {
-                output.appendLong(cursor.getLong(channelIndex) + 5);
+                BIGINT.writeLong(output, cursor.getLong(channelIndex) + 5);
             }
         }
     }

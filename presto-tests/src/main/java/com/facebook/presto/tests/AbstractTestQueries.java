@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionListBuilder;
+import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.DateTimeZoneIndex;
 import com.google.common.base.Function;
 import com.google.common.collect.ArrayListMultimap;
@@ -68,20 +69,29 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestQueries
         extends AbstractTestQueryFramework
 {
-    protected static final List<FunctionInfo> CUSTOM_FUNCTIONS = new FunctionRegistry.FunctionListBuilder()
-            .aggregate("custom_sum",
-                    BIGINT,
-                    ImmutableList.of(BIGINT),
-                    BIGINT,
-                    new CustomSum())
+    // We can just use the default type registry, since we don't use any parametric types
+    protected static final List<ParametricFunction> CUSTOM_FUNCTIONS = new FunctionListBuilder(new TypeRegistry())
+            .aggregate(CustomSum.class)
             .window("custom_rank", BIGINT, ImmutableList.<Type>of(), CustomRank.class)
             .scalar(CustomAdd.class)
             .scalar(CreateHll.class)
             .getFunctions();
 
-    public AbstractTestQueries(QueryRunner queryRunner)
+    protected AbstractTestQueries(QueryRunner queryRunner)
     {
         super(queryRunner);
+    }
+
+    @Test
+    public void testArrays()
+            throws Exception
+    {
+        assertQuery("SELECT a[1] FROM (SELECT ARRAY[orderkey] AS a FROM orders ORDER BY orderkey) t", "SELECT orderkey FROM orders");
+        assertQuery("SELECT a[1 + cast(round(rand()) AS BIGINT)] FROM (SELECT ARRAY[orderkey, orderkey] AS a FROM orders ORDER BY orderkey) t", "SELECT orderkey FROM orders");
+        assertQuery("SELECT a[1] + 1 FROM (SELECT ARRAY[orderkey] AS a FROM orders ORDER BY orderkey) t", "SELECT orderkey + 1 FROM orders");
+        assertQuery("SELECT a[1] FROM (SELECT ARRAY[orderkey + 1] AS a FROM orders ORDER BY orderkey) t", "SELECT orderkey + 1 FROM orders");
+        assertQuery("SELECT a[1][1] FROM (SELECT ARRAY[ARRAY[orderkey + 1]] AS a FROM orders ORDER BY orderkey) t", "SELECT orderkey + 1 FROM orders");
+        assertQuery("SELECT CARDINALITY(a) FROM (SELECT ARRAY[orderkey, orderkey + 1] AS a FROM orders ORDER BY orderkey) t", "SELECT 2 FROM orders");
     }
 
     @Test
@@ -515,6 +525,9 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("SELECT COUNT(*) FROM ORDERS");
+        assertQuery("SELECT COUNT(42) FROM ORDERS", "SELECT COUNT(*) FROM ORDERS");
+        assertQuery("SELECT COUNT(42 + 42) FROM ORDERS", "SELECT COUNT(*) FROM ORDERS");
+        assertQuery("SELECT COUNT(null) FROM ORDERS", "SELECT 0");
     }
 
     @Test
@@ -835,6 +848,20 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("SELECT orderstatus FROM orders GROUP BY orderstatus");
+    }
+
+    @Test
+    public void testGroupByWithNulls()
+            throws Exception
+    {
+        assertQuery("SELECT key, COUNT(*) FROM (" +
+                "SELECT CASE " +
+                "  WHEN orderkey % 3 = 0 THEN NULL " +
+                "  WHEN orderkey % 5 = 0 THEN 0 " +
+                "  ELSE orderkey " +
+                "  END as key " +
+                "FROM lineitem) " +
+                "GROUP BY key");
     }
 
     @Test
@@ -1570,6 +1597,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testMaxBy()
+            throws Exception
+    {
+        assertQuery("SELECT MAX_BY(orderkey, totalprice) FROM orders", "SELECT orderkey FROM orders ORDER BY totalprice DESC LIMIT 1");
+    }
+
+    @Test
     public void testGroupByBetween()
             throws Exception
     {
@@ -1747,6 +1781,71 @@ public abstract class AbstractTestQueries
                 .build();
 
         assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testRowNumberLimit()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderkey, orderstatus FROM (\n" +
+                "   SELECT row_number() OVER () rn, orderkey, orderstatus\n" +
+                "   FROM orders\n" +
+                ") WHERE rn <= 5\n");
+        MaterializedResult all = computeExpected("SELECT orderkey, orderstatus FROM ORDERS", actual.getTypes());
+
+        assertEquals(actual.getMaterializedRows().size(), 5);
+        assertTrue(all.getMaterializedRows().containsAll(actual.getMaterializedRows()));
+    }
+
+    @Test
+    public void testPartitionedRowNumberLimit()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderkey, orderstatus FROM (\n" +
+                "   SELECT row_number() OVER (PARTITION BY orderstatus) rn, orderkey, orderstatus\n" +
+                "   FROM orders\n" +
+                ") WHERE rn <= 5\n");
+        MaterializedResult all = computeExpected("SELECT orderkey, orderstatus FROM ORDERS", actual.getTypes());
+
+        // there are 3 distinct orderstatus, so expect 15 rows.
+        assertEquals(actual.getMaterializedRows().size(), 15);
+        assertTrue(all.getMaterializedRows().containsAll(actual.getMaterializedRows()));
+    }
+
+    @Test
+    public void testTopNUnpartitionedWindow()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT * FROM (\n" +
+                "   SELECT row_number() OVER (ORDER BY orderkey) rn, orderkey, orderstatus\n" +
+                "   FROM orders\n" +
+                ") WHERE rn <= 5\n");
+        String sql = "SELECT row_number() OVER (), orderkey, orderstatus FROM orders ORDER BY orderkey LIMIT 5";
+        MaterializedResult expected = computeExpected(sql, actual.getTypes());
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testTopNPartitionedWindow()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT * FROM (\n" +
+                "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey, orderstatus\n" +
+                "   FROM orders\n" +
+                ") WHERE rn <= 2\n");
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR)
+                .row(1, 1, "O")
+                .row(2, 2, "O")
+                .row(1, 3, "F")
+                .row(2, 5, "F")
+                .row(1, 65, "P")
+                .row(2, 197, "P")
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 
     @Test
@@ -1943,6 +2042,18 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT CAST(orderkey AS DOUBLE) FROM orders");
         assertQuery("SELECT CAST(orderkey AS VARCHAR) FROM orders");
         assertQuery("SELECT CAST(orderkey AS BOOLEAN) FROM orders");
+
+        assertQuery("SELECT try_cast('1' AS BIGINT) FROM orders", "SELECT CAST('1' AS BIGINT) FROM orders");
+        assertQuery("SELECT try_cast(totalprice AS BIGINT) FROM orders", "SELECT CAST(totalprice AS BIGINT) FROM orders");
+        assertQuery("SELECT try_cast(orderkey AS DOUBLE) FROM orders", "SELECT CAST(orderkey AS DOUBLE) FROM orders");
+        assertQuery("SELECT try_cast(orderkey AS VARCHAR) FROM orders", "SELECT CAST(orderkey AS VARCHAR) FROM orders");
+        assertQuery("SELECT try_cast(orderkey AS BOOLEAN) FROM orders", "SELECT CAST(orderkey AS BOOLEAN) FROM orders");
+
+        assertQuery("SELECT try_cast('foo' AS BIGINT) FROM orders", "SELECT CAST(null AS BIGINT) FROM orders");
+        assertQuery("SELECT try_cast(orderdate AS BIGINT) FROM orders", "SELECT CAST(null AS BIGINT) FROM orders");
+
+        assertQuery("SELECT coalesce(try_cast('foo' AS BIGINT), 456) FROM orders", "SELECT 456 FROM orders");
+        assertQuery("SELECT coalesce(try_cast(orderdate AS BIGINT), 456) FROM orders", "SELECT 456 FROM orders");
     }
 
     @Test
@@ -2386,16 +2497,16 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 
-        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, BOOLEAN, BOOLEAN)
-                .row("orderkey", "bigint", true, false)
-                .row("custkey", "bigint", true, false)
-                .row("orderstatus", "varchar", true, false)
-                .row("totalprice", "double", true, false)
-                .row("orderdate", "varchar", true, false)
-                .row("orderpriority", "varchar", true, false)
-                .row("clerk", "varchar", true, false)
-                .row("shippriority", "bigint", true, false)
-                .row("comment", "varchar", true, false)
+        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, BOOLEAN, BOOLEAN, VARCHAR)
+                .row("orderkey", "bigint", true, false, "")
+                .row("custkey", "bigint", true, false, "")
+                .row("orderstatus", "varchar", true, false, "")
+                .row("totalprice", "double", true, false, "")
+                .row("orderdate", "varchar", true, false, "")
+                .row("orderpriority", "varchar", true, false, "")
+                .row("clerk", "varchar", true, false, "")
+                .row("shippriority", "bigint", true, false, "")
+                .row("comment", "varchar", true, false, "")
                 .build();
 
         assertEquals(actual, expected);
@@ -2514,6 +2625,7 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("SELECT orderkey FROM orders UNION SELECT custkey FROM orders");
+        assertQuery("SELECT 123 UNION DISTINCT SELECT 123 UNION ALL SELECT 123");
     }
 
     @Test
@@ -2635,6 +2747,13 @@ public abstract class AbstractTestQueries
                 "SELECT a.custkey, b.orderkey " +
                 "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 5) a " +
                 "CROSS JOIN (SELECT * FROM lineitem ORDER BY orderkey LIMIT 5) b");
+    }
+
+    @Test
+    public void testSimpleCrossJoins()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM (SELECT 1 a) x CROSS JOIN (SELECT 2 b) y");
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Implicit cross joins are not yet supported; use CROSS JOIN")
@@ -3067,11 +3186,11 @@ public abstract class AbstractTestQueries
     {
         DescriptiveStatistics stats = new DescriptiveStatistics();
 
-        int total = computeExpected("SELECT orderkey FROM orders", ImmutableList.of(BIGINT)).getMaterializedRows().size();
+        long total = (long) computeExpected("SELECT COUNT(*) FROM orders", ImmutableList.of(BIGINT)).getMaterializedRows().get(0).getField(0);
 
         for (int i = 0; i < 100; i++) {
-            List<MaterializedRow> values = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE POISSONIZED (50)").getMaterializedRows();
-            stats.addValue(values.size() * 1.0 / total);
+            String value = (String) computeActual("SELECT COUNT(*) FROM orders TABLESAMPLE POISSONIZED (50) APPROXIMATE AT 95 CONFIDENCE").getMaterializedRows().get(0).getField(0);
+            stats.addValue(Long.parseLong(value.split(" ")[0]) * 1.0 / total);
         }
 
         double mean = stats.getGeometricMean();
@@ -3087,8 +3206,8 @@ public abstract class AbstractTestQueries
         long total = (long) computeExpected("SELECT COUNT(*) FROM orders", ImmutableList.of(BIGINT)).getMaterializedRows().get(0).getField(0);
 
         for (int i = 0; i < 100; i++) {
-            long value = (long) computeActual("SELECT COUNT(*) FROM orders TABLESAMPLE POISSONIZED (50) RESCALED").getMaterializedRows().get(0).getField(0);
-            stats.addValue(value * 1.0 / total);
+            String value = (String) computeActual("SELECT COUNT(*) FROM orders TABLESAMPLE POISSONIZED (50) RESCALED APPROXIMATE AT 95 CONFIDENCE").getMaterializedRows().get(0).getField(0);
+            stats.addValue(Long.parseLong(value.split(" ")[0]) * 1.0 / total);
         }
 
         double mean = stats.getGeometricMean();

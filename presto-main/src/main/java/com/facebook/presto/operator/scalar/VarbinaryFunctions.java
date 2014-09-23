@@ -14,10 +14,11 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.Description;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.VarbinaryType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
+import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 public final class VarbinaryFunctions
 {
@@ -25,9 +26,81 @@ public final class VarbinaryFunctions
 
     @Description("length of the given binary")
     @ScalarFunction
-    @SqlType(BigintType.class)
-    public static long length(@SqlType(VarbinaryType.class) Slice slice)
+    @SqlType(StandardTypes.BIGINT)
+    public static long length(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return slice.length();
+    }
+
+    @Description("encode binary data as base64")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice toBase64(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return Slices.utf8Slice(BaseEncoding.base64().encode(slice.getBytes()));
+    }
+
+    @Description("decode base64 encoded binary data")
+    @ScalarFunction("from_base64")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice fromBase64Varchar(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    {
+        return Slices.wrappedBuffer(BaseEncoding.base64().decode(slice.toStringUtf8()));
+    }
+
+    @Description("decode base64 encoded binary data")
+    @ScalarFunction("from_base64")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice fromBase64Varbinary(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return Slices.wrappedBuffer(BaseEncoding.base64().decode(slice.toStringUtf8()));
+    }
+
+    @Description("encode binary data as base64 using the URL safe alphabet")
+    @ScalarFunction("to_base64url")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice toBase64Url(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return Slices.utf8Slice(BaseEncoding.base64Url().encode(slice.getBytes()));
+    }
+
+    @Description("decode URL safe base64 encoded binary data")
+    @ScalarFunction("from_base64url")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice fromBase64UrlVarchar(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    {
+        return Slices.wrappedBuffer(BaseEncoding.base64Url().decode(slice.toStringUtf8()));
+    }
+
+    @Description("decode URL safe base64 encoded binary data")
+    @ScalarFunction("from_base64url")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice fromBase64UrlVarbinary(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return Slices.wrappedBuffer(BaseEncoding.base64Url().decode(slice.toStringUtf8()));
+    }
+
+    @Description("encode binary data as hex")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice toHex(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return Slices.utf8Slice(BaseEncoding.base16().encode(slice.getBytes()));
+    }
+
+    @Description("decode hex encoded binary data")
+    @ScalarFunction("from_hex")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice fromHexVarchar(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    {
+        return Slices.wrappedBuffer(BaseEncoding.base16().decode(slice.toStringUtf8()));
+    }
+
+    @Description("decode hex encoded binary data")
+    @ScalarFunction("from_hex")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice fromHexVarbinary(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return Slices.wrappedBuffer(BaseEncoding.base16().decode(slice.toStringUtf8()));
     }
 }

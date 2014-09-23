@@ -16,6 +16,7 @@ package com.facebook.presto.cassandra;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -42,7 +43,7 @@ import static com.facebook.presto.cassandra.CassandraColumnHandle.columnMetadata
 import static com.facebook.presto.cassandra.CassandraType.BIGINT;
 import static com.facebook.presto.cassandra.CassandraType.toCassandraType;
 import static com.facebook.presto.cassandra.util.Types.checkType;
-import static com.facebook.presto.spi.StandardErrorCode.CANNOT_DROP_TABLE;
+import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -141,14 +142,6 @@ public class CassandraMetadata
     }
 
     @Override
-    public ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName)
-    {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkNotNull(columnName, "columnName is null");
-        return getColumnHandles(tableHandle, false).get(columnName);
-    }
-
-    @Override
     public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return getColumnHandles(tableHandle, true).get(SAMPLE_WEIGHT_COLUMN_NAME);
@@ -229,7 +222,7 @@ public class CassandraMetadata
         checkArgument(tableHandle instanceof CassandraTableHandle, "tableHandle is not an instance of CassandraTableHandle");
 
         if (!allowDropTable) {
-            throw new PrestoException(CANNOT_DROP_TABLE.toErrorCode(), "DROP TABLE is disabled in this Hive catalog");
+            throw new PrestoException(PERMISSION_DENIED.toErrorCode(), "DROP TABLE is disabled in this Hive catalog");
         }
 
         CassandraTableHandle cassandraTableHandle = (CassandraTableHandle) tableHandle;
@@ -239,6 +232,12 @@ public class CassandraMetadata
         StringBuilder queryBuilder = new StringBuilder(String.format("DROP TABLE \"%s\".\"%s\"", schemaName, tableName));
         cassandraSession.executeQuery(schemaName, queryBuilder.toString());
         schemaProvider.flushTable(cassandraTableHandle.getSchemaTableName());
+    }
+
+    @Override
+    public void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -298,6 +297,18 @@ public class CassandraMetadata
     {
         CassandraOutputTableHandle outputTableHandle = checkType(tableHandle, CassandraOutputTableHandle.class, "tableHandle");
         schemaProvider.flushTable(new SchemaTableName(outputTableHandle.getSchemaName(), outputTableHandle.getTableName()));
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

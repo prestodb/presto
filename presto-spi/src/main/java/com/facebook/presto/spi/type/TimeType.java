@@ -14,15 +14,9 @@
 package com.facebook.presto.spi.type;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.BlockEncodingFactory;
-import com.facebook.presto.spi.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 
-import static com.facebook.presto.spi.block.FixedWidthBlockUtil.createIsolatedFixedWidthBlockBuilderFactory;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
 //
@@ -30,148 +24,80 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 // When performing calculations on a time the client's time zone must be taken into account.
 //
 public final class TimeType
-        implements FixedWidthType
+        extends AbstractFixedWidthType
 {
     public static final TimeType TIME = new TimeType();
 
-    public static TimeType getInstance()
-    {
-        return TIME;
-    }
-
-    private static final FixedWidthBlockBuilderFactory BLOCK_BUILDER_FACTORY = createIsolatedFixedWidthBlockBuilderFactory(TIME);
-    public static final BlockEncodingFactory<?> BLOCK_ENCODING_FACTORY = BLOCK_BUILDER_FACTORY.getBlockEncodingFactory();
-
     private TimeType()
     {
+        super(StandardTypes.TIME, long.class, SIZE_OF_LONG);
     }
 
     @Override
-    public String getName()
+    public boolean isComparable()
     {
-        return "time";
+        return true;
     }
 
     @Override
-    public Class<?> getJavaType()
+    public boolean isOrderable()
     {
-        return long.class;
+        return true;
     }
 
     @Override
-    public int getFixedSize()
+    public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
-        return (int) SIZE_OF_LONG;
+        if (block.isNull(position)) {
+            return null;
+        }
+
+        return new SqlTime(block.getLong(position, 0), session.getTimeZoneKey());
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Slice slice, int offset)
+    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        return new SqlTime(slice.getLong(offset), session.getTimeZoneKey());
-    }
-
-    @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
-    {
-        return BLOCK_BUILDER_FACTORY.createFixedWidthBlockBuilder(blockBuilderStatus);
-    }
-
-    @Override
-    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
-    {
-        return BLOCK_BUILDER_FACTORY.createFixedWidthBlockBuilder(positionCount);
-    }
-
-    @Override
-    public boolean getBoolean(Slice slice, int offset)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeBoolean(SliceOutput sliceOutput, boolean value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public long getLong(Slice slice, int offset)
-    {
-        return slice.getLong(offset);
-    }
-
-    @Override
-    public void writeLong(SliceOutput sliceOutput, long value)
-    {
-        sliceOutput.writeLong(value);
-    }
-
-    @Override
-    public double getDouble(Slice slice, int offset)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeDouble(SliceOutput sliceOutput, double value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Slice getSlice(Slice slice, int offset)
-    {
-        return slice.slice(offset, getFixedSize());
-    }
-
-    @Override
-    public void writeSlice(SliceOutput sliceOutput, Slice value, int offset)
-    {
-        sliceOutput.writeBytes(value, offset, SIZE_OF_LONG);
-    }
-
-    public boolean equalTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
-    {
-        long leftValue = leftSlice.getLong(leftOffset);
-        long rightValue = rightSlice.getLong(rightOffset);
+        long leftValue = leftBlock.getLong(leftPosition, 0);
+        long rightValue = rightBlock.getLong(rightPosition, 0);
         return leftValue == rightValue;
     }
 
-    public boolean equalTo(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
+    @Override
+    public int hash(Block block, int position)
     {
-        long leftValue = leftSlice.getLong(leftOffset);
-        long rightValue = rightCursor.getLong();
-        return leftValue == rightValue;
-    }
-
-    public int hash(Slice slice, int offset)
-    {
-        long value = slice.getLong(offset);
+        long value = block.getLong(position, 0);
         return (int) (value ^ (value >>> 32));
     }
 
-    public int compareTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
+    @Override
+    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        long leftValue = leftSlice.getLong(leftOffset);
-        long rightValue = rightSlice.getLong(rightOffset);
+        long leftValue = leftBlock.getLong(leftPosition, 0);
+        long rightValue = rightBlock.getLong(rightPosition, 0);
         return Long.compare(leftValue, rightValue);
     }
 
-    public void appendTo(Slice slice, int offset, BlockBuilder blockBuilder)
+    @Override
+    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
-        long value = slice.getLong(offset);
-        blockBuilder.appendLong(value);
+        if (block.isNull(position)) {
+            blockBuilder.appendNull();
+        }
+        else {
+            blockBuilder.writeLong(block.getLong(position, 0)).closeEntry();
+        }
     }
 
     @Override
-    public void appendTo(Slice slice, int offset, SliceOutput sliceOutput)
+    public long getLong(Block block, int position)
     {
-        sliceOutput.writeBytes(slice, offset, (int) SIZE_OF_LONG);
+        return block.getLong(position, 0);
     }
 
     @Override
-    public String toString()
+    public void writeLong(BlockBuilder blockBuilder, long value)
     {
-        return getName();
+        blockBuilder.writeLong(value).closeEntry();
     }
 }

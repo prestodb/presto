@@ -16,7 +16,6 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
 import com.facebook.presto.testing.LocalQueryRunner;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -42,7 +41,6 @@ public class Top100Benchmark
                 100,
                 ImmutableList.of(0),
                 ImmutableList.of(ASC_NULLS_LAST),
-                Optional.<Integer>absent(),
                 false);
         return ImmutableList.of(tableScanOperator, topNOperator);
     }

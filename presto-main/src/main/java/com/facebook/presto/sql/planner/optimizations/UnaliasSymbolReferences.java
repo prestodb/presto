@@ -29,7 +29,6 @@ import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
-import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
@@ -109,7 +108,7 @@ public class UnaliasSymbolReferences
         public PlanNode rewriteLimit(LimitNode node, Void context, PlanRewriter<Void> planRewriter)
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
-            return new LimitNode(node.getId(), source, node.getCount(), canonicalize(node.getSampleWeight()));
+            return new LimitNode(node.getId(), source, node.getCount());
         }
 
         @Override
@@ -140,14 +139,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
             List<Symbol> symbols = ImmutableList.copyOf(ImmutableSet.copyOf(canonicalize(node.getDistinctSymbols())));
-            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerSymbol()), symbols, canonicalize(node.getSampleWeightSymbol()));
-        }
-
-        @Override
-        public PlanNode rewriteMaterializeSample(MaterializeSampleNode node, Void context, PlanRewriter<Void> planRewriter)
-        {
-            PlanNode source = planRewriter.rewrite(node.getSource(), context);
-            return new MaterializeSampleNode(node.getId(), source, canonicalize(node.getSampleWeightSymbol()));
+            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerSymbol()), symbols);
         }
 
         @Override
@@ -260,7 +252,7 @@ public class UnaliasSymbolReferences
                 orderings.put(canonical, node.getOrderings().get(symbol));
             }
 
-            return new TopNNode(node.getId(), source, node.getCount(), symbols.build(), orderings.build(), node.isPartial(), canonicalize(node.getSampleWeight()));
+            return new TopNNode(node.getId(), source, node.getCount(), symbols.build(), orderings.build(), node.isPartial());
         }
 
         @Override
@@ -332,7 +324,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
-            return new TableWriterNode(node.getId(), source, node.getTarget(), canonicalize(node.getColumns()), node.getColumnNames(), canonicalize(node.getOutputSymbols()), canonicalize(node.getSampleWeightSymbol()), node.getCatalog(), node.getTableMetadata(), node.isSampleWeightSupported());
+            return new TableWriterNode(node.getId(), source, node.getTarget(), canonicalize(node.getColumns()), node.getColumnNames(), canonicalize(node.getOutputSymbols()), canonicalize(node.getSampleWeightSymbol()));
         }
 
         private void map(Symbol symbol, Symbol canonical)

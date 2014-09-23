@@ -56,6 +56,10 @@ public class TestStatementBuilder
 
         printStatement("select x is distinct from y from foo where a is not distinct from b");
 
+        printStatement("select x[1] from my_table");
+        printStatement("select x[1][2] from my_table");
+        printStatement("select x[cast(10 * sin(x) as bigint)] from my_table");
+
         printStatement("" +
                 "select depname, empno, salary\n" +
                 ", count(*) over ()\n" +
@@ -94,6 +98,8 @@ public class TestStatementBuilder
 
         printStatement("show functions");
 
+        printStatement("select cast('123' as bigint), try_cast('foo' as bigint)");
+
         printStatement("select * from a.b.c");
         printStatement("select * from a.b.c.e.f.g");
 
@@ -111,6 +117,8 @@ public class TestStatementBuilder
 
         printStatement("create table foo as select * from abc");
         printStatement("drop table foo");
+
+        printStatement("insert into foo select * from abc");
 
         printStatement("values ('a', 1, 2.2), ('b', 2, 3.3)");
 
@@ -132,6 +140,9 @@ public class TestStatementBuilder
         printStatement("(table a union (table b except table c)) intersect table d");
         printStatement("table a intersect table b union table c");
         printStatement("table a intersect (table b union table c)");
+
+        printStatement("alter table foo rename to bar");
+        printStatement("alter table a.b.c rename to d.e.f");
 
         printStatement("create view foo as with a as (select 123) select * from a");
         printStatement("create or replace view foo as select 123 from t");

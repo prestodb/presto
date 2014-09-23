@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -90,17 +91,6 @@ public class TestingMetadata
     }
 
     @Override
-    public ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName)
-    {
-        for (ColumnMetadata columnMetadata : getTableMetadata(tableHandle).getColumns()) {
-            if (columnMetadata.getName().equals(columnName)) {
-                return new InMemoryColumnHandle(columnMetadata.getName(), columnMetadata.getOrdinalPosition(), columnMetadata.getType());
-            }
-        }
-        return null;
-    }
-
-    @Override
     public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return null;
@@ -151,6 +141,17 @@ public class TestingMetadata
     }
 
     @Override
+    public void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName)
+    {
+        // TODO: use locking to do this properly
+        ConnectorTableMetadata table = getTableMetadata(tableHandle);
+        if (tables.putIfAbsent(newTableName, table) != null) {
+            throw new IllegalArgumentException("Target table already exists: " + newTableName);
+        }
+        tables.remove(table.getTable(), table);
+    }
+
+    @Override
     public ConnectorTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         ConnectorTableMetadata existingTable = tables.putIfAbsent(tableMetadata.getTable(), tableMetadata);
@@ -172,6 +173,18 @@ public class TestingMetadata
 
     @Override
     public void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<String> fragments)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
     {
         throw new UnsupportedOperationException();
     }

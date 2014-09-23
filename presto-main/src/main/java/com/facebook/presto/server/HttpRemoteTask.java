@@ -20,7 +20,7 @@ import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.execution.BufferInfo;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.RemoteTask;
-import com.facebook.presto.execution.SharedBuffer.QueueState;
+import com.facebook.presto.execution.SharedBuffer.BufferState;
 import com.facebook.presto.execution.SharedBufferInfo;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -200,7 +200,7 @@ public class HttpRemoteTask
                     TaskState.PLANNED,
                     location,
                     DateTime.now(),
-                    new SharedBufferInfo(QueueState.OPEN, 0, 0, bufferStates),
+                    new SharedBufferInfo(BufferState.OPEN, 0, 0, bufferStates),
                     ImmutableSet.<PlanNodeId>of(),
                     taskStats,
                     ImmutableList.<ExecutionFailureInfo>of()));
@@ -276,12 +276,17 @@ public class HttpRemoteTask
     }
 
     @Override
-    public synchronized int getQueuedSplits()
+    public synchronized int getPartitionedSplitCount()
     {
-        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            int pendingSplitCount = pendingSplits.get(planFragment.getPartitionedSource()).size();
-            return pendingSplitCount + taskInfo.get().getStats().getQueuedDrivers();
-        }
+        int splitCount = pendingSplits.get(planFragment.getPartitionedSource()).size();
+        return splitCount + taskInfo.get().getStats().getQueuedPartitionedDrivers() + taskInfo.get().getStats().getRunningPartitionedDrivers();
+    }
+
+    @Override
+    public synchronized int getQueuedPartitionedSplitCount()
+    {
+        int splitCount = pendingSplits.get(planFragment.getPartitionedSource()).size();
+        return splitCount + taskInfo.get().getStats().getQueuedPartitionedDrivers();
     }
 
     @Override
@@ -374,9 +379,11 @@ public class HttpRemoteTask
         currentRequest = future;
         currentRequestStartNanos = System.nanoTime();
 
-        Futures.addCallback(future, new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri()), executor);
-
+        // The needsUpdate flag needs to be set to false BEFORE adding the Future callback since callback might change the flag value
+        // and does so without grabbing the instance lock.
         needsUpdate.set(false);
+
+        Futures.addCallback(future, new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri()), executor);
     }
 
     private synchronized List<TaskSource> getSources()
@@ -508,10 +515,11 @@ public class HttpRemoteTask
         Duration timeSinceLastSuccess = Duration.nanosSince(lastSuccessfulRequest.get());
         if (errorCount > maxConsecutiveErrorCount && timeSinceLastSuccess.compareTo(minErrorDuration) > 0) {
             // it is weird to mark the task failed locally and then cancel the remote task, but there is no way to tell a remote task that it is failed
-            PrestoException exception = new PrestoException(TOO_MANY_REQUESTS_FAILED.toErrorCode(), format("Too many requests to %s failed: %s failures: Time since last success %s",
+            PrestoException exception = new PrestoException(TOO_MANY_REQUESTS_FAILED.toErrorCode(),
+                    format("Encountered too many errors talking to a worker node. The node may have crashed or be under too much load. This is probably a transient issue, so please retry your query in a few minutes (%s - %s failures, time since last success %s)",
                     taskInfo.getSelf(),
                     errorCount,
-                    timeSinceLastSuccess));
+                    timeSinceLastSuccess.convertToMostSuccinctTimeUnit()));
             for (Throwable error : errorsSinceLastSuccess) {
                 exception.addSuppressed(error);
             }
@@ -598,8 +606,8 @@ public class HttpRemoteTask
 
     /**
      * Continuous update loop for task info.  Wait for a short period for task state to change, and
-     * if it does not, return the current state of the task.  This will cause stats to be updated at
-     * a regular interval, and state changes will be immediately recorded.
+     * if it does not, return the current state of the task.  This will cause stats to be updated at a
+     * regular interval, and state changes will be immediately recorded.
      */
     private class ContinuousTaskInfoFetcher
             implements SimpleHttpResponseCallback<TaskInfo>
@@ -727,7 +735,7 @@ public class HttpRemoteTask
                     callback.success(response.getValue());
                 }
                 else if (response.getStatusCode() == HttpStatus.SERVICE_UNAVAILABLE.code()) {
-                    callback.failed(new RuntimeException("Server at %s returned SERVICE_UNAVAILABLE"));
+                    callback.failed(new RuntimeException(format("Server at %s returned SERVICE_UNAVAILABLE", uri)));
                 }
                 else {
                     // Something is broken in the server or the client, so fail the task immediately (includes 500 errors)

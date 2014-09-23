@@ -27,6 +27,8 @@ public interface HiveMetastore
 
     void dropTable(String databaseName, String tableName);
 
+    void renameTable(String databaseName, String tableName, String newDatabaseName, String newTableName);
+
     @Managed
     void flushCache();
 

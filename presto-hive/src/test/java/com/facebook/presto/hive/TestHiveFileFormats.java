@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.type.TypeRegistry;
 import org.apache.hadoop.hive.ql.io.RCFileInputFormat;
 import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
 import org.apache.hadoop.hive.serde2.SerDe;
@@ -73,7 +74,8 @@ public class TestHiveFileFormats
                     new ArrayList<HivePartitionKey>(),
                     getColumns(),
                     DateTimeZone.getDefault(),
-                    DateTimeZone.getDefault());
+                    DateTimeZone.getDefault(),
+                    new TypeRegistry());
 
             checkCursor(cursor);
         }
@@ -107,7 +109,8 @@ public class TestHiveFileFormats
                     splitProperties,
                     new ArrayList<HivePartitionKey>(),
                     getColumns(),
-                    DateTimeZone.getDefault());
+                    DateTimeZone.getDefault(),
+                    new TypeRegistry());
 
             checkCursor(cursor);
         }

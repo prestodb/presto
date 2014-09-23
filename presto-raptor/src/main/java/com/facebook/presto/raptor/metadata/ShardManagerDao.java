@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import com.facebook.presto.raptor.RaptorPartitionKey;
 import org.skife.jdbi.v2.sqlobject.Bind;
 import org.skife.jdbi.v2.sqlobject.GetGeneratedKeys;
 import org.skife.jdbi.v2.sqlobject.SqlQuery;
@@ -123,10 +122,16 @@ public interface ShardManagerDao
     @SqlQuery("SELECT node_id FROM nodes WHERE node_identifier = :nodeIdentifier")
     Long getNodeId(@Bind("nodeIdentifier") String nodeIdentifier);
 
+    @SqlQuery("SELECT partition_id\n" +
+            "FROM table_partitions\n" +
+            "WHERE table_id = :tableId\n" +
+            "  AND partition_name = :partitionName")
+    Long getPartitionId(@Bind("tableId") long tableId, @Bind("partitionName") String partitionName);
+
     @SqlQuery("SELECT partition_name, key_name, key_type, key_value\n" +
             " FROM partition_keys\n" +
             " WHERE table_id = :tableId")
-    Set<RaptorPartitionKey> getPartitionKeys(@Bind("tableId") long tableId);
+    Set<PartitionKey> getPartitionKeys(@Bind("tableId") long tableId);
 
     @SqlQuery("SELECT partition_id, partition_name, table_id\n" +
             " FROM table_partitions\n" +

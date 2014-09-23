@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -48,11 +49,11 @@ public class MarkDistinctHash
         GroupByIdBlock ids = groupByHash.getGroupIds(page);
         for (int i = 0; i < ids.getPositionCount(); i++) {
             if (ids.getGroupId(i) == nextDistinctId) {
-                blockBuilder.appendBoolean(true);
+                BOOLEAN.writeBoolean(blockBuilder, true);
                 nextDistinctId++;
             }
             else {
-                blockBuilder.appendBoolean(false);
+                BOOLEAN.writeBoolean(blockBuilder, false);
             }
         }
 

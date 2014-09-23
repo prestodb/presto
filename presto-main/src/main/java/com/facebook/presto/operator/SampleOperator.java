@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -74,13 +75,14 @@ public class SampleOperator
     private final OperatorContext operatorContext;
     private final List<Type> types;
     private final PageBuilder pageBuilder;
-    private final BlockCursor[] cursors;
     private final RandomDataGenerator rand = new RandomDataGenerator();
     private final double sampleRatio;
     private final boolean rescaled;
     private final int sampleWeightChannel;
     private boolean finishing;
-    private int remainingPositions;
+
+    private int position = -1;
+    private Page page;
 
     public SampleOperator(OperatorContext operatorContext, double sampleRatio, boolean rescaled, List<Type> types)
     {
@@ -90,7 +92,6 @@ public class SampleOperator
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.types = ImmutableList.copyOf(types);
         this.pageBuilder = new PageBuilder(types);
-        this.cursors = new BlockCursor[types.size() - 1];
         this.sampleWeightChannel = types.size() - 1;
         this.sampleRatio = sampleRatio;
         this.rescaled = rescaled;
@@ -117,7 +118,7 @@ public class SampleOperator
     @Override
     public final boolean isFinished()
     {
-        return finishing && pageBuilder.isEmpty() && remainingPositions == 0;
+        return finishing && pageBuilder.isEmpty() && page == null;
     }
 
     @Override
@@ -129,7 +130,7 @@ public class SampleOperator
     @Override
     public final boolean needsInput()
     {
-        return !finishing && !pageBuilder.isFull() && remainingPositions == 0;
+        return !finishing && !pageBuilder.isFull() && page == null;
     }
 
     @Override
@@ -138,32 +139,37 @@ public class SampleOperator
         checkState(!finishing, "Operator is already finishing");
         checkNotNull(page, "page is null");
         checkState(!pageBuilder.isFull(), "Page buffer is full");
-        checkState(remainingPositions == 0, "previous page has not been completely processed");
+        checkState(this.page == null, "previous page has not been completely processed");
 
-        for (int i = 0; i < page.getChannelCount(); i++) {
-            cursors[i] = page.getBlock(i).cursor();
-        }
-        remainingPositions = page.getPositionCount();
+        this.page = page;
+        this.position = 0;
     }
 
     @Override
     public Page getOutput()
     {
-        for (; remainingPositions > 0 && !pageBuilder.isFull(); remainingPositions--) {
-            for (BlockCursor cursor : cursors) {
-                checkState(cursor.advanceNextPosition());
-            }
-
-            long repeats = rand.nextPoisson(sampleRatio);
-            if (rescaled && repeats > 0) {
-                repeats *= rand.nextPoisson(1.0 / sampleRatio);
-            }
-
-            if (repeats > 0) {
-                for (int i = 0; i < cursors.length; i++) {
-                    cursors[i].appendTo(pageBuilder.getBlockBuilder(i));
+        if (page != null) {
+            while (position < page.getPositionCount() && !pageBuilder.isFull()) {
+                long repeats = rand.nextPoisson(sampleRatio);
+                if (rescaled && repeats > 0) {
+                    repeats *= rand.nextPoisson(1.0 / sampleRatio);
                 }
-                pageBuilder.getBlockBuilder(sampleWeightChannel).appendLong(repeats);
+
+                if (repeats > 0) {
+                    // copy input values to output page
+                    // NOTE: last output type is sample weight so we skip it
+                    for (int channel = 0; channel < types.size() - 1; channel++) {
+                        Type type = types.get(channel);
+                        type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
+                    }
+                    BIGINT.writeLong(pageBuilder.getBlockBuilder(sampleWeightChannel), repeats);
+                }
+
+                position++;
+            }
+
+            if (position >= page.getPositionCount()) {
+                page = null;
             }
         }
 

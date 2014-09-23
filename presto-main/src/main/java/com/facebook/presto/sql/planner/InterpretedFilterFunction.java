@@ -13,16 +13,15 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.FilterFunction;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.IdentityHashMap;
@@ -39,7 +38,7 @@ public class InterpretedFilterFunction
     public InterpretedFilterFunction(
             Expression predicate,
             Map<Symbol, Type> symbolTypes,
-            Map<Symbol, Input> symbolToInputMappings,
+            Map<Symbol, Integer> symbolToInputMappings,
             Metadata metadata,
             SqlParser sqlParser,
             ConnectorSession session)
@@ -48,8 +47,8 @@ public class InterpretedFilterFunction
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToInputMappings), predicate);
 
         // analyze expression so we can know the type of every expression in the tree
-        ImmutableMap.Builder<Input, Type> inputTypes = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Input> entry : symbolToInputMappings.entrySet()) {
+        ImmutableMap.Builder<Integer, Type> inputTypes = ImmutableMap.builder();
+        for (Map.Entry<Symbol, Integer> entry : symbolToInputMappings.entrySet()) {
             inputTypes.put(entry.getValue(), symbolTypes.get(entry.getKey()));
         }
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, sqlParser, inputTypes.build(), rewritten);
@@ -58,9 +57,9 @@ public class InterpretedFilterFunction
     }
 
     @Override
-    public boolean filter(BlockCursor... cursors)
+    public boolean filter(int position, Block... blocks)
     {
-        return evaluator.evaluate(cursors) == TRUE;
+        return evaluator.evaluate(position, blocks) == TRUE;
     }
 
     @Override

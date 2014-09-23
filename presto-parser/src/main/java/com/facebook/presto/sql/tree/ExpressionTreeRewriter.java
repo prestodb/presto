@@ -120,6 +120,48 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitArrayConstructor(ArrayConstructor node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteArrayConstructor(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            ImmutableList.Builder<Expression> builder = ImmutableList.builder();
+            for (Expression expression : node.getValues()) {
+                builder.add(rewrite(expression, context.get()));
+            }
+
+            if (!sameElements(node.getValues(), builder.build())) {
+                return new ArrayConstructor(builder.build());
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitSubscriptExpression(SubscriptExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteSubscriptExpression(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression base = rewrite(node.getBase(), context.get());
+            Expression index = rewrite(node.getIndex(), context.get());
+
+            if (base != node.getBase() || index != node.getIndex()) {
+                return new SubscriptExpression(base, index);
+            }
+
+            return node;
+        }
+
+        @Override
         public Expression visitComparisonExpression(ComparisonExpression node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
@@ -578,7 +620,7 @@ public final class ExpressionTreeRewriter<C>
             Expression expression = rewrite(node.getExpression(), context.get());
 
             if (node.getExpression() != expression) {
-                return new Cast(expression, node.getType());
+                return new Cast(expression, node.getType(), node.isSafe());
             }
 
             return node;

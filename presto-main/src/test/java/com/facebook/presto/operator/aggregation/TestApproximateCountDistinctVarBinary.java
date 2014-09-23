@@ -25,7 +25,7 @@ public class TestApproximateCountDistinctVarBinary
         extends AbstractTestApproximateCountDistinct
 {
     @Override
-    public AggregationFunction getAggregationFunction()
+    public InternalAggregationFunction getAggregationFunction()
     {
         return VARBINARY_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
     }

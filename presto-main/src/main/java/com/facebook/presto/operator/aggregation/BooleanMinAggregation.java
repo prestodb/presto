@@ -14,28 +14,24 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.TriStateBooleanState;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.SqlType;
 
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.FALSE_VALUE;
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.NULL_VALUE;
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.TRUE_VALUE;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
-public class BooleanMinAggregation
-        extends AbstractSimpleAggregationFunction<TriStateBooleanState>
+@AggregationFunction("min")
+public final class BooleanMinAggregation
 {
-    public static final BooleanMinAggregation BOOLEAN_MIN = new BooleanMinAggregation();
+    private BooleanMinAggregation() {}
 
-    public BooleanMinAggregation()
-    {
-        super(BOOLEAN, BOOLEAN, BOOLEAN);
-    }
-
-    @Override
-    protected void processInput(TriStateBooleanState state, Block block, int index)
+    @InputFunction
+    @IntermediateInputFunction
+    public static void min(TriStateBooleanState state, @SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         // if value is false, update the min to false
-        if (!block.getBoolean(index)) {
+        if (!value) {
             state.setByte(FALSE_VALUE);
         }
         else {

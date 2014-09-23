@@ -31,6 +31,7 @@ import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolResolver;
+import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -310,7 +311,7 @@ class TupleAnalyzer
         List<FieldOrExpression> orderByExpressions = analyzeOrderBy(node, tupleDescriptor, context, outputExpressions);
         analyzeHaving(node, tupleDescriptor, context);
 
-        analyzeAggregations(node, tupleDescriptor, groupByExpressions, outputExpressions, orderByExpressions);
+        analyzeAggregations(node, tupleDescriptor, groupByExpressions, outputExpressions, orderByExpressions, context);
         analyzeWindowFunctions(node, outputExpressions, orderByExpressions);
 
         TupleDescriptor descriptor = computeOutputDescriptor(node, tupleDescriptor);
@@ -423,7 +424,11 @@ class TupleAnalyzer
 
             Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, expression, "JOIN");
 
-            Object optimizedExpression = expressionOptimizer(expression, metadata, session, analyzer.getExpressionTypes()).optimize(NoOpSymbolResolver.INSTANCE);
+            // expressionInterpreter/optimizer only understands a subset of expression types
+            // TODO: remove this when the new expression tree is implemented
+            Expression canonicalized = CanonicalizeExpressions.canonicalizeExpression(expression);
+
+            Object optimizedExpression = expressionOptimizer(canonicalized, metadata, session, analyzer.getExpressionTypes()).optimize(NoOpSymbolResolver.INSTANCE);
 
             if (!(optimizedExpression instanceof Expression) && optimizedExpression instanceof Boolean) {
                 // If the JoinOn clause evaluates to a boolean expression, simulate a cross join by adding the relevant redundant expression
@@ -589,12 +594,12 @@ class TupleAnalyzer
                 throw new SemanticException(NOT_SUPPORTED, node, "Window frames not yet supported");
             }
 
-            List<Type> argumentTypes = Lists.transform(windowFunction.getArguments(), new Function<Expression, Type>()
+            List<String> argumentTypes = Lists.transform(windowFunction.getArguments(), new Function<Expression, String>()
             {
                 @Override
-                public Type apply(Expression input)
+                public String apply(Expression input)
                 {
-                    return analysis.getType(input);
+                    return analysis.getType(input).getName();
                 }
             });
 
@@ -879,9 +884,16 @@ class TupleAnalyzer
             TupleDescriptor tupleDescriptor,
             List<FieldOrExpression> groupByExpressions,
             List<FieldOrExpression> outputExpressions,
-            List<FieldOrExpression> orderByExpressions)
+            List<FieldOrExpression> orderByExpressions,
+            AnalysisContext context)
     {
         List<FunctionCall> aggregates = extractAggregates(node);
+
+        if (context.isApproximate()) {
+            if (Iterables.any(aggregates, FunctionCall.distinctPredicate())) {
+                throw new SemanticException(NOT_SUPPORTED, node, "DISTINCT aggregations not supported for approximate queries");
+            }
+        }
 
         // is this an aggregation query?
         if (!aggregates.isEmpty() || !groupByExpressions.isEmpty()) {

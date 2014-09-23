@@ -14,12 +14,12 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.operator.Page;
-import com.facebook.presto.operator.PageBuilder;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.operator.PagesHashStrategy;
 import com.facebook.presto.operator.SimplePagesHashStrategy;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler.PagesHashStrategyFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -33,6 +33,8 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.TypeUtils.hashPosition;
+import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -44,7 +46,7 @@ public class TestJoinCompiler
     {
         // compile a single channel hash strategy
         JoinCompiler joinCompiler = new JoinCompiler();
-        PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategy(1, Ints.asList(0));
+        PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(ImmutableList.<Type>of(VARCHAR), Ints.asList(0));
 
         // crate hash strategy with a single channel blocks -- make sure there is some overlap in values
         List<Block> channel = ImmutableList.of(
@@ -64,7 +66,7 @@ public class TestJoinCompiler
 
             for (int leftBlockPosition = 0; leftBlockPosition < leftBlock.getPositionCount(); leftBlockPosition++) {
                 // hash code of position must match block hash
-                assertEquals(hashStrategy.hashPosition(leftBlockIndex, leftBlockPosition), leftBlock.hash(leftBlockPosition));
+                assertEquals(hashStrategy.hashPosition(leftBlockIndex, leftBlockPosition), hashPosition(VARCHAR, leftBlock, leftBlockPosition));
 
                 // position must be equal to itself
                 assertTrue(hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, leftBlockIndex, leftBlockPosition));
@@ -75,18 +77,16 @@ public class TestJoinCompiler
                     for (int rightBlockPosition = 0; rightBlockPosition < rightBlock.getPositionCount(); rightBlockPosition++) {
                         assertEquals(
                                 hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition),
-                                leftBlock.equalTo(leftBlockPosition, rightBlock, rightBlockPosition));
+                                positionEqualsPosition(VARCHAR, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition));
                     }
                 }
 
                 // check equality of every position against every other position in the block cursor
                 for (Block rightBlock : channel) {
-                    BlockCursor rightCursor = rightBlock.cursor();
-                    BlockCursor[] rightCursors = new BlockCursor[]{rightCursor};
-                    while (rightCursor.advanceNextPosition()) {
+                    for (int position = 0; position < rightBlock.getPositionCount(); position++) {
                         assertEquals(
-                                hashStrategy.positionEqualsCursors(leftBlockIndex, leftBlockPosition, rightCursors),
-                                leftBlock.equalTo(leftBlockPosition, rightCursor));
+                                hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, position, rightBlock),
+                                positionEqualsPosition(VARCHAR, leftBlock, leftBlockPosition, rightBlock, position));
                     }
                 }
 
@@ -95,7 +95,7 @@ public class TestJoinCompiler
             }
 
             // verify output block matches
-            assertBlockEquals(pageBuilder.build().getBlock(0), leftBlock);
+            assertBlockEquals(VARCHAR, pageBuilder.build().getBlock(0), leftBlock);
         }
     }
 
@@ -105,7 +105,8 @@ public class TestJoinCompiler
     {
         // compile a single channel hash strategy
         JoinCompiler joinCompiler = new JoinCompiler();
-        PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategy(5, Ints.asList(1, 2, 3, 4));
+        List<Type> types = ImmutableList.<Type>of(VARCHAR, VARCHAR, BIGINT, DOUBLE, BOOLEAN);
+        PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(types, Ints.asList(1, 2, 3, 4));
 
         // crate hash strategy with a single channel blocks -- make sure there is some overlap in values
         List<Block> extraChannel = ImmutableList.of(
@@ -134,11 +135,11 @@ public class TestJoinCompiler
         // verify channel count
         assertEquals(hashStrategy.getChannelCount(), 5);
 
-        PagesHashStrategy expectedHashStrategy = new SimplePagesHashStrategy(channels, Ints.asList(1, 2, 3, 4));
+        PagesHashStrategy expectedHashStrategy = new SimplePagesHashStrategy(types, channels, Ints.asList(1, 2, 3, 4));
 
         // verify hashStrategy is consistent with equals and hash code from block
         for (int leftBlockIndex = 0; leftBlockIndex < varcharChannel.size(); leftBlockIndex++) {
-            PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(VARCHAR, VARCHAR, BIGINT, DOUBLE, BOOLEAN));
+            PageBuilder pageBuilder = new PageBuilder(types);
 
             int leftPositionCount = varcharChannel.get(leftBlockIndex).getPositionCount();
             for (int leftBlockPosition = 0; leftBlockPosition < leftPositionCount; leftBlockPosition++) {
@@ -162,21 +163,17 @@ public class TestJoinCompiler
 
                 // check equality of every position against every other position in the block cursor
                 for (int rightBlockIndex = 0; rightBlockIndex < varcharChannel.size(); rightBlockIndex++) {
-                    BlockCursor[] rightCursors = new BlockCursor[4];
-                    rightCursors[0] = varcharChannel.get(rightBlockIndex).cursor();
-                    rightCursors[1] = longChannel.get(rightBlockIndex).cursor();
-                    rightCursors[2] = doubleChannel.get(rightBlockIndex).cursor();
-                    rightCursors[3] = booleanChannel.get(rightBlockIndex).cursor();
+                    Block[] rightBlocks = new Block[4];
+                    rightBlocks[0] = varcharChannel.get(rightBlockIndex);
+                    rightBlocks[1] = longChannel.get(rightBlockIndex);
+                    rightBlocks[2] = doubleChannel.get(rightBlockIndex);
+                    rightBlocks[3] = booleanChannel.get(rightBlockIndex);
 
                     int rightPositionCount = varcharChannel.get(rightBlockIndex).getPositionCount();
                     for (int rightPosition = 0; rightPosition < rightPositionCount; rightPosition++) {
-                        for (BlockCursor rightCursor : rightCursors) {
-                            assertTrue(rightCursor.advanceNextPosition());
-                        }
-
                         assertEquals(
-                                hashStrategy.positionEqualsCursors(leftBlockIndex, leftBlockPosition, rightCursors),
-                                expectedHashStrategy.positionEqualsCursors(leftBlockIndex, leftBlockPosition, rightCursors));
+                                hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightPosition, rightBlocks),
+                                expectedHashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightPosition, rightBlocks));
                     }
                 }
 
@@ -186,7 +183,7 @@ public class TestJoinCompiler
 
             // verify output block matches
             Page page = pageBuilder.build();
-            assertPageEquals(page, new Page(
+            assertPageEquals(types, page, new Page(
                     extraChannel.get(leftBlockIndex),
                     varcharChannel.get(leftBlockIndex),
                     longChannel.get(leftBlockIndex),

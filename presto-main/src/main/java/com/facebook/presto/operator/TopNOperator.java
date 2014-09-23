@@ -13,23 +13,20 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.PriorityQueue;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -46,9 +43,9 @@ public class TopNOperator
         private final int operatorId;
         private final List<Type> sourceTypes;
         private final int n;
+        private final List<Type> sortTypes;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrders;
-        private final Optional<Integer> sampleWeight;
         private final boolean partial;
         private boolean closed;
 
@@ -58,16 +55,19 @@ public class TopNOperator
                 int n,
                 List<Integer> sortChannels,
                 List<SortOrder> sortOrders,
-                Optional<Integer> sampleWeight,
                 boolean partial)
         {
             this.operatorId = operatorId;
             this.sourceTypes = ImmutableList.copyOf(checkNotNull(types, "types is null"));
             this.n = n;
+            ImmutableList.Builder<Type> sortTypes = ImmutableList.builder();
+            for (int channel : sortChannels) {
+                sortTypes.add(types.get(channel));
+            }
+            this.sortTypes = sortTypes.build();
             this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
             this.sortOrders = ImmutableList.copyOf(checkNotNull(sortOrders, "sortOrders is null"));
             this.partial = partial;
-            this.sampleWeight = sampleWeight;
         }
 
         @Override
@@ -85,9 +85,9 @@ public class TopNOperator
                     operatorContext,
                     sourceTypes,
                     n,
+                    sortTypes,
                     sortChannels,
                     sortOrders,
-                    sampleWeight,
                     partial);
         }
 
@@ -104,11 +104,11 @@ public class TopNOperator
     private final OperatorContext operatorContext;
     private final List<Type> types;
     private final int n;
+    private final List<Type> sortTypes;
     private final List<Integer> sortChannels;
     private final List<SortOrder> sortOrders;
     private final TopNMemoryManager memoryManager;
     private final boolean partial;
-    private final Optional<Integer> sampleWeight;
 
     private final PageBuilder pageBuilder;
 
@@ -121,9 +121,9 @@ public class TopNOperator
             OperatorContext operatorContext,
             List<Type> types,
             int n,
+            List<Type> sortTypes,
             List<Integer> sortChannels,
             List<SortOrder> sortOrders,
-            Optional<Integer> sampleWeight,
             boolean partial)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
@@ -132,6 +132,7 @@ public class TopNOperator
         checkArgument(n > 0, "n must be greater than zero");
         this.n = n;
 
+        this.sortTypes = checkNotNull(sortTypes, "sortTypes is null");
         this.sortChannels = checkNotNull(sortChannels, "sortChannels is null");
         this.sortOrders = checkNotNull(sortOrders, "sortOrders is null");
 
@@ -139,9 +140,7 @@ public class TopNOperator
 
         this.memoryManager = new TopNMemoryManager(checkNotNull(operatorContext, "operatorContext is null"));
 
-        this.pageBuilder = new PageBuilder(getTypes());
-
-        this.sampleWeight = sampleWeight;
+        this.pageBuilder = new PageBuilder(types);
     }
 
     @Override
@@ -188,9 +187,9 @@ public class TopNOperator
         if (topNBuilder == null) {
             topNBuilder = new TopNBuilder(
                     n,
+                    sortTypes,
                     sortChannels,
                     sortOrders,
-                    sampleWeight,
                     memoryManager);
         }
 
@@ -223,36 +222,40 @@ public class TopNOperator
         while (!pageBuilder.isFull() && outputIterator.hasNext()) {
             Block[] next = outputIterator.next();
             for (int i = 0; i < next.length; i++) {
-                next[i].appendTo(0, pageBuilder.getBlockBuilder(i));
+                Type type = types.get(i);
+                type.appendTo(next[i], 0, pageBuilder.getBlockBuilder(i));
             }
         }
 
-        Page page = pageBuilder.build();
-        return page;
+        return pageBuilder.build();
     }
 
     private static class TopNBuilder
     {
         private final int n;
+        private final List<Type> sortTypes;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrders;
         private final TopNMemoryManager memoryManager;
         private final PriorityQueue<Block[]> globalCandidates;
-        private final Optional<Integer> sampleWeightChannel;
 
         private long memorySize;
 
-        private TopNBuilder(int n, List<Integer> sortChannels, List<SortOrder> sortOrders, Optional<Integer> sampleWeightChannel, TopNMemoryManager memoryManager)
+        private TopNBuilder(int n,
+                List<Type> sortTypes,
+                List<Integer> sortChannels,
+                List<SortOrder> sortOrders,
+                TopNMemoryManager memoryManager)
         {
             this.n = n;
 
+            this.sortTypes = sortTypes;
             this.sortChannels = sortChannels;
             this.sortOrders = sortOrders;
 
             this.memoryManager = memoryManager;
-            this.sampleWeightChannel = sampleWeightChannel;
 
-            Ordering<Block[]> comparator = Ordering.from(new RowComparator(sortChannels, sortOrders)).reverse();
+            Ordering<Block[]> comparator = Ordering.from(new RowComparator(sortTypes, sortChannels, sortOrders)).reverse();
             this.globalCandidates = new PriorityQueue<>(Math.min(n, MAX_INITIAL_PRIORITY_QUEUE_SIZE), comparator);
         }
 
@@ -266,38 +269,31 @@ public class TopNOperator
         {
             long sizeDelta = 0;
 
-            BlockCursor[] cursors = new BlockCursor[page.getChannelCount()];
-            for (int i = 0; i < page.getChannelCount(); i++) {
-                cursors[i] = page.getBlock(i).cursor();
-            }
-
-            for (int i = 0; i < page.getPositionCount(); i++) {
-                for (BlockCursor cursor : cursors) {
-                    checkState(cursor.advanceNextPosition());
-                }
-
+            Block[] blocks = page.getBlocks();
+            for (int position = 0; position < page.getPositionCount(); position++) {
                 if (globalCandidates.size() < n) {
-                    sizeDelta += addRow(cursors);
+                    sizeDelta += addRow(position, blocks);
                 }
-                else if (compare(cursors, globalCandidates.peek()) < 0) {
-                    sizeDelta += addRow(cursors);
+                else if (compare(position, blocks, globalCandidates.peek()) < 0) {
+                    sizeDelta += addRow(position, blocks);
                 }
             }
 
             return sizeDelta;
         }
 
-        private int compare(BlockCursor[] cursors, Block[] currentMax)
+        private int compare(int position, Block[] blocks, Block[] currentMax)
         {
             for (int i = 0; i < sortChannels.size(); i++) {
+                Type type = sortTypes.get(i);
                 int sortChannel = sortChannels.get(i);
                 SortOrder sortOrder = sortOrders.get(i);
 
-                BlockCursor cursor = cursors[sortChannel];
+                Block block = blocks[sortChannel];
                 Block currentMaxValue = currentMax[sortChannel];
 
-                // compare the right value to the left cursor but negate the result since we are evaluating in the opposite order
-                int compare = -currentMaxValue.compareTo(sortOrder, 0, cursor);
+                // compare the right value to the left block but negate the result since we are evaluating in the opposite order
+                int compare = -sortOrder.compareBlockValue(type, currentMaxValue, 0, block, position);
                 if (compare != 0) {
                     return compare;
                 }
@@ -305,39 +301,22 @@ public class TopNOperator
             return 0;
         }
 
-        private long addRow(BlockCursor[] cursors)
+        private long addRow(int position, Block[] blocks)
         {
             long sizeDelta = 0;
-            Block[] row = getValues(cursors);
-            long sampleWeight = 1;
-            if (sampleWeightChannel.isPresent()) {
-                sampleWeight = row[sampleWeightChannel.get()].getLong(0);
-                // Set the weight to one, since we're going to insert it multiple times in the priority queue
-                row[sampleWeightChannel.get()] = createBigintBlock(1);
-            }
+            Block[] row = getValues(position, blocks);
 
-            // Count the column sizes only once, because we insert the same object reference multiple times for sampled rows
             sizeDelta += sizeOfRow(row);
             globalCandidates.add(row);
-            sizeDelta += (sampleWeight - 1) * OVERHEAD_PER_VALUE.toBytes();
-            for (int i = 1; i < sampleWeight; i++) {
-                globalCandidates.add(row);
-            }
 
             while (globalCandidates.size() > n) {
                 Block[] previous = globalCandidates.remove();
-                // We insert sampled rows multiple times, so use reference equality when checking if this row is still in the queue
-                if (previous != globalCandidates.peek()) {
                     sizeDelta -= sizeOfRow(previous);
-                }
-                else {
-                    sizeDelta -= OVERHEAD_PER_VALUE.toBytes();
-                }
             }
             return sizeDelta;
         }
 
-        private long sizeOfRow(Block[] row)
+        private static long sizeOfRow(Block[] row)
         {
             long size = OVERHEAD_PER_VALUE.toBytes();
             for (Block value : row) {
@@ -346,11 +325,11 @@ public class TopNOperator
             return size;
         }
 
-        private Block[] getValues(BlockCursor[] cursors)
+        private static Block[] getValues(int position, Block[] blocks)
         {
-            Block[] row = new Block[cursors.length];
-            for (int i = 0; i < cursors.length; i++) {
-                row[i] = cursors[i].getSingleValueBlock();
+            Block[] row = new Block[blocks.length];
+            for (int i = 0; i < blocks.length; i++) {
+                row[i] = blocks[i].getSingleValueBlock(position);
             }
             return row;
         }
@@ -363,33 +342,11 @@ public class TopNOperator
         public Iterator<Block[]> build()
         {
             ImmutableList.Builder<Block[]> minSortedGlobalCandidates = ImmutableList.builder();
-            long sampleWeight = 1;
             while (!globalCandidates.isEmpty()) {
                 Block[] row = globalCandidates.remove();
-                if (sampleWeightChannel.isPresent()) {
-                    // sampled rows are inserted multiple times (we can use identity comparison here)
-                    // we could also test for equality to "pack" results further, but that would require another equality function
-                    if (globalCandidates.peek() != null && row == globalCandidates.peek()) {
-                        sampleWeight++;
-                    }
-                    else {
-                        row[sampleWeightChannel.get()] = createBigintBlock(sampleWeight);
-                        minSortedGlobalCandidates.add(row);
-                        sampleWeight = 1;
-                    }
-                }
-                else {
-                    minSortedGlobalCandidates.add(row);
-                }
+                minSortedGlobalCandidates.add(row);
             }
             return minSortedGlobalCandidates.build().reverse().iterator();
-        }
-
-        private static Block createBigintBlock(long value)
-        {
-            return BIGINT.createBlockBuilder(new BlockBuilderStatus())
-                    .appendLong(value)
-                    .build();
         }
     }
 
@@ -425,41 +382,6 @@ public class TopNOperator
         public DataSize getMaxMemorySize()
         {
             return operatorContext.getMaxMemorySize();
-        }
-    }
-
-    private static class RowComparator
-            implements Comparator<Block[]>
-    {
-        private final List<Integer> sortChannels;
-        private final List<SortOrder> sortOrders;
-
-        public RowComparator(List<Integer> sortChannels, List<SortOrder> sortOrders)
-        {
-            checkNotNull(sortChannels, "sortChannels is null");
-            checkNotNull(sortOrders, "sortOrders is null");
-            checkArgument(sortChannels.size() == sortOrders.size(), "sortFields size (%s) doesn't match sortOrders size (%s)", sortChannels.size(), sortOrders.size());
-
-            this.sortChannels = ImmutableList.copyOf(sortChannels);
-            this.sortOrders = ImmutableList.copyOf(sortOrders);
-        }
-
-        @Override
-        public int compare(Block[] leftRow, Block[] rightRow)
-        {
-            for (int index = 0; index < sortChannels.size(); index++) {
-                int channel = sortChannels.get(index);
-                SortOrder sortOrder = sortOrders.get(index);
-
-                Block left = leftRow[channel];
-                Block right = rightRow[channel];
-
-                int comparison = left.compareTo(sortOrder, 0, right, 0);
-                if (comparison != 0) {
-                    return comparison;
-                }
-            }
-            return 0;
         }
     }
 }

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -31,6 +33,7 @@ public class OrderByOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final List<Type> sortTypes;
         private final List<Type> sourceTypes;
         private final List<Integer> outputChannels;
         private final int expectedPositions;
@@ -49,6 +52,11 @@ public class OrderByOperator
         {
             this.operatorId = operatorId;
             this.sourceTypes = ImmutableList.copyOf(checkNotNull(sourceTypes, "sourceTypes is null"));
+            ImmutableList.Builder<Type> sortTypes = ImmutableList.builder();
+            for (int channel : sortChannels) {
+                sortTypes.add(sourceTypes.get(channel));
+            }
+            this.sortTypes = sortTypes.build();
             this.outputChannels = checkNotNull(outputChannels, "outputChannels is null");
             this.expectedPositions = expectedPositions;
             this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
@@ -74,6 +82,7 @@ public class OrderByOperator
                     sourceTypes,
                     outputChannels,
                     expectedPositions,
+                    sortTypes,
                     sortChannels,
                     sortOrder);
         }
@@ -93,6 +102,7 @@ public class OrderByOperator
     }
 
     private final OperatorContext operatorContext;
+    private final List<Type> sortTypes;
     private final List<Integer> sortChannels;
     private final List<SortOrder> sortOrder;
     private final int[] outputChannels;
@@ -110,12 +120,14 @@ public class OrderByOperator
             List<Type> sourceTypes,
             List<Integer> outputChannels,
             int expectedPositions,
+            List<Type> sortTypes,
             List<Integer> sortChannels,
             List<SortOrder> sortOrder)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.outputChannels = Ints.toArray(checkNotNull(outputChannels, "outputChannels is null"));
         this.types = toTypes(sourceTypes, outputChannels);
+        this.sortTypes = ImmutableList.copyOf(checkNotNull(sortTypes, "sortTypes is null"));
         this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
         this.sortOrder = ImmutableList.copyOf(checkNotNull(sortOrder, "sortOrder is null"));
 
@@ -143,7 +155,7 @@ public class OrderByOperator
             state = State.HAS_OUTPUT;
 
             // sort the index
-            pageIndex.sort(sortChannels, sortOrder);
+            pageIndex.sort(sortTypes, sortChannels, sortOrder);
         }
     }
 

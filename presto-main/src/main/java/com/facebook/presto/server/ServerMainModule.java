@@ -51,29 +51,19 @@ import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.RecordSinkProvider;
+import com.facebook.presto.operator.index.IndexJoinLookupStats;
+import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.HyperLogLogType;
-import com.facebook.presto.spi.type.IntervalDayTimeType;
-import com.facebook.presto.spi.type.IntervalYearMonthType;
-import com.facebook.presto.spi.type.TimeType;
-import com.facebook.presto.spi.type.TimeWithTimeZoneType;
-import com.facebook.presto.spi.type.TimestampType;
-import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
+import com.facebook.presto.spi.block.FixedWidthBlockEncoding;
+import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.VarbinaryType;
-import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.split.ConnectorDataStreamProvider;
-import com.facebook.presto.split.DataStreamManager;
-import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.split.PageSourceManager;
+import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.Serialization.ExpressionDeserializer;
 import com.facebook.presto.sql.Serialization.ExpressionSerializer;
 import com.facebook.presto.sql.Serialization.FunctionCallDeserializer;
@@ -86,10 +76,8 @@ import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.type.ColorType;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
-import com.facebook.presto.type.UnknownType;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
@@ -117,6 +105,7 @@ import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.event.client.EventBinder.eventBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
+import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -150,7 +139,7 @@ public class ServerMainModule
         bindFailureDetector(binder, serverConfig.isCoordinator());
 
         // task execution
-        binder.bind(TaskResource.class).in(Scopes.SINGLETON);
+        jaxrsBinder(binder).bind(TaskResource.class);
         binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskManager.class).withGeneratedName();
         binder.bind(TaskExecutor.class).in(Scopes.SINGLETON);
@@ -160,9 +149,11 @@ public class ServerMainModule
         binder.bind(ExpressionCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ExpressionCompiler.class).withGeneratedName();
         bindConfig(binder).to(TaskManagerConfig.class);
+        binder.bind(IndexJoinLookupStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(IndexJoinLookupStats.class).withGeneratedName();
 
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
-        binder.bind(PagesResponseWriter.class).in(Scopes.SINGLETON);
+        jaxrsBinder(binder).bind(PagesResponseWriter.class);
 
         // exchange client
         binder.bind(new TypeLiteral<Supplier<ExchangeClient>>() {}).to(ExchangeClientFactory.class).in(Scopes.SINGLETON);
@@ -175,9 +166,9 @@ public class ServerMainModule
         httpClientBinder(binder).bindHttpClient("scheduler", ForScheduler.class).withTracing();
 
         // data stream provider
-        binder.bind(DataStreamManager.class).in(Scopes.SINGLETON);
-        binder.bind(DataStreamProvider.class).to(DataStreamManager.class).in(Scopes.SINGLETON);
-        newSetBinder(binder, ConnectorDataStreamProvider.class);
+        binder.bind(PageSourceManager.class).in(Scopes.SINGLETON);
+        binder.bind(PageSourceProvider.class).to(PageSourceManager.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, ConnectorPageSourceProvider.class);
 
         // record sink provider
         binder.bind(RecordSinkManager.class).in(Scopes.SINGLETON);
@@ -249,10 +240,10 @@ public class ServerMainModule
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(QueryResults.class);
-        binder.bind(StatementResource.class).in(Scopes.SINGLETON);
+        jaxrsBinder(binder).bind(StatementResource.class);
 
         // execute resource
-        binder.bind(ExecuteResource.class).in(Scopes.SINGLETON);
+        jaxrsBinder(binder).bind(ExecuteResource.class);
         httpClientBinder(binder).bindHttpClient("execute", ForExecute.class);
 
         // plugin manager
@@ -266,27 +257,14 @@ public class ServerMainModule
         binder.bind(BlockEncodingManager.class).in(Scopes.SINGLETON);
         binder.bind(BlockEncodingSerde.class).to(BlockEncodingManager.class).in(Scopes.SINGLETON);
         Multibinder<BlockEncodingFactory<?>> blockEncodingFactoryBinder = newSetBinder(binder, new TypeLiteral<BlockEncodingFactory<?>>() {});
-        blockEncodingFactoryBinder.addBinding().toInstance(UnknownType.BLOCK_ENCODING_FACTORY);
-        blockEncodingFactoryBinder.addBinding().toInstance(BooleanType.BLOCK_ENCODING_FACTORY);
-        blockEncodingFactoryBinder.addBinding().toInstance(BigintType.BLOCK_ENCODING_FACTORY);
-        blockEncodingFactoryBinder.addBinding().toInstance(DoubleType.BLOCK_ENCODING_FACTORY);
-        blockEncodingFactoryBinder.addBinding().toInstance(VarcharType.BLOCK_ENCODING_FACTORY);
-        blockEncodingFactoryBinder.addBinding().toInstance(VarbinaryType.BLOCK_ENCODING_FACTORY);
-        blockEncodingFactoryBinder.addBinding().toInstance(DateType.BLOCK_ENCODING_FACTORY);
-        blockEncodingFactoryBinder.addBinding().toInstance(TimeType.BLOCK_ENCODING_FACTORY);
-        blockEncodingFactoryBinder.addBinding().toInstance(TimeWithTimeZoneType.BLOCK_ENCODING_FACTORY);
-        blockEncodingFactoryBinder.addBinding().toInstance(TimestampType.BLOCK_ENCODING_FACTORY);
-        blockEncodingFactoryBinder.addBinding().toInstance(TimestampWithTimeZoneType.BLOCK_ENCODING_FACTORY);
-        blockEncodingFactoryBinder.addBinding().toInstance(IntervalYearMonthType.BLOCK_ENCODING_FACTORY);
-        blockEncodingFactoryBinder.addBinding().toInstance(IntervalDayTimeType.BLOCK_ENCODING_FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(VariableWidthBlockEncoding.FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(FixedWidthBlockEncoding.FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(RunLengthBlockEncoding.FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(DictionaryBlockEncoding.FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(SnappyBlockEncoding.FACTORY);
-        blockEncodingFactoryBinder.addBinding().toInstance(HyperLogLogType.BLOCK_ENCODING_FACTORY);
-        blockEncodingFactoryBinder.addBinding().toInstance(ColorType.BLOCK_ENCODING_FACTORY);
 
         // thread visualizer
-        binder.bind(ThreadResource.class).in(Scopes.SINGLETON);
+        jaxrsBinder(binder).bind(ThreadResource.class);
     }
 
     @Provides
@@ -295,6 +273,14 @@ public class ServerMainModule
     public ScheduledExecutorService createExchangeExecutor()
     {
         return newScheduledThreadPool(4, daemonThreadsNamed("exchange-client-%s"));
+    }
+
+    @Provides
+    @Singleton
+    @ForAsyncHttpResponse
+    public static ScheduledExecutorService createAsyncHttpResponseExecutor()
+    {
+        return newScheduledThreadPool(10, daemonThreadsNamed("async-http-response-%s"));
     }
 
     private static String detectPrestoVersion()
@@ -309,7 +295,7 @@ public class ServerMainModule
         // TODO: this is a hack until the coordinator module works correctly
         if (coordinator) {
             binder.install(new FailureDetectorModule());
-            binder.bind(NodeResource.class).in(Scopes.SINGLETON);
+            jaxrsBinder(binder).bind(NodeResource.class);
         }
         else {
             binder.bind(FailureDetector.class).toInstance(new FailureDetector()

@@ -14,15 +14,16 @@
 package com.facebook.presto.ml;
 
 import com.facebook.presto.ml.type.ClassifierType;
-import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.operator.RowPageBuilder;
 import com.facebook.presto.operator.aggregation.Accumulator;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
@@ -39,7 +40,7 @@ public class TestLearnAggregations
             throws Exception
     {
         LearnAggregation aggregation = new LearnAggregation(ClassifierType.CLASSIFIER, BigintType.BIGINT);
-        assertLearnClassifer(aggregation.createAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0, 0, 1));
+        assertLearnClassifer(aggregation.bind(ImmutableList.of(0, 1), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0).createAccumulator());
     }
 
     @Test
@@ -47,16 +48,15 @@ public class TestLearnAggregations
             throws Exception
     {
         LearnLibSvmAggregation aggregation = new LearnLibSvmAggregation(ClassifierType.CLASSIFIER, BigintType.BIGINT);
-        assertLearnClassifer(aggregation.createAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0, 0, 1, 2));
+        assertLearnClassifer(aggregation.bind(ImmutableList.of(0, 1, 2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0).createAccumulator());
     }
 
     private static void assertLearnClassifer(Accumulator accumulator)
             throws Exception
     {
         accumulator.addInput(getPage());
-        BlockCursor cursor = accumulator.evaluateFinal().cursor();
-        cursor.advanceNextPosition();
-        Slice slice = cursor.getSlice();
+        Block block = accumulator.evaluateFinal();
+        Slice slice = accumulator.getFinalType().getSlice(block, 0);
         Model deserialized = ModelUtils.deserialize(slice);
         assertNotNull(deserialized, "deserialization failed");
         assertTrue(deserialized instanceof Classifier, "deserialized model is not a classifier");

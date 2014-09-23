@@ -14,18 +14,17 @@
 package com.facebook.presto.ml.type;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
-import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VariableWidthType;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import java.util.List;
 
 // Layout is <size>:<model>, where
 //   size: is an int describing the length of the model bytes
@@ -35,16 +34,9 @@ public class ModelType
 {
     public static final ModelType MODEL = new ModelType();
 
-    public static final BlockEncodingFactory<?> BLOCK_ENCODING_FACTORY = new VariableWidthBlockEncoding.VariableWidthBlockEncodingFactory(MODEL);
-
     @JsonCreator
     public ModelType()
     {
-    }
-
-    public static ModelType getInstance()
-    {
-        return MODEL;
     }
 
     @Override
@@ -54,80 +46,127 @@ public class ModelType
     }
 
     @Override
+    public boolean isComparable()
+    {
+        return false;
+    }
+
+    @Override
+    public boolean isOrderable()
+    {
+        return false;
+    }
+
+    @Override
     public Class<?> getJavaType()
     {
         return Slice.class;
     }
 
     @Override
-    public int getLength(Slice slice, int offset)
+    public List<Type> getTypeParameters()
     {
-        return getValueSize(slice, offset) + SIZE_OF_INT;
+        return ImmutableList.of();
     }
 
     @Override
-    public Slice getSlice(Slice slice, int offset)
-    {
-        return slice.slice(offset + SIZE_OF_INT, getValueSize(slice, offset));
-    }
-
-    @Override
-    public int writeSlice(SliceOutput sliceOutput, Slice value, int offset, int length)
-    {
-        sliceOutput.writeInt(length);
-        sliceOutput.writeBytes(value, offset, length);
-        return length + SIZE_OF_INT;
-    }
-
-    @Override
-    public boolean equalTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
+    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
         throw new UnsupportedOperationException(String.format("%s type is not comparable", getName()));
     }
 
     @Override
-    public boolean equalTo(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
+    public int hash(Block block, int position)
     {
         throw new UnsupportedOperationException(String.format("%s type is not comparable", getName()));
     }
 
     @Override
-    public int hash(Slice slice, int offset)
-    {
-        throw new UnsupportedOperationException(String.format("%s type is not comparable", getName()));
-    }
-
-    @Override
-    public int compareTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
+    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
         throw new UnsupportedOperationException(String.format("%s type is not ordered", getName()));
     }
 
     @Override
-    public void appendTo(Slice slice, int offset, BlockBuilder blockBuilder)
+    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
-        int length = getValueSize(slice, offset);
-        blockBuilder.appendSlice(slice, offset + SIZE_OF_INT, length);
+        if (block.isNull(position)) {
+            blockBuilder.appendNull();
+        }
+        else {
+            block.writeBytesTo(position, 0, block.getLength(position), blockBuilder);
+            blockBuilder.closeEntry();
+        }
     }
 
     @Override
-    public void appendTo(Slice slice, int offset, SliceOutput sliceOutput)
+    public boolean getBoolean(Block block, int position)
     {
-        // copy full value including length
-        int length = getLength(slice, offset);
-        sliceOutput.writeBytes(slice, offset, length);
+        throw new UnsupportedOperationException();
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Slice slice, int offset)
+    public void writeBoolean(BlockBuilder sliceOutput, boolean value)
     {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public long getLong(Block block, int position)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void writeLong(BlockBuilder sliceOutput, long value)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public double getDouble(Block block, int position)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void writeDouble(BlockBuilder sliceOutput, double value)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Slice getSlice(Block block, int position)
+    {
+        return block.getSlice(position, 0, block.getLength(position));
+    }
+
+    @Override
+    public void writeSlice(BlockBuilder blockBuilder, Slice value)
+    {
+        writeSlice(blockBuilder, value, 0, value.length());
+    }
+
+    @Override
+    public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
+    {
+        blockBuilder.writeBytes(value, offset, length).closeEntry();
+    }
+
+    @Override
+    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    {
+        if (block.isNull(position)) {
+            return null;
+        }
+
         return String.format("<%s>", getName());
     }
 
     @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
     {
-        return new VariableWidthBlockBuilder(this, blockBuilderStatus);
+        return new VariableWidthBlockBuilder(blockBuilderStatus);
     }
 
     @Override
@@ -147,11 +186,6 @@ public class ModelType
     public int hashCode()
     {
         return getClass().hashCode();
-    }
-
-    private static int getValueSize(Slice slice, int offset)
-    {
-        return slice.getInt(offset);
     }
 
     @Override

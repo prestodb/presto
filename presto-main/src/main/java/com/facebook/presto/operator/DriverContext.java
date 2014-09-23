@@ -62,11 +62,13 @@ public class DriverContext
     private final AtomicLong memoryReservation = new AtomicLong();
 
     private final List<OperatorContext> operatorContexts = new CopyOnWriteArrayList<>();
+    private final boolean partitioned;
 
-    public DriverContext(PipelineContext pipelineContext, Executor executor)
+    public DriverContext(PipelineContext pipelineContext, Executor executor, boolean partitioned)
     {
         this.pipelineContext = checkNotNull(pipelineContext, "pipelineContext is null");
         this.executor = checkNotNull(executor, "executor is null");
+        this.partitioned = partitioned;
     }
 
     public TaskId getTaskId()
@@ -152,6 +154,12 @@ public class DriverContext
             memoryReservation.getAndAdd(bytes);
         }
         return result;
+    }
+
+    public void freeMemory(long bytes)
+    {
+        pipelineContext.freeMemory(bytes);
+        memoryReservation.getAndAdd(-bytes);
     }
 
     public boolean isCpuTimerEnabled()
@@ -299,10 +307,23 @@ public class DriverContext
     {
         return new Function<DriverContext, DriverStats>()
         {
+            @Override
             public DriverStats apply(DriverContext driverContext)
             {
                 return driverContext.getDriverStats();
             }
         };
+    }
+
+    public boolean isPartitioned()
+    {
+        return partitioned;
+    }
+
+    // hack for index joins
+    @Deprecated
+    public Executor getExecutor()
+    {
+        return executor;
     }
 }

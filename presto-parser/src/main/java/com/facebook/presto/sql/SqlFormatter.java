@@ -21,6 +21,7 @@ import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.Except;
+import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainOption;
@@ -36,6 +37,7 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
@@ -582,6 +584,29 @@ public final class SqlFormatter
         {
             builder.append("DROP TABLE ")
                     .append(node.getTableName());
+
+            return null;
+        }
+
+        @Override
+        protected Void visitRenameTable(RenameTable node, Integer context)
+        {
+            builder.append("ALTER TABLE ")
+                    .append(node.getSource())
+                    .append(" RENAME TO ")
+                    .append(node.getTarget());
+
+            return null;
+        }
+
+        @Override
+        protected Void visitInsert(Insert node, Integer indent)
+        {
+            builder.append("INSERT INTO ")
+                    .append(node.getTarget())
+                    .append(" ");
+
+            process(node.getQuery(), indent);
 
             return null;
         }

@@ -16,54 +16,140 @@ package com.facebook.presto.verifier;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.ConfigurationFactory;
-import io.airlift.configuration.ConfigurationLoader;
+import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
+import com.google.inject.Injector;
+import com.google.inject.Key;
+import com.google.inject.Module;
+import com.google.inject.TypeLiteral;
+import com.google.inject.name.Names;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventClient;
 import org.skife.jdbi.v2.DBI;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.PrintStream;
+import java.io.File;
+import java.io.FilenameFilter;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.file.Paths;
+import java.sql.Driver;
+import java.sql.DriverManager;
 import java.util.List;
+import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static java.lang.String.format;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class PrestoVerifier
 {
-    private final VerifierConfig config;
+    public static final String SUPPORTED_EVENT_CLIENTS = "SUPPORTED_EVENT_CLIENTS";
 
-    protected PrestoVerifier(VerifierConfig config)
+    protected PrestoVerifier()
     {
-        this.config = checkNotNull(config, "config is null");
     }
 
     public static void main(String[] args)
             throws Exception
     {
-        Optional<String> configPath = Optional.fromNullable((args.length > 0) ? args[0] : null);
-        VerifierConfig config = loadConfig(VerifierConfig.class, configPath);
-        PrestoVerifier verifier = new PrestoVerifier(config);
-        verifier.run();
-
-        // HttpClient's threads don't seem to shutdown properly, so force the VM to exit
-        System.exit(0);
+        new PrestoVerifier().run(args);
     }
 
-    public void run()
+    public void run(String[] args)
             throws Exception
     {
-        EventClient eventClient = getEventClient(config);
+        if (args.length > 0) {
+            System.setProperty("config", args[0]);
+        }
 
-        VerifierDao dao = new DBI(config.getQueryDatabase()).onDemand(VerifierDao.class);
-        List<QueryPair> queries = dao.getQueriesBySuite(config.getSuite(), config.getMaxQueries());
+        ImmutableList.Builder<Module> builder = ImmutableList.<Module>builder()
+                .add(new PrestoVerifierModule())
+                .addAll(getAdditionalModules());
 
-        queries = applyOverrides(config, queries);
-        queries = filterQueries(queries);
+        Bootstrap app = new Bootstrap(builder.build());
+        Injector injector = app.strictConfig().initialize();
 
-        Verifier verifier = new Verifier(System.out, config, eventClient);
-        verifier.run(queries);
+        try {
+            VerifierConfig config = injector.getInstance(VerifierConfig.class);
+            injector.injectMembers(this);
+            Set<String> supportedEventClients = injector.getInstance(Key.get(new TypeLiteral<Set<String>>() {}, Names.named(SUPPORTED_EVENT_CLIENTS)));
+            for (String clientType : config.getEventClients()) {
+                checkArgument(supportedEventClients.contains(clientType), "Unsupported event client: %s", clientType);
+            }
+            Set<EventClient> eventClients = injector.getInstance(Key.get(new TypeLiteral<Set<EventClient>>() {}));
+
+            VerifierDao dao = new DBI(config.getQueryDatabase()).onDemand(VerifierDao.class);
+            List<QueryPair> queries = dao.getQueriesBySuite(config.getSuite(), config.getMaxQueries());
+
+            queries = applyOverrides(config, queries);
+            queries = filterQueries(queries);
+
+            // Load jdbc drivers if needed
+            if (config.getAdditionalJdbcDriverPath() != null) {
+                List<URL> urlList = getUrls(config.getAdditionalJdbcDriverPath());
+                URL[] urls = new URL[urlList.size()];
+                urlList.toArray(urls);
+                if (config.getTestJdbcDriverName() != null) {
+                    loadJdbcDriver(urls, config.getTestJdbcDriverName());
+                }
+                if (config.getControlJdbcDriverName() != null) {
+                    loadJdbcDriver(urls, config.getControlJdbcDriverName());
+                }
+            }
+
+            // TODO: construct this with Guice
+            Verifier verifier = new Verifier(System.out, config, eventClients);
+            verifier.run(queries);
+        }
+        finally {
+            injector.getInstance(LifeCycleManager.class).stop();
+        }
+    }
+
+    private static void loadJdbcDriver(URL[] urls, String jdbcClassName)
+    {
+        try {
+            try (URLClassLoader classLoader = new URLClassLoader(urls)) {
+                Driver driver = (Driver) Class.forName(jdbcClassName, true, classLoader).getConstructor().newInstance();
+                // The code calling the DriverManager to load the driver needs to be in the same class loader as the driver
+                // In order to bypass this we create a shim that wraps the specified jdbc driver class.
+                // TODO: Change the implementation to be DataSource based instead of DriverManager based.
+                DriverManager.registerDriver(new ForwardingDriver(driver));
+            }
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    private static List<URL> getUrls(String path)
+            throws MalformedURLException
+    {
+        ImmutableList.Builder<URL> urlList = ImmutableList.builder();
+        File driverPath = new File(path);
+        if (!driverPath.isDirectory()) {
+            urlList.add(Paths.get(path).toUri().toURL());
+            return urlList.build();
+        }
+        File[] files = driverPath.listFiles(new FilenameFilter()
+        {
+            @Override
+            public boolean accept(File dir, String name)
+            {
+                return name.endsWith(".jar");
+            }
+        });
+        if (files == null) {
+            return urlList.build();
+        }
+        for (File file : files) {
+            // Does not handle nested directories
+            if (file.isDirectory()) {
+                continue;
+            }
+            urlList.add(Paths.get(file.getAbsolutePath()).toUri().toURL());
+        }
+        return urlList.build();
     }
 
     /**
@@ -72,6 +158,11 @@ public class PrestoVerifier
     protected List<QueryPair> filterQueries(List<QueryPair> queries)
     {
         return queries;
+    }
+
+    protected Iterable<Module> getAdditionalModules()
+    {
+        return ImmutableList.of();
     }
 
     private static List<QueryPair> applyOverrides(final VerifierConfig config, List<QueryPair> queries)
@@ -92,42 +183,5 @@ public class PrestoVerifier
                 return new QueryPair(input.getSuite(), input.getName(), test, control);
             }
         }).list();
-    }
-
-    private EventClient getEventClient(VerifierConfig config)
-            throws FileNotFoundException
-    {
-        switch (config.getEventClient()) {
-            case "human-readable":
-                return new HumanReadableEventClient(System.out, config.isAlwaysReport());
-            case "file":
-                checkNotNull(config.getEventLogFile(), "event log file path is null");
-                return new JsonEventClient(new PrintStream(config.getEventLogFile()));
-        }
-        EventClient client = getEventClient(config.getEventClient());
-        if (client != null) {
-            return client;
-        }
-        throw new RuntimeException(format("Unsupported event client %s", config.getEventClient()));
-    }
-
-    /**
-     * Override this method to provide other event client implementations.
-     */
-    protected EventClient getEventClient(String name)
-    {
-        return null;
-    }
-
-    public static <T> T loadConfig(Class<T> clazz, Optional<String> path)
-            throws IOException
-    {
-        ImmutableMap.Builder<String, String> map = ImmutableMap.builder();
-        ConfigurationLoader loader = new ConfigurationLoader();
-        if (path.isPresent()) {
-            map.putAll(loader.loadPropertiesFrom(path.get()));
-        }
-        map.putAll(loader.getSystemProperties());
-        return new ConfigurationFactory(map.build()).build(clazz);
     }
 }

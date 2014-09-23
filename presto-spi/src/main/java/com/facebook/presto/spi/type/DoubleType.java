@@ -14,165 +14,85 @@
 package com.facebook.presto.spi.type;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.BlockEncodingFactory;
-import com.facebook.presto.spi.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 
-import static com.facebook.presto.spi.block.FixedWidthBlockUtil.createIsolatedFixedWidthBlockBuilderFactory;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 
 public final class DoubleType
-        implements FixedWidthType
+        extends AbstractFixedWidthType
 {
     public static final DoubleType DOUBLE = new DoubleType();
 
-    public static DoubleType getInstance()
-    {
-        return DOUBLE;
-    }
-
-    private static final FixedWidthBlockBuilderFactory BLOCK_BUILDER_FACTORY = createIsolatedFixedWidthBlockBuilderFactory(DOUBLE);
-    public static final BlockEncodingFactory<?> BLOCK_ENCODING_FACTORY = BLOCK_BUILDER_FACTORY.getBlockEncodingFactory();
-
     private DoubleType()
     {
+        super(StandardTypes.DOUBLE, double.class, SIZE_OF_DOUBLE);
     }
 
     @Override
-    public String getName()
+    public boolean isComparable()
     {
-        return "double";
+        return true;
     }
 
     @Override
-    public Class<?> getJavaType()
+    public boolean isOrderable()
     {
-        return double.class;
+        return true;
     }
 
     @Override
-    public int getFixedSize()
+    public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
-        return (int) SIZE_OF_DOUBLE;
+        if (block.isNull(position)) {
+            return null;
+        }
+        return block.getDouble(position, 0);
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Slice slice, int offset)
+    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        return slice.getDouble(offset);
-    }
-
-    @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
-    {
-        return BLOCK_BUILDER_FACTORY.createFixedWidthBlockBuilder(blockBuilderStatus);
-    }
-
-    @Override
-    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
-    {
-        return BLOCK_BUILDER_FACTORY.createFixedWidthBlockBuilder(positionCount);
-    }
-
-    @Override
-    public boolean getBoolean(Slice slice, int offset)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeBoolean(SliceOutput sliceOutput, boolean value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public long getLong(Slice slice, int offset)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeLong(SliceOutput sliceOutput, long value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public double getDouble(Slice slice, int offset)
-    {
-        return slice.getDouble(offset);
-    }
-
-    @Override
-    public void writeDouble(SliceOutput sliceOutput, double value)
-    {
-        sliceOutput.writeDouble(value);
-    }
-
-    @Override
-    public Slice getSlice(Slice slice, int offset)
-    {
-        return slice.slice(offset, getFixedSize());
-    }
-
-    @Override
-    public void writeSlice(SliceOutput sliceOutput, Slice value, int offset)
-    {
-        sliceOutput.writeBytes(value, offset, SIZE_OF_DOUBLE);
-    }
-
-    @Override
-    public boolean equalTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
-    {
-        long leftValue = leftSlice.getLong(leftOffset);
-        long rightValue = rightSlice.getLong(rightOffset);
+        long leftValue = leftBlock.getLong(leftPosition, 0);
+        long rightValue = rightBlock.getLong(rightPosition, 0);
         return leftValue == rightValue;
     }
 
     @Override
-    public boolean equalTo(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
+    public int hash(Block block, int position)
     {
-        long leftValue = leftSlice.getLong(leftOffset);
-        long rightValue = Double.doubleToLongBits(rightCursor.getDouble());
-        return leftValue == rightValue;
-    }
-
-    @Override
-    public int hash(Slice slice, int offset)
-    {
-        long value = slice.getLong(offset);
+        long value = block.getLong(position, 0);
         return (int) (value ^ (value >>> 32));
     }
 
     @Override
-    public int compareTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
+    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        double leftValue = leftSlice.getDouble(leftOffset);
-        double rightValue = rightSlice.getDouble(rightOffset);
+        double leftValue = leftBlock.getDouble(leftPosition, 0);
+        double rightValue = rightBlock.getDouble(rightPosition, 0);
         return Double.compare(leftValue, rightValue);
     }
 
     @Override
-    public void appendTo(Slice slice, int offset, BlockBuilder blockBuilder)
+    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
-        double value = slice.getDouble(offset);
-        blockBuilder.appendDouble(value);
+        if (block.isNull(position)) {
+            blockBuilder.appendNull();
+        }
+        else {
+            blockBuilder.writeDouble(block.getDouble(position, 0)).closeEntry();
+        }
     }
 
     @Override
-    public void appendTo(Slice slice, int offset, SliceOutput sliceOutput)
+    public double getDouble(Block block, int position)
     {
-        sliceOutput.writeBytes(slice, offset, (int) SIZE_OF_DOUBLE);
+        return block.getDouble(position, 0);
     }
 
     @Override
-    public String toString()
+    public void writeDouble(BlockBuilder blockBuilder, double value)
     {
-        return getName();
+        blockBuilder.writeDouble(value).closeEntry();
     }
 }

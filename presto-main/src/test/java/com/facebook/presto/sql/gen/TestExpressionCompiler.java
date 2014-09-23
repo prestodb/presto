@@ -16,13 +16,14 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.operator.scalar.DateTimeFunctions;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.operator.scalar.JsonFunctions;
+import com.facebook.presto.operator.scalar.JsonPath;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.RegexpFunctions;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
-import com.facebook.presto.sql.planner.LikeUtils;
 import com.facebook.presto.sql.tree.Extract.Field;
+import com.facebook.presto.type.LikeFunctions;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -36,7 +37,6 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.slice.Slice;
@@ -62,12 +62,14 @@ import static com.facebook.presto.operator.scalar.FunctionAssertions.SESSION;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.collect.Iterables.transform;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.cos;
 import static java.lang.Runtime.getRuntime;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.joda.time.DateTimeZone.UTC;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -120,10 +122,10 @@ public class TestExpressionCompiler
     {
         Logging.initialize();
         if (PARALLEL) {
-            executor = MoreExecutors.listeningDecorator(newFixedThreadPool(getRuntime().availableProcessors() * 2, daemonThreadsNamed("completer-%d")));
+            executor = listeningDecorator(newFixedThreadPool(getRuntime().availableProcessors() * 2, daemonThreadsNamed("completer-%d")));
         }
         else {
-            executor = MoreExecutors.listeningDecorator(MoreExecutors.sameThreadExecutor());
+            executor = listeningDecorator(sameThreadExecutor());
         }
         functionAssertions = new FunctionAssertions();
     }
@@ -302,19 +304,7 @@ public class TestExpressionCompiler
 
                 Object expectedNullIf = nullIf(left, right);
                 for (String expression : generateExpression("nullif(%s, %s)", left, right)) {
-                    try {
-                        Object actual = functionAssertions.selectSingleValue(expression);
-                        if (!Objects.equals(actual, expectedNullIf)) {
-                            if (left != null && right == null) {
-                                expectedNullIf = ((Number) expectedNullIf).doubleValue();
-                                actual = ((Number) expectedNullIf).doubleValue();
-                            }
-                            assertEquals(actual, expectedNullIf, expression);
-                        }
-                    }
-                    catch (RuntimeException e) {
-                        throw new RuntimeException("Error processing " + expression, e);
-                    }
+                    functionAssertions.assertFunction(expression, expectedNullIf);
                 }
 
                 assertExecute(generateExpression("%s is distinct from %s", left, right), !Objects.equals(left == null ? null : left.doubleValue(), right));
@@ -416,13 +406,11 @@ public class TestExpressionCompiler
             return left;
         }
 
-        if (left instanceof Double || right instanceof Double) {
-            if (((Number) left).doubleValue() == ((Number) right).doubleValue()) {
-                return null;
-            }
-            return ((Number) left).doubleValue();
+        if (left.equals(right)) {
+            return null;
         }
-        else if (left.equals(right)) {
+
+        if ((left instanceof Double || right instanceof Double) && ((Number) left).doubleValue() == ((Number) right).doubleValue()) {
             return null;
         }
 
@@ -543,6 +531,21 @@ public class TestExpressionCompiler
         for (String value : stringLefts) {
             assertExecute(generateExpression("cast(%s as varchar)", value), value == null ? null : value);
         }
+
+        Futures.allAsList(futures).get();
+    }
+
+    @Test
+    public void testTryCast()
+            throws Exception
+    {
+        assertExecute("try_cast(null as bigint)", null);
+        assertExecute("try_cast('123' as bigint)", 123L);
+        assertExecute("try_cast('foo' as varchar)", "foo");
+        assertExecute("try_cast('foo' as bigint)", null);
+        assertExecute("try_cast(bound_string as bigint)", null);
+        assertExecute("coalesce(try_cast('123' as bigint), 456)", 123L);
+        assertExecute("coalesce(try_cast('foo' as bigint), 456)", 456L);
 
         Futures.allAsList(futures).get();
     }
@@ -894,11 +897,11 @@ public class TestExpressionCompiler
         for (String value : stringLefts) {
             for (String pattern : stringRights) {
                 assertExecute(generateExpression("regexp_like(%s, %s)", value, pattern),
-                        value == null || pattern == null ? null : RegexpFunctions.regexpLike(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
+                        value == null || pattern == null ? null : RegexpFunctions.regexpLike(Slices.utf8Slice(value), RegexpFunctions.castToRegexp(Slices.utf8Slice(pattern))));
                 assertExecute(generateExpression("regexp_replace(%s, %s)", value, pattern),
-                        value == null || pattern == null ? null : RegexpFunctions.regexpReplace(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
+                        value == null || pattern == null ? null : RegexpFunctions.regexpReplace(Slices.utf8Slice(value), RegexpFunctions.castToRegexp(Slices.utf8Slice(pattern))));
                 assertExecute(generateExpression("regexp_extract(%s, %s)", value, pattern),
-                        value == null || pattern == null ? null : RegexpFunctions.regexpExtract(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
+                        value == null || pattern == null ? null : RegexpFunctions.regexpExtract(Slices.utf8Slice(value), RegexpFunctions.castToRegexp(Slices.utf8Slice(pattern))));
             }
         }
 
@@ -912,14 +915,14 @@ public class TestExpressionCompiler
         for (String value : jsonValues) {
             for (String pattern : jsonPatterns) {
                 assertExecute(generateExpression("json_extract(%s, %s)", value, pattern),
-                        value == null || pattern == null ? null : JsonFunctions.jsonExtract(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
+                        value == null || pattern == null ? null : JsonFunctions.jsonExtract(Slices.copiedBuffer(value, UTF_8), new JsonPath(pattern)));
                 assertExecute(generateExpression("json_extract_scalar(%s, %s)", value, pattern),
-                        value == null || pattern == null ? null : JsonFunctions.jsonExtractScalar(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
+                        value == null || pattern == null ? null : JsonFunctions.jsonExtractScalar(Slices.copiedBuffer(value, UTF_8), new JsonPath(pattern)));
 
                 assertExecute(generateExpression("json_extract(%s, %s || '')", value, pattern),
-                        value == null || pattern == null ? null : JsonFunctions.jsonExtract(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
+                        value == null || pattern == null ? null : JsonFunctions.jsonExtract(Slices.copiedBuffer(value, UTF_8), new JsonPath(pattern)));
                 assertExecute(generateExpression("json_extract_scalar(%s, %s || '')", value, pattern),
-                        value == null || pattern == null ? null : JsonFunctions.jsonExtractScalar(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
+                        value == null || pattern == null ? null : JsonFunctions.jsonExtractScalar(Slices.copiedBuffer(value, UTF_8), new JsonPath(pattern)));
             }
         }
 
@@ -1005,8 +1008,8 @@ public class TestExpressionCompiler
             for (String pattern : stringLefts) {
                 Boolean expected = null;
                 if (value != null && pattern != null) {
-                    Regex regex = LikeUtils.likeToPattern(pattern, '\\');
-                    expected = LikeUtils.regexMatches(regex, Slices.copiedBuffer(value, UTF_8));
+                    Regex regex = LikeFunctions.likePattern(utf8Slice(pattern), utf8Slice("\\"));
+                    expected = LikeFunctions.like(Slices.copiedBuffer(value, UTF_8), regex);
                 }
                 assertExecute(generateExpression("%s like %s", value, pattern), expected);
             }
@@ -1249,7 +1252,7 @@ public class TestExpressionCompiler
                 throws Exception
         {
             try {
-                assertEquals(functionAssertions.selectSingleValue(expression), expected);
+                functionAssertions.assertFunction(expression, expected);
             }
             catch (Throwable e) {
                 throw new RuntimeException("Error processing " + expression, e);

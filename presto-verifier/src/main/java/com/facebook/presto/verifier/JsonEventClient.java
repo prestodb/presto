@@ -20,7 +20,10 @@ import com.google.common.base.Throwables;
 import io.airlift.event.client.AbstractEventClient;
 import io.airlift.event.client.JsonEventSerializer;
 
+import javax.inject.Inject;
+
 import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintStream;
 
@@ -34,9 +37,12 @@ public class JsonEventClient
     private final JsonFactory factory = new JsonFactory();
     private final PrintStream out;
 
-    public JsonEventClient(PrintStream out)
+    @Inject
+    public JsonEventClient(VerifierConfig config)
+            throws FileNotFoundException
     {
-        this.out = checkNotNull(out, "out is null");
+        checkNotNull(config.getEventLogFile(), "event log file path is null");
+        this.out = new PrintStream(config.getEventLogFile());
     }
 
     @Override

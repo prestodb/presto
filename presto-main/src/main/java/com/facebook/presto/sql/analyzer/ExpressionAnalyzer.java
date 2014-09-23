@@ -14,15 +14,17 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.OperatorNotFoundException;
+import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -38,7 +40,6 @@ import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
@@ -58,6 +59,7 @@ import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
+import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
@@ -80,13 +82,13 @@ import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionRegistry.canCoerce;
 import static com.facebook.presto.metadata.FunctionRegistry.getCommonSuperType;
+import static com.facebook.presto.metadata.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.spi.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -99,6 +101,8 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_MINUTE;
+import static com.facebook.presto.type.ArrayParametricType.ARRAY;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.DateTimeUtils.timeHasTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.timestampHasTimeZone;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -287,11 +291,15 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitNullIfExpression(NullIfExpression node, AnalysisContext context)
         {
-            Type type = coerceToSingleType(context, node, "Types are not comparable with NULLIF: %s vs %s", node.getFirst(), node.getSecond());
+            Type firstType = process(node.getFirst(), context);
+            Type secondType = process(node.getSecond(), context);
 
-            // todo NULLIF should be type of first argument, but that is difficult in current AST based expressions tree
-            expressionTypes.put(node, type);
-            return type;
+            if (!FunctionRegistry.getCommonSuperType(firstType, secondType).isPresent()) {
+                throw new SemanticException(TYPE_MISMATCH, node, "Types are not comparable with NULLIF: %s vs %s", firstType, secondType);
+            }
+
+            expressionTypes.put(node, firstType);
+            return firstType;
         }
 
         @Override
@@ -400,6 +408,21 @@ public class ExpressionAnalyzer
         }
 
         @Override
+        protected Type visitSubscriptExpression(SubscriptExpression node, AnalysisContext context)
+        {
+            return getOperator(context, node, SUBSCRIPT, node.getBase(), node.getIndex());
+        }
+
+        @Override
+        protected Type visitArrayConstructor(ArrayConstructor node, AnalysisContext context)
+        {
+            Type type = coerceToSingleType(context, "All ARRAY elements must be the same type: %s", node.getValues());
+            Type arrayType = metadata.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(type.getName()));
+            expressionTypes.put(node, arrayType);
+            return arrayType;
+        }
+
+        @Override
         protected Type visitStringLiteral(StringLiteral node, AnalysisContext context)
         {
             expressionTypes.put(node, VARCHAR);
@@ -436,7 +459,7 @@ public class ExpressionAnalyzer
             }
 
             try {
-                metadata.getExactOperator(OperatorType.CAST, type, ImmutableList.of(VARCHAR));
+                metadata.getFunctionRegistry().getCoercion(VARCHAR, type);
             }
             catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
@@ -508,22 +531,24 @@ public class ExpressionAnalyzer
                 }
             }
 
-            ImmutableList.Builder<Type> argumentTypes = ImmutableList.builder();
+            ImmutableList.Builder<String> argumentTypes = ImmutableList.builder();
             for (Expression expression : node.getArguments()) {
-                argumentTypes.add(process(expression, context));
+                argumentTypes.add(process(expression, context).getName());
             }
 
             FunctionInfo function = metadata.resolveFunction(node.getName(), argumentTypes.build(), context.isApproximate());
             for (int i = 0; i < node.getArguments().size(); i++) {
                 Expression expression = node.getArguments().get(i);
-                Type type = function.getArgumentTypes().get(i);
+                Type type = metadata.getType(function.getArgumentTypes().get(i));
+                checkNotNull(type, "Type %s not found", function.getArgumentTypes().get(i));
                 coerceType(context, expression, type, String.format("Function %s argument %d", function.getSignature(), i));
             }
             resolvedFunctions.put(node, function);
 
-            expressionTypes.put(node, function.getReturnType());
+            Type type = metadata.getType(function.getReturnType());
+            expressionTypes.put(node, type);
 
-            return function.getReturnType();
+            return type;
         }
 
         @Override
@@ -570,7 +595,7 @@ public class ExpressionAnalyzer
             Type value = process(node.getExpression(), context);
             if (value != UNKNOWN) {
                 try {
-                    metadata.getExactOperator(OperatorType.CAST, type, ImmutableList.of(value));
+                    metadata.getFunctionRegistry().getCoercion(value, type);
                 }
                 catch (OperatorNotFoundException e) {
                     throw new SemanticException(TYPE_MISMATCH, node, "Cannot cast %s to %s", value, type);
@@ -637,7 +662,7 @@ public class ExpressionAnalyzer
         @Override
         public Type visitInputReference(InputReference node, AnalysisContext context)
         {
-            Type type = tupleDescriptor.getFieldByIndex(node.getInput().getChannel()).getType();
+            Type type = tupleDescriptor.getFieldByIndex(node.getChannel()).getType();
             expressionTypes.put(node, type);
             return type;
         }
@@ -665,13 +690,14 @@ public class ExpressionAnalyzer
 
             for (int i = 0; i < arguments.length; i++) {
                 Expression expression = arguments[i];
-                Type type = operatorInfo.getArgumentTypes().get(i);
+                Type type = metadata.getType(operatorInfo.getArgumentTypes().get(i));
                 coerceType(context, expression, type, String.format("Operator %s argument %d", operatorInfo, i));
             }
 
-            expressionTypes.put(node, operatorInfo.getReturnType());
+            Type type = metadata.getType(operatorInfo.getReturnType());
+            expressionTypes.put(node, type);
 
-            return operatorInfo.getReturnType();
+            return type;
         }
 
         private void coerceType(AnalysisContext context, Expression expression, Type expectedType, String message)
@@ -769,7 +795,7 @@ public class ExpressionAnalyzer
             ConnectorSession session,
             Metadata metadata,
             SqlParser sqlParser,
-            Map<Input, Type> types,
+            Map<Integer, Type> types,
             Expression expression)
     {
         return getExpressionTypesFromInput(session, metadata, sqlParser, types, ImmutableList.of(expression));
@@ -779,7 +805,7 @@ public class ExpressionAnalyzer
             ConnectorSession session,
             Metadata metadata,
             SqlParser sqlParser,
-            Map<Input, Type> types,
+            Map<Integer, Type> types,
             Iterable<? extends Expression> expressions)
     {
         return analyzeExpressionsWithInputs(session, metadata, sqlParser, types, expressions).getExpressionTypes();
@@ -812,12 +838,12 @@ public class ExpressionAnalyzer
             ConnectorSession session,
             Metadata metadata,
             SqlParser sqlParser,
-            Map<Input, Type> types,
+            Map<Integer, Type> types,
             Iterable<? extends Expression> expressions)
     {
         Field[] fields = new Field[types.size()];
-        for (Entry<Input, Type> entry : types.entrySet()) {
-            fields[entry.getKey().getChannel()] = Field.newUnqualified(Optional.<String>absent(), entry.getValue());
+        for (Entry<Integer, Type> entry : types.entrySet()) {
+            fields[entry.getKey()] = Field.newUnqualified(Optional.<String>absent(), entry.getValue());
         }
         TupleDescriptor tupleDescriptor = new TupleDescriptor(fields);
 

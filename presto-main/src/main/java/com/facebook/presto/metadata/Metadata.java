@@ -16,9 +16,9 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Optional;
-import com.google.common.collect.Multimap;
 
 import javax.validation.constraints.NotNull;
 
@@ -30,7 +30,7 @@ public interface Metadata
 {
     Type getType(String typeName);
 
-    FunctionInfo resolveFunction(QualifiedName name, List<? extends Type> parameterTypes, boolean approximate);
+    FunctionInfo resolveFunction(QualifiedName name, List<String> parameterTypes, boolean approximate);
 
     @NotNull
     FunctionInfo getExactFunction(Signature handle);
@@ -38,16 +38,11 @@ public interface Metadata
     boolean isAggregationFunction(QualifiedName name);
 
     @NotNull
-    List<FunctionInfo> listFunctions();
+    List<ParametricFunction> listFunctions();
 
-    void addFunctions(List<FunctionInfo> functions);
-
-    void addOperators(Multimap<OperatorType, FunctionInfo> operators);
+    void addFunctions(List<? extends ParametricFunction> functions);
 
     FunctionInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
-            throws OperatorNotFoundException;
-
-    FunctionInfo getExactOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException;
 
     @NotNull
@@ -72,14 +67,6 @@ public interface Metadata
      */
     @NotNull
     List<QualifiedTableName> listTables(ConnectorSession session, QualifiedTablePrefix prefix);
-
-    /**
-     * Returns a handle for the specified table column.
-     *
-     * @throws RuntimeException if table handle is no longer valid
-     */
-    @NotNull
-    Optional<ColumnHandle> getColumnHandle(TableHandle tableHandle, String columnName);
 
     /**
      * Returns the handle for the sample weight column.
@@ -124,6 +111,11 @@ public interface Metadata
     TableHandle createTable(ConnectorSession session, String catalogName, TableMetadata tableMetadata);
 
     /**
+     * Rename the specified table.
+     */
+    void renameTable(TableHandle tableHandle, QualifiedTableName newTableName);
+
+    /**
      * Drops the specified table
      *
      * @throws RuntimeException if the table can not be dropped or table handle is no longer valid
@@ -139,6 +131,16 @@ public interface Metadata
      * Commit a table creation with data after the data is written.
      */
     void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments);
+
+    /**
+     * Begin insert query
+     */
+    InsertTableHandle beginInsert(ConnectorSession session, TableHandle tableHandle);
+
+    /**
+     * Commit insert query
+     */
+    void commitInsert(InsertTableHandle tableHandle, Collection<String> fragments);
 
     /**
      * Gets all the loaded catalogs
@@ -175,4 +177,8 @@ public interface Metadata
      * Drops the specified view.
      */
     void dropView(ConnectorSession session, QualifiedTableName viewName);
+
+    FunctionRegistry getFunctionRegistry();
+
+    TypeManager getTypeManager();
 }

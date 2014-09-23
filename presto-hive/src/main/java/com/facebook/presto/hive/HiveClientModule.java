@@ -15,8 +15,8 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastore;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.net.HostAndPort;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -27,13 +27,15 @@ import javax.inject.Singleton;
 
 import java.net.URI;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -42,11 +44,13 @@ public class HiveClientModule
 {
     private final String connectorId;
     private final HiveMetastore metastore;
+    private final TypeManager typeManager;
 
-    public HiveClientModule(String connectorId, HiveMetastore metastore)
+    public HiveClientModule(String connectorId, HiveMetastore metastore, TypeManager typeManager)
     {
         this.connectorId = connectorId;
         this.metastore = metastore;
+        this.typeManager = typeManager;
     }
 
     @Override
@@ -76,6 +80,8 @@ public class HiveClientModule
         binder.bind(DiscoveryLocatedHiveCluster.class).in(Scopes.SINGLETON);
         binder.bind(HiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
         discoveryBinder(binder).bindSelector("hive-metastore");
+
+        binder.bind(TypeManager.class).toInstance(typeManager);
     }
 
     @ForHiveClient
@@ -83,7 +89,7 @@ public class HiveClientModule
     @Provides
     public ExecutorService createHiveClientExecutor(HiveConnectorId hiveClientId)
     {
-        return Executors.newCachedThreadPool(new ThreadFactoryBuilder().setDaemon(true).setNameFormat("hive-" + hiveClientId + "-%d").build());
+        return newCachedThreadPool(daemonThreadsNamed("hive-" + hiveClientId + "-%s"));
     }
 
     @ForHiveMetastore
@@ -91,9 +97,9 @@ public class HiveClientModule
     @Provides
     public ExecutorService createCachingHiveMetastoreExecutor(HiveConnectorId hiveClientId, HiveClientConfig hiveClientConfig)
     {
-        return Executors.newFixedThreadPool(
+        return newFixedThreadPool(
                 hiveClientConfig.getMaxMetastoreRefreshThreads(),
-                new ThreadFactoryBuilder().setDaemon(true).setNameFormat("hive-metastore-" + hiveClientId + "-%d").build());
+                daemonThreadsNamed("hive-metastore-" + hiveClientId + "-%s"));
     }
 
     @Singleton

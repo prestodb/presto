@@ -13,26 +13,25 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.connector.InternalConnector;
+import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorOutputHandleResolver;
+import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
-import com.facebook.presto.split.ConnectorDataStreamProvider;
 
 import javax.inject.Inject;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class RaptorConnector
-        implements InternalConnector
+        implements Connector
 {
     private final RaptorMetadata metadata;
     private final RaptorSplitManager splitManager;
-    private final RaptorDataStreamProvider dataStreamProvider;
+    private final RaptorPageSourceProvider pageSourceProvider;
     private final RaptorRecordSinkProvider recordSinkProvider;
     private final RaptorHandleResolver handleResolver;
 
@@ -40,21 +39,21 @@ public class RaptorConnector
     public RaptorConnector(
             RaptorMetadata metadata,
             RaptorSplitManager splitManager,
-            RaptorDataStreamProvider dataStreamProvider,
+            RaptorPageSourceProvider pageSourceProvider,
             RaptorRecordSinkProvider recordSinkProvider,
             RaptorHandleResolver handleResolver)
     {
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
-        this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
+        this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceProvider is null");
         this.recordSinkProvider = checkNotNull(recordSinkProvider, "recordSinkProvider is null");
         this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
     }
 
     @Override
-    public ConnectorDataStreamProvider getDataStreamProvider()
+    public ConnectorPageSourceProvider getPageSourceProvider()
     {
-        return dataStreamProvider;
+        return pageSourceProvider;
     }
 
     @Override
@@ -79,12 +78,6 @@ public class RaptorConnector
     public ConnectorRecordSinkProvider getRecordSinkProvider()
     {
         return recordSinkProvider;
-    }
-
-    @Override
-    public ConnectorOutputHandleResolver getOutputHandleResolver()
-    {
-        return handleResolver;
     }
 
     @Override

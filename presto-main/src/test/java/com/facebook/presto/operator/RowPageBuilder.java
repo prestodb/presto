@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.util.List;
@@ -27,6 +29,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class RowPageBuilder
 {
+    private final List<Type> types;
+
     public static RowPageBuilder rowPageBuilder(Type... types)
     {
         return rowPageBuilder(ImmutableList.copyOf(types));
@@ -42,7 +46,7 @@ public class RowPageBuilder
 
     RowPageBuilder(Iterable<Type> types)
     {
-        checkNotNull(types, "types is null");
+        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
         ImmutableList.Builder<BlockBuilder> builders = ImmutableList.builder();
         for (Type type : types) {
             builders.add(type.createBlockBuilder(new BlockBuilderStatus()));
@@ -61,7 +65,7 @@ public class RowPageBuilder
         checkArgument(values.length == builders.size(), "Expected %s values, but got %s", builders.size(), values.length);
 
         for (int channel = 0; channel < values.length; channel++) {
-            append(builders.get(channel), values[channel]);
+            append(channel, values[channel]);
         }
         rowCount++;
         return this;
@@ -76,22 +80,27 @@ public class RowPageBuilder
         return new Page(blocks);
     }
 
-    private void append(BlockBuilder builder, Object value)
+    private void append(int channel, Object value)
     {
+        BlockBuilder builder = builders.get(channel);
+
+        Type type = types.get(channel);
+        Class<?> javaType = type.getJavaType();
         if (value == null) {
             builder.appendNull();
         }
-        else if (value instanceof Boolean) {
-            builder.appendBoolean((Boolean) value);
+        else if (javaType == boolean.class) {
+            type.writeBoolean(builder, (Boolean) value);
         }
-        else if ((value instanceof Long) || (value instanceof Integer)) {
-            builder.appendLong(((Number) value).longValue());
+        else if (javaType == long.class) {
+            type.writeLong(builder, ((Number) value).longValue());
         }
-        else if (value instanceof Double) {
-            builder.appendDouble((Double) value);
+        else if (javaType == double.class) {
+            type.writeDouble(builder, (Double) value);
         }
-        else if (value instanceof String) {
-            builder.appendSlice(Slices.utf8Slice((String) value));
+        else if (javaType == Slice.class) {
+            Slice slice = Slices.utf8Slice((String) value);
+            type.writeSlice(builder, slice, 0, slice.length());
         }
         else {
             throw new IllegalArgumentException("bad value: " + value.getClass().getName());

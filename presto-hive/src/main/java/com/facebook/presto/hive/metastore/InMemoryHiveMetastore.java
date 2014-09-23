@@ -85,6 +85,23 @@ public class InMemoryHiveMetastore
     }
 
     @Override
+    public void renameTable(String databaseName, String tableName, String newDatabaseName, String newTableName)
+    {
+        // TODO: use locking to do this properly
+        SchemaTableName oldTable = new SchemaTableName(databaseName, tableName);
+        Table table = relations.get(oldTable);
+        if (table == null) {
+            throw new TableNotFoundException(oldTable);
+        }
+
+        SchemaTableName newTable = new SchemaTableName(newDatabaseName, newTableName);
+        if (relations.putIfAbsent(newTable, table) != null) {
+            throw new TableAlreadyExistsException(newTable);
+        }
+        relations.remove(oldTable);
+    }
+
+    @Override
     public List<String> getAllTables(String databaseName)
             throws NoSuchObjectException
     {

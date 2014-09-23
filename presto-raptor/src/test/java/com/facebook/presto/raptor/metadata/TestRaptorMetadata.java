@@ -16,7 +16,6 @@ package com.facebook.presto.raptor.metadata;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.RaptorMetadata;
-import com.facebook.presto.raptor.RaptorPartitionKey;
 import com.facebook.presto.raptor.RaptorTableHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
@@ -70,7 +69,7 @@ public class TestRaptorMetadata
         TypeRegistry typeRegistry = new TypeRegistry();
         DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
-        dbi.registerMapper(new RaptorPartitionKey.Mapper(typeRegistry));
+        dbi.registerMapper(new PartitionKey.Mapper(typeRegistry));
         dummyHandle = dbi.open();
         metadata = new RaptorMetadata(new RaptorConnectorId("default"), dbi, new DatabaseShardManager(dbi));
     }
@@ -93,7 +92,7 @@ public class TestRaptorMetadata
         ConnectorTableMetadata table = metadata.getTableMetadata(tableHandle);
         assertTableEqual(table, getOrdersTable());
 
-        ConnectorColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, "orderkey");
+        ConnectorColumnHandle columnHandle = metadata.getColumnHandles(tableHandle).get("orderkey");
         assertInstanceOf(columnHandle, RaptorColumnHandle.class);
         assertEquals(((RaptorColumnHandle) columnHandle).getColumnId(), 1);
 

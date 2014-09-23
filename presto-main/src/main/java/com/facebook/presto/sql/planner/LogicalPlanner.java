@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -35,6 +36,10 @@ import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
+import static com.google.common.base.Preconditions.checkState;
 
 public class LogicalPlanner
 {
@@ -65,11 +70,13 @@ public class LogicalPlanner
     {
         RelationPlan plan;
         if (analysis.getCreateTableDestination().isPresent()) {
-            plan = createTableWriterPlan(analysis);
+            plan = createTableCreationPlan(analysis);
+        }
+        else if (analysis.getInsertTarget().isPresent()) {
+            plan = createInsertPlan(analysis);
         }
         else {
-            RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
-            plan = planner.process(analysis.getQuery(), null);
+            plan = createRelationPlan(analysis);
         }
 
         PlanNode root = createOutputPlan(plan, analysis);
@@ -87,40 +94,57 @@ public class LogicalPlanner
         return new Plan(root, symbolAllocator);
     }
 
-    private RelationPlan createTableWriterPlan(Analysis analysis)
+    private RelationPlan createTableCreationPlan(Analysis analysis)
     {
         QualifiedTableName destination = analysis.getCreateTableDestination().get();
 
-        RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
-        RelationPlan plan = planner.process(analysis.getQuery(), null);
+        RelationPlan plan = createRelationPlan(analysis);
 
-        TableMetadata tableMetadata = createTableMetadata(destination, getOutputTableColumns(plan));
+        TableMetadata tableMetadata = createTableMetadata(destination, getOutputTableColumns(plan), plan.getSampleWeight().isPresent());
+        checkState(!plan.getSampleWeight().isPresent() || metadata.canCreateSampledTables(session, destination.getCatalogName()), "Cannot write sampled data to a store that doesn't support sampling");
 
-        ImmutableList<Symbol> writerOutputs = ImmutableList.of(
+        return createTableWriterPlan(
+                analysis,
+                plan,
+                tableMetadata,
+                new CreateName(destination.getCatalogName(), tableMetadata));
+    }
+
+    private RelationPlan createInsertPlan(Analysis analysis)
+    {
+        TableHandle target = analysis.getInsertTarget().get();
+
+        return createTableWriterPlan(
+                analysis,
+                createRelationPlan(analysis),
+                metadata.getTableMetadata(target),
+                new InsertReference(target));
+    }
+
+    private RelationPlan createTableWriterPlan(Analysis analysis, RelationPlan plan, TableMetadata tableMetadata, WriterTarget target)
+    {
+        List<Symbol> writerOutputs = ImmutableList.of(
                 symbolAllocator.newSymbol("partialrows", BIGINT),
                 symbolAllocator.newSymbol("fragment", VARCHAR));
 
         TableWriterNode writerNode = new TableWriterNode(
                 idAllocator.getNextId(),
                 plan.getRoot(),
-                null,
+                target,
                 plan.getOutputSymbols(),
                 getColumnNames(tableMetadata),
                 writerOutputs,
-                Optional.<Symbol>absent(),
-                destination.getCatalogName(),
-                tableMetadata,
-                metadata.canCreateSampledTables(session, destination.getCatalogName()));
+                plan.getSampleWeight());
 
         List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT));
 
         TableCommitNode commitNode = new TableCommitNode(
                 idAllocator.getNextId(),
                 writerNode,
-                null,
+                target,
                 outputs);
 
-        return new RelationPlan(commitNode, analysis.getOutputDescriptor(), outputs);
+        return new RelationPlan(commitNode, analysis.getOutputDescriptor(), outputs, Optional.<Symbol>absent());
     }
 
     private PlanNode createOutputPlan(RelationPlan plan, Analysis analysis)
@@ -144,10 +168,16 @@ public class LogicalPlanner
         return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names.build(), outputs.build());
     }
 
-    private TableMetadata createTableMetadata(QualifiedTableName table, List<ColumnMetadata> columns)
+    private RelationPlan createRelationPlan(Analysis analysis)
+    {
+        return new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session)
+                .process(analysis.getQuery(), null);
+    }
+
+    private TableMetadata createTableMetadata(QualifiedTableName table, List<ColumnMetadata> columns, boolean sampled)
     {
         String owner = session.getUser();
-        ConnectorTableMetadata metadata = new ConnectorTableMetadata(table.asSchemaTableName(), columns, owner);
+        ConnectorTableMetadata metadata = new ConnectorTableMetadata(table.asSchemaTableName(), columns, owner, sampled);
         // TODO: first argument should actually be connectorId
         return new TableMetadata(table.getCatalogName(), metadata);
     }

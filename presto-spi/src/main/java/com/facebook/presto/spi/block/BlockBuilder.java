@@ -19,29 +19,44 @@ public interface BlockBuilder
         extends Block
 {
     /**
-     * Appends a boolean value to the block.
+     * Write a byte to the current entry;
      */
-    BlockBuilder appendBoolean(boolean value);
+    BlockBuilder writeByte(int value);
 
     /**
-     * Appends a long value to the block.
+     * Write a short to the current entry;
      */
-    BlockBuilder appendLong(long value);
+    BlockBuilder writeShort(int value);
 
     /**
-     * Appends a double value to the block.
+     * Write a int to the current entry;
      */
-    BlockBuilder appendDouble(double value);
+    BlockBuilder writeInt(int value);
 
     /**
-     * Appends a Slice value to the block.
+     * Write a long to the current entry;
      */
-    BlockBuilder appendSlice(Slice value);
+    BlockBuilder writeLong(long value);
 
     /**
-     * Appends a range of a Slice value to the block.
+     * Write a float to the current entry;
      */
-    BlockBuilder appendSlice(Slice value, int offset, int length);
+    BlockBuilder writeFloat(float v);
+
+    /**
+     * Write a double to the current entry;
+     */
+    BlockBuilder writeDouble(double value);
+
+    /**
+     * Write a byte sequences to the current entry;
+     */
+    BlockBuilder writeBytes(Slice source, int sourceIndex, int length);
+
+    /**
+     * Write a byte to the current entry;
+     */
+    BlockBuilder closeEntry();
 
     /**
      * Appends a null value to the block.

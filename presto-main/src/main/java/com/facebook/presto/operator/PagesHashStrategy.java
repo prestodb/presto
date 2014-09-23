@@ -13,17 +13,42 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
 
 public interface PagesHashStrategy
 {
+    /**
+     * Gets the total of the columns held in in this PagesHashStrategy.  This includes both the hashed
+     * and non-hashed columns.
+     */
     int getChannelCount();
 
-    void appendTo(int blockIndex, int blockPosition, PageBuilder pageBuilder, int outputChannelOffset);
+    /**
+     * Appends all values at the specified position to the page builder starting at {@code outputChannelOffset}.
+     */
+    void appendTo(int blockIndex, int position, PageBuilder pageBuilder, int outputChannelOffset);
 
-    int hashPosition(int blockIndex, int blockPosition);
+    /**
+     * Calculates the hash code the hashed columns in this PagesHashStrategy at the specified position.
+     */
+    int hashPosition(int blockIndex, int position);
 
-    boolean positionEqualsCursors(int blockIndex, int blockPosition, BlockCursor[] cursors);
+    /**
+     * Calculates the hash code at {@code position} in {@code blocks}. Blocks must have the same number of
+     * entries as the hashed columns and each entry is expected to be the same type.
+     */
+    int hashRow(int position, Block... blocks);
 
-    boolean positionEqualsPosition(int leftBlockIndex, int leftBlockPosition, int rightBlockIndex, int rightBlockPosition);
+    /**
+     * Compares the hashed columns in this PagesHashStrategy to the values in the specified blocks.  The
+     * values are compared positionally, so {@code rightBlocks} must have the same number of entries as
+     * the hashed columns and each entry is expected to be the same type.
+     */
+    boolean positionEqualsRow(int leftBlockIndex, int leftPosition, int rightPosition, Block... rightBlocks);
+
+    /**
+     * Compares the hashed columns in this PagesHashStrategy at the specified positions.
+     */
+    boolean positionEqualsPosition(int leftBlockIndex, int leftPosition, int rightBlockIndex, int rightPosition);
 }

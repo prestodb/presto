@@ -14,8 +14,8 @@
 package com.facebook.presto.operator.index;
 
 import com.facebook.presto.operator.LookupSource;
-import com.facebook.presto.operator.PageBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -43,16 +43,22 @@ public class IndexLookupSource
     }
 
     @Override
-    public long getJoinPosition(BlockCursor... cursors)
+    public long getJoinPosition(int position, Block... blocks)
     {
-        long position = indexSnapshot.getJoinPosition(cursors);
-        if (position == UNLOADED_INDEX_KEY) {
-            indexSnapshot = indexLoader.getIndexSnapshotForKeys(cursors);
-            position = indexSnapshot.getJoinPosition(cursors);
-            checkState(position != UNLOADED_INDEX_KEY);
+        // Fetch the indexSnapshot each time to avoid hanging onto old snapshots. This is an
+        // attempt to make sure we don't have too many snapshots around which results in untracked
+        // memory usage. Additionally, we may need to add other optimizations around this if it
+        // hurts our throughput too much.
+        indexSnapshot = indexLoader.getIndexSnapshot();
+
+        long joinPosition = indexSnapshot.getJoinPosition(position, blocks);
+        if (joinPosition == UNLOADED_INDEX_KEY) {
+            indexSnapshot = indexLoader.getIndexSnapshotForKeys(position, blocks);
+            joinPosition = indexSnapshot.getJoinPosition(position, blocks);
+            checkState(joinPosition != UNLOADED_INDEX_KEY);
         }
         // INVARIANT: position is -1 or a valid position greater than or equal to zero
-        return position;
+        return joinPosition;
     }
 
     @Override

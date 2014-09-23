@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -20,13 +22,11 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
 
 import java.io.Closeable;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class RecordProjectOperator
         implements Operator, Closeable
@@ -128,6 +128,7 @@ public class RecordProjectOperator
                     break;
                 }
 
+                pageBuilder.declarePosition();
                 for (int column = 0; column < types.size(); column++) {
                     BlockBuilder output = pageBuilder.getBlockBuilder(column);
                     if (cursor.isNull(column)) {
@@ -137,16 +138,17 @@ public class RecordProjectOperator
                         Type type = getTypes().get(column);
                         Class<?> javaType = type.getJavaType();
                         if (javaType == boolean.class) {
-                            output.appendBoolean(cursor.getBoolean(column));
+                            type.writeBoolean(output, cursor.getBoolean(column));
                         }
                         else if (javaType == long.class) {
-                            output.appendLong(cursor.getLong(column));
+                            type.writeLong(output, cursor.getLong(column));
                         }
                         else if (javaType == double.class) {
-                            output.appendDouble(cursor.getDouble(column));
+                            type.writeDouble(output, cursor.getDouble(column));
                         }
                         else if (javaType == Slice.class) {
-                            output.appendSlice(cursor.getSlice(column));
+                            Slice slice = cursor.getSlice(column);
+                            type.writeSlice(output, slice, 0, slice.length());
                         }
                         else {
                             throw new AssertionError("Unimplemented type: " + javaType.getName());
@@ -155,10 +157,10 @@ public class RecordProjectOperator
                 }
             }
 
-            long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
+            long endCompletedBytes = cursor.getCompletedBytes();
             long endReadTimeNanos = cursor.getReadTimeNanos();
-            operatorContext.recordGeneratedInput(new DataSize(bytesProcessed, BYTE), i, endReadTimeNanos - readTimeNanos);
-            completedBytes += bytesProcessed;
+            operatorContext.recordGeneratedInput(endCompletedBytes - completedBytes, i, endReadTimeNanos - readTimeNanos);
+            completedBytes = endCompletedBytes;
             readTimeNanos = endReadTimeNanos;
         }
 

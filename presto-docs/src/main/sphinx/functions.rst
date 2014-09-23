@@ -11,6 +11,7 @@ Functions and Operators
     functions/conversion
     functions/math
     functions/string
+    functions/binary
     functions/datetime
     functions/regexp
     functions/json
@@ -18,3 +19,4 @@ Functions and Operators
     functions/aggregate
     functions/window
     functions/color
+    functions/array

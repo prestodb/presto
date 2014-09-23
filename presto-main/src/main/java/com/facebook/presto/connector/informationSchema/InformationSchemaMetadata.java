@@ -65,6 +65,7 @@ public class InformationSchemaMetadata
                     .column("is_nullable", VARCHAR)
                     .column("data_type", VARCHAR)
                     .column("is_partition_key", VARCHAR)
+                    .column("comment", VARCHAR)
                     .build())
             .table(tableMetadataBuilder(TABLE_TABLES)
                     .column("table_catalog", VARCHAR)
@@ -144,18 +145,6 @@ public class InformationSchemaMetadata
         }
 
         return ImmutableList.copyOf(filter(TABLES.keySet(), compose(equalTo(schemaNameOrNull), schemaNameGetter())));
-    }
-
-    @Override
-    public ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName)
-    {
-        InformationSchemaTableHandle informationSchemaTableHandle = checkTableHandle(tableHandle);
-        ConnectorTableMetadata tableMetadata = TABLES.get(informationSchemaTableHandle.getSchemaTableName());
-
-        if (findColumnMetadata(tableMetadata, columnName) == null) {
-            return null;
-        }
-        return new InformationSchemaColumnHandle(columnName);
     }
 
     @Override

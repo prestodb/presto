@@ -14,11 +14,9 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.block.BlockUtils;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.operator.Page;
-import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -26,39 +24,31 @@ import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
-import static com.facebook.presto.block.BlockIterables.createBlockIterable;
-import static com.facebook.presto.block.BlockUtils.emptyBlockIterable;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class InternalTable
 {
-    private final Map<String, BlockIterable> columns;
+    private final Map<String, Integer> columnIndexes;
+    private final List<Page> pages;
 
-    public InternalTable(Map<String, BlockIterable> columns)
+    public InternalTable(Map<String, Integer> columnIndexes, Iterable<Page> pages)
     {
-        this.columns = ImmutableMap.copyOf(checkNotNull(columns, "columns is null"));
+        this.columnIndexes = ImmutableMap.copyOf(checkNotNull(columnIndexes, "columnIndexes is null"));
+        this.pages = ImmutableList.copyOf(checkNotNull(pages, "pages is null"));
     }
 
-    public Set<String> getColumnNames()
+    public int getColumnIndex(String columnName)
     {
-        return columns.keySet();
+        Integer index = columnIndexes.get(columnName);
+        checkArgument(index != null, "Column %s not found", columnName);
+        return index;
     }
 
-    public BlockIterable getColumn(String columnName)
+    public List<Page> getPages()
     {
-        return columns.get(columnName);
-    }
-
-    public List<BlockIterable> getColumns(List<String> columnNames)
-    {
-        ImmutableList.Builder<BlockIterable> columns = ImmutableList.builder();
-        for (String columnName : columnNames) {
-            columns.add(getColumn(columnName));
-        }
-        return columns.build();
+        return pages;
     }
 
     public static Builder builder(ColumnMetadata... columns)
@@ -74,45 +64,43 @@ public class InternalTable
             names.add(column.getName());
             types.add(column.getType());
         }
-        return new Builder(types.build(), names.build());
+        return new Builder(names.build(), types.build());
     }
 
     public static class Builder
     {
+        private final Map<String, Integer> columnIndexes;
         private final List<Type> types;
-        private final List<String> columnNames;
-        private final List<List<Block>> columns;
+        private final List<Page> pages;
         private PageBuilder pageBuilder;
 
-        public Builder(List<Type> types, List<String> columnNames)
+        public Builder(List<String> columnNames, List<Type> types)
         {
+            checkNotNull(columnNames, "columnNames is null");
+
+            ImmutableMap.Builder<String, Integer> columnIndexes = ImmutableMap.builder();
+            int columnIndex = 0;
+            for (String columnName : columnNames) {
+                columnIndexes.put(columnName, columnIndex++);
+            }
+            this.columnIndexes = columnIndexes.build();
+
             this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-            this.columnNames = ImmutableList.copyOf(checkNotNull(columnNames, "columnNames is null"));
             checkArgument(columnNames.size() == types.size(),
                     "Column name count does not match type count: columnNames=%s, types=%s", columnNames, types.size());
 
-            columns = new ArrayList<>();
-            for (int i = 0; i < types.size(); i++) {
-                columns.add(new ArrayList<Block>());
-            }
-
+            pages = new ArrayList<>();
             pageBuilder = new PageBuilder(types);
-        }
-
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         public Builder add(Object... values)
         {
             for (int i = 0; i < types.size(); i++) {
-                BlockUtils.appendObject(pageBuilder.getBlockBuilder(i), values[i]);
+                BlockUtils.appendObject(types.get(i), pageBuilder.getBlockBuilder(i), values[i]);
             }
 
             if (pageBuilder.isFull()) {
                 flushPage();
-                pageBuilder.reset();
             }
             return this;
         }
@@ -120,21 +108,14 @@ public class InternalTable
         public InternalTable build()
         {
             flushPage();
-            ImmutableMap.Builder<String, BlockIterable> data = ImmutableMap.builder();
-            for (int i = 0; i < columns.size(); i++) {
-                List<Block> column = columns.get(i);
-                data.put(columnNames.get(i), column.isEmpty() ? emptyBlockIterable() : createBlockIterable(column));
-            }
-            return new InternalTable(data.build());
+            return new InternalTable(columnIndexes, pages);
         }
 
         private void flushPage()
         {
             if (!pageBuilder.isEmpty()) {
-                Page page = pageBuilder.build();
-                for (int i = 0; i < types.size(); i++) {
-                    columns.get(i).add(page.getBlock(i));
-                }
+                pages.add(pageBuilder.build());
+                pageBuilder.reset();
             }
         }
     }

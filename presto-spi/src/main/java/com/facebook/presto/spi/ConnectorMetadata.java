@@ -42,13 +42,6 @@ public interface ConnectorMetadata
     List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull);
 
     /**
-     * Returns a handle for the specified table column, or null if the table does not contain the specified column.
-     *
-     * @throws RuntimeException if table handle is no longer valid
-     */
-    ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName);
-
-    /**
      * Returns the handle for the sample weight column, or null if the table does not contain sampled data.
      *
      * @throws RuntimeException if the table handle is no longer valid
@@ -92,6 +85,11 @@ public interface ConnectorMetadata
     void dropTable(ConnectorTableHandle tableHandle);
 
     /**
+     * Rename the specified table
+     */
+    void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName);
+
+    /**
      * Begin the atomic creation of a table with data.
      */
     ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
@@ -100,6 +98,16 @@ public interface ConnectorMetadata
      * Commit a table creation with data after the data is written.
      */
     void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<String> fragments);
+
+    /**
+     * Begin insert query
+     */
+    ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle);
+
+    /**
+     * Commit insert query
+     */
+    void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments);
 
     /**
      * Create the specified view. The data for the view is opaque to the connector.

@@ -16,8 +16,11 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.collect.ImmutableList;
 
-import static com.facebook.presto.operator.aggregation.CountIfAggregation.COUNT_IF;
+import java.util.List;
+
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
 public class TestCountIfAggregation
@@ -28,15 +31,9 @@ public class TestCountIfAggregation
     {
         BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
         for (int i = start; i < start + length; i++) {
-            blockBuilder.appendBoolean(i % 2 == 0);
+            BOOLEAN.writeBoolean(blockBuilder, i % 2 == 0);
         }
         return blockBuilder.build();
-    }
-
-    @Override
-    public AggregationFunction getFunction()
-    {
-        return COUNT_IF;
     }
 
     @Override
@@ -49,5 +46,17 @@ public class TestCountIfAggregation
             }
         }
         return count;
+    }
+
+    @Override
+    protected String getFunctionName()
+    {
+        return "count_if";
+    }
+
+    @Override
+    protected List<String> getFunctionParameterTypes()
+    {
+        return ImmutableList.of(StandardTypes.BOOLEAN);
     }
 }

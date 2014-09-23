@@ -15,7 +15,6 @@ package com.facebook.presto.client;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Objects;
-import com.google.common.base.Throwables;
 import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
@@ -42,8 +41,8 @@ import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerat
 import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @ThreadSafe
 public class StatementClient
@@ -53,7 +52,7 @@ public class StatementClient
             "/" +
             Objects.firstNonNull(StatementClient.class.getPackage().getImplementationVersion(), "unknown");
 
-    public static final long REQUEST_TIMEOUT = MINUTES.toNanos(2);
+    public static final long REQUEST_TIMEOUT = SECONDS.toNanos(10);
     private final HttpClient httpClient;
     private final FullJsonResponseHandler<QueryResults> responseHandler;
     private final boolean debug;
@@ -78,15 +77,7 @@ public class StatementClient
         this.query = query;
 
         Request request = buildQueryRequest(session, query);
-
-        try {
-            QueryResults results = sendRequest(request, REQUEST_TIMEOUT);
-            currentResults.set(results);
-        }
-        catch (RuntimeException e) {
-            gone.set(true);
-            Throwables.propagate(e);
-        }
+        updateResults(request);
     }
 
     private static Request buildQueryRequest(ClientSession session, String query)
@@ -173,20 +164,10 @@ public class StatementClient
                 .setUri(current().getNextUri())
                 .build();
 
-        try {
-            QueryResults results = sendRequest(request, REQUEST_TIMEOUT);
-            currentResults.set(results);
-            return true;
-        }
-        catch (RuntimeException e) {
-            gone.set(true);
-            Throwables.propagate(e);
-        }
-
-        return false;
+        return updateResults(request);
     }
 
-    private QueryResults sendRequest(Request request, long timeout)
+    private boolean updateResults(Request request)
     {
         long start = System.nanoTime();
         Exception cause = null;
@@ -209,12 +190,13 @@ public class StatementClient
             }
 
             if (response.getStatusCode() == HttpStatus.OK.code() && response.hasValue()) {
-                return response.getValue();
+                currentResults.set(response.getValue());
+                return true;
             }
 
             if (response.getStatusCode() != HttpStatus.SERVICE_UNAVAILABLE.code()) {
                 if (!response.hasValue()) {
-                    throw new RuntimeException(format("Error executing request at %s returned an invalid response", request.getUri()),
+                    throw new RuntimeException(format("Error fetching next at %s returned an invalid response", request.getUri()),
                             response.getException());
                 }
                 throw new RuntimeException(format("Error executing request at %s returned %s: %s",
@@ -223,7 +205,9 @@ public class StatementClient
                         response.getStatusMessage()));
             }
         }
-        while ((System.nanoTime() - start) < timeout && !isClosed());
+        while ((System.nanoTime() - start) < REQUEST_TIMEOUT && !isClosed());
+
+        gone.set(true);
         throw new RuntimeException("Request timed out (server down?)", cause);
     }
 

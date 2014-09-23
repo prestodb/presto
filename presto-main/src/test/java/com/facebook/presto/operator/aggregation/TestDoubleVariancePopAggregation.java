@@ -16,9 +16,12 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.collect.ImmutableList;
 import org.apache.commons.math3.stat.descriptive.moment.Variance;
 
-import static com.facebook.presto.operator.aggregation.VarianceAggregations.DOUBLE_VARIANCE_POP_INSTANCE;
+import java.util.List;
+
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class TestDoubleVariancePopAggregation
@@ -29,15 +32,9 @@ public class TestDoubleVariancePopAggregation
     {
         BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus());
         for (int i = start; i < start + length; i++) {
-            blockBuilder.appendDouble((double) i);
+            DOUBLE.writeDouble(blockBuilder, (double) i);
         }
         return blockBuilder.build();
-    }
-
-    @Override
-    public AggregationFunction getFunction()
-    {
-        return DOUBLE_VARIANCE_POP_INSTANCE;
     }
 
     @Override
@@ -54,5 +51,17 @@ public class TestDoubleVariancePopAggregation
 
         Variance variance = new Variance(false);
         return variance.evaluate(values);
+    }
+
+    @Override
+    protected String getFunctionName()
+    {
+        return "var_pop";
+    }
+
+    @Override
+    protected List<String> getFunctionParameterTypes()
+    {
+        return ImmutableList.of(StandardTypes.DOUBLE);
     }
 }

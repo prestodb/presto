@@ -13,30 +13,30 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordSink;
-import com.google.common.base.Optional;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class TableWriterOperator
         implements Operator
 {
-    public static final List<Type> TYPES = ImmutableList.of(BIGINT, VARCHAR);
+    public static final List<Type> TYPES = ImmutableList.<Type>of(BIGINT, VARCHAR);
 
     public static class TableWriterOperatorFactory
             implements OperatorFactory
@@ -57,6 +57,7 @@ public class TableWriterOperator
             checkNotNull(recordTypes, "types is null");
             this.recordTypes = ImmutableList.copyOf(Iterables.transform(recordTypes, new Function<Type, Type>()
             {
+                @Override
                 public Type apply(Type type)
                 {
                     return type;
@@ -158,60 +159,48 @@ public class TableWriterOperator
         checkNotNull(page, "page is null");
         checkState(state == State.RUNNING, "Operator is %s", state);
 
-        BlockCursor[] cursors;
-        BlockCursor sampleWeightCursor = null;
+        Block sampleWeightBlock = null;
         if (sampleWeightChannel.isPresent()) {
-            cursors = new BlockCursor[page.getChannelCount() - 1];
-            sampleWeightCursor = page.getBlock(sampleWeightChannel.get()).cursor();
-        }
-        else {
-            cursors = new BlockCursor[recordTypes.size()];
+            sampleWeightBlock = page.getBlock(sampleWeightChannel.get());
         }
 
-        for (int outputChannel = 0; outputChannel < cursors.length; outputChannel++) {
-            cursors[outputChannel] = page.getBlock(inputChannels.get(outputChannel)).cursor();
+        Block[] blocks = new Block[inputChannels.size()];
+        for (int outputChannel = 0; outputChannel < inputChannels.size(); outputChannel++) {
+            blocks[outputChannel] = page.getBlock(inputChannels.get(outputChannel));
         }
 
-        int rows = 0;
         for (int position = 0; position < page.getPositionCount(); position++) {
             long sampleWeight = 1;
-            if (sampleWeightCursor != null) {
-                checkArgument(sampleWeightCursor.advanceNextPosition());
-                sampleWeight = sampleWeightCursor.getLong();
+            if (sampleWeightBlock != null) {
+                sampleWeight = BIGINT.getLong(sampleWeightBlock, position);
             }
-            rows += sampleWeight;
             recordSink.beginRecord(sampleWeight);
-            for (int i = 0; i < cursors.length; i++) {
-                checkArgument(cursors[i].advanceNextPosition());
-                writeField(cursors[i], recordTypes.get(i));
+            for (int i = 0; i < blocks.length; i++) {
+                writeField(position, blocks[i], recordTypes.get(i));
             }
             recordSink.finishRecord();
         }
-        rowCount += rows;
-
-        for (BlockCursor cursor : cursors) {
-            checkArgument(!cursor.advanceNextPosition());
-        }
+        rowCount += page.getPositionCount();
     }
 
-    private void writeField(BlockCursor cursor, Type type)
+    private void writeField(int position, Block block, Type type)
     {
-        if (cursor.isNull()) {
+        if (block.isNull(position)) {
             recordSink.appendNull();
             return;
         }
 
-        if (type.equals(BOOLEAN)) {
-            recordSink.appendBoolean(cursor.getBoolean());
+        if (type.getJavaType() == boolean.class) {
+            recordSink.appendBoolean(type.getBoolean(block, position));
         }
-        else if (type.equals(BIGINT)) {
-            recordSink.appendLong(cursor.getLong());
+        else if (type.getJavaType() == long.class) {
+            recordSink.appendLong(type.getLong(block, position));
         }
-        else if (type.equals(DOUBLE)) {
-            recordSink.appendDouble(cursor.getDouble());
+        else if (type.getJavaType() == double.class) {
+            recordSink.appendDouble(type.getDouble(block, position));
         }
-        else if (type.equals(VARCHAR)) {
-            recordSink.appendString(cursor.getSlice().getBytes());
+        else if (type.getJavaType() == Slice.class) {
+            recordSink.appendString(type.getSlice(block, position).getBytes());
         }
         else {
             throw new AssertionError("unimplemented type: " + type);
@@ -229,8 +218,8 @@ public class TableWriterOperator
         String fragment = recordSink.commit();
 
         PageBuilder page = new PageBuilder(TYPES);
-        page.getBlockBuilder(0).appendLong(rowCount);
-        page.getBlockBuilder(1).appendSlice(Slices.utf8Slice(fragment));
+        BIGINT.writeLong(page.getBlockBuilder(0), rowCount);
+        VARCHAR.writeSlice(page.getBlockBuilder(1), Slices.utf8Slice(fragment));
         return page.build();
     }
 }

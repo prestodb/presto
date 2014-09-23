@@ -48,6 +48,6 @@ public class RankFunction
         else {
             count++;
         }
-        output.appendLong(rank);
+        BIGINT.writeLong(output, rank);
     }
 }

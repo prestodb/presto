@@ -130,22 +130,22 @@ public final class StateCompilerUtils
 
     public static long getLongBlock(Block block, int index)
     {
-        return block.getLong(index);
+        return block.getLong(index, 0);
     }
 
     public static byte getByteBlock(Block block, int index)
     {
-        return (byte) block.getLong(index);
+        return (byte) block.getLong(index, 0);
     }
 
     public static double getDoubleBlock(Block block, int index)
     {
-        return block.getDouble(index);
+        return block.getDouble(index, 0);
     }
 
     public static boolean getBooleanBlock(Block block, int index)
     {
-        return block.getBoolean(index);
+        return block.getByte(index, 0) != 0;
     }
 
     public static Slice getSliceBlock(Block block, int index)
@@ -154,28 +154,28 @@ public final class StateCompilerUtils
             return null;
         }
         else {
-            return block.getSlice(index);
+            return block.getSlice(index, 0, block.getLength(index));
         }
     }
 
     public static void appendLongBlockBuilder(BlockBuilder builder, long value)
     {
-        builder.appendLong(value);
+        builder.writeLong(value).closeEntry();
     }
 
     public static void appendDoubleBlockBuilder(BlockBuilder builder, double value)
     {
-        builder.appendDouble(value);
+        builder.writeDouble(value).closeEntry();
     }
 
     public static void appendBooleanBlockBuilder(BlockBuilder builder, boolean value)
     {
-        builder.appendBoolean(value);
+        builder.writeByte(value ? 1 : 0).closeEntry();
     }
 
     public static void appendByteBlockBuilder(BlockBuilder builder, byte value)
     {
-        builder.appendLong(value);
+        builder.writeLong(value).closeEntry();
     }
 
     public static void appendSliceBlockBuilder(BlockBuilder builder, @Nullable Slice value)
@@ -184,7 +184,7 @@ public final class StateCompilerUtils
             builder.appendNull();
         }
         else {
-            builder.appendSlice(value);
+            builder.writeBytes(value, 0, value.length()).closeEntry();
         }
     }
 
