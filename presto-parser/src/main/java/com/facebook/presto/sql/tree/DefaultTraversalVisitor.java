@@ -424,4 +424,14 @@ public abstract class DefaultTraversalVisitor<R, C>
 
         return null;
     }
+
+    @Override
+    protected R visitUnnest(Unnest node, C context)
+    {
+        for (Expression expression : node.getExpressions()) {
+            process(expression, context);
+        }
+
+        return null;
+    }
 }

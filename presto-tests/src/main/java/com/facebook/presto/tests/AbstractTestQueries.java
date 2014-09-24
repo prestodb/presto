@@ -15,6 +15,7 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.ParametricFunction;
+import com.facebook.presto.operator.scalar.MapConstructor;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
@@ -75,11 +76,33 @@ public abstract class AbstractTestQueries
             .window("custom_rank", BIGINT, ImmutableList.<Type>of(), CustomRank.class)
             .scalar(CustomAdd.class)
             .scalar(CreateHll.class)
+            .function(new MapConstructor(2, new TypeRegistry()))
             .getFunctions();
 
     protected AbstractTestQueries(QueryRunner queryRunner)
     {
         super(queryRunner);
+    }
+
+    @Test
+    public void testUnnest()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM UNNEST(ARRAY[1, 2, 3])", "SELECT * FROM VALUES (1), (2), (3)");
+        assertQuery("SELECT a FROM UNNEST(ARRAY[1, 2, 3]) t(a)", "SELECT * FROM VALUES (1), (2), (3)");
+        assertQuery("SELECT a, b FROM UNNEST(ARRAY[1, 2], ARRAY[3, 4]) t(a, b)", "SELECT * FROM VALUES (1, 3), (2, 4)");
+        assertQuery("SELECT a, b FROM UNNEST(ARRAY[1, 2, 3], ARRAY[4, 5]) t(a, b)", "SELECT * FROM VALUES (1, 4), (2, 5), (3, NULL)");
+        assertQuery("SELECT a FROM UNNEST(ARRAY['kittens', 'puppies']) t(a)", "SELECT * FROM VALUES ('kittens'), ('puppies')");
+        assertQuery("SELECT a FROM UNNEST(ARRAY[1, NULL, 3]) t(a)", "SELECT * FROM VALUES (1), (NULL), (3)");
+        assertQuery("" +
+                "SELECT a.custkey, t.e " +
+                "FROM (SELECT custkey, ARRAY[1, 2, 3] AS my_array FROM orders ORDER BY orderkey LIMIT 1) a " +
+                "CROSS JOIN UNNEST(my_array) t(e)",
+                "SELECT * FROM (SELECT custkey FROM orders ORDER BY orderkey LIMIT 1) CROSS JOIN (VALUES (1), (2), (3))");
+        assertQuery("SELECT * FROM UNNEST(ARRAY[0, 1]) CROSS JOIN UNNEST(ARRAY[0, 1]) CROSS JOIN UNNEST(ARRAY[0, 1])",
+                "SELECT * FROM VALUES (0, 0, 0), (0, 0, 1), (0, 1, 0), (0, 1, 1), (1, 0, 0), (1, 0, 1), (1, 1, 0), (1, 1, 1)");
+        assertQuery("SELECT a, b FROM UNNEST(MAP(1, 'cat', 2, 'dog')) t(a, b)", "SELECT * FROM VALUES (1, 'cat'), (2, 'dog')");
+        assertQuery("SELECT a, b FROM UNNEST(MAP(1, 'cat', 2, NULL)) t(a, b)", "SELECT * FROM VALUES (1, 'cat'), (2, NULL)");
     }
 
     @Test

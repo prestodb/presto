@@ -38,6 +38,7 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -80,7 +81,8 @@ public final class GraphvizPrinter
         SORT,
         MARK_DISTINCT,
         MATERIALIZE_SAMPLE,
-        INDEX_SOURCE
+        INDEX_SOURCE,
+        UNNEST
     }
 
     private static final Map<NodeType, String> NODE_COLORS = immutableEnumMap(ImmutableMap.<NodeType, String>builder()
@@ -101,6 +103,7 @@ public final class GraphvizPrinter
             .put(NodeType.MARK_DISTINCT, "violet")
             .put(NodeType.MATERIALIZE_SAMPLE, "hotpink")
             .put(NodeType.INDEX_SOURCE, "dodgerblue3")
+            .put(NodeType.UNNEST, "crimson")
             .build());
 
     static {
@@ -306,6 +309,13 @@ public final class GraphvizPrinter
             }
 
             printNode(node, "Project", builder.toString(), NODE_COLORS.get(NodeType.PROJECT));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitUnnest(UnnestNode node, Void context)
+        {
+            printNode(node, format("Unnest[%s]", node.getUnnestSymbols().keySet()), NODE_COLORS.get(NodeType.UNNEST));
             return node.getSource().accept(this, context);
         }
 

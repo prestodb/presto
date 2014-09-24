@@ -40,10 +40,10 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -170,7 +170,7 @@ public class PruneUnreferencedOutputs
 
             Set<Symbol> requiredAssignmentSymbols = expectedOutputs;
             if (!node.getEffectiveTupleDomain().isNone()) {
-                Set<Symbol> requiredSymbols = Maps.filterValues(node.getAssignments(), Predicates.in(node.getEffectiveTupleDomain().getDomains().keySet())).keySet();
+                Set<Symbol> requiredSymbols = Maps.filterValues(node.getAssignments(), in(node.getEffectiveTupleDomain().getDomains().keySet())).keySet();
                 requiredAssignmentSymbols = Sets.union(expectedOutputs, requiredSymbols);
             }
             Map<Symbol, ColumnHandle> newAssignments = Maps.filterKeys(node.getAssignments(), in(requiredAssignmentSymbols));
@@ -251,7 +251,7 @@ public class PruneUnreferencedOutputs
 
             Set<Symbol> requiredAssignmentSymbols = requiredTableScanOutputs;
             if (!node.getPartitionsDomainSummary().isNone()) {
-                Set<Symbol> requiredPartitionDomainSymbols = Maps.filterValues(node.getAssignments(), Predicates.in(node.getPartitionsDomainSummary().getDomains().keySet())).keySet();
+                Set<Symbol> requiredPartitionDomainSymbols = Maps.filterValues(node.getAssignments(), in(node.getPartitionsDomainSummary().getDomains().keySet())).keySet();
                 requiredAssignmentSymbols = Sets.union(requiredTableScanOutputs, requiredPartitionDomainSymbols);
             }
             Map<Symbol, ColumnHandle> newAssignments = Maps.filterKeys(node.getAssignments(), in(requiredAssignmentSymbols));
@@ -286,6 +286,27 @@ public class PruneUnreferencedOutputs
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
 
             return new MarkDistinctNode(node.getId(), source, node.getMarkerSymbol(), node.getDistinctSymbols());
+        }
+
+        @Override
+        public PlanNode rewriteUnnest(UnnestNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
+        {
+            List<Symbol> replicateSymbols = FluentIterable.from(node.getReplicateSymbols())
+                    .filter(in(expectedOutputs))
+                    .toList();
+            ImmutableMap.Builder<Symbol, List<Symbol>> builder = ImmutableMap.builder();
+            for (Map.Entry<Symbol, List<Symbol>> entry : node.getUnnestSymbols().entrySet()) {
+                if (Iterables.any(entry.getValue(), in(expectedOutputs))) {
+                    builder.put(entry);
+                }
+            }
+            Map<Symbol, List<Symbol>> unnestSymbols = builder.build();
+            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(replicateSymbols)
+                    .addAll(unnestSymbols.keySet());
+
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
+            return new UnnestNode(node.getId(), source, replicateSymbols, unnestSymbols);
         }
 
         @Override

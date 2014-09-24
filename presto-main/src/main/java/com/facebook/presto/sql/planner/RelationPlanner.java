@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.EquiJoinClause;
 import com.facebook.presto.sql.analyzer.Field;
@@ -33,6 +34,7 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
@@ -53,7 +55,10 @@ import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
+import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Values;
+import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.MapType;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -62,7 +67,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.UnmodifiableIterator;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -72,7 +79,9 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.analyzer.EquiJoinClause.rightGetter;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -169,6 +178,22 @@ class RelationPlanner
     {
         // TODO: translate the RIGHT join into a mirrored LEFT join when we refactor (@martint)
         RelationPlan leftPlan = process(node.getLeft(), context);
+
+        // Convert CROSS JOIN UNNEST to an UnnestNode
+        if (node.getRight() instanceof Unnest || (node.getRight() instanceof  AliasedRelation  && ((AliasedRelation) node.getRight()).getRelation() instanceof Unnest)) {
+            Unnest unnest;
+            if (node.getRight() instanceof AliasedRelation) {
+                unnest = (Unnest) ((AliasedRelation) node.getRight()).getRelation();
+            }
+            else {
+                unnest = (Unnest) node.getRight();
+            }
+            if (node.getType() != Join.Type.CROSS) {
+                throw new SemanticException(NOT_SUPPORTED, unnest, "UNNEST only supported on the right side of CROSS JOIN");
+            }
+            return planCrossJoinUnnest(leftPlan, node, unnest);
+        }
+
         RelationPlan rightPlan = process(node.getRight(), context);
 
         PlanBuilder leftPlanBuilder = initializePlanBuilder(leftPlan);
@@ -218,6 +243,45 @@ class RelationPlanner
         }
 
         return new RelationPlan(root, outputDescriptor, outputSymbols, sampleWeight);
+    }
+
+    private RelationPlan planCrossJoinUnnest(RelationPlan leftPlan, Join joinNode, Unnest node)
+    {
+        TupleDescriptor outputDescriptor = analysis.getOutputDescriptor(joinNode);
+        TupleDescriptor unnestOutputDescriptor = analysis.getOutputDescriptor(node);
+        // Create symbols for the result of unnesting
+        ImmutableList.Builder<Symbol> unnestedSymbolsBuilder = ImmutableList.builder();
+        for (Field field : unnestOutputDescriptor.getVisibleFields()) {
+            Symbol symbol = symbolAllocator.newSymbol(field);
+            unnestedSymbolsBuilder.add(symbol);
+        }
+        ImmutableList<Symbol> unnestedSymbols = unnestedSymbolsBuilder.build();
+
+        // Add a projection for all the unnest arguments
+        PlanBuilder planBuilder = initializePlanBuilder(leftPlan);
+        planBuilder = appendProjections(planBuilder, node.getExpressions());
+        TranslationMap translations = planBuilder.getTranslations();
+        ProjectNode projectNode = checkType(planBuilder.getRoot(), ProjectNode.class, "planBuilder.getRoot()");
+
+        ImmutableMap.Builder<Symbol, List<Symbol>> unnestSymbols = ImmutableMap.builder();
+        UnmodifiableIterator<Symbol> unnestedSymbolsIterator = unnestedSymbols.iterator();
+        for (Expression expression : node.getExpressions()) {
+            Type type = analysis.getType(expression);
+            Symbol inputSymbol = translations.get(expression);
+            if (type instanceof ArrayType) {
+                unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next()));
+            }
+            else if (type instanceof MapType) {
+                unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next(), unnestedSymbolsIterator.next()));
+            }
+            else {
+                throw new IllegalArgumentException("Unsupported type for UNNEST: " + type);
+            }
+        }
+        checkState(!unnestedSymbolsIterator.hasNext(), "Not all output symbols were matched with input symbols");
+
+        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), projectNode, leftPlan.getOutputSymbols(), unnestSymbols.build());
+        return new RelationPlan(unnestNode, outputDescriptor, unnestNode.getOutputSymbols(), Optional.<Symbol>absent());
     }
 
     private static Expression oneIfNull(Optional<Symbol> symbol)
@@ -283,6 +347,44 @@ class RelationPlanner
 
         ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), outputSymbolsBuilder.build(), rows.build());
         return new RelationPlan(valuesNode, descriptor, outputSymbolsBuilder.build(), Optional.<Symbol>absent());
+    }
+
+    @Override
+    protected RelationPlan visitUnnest(Unnest node, Void context)
+    {
+        TupleDescriptor descriptor = analysis.getOutputDescriptor(node);
+        ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
+        for (Field field : descriptor.getVisibleFields()) {
+            Symbol symbol = symbolAllocator.newSymbol(field);
+            outputSymbolsBuilder.add(symbol);
+        }
+        List<Symbol> unnestedSymbols = outputSymbolsBuilder.build();
+
+        // If we got here, then we must be unnesting a constant, and not be in a join (where there could be column references)
+        ImmutableList.Builder<Symbol> argumentSymbols = ImmutableList.builder();
+        ImmutableList.Builder<Expression> values = ImmutableList.builder();
+        ImmutableMap.Builder<Symbol, List<Symbol>> unnestSymbols = ImmutableMap.builder();
+        Iterator<Symbol> unnestedSymbolsIterator = unnestedSymbols.iterator();
+        for (Expression expression : node.getExpressions()) {
+            values.add(evaluateConstantExpression(expression));
+            Type type = analysis.getType(expression);
+            Symbol inputSymbol = symbolAllocator.newSymbol(expression, type);
+            argumentSymbols.add(inputSymbol);
+            if (type instanceof ArrayType) {
+                unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next()));
+            }
+            else if (type instanceof MapType) {
+                unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next(), unnestedSymbolsIterator.next()));
+            }
+            else {
+                throw new IllegalArgumentException("Unsupported type for UNNEST: " + type);
+            }
+        }
+        checkState(!unnestedSymbolsIterator.hasNext(), "Not all output symbols were matched with input symbols");
+        ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), argumentSymbols.build(), ImmutableList.<List<Expression>>of(values.build()));
+
+        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), valuesNode, ImmutableList.<Symbol>of(), unnestSymbols.build());
+        return new RelationPlan(unnestNode, descriptor, unnestedSymbols, Optional.<Symbol>absent());
     }
 
     private Expression evaluateConstantExpression(final Expression expression)

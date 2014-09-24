@@ -249,6 +249,7 @@ relation returns [Relation value]
     : relationType      { $value = $relationType.value; }
     | aliasedRelation   { $value = $aliasedRelation.value; }
     | sampledRelation   { $value = $sampledRelation.value; }
+    | collectionDerivedTable { $value = $collectionDerivedTable.value; }
     ;
 
 relationType returns [Relation value]
@@ -256,6 +257,10 @@ relationType returns [Relation value]
     | tableSubquery    { $value = $tableSubquery.value; }
     | joinedTable      { $value = $joinedTable.value; }
     | joinRelation     { $value = $joinRelation.value; }
+    ;
+
+collectionDerivedTable returns [Unnest value]
+    : ^(UNNEST exprList) { $value = new Unnest($exprList.value); }
     ;
 
 namedTable returns [Table value]

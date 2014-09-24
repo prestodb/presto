@@ -52,6 +52,7 @@ import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
+import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
@@ -104,6 +105,13 @@ public final class SqlFormatter
         {
             checkArgument(indent == 0, "visitExpression should only be called at root");
             builder.append(formatExpression(node));
+            return null;
+        }
+
+        @Override
+        protected Void visitUnnest(Unnest node, Integer indent)
+        {
+            builder.append(node.toString());
             return null;
         }
 

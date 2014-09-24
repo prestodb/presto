@@ -100,6 +100,7 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -149,6 +150,7 @@ import static com.facebook.presto.operator.DistinctLimitOperator.DistinctLimitOp
 import static com.facebook.presto.operator.TableCommitOperator.TableCommitOperatorFactory;
 import static com.facebook.presto.operator.TableCommitOperator.TableCommitter;
 import static com.facebook.presto.operator.TableWriterOperator.TableWriterOperatorFactory;
+import static com.facebook.presto.operator.UnnestOperator.UnnestOperatorFactory;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static com.facebook.presto.sql.planner.plan.IndexJoinNode.EquiJoinClause.indexGetter;
@@ -934,6 +936,46 @@ public class LocalExecutionPlanner
 
             OperatorFactory operatorFactory = new ValuesOperatorFactory(context.getNextOperatorId(), outputTypes, ImmutableList.of(pageBuilder.build()));
             return new PhysicalOperation(operatorFactory, outputMappings);
+        }
+
+        @Override
+        public PhysicalOperation visitUnnest(UnnestNode node, LocalExecutionPlanContext context)
+        {
+            PhysicalOperation source = node.getSource().accept(this, context);
+
+            ImmutableList.Builder<Type> replicateTypes = ImmutableList.builder();
+            for (Symbol symbol : node.getReplicateSymbols()) {
+                replicateTypes.add(context.getTypes().get(symbol));
+            }
+            List<Symbol> unnestSymbols = ImmutableList.copyOf(node.getUnnestSymbols().keySet());
+            ImmutableList.Builder<Type> unnestTypes = ImmutableList.builder();
+            for (Symbol symbol : unnestSymbols) {
+                unnestTypes.add(context.getTypes().get(symbol));
+            }
+
+            List<Integer> replicateChannels = getChannelsForSymbols(node.getReplicateSymbols(), source.getLayout());
+            List<Integer> unnestChannels = getChannelsForSymbols(unnestSymbols, source.getLayout());
+
+            // Source channels are always laid out first, followed by the unnested symbols
+            ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
+            int channel = 0;
+            for (Symbol symbol : node.getReplicateSymbols()) {
+                outputMappings.put(symbol, channel);
+                channel++;
+            }
+            for (Symbol symbol : unnestSymbols) {
+                for (Symbol unnestedSymbol : node.getUnnestSymbols().get(symbol)) {
+                    outputMappings.put(unnestedSymbol, channel);
+                    channel++;
+                }
+            }
+            OperatorFactory operatorFactory = new UnnestOperatorFactory(
+                    context.getNextOperatorId(),
+                    replicateChannels,
+                    replicateTypes.build(),
+                    unnestChannels,
+                    unnestTypes.build());
+            return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
         }
 
         @Override

@@ -218,3 +218,18 @@ Using sampling with joins::
     FROM orders o TABLESAMPLE SYSTEM (10)
     JOIN lineitem i TABLESAMPLE BERNOULLI (40)
       ON o.orderkey = i.orderkey;
+
+UNNEST
+------
+
+``UNNEST`` can be used to expand an :ref:`array_type` or :ref:`map_type` into a relation.
+Arrays are expanded into a single column, and maps are expanded into two columns (key then value).
+``UNNEST`` can also be used with multiple arguments, in which case they are expanded into multiple columns,
+with as many rows as the highest cardinality argument (the other columns are padded with nulls).
+When used in a ``JOIN``, ``UNNEST`` can reference columns from relations on the left side of the join.
+
+Example::
+
+    SELECT element, element2
+    FROM array_table CROSS JOIN UNNEST(array_col, array_col2) t(element, element2);
+

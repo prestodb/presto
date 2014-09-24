@@ -23,6 +23,8 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.parser.ParsingException;
@@ -61,8 +63,11 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
+import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.MapType;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -134,6 +139,36 @@ class TupleAnalyzer
         this.metadata = metadata;
         this.sqlParser = sqlParser;
         this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
+    }
+
+    @Override
+    protected TupleDescriptor visitUnnest(Unnest node, AnalysisContext context)
+    {
+        ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
+        for (Expression expression : node.getExpressions()) {
+            ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                    metadata,
+                    sqlParser,
+                    context.getLateralTupleDescriptor(),
+                    analysis,
+                    experimentalSyntaxEnabled,
+                    context,
+                    expression);
+            Type expressionType = expressionAnalysis.getType(expression);
+            if (expressionType instanceof ArrayType) {
+                outputFields.add(Field.newUnqualified(Optional.<String>absent(), ((ArrayType) expressionType).getElementType()));
+            }
+            else if (expressionType instanceof MapType) {
+                outputFields.add(Field.newUnqualified(Optional.<String>absent(), ((MapType) expressionType).getKeyType()));
+                outputFields.add(Field.newUnqualified(Optional.<String>absent(), ((MapType) expressionType).getValueType()));
+            }
+            else {
+                throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT.toErrorCode(), "Cannot unnest type: " + expressionType);
+            }
+        }
+        TupleDescriptor descriptor = new TupleDescriptor(outputFields.build());
+        analysis.setOutputDescriptor(node, descriptor);
+        return descriptor;
     }
 
     @Override
@@ -365,8 +400,10 @@ class TupleAnalyzer
             throw new SemanticException(NOT_SUPPORTED, node, "Natural join not supported");
         }
 
+        AnalysisContext leftContext = new AnalysisContext(context);
         TupleDescriptor left = process(node.getLeft(), context);
-        TupleDescriptor right = process(node.getRight(), context);
+        leftContext.setLateralTupleDescriptor(left);
+        TupleDescriptor right = process(node.getRight(), leftContext);
 
         // todo this check should be inside of TupleDescriptor.join and then remove the public getRelationAlias method, but the exception needs the node object
         Sets.SetView<QualifiedName> duplicateAliases = Sets.intersection(left.getRelationAliases(), right.getRelationAliases());
