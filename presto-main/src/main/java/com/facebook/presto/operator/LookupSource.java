@@ -29,5 +29,6 @@ public interface LookupSource
 
     void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset);
 
+    @Override
     void close();
 }
