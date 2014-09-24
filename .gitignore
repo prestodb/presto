@@ -19,3 +19,4 @@ test-output
 benchmark_outputs
 *.pyc
 *.class
+.checkstyle
