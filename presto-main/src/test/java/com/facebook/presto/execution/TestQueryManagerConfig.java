@@ -37,7 +37,8 @@ public class TestQueryManagerConfig
                 .setInitialHashPartitions(8)
                 .setQueryManagerExecutorPoolSize(5)
                 .setRemoteTaskMaxConsecutiveErrorCount(10)
-                .setRemoteTaskMinErrorDuration(new Duration(2, TimeUnit.MINUTES)));
+                .setRemoteTaskMinErrorDuration(new Duration(2, TimeUnit.MINUTES))
+                .setRemoteTaskMaxCallbackThreads(1000));
     }
 
     @Test
@@ -55,6 +56,7 @@ public class TestQueryManagerConfig
                 .put("query.manager-executor-pool-size", "11")
                 .put("query.remote-task.max-consecutive-error-count", "300")
                 .put("query.remote-task.min-error-duration", "30s")
+                .put("query.remote-task.max-callback-threads", "10")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -68,7 +70,8 @@ public class TestQueryManagerConfig
                 .setInitialHashPartitions(16)
                 .setQueryManagerExecutorPoolSize(11)
                 .setRemoteTaskMaxConsecutiveErrorCount(300)
-                .setRemoteTaskMinErrorDuration(new Duration(30, TimeUnit.SECONDS));
+                .setRemoteTaskMinErrorDuration(new Duration(30, TimeUnit.SECONDS))
+                .setRemoteTaskMaxCallbackThreads(10);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

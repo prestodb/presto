@@ -38,6 +38,7 @@ public class QueryManagerConfig
 
     private int remoteTaskMaxConsecutiveErrorCount = 10;
     private Duration remoteTaskMinErrorDuration = new Duration(2, TimeUnit.MINUTES);
+    private int remoteTaskMaxCallbackThreads = 1000;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -180,6 +181,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setRemoteTaskMinErrorDuration(Duration remoteTaskMinErrorDuration)
     {
         this.remoteTaskMinErrorDuration = remoteTaskMinErrorDuration;
+        return this;
+    }
+
+    @Min(1)
+    public int getRemoteTaskMaxCallbackThreads()
+    {
+        return remoteTaskMaxCallbackThreads;
+    }
+
+    @Config("query.remote-task.max-callback-threads")
+    public QueryManagerConfig setRemoteTaskMaxCallbackThreads(int remoteTaskMaxCallbackThreads)
+    {
+        this.remoteTaskMaxCallbackThreads = remoteTaskMaxCallbackThreads;
         return this;
     }
 }
