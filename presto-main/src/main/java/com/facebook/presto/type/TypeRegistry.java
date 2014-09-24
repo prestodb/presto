@@ -138,7 +138,9 @@ public final class TypeRegistry
         }
 
         ParametricType parametricType = parametricTypes.get(signature.getBase());
-        checkNotNull(parametricType, "parameteric type %s does not exist", signature.getBase());
+        if (parametricType == null) {
+            return;
+        }
         Type instantiatedType = parametricType.createType(parameterTypes.build());
         checkState(instantiatedType.getName().equalsIgnoreCase(typeName), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType.getName(), typeName);
         addType(instantiatedType);
