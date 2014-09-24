@@ -15,6 +15,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
+        <air.check.skip-findbugs>true</air.check.skip-findbugs>
         <air.check.skip-dependency>true</air.check.skip-dependency>
         <air.check.skip-dependency-version-check>true</air.check.skip-dependency-version-check>
 
