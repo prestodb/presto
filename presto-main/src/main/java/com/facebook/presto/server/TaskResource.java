@@ -177,7 +177,7 @@ public class TaskResource
     @GET
     @Path("{taskId}/results/{outputId}/{token}")
     @Produces(PRESTO_PAGES)
-    public void getResults(@PathParam("taskId") final TaskId taskId,
+    public void getResults(@PathParam("taskId") TaskId taskId,
             @PathParam("outputId") TaskId outputId,
             @PathParam("token") final long token,
             @Suspended AsyncResponse asyncResponse)
