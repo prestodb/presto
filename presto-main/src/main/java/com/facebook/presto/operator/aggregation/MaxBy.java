@@ -106,7 +106,7 @@ public class MaxBy
                 false);
 
         GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new GenericAggregationFunction(NAME, inputTypes, intermediateType, valueType, false, false, factory);
+        return new GenericAggregationFunction(NAME, inputTypes, intermediateType, valueType, true, false, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type value, Type key)
