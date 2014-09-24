@@ -47,6 +47,7 @@ public class HiveClientConfig
     private int maxPartitionBatchSize = 100;
     private int maxInitialSplits = 200;
     private DataSize maxInitialSplitSize;
+    private boolean allowCreateTable;
     private boolean allowDropTable;
     private boolean allowRenameTable;
 
@@ -175,6 +176,19 @@ public class HiveClientConfig
     public HiveClientConfig setMaxGlobalSplitIteratorThreads(int maxGlobalSplitIteratorThreads)
     {
         this.maxGlobalSplitIteratorThreads = maxGlobalSplitIteratorThreads;
+        return this;
+    }
+
+    public boolean getAllowCreateTable()
+    {
+        return this.allowCreateTable;
+    }
+
+    @Config("hive.allow-create-table")
+    @ConfigDescription("Allow hive connector to create table")
+    public HiveClientConfig setAllowCreateTable(boolean allowCreateTable)
+    {
+        this.allowCreateTable = allowCreateTable;
         return this;
     }
 
