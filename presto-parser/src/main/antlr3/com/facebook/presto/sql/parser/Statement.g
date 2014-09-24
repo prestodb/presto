@@ -322,9 +322,14 @@ tablePrimary
     ;
 
 relation
-    : table
+    : (collectionDerivedTable) => collectionDerivedTable
+    | table
     | ('(' tableRef ')') => joinedTable
     | tableSubquery
+    ;
+
+collectionDerivedTable
+    : UNNEST '(' expr (',' expr)* ')' -> ^(UNNEST expr+)
     ;
 
 table
@@ -886,6 +891,7 @@ RESCALED: 'RESCALED';
 STRATIFY: 'STRATIFY';
 ALTER: 'ALTER';
 RENAME: 'RENAME';
+UNNEST: 'UNNEST';
 
 EQ  : '=';
 NEQ : '<>' | '!=';

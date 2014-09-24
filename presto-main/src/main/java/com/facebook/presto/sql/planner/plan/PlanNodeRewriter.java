@@ -50,6 +50,11 @@ public class PlanNodeRewriter<C>
         return rewriteNode(node, context, planRewriter);
     }
 
+    public PlanNode rewriteUnnest(UnnestNode node, C context, PlanRewriter<C> planRewriter)
+    {
+        return rewriteNode(node, context, planRewriter);
+    }
+
     public PlanNode rewriteProject(ProjectNode node, C context, PlanRewriter<C> planRewriter)
     {
         return rewriteNode(node, context, planRewriter);

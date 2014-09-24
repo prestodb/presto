@@ -42,6 +42,7 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
+import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.base.Optional;
@@ -207,6 +208,12 @@ public class DistributedExecutionPlanner
 
         @Override
         public Optional<SplitSource> visitProject(ProjectNode node, Void context)
+        {
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Optional<SplitSource> visitUnnest(UnnestNode node, Void context)
         {
             return node.getSource().accept(this, context);
         }

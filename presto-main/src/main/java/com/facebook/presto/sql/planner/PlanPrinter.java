@@ -50,6 +50,7 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -390,6 +391,14 @@ public class PlanPrinter
         }
 
         @Override
+        public Void visitUnnest(UnnestNode node, Integer indent)
+        {
+            print(indent, "- Unnest [replicate=%s, unnest=%s] => [%s]", formatOutputs(node.getReplicateSymbols()), formatOutputs(node.getUnnestSymbols().keySet()), formatOutputs(node.getOutputSymbols()));
+
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
         public Void visitOutput(OutputNode node, Integer indent)
         {
             print(indent, "- Output[%s]", Joiner.on(", ").join(node.getColumnNames()));
@@ -513,7 +522,7 @@ public class PlanPrinter
             return null;
         }
 
-        private String formatOutputs(List<Symbol> symbols)
+        private String formatOutputs(Iterable<Symbol> symbols)
         {
             return Joiner.on(", ").join(Iterables.transform(symbols, new Function<Symbol, String>()
             {

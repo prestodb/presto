@@ -339,6 +339,11 @@ public abstract class AstVisitor<R, C>
         return visitQueryBody(node, context);
     }
 
+    protected R visitUnnest(Unnest node, C context)
+    {
+        return visitRelation(node, context);
+    }
+
     protected R visitValues(Values node, C context)
     {
         return visitQueryBody(node, context);

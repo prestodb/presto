@@ -44,6 +44,7 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -321,6 +322,14 @@ public class DistributedLogicalPlanner
         {
             SubPlanBuilder current = node.getSource().accept(this, context);
             current.setRoot(new ProjectNode(node.getId(), current.getRoot(), node.getOutputMap()));
+            return current;
+        }
+
+        @Override
+        public SubPlanBuilder visitUnnest(UnnestNode node, Void context)
+        {
+            SubPlanBuilder current = node.getSource().accept(this, context);
+            current.setRoot(new UnnestNode(node.getId(), current.getRoot(), node.getReplicateSymbols(), node.getUnnestSymbols()));
             return current;
         }
 

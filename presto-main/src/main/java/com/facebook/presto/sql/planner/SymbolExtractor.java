@@ -37,9 +37,11 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
 import java.util.Set;
 
@@ -147,6 +149,16 @@ public final class SymbolExtractor
             node.getSource().accept(this, context);
 
             builder.addAll(node.getOutputSymbols());
+
+            return null;
+        }
+
+        @Override
+        public Void visitUnnest(UnnestNode node, Void context)
+        {
+            node.getSource().accept(this, context);
+
+            builder.addAll(Iterables.concat(node.getUnnestSymbols().values()));
 
             return null;
         }

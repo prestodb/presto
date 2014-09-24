@@ -36,7 +36,6 @@ public class TestFunctionsFunctionFactory
     {
         return new FunctionListBuilder(typeManager)
                 .function(new MapConstructor(1, typeManager))
-                .function(new MapConstructor(2, typeManager))
                 .getFunctions();
     }
 }

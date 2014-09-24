@@ -38,12 +38,14 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -350,6 +352,20 @@ public final class PlanSanityChecker
             verifyUniqueId(node);
 
             Preconditions.checkArgument(node.getOutputSymbols().containsAll(node.getOutputSymbols()), "Assignments must contain mappings for output symbols");
+
+            return null;
+        }
+
+        @Override
+        public Void visitUnnest(UnnestNode node, Void context)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, context);
+
+            verifyUniqueId(node);
+
+            Set<Object> inputSymbols = ImmutableSet.builder().addAll(node.getReplicateSymbols()).addAll(node.getUnnestSymbols().keySet()).build();
+            Preconditions.checkArgument(source.getOutputSymbols().containsAll(inputSymbols));
 
             return null;
         }

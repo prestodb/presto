@@ -351,6 +351,25 @@ public final class PlanRewriter<C>
         }
 
         @Override
+        public PlanNode visitUnnest(UnnestNode node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                PlanNode result = nodeRewriter.rewriteUnnest(node, context.get(), PlanRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            PlanNode source = rewrite(node.getSource(), context.get());
+
+            if (source != node.getSource()) {
+                return new UnnestNode(node.getId(), source, node.getReplicateSymbols(), node.getUnnestSymbols());
+            }
+
+            return node;
+        }
+
+        @Override
         public PlanNode visitTableWriter(TableWriterNode node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
