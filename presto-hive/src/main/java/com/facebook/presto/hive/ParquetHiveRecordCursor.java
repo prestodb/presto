@@ -341,11 +341,6 @@ class ParquetHiveRecordCursor
             }
 
             ParquetInputSplit split;
-            if (splitGroup.isEmpty()) {
-                // split is empty
-                return null;
-            }
-
             split = new ParquetInputSplit(path,
                     splitStart,
                     splitLength,
