@@ -216,6 +216,8 @@ public class SharedBuffer
             return immediateFuture(true);
         }
 
+        page.assureLoaded();
+
         // is there room in the buffer
         if (bufferedBytes < maxBufferedBytes) {
             addInternal(page);

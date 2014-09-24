@@ -50,6 +50,8 @@ public class HiveClientConfig
     private boolean allowDropTable;
     private boolean allowRenameTable;
 
+    private boolean allowBrokenWrites;
+
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
     private Duration metastoreRefreshInterval = new Duration(2, TimeUnit.MINUTES);
     private int maxMetastoreRefreshThreads = 100;
@@ -76,9 +78,11 @@ public class HiveClientConfig
     private DataSize s3MultipartMinFileSize = new DataSize(16, MEGABYTE);
     private DataSize s3MultipartMinPartSize = new DataSize(5, MEGABYTE);
 
-    private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
+    private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.ORC;
 
     private List<String> resourceConfigFiles;
+
+    private boolean orcOptimizedReaderEnabled = true;
 
     public int getMaxInitialSplits()
     {
@@ -188,6 +192,21 @@ public class HiveClientConfig
     public HiveClientConfig setAllowRenameTable(boolean allowRenameTable)
     {
         this.allowRenameTable = allowRenameTable;
+        return this;
+    }
+
+    @Deprecated
+    public boolean getAllowBrokenWrites()
+    {
+        return allowBrokenWrites;
+    }
+
+    @Deprecated
+    @Config("hive.allow-broken-writes")
+    @ConfigDescription("Allow hive connector to write data even when data will likely be corrupt")
+    public HiveClientConfig setAllowBrokenWrites(boolean allowBrokenWrites)
+    {
+        this.allowBrokenWrites = allowBrokenWrites;
         return this;
     }
 
@@ -548,6 +567,20 @@ public class HiveClientConfig
     public HiveClientConfig setS3MultipartMinPartSize(DataSize size)
     {
         this.s3MultipartMinPartSize = size;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isOrcOptimizedReaderEnabled()
+    {
+        return orcOptimizedReaderEnabled;
+    }
+
+    @Deprecated
+    @Config("hive.orc.optimized-reader.enabled")
+    public HiveClientConfig setOrcOptimizedReaderEnabled(boolean orcOptimizedReaderEnabled)
+    {
+        this.orcOptimizedReaderEnabled = orcOptimizedReaderEnabled;
         return this;
     }
 }

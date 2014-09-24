@@ -17,6 +17,9 @@ import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat;
 import org.apache.hadoop.hive.ql.io.RCFileInputFormat;
 import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
+import org.apache.hadoop.hive.ql.io.orc.OrcInputFormat;
+import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
+import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
@@ -30,6 +33,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public enum HiveStorageFormat
 {
+    ORC(OrcSerde.class.getName(),
+            OrcInputFormat.class.getName(),
+            OrcOutputFormat.class.getName()),
     PARQUET(ParquetHiveSerDe.class.getName(),
             MapredParquetInputFormat.class.getName(),
             MapredParquetOutputFormat.class.getName()),

@@ -17,6 +17,7 @@ import com.fasterxml.jackson.core.Base64Variants;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.base.Throwables;
+import org.apache.hadoop.hive.serde2.io.DateWritable;
 import org.apache.hadoop.hive.serde2.io.TimestampWritable;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
@@ -28,6 +29,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.UnionObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.BinaryObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.BooleanObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.ByteObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.primitive.DateObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.DoubleObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.FloatObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.IntObjectInspector;
@@ -42,16 +44,20 @@ import org.joda.time.format.DateTimeFormatter;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.util.Types.checkType;
 
 public final class SerDeUtils
 {
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd");
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
+    private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
 
     private SerDeUtils() {}
 
@@ -122,6 +128,9 @@ public final class SerDeUtils
                 return;
             case STRING:
                 generator.writeString(((StringObjectInspector) inspector).getPrimitiveJavaObject(object));
+                return;
+            case DATE:
+                generator.writeString(formatDate(sessionTimeZone, object, (DateObjectInspector) inspector));
                 return;
             case TIMESTAMP:
                 generator.writeString(formatTimestamp(sessionTimeZone, object, (TimestampObjectInspector) inspector));
@@ -217,6 +226,8 @@ public final class SerDeUtils
             case DOUBLE:
             case STRING:
                 return String.valueOf(inspector.getPrimitiveJavaObject(object));
+            case DATE:
+                return String.valueOf(formatDate(sessionTimeZone, object, (DateObjectInspector) inspector));
             case TIMESTAMP:
                 return String.valueOf(formatTimestamp(sessionTimeZone, object, (TimestampObjectInspector) inspector));
             case BINARY:
@@ -226,6 +237,18 @@ public final class SerDeUtils
             default:
                 throw new RuntimeException("Unknown primitive type: " + inspector.getPrimitiveCategory());
         }
+    }
+
+    private static String formatDate(DateTimeZone sessionTimeZone, Object object, DateObjectInspector inspector)
+    {
+        // handle broken ObjectInspectors
+        if (object instanceof DateWritable) {
+            int days = ((DateWritable) object).getDays();
+            return DATE_FORMATTER.withZone(DateTimeZone.UTC).print(days * MILLIS_IN_DAY);
+        }
+
+        Date date = inspector.getPrimitiveJavaObject(object);
+        return DATE_FORMATTER.withZone(sessionTimeZone).print(date.getTime());
     }
 
     private static String formatTimestamp(DateTimeZone sessionTimeZone, Object object, TimestampObjectInspector inspector)

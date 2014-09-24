@@ -68,6 +68,21 @@ public class Page
         return blocks[channel];
     }
 
+    /**
+     * Assure the data for this Page is loaded into memory.
+     *
+     * If this method is not called before the next Page is fetched from a
+     * {@code PageSource}, the connector can assume that this Page will
+     * never be access.  This allows streaming data sources skip sections
+     * that are not needed due to filtering.
+     */
+    public void assureLoaded()
+    {
+        for (Block block : blocks) {
+            block.assureLoaded();
+        }
+    }
+
     @Override
     public String toString()
     {

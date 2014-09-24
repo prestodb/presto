@@ -15,8 +15,11 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
@@ -41,6 +44,7 @@ import static org.apache.hadoop.hive.serde.Constants.SMALLINT_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.STRING_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.TIMESTAMP_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.TINYINT_TYPE_NAME;
+import static org.apache.hadoop.hive.serde.serdeConstants.DATE_TYPE_NAME;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 
 public final class HiveType
@@ -54,9 +58,21 @@ public final class HiveType
     public static final HiveType HIVE_DOUBLE = new HiveType(DOUBLE_TYPE_NAME);
     public static final HiveType HIVE_STRING = new HiveType(STRING_TYPE_NAME);
     public static final HiveType HIVE_TIMESTAMP = new HiveType(TIMESTAMP_TYPE_NAME);
+    public static final HiveType HIVE_DATE = new HiveType(DATE_TYPE_NAME);
     public static final HiveType HIVE_BINARY = new HiveType(BINARY_TYPE_NAME);
 
-    private static final Set<HiveType> SUPPORTED_HIVE_TYPES = ImmutableSet.of(HIVE_BOOLEAN, HIVE_BYTE, HIVE_SHORT, HIVE_INT, HIVE_LONG, HIVE_FLOAT, HIVE_DOUBLE, HIVE_STRING, HIVE_TIMESTAMP, HIVE_BINARY);
+    private static final Set<HiveType> SUPPORTED_HIVE_TYPES = ImmutableSet.of(
+            HIVE_BOOLEAN,
+            HIVE_BYTE,
+            HIVE_SHORT,
+            HIVE_INT,
+            HIVE_LONG,
+            HIVE_FLOAT,
+            HIVE_DOUBLE,
+            HIVE_STRING,
+            HIVE_TIMESTAMP,
+            HIVE_DATE,
+            HIVE_BINARY);
 
     private final String hiveTypeName;
 
@@ -120,6 +136,15 @@ public final class HiveType
         if (VarcharType.VARCHAR.equals(type)) {
             return HIVE_STRING;
         }
+        if (VarbinaryType.VARBINARY.equals(type)) {
+            return HIVE_BINARY;
+        }
+        if (DateType.DATE.equals(type)) {
+            return HIVE_DATE;
+        }
+        if (TimestampType.TIMESTAMP.equals(type)) {
+            return HIVE_TIMESTAMP;
+        }
         throw new IllegalArgumentException("unsupported type: " + type);
     }
 
@@ -170,5 +195,11 @@ public final class HiveType
     public int hashCode()
     {
         return hiveTypeName.hashCode();
+    }
+
+    @Override
+    public String toString()
+    {
+        return hiveTypeName;
     }
 }

@@ -130,4 +130,14 @@ public interface Block
      * @throws IllegalArgumentException if this position is not valid
      */
     boolean isNull(int position);
+
+    /**
+     * Assure the data for this Block is loaded into memory.
+     *
+     * If this method is not called before the next Page is fetched from a
+     * {@code PageSource}, the connector can assume that this Block will
+     * never be access.  This allows streaming data sources skip sections
+     * that are not needed due to filtering.
+     */
+    void assureLoaded();
 }

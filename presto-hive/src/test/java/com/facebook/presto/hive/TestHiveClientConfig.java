@@ -45,6 +45,7 @@ public class TestHiveClientConfig
                 .setMaxSplitIteratorThreads(50)
                 .setAllowDropTable(false)
                 .setAllowRenameTable(false)
+                .setAllowBrokenWrites(false)
                 .setMetastoreCacheTtl(new Duration(1, TimeUnit.HOURS))
                 .setMetastoreRefreshInterval(new Duration(2, TimeUnit.MINUTES))
                 .setMaxMetastoreRefreshThreads(100)
@@ -59,7 +60,7 @@ public class TestHiveClientConfig
                 .setDfsConnectMaxRetries(5)
                 .setVerifyChecksum(true)
                 .setResourceConfigFiles((String) null)
-                // .setHiveStorageFormat(HiveStorageFormat.RCBINARY)
+                // .setHiveStorageFormat(HiveStorageFormat.ORC)
                 .setDomainSocketPath(null)
                 .setS3AwsAccessKey(null)
                 .setS3AwsSecretKey(null)
@@ -72,7 +73,8 @@ public class TestHiveClientConfig
                 .setS3MultipartMinFileSize(new DataSize(16, Unit.MEGABYTE))
                 .setS3MultipartMinPartSize(new DataSize(5, Unit.MEGABYTE))
                 .setS3MaxConnections(500)
-                .setS3StagingDirectory(new File(StandardSystemProperty.JAVA_IO_TMPDIR.value())));
+                .setS3StagingDirectory(new File(StandardSystemProperty.JAVA_IO_TMPDIR.value()))
+                .setOrcOptimizedReaderEnabled(true));
     }
 
     @Test
@@ -86,6 +88,7 @@ public class TestHiveClientConfig
                 .put("hive.max-split-iterator-threads", "2")
                 .put("hive.allow-drop-table", "true")
                 .put("hive.allow-rename-table", "true")
+                .put("hive.allow-broken-writes", "true")
                 .put("hive.metastore-cache-ttl", "2h")
                 .put("hive.metastore-refresh-interval", "30m")
                 .put("hive.metastore-refresh-max-threads", "2500")
@@ -114,6 +117,7 @@ public class TestHiveClientConfig
                 .put("hive.s3.multipart.min-part-size", "15MB")
                 .put("hive.s3.max-connections", "77")
                 .put("hive.s3.staging-directory", "/s3-staging")
+                .put("hive.orc.optimized-reader.enabled", "false")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -124,6 +128,7 @@ public class TestHiveClientConfig
                 .setMaxSplitIteratorThreads(2)
                 .setAllowDropTable(true)
                 .setAllowRenameTable(true)
+                .setAllowBrokenWrites(true)
                 .setMetastoreCacheTtl(new Duration(2, TimeUnit.HOURS))
                 .setMetastoreRefreshInterval(new Duration(30, TimeUnit.MINUTES))
                 .setMaxMetastoreRefreshThreads(2500)
@@ -151,7 +156,8 @@ public class TestHiveClientConfig
                 .setS3MultipartMinFileSize(new DataSize(32, Unit.MEGABYTE))
                 .setS3MultipartMinPartSize(new DataSize(15, Unit.MEGABYTE))
                 .setS3MaxConnections(77)
-                .setS3StagingDirectory(new File("/s3-staging"));
+                .setS3StagingDirectory(new File("/s3-staging"))
+                .setOrcOptimizedReaderEnabled(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

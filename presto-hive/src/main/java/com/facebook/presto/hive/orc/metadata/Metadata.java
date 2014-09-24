@@ -11,21 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
-
-import com.google.common.collect.ImmutableList;
+package com.facebook.presto.hive.orc.metadata;
 
 import java.util.List;
 
-public final class HiveRecordCursorProviders
+public class Metadata
 {
-    private HiveRecordCursorProviders() {}
+    private final List<StripeStatistics> stripeStatistics;
 
-    public static List<HiveRecordCursorProvider> getDefaultProviders()
+    public Metadata(List<StripeStatistics> stripeStatistics)
     {
-        return ImmutableList.of(
-                new ColumnarTextHiveRecordCursorProvider(),
-                new ColumnarBinaryHiveRecordCursorProvider(),
-                new GenericHiveRecordCursorProvider());
+        this.stripeStatistics = stripeStatistics;
+    }
+
+    public List<StripeStatistics> getStripeStatsList()
+    {
+        return stripeStatistics;
     }
 }
