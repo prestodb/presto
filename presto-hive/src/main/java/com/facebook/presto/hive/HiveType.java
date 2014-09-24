@@ -59,10 +59,12 @@ public final class HiveType
     private static final Set<HiveType> SUPPORTED_HIVE_TYPES = ImmutableSet.of(HIVE_BOOLEAN, HIVE_BYTE, HIVE_SHORT, HIVE_INT, HIVE_LONG, HIVE_FLOAT, HIVE_DOUBLE, HIVE_STRING, HIVE_TIMESTAMP, HIVE_BINARY);
 
     private final String hiveTypeName;
+    private final Category category;
 
     private HiveType(String hiveTypeName)
     {
         this.hiveTypeName = checkNotNull(hiveTypeName, "hiveTypeName is null");
+        this.category = TypeInfoUtils.getTypeInfoFromTypeString(hiveTypeName).getCategory();
     }
 
     @JsonValue
@@ -73,7 +75,7 @@ public final class HiveType
 
     public Category getCategory()
     {
-        return TypeInfoUtils.getTypeInfoFromTypeString(hiveTypeName).getCategory();
+        return category;
     }
 
     public static HiveType getSupportedHiveType(String hiveTypeName)
