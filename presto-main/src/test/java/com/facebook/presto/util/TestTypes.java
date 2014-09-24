@@ -13,9 +13,12 @@
  */
 package com.facebook.presto.util;
 
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.type.TypeRegistry;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.util.Types.checkType;
+import static org.testng.Assert.assertNull;
 
 public class TestTypes
 {
@@ -36,5 +39,12 @@ public class TestTypes
     {
         Object number = "hello";
         checkType(number, Long.class, "number");
+    }
+
+    @Test
+    public void testNonexistentType()
+    {
+        TypeManager typeManager = new TypeRegistry();
+        assertNull(typeManager.getType("not a real type"));
     }
 }
