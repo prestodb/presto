@@ -23,6 +23,8 @@ import com.google.common.base.Preconditions;
 import java.util.HashMap;
 import java.util.Map;
 
+import static java.util.Locale.ENGLISH;
+
 public class SymbolAllocator
 {
     private final Map<Symbol, Type> symbols = new HashMap<>();
@@ -37,7 +39,7 @@ public class SymbolAllocator
         Preconditions.checkNotNull(nameHint, "name is null");
 
         // TODO: workaround for the fact that QualifiedName lowercases parts
-        nameHint = nameHint.toLowerCase();
+        nameHint = nameHint.toLowerCase(ENGLISH);
 
         if (nameHint.contains("_")) {
             nameHint = nameHint.substring(0, nameHint.indexOf("_"));

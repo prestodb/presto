@@ -31,6 +31,7 @@ import java.util.List;
 import static com.facebook.presto.util.Types.checkType;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -138,7 +139,7 @@ public final class QueryAssertions
         log.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
         long startTime = System.nanoTime();
         for (TpchTable<?> table : tables) {
-            copyTable(queryRunner, sourceCatalog, sourceSchema, table.getTableName().toLowerCase(), session);
+            copyTable(queryRunner, sourceCatalog, sourceSchema, table.getTableName().toLowerCase(ENGLISH), session);
         }
         log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
     }

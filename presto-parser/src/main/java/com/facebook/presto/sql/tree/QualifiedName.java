@@ -27,6 +27,8 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 
+import static java.util.Locale.ENGLISH;
+
 public class QualifiedName
 {
     private final List<String> parts;
@@ -189,7 +191,7 @@ public class QualifiedName
             @Override
             public String apply(String s)
             {
-                return s.toLowerCase();
+                return s.toLowerCase(ENGLISH);
             }
         };
     }

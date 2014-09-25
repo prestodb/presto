@@ -16,6 +16,7 @@ package com.facebook.presto.sql.tree;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Locale.ENGLISH;
 
 public final class Cast
         extends Expression
@@ -35,7 +36,7 @@ public final class Cast
         checkNotNull(type, "type is null");
 
         this.expression = expression;
-        this.type = type.toUpperCase();
+        this.type = type.toUpperCase(ENGLISH);
         this.safe = safe;
     }
 

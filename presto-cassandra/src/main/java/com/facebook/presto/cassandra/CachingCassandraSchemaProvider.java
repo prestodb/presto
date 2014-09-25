@@ -43,6 +43,7 @@ import static com.facebook.presto.cassandra.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
@@ -238,13 +239,13 @@ public class CachingCassandraSchemaProvider
 
     public String getCaseSensitiveSchemaName(String caseInsensitiveName)
     {
-        String caseSensitiveSchemaName = getCacheValue(schemaNamesCache, "", RuntimeException.class).get(caseInsensitiveName.toLowerCase());
+        String caseSensitiveSchemaName = getCacheValue(schemaNamesCache, "", RuntimeException.class).get(caseInsensitiveName.toLowerCase(ENGLISH));
         return caseSensitiveSchemaName == null ? caseInsensitiveName : caseSensitiveSchemaName;
     }
 
     public String getCaseSensitiveTableName(SchemaTableName schemaTableName)
     {
-        String  caseSensitiveTableName = getCacheValue(tableNamesCache, schemaTableName.getSchemaName(), SchemaNotFoundException.class).get(schemaTableName.getTableName().toLowerCase());
+        String  caseSensitiveTableName = getCacheValue(tableNamesCache, schemaTableName.getSchemaName(), SchemaNotFoundException.class).get(schemaTableName.getTableName().toLowerCase(ENGLISH));
         return caseSensitiveTableName == null ? schemaTableName.getTableName() : caseSensitiveTableName;
     }
 
@@ -340,7 +341,7 @@ public class CachingCassandraSchemaProvider
             @Override
             public String apply(String str)
             {
-                return str.toLowerCase();
+                return str.toLowerCase(ENGLISH);
             }
         };
     }

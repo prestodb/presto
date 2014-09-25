@@ -62,6 +62,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -104,7 +105,7 @@ public abstract class AbstractTestHiveClientS3
         database = databaseName;
         tableS3 = new SchemaTableName(database, "presto_test_s3");
 
-        String random = UUID.randomUUID().toString().toLowerCase().replace("-", "");
+        String random = UUID.randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
         temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_s3_" + random);
     }
 

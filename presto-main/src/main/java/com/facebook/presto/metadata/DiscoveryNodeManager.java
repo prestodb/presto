@@ -41,6 +41,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static java.util.Arrays.asList;
+import static java.util.Locale.ENGLISH;
 
 @ThreadSafe
 public final class DiscoveryNodeManager
@@ -113,7 +114,7 @@ public final class DiscoveryNodeManager
                     // record available active nodes organized by data source
                     String dataSources = service.getProperties().get("datasources");
                     if (dataSources != null) {
-                        dataSources = dataSources.toLowerCase();
+                        dataSources = dataSources.toLowerCase(ENGLISH);
                         for (String dataSource : DATASOURCES_SPLITTER.split(dataSources)) {
                             byDataSourceBuilder.put(dataSource, node);
                         }

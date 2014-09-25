@@ -31,6 +31,7 @@ import java.util.TreeMap;
 import static java.lang.Character.isDigit;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class TimeZoneKey
@@ -68,7 +69,7 @@ public final class TimeZoneKey
             }
 
             Map<String, TimeZoneKey> zoneIdToKey = new TreeMap<>();
-            zoneIdToKey.put(UTC_KEY.getId().toLowerCase(), UTC_KEY);
+            zoneIdToKey.put(UTC_KEY.getId().toLowerCase(ENGLISH), UTC_KEY);
 
             short maxZoneKey = 0;
             for (Entry<Object, Object> entry : data.entrySet()) {
@@ -76,7 +77,7 @@ public final class TimeZoneKey
                 String zoneId = ((String) entry.getValue()).trim();
 
                 maxZoneKey = (short) max(maxZoneKey, zoneKey);
-                zoneIdToKey.put(zoneId.toLowerCase(), new TimeZoneKey(zoneId, zoneKey));
+                zoneIdToKey.put(zoneId.toLowerCase(ENGLISH), new TimeZoneKey(zoneId, zoneKey));
             }
 
             MAX_TIME_ZONE_KEY = maxZoneKey;
@@ -119,7 +120,7 @@ public final class TimeZoneKey
         requireNonNull(zoneId, "Zone id is null");
         checkArgument(!zoneId.isEmpty(), "Zone id is an empty string");
 
-        TimeZoneKey zoneKey = ZONE_ID_TO_KEY.get(zoneId.toLowerCase());
+        TimeZoneKey zoneKey = ZONE_ID_TO_KEY.get(zoneId.toLowerCase(ENGLISH));
         if (zoneKey == null) {
             zoneKey = ZONE_ID_TO_KEY.get(normalizeZoneId(zoneId));
         }
@@ -199,7 +200,7 @@ public final class TimeZoneKey
 
     private static String normalizeZoneId(String originalZoneId)
     {
-        String zoneId = originalZoneId.toLowerCase();
+        String zoneId = originalZoneId.toLowerCase(ENGLISH);
 
         if (zoneId.startsWith("etc/")) {
             zoneId = zoneId.substring(4);

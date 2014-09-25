@@ -67,6 +67,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.fromProperties;
 import static java.util.Collections.nCopies;
+import static java.util.Locale.ENGLISH;
 
 public class BaseJdbcClient
         implements JdbcClient
@@ -117,7 +118,7 @@ public class BaseJdbcClient
                 ResultSet resultSet = connection.getMetaData().getSchemas()) {
             ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
             while (resultSet.next()) {
-                String schemaName = resultSet.getString("TABLE_SCHEM").toLowerCase();
+                String schemaName = resultSet.getString("TABLE_SCHEM").toLowerCase(ENGLISH);
                 // skip internal schemas
                 if (!schemaName.equals("information_schema")) {
                     schemaNames.add(schemaName);
@@ -136,7 +137,7 @@ public class BaseJdbcClient
         try (Connection connection = driver.connect(connectionUrl, connectionProperties)) {
             DatabaseMetaData metadata = connection.getMetaData();
             if (metadata.storesUpperCaseIdentifiers() && (schema != null)) {
-                schema = schema.toUpperCase();
+                schema = schema.toUpperCase(ENGLISH);
             }
             try (ResultSet resultSet = getTables(connection, schema, null)) {
                 ImmutableList.Builder<SchemaTableName> list = ImmutableList.builder();
@@ -160,8 +161,8 @@ public class BaseJdbcClient
             String jdbcSchemaName = schemaTableName.getSchemaName();
             String jdbcTableName = schemaTableName.getTableName();
             if (metadata.storesUpperCaseIdentifiers()) {
-                jdbcSchemaName = jdbcSchemaName.toUpperCase();
-                jdbcTableName = jdbcTableName.toUpperCase();
+                jdbcSchemaName = jdbcSchemaName.toUpperCase(ENGLISH);
+                jdbcTableName = jdbcTableName.toUpperCase(ENGLISH);
             }
             try (ResultSet resultSet = getTables(connection, jdbcSchemaName, jdbcTableName)) {
                 List<JdbcTableHandle> tableHandles = new ArrayList<>();
@@ -284,8 +285,8 @@ public class BaseJdbcClient
         try (Connection connection = driver.connect(connectionUrl, connectionProperties)) {
             boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
             if (uppercase) {
-                schema = schema.toUpperCase();
-                table = table.toUpperCase();
+                schema = schema.toUpperCase(ENGLISH);
+                table = table.toUpperCase(ENGLISH);
             }
             String catalog = connection.getCatalog();
 
@@ -300,7 +301,7 @@ public class BaseJdbcClient
             for (ColumnMetadata column : tableMetadata.getColumns()) {
                 String columnName = column.getName();
                 if (uppercase) {
-                    columnName = columnName.toUpperCase();
+                    columnName = columnName.toUpperCase(ENGLISH);
                 }
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());
@@ -377,8 +378,8 @@ public class BaseJdbcClient
             throws SQLException
     {
         return new SchemaTableName(
-                resultSet.getString("TABLE_SCHEM").toLowerCase(),
-                resultSet.getString("TABLE_NAME").toLowerCase());
+                resultSet.getString("TABLE_SCHEM").toLowerCase(ENGLISH),
+                resultSet.getString("TABLE_NAME").toLowerCase(ENGLISH));
     }
 
     protected void execute(Connection connection, String query)

@@ -28,6 +28,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static java.util.Locale.ENGLISH;
+
 public final class CassandraCqlUtils
 {
     private CassandraCqlUtils()
@@ -70,11 +72,11 @@ public final class CassandraCqlUtils
 
     private static String validIdentifier(String identifier)
     {
-        if (!identifier.equals(identifier.toLowerCase())) {
+        if (!identifier.equals(identifier.toLowerCase(ENGLISH))) {
             return quoteIdentifier(identifier);
         }
 
-        if (keywords.contains(identifier.toUpperCase())) {
+        if (keywords.contains(identifier.toUpperCase(ENGLISH))) {
             return quoteIdentifier(identifier);
         }
         return identifier;

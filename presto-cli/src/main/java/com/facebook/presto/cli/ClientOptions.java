@@ -22,6 +22,8 @@ import java.net.URISyntaxException;
 import java.util.Locale;
 import java.util.TimeZone;
 
+import static java.util.Locale.ENGLISH;
+
 public class ClientOptions
 {
     @Option(name = "--server", title = "server", description = "Presto server location (default: localhost:8080)")
@@ -68,7 +70,7 @@ public class ClientOptions
 
     public static URI parseServer(String server)
     {
-        server = server.toLowerCase();
+        server = server.toLowerCase(ENGLISH);
         if (server.startsWith("http://") || server.startsWith("https://")) {
             return URI.create(server);
         }
