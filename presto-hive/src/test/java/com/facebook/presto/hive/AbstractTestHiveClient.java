@@ -845,7 +845,7 @@ public abstract class AbstractTestHiveClient
         assertGetRecordsOptional("presto_test_types_parquet", "parquet");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testTypesDwrf()
             throws Exception
     {
@@ -1408,6 +1408,8 @@ public abstract class AbstractTestHiveClient
                 return OrcHiveRecordCursor.class;
             case "parquet":
                 return ParquetHiveRecordCursor.class;
+            case "dwrf":
+                return DwrfHiveRecordCursor.class;
         }
         return GenericHiveRecordCursor.class;
     }
