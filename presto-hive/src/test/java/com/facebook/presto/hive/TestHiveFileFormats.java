@@ -13,25 +13,21 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
 import org.apache.hadoop.hive.ql.io.RCFileInputFormat;
 import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
 import org.apache.hadoop.hive.serde2.SerDe;
-import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
 import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
 import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.RecordReader;
-import org.apache.hadoop.mapred.Reporter;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -119,7 +115,8 @@ public class TestHiveFileFormats
         splitProperties.setProperty("columns", Joiner.on(',').join(transform(filter(testColumns, not(partitionKeyFilter())), nameGetter())));
         splitProperties.setProperty("columns.types", Joiner.on(',').join(transform(filter(testColumns, not(partitionKeyFilter())), typeGetter())));
 
-        List<HivePartitionKey> partitionKeys = ImmutableList.copyOf(transform(filter(testColumns, partitionKeyFilter()), new Function<TestColumn, HivePartitionKey>() {
+        List<HivePartitionKey> partitionKeys = ImmutableList.copyOf(transform(filter(testColumns, partitionKeyFilter()), new Function<TestColumn, HivePartitionKey>()
+        {
             @Override
             public HivePartitionKey apply(TestColumn input)
             {
@@ -127,25 +124,16 @@ public class TestHiveFileFormats
             }
         }));
 
-        HiveSplit hiveSplit = new HiveSplit(
-                "client",
-                "database",
-                "table",
-                "partition",
-                split.getPath().toUri().getPath(),
+        HiveRecordCursor cursor = cursorProvider.createHiveRecordCursor(
+                "test",
+                new Configuration(),
+                SESSION,
+                split.getPath(),
                 split.getStart(),
                 split.getLength(),
                 splitProperties,
-                partitionKeys,
-                ImmutableList.<HostAddress>of(),
-                SESSION);
-
-        RecordReader<?, BytesRefArrayWritable> recordReader = (RecordReader<?, BytesRefArrayWritable>) inputFormat.getRecordReader(split, new JobConf(), Reporter.NULL);
-
-        HiveRecordCursor cursor = cursorProvider.createHiveRecordCursor(
-                hiveSplit,
-                recordReader,
                 getColumnHandles(testColumns),
+                partitionKeys,
                 DateTimeZone.getDefault(),
                 TYPE_MANAGER).get();
 

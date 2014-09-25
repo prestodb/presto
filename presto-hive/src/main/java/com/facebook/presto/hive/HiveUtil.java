@@ -14,21 +14,30 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorPartition;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.JavaUtils;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
+import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
+import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.RecordReader;
+import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.joda.time.DateTimeZone;
@@ -36,12 +45,23 @@ import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.Callable;
 
+import static com.facebook.presto.hive.HiveClient.getType;
+import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnIndexGetter;
+import static com.facebook.presto.hive.HiveColumnHandle.isPartitionKeyPredicate;
+import static com.facebook.presto.hive.HiveType.getSupportedHiveType;
+import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Predicates.not;
+import static com.google.common.collect.Iterables.filter;
+import static com.google.common.collect.Lists.transform;
 import static com.google.common.io.BaseEncoding.base64;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getTableMetadata;
@@ -63,6 +83,78 @@ public final class HiveUtil
 
     private HiveUtil()
     {
+    }
+
+    public static RecordReader<?, ?> createRecordReader(String clientId, Configuration configuration, Path path, long start, long length, Properties schema, List<HiveColumnHandle> columns)
+    {
+        // determine which hive columns we will read
+        List<HiveColumnHandle> readColumns = ImmutableList.copyOf(filter(columns, not(isPartitionKeyPredicate())));
+        if (readColumns.isEmpty()) {
+            // for count(*) queries we will have "no" columns we want to read, but since hive doesn't
+            // support no columns (it will read all columns instead), we must choose a single column
+            HiveColumnHandle primitiveColumn = getFirstPrimitiveColumn(clientId, schema);
+            readColumns = ImmutableList.of(primitiveColumn);
+        }
+        ArrayList<Integer> readHiveColumnIndexes = new ArrayList<>(transform(readColumns, hiveColumnIndexGetter()));
+
+        // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
+        ColumnProjectionUtils.setReadColumnIDs(configuration, readHiveColumnIndexes);
+        configuration.set(IOConstants.COLUMNS, Joiner.on(',').join(Iterables.transform(readColumns, HiveColumnHandle.nameGetter())));
+
+        final InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, true);
+        final JobConf jobConf = new JobConf(configuration);
+        final FileSplit fileSplit = new FileSplit(path, start, length, (String[]) null);
+
+        // propagate serialization configuration to getRecordReader
+        for (String name : schema.stringPropertyNames()) {
+            if (name.startsWith("serialization.")) {
+                jobConf.set(name, schema.getProperty(name));
+            }
+        }
+
+        try {
+            return retry().stopOnIllegalExceptions().run("createRecordReader", new Callable<RecordReader<?, ?>>()
+            {
+                @Override
+                public RecordReader<?, ?> call()
+                        throws IOException
+                {
+                    return inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
+                }
+            });
+        }
+        catch (Exception e) {
+            throw new PrestoException(HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT.toErrorCode(), String.format("Error opening Hive split %s (offset=%s, length=%s) using %s: %s",
+                    path,
+                    start,
+                    length,
+                    getInputFormatName(schema),
+                    e.getMessage()),
+                    e);
+        }
+    }
+
+    static HiveColumnHandle getFirstPrimitiveColumn(String clientId, Properties schema)
+    {
+        List<? extends StructField> allStructFieldRefs = getTableObjectInspector(schema).getAllStructFieldRefs();
+        checkArgument(!allStructFieldRefs.isEmpty(), "Table doesn't have any columns");
+
+        int index = 0;
+        for (StructField field : allStructFieldRefs) {
+            ObjectInspector inspector = field.getFieldObjectInspector();
+            if (inspector.getCategory() == ObjectInspector.Category.PRIMITIVE) {
+                return createHiveColumnHandle(clientId, index, field, inspector);
+            }
+            index++;
+        }
+
+        StructField field = allStructFieldRefs.get(0);
+        return createHiveColumnHandle(clientId, index, field, field.getFieldObjectInspector());
+    }
+
+    private static HiveColumnHandle createHiveColumnHandle(String clientId, int index, StructField field, ObjectInspector inspector)
+    {
+        return new HiveColumnHandle(clientId, field.getFieldName(), index, getSupportedHiveType(inspector), getType(inspector).getName(), index, false);
     }
 
     static InputFormat<?, ?> getInputFormat(Configuration configuration, Properties schema, boolean symlinkTarget)
