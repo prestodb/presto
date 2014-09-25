@@ -750,7 +750,7 @@ public class HttpRemoteTask
                                     HttpStatus.OK.code(),
                                     response.getStatusCode(),
                                     response.getStatusMessage(),
-                                    response.getResponseBody()));
+                                    response.getJson()));
                         }
                     }
                     callback.fatal(cause);
