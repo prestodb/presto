@@ -64,6 +64,12 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
+import static com.facebook.presto.hive.HiveStorageFormat.ORC;
+import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
+import static com.facebook.presto.hive.HiveStorageFormat.RCBINARY;
+import static com.facebook.presto.hive.HiveStorageFormat.RCTEXT;
+import static com.facebook.presto.hive.HiveStorageFormat.SEQUENCEFILE;
+import static com.facebook.presto.hive.HiveStorageFormat.TEXTFILE;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveUtil.partitionIdGetter;
@@ -140,6 +146,12 @@ public abstract class AbstractTestHiveClient
     protected ConnectorRecordSetProvider recordSetProvider;
     protected ConnectorRecordSinkProvider recordSinkProvider;
 
+    private String host;
+    private int port;
+    private String databaseName;
+    private String timeZoneString;
+    private HiveStorageFormat hiveStorageFormat;
+
     protected void setupHive(String connectorId, String databaseName, String timeZoneId)
     {
         database = databaseName;
@@ -210,14 +222,26 @@ public abstract class AbstractTestHiveClient
 
     protected void setup(String host, int port, String databaseName, String timeZone)
     {
+        this.host = host;
+        this.port = port;
+        this.databaseName = databaseName;
+        this.timeZoneString = timeZone;
         setup(host, port, databaseName, timeZone, "hive-test", 100, 50);
     }
 
     protected void setup(String host, int port, String databaseName, String timeZoneId, String connectorName, int maxOutstandingSplits, int maxThreads)
     {
+        HiveClientConfig hiveClientConfig = new HiveClientConfig();
+        setup(host, port, databaseName, timeZoneId, connectorName, maxOutstandingSplits, maxThreads, hiveClientConfig.getHiveStorageFormat());
+    }
+
+    protected void setup(String host, int port, String databaseName, String timeZoneId, String connectorName, int maxOutstandingSplits, int maxThreads, HiveStorageFormat hiveStorageFormat)
+    {
         setupHive(connectorName, databaseName, timeZoneId);
 
         HiveClientConfig hiveClientConfig = new HiveClientConfig();
+        hiveClientConfig.setHiveStorageFormat(hiveStorageFormat);
+        this.hiveStorageFormat = hiveStorageFormat;
         String proxy = System.getProperty("hive.metastore.thrift.client.socks-proxy");
         if (proxy != null) {
             hiveClientConfig.setMetastoreSocksProxy(HostAndPort.fromString(proxy));
@@ -644,7 +668,7 @@ public abstract class AbstractTestHiveClient
             long rowNumber = 0;
             long completedBytes = 0;
             try (RecordCursor cursor = recordSetProvider.getRecordSet(hiveSplit, columnHandles).cursor()) {
-                assertRecordCursorType(cursor, fileType);
+                assertRecordCursorType(cursor, this.hiveStorageFormat);
                 assertEquals(cursor.getTotalBytes(), hiveSplit.getLength());
 
                 while (cursor.advanceNextPosition()) {
@@ -724,7 +748,7 @@ public abstract class AbstractTestHiveClient
 
             long rowNumber = 0;
             try (RecordCursor cursor = recordSetProvider.getRecordSet(hiveSplit, columnHandles).cursor()) {
-                assertRecordCursorType(cursor, fileType);
+                assertRecordCursorType(cursor, this.hiveStorageFormat);
                 while (cursor.advanceNextPosition()) {
                     rowNumber++;
 
@@ -757,7 +781,7 @@ public abstract class AbstractTestHiveClient
 
             long rowNumber = 0;
             try (RecordCursor cursor = recordSetProvider.getRecordSet(split, columnHandles).cursor()) {
-                assertRecordCursorType(cursor, "textfile");
+                assertRecordCursorType(cursor, TEXTFILE);
                 assertEquals(cursor.getTotalBytes(), hiveSplit.getLength());
 
                 while (cursor.advanceNextPosition()) {
@@ -804,49 +828,49 @@ public abstract class AbstractTestHiveClient
     public void testTypesTextFile()
             throws Exception
     {
-        assertGetRecords("presto_test_types_textfile", "textfile");
+        assertGetRecords("presto_test_types_textfile", TEXTFILE);
     }
 
     @Test
     public void testTypesSequenceFile()
             throws Exception
     {
-        assertGetRecords("presto_test_types_sequencefile", "sequencefile");
+        assertGetRecords("presto_test_types_sequencefile", SEQUENCEFILE);
     }
 
     @Test
     public void testTypesRcText()
             throws Exception
     {
-        assertGetRecords("presto_test_types_rctext", "rctext");
+        assertGetRecords("presto_test_types_rctext", RCTEXT);
     }
 
     @Test
     public void testTypesRcBinary()
             throws Exception
     {
-        assertGetRecords("presto_test_types_rcbinary", "rcbinary");
+        assertGetRecords("presto_test_types_rcbinary", RCBINARY);
     }
 
     @Test(enabled = false)
     public void testTypesOrc()
             throws Exception
     {
-        assertGetRecordsOptional("presto_test_types_orc", "orc");
+        assertGetRecordsOptional("presto_test_types_orc", ORC);
     }
 
     @Test(enabled = false)
     public void testTypesParquet()
             throws Exception
     {
-        assertGetRecordsOptional("presto_test_types_parquet", "parquet");
+        assertGetRecordsOptional("presto_test_types_parquet", PARQUET);
     }
 
     @Test(enabled = false)
     public void testTypesDwrf()
             throws Exception
     {
-        assertGetRecordsOptional("presto_test_types_dwrf", "dwrf");
+        assertGetRecordsOptional("presto_test_types_dwrf", ORC);
     }
 
     @Test
@@ -891,7 +915,11 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         try {
-            doCreateTable();
+            for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+                setup(this.host, this.port, this.databaseName, this.timeZoneString, "hive-test", 100, 50, storageFormat);
+                doCreateTable();
+                dropTable(temporaryCreateTable);
+            }
         }
         finally {
             dropTable(temporaryCreateTable);
@@ -1037,7 +1065,7 @@ public abstract class AbstractTestHiveClient
         ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
         try (RecordCursor cursor = recordSetProvider.getRecordSet(split, columnHandles).cursor()) {
-            assertRecordCursorType(cursor, "rcfile-binary");
+            assertRecordCursorType(cursor, this.hiveStorageFormat);
 
             assertTrue(cursor.advanceNextPosition());
             assertEquals(cursor.getLong(0), 2);
@@ -1125,7 +1153,7 @@ public abstract class AbstractTestHiveClient
         ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
         try (RecordCursor cursor = recordSetProvider.getRecordSet(split, columnHandles).cursor()) {
-            assertRecordCursorType(cursor, "rcfile-binary");
+            assertRecordCursorType(cursor, this.hiveStorageFormat);
 
             assertTrue(cursor.advanceNextPosition());
             assertEquals(cursor.getLong(0), 1);
@@ -1152,15 +1180,15 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    protected void assertGetRecordsOptional(String tableName, String fileType)
+    protected void assertGetRecordsOptional(String tableName, HiveStorageFormat hiveStorageFormat)
             throws Exception
     {
         if (metadata.getTableHandle(SESSION, new SchemaTableName(database, tableName)) != null) {
-            assertGetRecords(tableName, fileType);
+            assertGetRecords(tableName, hiveStorageFormat);
         }
     }
 
-    protected void assertGetRecords(String tableName, String fileType)
+    protected void assertGetRecords(String tableName, HiveStorageFormat hiveStorageFormat)
             throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(new SchemaTableName(database, tableName));
@@ -1176,7 +1204,7 @@ public abstract class AbstractTestHiveClient
         long rowNumber = 0;
         long completedBytes = 0;
         try (RecordCursor cursor = recordSetProvider.getRecordSet(hiveSplit, columnHandles).cursor()) {
-            assertRecordCursorType(cursor, fileType);
+            assertRecordCursorType(cursor, hiveStorageFormat);
             assertEquals(cursor.getTotalBytes(), hiveSplit.getLength());
 
             while (cursor.advanceNextPosition()) {
@@ -1387,19 +1415,18 @@ public abstract class AbstractTestHiveClient
         return splits.build();
     }
 
-    private void assertRecordCursorType(RecordCursor cursor, String fileType)
+    private void assertRecordCursorType(RecordCursor cursor, HiveStorageFormat hiveStorageFormat)
     {
-        assertInstanceOf(cursor, recordCursorType(fileType), fileType);
+        assertInstanceOf(cursor, recordCursorType(hiveStorageFormat), hiveStorageFormat.name());
     }
 
-    protected Class<? extends HiveRecordCursor> recordCursorType(String fileType)
+    protected Class<? extends HiveRecordCursor> recordCursorType(HiveStorageFormat hiveStorageFormat)
     {
-        switch (fileType) {
-            case "rcfile-text":
-            case "rctext":
+        //TODO: add other file format record cursors when they are supported
+        switch (hiveStorageFormat) {
+            case RCTEXT:
                 return ColumnarTextHiveRecordCursor.class;
-            case "rcfile-binary":
-            case "rcbinary":
+            case RCBINARY:
                 return ColumnarBinaryHiveRecordCursor.class;
         }
         return GenericHiveRecordCursor.class;

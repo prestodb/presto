@@ -603,7 +603,8 @@ public class HiveClient
                 columnTypes.build(),
                 tableMetadata.getOwner(),
                 targetPath.toString(),
-                targetPath.toString());
+                targetPath.toString(),
+                hiveStorageFormat);
         }
 
         // use a per-user temporary directory to avoid permission problems
@@ -623,7 +624,8 @@ public class HiveClient
                 columnTypes.build(),
                 tableMetadata.getOwner(),
                 targetPath.toString(),
-                temporaryPath.toString());
+                temporaryPath.toString(),
+                hiveStorageFormat);
     }
 
     @Override
