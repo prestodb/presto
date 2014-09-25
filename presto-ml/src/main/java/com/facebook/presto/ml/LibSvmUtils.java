@@ -21,6 +21,7 @@ import libsvm.svm_parameter;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public final class LibSvmUtils
 {
@@ -84,7 +85,7 @@ public final class LibSvmUtils
 
     private static int parseKernelType(String value)
     {
-        switch (value.toLowerCase()) {
+        switch (value.toLowerCase(ENGLISH)) {
             case "linear":
                 return svm_parameter.LINEAR;
             case "poly":

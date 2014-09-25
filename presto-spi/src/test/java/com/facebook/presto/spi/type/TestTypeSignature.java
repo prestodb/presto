@@ -22,6 +22,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -55,11 +56,11 @@ public class TestTypeSignature
             @Override
             public String apply(String input)
             {
-                return input.toLowerCase();
+                return input.toLowerCase(ENGLISH);
             }
         }).toList();
 
-        String typeName = base.toLowerCase();
+        String typeName = base.toLowerCase(ENGLISH);
         if (!parameters.isEmpty()) {
             typeName += "<" + Joiner.on(",").join(lowerCaseTypeNames) + ">";
         }

@@ -65,6 +65,7 @@ import static com.google.common.base.Throwables.propagateIfInstanceOf;
 import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.transform;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public class PrestoResultSet
         implements ResultSet
@@ -1690,7 +1691,7 @@ public class PrestoResultSet
         if (label == null) {
             throw new SQLException("Column label is null");
         }
-        Integer index = fieldMap.get(label.toLowerCase());
+        Integer index = fieldMap.get(label.toLowerCase(ENGLISH));
         if (index == null) {
             throw new SQLException("Invalid column label: " + label);
         }
@@ -1768,7 +1769,7 @@ public class PrestoResultSet
     {
         Map<String, Integer> map = new HashMap<>();
         for (int i = 0; i < columns.size(); i++) {
-            String name = columns.get(i).getName().toLowerCase();
+            String name = columns.get(i).getName().toLowerCase(ENGLISH);
             if (!map.containsKey(name)) {
                 map.put(name, i + 1);
             }
@@ -1786,7 +1787,7 @@ public class PrestoResultSet
                     .setTableName("") // TODO
                     .setColumnLabel(column.getName())
                     .setColumnName(column.getName()) // TODO
-                    .setColumnTypeName(column.getType().toUpperCase())
+                    .setColumnTypeName(column.getType().toUpperCase(ENGLISH))
                     .setNullable(ResultSetMetaData.columnNullableUnknown)
                     .setCurrency(false);
             setTypeInfo(builder, column.getType());
