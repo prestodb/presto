@@ -13,14 +13,18 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Optional;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
 import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
 import org.apache.hadoop.mapred.RecordReader;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
+import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 
@@ -28,25 +32,39 @@ public class ColumnarTextHiveRecordCursorProvider
         implements HiveRecordCursorProvider
 {
     @Override
-    public Optional<HiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns, DateTimeZone hiveStorageTimeZone, TypeManager typeManager)
+    public Optional<HiveRecordCursor> createHiveRecordCursor(
+            String clientId,
+            Configuration configuration,
+            ConnectorSession session,
+            Path path,
+            long start,
+            long length,
+            Properties schema,
+            List<HiveColumnHandle> columns,
+            List<HivePartitionKey> partitionKeys,
+            DateTimeZone hiveStorageTimeZone,
+            TypeManager typeManager)
     {
-        if (usesColumnarTextSerDe(split)) {
-            return Optional.<HiveRecordCursor>of(new ColumnarTextHiveRecordCursor<>(
-                    columnarTextRecordReader(recordReader),
-                    split.getLength(),
-                    split.getSchema(),
-                    split.getPartitionKeys(),
-                    columns,
-                    hiveStorageTimeZone,
-                    DateTimeZone.forID(split.getSession().getTimeZoneKey().getId()),
-                    typeManager));
+        if (!usesColumnarTextSerDe(schema)) {
+            return Optional.absent();
         }
-        return Optional.absent();
+
+        RecordReader<?, ?> recordReader = HiveUtil.createRecordReader(clientId, configuration, path, start, length, schema, columns);
+
+        return Optional.<HiveRecordCursor>of(new ColumnarTextHiveRecordCursor<>(
+                columnarTextRecordReader(recordReader),
+                length,
+                schema,
+                partitionKeys,
+                columns,
+                hiveStorageTimeZone,
+                DateTimeZone.forID(session.getTimeZoneKey().getId()),
+                typeManager));
     }
 
-    private static boolean usesColumnarTextSerDe(HiveSplit split)
+    private static boolean usesColumnarTextSerDe(Properties schema)
     {
-        return getDeserializer(split.getSchema()) instanceof ColumnarSerDe;
+        return getDeserializer(schema) instanceof ColumnarSerDe;
     }
 
     @SuppressWarnings("unchecked")

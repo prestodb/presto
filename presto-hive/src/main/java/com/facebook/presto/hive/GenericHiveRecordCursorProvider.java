@@ -13,28 +13,45 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Optional;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.RecordReader;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
+import java.util.Properties;
 
 public class GenericHiveRecordCursorProvider
         implements HiveRecordCursorProvider
 {
     @Override
-    public Optional<HiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns, DateTimeZone hiveStorageTimeZone, TypeManager typeManager)
+    public Optional<HiveRecordCursor> createHiveRecordCursor(
+            String clientId,
+            Configuration configuration,
+            ConnectorSession session,
+            Path path,
+            long start,
+            long length,
+            Properties schema,
+            List<HiveColumnHandle> columns,
+            List<HivePartitionKey> partitionKeys,
+            DateTimeZone hiveStorageTimeZone,
+            TypeManager typeManager)
     {
-        return Optional.<HiveRecordCursor>of(new  GenericHiveRecordCursor<>(
+        RecordReader<?, ?> recordReader = HiveUtil.createRecordReader(clientId, configuration, path, start, length, schema, columns);
+
+        return Optional.<HiveRecordCursor>of(new GenericHiveRecordCursor<>(
                 genericRecordReader(recordReader),
-                split.getLength(),
-                split.getSchema(),
-                split.getPartitionKeys(),
+                length,
+                schema,
+                partitionKeys,
                 columns,
                 hiveStorageTimeZone,
-                DateTimeZone.forID(split.getSession().getTimeZoneKey().getId()),
+                DateTimeZone.forID(session.getTimeZoneKey().getId()),
                 typeManager));
     }
 

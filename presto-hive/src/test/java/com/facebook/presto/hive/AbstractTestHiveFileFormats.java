@@ -204,7 +204,11 @@ public abstract class AbstractTestHiveFileFormats
         return columns;
     }
 
-    public FileSplit createTestFile(String filePath, HiveOutputFormat<?, ?> outputFormat, @SuppressWarnings("deprecation") SerDe serDe, String compressionCodec, List<TestColumn> testColumns)
+    public FileSplit createTestFile(String filePath,
+            HiveOutputFormat<?, ?> outputFormat,
+            @SuppressWarnings("deprecation") SerDe serDe,
+            String compressionCodec,
+            List<TestColumn> testColumns)
             throws Exception
     {
         // filter out partition keys, which are not written to the file
