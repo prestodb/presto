@@ -52,6 +52,7 @@ public class TestSqlTaskManager
     public static final TaskId OUT = new TaskId("query", "stage", "out");
 
     private final TaskExecutor taskExecutor;
+    private final TaskNotificationExecutor taskNotificationExecutor = new TaskNotificationExecutor();
 
     public TestSqlTaskManager()
     {
@@ -211,11 +212,12 @@ public class TestSqlTaskManager
 
     public SqlTaskManager createSqlTaskManager(TaskManagerConfig config)
     {
+        QueryMonitor queryMonitor = new QueryMonitor(new ObjectMapperProvider().get(), new NullEventClient(), new NodeInfo("test"));
+
         return new SqlTaskManager(
-                createTestingPlanner(),
                 new MockLocationFactory(),
-                taskExecutor,
-                new QueryMonitor(new ObjectMapperProvider().get(), new NullEventClient(), new NodeInfo("test")),
+                taskNotificationExecutor,
+                new SqlTaskExecutionFactory(taskExecutor, taskNotificationExecutor, createTestingPlanner(), queryMonitor, config),
                 config);
     }
 

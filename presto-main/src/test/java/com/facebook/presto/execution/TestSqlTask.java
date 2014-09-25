@@ -33,7 +33,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
@@ -62,7 +61,7 @@ public class TestSqlTask
 {
     public static final TaskId OUT = new TaskId("query", "stage", "out");
     private final TaskExecutor taskExecutor;
-    private final ScheduledExecutorService taskNotificationExecutor;
+    private final TaskNotificationExecutor taskNotificationExecutor;
     private final SqlTaskExecutionFactory sqlTaskExecutionFactory;
 
     private final AtomicLong nextTaskId = new AtomicLong();
@@ -72,13 +71,13 @@ public class TestSqlTask
         taskExecutor = new TaskExecutor(8);
         taskExecutor.start();
 
-        taskNotificationExecutor = newScheduledThreadPool(5, threadsNamed("task-notification-%d"));
+        taskNotificationExecutor = new TaskNotificationExecutor(newScheduledThreadPool(5, threadsNamed("task-notification-%d")));
 
         LocalExecutionPlanner planner = createTestingPlanner();
 
         sqlTaskExecutionFactory = new SqlTaskExecutionFactory(
-                taskNotificationExecutor,
                 taskExecutor,
+                taskNotificationExecutor,
                 planner,
                 new QueryMonitor(new ObjectMapperProvider().get(), new NullEventClient(), new NodeInfo("test")),
                 new TaskManagerConfig());
@@ -89,7 +88,7 @@ public class TestSqlTask
             throws Exception
     {
         taskExecutor.stop();
-        taskNotificationExecutor.shutdownNow();
+        taskNotificationExecutor.stop();
     }
 
     @Test
@@ -279,7 +278,7 @@ public class TestSqlTask
                 taskId,
                 location,
                 sqlTaskExecutionFactory,
-                taskNotificationExecutor,
+                taskNotificationExecutor.getExecutor(),
                 Functions.<SqlTask>identity(),
                 new DataSize(32, MEGABYTE));
     }

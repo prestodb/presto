@@ -53,7 +53,7 @@ public class SqlTask
     private final TaskStateMachine taskStateMachine;
     private final SharedBuffer sharedBuffer;
 
-    private final SqlTaskExecutionFactory sqlTaskExecutionFactory;
+    private final TaskExecutionFactory taskExecutionFactory;
 
     private final AtomicReference<DateTime> lastHeartbeat = new AtomicReference<>(DateTime.now());
     private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskInfo.STARTING_VERSION);
@@ -63,14 +63,14 @@ public class SqlTask
     public SqlTask(
             TaskId taskId,
             URI location,
-            SqlTaskExecutionFactory sqlTaskExecutionFactory,
+            TaskExecutionFactory taskExecutionFactory,
             ExecutorService taskNotificationExecutor,
             final Function<SqlTask, ?> onDone,
             DataSize maxBufferSize)
     {
         this.taskId = checkNotNull(taskId, "taskId is null");
         this.location = checkNotNull(location, "location is null");
-        this.sqlTaskExecutionFactory = checkNotNull(sqlTaskExecutionFactory, "sqlTaskExecutionFactory is null");
+        this.taskExecutionFactory = checkNotNull(taskExecutionFactory, "taskExecutionFactory is null");
         checkNotNull(taskNotificationExecutor, "taskNotificationExecutor is null");
         checkNotNull(onDone, "onDone is null");
         checkNotNull(maxBufferSize, "maxBufferSize is null");
@@ -210,7 +210,7 @@ public class SqlTask
             }
             taskExecution = taskHolder.getTaskExecution();
             if (taskExecution == null) {
-                taskExecution = sqlTaskExecutionFactory.create(session, taskStateMachine, sharedBuffer, fragment, sources);
+                taskExecution = taskExecutionFactory.create(session, taskStateMachine, sharedBuffer, fragment, sources);
                 taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
             }
         }
