@@ -94,7 +94,6 @@ import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class HttpRemoteTask
         implements RemoteTask
@@ -751,7 +750,7 @@ public class HttpRemoteTask
                                     HttpStatus.OK.code(),
                                     response.getStatusCode(),
                                     response.getStatusMessage(),
-                                    new String(response.getNonJsonBytes(), UTF_8)));
+                                    response.getResponseBody()));
                         }
                     }
                     callback.fatal(cause);
