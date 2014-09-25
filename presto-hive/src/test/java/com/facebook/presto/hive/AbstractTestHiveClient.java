@@ -831,7 +831,7 @@ public abstract class AbstractTestHiveClient
         assertGetRecords("presto_test_types_rcbinary", "rcbinary");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testTypesOrc()
             throws Exception
     {
@@ -1404,6 +1404,8 @@ public abstract class AbstractTestHiveClient
             case "rcfile-binary":
             case "rcbinary":
                 return ColumnarBinaryHiveRecordCursor.class;
+            case "orc":
+                return OrcHiveRecordCursor.class;
         }
         return GenericHiveRecordCursor.class;
     }
