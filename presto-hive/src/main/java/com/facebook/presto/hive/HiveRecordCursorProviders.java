@@ -26,6 +26,7 @@ public final class HiveRecordCursorProviders
         return ImmutableList.of(
                 new OrcRecordCursorProvider(),
                 new ParquetRecordCursorProvider(),
+                new DwrfRecordCursorProvider(),
                 new ColumnarTextHiveRecordCursorProvider(),
                 new ColumnarBinaryHiveRecordCursorProvider(),
                 new GenericHiveRecordCursorProvider());

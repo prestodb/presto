@@ -174,6 +174,37 @@ public class TestHiveFileFormats
         }
     }
 
+    @Test
+    public void testDwrf()
+            throws Exception
+    {
+        List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, new Predicate<TestColumn>()
+        {
+            @Override
+            public boolean apply(TestColumn testColumn)
+            {
+                ObjectInspector objectInspector = testColumn.getObjectInspector();
+                return !hasType(objectInspector, PrimitiveCategory.DATE);
+            }
+
+        }));
+
+        HiveOutputFormat<?, ?> outputFormat = new com.facebook.hive.orc.OrcOutputFormat();
+        InputFormat<?, ?> inputFormat = new com.facebook.hive.orc.OrcInputFormat();
+        @SuppressWarnings("deprecation")
+        SerDe serde = new com.facebook.hive.orc.OrcSerde();
+        File file = File.createTempFile("presto_test", "dwrf");
+        file.delete();
+        try {
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, testColumns);
+            testCursorProvider(new DwrfRecordCursorProvider(), split, inputFormat, serde, testColumns);
+        }
+        finally {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
     private void testCursorProvider(HiveRecordCursorProvider cursorProvider,
             FileSplit split,
             InputFormat<?, ?> inputFormat,

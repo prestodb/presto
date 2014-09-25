@@ -222,6 +222,42 @@
             </dependency>
 
             <dependency>
+                <groupId>com.facebook.hive</groupId>
+                <artifactId>hive-dwrf</artifactId>
+                <version>0.8</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.iq80.snappy</groupId>
+                        <artifactId>snappy</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.presto.hadoop</groupId>
+                        <artifactId>hadoop-cdh4</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>it.unimi.dsi</groupId>
+                        <artifactId>fastutil</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.hive</groupId>
+                <artifactId>hive-dwrf-shims</artifactId>
+                <version>0.8</version>
+                <exclusions>
+                    <exclusion>
+                        <artifactId>commons-logging</artifactId>
+                        <groupId>commons-logging</groupId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>log</artifactId>
                 <version>${dep.airlift.version}</version>

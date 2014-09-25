@@ -24,6 +24,7 @@ public final class HiveTestUtils
     public static final ImmutableSet<HiveRecordCursorProvider> DEFAULT_HIVE_RECORD_CURSOR_PROVIDERS = ImmutableSet.of(
             new OrcRecordCursorProvider(),
             new ParquetRecordCursorProvider(),
+            new DwrfRecordCursorProvider(),
             new ColumnarTextHiveRecordCursorProvider(),
             new ColumnarBinaryHiveRecordCursorProvider(),
             new GenericHiveRecordCursorProvider());
