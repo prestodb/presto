@@ -838,7 +838,7 @@ public abstract class AbstractTestHiveClient
         assertGetRecordsOptional("presto_test_types_orc", "orc");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testTypesParquet()
             throws Exception
     {
@@ -1406,6 +1406,8 @@ public abstract class AbstractTestHiveClient
                 return ColumnarBinaryHiveRecordCursor.class;
             case "orc":
                 return OrcHiveRecordCursor.class;
+            case "parquet":
+                return ParquetHiveRecordCursor.class;
         }
         return GenericHiveRecordCursor.class;
     }
