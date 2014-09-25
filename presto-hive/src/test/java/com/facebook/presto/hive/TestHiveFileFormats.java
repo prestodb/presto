@@ -106,7 +106,31 @@ public class TestHiveFileFormats
         }
     }
 
-    private void testCursorProvider(HiveRecordCursorProvider cursorProvider, FileSplit split, InputFormat<?, ?> inputFormat, @SuppressWarnings("deprecation") SerDe serde, List<TestColumn> testColumns)
+    @Test
+    public void testOrc()
+            throws Exception
+    {
+        HiveOutputFormat<?, ?> outputFormat = new org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat();
+        InputFormat<?, ?> inputFormat = new org.apache.hadoop.hive.ql.io.orc.OrcInputFormat();
+        @SuppressWarnings("deprecation")
+        SerDe serde = new org.apache.hadoop.hive.ql.io.orc.OrcSerde();
+        File file = File.createTempFile("presto_test", "orc");
+        file.delete();
+        try {
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS);
+            testCursorProvider(new OrcRecordCursorProvider(), split, inputFormat, serde, TEST_COLUMNS);
+        }
+        finally {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
+    private void testCursorProvider(HiveRecordCursorProvider cursorProvider,
+            FileSplit split,
+            InputFormat<?, ?> inputFormat,
+            @SuppressWarnings("deprecation") SerDe serde,
+            List<TestColumn> testColumns)
             throws IOException
     {
         Properties splitProperties = new Properties();
