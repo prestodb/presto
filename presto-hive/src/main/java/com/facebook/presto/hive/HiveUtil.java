@@ -27,6 +27,8 @@ import org.apache.hadoop.hive.common.JavaUtils;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
+import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
+import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
@@ -180,6 +182,11 @@ public final class HiveUtil
     private static Class<? extends InputFormat<?, ?>> getInputFormatClass(JobConf conf, String inputFormatName)
             throws ClassNotFoundException
     {
+        // CDH uses different names for Parquet
+        if ("parquet.hive.DeprecatedParquetInputFormat".equals(inputFormatName)) {
+            return MapredParquetInputFormat.class;
+        }
+
         Class<?> clazz = conf.getClassByName(inputFormatName);
         // TODO: remove redundant cast to Object after IDEA-118533 is fixed
         return (Class<? extends InputFormat<?, ?>>) (Object) clazz.asSubclass(InputFormat.class);
@@ -270,6 +277,11 @@ public final class HiveUtil
     @SuppressWarnings("deprecation")
     private static Class<? extends Deserializer> getDeserializerClass(String name)
     {
+        // CDH uses different names for Parquet
+        if ("parquet.hive.serde.ParquetHiveSerDe".equals(name)) {
+            return ParquetHiveSerDe.class;
+        }
+
         try {
             return Class.forName(name, true, JavaUtils.getClassLoader()).asSubclass(Deserializer.class);
         }
