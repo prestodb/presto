@@ -19,6 +19,8 @@ import javax.annotation.Nullable;
 
 import java.util.Map;
 
+import static java.util.Locale.ENGLISH;
+
 public final class MoreFunctions
 {
     private MoreFunctions() {}
@@ -30,7 +32,7 @@ public final class MoreFunctions
             @Override
             public String apply(String s)
             {
-                return s.toLowerCase();
+                return s.toLowerCase(ENGLISH);
             }
         };
     }

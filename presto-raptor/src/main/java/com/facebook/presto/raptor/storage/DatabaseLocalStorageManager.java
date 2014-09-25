@@ -61,6 +61,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
 public class DatabaseLocalStorageManager
@@ -286,7 +287,7 @@ public class DatabaseLocalStorageManager
     @VisibleForTesting
     static File getShardPath(File baseDir, UUID shardUuid)
     {
-        String uuid = shardUuid.toString().toLowerCase();
+        String uuid = shardUuid.toString().toLowerCase(ENGLISH);
         return baseDir.toPath()
                 .resolve(uuid.substring(0, 2))
                 .resolve(uuid.substring(2, 4))

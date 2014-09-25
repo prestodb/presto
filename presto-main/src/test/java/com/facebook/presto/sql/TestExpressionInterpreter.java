@@ -56,6 +56,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionT
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionInterpreter;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static com.google.common.base.Charsets.UTF_8;
+import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 
 public class TestExpressionInterpreter
@@ -844,7 +845,7 @@ public class TestExpressionInterpreter
             @Override
             public Object getValue(Symbol symbol)
             {
-                switch (symbol.getName().toLowerCase()) {
+                switch (symbol.getName().toLowerCase(ENGLISH)) {
                     case "bound_long":
                         return 1234L;
                     case "bound_string":

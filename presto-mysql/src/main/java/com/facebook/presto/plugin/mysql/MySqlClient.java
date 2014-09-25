@@ -29,6 +29,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Set;
 
+import static java.util.Locale.ENGLISH;
+
 public class MySqlClient
         extends BaseJdbcClient
 {
@@ -48,7 +50,7 @@ public class MySqlClient
                 ResultSet resultSet = connection.getMetaData().getCatalogs()) {
             ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
             while (resultSet.next()) {
-                String schemaName = resultSet.getString("TABLE_CAT").toLowerCase();
+                String schemaName = resultSet.getString("TABLE_CAT").toLowerCase(ENGLISH);
                 // skip internal schemas
                 if (!schemaName.equals("information_schema") && !schemaName.equals("mysql")) {
                     schemaNames.add(schemaName);
@@ -75,8 +77,8 @@ public class MySqlClient
     {
         // MySQL uses catalogs instead of schemas
         return new SchemaTableName(
-                resultSet.getString("TABLE_CAT").toLowerCase(),
-                resultSet.getString("TABLE_NAME").toLowerCase());
+                resultSet.getString("TABLE_CAT").toLowerCase(ENGLISH),
+                resultSet.getString("TABLE_NAME").toLowerCase(ENGLISH));
 
     }
 

@@ -28,6 +28,7 @@ import static com.facebook.presto.spi.type.TimeZoneKey.isUtcZoneId;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackDateTimeZone;
+import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 
 public class TestTimeZoneUtils
@@ -41,7 +42,7 @@ public class TestTimeZoneUtils
         TreeSet<String> jdkZones = new TreeSet<>(Arrays.asList(TimeZone.getAvailableIDs()));
 
         for (String zoneId : new TreeSet<>(Sets.intersection(jodaZones, jdkZones))) {
-            if (zoneId.toLowerCase().startsWith("etc/") || zoneId.toLowerCase().startsWith("gmt")) {
+            if (zoneId.toLowerCase(ENGLISH).startsWith("etc/") || zoneId.toLowerCase(ENGLISH).startsWith("gmt")) {
                 continue;
             }
             DateTimeZone dateTimeZone = DateTimeZone.forID(zoneId);

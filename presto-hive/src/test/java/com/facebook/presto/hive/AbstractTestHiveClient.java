@@ -100,6 +100,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -1532,7 +1533,7 @@ public abstract class AbstractTestHiveClient
 
     private static String randomName()
     {
-        return UUID.randomUUID().toString().toLowerCase().replace("-", "");
+        return UUID.randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
     }
 
     private static Function<ColumnMetadata, String> columnNameGetter()

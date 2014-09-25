@@ -47,6 +47,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Locale.ENGLISH;
 import static javax.management.ObjectName.WILDCARD;
 
 public class JmxMetadata
@@ -114,7 +115,7 @@ public class JmxMetadata
         Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (ObjectName objectName : mbeanServer.queryNames(WILDCARD, null)) {
             // todo remove lower case when presto supports mixed case names
-            tableNames.add(new SchemaTableName(SCHEMA_NAME, objectName.toString().toLowerCase()));
+            tableNames.add(new SchemaTableName(SCHEMA_NAME, objectName.toString().toLowerCase(ENGLISH)));
         }
         return tableNames.build();
     }
@@ -134,7 +135,7 @@ public class JmxMetadata
             @Override
             public String apply(JmxColumnHandle input)
             {
-                return input.getColumnName().toLowerCase();
+                return input.getColumnName().toLowerCase(ENGLISH);
             }
         }));
     }

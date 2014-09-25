@@ -27,6 +27,7 @@ import java.util.Map;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 
 final class MetadataUtil
@@ -61,7 +62,7 @@ final class MetadataUtil
         @Override
         protected Type _deserialize(String value, DeserializationContext context)
         {
-            Type type = types.get(value.toLowerCase());
+            Type type = types.get(value.toLowerCase(ENGLISH));
             checkArgument(type != null, "Unknown type %s", value);
             return type;
         }

@@ -50,6 +50,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
+import static java.util.Locale.ENGLISH;
 
 public class CassandraMetadata
         implements ConnectorMetadata
@@ -123,7 +124,7 @@ public class CassandraMetadata
         for (String schemaName : listSchemas(session, schemaNameOrNull)) {
             try {
                 for (String tableName : schemaProvider.getAllTables(schemaName)) {
-                    tableNames.add(new SchemaTableName(schemaName, tableName.toLowerCase()));
+                    tableNames.add(new SchemaTableName(schemaName, tableName.toLowerCase(ENGLISH)));
                 }
             }
             catch (SchemaNotFoundException e) {
@@ -159,7 +160,7 @@ public class CassandraMetadata
         ImmutableMap.Builder<String, ConnectorColumnHandle> columnHandles = ImmutableMap.builder();
         for (CassandraColumnHandle columnHandle : table.getColumns()) {
             if (includeSampleWeight || !columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
-                columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()).toLowerCase(), columnHandle);
+                columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()).toLowerCase(ENGLISH), columnHandle);
             }
         }
         return columnHandles.build();
@@ -263,7 +264,7 @@ public class CassandraMetadata
         List<Type> types = columnTypes.build();
         StringBuilder queryBuilder = new StringBuilder(String.format("CREATE TABLE \"%s\".\"%s\"(id uuid primary key", schemaName, tableName));
         if (tableMetadata.isSampled()) {
-            queryBuilder.append(", ").append(SAMPLE_WEIGHT_COLUMN_NAME).append(" ").append(BIGINT.name().toLowerCase());
+            queryBuilder.append(", ").append(SAMPLE_WEIGHT_COLUMN_NAME).append(" ").append(BIGINT.name().toLowerCase(ENGLISH));
             columnExtra.add(new ExtraColumnMetadata(SAMPLE_WEIGHT_COLUMN_NAME, true));
         }
         for (int i = 0; i < columns.size(); i++) {
@@ -272,7 +273,7 @@ public class CassandraMetadata
             queryBuilder.append(", ")
                     .append(name)
                     .append(" ")
-                    .append(toCassandraType(type).name().toLowerCase());
+                    .append(toCassandraType(type).name().toLowerCase(ENGLISH));
         }
         queryBuilder.append(") ");
 

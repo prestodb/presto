@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.plugin.jdbc.TestingDatabase.CONNECTOR_ID;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -63,7 +64,7 @@ public class TestJdbcClient
         SchemaTableName schemaTableName = new SchemaTableName("example", "numbers");
         JdbcTableHandle table = jdbcClient.getTableHandle(schemaTableName);
         assertNotNull(table, "table is null");
-        assertEquals(table.getCatalogName(), catalogName.toUpperCase());
+        assertEquals(table.getCatalogName(), catalogName.toUpperCase(ENGLISH));
         assertEquals(table.getSchemaName(), "EXAMPLE");
         assertEquals(table.getTableName(), "NUMBERS");
         assertEquals(table.getSchemaTableName(), schemaTableName);

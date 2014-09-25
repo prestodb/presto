@@ -57,6 +57,7 @@ import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.invoke.MethodHandles.lookup;
+import static java.util.Locale.ENGLISH;
 
 public class FunctionListBuilder
 {
@@ -113,7 +114,7 @@ public class FunctionListBuilder
     public FunctionListBuilder aggregate(InternalAggregationFunction function)
     {
         String name = function.name();
-        name = name.toLowerCase();
+        name = name.toLowerCase(ENGLISH);
 
         String description = getDescription(function.getClass());
         Signature signature = new Signature(name, function.getFinalType().getName(), Lists.transform(ImmutableList.copyOf(function.getParameterTypes()), nameGetter()));
@@ -179,7 +180,7 @@ public class FunctionListBuilder
         SqlType returnTypeAnnotation = method.getAnnotation(SqlType.class);
         checkArgument(returnTypeAnnotation != null, "Method %s return type does not have a @SqlType annotation", method);
         Type returnType = type(typeManager, returnTypeAnnotation);
-        Signature signature = new Signature(name.toLowerCase(), returnType.getName(), Lists.transform(parameterTypes(typeManager, method), nameGetter()));
+        Signature signature = new Signature(name.toLowerCase(ENGLISH), returnType.getName(), Lists.transform(parameterTypes(typeManager, method), nameGetter()));
 
         verifyMethodSignature(method, signature.getReturnType(), signature.getArgumentTypes(), typeManager);
 
@@ -187,7 +188,7 @@ public class FunctionListBuilder
 
         scalar(signature, methodHandle, scalarFunction.deterministic(), getDescription(method), scalarFunction.hidden(), method.isAnnotationPresent(Nullable.class), nullableArguments);
         for (String alias : scalarFunction.alias()) {
-            scalar(signature.withAlias(alias.toLowerCase()), methodHandle, scalarFunction.deterministic(), getDescription(method), scalarFunction.hidden(), method.isAnnotationPresent(Nullable.class), nullableArguments);
+            scalar(signature.withAlias(alias.toLowerCase(ENGLISH)), methodHandle, scalarFunction.deterministic(), getDescription(method), scalarFunction.hidden(), method.isAnnotationPresent(Nullable.class), nullableArguments);
         }
         return true;
     }

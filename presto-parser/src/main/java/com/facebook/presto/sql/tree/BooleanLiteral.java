@@ -16,6 +16,8 @@ package com.facebook.presto.sql.tree;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
+import static java.util.Locale.ENGLISH;
+
 public class BooleanLiteral
         extends Literal
 {
@@ -27,9 +29,9 @@ public class BooleanLiteral
     public BooleanLiteral(String value)
     {
         Preconditions.checkNotNull(value, "value is null");
-        Preconditions.checkArgument(value.toLowerCase().equals("true") || value.toLowerCase().equals("false"));
+        Preconditions.checkArgument(value.toLowerCase(ENGLISH).equals("true") || value.toLowerCase(ENGLISH).equals("false"));
 
-        this.value = value.toLowerCase().equals("true");
+        this.value = value.toLowerCase(ENGLISH).equals("true");
     }
 
     public boolean getValue()

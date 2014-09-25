@@ -96,13 +96,13 @@ public final class KafkaQueryRunner
     {
         long start = System.nanoTime();
         log.info("Running import for %s", table.getTableName());
-        TestUtils.loadTpchTopic(embeddedKafka, prestoClient, kafkaTopicName(table), new QualifiedTableName("tpch", TINY_SCHEMA_NAME, table.getTableName().toLowerCase()));
+        TestUtils.loadTpchTopic(embeddedKafka, prestoClient, kafkaTopicName(table), new QualifiedTableName("tpch", TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH)));
         log.info("Imported %s in %s", 0, table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
     private static String kafkaTopicName(TpchTable<?> table)
     {
-        return TPCH_SCHEMA + "." + table.getTableName().toLowerCase();
+        return TPCH_SCHEMA + "." + table.getTableName().toLowerCase(ENGLISH);
     }
 
     private static Map<SchemaTableName, KafkaTopicDescription> createTpchTopicDescriptions(Metadata metadata, Iterable<TpchTable<?>> tables)
