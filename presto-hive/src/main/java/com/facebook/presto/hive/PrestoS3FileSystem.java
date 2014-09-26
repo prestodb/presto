@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.amazonaws.AbortedException;
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
@@ -612,7 +613,12 @@ public class PrestoS3FileSystem
                 throws IOException
         {
             if (in != null) {
-                in.abort();
+                try {
+                    in.abort();
+                }
+                catch (AbortedException ignored) {
+                    // thrown if the current thread is in the interrupted state
+                }
                 in = null;
             }
         }
