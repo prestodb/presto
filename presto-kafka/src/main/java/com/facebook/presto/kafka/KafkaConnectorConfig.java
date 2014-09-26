@@ -33,6 +33,8 @@ import static com.google.common.collect.Iterables.transform;
 
 public class KafkaConnectorConfig
 {
+    private static final int KAFKA_DEFAULT_PORT = 9092;
+
     /**
      * Seed nodes for Kafka cluster. At least one must exist.
      */
@@ -170,7 +172,7 @@ public class KafkaConnectorConfig
             @Override
             public HostAddress apply(String value)
             {
-                return HostAddress.fromString(value);
+                return HostAddress.fromString(value).withDefaultPort(KAFKA_DEFAULT_PORT);
             }
         };
     }
