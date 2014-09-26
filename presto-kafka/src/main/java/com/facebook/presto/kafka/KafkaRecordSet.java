@@ -196,13 +196,13 @@ public class KafkaRecordSet
             byte[] messageData = EMPTY_BYTE_ARRAY;
             ByteBuffer key = messageAndOffset.message().key();
             if (key != null) {
-                keyData = new byte[key.limit() - key.position()];
+                keyData = new byte[key.remaining()];
                 key.get(keyData);
             }
 
             ByteBuffer message = messageAndOffset.message().payload();
             if (message != null) {
-                messageData = new byte[message.limit() - message.position()];
+                messageData = new byte[message.remaining()];
                 message.get(messageData);
             }
 

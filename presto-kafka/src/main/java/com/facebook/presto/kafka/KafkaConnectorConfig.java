@@ -172,8 +172,7 @@ public class KafkaConnectorConfig
             @Override
             public HostAddress apply(String value)
             {
-                HostAddress address = HostAddress.fromString(value);
-                return address.hasPort() ? address : HostAddress.fromParts(address.getHostText(), KAFKA_DEFAULT_PORT);
+                return HostAddress.fromString(value).withDefaultPort(KAFKA_DEFAULT_PORT);
             }
         };
     }
