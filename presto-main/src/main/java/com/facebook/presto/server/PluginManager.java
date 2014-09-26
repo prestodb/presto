@@ -226,7 +226,6 @@ public class PluginManager
 
         log.debug("Classpath for %s:", pomFile);
         List<URL> urls = new ArrayList<>();
-        urls.add(new File(pomFile.getParentFile(), "target/classes/").toURI().toURL());
         for (Artifact artifact : sortedArtifacts(artifacts)) {
             if (artifact.getFile() != null) {
                 log.debug("    %s", artifact.getFile());
