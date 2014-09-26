@@ -174,7 +174,12 @@ public class PluginManager
         ServiceLoader<Plugin> serviceLoader = ServiceLoader.load(Plugin.class, pluginClassLoader);
         List<Plugin> plugins = ImmutableList.copyOf(serviceLoader);
 
+        if (plugins.isEmpty()) {
+            log.warn("No service providers of type %s", Plugin.class.getName());
+        }
+
         for (Plugin plugin : plugins) {
+            log.info("Installing %s", plugin.getClass().getName());
             installPlugin(plugin);
         }
     }
@@ -186,22 +191,27 @@ public class PluginManager
         plugin.setOptionalConfig(optionalConfig);
 
         for (BlockEncodingFactory<?> blockEncodingFactory : plugin.getServices(BlockEncodingFactory.class)) {
+            log.info("Registering block encoding %s", blockEncodingFactory.getName());
             blockEncodingManager.addBlockEncodingFactory(blockEncodingFactory);
         }
 
         for (Type type : plugin.getServices(Type.class)) {
+            log.info("Registering type %s", type.getName());
             typeRegistry.addType(type);
         }
 
         for (ConnectorFactory connectorFactory : plugin.getServices(ConnectorFactory.class)) {
+            log.info("Registering connector %s", connectorFactory.getName());
             connectorManager.addConnectorFactory(connectorFactory);
         }
 
         for (SystemTable systemTable : plugin.getServices(SystemTable.class)) {
+            log.info("Registering system table %s", systemTable.getTableMetadata().getTable());
             systemTablesManager.addTable(systemTable);
         }
 
         for (FunctionFactory functionFactory : plugin.getServices(FunctionFactory.class)) {
+            log.info("Registering functions from %s", functionFactory.getClass().getName());
             metadata.addFunctions(functionFactory.listFunctions());
         }
     }
