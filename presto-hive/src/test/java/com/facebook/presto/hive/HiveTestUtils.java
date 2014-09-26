@@ -27,17 +27,21 @@ public final class HiveTestUtils
     {
     }
 
-    public static final ImmutableSet<HiveRecordCursorProvider> DEFAULT_HIVE_RECORD_CURSOR_PROVIDERS = ImmutableSet.of(
-            new OrcRecordCursorProvider(),
-            new ParquetRecordCursorProvider(),
-            new DwrfRecordCursorProvider(),
-            new ColumnarTextHiveRecordCursorProvider(),
-            new ColumnarBinaryHiveRecordCursorProvider(),
-            new GenericHiveRecordCursorProvider());
-
     public static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
 
-    public static List<Type> getTypes(List<ConnectorColumnHandle> columnHandles)
+    public static final ImmutableSet<HivePageSourceFactory> DEFAULT_HIVE_DATA_STREAM_FACTORIES = ImmutableSet.<HivePageSourceFactory>builder()
+            .build();
+
+    public static final ImmutableSet<HiveRecordCursorProvider> DEFAULT_HIVE_RECORD_CURSOR_PROVIDER = ImmutableSet.<HiveRecordCursorProvider>builder()
+            .add(new OrcRecordCursorProvider())
+            .add(new ParquetRecordCursorProvider())
+            .add(new DwrfRecordCursorProvider())
+            .add(new ColumnarTextHiveRecordCursorProvider())
+            .add(new ColumnarBinaryHiveRecordCursorProvider())
+            .add(new GenericHiveRecordCursorProvider())
+            .build();
+
+    public static List<Type> getTypes(List<? extends ConnectorColumnHandle> columnHandles)
     {
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (ConnectorColumnHandle columnHandle : columnHandles) {
