@@ -15,6 +15,8 @@ package com.facebook.presto.operator.scalar;
 
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+import static org.testng.Assert.assertEquals;
+import static io.airlift.slice.Slices.wrappedBuffer;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
@@ -224,6 +226,25 @@ public class TestJsonFunctions
         assertFunction(format("JSON_SIZE(null, '%s')", "$"), null);
         assertFunction(format("JSON_SIZE(CAST('%s' AS JSON), '%s')", "INVALID_JSON", "$"), null);
         assertFunction(format("JSON_SIZE(CAST('%s' AS JSON), null)", "[1,2,3]"), null);
+    }
+
+    @Test
+    public void testJsonExtractMultiple()
+    {
+        assertFunction("JSON_EXTRACT_MULTIPLE('{\"x\":\"x_val\", \"y\":\"y_val\", \"z\":\"z_val\"}', ARRAY['x', 'z'])", "{\"x\":\"x_val\",\"z\":\"z_val\"}");
+        assertFunction("JSON_EXTRACT_MULTIPLE('{\"x\":\"x_val\", \"y\":\"y_val\", \"z\":\"z_val\"}', ARRAY['x', 'z'])", "{\"x\":\"x_val\",\"z\":\"z_val\"}");
+        assertFunction("JSON_EXTRACT_MULTIPLE('{\"x\":\"x_val\", \"y\":\"y_val\", \"z\":\"z_val\"}', ARRAY['x', 'y'])", "{\"x\":\"x_val\",\"y\":\"y_val\"}");
+        assertFunction("JSON_EXTRACT_MULTIPLE('{\"x\":\"x_val\", \"y\":\"y_val\", \"z\":\"z_val\"}', ARRAY['y'])", "{\"y\":\"y_val\"}");
+        assertFunction("JSON_EXTRACT_MULTIPLE('{\"x\":\"x_val\", \"y\":\"y_val\", \"z\":\"z_val\"}', ARRAY[])", null);
+        assertFunction("JSON_EXTRACT_MULTIPLE('{\"a\":1, \"b\": {\"a\" : 2}}', ARRAY['a'])", "{\"a\":1}");
+        assertEquals(JsonFunctions.jsonExtractMultiple(wrappedBuffer("{\"x\":\"x_val\", \"y\":\"y_val\", \"z\":\"z_val\"}".getBytes()), wrappedBuffer("[\"DOESNTEXIST\"]".getBytes())), null);
+        assertEquals(JsonFunctions.jsonExtractMultiple(wrappedBuffer("\"\"".getBytes()), wrappedBuffer("[\"a\"]".getBytes())), null);
+    }
+
+    @Test(expectedExceptions = NullPointerException.class)
+    public void testInvalidJsonExtractMultipleKeys()
+    {
+        assertEquals(JsonFunctions.jsonExtractMultiple(wrappedBuffer("".getBytes()), null), null);
     }
 
     private void assertFunction(String projection, Object expected)

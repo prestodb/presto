@@ -20,9 +20,16 @@ import com.facebook.presto.type.SqlType;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.type.ArrayType;
+
 import com.google.common.base.Charsets;
 import com.google.common.primitives.Doubles;
+import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import javax.annotation.Nullable;
 
@@ -46,6 +53,10 @@ public final class JsonFunctions
 {
     private static final JsonFactory JSON_FACTORY = new JsonFactory()
             .disable(CANONICALIZE_FIELD_NAMES);
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+
+    private static final ArrayType STRING_ARRAY_TYPE = OBJECT_MAPPER.getTypeFactory().constructArrayType(String.class);
 
     private JsonFunctions() {}
 
@@ -377,5 +388,44 @@ public final class JsonFunctions
     public static Long jsonSize(@SqlType(StandardTypes.JSON) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
         return JsonExtract.extract(json, jsonPath.getSizeExtractor());
+    }
+
+    /**
+     * Until Presto supports table generating functions, this is a workaround to support extracting multiple fields from a json string (similar to Hive's json_tuple)
+     */
+    @ScalarFunction
+    @Nullable
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice jsonExtractMultiple(@SqlType(StandardTypes.VARCHAR) Slice json, @SqlType("array<varchar>") Slice keys)
+    {
+        if (json == null || keys == null) {
+            return null;
+        }
+
+        try {
+            String[] keys2Extract = OBJECT_MAPPER.readValue(keys.getInput(), STRING_ARRAY_TYPE);
+            if (keys2Extract.length == 0) {
+                return null;
+            }
+
+            ObjectNode newNode = OBJECT_MAPPER.createObjectNode();
+            JsonNode rootNode = OBJECT_MAPPER.readTree(json.getInput());
+            for (String key : keys2Extract) {
+                    JsonNode node = rootNode.get(key);
+                    if (node != null) {
+                        newNode.set(key, node);
+                    }
+            }
+
+            if (newNode.size() == 0) {
+                return null;
+            }
+            else {
+                return Slices.utf8Slice(newNode.toString());
+            }
+        }
+        catch (IOException e) {
+            return null;
+        }
     }
 }

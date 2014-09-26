@@ -65,3 +65,9 @@ JSON Functions
         SELECT json_size('{ "x": {"a": 1, "b": 2} }', '$.x'); => 2
         SELECT json_size('{ "x": [1, 2, 3] }', '$.x'); => 2
         SELECT json_size('{ "x": {"a": 1, "b": 2} }', '$.x.a'); => 0
+
+.. function:: json_extract_multiple(json, array<varchar>) -> varchar
+
+    Extracts the given keys from the input json. For example: ::
+
+        SELECT json_extract_multiple('{ "x": 1, "y": 2, "z": { "x": 3 } }', ARRAY ['x', 'y']); => '{"x":1,"y":2}'
