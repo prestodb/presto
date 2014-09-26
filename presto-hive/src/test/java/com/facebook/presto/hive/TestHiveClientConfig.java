@@ -117,7 +117,7 @@ public class TestHiveClientConfig
                 .put("hive.s3.multipart.min-part-size", "15MB")
                 .put("hive.s3.max-connections", "77")
                 .put("hive.s3.staging-directory", "/s3-staging")
-                .put("hive.orc.optimized-reader.enabled", "false")
+                .put("hive.optimized-reader.enabled", "false")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()

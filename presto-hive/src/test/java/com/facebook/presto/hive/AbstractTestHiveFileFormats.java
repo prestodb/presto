@@ -13,11 +13,18 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -69,12 +76,17 @@ import static com.facebook.presto.hive.HiveUtil.isMapType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
+import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
+import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.Locale.ENGLISH;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardMapObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
@@ -98,6 +110,8 @@ import static org.testng.Assert.assertTrue;
 @Test(groups = "hive")
 public abstract class AbstractTestHiveFileFormats
 {
+    private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
+
     private static final int NUM_ROWS = 1000;
     private static final double EPSILON = 0.001;
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
@@ -354,6 +368,59 @@ public abstract class AbstractTestHiveFileFormats
                     assertEquals(actual, expected, String.format("Wrong value for column %s", testColumn.getName()));
                 }
             }
+        }
+    }
+
+    protected void checkPageSource(ConnectorPageSource pageSource, List<TestColumn> testColumns, List<Type> types)
+            throws IOException
+    {
+        try {
+            MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, types);
+
+            for (MaterializedRow row : result) {
+                for (int i = 0, testColumnsSize = testColumns.size(); i < testColumnsSize; i++) {
+                    TestColumn testColumn = testColumns.get(i);
+                    Type type = types.get(i);
+
+                    Object actualValue = row.getField(i);
+                    Object expectedValue = testColumn.getExpectedValue();
+                    if (expectedValue instanceof Slice) {
+                        expectedValue = ((Slice) expectedValue).toStringUtf8();
+                    }
+
+                    if (actualValue == null) {
+                        assertEquals(null, expectedValue, String.format("Expected null for column %d", i));
+                    }
+                    else if (testColumn.getObjectInspector().getTypeName().equals("float") ||
+                            testColumn.getObjectInspector().getTypeName().equals("double")) {
+                        assertEquals((double) actualValue, (double) expectedValue, EPSILON);
+                    }
+                    else if (testColumn.getObjectInspector().getTypeName().equals("date")) {
+                        SqlDate expectedDate = new SqlDate((Long) expectedValue, SESSION.getTimeZoneKey());
+                        assertEquals(actualValue, expectedDate);
+                    }
+                    else if (testColumn.getObjectInspector().getTypeName().equals("timestamp")) {
+                        SqlTimestamp expectedTimestamp = new SqlTimestamp((Long) expectedValue, SESSION.getTimeZoneKey());
+                        assertEquals(actualValue, expectedTimestamp);
+                    }
+                    else if (testColumn.getObjectInspector().getCategory() == Category.PRIMITIVE) {
+                        if (actualValue instanceof Slice) {
+                            actualValue = ((Slice) actualValue).toStringUtf8();
+                        }
+                        if (actualValue instanceof SqlVarbinary) {
+                            actualValue = new String(((SqlVarbinary) actualValue).getBytes(), UTF_8);
+                        }
+                        assertEquals(actualValue, expectedValue, String.format("Wrong value for column %d", i));
+                    }
+                    else {
+                        Object expected = stackRepresentationToObject(SESSION, Slices.utf8Slice((String) expectedValue), type);
+                        assertEquals(actualValue, expected, String.format("Wrong value for column %s", testColumn.getName()));
+                    }
+                }
+            }
+        }
+        finally {
+            pageSource.close();
         }
     }
 

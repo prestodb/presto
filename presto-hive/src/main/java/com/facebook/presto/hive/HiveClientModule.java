@@ -94,6 +94,8 @@ public class HiveClientModule
         recordCursorProviderBinder.addBinding().to(GenericHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
 
         binder.bind(ConnectorPageSourceProvider.class).to(HivePageSourceProvider.class).in(Scopes.SINGLETON);
+
+        Multibinder<HivePageSourceFactory> pageSourceFactoryBinder = Multibinder.newSetBinder(binder, HivePageSourceFactory.class);
     }
 
     @ForHiveClient
