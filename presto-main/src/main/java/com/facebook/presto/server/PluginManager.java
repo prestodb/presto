@@ -228,8 +228,9 @@ public class PluginManager
         List<URL> urls = new ArrayList<>();
         for (Artifact artifact : sortedArtifacts(artifacts)) {
             if (artifact.getFile() != null) {
-                log.debug("    %s", artifact.getFile());
-                urls.add(artifact.getFile().toURI().toURL());
+                File file = artifact.getFile().getCanonicalFile();
+                log.debug("    %s", file);
+                urls.add(file.toURI().toURL());
             }
             else {
                 log.debug("  Could not resolve artifact %s", artifact);
