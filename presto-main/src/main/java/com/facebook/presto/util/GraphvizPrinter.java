@@ -62,7 +62,7 @@ import static java.lang.String.format;
 
 public final class GraphvizPrinter
 {
-    enum NodeType
+    private enum NodeType
     {
         EXCHANGE,
         AGGREGATE,
@@ -187,7 +187,7 @@ public final class GraphvizPrinter
     {
         private static final int MAX_NAME_WIDTH = 100;
         private final StringBuilder output;
-        private PlanNodeIdGenerator idGenerator;
+        private final PlanNodeIdGenerator idGenerator;
 
         public NodePrinter(StringBuilder output, PlanNodeIdGenerator idGenerator)
         {
@@ -333,7 +333,7 @@ public final class GraphvizPrinter
         }
 
         @Override
-        public Void visitDistinctLimit(final DistinctLimitNode node, Void context)
+        public Void visitDistinctLimit(DistinctLimitNode node, Void context)
         {
             printNode(node, format("DistinctLimit[%s]", node.getLimit()), NODE_COLORS.get(NodeType.LIMIT));
             return node.getSource().accept(this, context);
@@ -429,7 +429,7 @@ public final class GraphvizPrinter
 
         private void printNode(PlanNode node, String label, String details, String color)
         {
-            if (details.length() == 0) {
+            if (details.isEmpty()) {
                 printNode(node, label, color);
             }
             else {
@@ -443,14 +443,13 @@ public final class GraphvizPrinter
             }
         }
 
-        private String getColumns(OutputNode node)
+        private static String getColumns(OutputNode node)
         {
             Iterator<String> columnNames = node.getColumnNames().iterator();
             String columns = "";
-            String columnName = "";
             int nameWidth = 0;
             while (columnNames.hasNext()) {
-                columnName = columnNames.next();
+                String columnName = columnNames.next();
                 columns += columnName;
                 nameWidth += columnName.length();
                 if (columnNames.hasNext()) {
@@ -529,11 +528,11 @@ public final class GraphvizPrinter
     private static class PlanNodeIdGenerator
     {
         private final Map<PlanNode, Integer> planNodeIds;
-        private int idCount = 0;
+        private int idCount;
 
         public PlanNodeIdGenerator()
         {
-            planNodeIds = new HashMap<PlanNode, Integer>();
+            planNodeIds = new HashMap<>();
         }
 
         public String getNodeId(PlanNode from)
