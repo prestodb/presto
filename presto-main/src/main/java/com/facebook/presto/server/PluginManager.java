@@ -30,6 +30,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Ordering;
 import com.google.inject.Injector;
 import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.http.server.HttpServerInfo;
@@ -39,6 +41,7 @@ import io.airlift.resolver.ArtifactResolver;
 import io.airlift.resolver.DefaultArtifact;
 import org.sonatype.aether.artifact.Artifact;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
@@ -47,6 +50,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
@@ -223,7 +227,7 @@ public class PluginManager
         log.debug("Classpath for %s:", pomFile);
         List<URL> urls = new ArrayList<>();
         urls.add(new File(pomFile.getParentFile(), "target/classes/").toURI().toURL());
-        for (Artifact artifact : artifacts) {
+        for (Artifact artifact : sortedArtifacts(artifacts)) {
             if (artifact.getFile() != null) {
                 log.debug("    %s", artifact.getFile());
                 urls.add(artifact.getFile().toURI().toURL());
@@ -283,6 +287,26 @@ public class PluginManager
             }
         }
         return ImmutableList.of();
+    }
+
+    private static List<Artifact> sortedArtifacts(List<Artifact> artifacts)
+    {
+        List<Artifact> list = Lists.newArrayList(artifacts);
+        Collections.sort(list, Ordering.natural().onResultOf(artifactFileGetter()));
+        return list;
+    }
+
+    private static Function<Artifact, Comparable<File>> artifactFileGetter()
+    {
+        return new Function<Artifact, Comparable<File>>()
+        {
+            @Nullable
+            @Override
+            public Comparable<File> apply(Artifact input)
+            {
+                return input.getFile();
+            }
+        };
     }
 
     private static class SimpleChildFirstClassLoader
