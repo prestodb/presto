@@ -50,6 +50,7 @@ public class KafkaRecordSet
     private static final Logger log = Logger.get(KafkaRecordSet.class);
 
     private static final int KAFKA_READ_BUFFER_SIZE = 100_000;
+    private static final byte [] EMPTY_BYTE_ARRAY = new byte [0];
 
     private final KafkaSplit split;
     private final KafkaSimpleConsumerManager consumerManager;
@@ -191,13 +192,19 @@ public class KafkaRecordSet
             totalBytes += messageAndOffset.message().payloadSize();
             totalMessages++;
 
+            byte[] keyData = EMPTY_BYTE_ARRAY;
+            byte[] messageData = EMPTY_BYTE_ARRAY;
             ByteBuffer key = messageAndOffset.message().key();
-            byte[] keyData = new byte[key.limit() - key.position()];
-            key.get(keyData);
+            if (key != null) {
+                keyData = new byte[key.remaining()];
+                key.get(keyData);
+            }
 
             ByteBuffer message = messageAndOffset.message().payload();
-            byte[] messageData = new byte[message.limit() - message.position()];
-            message.get(messageData);
+            if (message != null) {
+                messageData = new byte[message.remaining()];
+                message.get(messageData);
+            }
 
             Set<KafkaFieldValueProvider> fieldValueProviders = new HashSet<>();
 
