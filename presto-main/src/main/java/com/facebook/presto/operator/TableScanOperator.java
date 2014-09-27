@@ -229,6 +229,9 @@ public class TableScanOperator
 
         Page page = delegate.getNextPage();
         if (page != null) {
+            // assure the page is in memory before handing to another operator
+            page.assureLoaded();
+
             // update operator stats
             long endCompletedBytes = delegate.getCompletedBytes();
             long endReadTimeNanos = delegate.getReadTimeNanos();

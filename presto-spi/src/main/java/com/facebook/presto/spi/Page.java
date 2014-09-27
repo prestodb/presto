@@ -69,19 +69,15 @@ public class Page
     }
 
     /**
-     * Notifies the page that the data will no longer be needed.  After
-     * this method on this page may throw an {@code IllegalStateException}.
+     * Assures that all data for the block is in memory.
      *
      * This allows streaming data sources to skip sections that are not
      * accessed in a query.
-     *
-     * NOTE: This method may not be called.  Therefore this method can not
-     * be used for reliable resource cleanup
      */
-    public void release()
+    public void assureLoaded()
     {
         for (Block block : blocks) {
-            block.release();
+            block.assureLoaded();
         }
     }
 

@@ -171,7 +171,7 @@ public abstract class AbstractFixedWidthBlock
     }
 
     @Override
-    public void release()
+    public void assureLoaded()
     {
     }
 

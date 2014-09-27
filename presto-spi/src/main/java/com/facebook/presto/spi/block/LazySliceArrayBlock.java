@@ -17,19 +17,22 @@ import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 
 import java.util.Arrays;
+import java.util.Objects;
 
 public class LazySliceArrayBlock
         extends AbstractVariableWidthBlock
 {
     private final int positionCount;
-    private final LazySliceArrayBlockLoader loader;
+    private final LazyBlockLoader<LazySliceArrayBlock> loader;
     private Slice[] values;
-    private boolean released;
 
-    public LazySliceArrayBlock(int positionCount, LazySliceArrayBlockLoader loader)
+    public LazySliceArrayBlock(int positionCount, LazyBlockLoader<LazySliceArrayBlock> loader)
     {
+        if (positionCount < 0) {
+            throw new IllegalArgumentException("positionCount is negative");
+        }
         this.positionCount = positionCount;
-        this.loader = loader;
+        this.loader = Objects.requireNonNull(loader);
     }
 
     Slice[] getValues()
@@ -107,24 +110,16 @@ public class LazySliceArrayBlock
     }
 
     @Override
-    public void release()
+    public void assureLoaded()
     {
-        if (released) {
+        if (values != null) {
             return;
         }
-        released = true;
-        loader.release();
-    }
-
-    private void assureLoaded()
-    {
-        if (values == null) {
-            loader.load(this);
-        }
-        if (released) {
-            throw new IllegalArgumentException("block has been released");
-        }
         loader.load(this);
+
+        if (values == null) {
+            throw new IllegalArgumentException("Lazy block loader did not load this block");
+        }
     }
 
     @Override
@@ -134,12 +129,5 @@ public class LazySliceArrayBlock
         sb.append("positionCount=").append(getPositionCount());
         sb.append('}');
         return sb.toString();
-    }
-
-    public interface LazySliceArrayBlockLoader
-    {
-        void load(LazySliceArrayBlock block);
-
-        void release();
     }
 }

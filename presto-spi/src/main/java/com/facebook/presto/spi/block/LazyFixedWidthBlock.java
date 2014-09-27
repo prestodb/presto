@@ -18,16 +18,17 @@ import io.airlift.slice.Slice;
 
 import java.util.Arrays;
 
+import static java.util.Objects.requireNonNull;
+
 public class LazyFixedWidthBlock
         extends AbstractFixedWidthBlock
 {
     private final int positionCount;
-    private final LazyFixedWidthBlockLoader loader;
+    private final LazyBlockLoader<LazyFixedWidthBlock> loader;
     private Slice slice;
     private boolean[] valueIsNull;
-    private boolean released;
 
-    public LazyFixedWidthBlock(int fixedSize, int positionCount, LazyFixedWidthBlockLoader loader)
+    public LazyFixedWidthBlock(int fixedSize, int positionCount, LazyBlockLoader<LazyFixedWidthBlock> loader)
     {
         super(fixedSize);
 
@@ -36,13 +37,10 @@ public class LazyFixedWidthBlock
         }
         this.positionCount = positionCount;
 
-        if (loader == null) {
-            throw new IllegalArgumentException("loader is null");
-        }
-        this.loader = loader;
+        this.loader = requireNonNull(loader);
     }
 
-    LazyFixedWidthBlock(int fixedSize, int positionCount, LazyFixedWidthBlockLoader loader, Slice slice, boolean[] valueIsNull)
+    LazyFixedWidthBlock(int fixedSize, int positionCount, LazyBlockLoader<LazyFixedWidthBlock> loader, Slice slice, boolean[] valueIsNull)
     {
         super(fixedSize);
         this.positionCount = positionCount;
@@ -94,24 +92,16 @@ public class LazyFixedWidthBlock
     }
 
     @Override
-    public void release()
-    {
-        if (released) {
-            return;
-        }
-        released = true;
-        loader.release();
-    }
-
-    private void assureLoaded()
+    public void assureLoaded()
     {
         if (slice != null) {
             return;
         }
-        if (released) {
-            throw new IllegalArgumentException("block has been released");
-        }
         loader.load(this);
+
+        if (slice == null) {
+            throw new IllegalArgumentException("Lazy block loader did not load this block");
+        }
     }
 
     public void setRawSlice(Slice slice)
@@ -138,12 +128,5 @@ public class LazyFixedWidthBlock
         sb.append(", slice=").append(slice == null ? "not loaded" : slice);
         sb.append('}');
         return sb.toString();
-    }
-
-    public interface LazyFixedWidthBlockLoader
-    {
-        void load(LazyFixedWidthBlock block);
-
-        void release();
     }
 }

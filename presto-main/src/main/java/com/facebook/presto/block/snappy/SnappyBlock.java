@@ -209,7 +209,7 @@ public class SnappyBlock
     }
 
     @Override
-    public void release()
+    public void assureLoaded()
     {
     }
 

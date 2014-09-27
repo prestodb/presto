@@ -176,9 +176,9 @@ public class DictionaryEncodedBlock
     }
 
     @Override
-    public void release()
+    public void assureLoaded()
     {
-        dictionary.release();
-        idBlock.release();
+        dictionary.assureLoaded();
+        idBlock.assureLoaded();
     }
 }

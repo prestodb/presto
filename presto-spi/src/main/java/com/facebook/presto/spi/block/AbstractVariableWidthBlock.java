@@ -153,7 +153,7 @@ public abstract class AbstractVariableWidthBlock
     }
 
     @Override
-    public void release()
+    public void assureLoaded()
     {
     }
 

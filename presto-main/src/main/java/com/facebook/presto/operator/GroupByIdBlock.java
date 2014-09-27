@@ -166,7 +166,7 @@ public class GroupByIdBlock
     }
 
     @Override
-    public void release()
+    public void assureLoaded()
     {
     }
 

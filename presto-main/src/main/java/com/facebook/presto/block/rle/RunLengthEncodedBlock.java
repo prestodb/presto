@@ -178,9 +178,9 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public void release()
+    public void assureLoaded()
     {
-        value.release();
+        value.assureLoaded();
     }
 
     private void checkReadablePosition(int position)
