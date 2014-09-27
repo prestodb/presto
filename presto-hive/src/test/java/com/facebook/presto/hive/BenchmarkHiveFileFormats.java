@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hadoop.HadoopNative;
+import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.HostAddress;
@@ -46,6 +47,7 @@ import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
 import org.apache.hadoop.hive.serde2.ReaderWriterProfiler;
 import org.apache.hadoop.hive.serde2.SerDe;
 import org.apache.hadoop.hive.serde2.Serializer;
+import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
 import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
@@ -180,6 +182,19 @@ public final class BenchmarkHiveFileFormats
                                 .add(new ColumnarBinaryHiveRecordCursorProvider())
                                 .build(),
                         ImmutableList.<HivePageSourceFactory>builder()
+                                .add(new RcFilePageSourceFactory(TYPE_MANAGER))
+                                .build()))
+
+                .add(new BenchmarkFile(
+                        "rc-text",
+                        new RCFileInputFormat<>(),
+                        new RCFileOutputFormat(),
+                        new ColumnarSerDe(),
+                        ImmutableList.<HiveRecordCursorProvider>builder()
+                                .add(new ColumnarTextHiveRecordCursorProvider())
+                                .build(),
+                        ImmutableList.<HivePageSourceFactory>builder()
+                                .add(new RcFilePageSourceFactory(TYPE_MANAGER))
                                 .build()))
 
                 .add(new BenchmarkFile(
@@ -264,9 +279,44 @@ public final class BenchmarkHiveFileFormats
     {
         long start;
 
-        System.out.println("bigint");
+        System.out.println("none");
         // noinspection deprecation
         ColumnProjectionUtils.setReadColumnIDs(JOB_CONF, BIGINT_COLUMN_INDEX);
+        for (BenchmarkFile benchmarkFile : benchmarkFiles) {
+            for (HiveRecordCursorProvider recordCursorProvider : benchmarkFile.getRecordCursorProviders()) {
+                for (CompressionType compressionType : compressionTypes) {
+                    long result = 0;
+                    start = System.nanoTime();
+                    for (int loop = 0; loop < loopCount; loop++) {
+                        result = benchmarkReadBigint(
+                                createFileSplit(benchmarkFile.getFile(compressionType)),
+                                createPartitionProperties(benchmarkFile),
+                                recordCursorProvider
+                        );
+                    }
+                    logDuration(benchmarkFile.getName() + " " + getCursorType(recordCursorProvider), compressionType, start, loopCount, result);
+                }
+            }
+
+            for (HivePageSourceFactory pageSourceFactory : benchmarkFile.getPageSourceFactory()) {
+                for (CompressionType compressionType : compressionTypes) {
+                    long result = 0;
+                    start = System.nanoTime();
+                    for (int loop = 0; loop < loopCount; loop++) {
+                        result = benchmarkReadBigint(
+                                createFileSplit(benchmarkFile.getFile(compressionType)),
+                                createPartitionProperties(benchmarkFile),
+                                pageSourceFactory
+                        );
+                    }
+                    logDuration(benchmarkFile.getName() + " page", compressionType, start, loopCount, result);
+                }
+            }
+        }
+
+        System.out.println("bigint");
+        // noinspection deprecation
+        ColumnProjectionUtils.setReadColumnIDs(JOB_CONF, ImmutableList.<Integer>of());
         for (BenchmarkFile benchmarkFile : benchmarkFiles) {
             for (HiveRecordCursorProvider recordCursorProvider : benchmarkFile.getRecordCursorProviders()) {
                 for (CompressionType compressionType : compressionTypes) {
@@ -514,6 +564,76 @@ public final class BenchmarkHiveFileFormats
         }
         System.out.println();
 
+    }
+
+    private static long benchmarkReadNone(
+            FileSplit fileSplit,
+            Properties partitionProperties,
+            HiveRecordCursorProvider hiveRecordCursorProvider)
+            throws Exception
+    {
+        HiveSplit split = createHiveSplit(fileSplit, partitionProperties);
+
+        long count = 0;
+        for (int i = 0; i < LOOPS; i++) {
+            count = 0;
+
+            HiveRecordCursor recordCursor = hiveRecordCursorProvider.createHiveRecordCursor(
+                    split.getClientId(),
+                    new Configuration(),
+                    split.getSession(),
+                    new Path(split.getPath()),
+                    split.getStart(),
+                    split.getLength(),
+                    split.getSchema(),
+                    BIGINT_COLUMN,
+                    split.getPartitionKeys(),
+                    TupleDomain.<HiveColumnHandle>all(),
+                    DateTimeZone.UTC,
+                    TYPE_MANAGER).get();
+
+            while (recordCursor.advanceNextPosition()) {
+                count++;
+            }
+            recordCursor.close();
+        }
+        return count;
+    }
+
+    private static long benchmarkReadNone(
+            FileSplit fileSplit,
+            Properties partitionProperties,
+            HivePageSourceFactory pageSourceFactory)
+            throws Exception
+    {
+        HiveSplit split = createHiveSplit(fileSplit, partitionProperties);
+
+        long count = 0;
+        for (int i = 0; i < LOOPS; i++) {
+            count = 0;
+
+            ConnectorPageSource pageSource = pageSourceFactory.createPageSource(
+                    new Configuration(),
+                    split.getSession(),
+                    new Path(split.getPath()),
+                    split.getStart(),
+                    split.getLength(),
+                    split.getSchema(),
+                    ImmutableList.<HiveColumnHandle>of(),
+                    split.getPartitionKeys(),
+                    TupleDomain.<HiveColumnHandle>all(),
+                    DateTimeZone.UTC).get();
+
+            while (!pageSource.isFinished()) {
+                Page page = pageSource.getNextPage();
+                if (page == null) {
+                    continue;
+                }
+                count += page.getPositionCount();
+            }
+            pageSource.close();
+        }
+        return count;
     }
 
     private static long benchmarkReadBigint(

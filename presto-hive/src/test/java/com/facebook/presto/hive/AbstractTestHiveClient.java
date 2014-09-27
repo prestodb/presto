@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastore;
+import com.facebook.presto.hive.rcfile.RcFilePageSource;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
@@ -878,10 +879,58 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
+    public void testTypesRcTextRecordCursor()
+            throws Exception
+    {
+        if (metadata.getTableHandle(SESSION, new SchemaTableName(database, "presto_test_types_rctext")) == null) {
+            return;
+        }
+
+        ConnectorTableHandle tableHandle = getTableHandle(new SchemaTableName(database, "presto_test_types_rctext"));
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
+        HiveSplit hiveSplit = getHiveSplit(tableHandle);
+        List<ConnectorColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+
+        ConnectorPageSourceProvider pageSourceProvider = new HivePageSourceProvider(
+                new HiveClientConfig().setTimeZone(timeZone.getID()),
+                hdfsEnvironment,
+                ImmutableSet.<HiveRecordCursorProvider>of(new ColumnarTextHiveRecordCursorProvider()),
+                ImmutableSet.<HivePageSourceFactory>of(),
+                TYPE_MANAGER);
+
+        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(hiveSplit, columnHandles);
+        assertGetRecords(RCTEXT, tableMetadata, hiveSplit, pageSource, columnHandles);
+    }
+
+    @Test
     public void testTypesRcBinary()
             throws Exception
     {
         assertGetRecords("presto_test_types_rcbinary", RCBINARY);
+    }
+
+    @Test
+    public void testTypesRcBinaryRecordCursor()
+            throws Exception
+    {
+        if (metadata.getTableHandle(SESSION, new SchemaTableName(database, "presto_test_types_rcbinary")) == null) {
+            return;
+        }
+
+        ConnectorTableHandle tableHandle = getTableHandle(new SchemaTableName(database, "presto_test_types_rcbinary"));
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
+        HiveSplit hiveSplit = getHiveSplit(tableHandle);
+        List<ConnectorColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+
+        ConnectorPageSourceProvider pageSourceProvider = new HivePageSourceProvider(
+                new HiveClientConfig().setTimeZone(timeZone.getID()),
+                hdfsEnvironment,
+                ImmutableSet.<HiveRecordCursorProvider>of(new ColumnarBinaryHiveRecordCursorProvider()),
+                ImmutableSet.<HivePageSourceFactory>of(),
+                TYPE_MANAGER);
+
+        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(hiveSplit, columnHandles);
+        assertGetRecords(RCBINARY, tableMetadata, hiveSplit, pageSource, columnHandles);
     }
 
     @Test
@@ -1511,7 +1560,13 @@ public abstract class AbstractTestHiveClient
 
     private static Class<? extends ConnectorPageSource> pageSourceType(HiveStorageFormat hiveStorageFormat)
     {
-        throw new AssertionError("Filed type " + hiveStorageFormat + " does not use a page source");
+        switch (hiveStorageFormat) {
+            case RCTEXT:
+            case RCBINARY:
+                return RcFilePageSource.class;
+            default:
+                throw new AssertionError("Filed type " + hiveStorageFormat + " does not use a page source");
+        }
     }
 
     private static void assertValueTypes(MaterializedRow row, List<ColumnMetadata> schema)
