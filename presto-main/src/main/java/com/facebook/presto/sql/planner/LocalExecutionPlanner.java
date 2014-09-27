@@ -354,14 +354,7 @@ public class LocalExecutionPlanner
 
             OperatorFactory operatorFactory = new ExchangeOperatorFactory(context.getNextOperatorId(), node.getId(), exchangeClientSupplier, types);
 
-            ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
-            int channel = 0;
-            for (Symbol symbol : node.getOutputSymbols()) {
-                outputMappings.put(symbol, channel);
-                channel++;
-            }
-
-            return new PhysicalOperation(operatorFactory, outputMappings.build());
+            return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
 
         @Override
@@ -468,14 +461,6 @@ public class LocalExecutionPlanner
                 outputChannels.add(i);
             }
 
-            // compute the layout of the output from the window operator
-            ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
-            outputMappings.putAll(source.getLayout());
-
-            // row number function goes in the last channel
-            int channel = source.getTypes().size();
-            outputMappings.put(node.getRowNumberSymbol(), channel);
-
             OperatorFactory operatorFactory = new TopNRowNumberOperator.TopNRowNumberOperatorFactory(
                     context.getNextOperatorId(),
                     source.getTypes(),
@@ -487,7 +472,7 @@ public class LocalExecutionPlanner
                     node.getMaxRowCountPerPartition(),
                     1_000_000);
 
-            return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), source);
         }
 
         @Override
@@ -651,13 +636,8 @@ public class LocalExecutionPlanner
 
             List<Integer> channels = getChannelsForSymbols(node.getDistinctSymbols(), source.getLayout());
 
-            // Source channels are always laid out first, followed by the boolean output symbol
-            Map<Symbol, Integer> outputMappings = ImmutableMap.<Symbol, Integer>builder()
-                    .putAll(source.getLayout())
-                    .put(node.getMarkerSymbol(), source.getLayout().size()).build();
-
             MarkDistinctOperatorFactory operator = new MarkDistinctOperatorFactory(context.getNextOperatorId(), source.getTypes(), channels);
-            return new PhysicalOperation(operator, outputMappings, source);
+            return new PhysicalOperation(operator, makeLayout(node), source);
         }
 
         @Override
@@ -672,8 +652,7 @@ public class LocalExecutionPlanner
                 PhysicalOperation source = node.getSource().accept(this, context);
                 OperatorFactory operatorFactory = new SampleOperatorFactory(context.getNextOperatorId(), node.getSampleRatio(), node.isRescaled(), source.getTypes());
                 checkState(node.getSampleWeightSymbol().isPresent(), "sample weight symbol missing");
-                Map<Symbol, Integer> layout = ImmutableMap.<Symbol, Integer>builder().putAll(source.getLayout()).put(node.getSampleWeightSymbol().get(), source.getTypes().size()).build();
-                return new PhysicalOperation(operatorFactory, layout, source);
+                return new PhysicalOperation(operatorFactory, makeLayout(node), source);
             }
 
             throw new UnsupportedOperationException("not yet implemented: " + node);
@@ -885,37 +864,24 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTableScan(TableScanNode node, LocalExecutionPlanContext context)
         {
-            ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
             List<ColumnHandle> columns = new ArrayList<>();
-
-            int channel = 0;
             for (Symbol symbol : node.getOutputSymbols()) {
                 columns.add(node.getAssignments().get(symbol));
-
-                outputMappings.put(symbol, channel); // one column per channel
-                channel++;
             }
 
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
             OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), node.getId(), pageSourceProvider, types, columns);
-            return new PhysicalOperation(operatorFactory, outputMappings.build());
+            return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
 
         @Override
         public PhysicalOperation visitValues(ValuesNode node, LocalExecutionPlanContext context)
         {
-            Map<Symbol, Integer> outputMappings = new LinkedHashMap<>();
             List<Type> outputTypes = new ArrayList<>();
 
-            int channel = 0;
             for (Symbol symbol : node.getOutputSymbols()) {
-                Integer input = channel;
-                outputMappings.put(symbol, input);
-
                 Type type = checkNotNull(context.getTypes().get(symbol), "No type for symbol %s", symbol);
                 outputTypes.add(type);
-
-                channel++;
             }
 
             PageBuilder pageBuilder = new PageBuilder(outputTypes);
@@ -935,7 +901,7 @@ public class LocalExecutionPlanner
             }
 
             OperatorFactory operatorFactory = new ValuesOperatorFactory(context.getNextOperatorId(), outputTypes, ImmutableList.of(pageBuilder.build()));
-            return new PhysicalOperation(operatorFactory, outputMappings);
+            return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
 
         @Override
@@ -978,18 +944,22 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
         }
 
-        @Override
-        public PhysicalOperation visitIndexSource(IndexSourceNode node, LocalExecutionPlanContext context)
+        private ImmutableMap<Symbol, Integer> makeLayout(PlanNode node)
         {
-            checkState(context.getIndexSourceContext().isPresent(), "Must be in an index source context");
-            IndexSourceContext indexSourceContext = context.getIndexSourceContext().get();
-
-            ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
+            Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
             int channel = 0;
             for (Symbol symbol : node.getOutputSymbols()) {
                 outputMappings.put(symbol, channel);
                 channel++;
             }
+            return outputMappings.build();
+        }
+
+        @Override
+        public PhysicalOperation visitIndexSource(IndexSourceNode node, LocalExecutionPlanContext context)
+        {
+            checkState(context.getIndexSourceContext().isPresent(), "Must be in an index source context");
+            IndexSourceContext indexSourceContext = context.getIndexSourceContext().get();
 
             SetMultimap<Symbol, Integer> indexLookupToProbeInput = indexSourceContext.getIndexLookupToProbeInput();
             checkState(indexLookupToProbeInput.keySet().equals(node.getLookupSymbols()));
@@ -1032,7 +1002,7 @@ public class LocalExecutionPlanner
 
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
             OperatorFactory operatorFactory = new IndexSourceOperator.IndexSourceOperatorFactory(context.getNextOperatorId(), node.getId(), index, types, probeKeyNormalizer);
-            return new PhysicalOperation(operatorFactory, outputMappings.build());
+            return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
 
         /**
@@ -1348,15 +1318,9 @@ public class LocalExecutionPlanner
             // the main driver is not an input: the source is the input for the plan
             context.setInputDriver(false);
 
-            List<Symbol> layout = node.getOutputSymbols();
-            ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
-            for (int i = 0; i < layout.size(); i++) {
-                outputMappings.put(layout.get(i), i);
-            }
-
             // add exchange source as first operator in the current context
             OperatorFactory factory = new InMemoryExchangeSourceOperatorFactory(context.getNextOperatorId(), exchange);
-            return new PhysicalOperation(factory, outputMappings.build());
+            return new PhysicalOperation(factory, makeLayout(node));
         }
 
         @Override
@@ -1408,14 +1372,7 @@ public class LocalExecutionPlanner
             // the main driver is not an input... the union sources are the input for the plan
             context.setInputDriver(false);
 
-            ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
-            int channel = 0;
-            for (Symbol symbol : node.getOutputSymbols()) {
-                outputMappings.put(symbol, channel); // one symbol per channel
-                channel++;
-            }
-
-            return new PhysicalOperation(new InMemoryExchangeSourceOperatorFactory(context.getNextOperatorId(), inMemoryExchange), outputMappings.build());
+            return new PhysicalOperation(new InMemoryExchangeSourceOperatorFactory(context.getNextOperatorId(), inMemoryExchange), makeLayout(node));
         }
 
         @Override
