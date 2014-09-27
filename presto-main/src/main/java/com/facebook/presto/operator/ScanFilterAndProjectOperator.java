@@ -217,7 +217,6 @@ public class ScanFilterAndProjectOperator
                 if (currentPage != null) {
                     currentPosition = pageProcessor.process(operatorContext.getSession().toConnectorSession(), currentPage, currentPosition, currentPage.getPositionCount(), pageBuilder);
                     if (currentPosition == currentPage.getPositionCount()) {
-                        currentPage.release();
                         currentPage = null;
                         currentPosition = 0;
                     }

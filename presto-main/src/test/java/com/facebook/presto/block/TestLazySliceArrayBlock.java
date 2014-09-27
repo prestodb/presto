@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.LazySliceArrayBlock;
-import com.facebook.presto.spi.block.LazySliceArrayBlock.LazySliceArrayBlockLoader;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
-import static com.google.common.base.Preconditions.checkState;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -36,64 +35,13 @@ public class TestLazySliceArrayBlock
     @Test
     public void testRelease()
     {
-        TestLazySliceArrayBlockLoader loader = new TestLazySliceArrayBlockLoader(null);
+        TestLazySliceArrayBlockLoader loader = new TestLazySliceArrayBlockLoader(new Slice[10]);
         LazySliceArrayBlock block = new LazySliceArrayBlock(10, loader);
 
-        // release the block
-        block.release();
+        block.assureLoaded();
 
-        // verify release was called
-        assertTrue(loader.released);
-
-        // verify methods accessing the data throw IllegalStateException
-        try {
-            block.isNull(0);
-            fail("Expected IllegalStateException");
-        }
-        catch (IllegalStateException expected) {
-        }
-
-        try {
-            block.getLength(0);
-            fail("Expected IllegalStateException");
-        }
-        catch (IllegalStateException expected) {
-        }
-
-        try {
-            block.getByte(0, 0);
-            fail("Expected IllegalStateException");
-        }
-        catch (IllegalStateException expected) {
-        }
-
-        try {
-            block.getInt(0, 0);
-            fail("Expected IllegalStateException");
-        }
-        catch (IllegalStateException expected) {
-        }
-
-        try {
-            block.getLong(0, 0);
-            fail("Expected IllegalStateException");
-        }
-        catch (IllegalStateException expected) {
-        }
-
-        try {
-            block.getDouble(0, 0);
-            fail("Expected IllegalStateException");
-        }
-        catch (IllegalStateException expected) {
-        }
-
-        try {
-            block.getSlice(0, 0, 1);
-            fail("Expected IllegalStateException");
-        }
-        catch (IllegalStateException expected) {
-        }
+        // verify load was called
+        assertTrue(loader.loaded);
     }
 
     private static void assertVariableWithValues(Slice[] expectedValues)
@@ -112,10 +60,10 @@ public class TestLazySliceArrayBlock
     }
 
     private static class TestLazySliceArrayBlockLoader
-            implements LazySliceArrayBlockLoader
+            implements LazyBlockLoader<LazySliceArrayBlock>
     {
         private final Slice[] expectedValues;
-        private boolean released;
+        private boolean loaded;
 
         public TestLazySliceArrayBlockLoader(Slice[] expectedValues)
         {
@@ -125,19 +73,12 @@ public class TestLazySliceArrayBlock
         @Override
         public void load(LazySliceArrayBlock block)
         {
-            checkState(!released, "Block has been released");
-
             if (expectedValues == null) {
                 fail("load should not be called");
             }
 
             block.setValues(expectedValues);
-        }
-
-        @Override
-        public void release()
-        {
-            released = true;
+            loaded = true;
         }
     }
 }
