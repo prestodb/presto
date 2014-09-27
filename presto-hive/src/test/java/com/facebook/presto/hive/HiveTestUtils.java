@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeRegistry;
@@ -30,6 +31,7 @@ public final class HiveTestUtils
     public static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
 
     public static final ImmutableSet<HivePageSourceFactory> DEFAULT_HIVE_DATA_STREAM_FACTORIES = ImmutableSet.<HivePageSourceFactory>builder()
+            .add(new RcFilePageSourceFactory(TYPE_MANAGER))
             .build();
 
     public static final ImmutableSet<HiveRecordCursorProvider> DEFAULT_HIVE_RECORD_CURSOR_PROVIDER = ImmutableSet.<HiveRecordCursorProvider>builder()

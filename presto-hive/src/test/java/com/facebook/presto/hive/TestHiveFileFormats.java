@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
@@ -101,6 +102,26 @@ public class TestHiveFileFormats
     }
 
     @Test
+    public void testRcTextPageSource()
+            throws Exception
+    {
+        HiveOutputFormat<?, ?> outputFormat = new RCFileOutputFormat();
+        InputFormat<?, ?> inputFormat = new RCFileInputFormat<>();
+        @SuppressWarnings("deprecation")
+        SerDe serde = new ColumnarSerDe();
+        File file = File.createTempFile("presto_test", "rc-binary");
+        file.delete();
+        try {
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS);
+            testPageSourceFactory(new RcFilePageSourceFactory(TYPE_MANAGER), split, inputFormat, serde, TEST_COLUMNS);
+        }
+        finally {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
+    @Test
     public void testRCBinary()
             throws Exception
     {
@@ -113,6 +134,25 @@ public class TestHiveFileFormats
             FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS);
             testCursorProvider(new ColumnarBinaryHiveRecordCursorProvider(), split, inputFormat, serde, TEST_COLUMNS);
             testCursorProvider(new GenericHiveRecordCursorProvider(), split, inputFormat, serde, TEST_COLUMNS);
+        }
+        finally {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
+    public void testRcBinaryPageSource()
+            throws Exception
+    {
+        HiveOutputFormat<?, ?> outputFormat = new RCFileOutputFormat();
+        InputFormat<?, ?> inputFormat = new RCFileInputFormat<>();
+        @SuppressWarnings("deprecation")
+        SerDe serde = new LazyBinaryColumnarSerDe();
+        File file = File.createTempFile("presto_test", "rc-binary");
+        file.delete();
+        try {
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS);
+            testPageSourceFactory(new RcFilePageSourceFactory(TYPE_MANAGER), split, inputFormat, serde, TEST_COLUMNS);
         }
         finally {
             //noinspection ResultOfMethodCallIgnored
