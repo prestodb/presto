@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.connector.informationSchema.InformationSchemaHandleResolver;
 import com.facebook.presto.connector.informationSchema.InformationSchemaTableHandle;
 import com.facebook.presto.connector.system.SystemHandleResolver;
@@ -36,18 +35,15 @@ import io.airlift.testing.Assertions;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.Locale;
 import java.util.Map;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestJsonTableHandle
 {
-    private static final Session SESSION = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
-
     private static final Map<String, Object> SYSTEM_AS_MAP = ImmutableMap.<String, Object>of("type", "system",
             "schemaName", "system_schema",
             "tableName", "system_table");
@@ -55,13 +51,15 @@ public class TestJsonTableHandle
     private static final Map<String, Object> INFORMATION_SCHEMA_AS_MAP = ImmutableMap.<String, Object>of(
             "type", "information_schema",
             "session", ImmutableMap.<String, Object>builder()
-                    .put("user", SESSION.getUser())
-                    .put("source", SESSION.getSource())
-                    .put("catalog", SESSION.getCatalog())
-                    .put("schema", SESSION.getSchema())
-                    .put("timeZoneKey", (int) SESSION.getTimeZoneKey().getKey())
-                    .put("locale", SESSION.getLocale().toString())
-                    .put("startTime", SESSION.getStartTime())
+                    .put("user", TEST_SESSION.getUser())
+                    .put("source", TEST_SESSION.getSource())
+                    .put("catalog", TEST_SESSION.getCatalog())
+                    .put("schema", TEST_SESSION.getSchema())
+                    .put("timeZoneKey", (int) TEST_SESSION.getTimeZoneKey().getKey())
+                    .put("locale", TEST_SESSION.getLocale().toString())
+                    .put("remoteUserAddress", TEST_SESSION.getRemoteUserAddress())
+                    .put("userAgent", TEST_SESSION.getUserAgent())
+                    .put("startTime", TEST_SESSION.getStartTime())
                     .build(),
             "catalogName", "information_schema_catalog",
             "schemaName", "information_schema_schema",
@@ -106,7 +104,7 @@ public class TestJsonTableHandle
             throws Exception
     {
         InformationSchemaTableHandle informationSchemaTableHandle = new InformationSchemaTableHandle(
-                SESSION,
+                TEST_SESSION,
                 "information_schema_catalog",
                 "information_schema_schema",
                 "information_schema_table");

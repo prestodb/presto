@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
-import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.HashSemiJoinOperator.HashSemiJoinOperatorFactory;
 import com.facebook.presto.operator.SetBuilderOperator.SetBuilderOperatorFactory;
@@ -28,13 +27,12 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.google.common.collect.Iterables.concat;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -51,8 +49,7 @@ public class TestHashSemiJoinOperator
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
-        taskContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session);
+        taskContext = new TaskContext(new TaskId("query", "stage", "task"), executor, TEST_SESSION);
     }
 
     @AfterMethod
@@ -265,8 +262,7 @@ public class TestHashSemiJoinOperator
     public void testMemoryLimit()
             throws Exception
     {
-        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
-        DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session, new DataSize(100, BYTE))
+        DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, TEST_SESSION, new DataSize(100, BYTE))
                 .addPipelineContext(true, true)
                 .addDriverContext();
 

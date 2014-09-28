@@ -75,11 +75,11 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
@@ -89,7 +89,6 @@ import static com.facebook.presto.operator.scalar.FunctionAssertions.TestSplit.c
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeExpressionsWithSymbols;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
@@ -107,8 +106,6 @@ import static org.testng.Assert.assertTrue;
 
 public final class FunctionAssertions
 {
-    public static final Session SESSION = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
-
     private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-%s"));
 
     private static final SqlParser SQL_PARSER = new SqlParser();
@@ -164,7 +161,7 @@ public final class FunctionAssertions
 
     public FunctionAssertions()
     {
-        this(SESSION);
+        this(TEST_SESSION);
     }
 
     public FunctionAssertions(Session session)
@@ -325,7 +322,7 @@ public final class FunctionAssertions
 
     private void assertFilter(String filter, boolean expected, boolean withNoInputColumns, ExpressionCompiler compiler)
     {
-        List<Boolean> results = executeFilterWithAll(filter, SESSION, withNoInputColumns, compiler);
+        List<Boolean> results = executeFilterWithAll(filter, TEST_SESSION, withNoInputColumns, compiler);
         HashSet<Boolean> resultSet = new HashSet<>(results);
 
         // we should only have a single result
@@ -389,7 +386,7 @@ public final class FunctionAssertions
     {
         Expression parsedExpression = SQL_PARSER.createExpression(expression);
 
-        final ExpressionAnalysis analysis = analyzeExpressionsWithSymbols(SESSION, metadata, SQL_PARSER, symbolTypes, ImmutableList.of(parsedExpression));
+        final ExpressionAnalysis analysis = analyzeExpressionsWithSymbols(TEST_SESSION, metadata, SQL_PARSER, symbolTypes, ImmutableList.of(parsedExpression));
         Expression rewrittenExpression = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
         {
             @Override
@@ -506,7 +503,7 @@ public final class FunctionAssertions
     {
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(ImmutableMap.<Symbol, Integer>of()), filter);
 
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter));
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter));
 
         try {
             PageProcessor processor = compiler.compilePageProcessor(
@@ -528,7 +525,7 @@ public final class FunctionAssertions
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
         projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
 
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter, projection));
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter, projection));
 
         try {
             List<RowExpression> projections = ImmutableList.of(SqlToRowExpressionTranslator.translate(projection, expressionTypes, metadata, session, false));
@@ -551,7 +548,7 @@ public final class FunctionAssertions
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
         projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
 
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter, projection));
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter, projection));
 
         try {
             CursorProcessor cursorProcessor = compiler.compileCursorProcessor(

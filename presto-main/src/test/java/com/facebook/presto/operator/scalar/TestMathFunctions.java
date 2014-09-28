@@ -17,7 +17,7 @@ import com.facebook.presto.spi.PrestoException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.operator.scalar.FunctionAssertions.SESSION;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 
 public class TestMathFunctions
 {
@@ -282,8 +282,8 @@ public class TestMathFunctions
     public void testRandom()
     {
         // random is non-deterministic
-        functionAssertions.tryEvaluateWithAll("rand()", SESSION);
-        functionAssertions.tryEvaluateWithAll("random()", SESSION);
+        functionAssertions.tryEvaluateWithAll("rand()", TEST_SESSION);
+        functionAssertions.tryEvaluateWithAll("random()", TEST_SESSION);
     }
 
     @Test

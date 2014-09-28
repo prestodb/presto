@@ -39,9 +39,9 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.TaskTestUtils.EMPTY_SOURCES;
 import static com.facebook.presto.execution.TaskTestUtils.PLAN_FRAGMENT;
-import static com.facebook.presto.execution.TaskTestUtils.SESSION;
 import static com.facebook.presto.execution.TaskTestUtils.SPLIT;
 import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static com.facebook.presto.execution.TaskTestUtils.createTestingPlanner;
@@ -98,7 +98,7 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        TaskInfo taskInfo = sqlTask.updateTask(SESSION,
+        TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
                 PLAN_FRAGMENT,
                 ImmutableList.<TaskSource>of(),
                 INITIAL_EMPTY_OUTPUT_BUFFERS);
@@ -107,7 +107,7 @@ public class TestSqlTask
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
 
-        taskInfo = sqlTask.updateTask(SESSION,
+        taskInfo = sqlTask.updateTask(TEST_SESSION,
                 PLAN_FRAGMENT,
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.<ScheduledSplit>of(), true)),
                 INITIAL_EMPTY_OUTPUT_BUFFERS.withNoMoreBufferIds());
@@ -123,7 +123,7 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        TaskInfo taskInfo = sqlTask.updateTask(SESSION,
+        TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
                 PLAN_FRAGMENT,
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, new UnpartitionedPagePartitionFunction()).withNoMoreBufferIds());
@@ -153,7 +153,7 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        TaskInfo taskInfo = sqlTask.updateTask(SESSION,
+        TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
                 PLAN_FRAGMENT,
                 ImmutableList.<TaskSource>of(),
                 INITIAL_EMPTY_OUTPUT_BUFFERS);
@@ -179,7 +179,7 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        TaskInfo taskInfo = sqlTask.updateTask(SESSION,
+        TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
                 PLAN_FRAGMENT,
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, new UnpartitionedPagePartitionFunction()).withNoMoreBufferIds());

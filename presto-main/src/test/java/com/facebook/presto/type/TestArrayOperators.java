@@ -23,6 +23,7 @@ import com.google.common.collect.Lists;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -56,8 +57,8 @@ public class TestArrayOperators
         assertFunction("ARRAY ['puppies', 'kittens']", ImmutableList.of("puppies", "kittens"));
         assertFunction("ARRAY [TRUE, FALSE]", ImmutableList.of(true, false));
         assertFunction("ARRAY [from_unixtime(1), from_unixtime(100)]", ImmutableList.of(
-                new SqlTimestamp(1000, FunctionAssertions.SESSION.getTimeZoneKey()),
-                new SqlTimestamp(100_000, FunctionAssertions.SESSION.getTimeZoneKey())));
+                new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()),
+                new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey())));
     }
 
     @Test
@@ -132,6 +133,6 @@ public class TestArrayOperators
         assertFunction("ARRAY ['puppies', 'kittens'][2]", "kittens");
         assertFunction("ARRAY ['puppies', 'kittens', NULL][3]", null);
         assertFunction("ARRAY [TRUE, FALSE][2]", false);
-        assertFunction("ARRAY [from_unixtime(1), from_unixtime(100)][1]", new SqlTimestamp(1000, FunctionAssertions.SESSION.getTimeZoneKey()));
+        assertFunction("ARRAY [from_unixtime(1), from_unixtime(100)][1]", new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()));
     }
 }

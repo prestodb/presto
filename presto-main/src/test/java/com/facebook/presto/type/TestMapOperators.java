@@ -24,6 +24,8 @@ import org.testng.annotations.Test;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+
 public class TestMapOperators
 {
     private FunctionAssertions functionAssertions;
@@ -56,13 +58,13 @@ public class TestMapOperators
         assertFunction("MAP(TRUE, 2, FALSE, 4)", ImmutableMap.of(true, 2L, false, 4L));
         assertFunction("MAP('1', from_unixtime(1), '100', from_unixtime(100))", ImmutableMap.of(
                 "1",
-                new SqlTimestamp(1000, FunctionAssertions.SESSION.getTimeZoneKey()),
+                new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()),
                 "100",
-                new SqlTimestamp(100_000, FunctionAssertions.SESSION.getTimeZoneKey())));
+                new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey())));
         assertFunction("MAP(from_unixtime(1), 1.0, from_unixtime(100), 100.0)", ImmutableMap.of(
-                new SqlTimestamp(1000, FunctionAssertions.SESSION.getTimeZoneKey()),
+                new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()),
                 1.0,
-                new SqlTimestamp(100_000, FunctionAssertions.SESSION.getTimeZoneKey()),
+                new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey()),
                 100.0));
     }
 
@@ -76,7 +78,7 @@ public class TestMapOperators
         assertFunction("MAP(1.0, ARRAY[1, 2], 2.0, ARRAY[3])[1.0]", ImmutableList.of(1L, 2L));
         assertFunction("MAP('puppies', 'kittens')['puppies']", "kittens");
         assertFunction("MAP(TRUE, 2, FALSE, 4)[TRUE]", 2L);
-        assertFunction("MAP('1', from_unixtime(1), '100', from_unixtime(100))['1']", new SqlTimestamp(1000, FunctionAssertions.SESSION.getTimeZoneKey()));
+        assertFunction("MAP('1', from_unixtime(1), '100', from_unixtime(100))['1']", new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()));
         assertFunction("MAP(from_unixtime(1), 1.0, from_unixtime(100), 100.0)[from_unixtime(1)]", 1.0);
     }
 }

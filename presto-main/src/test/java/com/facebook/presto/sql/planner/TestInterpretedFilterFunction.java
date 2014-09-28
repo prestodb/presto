@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.type.Type;
@@ -23,10 +22,8 @@ import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.util.Locale;
-
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpression;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
@@ -197,14 +194,13 @@ public class TestInterpretedFilterFunction
     public static void assertFilter(String expression, boolean expectedValue)
     {
         Expression parsed = createExpression(expression, METADATA, ImmutableMap.<Symbol, Type>of());
-        Session session = new Session("user", "test", "catalog", "schema", UTC_KEY, Locale.ENGLISH, null, null);
 
         InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(parsed,
                 ImmutableMap.<Symbol, Type>of(),
                 ImmutableMap.<Symbol, Integer>of(),
                 METADATA,
                 SQL_PARSER,
-                session
+                TEST_SESSION
         );
 
         boolean result = filterFunction.filter(0);

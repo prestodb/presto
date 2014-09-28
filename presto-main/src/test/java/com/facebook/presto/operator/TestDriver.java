@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.ScheduledSplit;
-import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.ColumnHandle;
@@ -39,7 +38,6 @@ import org.testng.annotations.Test;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -48,9 +46,9 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.getRootCause;
@@ -72,8 +70,8 @@ public class TestDriver
             throws Exception
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
-        driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
+
+        driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, TEST_SESSION)
                 .addPipelineContext(true, true)
                 .addDriverContext();
     }

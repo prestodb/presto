@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.DriverContext;
@@ -37,12 +36,11 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -59,8 +57,7 @@ public class TestJoinProbeCompiler
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
-        taskContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session);
+        taskContext = new TaskContext(new TaskId("query", "stage", "task"), executor, TEST_SESSION);
     }
 
     @AfterMethod
