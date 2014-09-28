@@ -17,6 +17,11 @@ import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimeZoneNotSupportedException;
+import com.google.common.base.Splitter;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Multimap;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.WebApplicationException;
@@ -24,11 +29,17 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Map.Entry;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
@@ -62,7 +73,55 @@ final class ResourceUtil
             sessionBuilder.setLocale(Locale.forLanguageTag(language));
         }
 
+        // parse session properties
+        Multimap<String, Entry<String, String>> sessionPropertiesByCatalog = HashMultimap.create();
+        for (String sessionHeader : Collections.list(servletRequest.getHeaders(PRESTO_SESSION))) {
+            parseSessionHeader(sessionHeader, sessionPropertiesByCatalog);
+        }
+        sessionBuilder.setSystemProperties(toMap(sessionPropertiesByCatalog.get(null)));
+        for (Entry<String, Collection<Entry<String, String>>> entry : sessionPropertiesByCatalog.asMap().entrySet()) {
+            if (entry.getKey() != null) {
+                sessionBuilder.setCatalogProperties(entry.getKey(), toMap(entry.getValue()));
+            }
+        }
+
         return sessionBuilder.build();
+    }
+
+    private static void parseSessionHeader(String header, Multimap<String, Entry<String, String>> sessionPropertiesByCatalog)
+    {
+        List<String> nameValue = Splitter.on('=').limit(2).splitToList(header);
+        assertRequest(nameValue.size() == 2, "Invalid %s header", PRESTO_SESSION);
+
+        String catalog;
+        String name;
+        List<String> nameParts = Splitter.on('.').splitToList(nameValue.get(0));
+        if (nameParts.size() == 1) {
+            catalog = null;
+            name = nameParts.get(0);
+        }
+        else if (nameParts.size() == 2) {
+            catalog = nameParts.get(0);
+            name = nameParts.get(1);
+        }
+        else {
+            throw badRequest(format("Invalid %s header", PRESTO_SESSION));
+        }
+        assertRequest(catalog == null || !catalog.isEmpty(), "Invalid %s header", PRESTO_SESSION);
+        assertRequest(!name.isEmpty(), "Invalid %s header", PRESTO_SESSION);
+
+        String value = nameValue.get(1);
+
+        sessionPropertiesByCatalog.put(catalog, Maps.immutableEntry(name, value));
+    }
+
+    private static <K, V> Map<K, V> toMap(Iterable<? extends Entry<K, V>> entries)
+    {
+        ImmutableMap.Builder<K, V> builder = ImmutableMap.builder();
+        for (Entry<K, V> entry : entries) {
+            builder.put(entry);
+        }
+        return builder.build();
     }
 
     private static String getRequiredHeader(HttpServletRequest servletRequest, String name, String description)
