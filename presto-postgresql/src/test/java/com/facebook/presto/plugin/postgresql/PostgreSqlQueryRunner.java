@@ -85,6 +85,13 @@ public final class PostgreSqlQueryRunner
 
     public static Session createSession()
     {
-        return new Session("user", "test", "postgresql", TPCH_SCHEMA, UTC_KEY, ENGLISH, null, null);
+        return Session.builder()
+                .setUser("user")
+                .setSource("test")
+                .setCatalog("postgresql")
+                .setSchema(TPCH_SCHEMA)
+                .setTimeZoneKey(UTC_KEY)
+                .setLocale(ENGLISH)
+                .build();
     }
 }

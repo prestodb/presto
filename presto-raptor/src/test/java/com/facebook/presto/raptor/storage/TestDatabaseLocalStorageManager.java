@@ -34,7 +34,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
@@ -44,6 +43,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
+import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -77,7 +77,14 @@ public class TestDatabaseLocalStorageManager
     public void testImportFlow()
             throws IOException
     {
-        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+        Session session = Session.builder()
+                .setUser("user")
+                .setSource("source")
+                .setCatalog("catalog")
+                .setSchema("schema")
+                .setTimeZoneKey(UTC_KEY)
+                .setLocale(ENGLISH)
+                .build();
         ImmutableList<Type> types = ImmutableList.<Type>of(VARCHAR, BIGINT);
 
         UUID shardUuid = UUID.randomUUID();

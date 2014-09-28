@@ -27,10 +27,9 @@ import org.joda.time.LocalDate;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.Locale;
-
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
+import static java.util.Locale.ENGLISH;
 
 public class TestTimestamp
 {
@@ -42,7 +41,14 @@ public class TestTimestamp
     @BeforeClass
     public void setUp()
     {
-        Session session = new Session("user", "test", "catalog", "schema", TIME_ZONE_KEY, Locale.ENGLISH, null, null);
+        Session session = Session.builder()
+                .setUser("user")
+                .setSource("test")
+                .setCatalog("catalog")
+                .setSchema("schema")
+                .setTimeZoneKey(TIME_ZONE_KEY)
+                .setLocale(ENGLISH)
+                .build();
         functionAssertions = new FunctionAssertions(session);
     }
 

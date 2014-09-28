@@ -71,6 +71,13 @@ public final class MySqlQueryRunner
 
     public static Session createSession()
     {
-        return new Session("user", "test", "mysql", TPCH_SCHEMA, UTC_KEY, ENGLISH, null, null);
+        return Session.builder()
+                .setUser("user")
+                .setSource("test")
+                .setCatalog("mysql")
+                .setSchema(TPCH_SCHEMA)
+                .setTimeZoneKey(UTC_KEY)
+                .setLocale(ENGLISH)
+                .build();
     }
 }

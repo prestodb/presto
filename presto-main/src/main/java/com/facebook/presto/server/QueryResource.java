@@ -128,7 +128,16 @@ public class QueryResource
 
         String remoteUserAddress = requestContext.getRemoteAddr();
 
-        Session session = new Session(user, source, catalog, schema, getTimeZoneKey(timeZoneId), locale, remoteUserAddress, userAgent);
+        Session session = Session.builder()
+                .setUser(user)
+                .setSource(source)
+                .setCatalog(catalog)
+                .setSchema(schema)
+                .setTimeZoneKey(getTimeZoneKey(timeZoneId))
+                .setLocale(locale)
+                .setRemoteUserAddress(remoteUserAddress)
+                .setUserAgent(userAgent)
+                .build();
 
         QueryInfo queryInfo = queryManager.createQuery(session, statement);
         URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(queryInfo.getQueryId().toString()).build();

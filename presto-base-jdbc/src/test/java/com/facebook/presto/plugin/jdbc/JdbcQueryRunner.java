@@ -82,6 +82,13 @@ public final class JdbcQueryRunner
 
     public static Session createSession()
     {
-        return new Session("user", "test", "jdbc", TPCH_SCHEMA, UTC_KEY, ENGLISH, null, null);
+        return Session.builder()
+                .setUser("user")
+                .setSource("test")
+                .setCatalog("jdbc")
+                .setSchema(TPCH_SCHEMA)
+                .setTimeZoneKey(UTC_KEY)
+                .setLocale(ENGLISH)
+                .build();
     }
 }

@@ -33,8 +33,6 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.Locale;
-
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
@@ -62,12 +60,21 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestAnalyzer
 {
-    private static final Session SESSION = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
+    public static final Session SESSION = Session.builder()
+            .setUser("user")
+            .setSource("test")
+            .setCatalog("default")
+            .setSchema("default")
+            .setTimeZoneKey(UTC_KEY)
+            .setLocale(ENGLISH)
+            .build();
+
     private static final SqlParser SQL_PARSER = new SqlParser();
 
     private Analyzer analyzer;
@@ -668,14 +675,28 @@ public class TestAnalyzer
         metadata.createView(SESSION, new QualifiedTableName("c3", "s3", "v3"), viewData3, false);
 
         analyzer = new Analyzer(
-                new Session("user", "test", "tpch", "default", UTC_KEY, Locale.ENGLISH, null, null),
+                Session.builder()
+                        .setUser("user")
+                        .setSource("test")
+                        .setCatalog("tpch")
+                        .setSchema("default")
+                        .setTimeZoneKey(UTC_KEY)
+                        .setLocale(ENGLISH)
+                        .build(),
                 metadata,
                 SQL_PARSER,
                 Optional.<QueryExplainer>absent(),
                 true);
 
         approximateDisabledAnalyzer = new Analyzer(
-                new Session("user", "test", "tpch", "default", UTC_KEY, Locale.ENGLISH, null, null),
+                Session.builder()
+                        .setUser("user")
+                        .setSource("test")
+                        .setCatalog("tpch")
+                        .setSchema("default")
+                        .setTimeZoneKey(UTC_KEY)
+                        .setLocale(ENGLISH)
+                        .build(),
                 metadata,
                 SQL_PARSER,
                 Optional.<QueryExplainer>absent(),

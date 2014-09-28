@@ -122,6 +122,13 @@ public final class KafkaQueryRunner
 
     public static Session createSession()
     {
-        return new Session("user", "test", "kafka", TPCH_SCHEMA, UTC_KEY, ENGLISH, null, null);
+        return Session.builder()
+                .setUser("user")
+                .setSource("test")
+                .setCatalog("kafka")
+                .setSchema(TPCH_SCHEMA)
+                .setTimeZoneKey(UTC_KEY)
+                .setLocale(ENGLISH)
+                .build();
     }
 }

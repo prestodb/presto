@@ -81,6 +81,13 @@ public final class CassandraQueryRunner
 
     public static Session createCassandraSession(String schema)
     {
-        return new Session("user", "test", "cassandra", schema, UTC_KEY, ENGLISH, null, null);
+        return Session.builder()
+                .setUser("user")
+                .setSource("test")
+                .setCatalog("cassandra")
+                .setSchema(schema)
+                .setTimeZoneKey(UTC_KEY)
+                .setLocale(ENGLISH)
+                .build();
     }
 }

@@ -22,6 +22,7 @@ import com.google.common.base.Objects;
 import javax.annotation.Nullable;
 
 import java.util.Locale;
+import java.util.TimeZone;
 
 import static java.util.Objects.requireNonNull;
 
@@ -39,11 +40,6 @@ public final class Session
     @Nullable
     private final String userAgent;
     private final long startTime;
-
-    public Session(String user, String source, String catalog, String schema, TimeZoneKey timeZoneKey, Locale locale, String remoteUserAddress, String userAgent)
-    {
-        this(user, source, catalog, schema, timeZoneKey, locale, remoteUserAddress, userAgent, System.currentTimeMillis());
-    }
 
     @JsonCreator
     public Session(
@@ -144,5 +140,86 @@ public final class Session
                 .add("userAgent", userAgent)
                 .add("startTime", startTime)
                 .toString();
+    }
+
+    public static SessionBuilder builder()
+    {
+        return new SessionBuilder();
+    }
+
+    public static class SessionBuilder
+    {
+        private String user;
+        private String source;
+        private String catalog;
+        private String schema;
+        private TimeZoneKey timeZoneKey = TimeZoneKey.getTimeZoneKey(TimeZone.getDefault().getID());
+        private Locale locale = Locale.getDefault();
+        private String remoteUserAddress;
+        private String userAgent;
+        private long startTime = System.currentTimeMillis();
+
+        private SessionBuilder()
+        {
+        }
+
+        public SessionBuilder setCatalog(String catalog)
+        {
+            this.catalog = catalog;
+            return this;
+        }
+
+        public SessionBuilder setLocale(Locale locale)
+        {
+            this.locale = locale;
+            return this;
+        }
+
+        public SessionBuilder setRemoteUserAddress(String remoteUserAddress)
+        {
+            this.remoteUserAddress = remoteUserAddress;
+            return this;
+        }
+
+        public SessionBuilder setSchema(String schema)
+        {
+            this.schema = schema;
+            return this;
+        }
+
+        public SessionBuilder setSource(String source)
+        {
+            this.source = source;
+            return this;
+        }
+
+        public SessionBuilder setStartTime(long startTime)
+        {
+            this.startTime = startTime;
+            return this;
+        }
+
+        public SessionBuilder setTimeZoneKey(TimeZoneKey timeZoneKey)
+        {
+            this.timeZoneKey = timeZoneKey;
+            return this;
+        }
+
+        public SessionBuilder setUser(String user)
+        {
+            this.user = user;
+            return this;
+        }
+
+        public SessionBuilder setUserAgent(String userAgent)
+        {
+            this.userAgent = userAgent;
+            return this;
+        }
+
+        public Session build()
+        {
+            return new Session(user, source, catalog, schema, timeZoneKey, locale, remoteUserAddress, userAgent, startTime);
+        }
     }
 }

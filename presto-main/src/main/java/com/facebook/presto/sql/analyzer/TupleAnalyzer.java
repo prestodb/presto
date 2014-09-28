@@ -970,16 +970,18 @@ class TupleAnalyzer
     private TupleDescriptor analyzeView(Query query, QualifiedTableName name, String catalog, String schema, Table node)
     {
         try {
-            Session viewSession = new Session(
-                    session.getUser(),
-                    session.getSource(),
-                    catalog,
-                    schema,
-                    session.getTimeZoneKey(),
-                    session.getLocale(),
-                    session.getRemoteUserAddress(),
-                    session.getUserAgent(),
-                    session.getStartTime());
+            Session viewSession = Session.builder()
+                    .setUser(session.getUser())
+                    .setSource(session.getSource())
+                    .setCatalog(catalog)
+                    .setSchema(schema)
+                    .setTimeZoneKey(session.getTimeZoneKey())
+                    .setLocale(session.getLocale())
+                    .setRemoteUserAddress(session.getRemoteUserAddress())
+                    .setUserAgent(session.getUserAgent())
+                    .setStartTime(session.getStartTime())
+                    .build();
+
             StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewSession, experimentalSyntaxEnabled, Optional.<QueryExplainer>absent());
             return analyzer.process(query, new AnalysisContext());
         }
