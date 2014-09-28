@@ -24,7 +24,6 @@ import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
-import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -37,21 +36,12 @@ import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Locale;
 import java.util.NoSuchElementException;
-import java.util.TimeZone;
 
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
-import static com.facebook.presto.server.StatementResource.assertRequest;
-import static com.facebook.presto.server.StatementResource.getTimeZoneKey;
+import static com.facebook.presto.server.ResourceUtil.assertRequest;
+import static com.facebook.presto.server.ResourceUtil.createSessionForRequest;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 
 /**
@@ -102,42 +92,12 @@ public class QueryResource
     @Produces(MediaType.APPLICATION_JSON)
     public Response createQuery(
             String statement,
-            @HeaderParam(PRESTO_USER) String user,
-            @HeaderParam(PRESTO_SOURCE) String source,
-            @HeaderParam(PRESTO_CATALOG) String catalog,
-            @HeaderParam(PRESTO_SCHEMA) String schema,
-            @HeaderParam(PRESTO_TIME_ZONE) String timeZoneId,
-            @HeaderParam(PRESTO_LANGUAGE) String language,
-            @HeaderParam(USER_AGENT) String userAgent,
-            @Context HttpServletRequest requestContext,
+            @Context HttpServletRequest servletRequest,
             @Context UriInfo uriInfo)
     {
         assertRequest(!isNullOrEmpty(statement), "SQL statement is empty");
-        assertRequest(!isNullOrEmpty(user), "User (%s) is empty", PRESTO_USER);
-        assertRequest(!isNullOrEmpty(catalog), "Catalog (%s) is empty", PRESTO_CATALOG);
-        assertRequest(!isNullOrEmpty(schema), "Schema (%s) is empty", PRESTO_SCHEMA);
 
-        if (timeZoneId == null) {
-            timeZoneId = TimeZone.getDefault().getID();
-        }
-
-        Locale locale = Locale.getDefault();
-        if (language != null) {
-            locale = Locale.forLanguageTag(language);
-        }
-
-        String remoteUserAddress = requestContext.getRemoteAddr();
-
-        Session session = Session.builder()
-                .setUser(user)
-                .setSource(source)
-                .setCatalog(catalog)
-                .setSchema(schema)
-                .setTimeZoneKey(getTimeZoneKey(timeZoneId))
-                .setLocale(locale)
-                .setRemoteUserAddress(remoteUserAddress)
-                .setUserAgent(userAgent)
-                .build();
+        Session session = createSessionForRequest(servletRequest);
 
         QueryInfo queryInfo = queryManager.createQuery(session, statement);
         URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(queryInfo.getQueryId().toString()).build();
