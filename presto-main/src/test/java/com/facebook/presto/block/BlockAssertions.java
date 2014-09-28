@@ -35,7 +35,7 @@ import static org.testng.Assert.assertEquals;
 
 public final class BlockAssertions
 {
-    public static final ConnectorSession SESSION = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+    public static final ConnectorSession SESSION = new ConnectorSession("user", "schema", UTC_KEY, Locale.ENGLISH, System.currentTimeMillis());
 
     private BlockAssertions()
     {
