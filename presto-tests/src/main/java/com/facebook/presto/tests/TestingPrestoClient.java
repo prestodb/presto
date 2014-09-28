@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
@@ -57,13 +57,13 @@ public class TestingPrestoClient
 {
     private static final Logger log = Logger.get("TestQueries");
 
-    public TestingPrestoClient(TestingPrestoServer prestoServer, ConnectorSession defaultSession)
+    public TestingPrestoClient(TestingPrestoServer prestoServer, Session defaultSession)
     {
         super(prestoServer, defaultSession);
     }
 
     @Override
-    protected ResultsSession<MaterializedResult> getResultSession(ConnectorSession session)
+    protected ResultsSession<MaterializedResult> getResultSession(Session session)
     {
         return new MaterializedResultSession(session);
     }
@@ -78,7 +78,7 @@ public class TestingPrestoClient
 
         private final TimeZoneKey timeZoneKey;
 
-        private MaterializedResultSession(ConnectorSession session)
+        private MaterializedResultSession(Session session)
         {
             this.timeZoneKey = session.getTimeZoneKey();
         }

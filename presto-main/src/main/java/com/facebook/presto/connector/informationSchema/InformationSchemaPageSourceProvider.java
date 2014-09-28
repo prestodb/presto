@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.InternalTable;
@@ -29,7 +30,6 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
@@ -117,7 +117,7 @@ public class InformationSchemaPageSourceProvider
         return getInformationSchemaTable(handle.getSession(), handle.getCatalogName(), handle.getSchemaTableName(), filters);
     }
 
-    public InternalTable getInformationSchemaTable(ConnectorSession session, String catalog, SchemaTableName table, Map<String, Object> filters)
+    public InternalTable getInformationSchemaTable(Session session, String catalog, SchemaTableName table, Map<String, Object> filters)
     {
         if (table.equals(TABLE_COLUMNS)) {
             return buildColumns(session, catalog, filters);
@@ -141,7 +141,7 @@ public class InformationSchemaPageSourceProvider
         throw new IllegalArgumentException(format("table does not exist: %s", table));
     }
 
-    private InternalTable buildColumns(ConnectorSession session, String catalogName, Map<String, Object> filters)
+    private InternalTable buildColumns(Session session, String catalogName, Map<String, Object> filters)
     {
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_COLUMNS));
         for (Entry<QualifiedTableName, List<ColumnMetadata>> entry : getColumnsList(session, catalogName, filters).entrySet()) {
@@ -166,12 +166,12 @@ public class InformationSchemaPageSourceProvider
         return table.build();
     }
 
-    private Map<QualifiedTableName, List<ColumnMetadata>> getColumnsList(ConnectorSession session, String catalogName, Map<String, Object> filters)
+    private Map<QualifiedTableName, List<ColumnMetadata>> getColumnsList(Session session, String catalogName, Map<String, Object> filters)
     {
         return metadata.listTableColumns(session, extractQualifiedTablePrefix(catalogName, filters));
     }
 
-    private InternalTable buildTables(ConnectorSession session, String catalogName, Map<String, Object> filters)
+    private InternalTable buildTables(Session session, String catalogName, Map<String, Object> filters)
     {
         Set<QualifiedTableName> tables = ImmutableSet.copyOf(getTablesList(session, catalogName, filters));
         Set<QualifiedTableName> views = ImmutableSet.copyOf(getViewsList(session, catalogName, filters));
@@ -189,17 +189,17 @@ public class InformationSchemaPageSourceProvider
         return table.build();
     }
 
-    private List<QualifiedTableName> getTablesList(ConnectorSession session, String catalogName, Map<String, Object> filters)
+    private List<QualifiedTableName> getTablesList(Session session, String catalogName, Map<String, Object> filters)
     {
         return metadata.listTables(session, extractQualifiedTablePrefix(catalogName, filters));
     }
 
-    private List<QualifiedTableName> getViewsList(ConnectorSession session, String catalogName, Map<String, Object> filters)
+    private List<QualifiedTableName> getViewsList(Session session, String catalogName, Map<String, Object> filters)
     {
         return metadata.listViews(session, extractQualifiedTablePrefix(catalogName, filters));
     }
 
-    private InternalTable buildViews(ConnectorSession session, String catalogName, Map<String, Object> filters)
+    private InternalTable buildViews(Session session, String catalogName, Map<String, Object> filters)
     {
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_VIEWS));
         for (Entry<QualifiedTableName, ViewDefinition> entry : getViews(session, catalogName, filters).entrySet()) {
@@ -212,7 +212,7 @@ public class InformationSchemaPageSourceProvider
         return table.build();
     }
 
-    private Map<QualifiedTableName, ViewDefinition> getViews(ConnectorSession session, String catalogName, Map<String, Object> filters)
+    private Map<QualifiedTableName, ViewDefinition> getViews(Session session, String catalogName, Map<String, Object> filters)
     {
         return metadata.getViews(session, extractQualifiedTablePrefix(catalogName, filters));
     }
@@ -249,7 +249,7 @@ public class InformationSchemaPageSourceProvider
         return table.build();
     }
 
-    private InternalTable buildSchemata(ConnectorSession session, String catalogName)
+    private InternalTable buildSchemata(Session session, String catalogName)
     {
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_SCHEMATA));
         for (String schema : metadata.listSchemaNames(session, catalogName)) {
@@ -258,7 +258,7 @@ public class InformationSchemaPageSourceProvider
         return table.build();
     }
 
-    private InternalTable buildPartitions(ConnectorSession session, String catalogName, Map<String, Object> filters)
+    private InternalTable buildPartitions(Session session, String catalogName, Map<String, Object> filters)
     {
         QualifiedTableName tableName = extractQualifiedTableName(catalogName, filters);
 

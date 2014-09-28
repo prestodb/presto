@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.QualifiedTableName;
@@ -20,7 +21,6 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -67,7 +67,7 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestAnalyzer
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final Session SESSION = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
     private static final SqlParser SQL_PARSER = new SqlParser();
 
     private Analyzer analyzer;
@@ -668,14 +668,14 @@ public class TestAnalyzer
         metadata.createView(SESSION, new QualifiedTableName("c3", "s3", "v3"), viewData3, false);
 
         analyzer = new Analyzer(
-                new ConnectorSession("user", "test", "tpch", "default", UTC_KEY, Locale.ENGLISH, null, null),
+                new Session("user", "test", "tpch", "default", UTC_KEY, Locale.ENGLISH, null, null),
                 metadata,
                 SQL_PARSER,
                 Optional.<QueryExplainer>absent(),
                 true);
 
         approximateDisabledAnalyzer = new Analyzer(
-                new ConnectorSession("user", "test", "tpch", "default", UTC_KEY, Locale.ENGLISH, null, null),
+                new Session("user", "test", "tpch", "default", UTC_KEY, Locale.ENGLISH, null, null),
                 metadata,
                 SQL_PARSER,
                 Optional.<QueryExplainer>absent(),

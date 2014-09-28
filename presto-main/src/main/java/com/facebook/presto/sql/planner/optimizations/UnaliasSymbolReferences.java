@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
@@ -83,7 +83,7 @@ public class UnaliasSymbolReferences
         extends PlanOptimizer
 {
     @Override
-    public PlanNode optimize(PlanNode plan, ConnectorSession session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         checkNotNull(plan, "plan is null");
         checkNotNull(session, "session is null");

@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.kafka;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.kafka.util.CodecSupplier;
 import com.facebook.presto.kafka.util.EmbeddedKafka;
 import com.facebook.presto.kafka.util.TestUtils;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.TestingPrestoClient;
@@ -120,8 +120,8 @@ public final class KafkaQueryRunner
         return topicDescriptions.build();
     }
 
-    public static ConnectorSession createSession()
+    public static Session createSession()
     {
-        return new ConnectorSession("user", "test", "kafka", TPCH_SCHEMA, UTC_KEY, ENGLISH, null, null);
+        return new Session("user", "test", "kafka", TPCH_SCHEMA, UTC_KEY, ENGLISH, null, null);
     }
 }

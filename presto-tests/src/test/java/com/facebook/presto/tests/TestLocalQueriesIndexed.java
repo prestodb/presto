@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tests.tpch.IndexedTpchConnectorFactory;
 import com.facebook.presto.tpch.TpchMetadata;
@@ -33,7 +33,7 @@ public class TestLocalQueriesIndexed
 
     private static LocalQueryRunner createLocalQueryRunner()
     {
-        ConnectorSession defaultSession = new ConnectorSession("user", "test", "local", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, Locale.ENGLISH, null, null);
+        Session defaultSession = new Session("user", "test", "local", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, Locale.ENGLISH, null, null);
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession);
 
         // add the tpch catalog

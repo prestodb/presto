@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AllColumns;
@@ -108,7 +108,7 @@ class StatementAnalyzer
 {
     private final Analysis analysis;
     private final Metadata metadata;
-    private final ConnectorSession session;
+    private final Session session;
     private final Optional<QueryExplainer> queryExplainer;
     private final boolean experimentalSyntaxEnabled;
     private final SqlParser sqlParser;
@@ -117,7 +117,7 @@ class StatementAnalyzer
             Analysis analysis,
             Metadata metadata,
             SqlParser sqlParser,
-            ConnectorSession session,
+            Session session,
             boolean experimentalSyntaxEnabled,
             Optional<QueryExplainer> queryExplainer)
     {

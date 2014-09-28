@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.InMemoryNodeManager;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
@@ -32,7 +32,7 @@ public final class BenchmarkQueryRunner
 
     public static LocalQueryRunner createLocalQueryRunner()
     {
-        ConnectorSession session = new ConnectorSession("user", "test", "tpch", TINY_SCHEMA_NAME, UTC_KEY, Locale.ENGLISH, null, null);
+        Session session = new Session("user", "test", "tpch", TINY_SCHEMA_NAME, UTC_KEY, Locale.ENGLISH, null, null);
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
 
         // add tpch

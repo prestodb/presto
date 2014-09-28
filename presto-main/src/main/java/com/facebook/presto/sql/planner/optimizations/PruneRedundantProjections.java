@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.Session;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -23,7 +24,6 @@ import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.spi.type.Type;
 
 import java.util.Map;
 
@@ -36,7 +36,7 @@ public class PruneRedundantProjections
         extends PlanOptimizer
 {
     @Override
-    public PlanNode optimize(PlanNode plan, ConnectorSession session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         checkNotNull(plan, "plan is null");
         checkNotNull(session, "session is null");

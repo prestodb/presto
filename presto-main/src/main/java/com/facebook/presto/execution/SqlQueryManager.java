@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -205,7 +205,7 @@ public class SqlQueryManager
     }
 
     @Override
-    public QueryInfo createQuery(ConnectorSession session, String query)
+    public QueryInfo createQuery(Session session, String query)
     {
         checkNotNull(query, "query is null");
         Preconditions.checkArgument(!query.isEmpty(), "query must not be empty string");
@@ -369,7 +369,7 @@ public class SqlQueryManager
         return lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat);
     }
 
-    private QueryInfo createFailedQuery(ConnectorSession session, String query, QueryId queryId, Throwable cause)
+    private QueryInfo createFailedQuery(Session session, String query, QueryId queryId, Throwable cause)
     {
         URI self = locationFactory.createQueryLocation(queryId);
         QueryExecution execution = new FailedQueryExecution(queryId, query, session, self, queryExecutor, cause);

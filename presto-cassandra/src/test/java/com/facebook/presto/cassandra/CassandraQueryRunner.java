@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.Session;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.facebook.presto.tpch.testing.SampledTpchPlugin;
@@ -69,18 +69,18 @@ public final class CassandraQueryRunner
         return queryRunner;
     }
 
-    public static ConnectorSession createSession()
+    public static Session createSession()
     {
         return createCassandraSession(TPCH_SCHEMA);
     }
 
-    public static ConnectorSession createSampledSession()
+    public static Session createSampledSession()
     {
         return createCassandraSession(TPCH_SAMPLED_SCHEMA);
     }
 
-    public static ConnectorSession createCassandraSession(String schema)
+    public static Session createCassandraSession(String schema)
     {
-        return new ConnectorSession("user", "test", "cassandra", schema, UTC_KEY, ENGLISH, null, null);
+        return new Session("user", "test", "cassandra", schema, UTC_KEY, ENGLISH, null, null);
     }
 }

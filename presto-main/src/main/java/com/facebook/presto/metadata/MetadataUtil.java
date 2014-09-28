@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.Type;
@@ -129,7 +129,7 @@ public final class MetadataUtil
         };
     }
 
-    public static QualifiedTableName createQualifiedTableName(ConnectorSession session, QualifiedName name)
+    public static QualifiedTableName createQualifiedTableName(Session session, QualifiedName name)
     {
         checkNotNull(session, "session is null");
         checkNotNull(name, "name is null");

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ExchangeOperator.ExchangeOperatorFactory;
 import com.facebook.presto.serde.PagesSerde;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.RemoteSplit;
@@ -59,9 +59,9 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.SequencePageBuilder.createSequencePage;
-import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -267,7 +267,7 @@ public class TestExchangeOperator
     {
         ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, TYPES);
 
-        ConnectorSession session = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();

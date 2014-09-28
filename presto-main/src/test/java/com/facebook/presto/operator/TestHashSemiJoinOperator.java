@@ -14,10 +14,10 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
+import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.HashSemiJoinOperator.HashSemiJoinOperatorFactory;
 import com.facebook.presto.operator.SetBuilderOperator.SetBuilderOperatorFactory;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
@@ -51,7 +51,7 @@ public class TestHashSemiJoinOperator
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        ConnectorSession session = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         taskContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session);
     }
 
@@ -265,7 +265,7 @@ public class TestHashSemiJoinOperator
     public void testMemoryLimit()
             throws Exception
     {
-        ConnectorSession session = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session, new DataSize(100, BYTE))
                 .addPipelineContext(true, true)
                 .addDriverContext();

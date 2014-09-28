@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.BufferResult;
 import com.facebook.presto.execution.ExecutionFailureInfo;
@@ -23,9 +24,8 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
@@ -119,7 +119,7 @@ public class MockTaskManager
     }
 
     @Override
-    public synchronized TaskInfo updateTask(ConnectorSession session, TaskId taskId, PlanFragment ignored, List<TaskSource> sources, OutputBuffers outputBuffers)
+    public synchronized TaskInfo updateTask(Session session, TaskId taskId, PlanFragment ignored, List<TaskSource> sources, OutputBuffers outputBuffers)
     {
         checkNotNull(session, "session is null");
         checkNotNull(taskId, "taskId is null");
@@ -197,7 +197,7 @@ public class MockTaskManager
         private final TaskContext taskContext;
         private final SharedBuffer sharedBuffer;
 
-        public MockTask(ConnectorSession session,
+        public MockTask(Session session,
                 TaskId taskId,
                 URI location,
                 OutputBuffers outputBuffers,

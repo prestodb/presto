@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.tree.Statement;
 import io.airlift.units.Duration;
 
@@ -39,6 +39,6 @@ public interface QueryExecution
 
     interface QueryExecutionFactory<T extends QueryExecution>
     {
-        T createQueryExecution(QueryId queryId, String query, ConnectorSession session, Statement statement);
+        T createQueryExecution(QueryId queryId, String query, Session session, Statement statement);
     }
 }

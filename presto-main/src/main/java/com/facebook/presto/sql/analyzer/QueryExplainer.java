@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LogicalPlanner;
@@ -33,7 +33,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class QueryExplainer
 {
-    private final ConnectorSession session;
+    private final Session session;
     private final List<PlanOptimizer> planOptimizers;
     private final Metadata metadata;
     private final SqlParser sqlParser;
@@ -42,7 +42,7 @@ public class QueryExplainer
     private final boolean distributedJoinsEnabled;
 
     public QueryExplainer(
-            ConnectorSession session,
+            Session session,
             List<PlanOptimizer> planOptimizers,
             Metadata metadata,
             SqlParser sqlParser,

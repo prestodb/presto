@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.RaptorPageSource;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
@@ -77,7 +77,7 @@ public class TestDatabaseLocalStorageManager
     public void testImportFlow()
             throws IOException
     {
-        ConnectorSession session = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         ImmutableList<Type> types = ImmutableList.<Type>of(VARCHAR, BIGINT);
 
         UUID shardUuid = UUID.randomUUID();

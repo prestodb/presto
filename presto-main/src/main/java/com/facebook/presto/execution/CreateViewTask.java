@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.ViewDefinition;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
@@ -68,7 +68,7 @@ public class CreateViewTask
     }
 
     @Override
-    public void execute(CreateView statement, ConnectorSession session, Metadata metadata)
+    public void execute(CreateView statement, Session session, Metadata metadata)
     {
         QualifiedTableName name = createQualifiedTableName(session, statement.getName());
 
@@ -84,7 +84,7 @@ public class CreateViewTask
         metadata.createView(session, name, data, statement.isReplace());
     }
 
-    public Analysis analyzeStatement(Statement statement, ConnectorSession session, Metadata metadata)
+    public Analysis analyzeStatement(Statement statement, Session session, Metadata metadata)
     {
         QueryExplainer explainer = new QueryExplainer(session, planOptimizers, metadata, sqlParser, experimentalSyntaxEnabled, distributedIndexJoinsEnabled, distributedJoinsEnabled);
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, Optional.of(explainer), experimentalSyntaxEnabled);

@@ -14,8 +14,8 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -54,7 +54,7 @@ public interface TaskManager
      * Updates the task plan, sources and output buffers.  If the task does not
      * already exist, is is created and then updated.
      */
-    TaskInfo updateTask(ConnectorSession session, TaskId taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputBuffers);
+    TaskInfo updateTask(Session session, TaskId taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputBuffers);
 
     /**
      * Cancels a task.  If the task does not already exist, is is created and then

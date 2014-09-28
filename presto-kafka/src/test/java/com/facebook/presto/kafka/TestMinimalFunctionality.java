@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.kafka;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.kafka.util.EmbeddedKafka;
 import com.facebook.presto.kafka.util.TestUtils;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.testing.MaterializedResult;
@@ -44,7 +44,7 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestMinimalFunctionality
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", "source", "kafka", "default", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final Session SESSION = new Session("user", "source", "kafka", "default", UTC_KEY, Locale.ENGLISH, null, null);
 
     private EmbeddedKafka embeddedKafka;
     private String topicName;

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DependencyExtractor;
@@ -55,7 +55,7 @@ public class WindowFilterPushDown
     private static final Signature ROW_NUMBER_SIGNATURE = new Signature("row_number", StandardTypes.BIGINT, ImmutableList.<String>of());
 
     @Override
-    public PlanNode optimize(PlanNode plan, ConnectorSession session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         checkNotNull(plan, "plan is null");
         checkNotNull(session, "session is null");

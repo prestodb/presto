@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.kafka.util;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.tests.AbstractTestingPrestoClient;
@@ -60,7 +60,7 @@ public class KafkaLoader
     public KafkaLoader(Producer<Long, Object> producer,
             String topicName,
             TestingPrestoServer prestoServer,
-            ConnectorSession defaultSession)
+            Session defaultSession)
     {
         super(prestoServer, defaultSession);
 
@@ -69,7 +69,7 @@ public class KafkaLoader
     }
 
     @Override
-    public ResultsSession<Void> getResultSession(ConnectorSession session)
+    public ResultsSession<Void> getResultSession(Session session)
     {
         checkNotNull(session, "session is null");
         return new KafkaLoadingSession(session);
@@ -82,7 +82,7 @@ public class KafkaLoader
 
         private final TimeZoneKey timeZoneKey;
 
-        private KafkaLoadingSession(ConnectorSession session)
+        private KafkaLoadingSession(Session session)
         {
             this.timeZoneKey = session.getTimeZoneKey();
         }

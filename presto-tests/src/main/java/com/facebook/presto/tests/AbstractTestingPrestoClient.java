@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
@@ -21,7 +22,6 @@ import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -46,12 +46,12 @@ public abstract class AbstractTestingPrestoClient<T>
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
 
     private final TestingPrestoServer prestoServer;
-    private final ConnectorSession defaultSession;
+    private final Session defaultSession;
 
     private final HttpClient httpClient;
 
     protected AbstractTestingPrestoClient(TestingPrestoServer prestoServer,
-            ConnectorSession defaultSession)
+            Session defaultSession)
     {
         this.prestoServer = checkNotNull(prestoServer, "prestoServer is null");
         this.defaultSession = checkNotNull(defaultSession, "defaultSession is null");
@@ -68,14 +68,14 @@ public abstract class AbstractTestingPrestoClient<T>
         this.httpClient.close();
     }
 
-    protected abstract ResultsSession<T> getResultSession(ConnectorSession session);
+    protected abstract ResultsSession<T> getResultSession(Session session);
 
     public T execute(@Language("SQL") String sql)
     {
         return execute(defaultSession, sql);
     }
 
-    public T execute(ConnectorSession session, @Language("SQL") String sql)
+    public T execute(Session session, @Language("SQL") String sql)
     {
         ResultsSession<T> resultsSession = getResultSession(session);
 
@@ -104,18 +104,18 @@ public abstract class AbstractTestingPrestoClient<T>
         }
     }
 
-    public List<QualifiedTableName> listTables(ConnectorSession session, String catalog, String schema)
+    public List<QualifiedTableName> listTables(Session session, String catalog, String schema)
     {
         return prestoServer.getMetadata().listTables(session, new QualifiedTablePrefix(catalog, schema));
     }
 
-    public boolean tableExists(ConnectorSession session, String table)
+    public boolean tableExists(Session session, String table)
     {
         QualifiedTableName name = new QualifiedTableName(session.getCatalog(), session.getSchema(), table);
         return prestoServer.getMetadata().getTableHandle(session, name).isPresent();
     }
 
-    public ConnectorSession getDefaultSession()
+    public Session getDefaultSession()
     {
         return defaultSession;
     }
@@ -125,7 +125,7 @@ public abstract class AbstractTestingPrestoClient<T>
         return prestoServer;
     }
 
-    public ClientSession toClientSession(ConnectorSession connectorSession)
+    public ClientSession toClientSession(Session connectorSession)
     {
         return new ClientSession(
                 prestoServer.getBaseUrl(),

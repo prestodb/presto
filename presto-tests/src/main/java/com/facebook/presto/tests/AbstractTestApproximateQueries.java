@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.base.Optional;
 import org.intellij.lang.annotations.Language;
@@ -24,19 +24,19 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public abstract class AbstractTestApproximateQueries
         extends AbstractTestQueries
 {
-    private final Optional<ConnectorSession> sampledSession;
+    private final Optional<Session> sampledSession;
 
     protected AbstractTestApproximateQueries(QueryRunner queryRunner)
     {
-        this(queryRunner, Optional.<ConnectorSession>absent());
+        this(queryRunner, Optional.<Session>absent());
     }
 
-    protected AbstractTestApproximateQueries(QueryRunner queryRunner, ConnectorSession sampledSession)
+    protected AbstractTestApproximateQueries(QueryRunner queryRunner, Session sampledSession)
     {
         this(queryRunner, Optional.of(checkNotNull(sampledSession, "sampledSession is null")));
     }
 
-    private AbstractTestApproximateQueries(QueryRunner queryRunner, Optional<ConnectorSession> sampledSession)
+    private AbstractTestApproximateQueries(QueryRunner queryRunner, Optional<Session> sampledSession)
     {
         super(queryRunner);
         this.sampledSession = checkNotNull(sampledSession, "sampledSession is null");

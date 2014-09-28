@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.relational.optimizer;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
@@ -53,11 +54,11 @@ public class ExpressionOptimizer
     private final TypeManager typeManager;
     private final ConnectorSession session;
 
-    public ExpressionOptimizer(FunctionRegistry registry, TypeManager typeManager, ConnectorSession session)
+    public ExpressionOptimizer(FunctionRegistry registry, TypeManager typeManager, Session session)
     {
         this.registry = registry;
         this.typeManager = typeManager;
-        this.session = session;
+        this.session = session.toConnectorSession();
     }
 
     public RowExpression optimize(RowExpression expression)

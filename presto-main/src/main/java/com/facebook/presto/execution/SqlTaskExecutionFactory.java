@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import io.airlift.units.DataSize;
@@ -74,7 +74,7 @@ public class SqlTaskExecutionFactory
         this.cpuTimerEnabled = checkNotNull(cpuTimerEnabled, "cpuTimerEnabled is null");
     }
 
-    public SqlTaskExecution create(ConnectorSession session, TaskStateMachine taskStateMachine, SharedBuffer sharedBuffer, PlanFragment fragment, List<TaskSource> sources)
+    public SqlTaskExecution create(Session session, TaskStateMachine taskStateMachine, SharedBuffer sharedBuffer, PlanFragment fragment, List<TaskSource> sources)
     {
         TaskContext taskContext = new TaskContext(
                 taskStateMachine,

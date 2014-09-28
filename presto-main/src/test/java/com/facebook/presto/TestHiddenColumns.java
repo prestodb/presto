@@ -13,7 +13,6 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tpch.TpchConnectorFactory;
@@ -31,7 +30,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestHiddenColumns
 {
-    public static final ConnectorSession SESSION = new ConnectorSession("user", "source", "tpch", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, Locale.ENGLISH, "address", "agent");
+    public static final Session SESSION = new Session("user", "source", "tpch", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, Locale.ENGLISH, "address", "agent");
 
     private LocalQueryRunner runner;
 

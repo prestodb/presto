@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tpch.TpchConnectorFactory;
@@ -32,7 +32,7 @@ import static java.util.Locale.ENGLISH;
 
 public class TestWindowFunctions
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "tpch", TINY_SCHEMA_NAME, UTC_KEY, ENGLISH, null, null);
+    private static final Session SESSION = new Session("user", "test", "tpch", TINY_SCHEMA_NAME, UTC_KEY, ENGLISH, null, null);
     private final LocalQueryRunner queryRunner;
 
     public TestWindowFunctions()

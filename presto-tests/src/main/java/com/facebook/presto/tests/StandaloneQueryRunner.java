@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.testing.MaterializedResult;
@@ -41,7 +41,7 @@ public final class StandaloneQueryRunner
 
     private final TestingPrestoClient prestoClient;
 
-    public StandaloneQueryRunner(ConnectorSession defaultSession)
+    public StandaloneQueryRunner(Session defaultSession)
             throws Exception
     {
         checkNotNull(defaultSession, "defaultSession is null");
@@ -68,7 +68,7 @@ public final class StandaloneQueryRunner
     }
 
     @Override
-    public MaterializedResult execute(ConnectorSession session, @Language("SQL") String sql)
+    public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
         return prestoClient.execute(session, sql);
     }
@@ -87,7 +87,7 @@ public final class StandaloneQueryRunner
     }
 
     @Override
-    public ConnectorSession getDefaultSession()
+    public Session getDefaultSession()
     {
         return prestoClient.getDefaultSession();
     }
@@ -149,13 +149,13 @@ public final class StandaloneQueryRunner
     }
 
     @Override
-    public List<QualifiedTableName> listTables(ConnectorSession session, String catalog, String schema)
+    public List<QualifiedTableName> listTables(Session session, String catalog, String schema)
     {
         return prestoClient.listTables(session, catalog, schema);
     }
 
     @Override
-    public boolean tableExists(ConnectorSession session, String table)
+    public boolean tableExists(Session session, String table)
     {
         return prestoClient.tableExists(session, table);
     }

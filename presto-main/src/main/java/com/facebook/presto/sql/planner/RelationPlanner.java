@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.EquiJoinClause;
@@ -84,9 +84,9 @@ class RelationPlanner
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
     private final Metadata metadata;
-    private final ConnectorSession session;
+    private final Session session;
 
-    RelationPlanner(Analysis analysis, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, ConnectorSession session)
+    RelationPlanner(Analysis analysis, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
     {
         Preconditions.checkNotNull(analysis, "analysis is null");
         Preconditions.checkNotNull(symbolAllocator, "symbolAllocator is null");

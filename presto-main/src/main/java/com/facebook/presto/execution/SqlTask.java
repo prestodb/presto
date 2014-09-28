@@ -14,11 +14,11 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.util.SetThreadName;
@@ -198,7 +198,7 @@ public class SqlTask
         });
     }
 
-    public TaskInfo updateTask(ConnectorSession session, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputBuffers)
+    public TaskInfo updateTask(Session session, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputBuffers)
     {
         // assure the task execution is only created once
         SqlTaskExecution taskExecution;

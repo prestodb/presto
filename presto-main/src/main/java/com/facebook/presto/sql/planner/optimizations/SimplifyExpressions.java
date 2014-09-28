@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
@@ -30,7 +31,6 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -54,7 +54,7 @@ public class SimplifyExpressions
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, ConnectorSession session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         checkNotNull(plan, "plan is null");
         checkNotNull(session, "session is null");
@@ -70,10 +70,10 @@ public class SimplifyExpressions
     {
         private final Metadata metadata;
         private final SqlParser sqlParser;
-        private final ConnectorSession session;
+        private final Session session;
         private final Map<Symbol, Type> types;
 
-        public Rewriter(Metadata metadata, SqlParser sqlParser, ConnectorSession session, Map<Symbol, Type> types)
+        public Rewriter(Metadata metadata, SqlParser sqlParser, Session session, Map<Symbol, Type> types)
         {
             this.metadata = metadata;
             this.sqlParser = sqlParser;
