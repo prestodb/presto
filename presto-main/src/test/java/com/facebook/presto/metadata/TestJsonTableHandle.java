@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.connector.informationSchema.InformationSchemaHandleResolver;
 import com.facebook.presto.connector.informationSchema.InformationSchemaTableHandle;
 import com.facebook.presto.connector.system.SystemHandleResolver;
 import com.facebook.presto.connector.system.SystemTableHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -46,7 +46,7 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestJsonTableHandle
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final Session SESSION = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
 
     private static final Map<String, Object> SYSTEM_AS_MAP = ImmutableMap.<String, Object>of("type", "system",
             "schemaName", "system_schema",

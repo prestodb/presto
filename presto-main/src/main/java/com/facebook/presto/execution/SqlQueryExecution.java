@@ -14,10 +14,10 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.Session;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
@@ -62,7 +62,7 @@ public class SqlQueryExecution
 
     private final QueryStateMachine stateMachine;
 
-    private final ConnectorSession session;
+    private final Session session;
     private final Statement statement;
     private final Metadata metadata;
     private final SqlParser sqlParser;
@@ -84,7 +84,7 @@ public class SqlQueryExecution
 
     public SqlQueryExecution(QueryId queryId,
             String query,
-            ConnectorSession session,
+            Session session,
             URI self,
             Statement statement,
             Metadata metadata,
@@ -435,7 +435,7 @@ public class SqlQueryExecution
         }
 
         @Override
-        public SqlQueryExecution createQueryExecution(QueryId queryId, String query, ConnectorSession session, Statement statement)
+        public SqlQueryExecution createQueryExecution(QueryId queryId, String query, Session session, Statement statement)
         {
             SqlQueryExecution queryExecution = new SqlQueryExecution(queryId,
                     query,

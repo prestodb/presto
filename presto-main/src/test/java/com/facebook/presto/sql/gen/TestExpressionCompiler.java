@@ -956,7 +956,7 @@ public class TestExpressionCompiler
                 Long millis = null;
                 if (left != null) {
                     millis = left.getMillis();
-                    expected = callExtractFunction(SESSION, millis, field);
+                    expected = callExtractFunction(SESSION.toConnectorSession(), millis, field);
                 }
                 assertExecute(generateExpression("extract(" + field.toString() + " from from_unixtime(%s / 1000.0, 0, 0))", millis), expected);
             }

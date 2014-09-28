@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
@@ -45,12 +45,12 @@ public class LogicalPlanner
 {
     private final PlanNodeIdAllocator idAllocator;
 
-    private final ConnectorSession session;
+    private final Session session;
     private final List<PlanOptimizer> planOptimizers;
     private final SymbolAllocator symbolAllocator = new SymbolAllocator();
     private final Metadata metadata;
 
-    public LogicalPlanner(ConnectorSession session,
+    public LogicalPlanner(Session session,
             List<PlanOptimizer> planOptimizers,
             PlanNodeIdAllocator idAllocator,
             Metadata metadata)

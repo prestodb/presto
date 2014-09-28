@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockUtils;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -178,7 +178,7 @@ public class TestInterpretedProjectionFunction
                 symbolToInputMappings,
                 METADATA,
                 SQL_PARSER,
-                new ConnectorSession("user", "test", "catalog", "schema", UTC_KEY, Locale.ENGLISH, null, null)
+                new Session("user", "test", "catalog", "schema", UTC_KEY, Locale.ENGLISH, null, null)
         );
 
         // create output

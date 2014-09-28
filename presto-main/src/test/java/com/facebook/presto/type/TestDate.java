@@ -13,8 +13,8 @@ package com.facebook.presto.type;
  * limitations under the License.
  */
 
+import com.facebook.presto.Session;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
@@ -40,7 +40,7 @@ public class TestDate
     @BeforeClass
     public void setUp()
     {
-        ConnectorSession session = new ConnectorSession("user", "test", "catalog", "schema", TIME_ZONE_KEY, Locale.ENGLISH, null, null);
+        Session session = new Session("user", "test", "catalog", "schema", TIME_ZONE_KEY, Locale.ENGLISH, null, null);
         functionAssertions = new FunctionAssertions(session);
     }
 

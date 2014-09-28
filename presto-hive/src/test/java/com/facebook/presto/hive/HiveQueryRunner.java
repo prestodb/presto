@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.hive.metastore.InMemoryHiveMetastore;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -83,18 +83,18 @@ public final class HiveQueryRunner
         }
     }
 
-    public static ConnectorSession createSession()
+    public static Session createSession()
     {
         return createHiveSession(TPCH_SCHEMA);
     }
 
-    public static ConnectorSession createSampledSession()
+    public static Session createSampledSession()
     {
         return createHiveSession(TPCH_SAMPLED_SCHEMA);
     }
 
-    private static ConnectorSession createHiveSession(String schema)
+    private static Session createHiveSession(String schema)
     {
-        return new ConnectorSession("user", "test", "hive", schema, UTC_KEY, ENGLISH, null, null);
+        return new Session("user", "test", "hive", schema, UTC_KEY, ENGLISH, null, null);
     }
 }

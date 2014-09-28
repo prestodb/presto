@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -25,14 +25,14 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class InformationSchemaTableHandle
         implements ConnectorTableHandle
 {
-    private final ConnectorSession session;
+    private final Session session;
     private final String catalogName;
     private final String schemaName;
     private final String tableName;
 
     @JsonCreator
     public InformationSchemaTableHandle(
-            @JsonProperty("session") ConnectorSession session,
+            @JsonProperty("session") Session session,
             @JsonProperty("catalogName") String catalogName,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName)
@@ -44,7 +44,7 @@ public class InformationSchemaTableHandle
     }
 
     @JsonProperty
-    public ConnectorSession getSession()
+    public Session getSession()
     {
         return session;
     }

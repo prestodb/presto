@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.ViewDefinition;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropView;
 import com.google.common.base.Optional;
@@ -28,7 +28,7 @@ public class DropViewTask
         implements DataDefinitionTask<DropView>
 {
     @Override
-    public void execute(DropView statement, ConnectorSession session, Metadata metadata)
+    public void execute(DropView statement, Session session, Metadata metadata)
     {
         QualifiedTableName name = createQualifiedTableName(session, statement.getName());
 

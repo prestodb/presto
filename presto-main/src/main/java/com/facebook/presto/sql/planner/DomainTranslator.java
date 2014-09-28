@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -181,7 +182,7 @@ public final class DomainTranslator
      */
     public static ExtractionResult fromPredicate(
             Metadata metadata,
-            ConnectorSession session,
+            Session session,
             Expression predicate,
             Map<Symbol, Type> types,
             Map<Symbol, ColumnHandle> columnHandleTranslationMap)
@@ -197,10 +198,10 @@ public final class DomainTranslator
         private final Map<Symbol, Type> types;
         private final Map<Symbol, ColumnHandle> columnHandles;
 
-        private Visitor(Metadata metadata, ConnectorSession session, Map<Symbol, Type> types, Map<Symbol, ColumnHandle> columnHandles)
+        private Visitor(Metadata metadata, Session session, Map<Symbol, Type> types, Map<Symbol, ColumnHandle> columnHandles)
         {
             this.metadata = checkNotNull(metadata, "metadata is null");
-            this.session = checkNotNull(session, "session is null");
+            this.session = checkNotNull(session, "session is null").toConnectorSession();
             this.types = ImmutableMap.copyOf(checkNotNull(types, "types is null"));
             this.columnHandles = ImmutableMap.copyOf(checkNotNull(columnHandles, "columnHandles is null"));
         }

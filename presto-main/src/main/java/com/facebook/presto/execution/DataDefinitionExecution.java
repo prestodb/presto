@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.tree.Statement;
 import io.airlift.units.Duration;
 
@@ -34,14 +34,14 @@ public class DataDefinitionExecution<T extends Statement>
 {
     private final DataDefinitionTask<T> task;
     private final T statement;
-    private final ConnectorSession session;
+    private final Session session;
     private final Metadata metadata;
     private final QueryStateMachine stateMachine;
 
     private DataDefinitionExecution(
             DataDefinitionTask<T> task,
             T statement,
-            ConnectorSession session,
+            Session session,
             Metadata metadata,
             QueryStateMachine stateMachine)
     {
@@ -141,7 +141,7 @@ public class DataDefinitionExecution<T extends Statement>
         public DataDefinitionExecution<?> createQueryExecution(
                 QueryId queryId,
                 String query,
-                ConnectorSession session,
+                Session session,
                 Statement statement)
         {
             URI self = locationFactory.createQueryLocation(queryId);
@@ -151,7 +151,7 @@ public class DataDefinitionExecution<T extends Statement>
 
         private <T extends Statement> DataDefinitionExecution<?> createExecution(
                 T statement,
-                ConnectorSession session,
+                Session session,
                 QueryStateMachine stateMachine)
         {
             DataDefinitionTask<T> task = getTask(statement);

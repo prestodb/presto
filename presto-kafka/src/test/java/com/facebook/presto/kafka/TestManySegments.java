@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.kafka;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.kafka.util.EmbeddedKafka;
 import com.facebook.presto.kafka.util.TestUtils;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.testing.MaterializedResult;
@@ -41,7 +41,7 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestManySegments
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", "source", "kafka", "default", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final Session SESSION = new Session("user", "source", "kafka", "default", UTC_KEY, Locale.ENGLISH, null, null);
 
     private EmbeddedKafka embeddedKafka;
     private String topicName;

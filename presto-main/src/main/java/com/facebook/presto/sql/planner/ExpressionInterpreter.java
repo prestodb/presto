@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
@@ -93,7 +94,7 @@ public class ExpressionInterpreter
     private final IdentityHashMap<LikePredicate, Regex> likePatternCache = new IdentityHashMap<>();
     private final IdentityHashMap<InListExpression, Set<Object>> inListCache = new IdentityHashMap<>();
 
-    public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, ConnectorSession session, IdentityHashMap<Expression, Type> expressionTypes)
+    public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session, IdentityHashMap<Expression, Type> expressionTypes)
     {
         checkNotNull(expression, "expression is null");
         checkNotNull(metadata, "metadata is null");
@@ -102,7 +103,7 @@ public class ExpressionInterpreter
         return new ExpressionInterpreter(expression, metadata, session, expressionTypes, false);
     }
 
-    public static ExpressionInterpreter expressionOptimizer(Expression expression, Metadata metadata, ConnectorSession session, IdentityHashMap<Expression, Type> expressionTypes)
+    public static ExpressionInterpreter expressionOptimizer(Expression expression, Metadata metadata, Session session, IdentityHashMap<Expression, Type> expressionTypes)
     {
         checkNotNull(expression, "expression is null");
         checkNotNull(metadata, "metadata is null");
@@ -111,11 +112,11 @@ public class ExpressionInterpreter
         return new ExpressionInterpreter(expression, metadata, session, expressionTypes, true);
     }
 
-    private ExpressionInterpreter(Expression expression, Metadata metadata, ConnectorSession session, IdentityHashMap<Expression, Type> expressionTypes, boolean optimize)
+    private ExpressionInterpreter(Expression expression, Metadata metadata, Session session, IdentityHashMap<Expression, Type> expressionTypes, boolean optimize)
     {
         this.expression = expression;
         this.metadata = metadata;
-        this.session = session;
+        this.session = session.toConnectorSession();
         this.expressionTypes = expressionTypes;
         this.optimize = optimize;
 

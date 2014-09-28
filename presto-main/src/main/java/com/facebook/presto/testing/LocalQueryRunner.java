@@ -14,6 +14,7 @@
 package com.facebook.presto.testing;
 
 import com.facebook.presto.ScheduledSplit;
+import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.CatalogSystemTable;
@@ -51,7 +52,6 @@ import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TupleDomain;
@@ -105,7 +105,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 public class LocalQueryRunner
     implements QueryRunner
 {
-    private final ConnectorSession defaultSession;
+    private final Session defaultSession;
     private final ExecutorService executor;
 
     private final SqlParser sqlParser;
@@ -122,7 +122,7 @@ public class LocalQueryRunner
 
     private boolean printPlan;
 
-    public LocalQueryRunner(ConnectorSession defaultSession)
+    public LocalQueryRunner(Session defaultSession)
     {
         this.defaultSession = checkNotNull(defaultSession, "defaultSession is null");
         this.executor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-%s"));
@@ -197,7 +197,7 @@ public class LocalQueryRunner
     }
 
     @Override
-    public ConnectorSession getDefaultSession()
+    public Session getDefaultSession()
     {
         return defaultSession;
     }
@@ -272,13 +272,13 @@ public class LocalQueryRunner
     }
 
     @Override
-    public List<QualifiedTableName> listTables(ConnectorSession session, String catalog, String schema)
+    public List<QualifiedTableName> listTables(Session session, String catalog, String schema)
     {
         return getMetadata().listTables(session, new QualifiedTablePrefix(catalog, schema));
     }
 
     @Override
-    public boolean tableExists(ConnectorSession session, String table)
+    public boolean tableExists(Session session, String table)
     {
         QualifiedTableName name =  new QualifiedTableName(session.getCatalog(), session.getSchema(), table);
         Optional<TableHandle> handle = getMetadata().getTableHandle(session, name);
@@ -292,7 +292,7 @@ public class LocalQueryRunner
     }
 
     @Override
-    public MaterializedResult execute(ConnectorSession session, @Language("SQL") String sql)
+    public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
         MaterializedOutputFactory outputFactory = new MaterializedOutputFactory();
 
@@ -319,7 +319,7 @@ public class LocalQueryRunner
         return createDrivers(defaultSession, sql, outputFactory, taskContext);
     }
 
-    public List<Driver> createDrivers(ConnectorSession session, @Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
+    public List<Driver> createDrivers(Session session, @Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
     {
         Statement statement = sqlParser.createStatement(sql);
 
@@ -433,7 +433,7 @@ public class LocalQueryRunner
     }
 
     public OperatorFactory createTableScanOperator(
-            ConnectorSession session,
+            Session session,
             final int operatorId,
             String tableName,
             String... columnNames)

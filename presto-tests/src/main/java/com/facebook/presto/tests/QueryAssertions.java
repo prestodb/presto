@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.QualifiedTableName;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
@@ -46,7 +46,7 @@ public final class QueryAssertions
     }
 
     public static void assertQuery(QueryRunner actualQueryRunner,
-            ConnectorSession actualSession,
+            Session actualSession,
             @Language("SQL") String actual,
             H2QueryRunner h2QueryRunner,
             @Language("SQL") String expected,
@@ -87,7 +87,7 @@ public final class QueryAssertions
 
     public static void assertApproximateQuery(
             QueryRunner queryRunner,
-            ConnectorSession session,
+            Session session,
             @Language("SQL") String actual,
             H2QueryRunner h2QueryRunner,
             @Language("SQL") String expected)
@@ -130,7 +130,8 @@ public final class QueryAssertions
     public static void copyTpchTables(
             QueryRunner queryRunner,
             String sourceCatalog,
-            String sourceSchema, ConnectorSession session,
+            String sourceSchema,
+            Session session,
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
@@ -142,7 +143,7 @@ public final class QueryAssertions
         log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
     }
 
-    public static void copyAllTables(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, ConnectorSession session)
+    public static void copyAllTables(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, Session session)
             throws Exception
     {
         for (QualifiedTableName table : queryRunner.listTables(session, sourceCatalog, sourceSchema)) {
@@ -153,14 +154,14 @@ public final class QueryAssertions
         }
     }
 
-    public static void copyTable(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, String sourceTable, ConnectorSession session)
+    public static void copyTable(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, String sourceTable, Session session)
             throws Exception
     {
         QualifiedTableName table = new QualifiedTableName(sourceCatalog, sourceSchema, sourceTable);
         copyTable(queryRunner, table, session);
     }
 
-    public static void copyTable(QueryRunner queryRunner, QualifiedTableName table, ConnectorSession session)
+    public static void copyTable(QueryRunner queryRunner, QualifiedTableName table, Session session)
     {
         long start = System.nanoTime();
         log.info("Running import for %s", table.getTableName());

@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.Session;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.execution.SharedBuffer.BufferState;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -25,7 +26,6 @@ import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.Node;
@@ -88,7 +88,7 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestSqlStageExecution
 {
-    public static final ConnectorSession SESSION = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+    public static final Session SESSION = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
     public static final TaskId OUT = new TaskId("query", "stage", "out");
     private NodeTaskMap nodeTaskMap;
     private InMemoryNodeManager nodeManager;
@@ -358,7 +358,7 @@ public class TestSqlStageExecution
 
         @Override
         public RemoteTask createRemoteTask(
-                ConnectorSession session,
+                Session session,
                 TaskId taskId,
                 Node node,
                 PlanFragment fragment,
@@ -393,7 +393,7 @@ public class TestSqlStageExecution
             {
                 this.taskStateMachine = new TaskStateMachine(checkNotNull(taskId, "taskId is null"), checkNotNull(executor, "executor is null"));
 
-                ConnectorSession session = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+                Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
                 this.taskContext = new TaskContext(taskStateMachine, executor, session, new DataSize(256, MEGABYTE), new DataSize(1, MEGABYTE), true);
 
                 this.location = URI.create("fake://task/" + taskId);

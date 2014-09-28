@@ -14,11 +14,11 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -68,7 +68,7 @@ public class MockRemoteTaskFactory
 
     public RemoteTask createTableScanTask(Node newNode, List<Split> splits)
     {
-        ConnectorSession session = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         TaskId taskId = new TaskId(new StageId("test", "1"), "1");
         Symbol symbol = new Symbol("column");
         PlanNodeId tableScanNodeId = new PlanNodeId("test");
@@ -98,7 +98,7 @@ public class MockRemoteTaskFactory
 
     @Override
     public RemoteTask createRemoteTask(
-            ConnectorSession session,
+            Session session,
             TaskId taskId,
             Node node,
             PlanFragment fragment,
@@ -133,7 +133,7 @@ public class MockRemoteTaskFactory
         {
             this.taskStateMachine = new TaskStateMachine(checkNotNull(taskId, "taskId is null"), checkNotNull(executor, "executor is null"));
 
-            ConnectorSession session = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+            Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
             this.taskContext = new TaskContext(taskStateMachine, executor, session, new DataSize(256, MEGABYTE), new DataSize(1, MEGABYTE), true);
 
             this.location = URI.create("fake://task/" + taskId);

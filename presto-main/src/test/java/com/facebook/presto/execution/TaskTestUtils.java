@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
+import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.connector.system.SystemRecordSetProvider;
 import com.facebook.presto.execution.TestSqlTaskManager.MockExchangeClientSupplier;
@@ -25,7 +26,6 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
@@ -58,7 +58,7 @@ public final class TaskTestUtils
     {
     }
 
-    public static final ConnectorSession SESSION = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, "test", "test");
+    public static final Session SESSION = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, "test", "test");
 
     public static final ScheduledSplit SPLIT = new ScheduledSplit(0, new Split("test", new TestingSplit()));
 

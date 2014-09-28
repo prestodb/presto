@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTime;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
@@ -41,13 +41,12 @@ public class TestDateTimeOperators
     private static final DateTimeZone WEIRD_TIME_ZONE = DateTimeZone.forOffsetHoursMinutes(5, 9);
     private static final TimeZoneKey WEIRD_TIME_ZONE_KEY = getTimeZoneKeyForOffset(5 * 60 + 9);
 
-    private ConnectorSession session;
     private FunctionAssertions functionAssertions;
 
     @BeforeClass
     public void setUp()
     {
-        session = new ConnectorSession("user", "test", "catalog", "schema", TIME_ZONE_KEY, Locale.ENGLISH, null, null);
+        Session session = new Session("user", "test", "catalog", "schema", TIME_ZONE_KEY, Locale.ENGLISH, null, null);
         functionAssertions = new FunctionAssertions(session);
     }
 

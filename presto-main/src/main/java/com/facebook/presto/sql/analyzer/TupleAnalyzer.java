@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
@@ -22,7 +23,6 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.parser.ParsingException;
@@ -118,12 +118,12 @@ class TupleAnalyzer
         extends DefaultTraversalVisitor<TupleDescriptor, AnalysisContext>
 {
     private final Analysis analysis;
-    private final ConnectorSession session;
+    private final Session session;
     private final Metadata metadata;
     private final SqlParser sqlParser;
     private final boolean experimentalSyntaxEnabled;
 
-    public TupleAnalyzer(Analysis analysis, ConnectorSession session, Metadata metadata, SqlParser sqlParser, boolean experimentalSyntaxEnabled)
+    public TupleAnalyzer(Analysis analysis, Session session, Metadata metadata, SqlParser sqlParser, boolean experimentalSyntaxEnabled)
     {
         checkNotNull(analysis, "analysis is null");
         checkNotNull(session, "session is null");
@@ -970,7 +970,7 @@ class TupleAnalyzer
     private TupleDescriptor analyzeView(Query query, QualifiedTableName name, String catalog, String schema, Table node)
     {
         try {
-            ConnectorSession viewSession = new ConnectorSession(
+            Session viewSession = new Session(
                     session.getUser(),
                     session.getSource(),
                     catalog,

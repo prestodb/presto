@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.facebook.presto.tests.DistributedQueryRunner;
@@ -81,8 +81,8 @@ public class TestRaptorDistributedQueries
         return queryRunner;
     }
 
-    private static ConnectorSession createSession(String schema)
+    private static Session createSession(String schema)
     {
-        return new ConnectorSession("user", "test", "default", schema, UTC_KEY, ENGLISH, null, null);
+        return new Session("user", "test", "default", schema, UTC_KEY, ENGLISH, null, null);
     }
 }

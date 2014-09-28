@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.ProjectionFunction;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -44,7 +44,7 @@ public class InterpretedProjectionFunction
             Map<Symbol, Integer> symbolToInputMappings,
             Metadata metadata,
             SqlParser sqlParser,
-            ConnectorSession session)
+            Session session)
     {
         // pre-compute symbol -> input mappings and replace the corresponding nodes in the tree
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToInputMappings), expression);

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
@@ -103,7 +103,7 @@ public final class SqlToRowExpressionTranslator
     {
     }
 
-    public static RowExpression translate(Expression expression, IdentityHashMap<Expression, Type> types, Metadata metadata, ConnectorSession session, boolean optimize)
+    public static RowExpression translate(Expression expression, IdentityHashMap<Expression, Type> types, Metadata metadata, Session session, boolean optimize)
     {
         RowExpression result = new Visitor(types, metadata, session.getTimeZoneKey()).process(expression, null);
 
@@ -117,7 +117,7 @@ public final class SqlToRowExpressionTranslator
         return result;
     }
 
-    public static List<RowExpression> translate(List<Expression> expressions, IdentityHashMap<Expression, Type> types, Metadata metadata, ConnectorSession session, boolean optimize)
+    public static List<RowExpression> translate(List<Expression> expressions, IdentityHashMap<Expression, Type> types, Metadata metadata, Session session, boolean optimize)
     {
         ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
         for (Expression expression : expressions) {

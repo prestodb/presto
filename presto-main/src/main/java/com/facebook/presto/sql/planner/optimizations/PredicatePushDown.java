@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Partition;
 import com.facebook.presto.metadata.PartitionResult;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DependencyExtractor;
@@ -56,7 +57,6 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -122,7 +122,7 @@ public class PredicatePushDown
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, ConnectorSession session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         checkNotNull(plan, "plan is null");
         checkNotNull(session, "session is null");
@@ -140,7 +140,7 @@ public class PredicatePushDown
         private final Metadata metadata;
         private final SqlParser sqlParser;
         private final SplitManager splitManager;
-        private final ConnectorSession session;
+        private final Session session;
         private final boolean experimentalSyntaxEnabled;
 
         private Rewriter(
@@ -149,7 +149,7 @@ public class PredicatePushDown
                 Metadata metadata,
                 SqlParser sqlParser,
                 SplitManager splitManager,
-                ConnectorSession session,
+                Session session,
                 boolean experimentalSyntaxEnabled)
         {
             this.symbolAllocator = checkNotNull(symbolAllocator, "symbolAllocator is null");

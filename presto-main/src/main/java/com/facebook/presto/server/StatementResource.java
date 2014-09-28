@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.QueryError;
@@ -169,7 +170,7 @@ public class StatementResource
 
         String remoteUserAddress = requestContext.getRemoteAddr();
 
-        ConnectorSession session = new ConnectorSession(user, source, catalog, schema, getTimeZoneKey(timeZoneId), locale, remoteUserAddress, userAgent);
+        Session session = new Session(user, source, catalog, schema, getTimeZoneKey(timeZoneId), locale, remoteUserAddress, userAgent);
 
         ExchangeClient exchangeClient = exchangeClientSupplier.get();
         Query query = new Query(session, statement, queryManager, exchangeClient);
@@ -245,7 +246,7 @@ public class StatementResource
         private final ExchangeClient exchangeClient;
 
         private final AtomicLong resultId = new AtomicLong();
-        private final ConnectorSession session;
+        private final Session session;
 
         @GuardedBy("this")
         private QueryResults lastResult;
@@ -256,7 +257,7 @@ public class StatementResource
         @GuardedBy("this")
         private List<Column> columns;
 
-        public Query(ConnectorSession session,
+        public Query(Session session,
                 String query,
                 QueryManager queryManager,
                 ExchangeClient exchangeClient)
@@ -404,7 +405,7 @@ public class StatementResource
                     break;
                 }
                 bytes += page.getSizeInBytes();
-                pages.add(new RowIterable(session, types, page));
+                pages.add(new RowIterable(session.toConnectorSession(), types, page));
 
                 // only wait on first call
                 maxWait = new Duration(0, TimeUnit.MILLISECONDS);

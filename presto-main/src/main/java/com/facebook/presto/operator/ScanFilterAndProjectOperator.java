@@ -187,7 +187,7 @@ public class ScanFilterAndProjectOperator
     {
         if (!finishing) {
             if (cursor != null) {
-                int rowsProcessed = cursorProcessor.process(operatorContext.getSession(), cursor, ROWS_PER_PAGE, pageBuilder);
+                int rowsProcessed = cursorProcessor.process(operatorContext.getSession().toConnectorSession(), cursor, ROWS_PER_PAGE, pageBuilder);
                 long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
                 long elapsedNanos = cursor.getReadTimeNanos() - readTimeNanos;
                 operatorContext.recordGeneratedInput(bytesProcessed, rowsProcessed, elapsedNanos);
@@ -215,7 +215,7 @@ public class ScanFilterAndProjectOperator
                 }
 
                 if (currentPage != null) {
-                    currentPosition = pageProcessor.process(operatorContext.getSession(), currentPage, currentPosition, currentPage.getPositionCount(), pageBuilder);
+                    currentPosition = pageProcessor.process(operatorContext.getSession().toConnectorSession(), currentPage, currentPosition, currentPage.getPositionCount(), pageBuilder);
                     if (currentPosition == currentPage.getPositionCount()) {
                         currentPage.release();
                         currentPage = null;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.mysql;
 
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -69,8 +69,8 @@ public final class MySqlQueryRunner
         }
     }
 
-    public static ConnectorSession createSession()
+    public static Session createSession()
     {
-        return new ConnectorSession("user", "test", "mysql", TPCH_SCHEMA, UTC_KEY, ENGLISH, null, null);
+        return new Session("user", "test", "mysql", TPCH_SCHEMA, UTC_KEY, ENGLISH, null, null);
     }
 }

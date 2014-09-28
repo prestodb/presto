@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.Session;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -44,7 +44,7 @@ public abstract class AbstractTestDistributedQueries
         super(queryRunner);
     }
 
-    protected AbstractTestDistributedQueries(QueryRunner queryRunner, ConnectorSession sampledSession)
+    protected AbstractTestDistributedQueries(QueryRunner queryRunner, Session sampledSession)
     {
         super(queryRunner, sampledSession);
     }

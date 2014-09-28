@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -122,11 +123,23 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public ConnectorTableHandle getTableHandle(ConnectorSession connectorSession, SchemaTableName tableName)
     {
         if (!TABLES.containsKey(tableName)) {
             return null;
         }
+
+        Session session = new Session(
+                connectorSession.getUser(),
+                connectorSession.getSource(),
+                "", // default catalog is not be used
+                "", // default schema is not be used
+                connectorSession.getTimeZoneKey(),
+                connectorSession.getLocale(),
+                connectorSession.getRemoteUserAddress(),
+                connectorSession.getUserAgent(),
+                connectorSession.getStartTime());
+
         return new InformationSchemaTableHandle(session, catalogName, tableName.getSchemaName(), tableName.getTableName());
     }
 

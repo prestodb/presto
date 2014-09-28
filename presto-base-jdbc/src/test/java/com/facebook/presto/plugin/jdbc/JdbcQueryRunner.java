@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.Session;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
@@ -80,8 +80,8 @@ public final class JdbcQueryRunner
         }
     }
 
-    public static ConnectorSession createSession()
+    public static Session createSession()
     {
-        return new ConnectorSession("user", "test", "jdbc", TPCH_SCHEMA, UTC_KEY, ENGLISH, null, null);
+        return new Session("user", "test", "jdbc", TPCH_SCHEMA, UTC_KEY, ENGLISH, null, null);
     }
 }

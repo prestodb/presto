@@ -16,12 +16,12 @@ package com.facebook.presto.execution;
 import com.facebook.presto.HashPagePartitionFunction;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.PagePartitionFunction;
+import com.facebook.presto.Session;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.execution.NodeScheduler.NodeSelector;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.TaskStats;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -110,7 +110,7 @@ public class SqlStageExecution
 
     private final Optional<SplitSource> dataSource;
     private final RemoteTaskFactory remoteTaskFactory;
-    private final ConnectorSession session; // only used for remote task factory
+    private final Session session; // only used for remote task factory
     private final int splitBatchSize;
 
     private final int initialHashPartitions;
@@ -145,7 +145,7 @@ public class SqlStageExecution
             StageExecutionPlan plan,
             NodeScheduler nodeScheduler,
             RemoteTaskFactory remoteTaskFactory,
-            ConnectorSession session,
+            Session session,
             int splitBatchSize,
             int initialHashPartitions,
             ExecutorService executor,
@@ -176,7 +176,7 @@ public class SqlStageExecution
             StageExecutionPlan plan,
             NodeScheduler nodeScheduler,
             RemoteTaskFactory remoteTaskFactory,
-            ConnectorSession session,
+            Session session,
             int splitBatchSize,
             int initialHashPartitions,
             ExecutorService executor,

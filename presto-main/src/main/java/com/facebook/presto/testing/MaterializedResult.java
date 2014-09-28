@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.testing;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
@@ -139,6 +140,11 @@ public class MaterializedResult
         return new MaterializedRow(prestoRow.getPrecision(), jdbcValues);
     }
 
+    public static MaterializedResult materializeSourceDataStream(Session session, ConnectorPageSource pageSource, List<Type> types)
+    {
+        return materializeSourceDataStream(session.toConnectorSession(), pageSource, types);
+    }
+
     public static MaterializedResult materializeSourceDataStream(ConnectorSession session, ConnectorPageSource pageSource, List<Type> types)
     {
         MaterializedResult.Builder builder = resultBuilder(session, types);
@@ -150,6 +156,16 @@ public class MaterializedResult
             builder.page(outputPage);
         }
         return builder.build();
+    }
+
+    public static Builder resultBuilder(Session session, Type... types)
+    {
+        return resultBuilder(session.toConnectorSession(), types);
+    }
+
+    public static Builder resultBuilder(Session session, Iterable<? extends Type> types)
+    {
+        return resultBuilder(session.toConnectorSession(), types);
     }
 
     public static Builder resultBuilder(ConnectorSession session, Type... types)

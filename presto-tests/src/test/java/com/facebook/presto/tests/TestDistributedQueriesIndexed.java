@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.Session;
 import com.facebook.presto.tests.tpch.IndexedTpchPlugin;
 import com.facebook.presto.tpch.TpchMetadata;
 import io.airlift.testing.Closeables;
@@ -41,7 +41,7 @@ public class TestDistributedQueriesIndexed
     private static DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        ConnectorSession session = new ConnectorSession("user", "test", "tpch_indexed", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, ENGLISH, null, null);
+        Session session = new Session("user", "test", "tpch_indexed", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, ENGLISH, null, null);
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 3);
 
         queryRunner.installPlugin(new IndexedTpchPlugin(INDEX_SPEC));

@@ -14,12 +14,12 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.ScheduledSplit;
+import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.HostAddress;
@@ -72,7 +72,7 @@ public class TestDriver
             throws Exception
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        ConnectorSession session = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();

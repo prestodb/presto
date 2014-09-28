@@ -95,7 +95,7 @@ public class FilterAndProjectOperator
     public final Page getOutput()
     {
         if (!pageBuilder.isFull() && currentPage != null) {
-            currentPosition = processor.process(operatorContext.getSession(), currentPage, currentPosition, currentPage.getPositionCount(), pageBuilder);
+            currentPosition = processor.process(operatorContext.getSession().toConnectorSession(), currentPage, currentPosition, currentPage.getPositionCount(), pageBuilder);
             if (currentPosition == currentPage.getPositionCount()) {
                 currentPage = null;
                 currentPosition = 0;

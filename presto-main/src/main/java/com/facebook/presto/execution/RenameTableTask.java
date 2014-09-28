@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.google.common.base.Optional;
@@ -30,7 +30,7 @@ public class RenameTableTask
         implements DataDefinitionTask<RenameTable>
 {
     @Override
-    public void execute(RenameTable statement, ConnectorSession session, Metadata metadata)
+    public void execute(RenameTable statement, Session session, Metadata metadata)
     {
         QualifiedTableName tableName = createQualifiedTableName(session, statement.getSource());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);

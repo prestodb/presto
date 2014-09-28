@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.benchmark.BenchmarkSuite;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.TypeManager;
@@ -55,7 +55,7 @@ public final class RaptorBenchmarkQueryRunner
 
     public static LocalQueryRunner createLocalQueryRunner()
     {
-        ConnectorSession session = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
+        Session session = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
 
         // add tpch

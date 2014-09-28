@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.benchmark.BenchmarkSuite;
 import com.facebook.presto.hive.metastore.InMemoryHiveMetastore;
 import com.facebook.presto.metadata.InMemoryNodeManager;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.type.TypeRegistry;
@@ -54,7 +54,7 @@ public final class HiveBenchmarkQueryRunner
 
     public static LocalQueryRunner createLocalQueryRunner(File tempDir)
     {
-        ConnectorSession session = new ConnectorSession("user", "test", "hive", "tpch", UTC_KEY, Locale.ENGLISH, null, null);
+        Session session = new Session("user", "test", "hive", "tpch", UTC_KEY, Locale.ENGLISH, null, null);
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
 
         // add tpch

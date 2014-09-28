@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.tpch.TpchMetadata;
@@ -37,7 +37,7 @@ public class TestLocalQueries
 
     private static LocalQueryRunner createLocalQueryRunner()
     {
-        ConnectorSession defaultSession = new ConnectorSession("user", "test", "local", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, Locale.ENGLISH, null, null);
+        Session defaultSession = new Session("user", "test", "local", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, Locale.ENGLISH, null, null);
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession);
 
         // add the tpch catalog
@@ -53,8 +53,8 @@ public class TestLocalQueries
         return localQueryRunner;
     }
 
-    private static ConnectorSession createDefaultSampledSession()
+    private static Session createDefaultSampledSession()
     {
-        return new ConnectorSession("user", "test", TPCH_SAMPLED_SCHEMA, TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, ENGLISH, null, null);
+        return new Session("user", "test", TPCH_SAMPLED_SCHEMA, TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, ENGLISH, null, null);
     }
 }

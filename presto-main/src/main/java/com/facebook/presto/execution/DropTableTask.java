@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropTable;
 import com.google.common.base.Optional;
@@ -28,7 +28,7 @@ public class DropTableTask
         implements DataDefinitionTask<DropTable>
 {
     @Override
-    public void execute(DropTable statement, ConnectorSession session, Metadata metadata)
+    public void execute(DropTable statement, Session session, Metadata metadata)
     {
         QualifiedTableName tableName = createQualifiedTableName(session, statement.getTableName());
 
