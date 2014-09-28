@@ -56,7 +56,7 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestRaptorMetadata
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final ConnectorSession SESSION = new ConnectorSession("user", "default", UTC_KEY, Locale.ENGLISH, System.currentTimeMillis());
     private static final SchemaTableName DEFAULT_TEST_ORDERS = new SchemaTableName("test", "orders");
 
     private Handle dummyHandle;

@@ -127,7 +127,7 @@ public final class Session
 
     public ConnectorSession toConnectorSession()
     {
-        return new ConnectorSession(user, source, catalog, schema, timeZoneKey, locale, remoteUserAddress, userAgent, startTime);
+        return new ConnectorSession(user, schema, timeZoneKey, locale, startTime);
     }
 
     @Override

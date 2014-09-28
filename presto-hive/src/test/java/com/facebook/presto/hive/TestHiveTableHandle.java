@@ -24,7 +24,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestHiveTableHandle
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "catalog", "test", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", UTC_KEY, Locale.ENGLISH, System.currentTimeMillis());
     private final JsonCodec<HiveTableHandle> codec = JsonCodec.jsonCodec(HiveTableHandle.class);
 
     @Test

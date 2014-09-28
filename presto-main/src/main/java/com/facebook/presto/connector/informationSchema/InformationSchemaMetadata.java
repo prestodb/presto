@@ -131,13 +131,13 @@ public class InformationSchemaMetadata
 
         Session session = new Session(
                 connectorSession.getUser(),
-                connectorSession.getSource(),
+                "information_schema",
                 "", // default catalog is not be used
                 "", // default schema is not be used
                 connectorSession.getTimeZoneKey(),
                 connectorSession.getLocale(),
-                connectorSession.getRemoteUserAddress(),
-                connectorSession.getUserAgent(),
+                null,
+                null,
                 connectorSession.getStartTime());
 
         return new InformationSchemaTableHandle(session, catalogName, tableName.getSchemaName(), tableName.getTableName());

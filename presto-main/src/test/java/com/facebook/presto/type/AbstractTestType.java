@@ -41,7 +41,7 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestType
 {
-    public static final ConnectorSession SESSION = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+    public static final ConnectorSession SESSION = new ConnectorSession("user", "schema", UTC_KEY, Locale.ENGLISH, System.currentTimeMillis());
 
     private final Class<?> objectValueType;
     private final Block testBlock;
