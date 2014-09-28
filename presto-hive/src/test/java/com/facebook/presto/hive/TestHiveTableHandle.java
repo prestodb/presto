@@ -17,14 +17,13 @@ import com.facebook.presto.spi.ConnectorSession;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
-import java.util.Locale;
-
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveTableHandle
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, Locale.ENGLISH, System.currentTimeMillis());
+    private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
     private final JsonCodec<HiveTableHandle> codec = JsonCodec.jsonCodec(HiveTableHandle.class);
 
     @Test

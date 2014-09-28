@@ -16,8 +16,8 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -62,7 +62,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.List;
-import java.util.Locale;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveClient.getType;
@@ -79,6 +78,7 @@ import static io.airlift.tpch.LineItemColumn.SHIP_DATE;
 import static io.airlift.tpch.LineItemColumn.SHIP_INSTRUCTIONS;
 import static io.airlift.tpch.LineItemColumn.STATUS;
 import static io.airlift.tpch.LineItemColumn.TAX;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -93,7 +93,7 @@ import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_T
 @SuppressWarnings("UseOfSystemOutOrSystemErr")
 public final class BenchmarkHiveFileFormats
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, Locale.ENGLISH, System.currentTimeMillis());
+    private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
 
     private static final File DATA_DIR = new File("target");
     private static final JobConf JOB_CONF = new JobConf();
