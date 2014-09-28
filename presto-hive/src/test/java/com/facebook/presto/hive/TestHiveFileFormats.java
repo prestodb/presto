@@ -47,7 +47,6 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.Locale;
 import java.util.Properties;
 import java.util.TimeZone;
 
@@ -57,6 +56,7 @@ import static com.facebook.presto.hive.AbstractTestHiveFileFormats.TestColumn.ty
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.Locale.ENGLISH;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.testng.Assert.assertEquals;
@@ -65,7 +65,7 @@ public class TestHiveFileFormats
         extends AbstractTestHiveFileFormats
 {
     private static final TimeZoneKey TIME_ZONE_KEY = TimeZoneKey.getTimeZoneKey(DateTimeZone.getDefault().getID());
-    private static final ConnectorSession SESSION = new ConnectorSession("user", TIME_ZONE_KEY, Locale.ENGLISH, System.currentTimeMillis());
+    private static final ConnectorSession SESSION = new ConnectorSession("user", TIME_ZONE_KEY, ENGLISH, System.currentTimeMillis(), null);
     private static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
 
     @BeforeMethod(alwaysRun = true)

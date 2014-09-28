@@ -146,7 +146,12 @@ public final class Session
 
     public ConnectorSession toConnectorSession()
     {
-        return new ConnectorSession(user, timeZoneKey, locale, startTime);
+        return new ConnectorSession(user, timeZoneKey, locale, startTime, null);
+    }
+
+    public ConnectorSession toConnectorSession(String catalog)
+    {
+        return new ConnectorSession(user, timeZoneKey, locale, startTime, catalogProperties.get(checkNotNull(catalog, "catalog is null")));
     }
 
     @Override
