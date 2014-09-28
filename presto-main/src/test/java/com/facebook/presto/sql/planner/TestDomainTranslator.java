@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
@@ -47,14 +46,13 @@ import org.testng.annotations.Test;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.or;
@@ -74,7 +72,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 public class TestDomainTranslator
 {
     private static final Metadata MANAGER = new MetadataManager();
-    private static final Session SESSION = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
 
     private static final Symbol A = new Symbol("a");
     private static final ColumnHandle ACH = newColumnHandle("a");
@@ -116,7 +113,7 @@ public class TestDomainTranslator
             throws Exception
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.none();
-        ExtractionResult result = fromPredicate(MANAGER, SESSION, toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(MANAGER, TEST_SESSION, toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), tupleDomain);
     }
@@ -126,7 +123,7 @@ public class TestDomainTranslator
             throws Exception
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.all();
-        ExtractionResult result = fromPredicate(MANAGER, SESSION, toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(MANAGER, TEST_SESSION, toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), tupleDomain);
     }
@@ -145,7 +142,7 @@ public class TestDomainTranslator
                 .put(GCH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(utf8Slice("2013-01-01")), Range.greaterThan(utf8Slice("2013-10-01"))), false))
                 .build());
 
-        ExtractionResult result = fromPredicate(MANAGER, SESSION, toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(MANAGER, TEST_SESSION, toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), tupleDomain);
     }
@@ -175,7 +172,7 @@ public class TestDomainTranslator
                 .put(DCH, Domain.all(Boolean.class))
                 .build());
 
-        ExtractionResult result = fromPredicate(MANAGER, SESSION, toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(MANAGER, TEST_SESSION, toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
                 .put(ACH, Domain.singleValue(1L))
@@ -231,12 +228,12 @@ public class TestDomainTranslator
     public void testFromUnknownPredicate()
             throws Exception
     {
-        ExtractionResult result = fromPredicate(MANAGER, SESSION, unprocessableExpression1(A), TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(MANAGER, TEST_SESSION, unprocessableExpression1(A), TYPES, COLUMN_HANDLES);
         Assert.assertTrue(result.getTupleDomain().isAll());
         Assert.assertEquals(result.getRemainingExpression(), unprocessableExpression1(A));
 
         // Test the complement
-        result = fromPredicate(MANAGER, SESSION, not(unprocessableExpression1(A)), TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, not(unprocessableExpression1(A)), TYPES, COLUMN_HANDLES);
         Assert.assertTrue(result.getTupleDomain().isAll());
         Assert.assertEquals(result.getRemainingExpression(), not(unprocessableExpression1(A)));
     }
@@ -248,7 +245,7 @@ public class TestDomainTranslator
         Expression originalPredicate = and(
                 and(greaterThan(A, longLiteral(1L)), unprocessableExpression1(A)),
                 and(lessThan(A, longLiteral(5L)), unprocessableExpression2(A)));
-        ExtractionResult result = fromPredicate(MANAGER, SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(MANAGER, TEST_SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), and(unprocessableExpression1(A), unprocessableExpression2(A)));
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.range(1L, false, 5L, false)), false))));
 
@@ -256,14 +253,14 @@ public class TestDomainTranslator
         originalPredicate = not(and(
                 and(greaterThan(A, longLiteral(1L)), unprocessableExpression1(A)),
                 and(lessThan(A, longLiteral(5L)), unprocessableExpression2(A))));
-        result = fromPredicate(MANAGER, SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), originalPredicate);
         Assert.assertTrue(result.getTupleDomain().isAll());
 
         originalPredicate = not(and(
                 not(and(greaterThan(A, longLiteral(1L)), unprocessableExpression1(A))),
                 not(and(lessThan(A, longLiteral(5L)), unprocessableExpression2(A)))));
-        result = fromPredicate(MANAGER, SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), originalPredicate);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.notNull(Long.class))));
     }
@@ -275,14 +272,14 @@ public class TestDomainTranslator
         Expression originalPredicate = or(
                 and(greaterThan(A, longLiteral(1L)), unprocessableExpression1(A)),
                 and(lessThan(A, longLiteral(5L)), unprocessableExpression2(A)));
-        ExtractionResult result = fromPredicate(MANAGER, SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(MANAGER, TEST_SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), originalPredicate);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.notNull(Long.class))));
 
         originalPredicate = or(
                 and(equal(A, longLiteral(1L)), unprocessableExpression1(A)),
                 and(equal(A, longLiteral(2L)), unprocessableExpression2(A)));
-        result = fromPredicate(MANAGER, SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), originalPredicate);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.equal(1L), Range.equal(2L)), false))));
 
@@ -291,7 +288,7 @@ public class TestDomainTranslator
         originalPredicate = or(
                 and(equal(A, longLiteral(1L)), unprocessableExpression1(A)),
                 and(equal(A, longLiteral(2L)), unprocessableExpression1(A)));
-        result = fromPredicate(MANAGER, SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), unprocessableExpression1(A));
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.equal(1L), Range.equal(2L)), false))));
 
@@ -299,7 +296,7 @@ public class TestDomainTranslator
         originalPredicate = or(
                 and(equal(A, longLiteral(1L)), unprocessableExpression1(A)),
                 and(equal(B, doubleLiteral(2.0)), unprocessableExpression1(A)));
-        result = fromPredicate(MANAGER, SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), originalPredicate);
         Assert.assertTrue(result.getTupleDomain().isAll());
 
@@ -307,7 +304,7 @@ public class TestDomainTranslator
         originalPredicate = or(
                 and(greaterThan(A, longLiteral(1L)), greaterThan(B, doubleLiteral(1.0)), unprocessableExpression1(A)),
                 and(greaterThan(A, longLiteral(2L)), greaterThan(B, doubleLiteral(2.0)), unprocessableExpression1(A)));
-        result = fromPredicate(MANAGER, SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), unprocessableExpression1(A));
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(
                 ACH, Domain.create(SortedRangeSet.of(Range.greaterThan(1L)), false),
@@ -317,7 +314,7 @@ public class TestDomainTranslator
         originalPredicate = or(
                 and(equal(A, longLiteral(1L)), randPredicate(A)),
                 and(equal(A, longLiteral(2L)), randPredicate(A)));
-        result = fromPredicate(MANAGER, SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), originalPredicate);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.equal(1L), Range.equal(2L)), false))));
 
@@ -325,7 +322,7 @@ public class TestDomainTranslator
         originalPredicate = not(or(
                 and(greaterThan(A, longLiteral(1L)), unprocessableExpression1(A)),
                 and(lessThan(A, longLiteral(5L)), unprocessableExpression2(A))));
-        result = fromPredicate(MANAGER, SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), and(
                 not(and(greaterThan(A, longLiteral(1L)), unprocessableExpression1(A))),
                 not(and(lessThan(A, longLiteral(5L)), unprocessableExpression2(A)))));
@@ -334,7 +331,7 @@ public class TestDomainTranslator
         originalPredicate = not(or(
                 not(and(greaterThan(A, longLiteral(1L)), unprocessableExpression1(A))),
                 not(and(lessThan(A, longLiteral(5L)), unprocessableExpression2(A)))));
-        result = fromPredicate(MANAGER, SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), and(unprocessableExpression1(A), unprocessableExpression2(A)));
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.range(1L, false, 5L, false)), false))));
     }
@@ -344,22 +341,22 @@ public class TestDomainTranslator
             throws Exception
     {
         Expression originalPredicate = not(and(equal(A, longLiteral(1L)), unprocessableExpression1(A)));
-        ExtractionResult result = fromPredicate(MANAGER, SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(MANAGER, TEST_SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), originalPredicate);
         Assert.assertTrue(result.getTupleDomain().isAll());
 
         originalPredicate = not(unprocessableExpression1(A));
-        result = fromPredicate(MANAGER, SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), originalPredicate);
         Assert.assertTrue(result.getTupleDomain().isAll());
 
         originalPredicate = not(TRUE_LITERAL);
-        result = fromPredicate(MANAGER, SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertTrue(result.getTupleDomain().isNone());
 
         originalPredicate = not(equal(A, longLiteral(1L)));
-        result = fromPredicate(MANAGER, SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalPredicate, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThan(1L), Range.greaterThan(1L)), false))));
     }
@@ -370,13 +367,13 @@ public class TestDomainTranslator
     {
         // If it is not a simple comparison, we should not try to process it
         Expression predicate = comparison(GREATER_THAN, unprocessableExpression1(A), unprocessableExpression2(A));
-        ExtractionResult result = fromPredicate(MANAGER, SESSION, predicate, TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(MANAGER, TEST_SESSION, predicate, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), predicate);
         Assert.assertTrue(result.getTupleDomain().isAll());
 
         // Complement
         predicate = not(comparison(GREATER_THAN, unprocessableExpression1(A), unprocessableExpression2(A)));
-        result = fromPredicate(MANAGER, SESSION, predicate, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, predicate, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), predicate);
         Assert.assertTrue(result.getTupleDomain().isAll());
     }
@@ -387,73 +384,73 @@ public class TestDomainTranslator
     {
         // Test out the extraction of all basic comparisons
         Expression originalExpression = greaterThan(A, longLiteral(2L));
-        ExtractionResult result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.greaterThan(2L)), false))));
 
         originalExpression = greaterThanOrEqual(A, longLiteral(2L));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.greaterThanOrEqual(2L)), false))));
 
         originalExpression = lessThan(A, longLiteral(2L));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThan(2L)), false))));
 
         originalExpression = lessThanOrEqual(A, longLiteral(2L));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(2L)), false))));
 
         originalExpression = equal(A, longLiteral(2L));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.equal(2L)), false))));
 
         originalExpression = notEqual(A, longLiteral(2L));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThan(2L), Range.greaterThan(2L)), false))));
 
         originalExpression = isDistinctFrom(A, longLiteral(2L));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThan(2L), Range.greaterThan(2L)), true))));
 
         // Test complement
         originalExpression = not(greaterThan(A, longLiteral(2L)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(2L)), false))));
 
         originalExpression = not(greaterThanOrEqual(A, longLiteral(2L)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThan(2L)), false))));
 
         originalExpression = not(lessThan(A, longLiteral(2L)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.greaterThanOrEqual(2L)), false))));
 
         originalExpression = not(lessThanOrEqual(A, longLiteral(2L)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.greaterThan(2L)), false))));
 
         originalExpression = not(equal(A, longLiteral(2L)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThan(2L), Range.greaterThan(2L)), false))));
 
         originalExpression = not(notEqual(A, longLiteral(2L)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.equal(2L)), false))));
 
         originalExpression = not(isDistinctFrom(A, longLiteral(2L)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.equal(2L)), false))));
     }
@@ -464,42 +461,42 @@ public class TestDomainTranslator
     {
         // Test out the extraction of all basic comparisons where the reference literal ordering is flipped
         ComparisonExpression originalExpression = comparison(GREATER_THAN, longLiteral(2L), reference(A));
-        ExtractionResult result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThan(2L)), false))));
 
         originalExpression = comparison(GREATER_THAN_OR_EQUAL, longLiteral(2L), reference(A));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(2L)), false))));
 
         originalExpression = comparison(LESS_THAN, longLiteral(2L), reference(A));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.greaterThan(2L)), false))));
 
         originalExpression = comparison(LESS_THAN_OR_EQUAL, longLiteral(2L), reference(A));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.greaterThanOrEqual(2L)), false))));
 
         originalExpression = comparison(EQUAL, longLiteral(2L), reference(A));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.equal(2L)), false))));
 
         originalExpression = comparison(NOT_EQUAL, longLiteral(2L), reference(A));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThan(2L), Range.greaterThan(2L)), false))));
 
         originalExpression = comparison(IS_DISTINCT_FROM, longLiteral(2L), reference(A));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThan(2L), Range.greaterThan(2L)), true))));
 
         originalExpression = comparison(IS_DISTINCT_FROM, nullLiteral(), reference(A));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.notNull(Long.class))));
     }
@@ -510,73 +507,73 @@ public class TestDomainTranslator
     {
         // Test out the extraction of all basic comparisons with null literals
         Expression originalExpression = greaterThan(A, nullLiteral());
-        ExtractionResult result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertTrue(result.getTupleDomain().isNone());
 
         originalExpression = greaterThanOrEqual(A, nullLiteral());
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertTrue(result.getTupleDomain().isNone());
 
         originalExpression = lessThan(A, nullLiteral());
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertTrue(result.getTupleDomain().isNone());
 
         originalExpression = lessThanOrEqual(A, nullLiteral());
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertTrue(result.getTupleDomain().isNone());
 
         originalExpression = equal(A, nullLiteral());
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertTrue(result.getTupleDomain().isNone());
 
         originalExpression = notEqual(A, nullLiteral());
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertTrue(result.getTupleDomain().isNone());
 
         originalExpression = isDistinctFrom(A, nullLiteral());
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.notNull(Long.class))));
 
         // Test complements
         originalExpression = not(greaterThan(A, nullLiteral()));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertTrue(result.getTupleDomain().isNone());
 
         originalExpression = not(greaterThanOrEqual(A, nullLiteral()));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertTrue(result.getTupleDomain().isNone());
 
         originalExpression = not(lessThan(A, nullLiteral()));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertTrue(result.getTupleDomain().isNone());
 
         originalExpression = not(lessThanOrEqual(A, nullLiteral()));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertTrue(result.getTupleDomain().isNone());
 
         originalExpression = not(equal(A, nullLiteral()));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertTrue(result.getTupleDomain().isNone());
 
         originalExpression = not(notEqual(A, nullLiteral()));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertTrue(result.getTupleDomain().isNone());
 
         originalExpression = not(isDistinctFrom(A, nullLiteral()));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.onlyNull(Long.class))));
     }
@@ -587,84 +584,84 @@ public class TestDomainTranslator
     {
         // B is a double column. Check that it can be compared against longs
         Expression originalExpression = greaterThan(B, longLiteral(2L));
-        ExtractionResult result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(BCH, Domain.create(SortedRangeSet.of(Range.greaterThan(2.0)), false))));
 
         // C is a string column. Check that it can be compared.
         originalExpression = greaterThan(C, stringLiteral("test"));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(CCH, Domain.create(SortedRangeSet.of(Range.greaterThan(utf8Slice("test"))), false))));
 
         // A is a long column. Check that it can be compared against doubles
         originalExpression = greaterThan(A, doubleLiteral(2.0));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.greaterThan(2L)), false))));
 
         originalExpression = greaterThan(A, doubleLiteral(2.1));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.greaterThan(2L)), false))));
 
         originalExpression = greaterThanOrEqual(A, doubleLiteral(2.0));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.greaterThanOrEqual(2L)), false))));
 
         originalExpression = greaterThanOrEqual(A, doubleLiteral(2.1));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.greaterThanOrEqual(3L)), false))));
 
         originalExpression = lessThan(A, doubleLiteral(2.0));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThan(2L)), false))));
 
         originalExpression = lessThan(A, doubleLiteral(2.1));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThan(3L)), false))));
 
         originalExpression = lessThanOrEqual(A, doubleLiteral(2.0));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(2L)), false))));
 
         originalExpression = lessThanOrEqual(A, doubleLiteral(2.1));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(2L)), false))));
 
         originalExpression = equal(A, doubleLiteral(2.0));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.equal(2L)), false))));
 
         originalExpression = equal(A, doubleLiteral(2.1));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.none(Long.class))));
 
         originalExpression = notEqual(A, doubleLiteral(2.0));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThan(2L), Range.greaterThan(2L)), false))));
 
         originalExpression = notEqual(A, doubleLiteral(2.1));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.notNull(Long.class))));
 
         originalExpression = isDistinctFrom(A, doubleLiteral(2.0));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThan(2L), Range.greaterThan(2L)), true))));
 
         originalExpression = isDistinctFrom(A, doubleLiteral(2.1));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertTrue(result.getTupleDomain().isAll());
 
@@ -672,84 +669,84 @@ public class TestDomainTranslator
 
         // B is a double column. Check that it can be compared against longs
         originalExpression = not(greaterThan(B, longLiteral(2L)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(BCH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(2.0)), false))));
 
         // C is a string column. Check that it can be compared.
         originalExpression = not(greaterThan(C, stringLiteral("test")));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(CCH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(utf8Slice("test"))), false))));
 
         // A is a long column. Check that it can be compared against doubles
         originalExpression = not(greaterThan(A, doubleLiteral(2.0)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(2L)), false))));
 
         originalExpression = not(greaterThan(A, doubleLiteral(2.1)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(2L)), false))));
 
         originalExpression = not(greaterThanOrEqual(A, doubleLiteral(2.0)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThan(2L)), false))));
 
         originalExpression = not(greaterThanOrEqual(A, doubleLiteral(2.1)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThan(3L)), false))));
 
         originalExpression = not(lessThan(A, doubleLiteral(2.0)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.greaterThanOrEqual(2L)), false))));
 
         originalExpression = not(lessThan(A, doubleLiteral(2.1)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.greaterThanOrEqual(3L)), false))));
 
         originalExpression = not(lessThanOrEqual(A, doubleLiteral(2.0)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.greaterThan(2L)), false))));
 
         originalExpression = not(lessThanOrEqual(A, doubleLiteral(2.1)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.greaterThan(2L)), false))));
 
         originalExpression = not(equal(A, doubleLiteral(2.0)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThan(2L), Range.greaterThan(2L)), false))));
 
         originalExpression = not(equal(A, doubleLiteral(2.1)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.notNull(Long.class))));
 
         originalExpression = not(notEqual(A, doubleLiteral(2.0)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.equal(2L)), false))));
 
         originalExpression = not(notEqual(A, doubleLiteral(2.1)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.none(Long.class))));
 
         originalExpression = not(isDistinctFrom(A, doubleLiteral(2.0)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.equal(2L)), false))));
 
         originalExpression = not(isDistinctFrom(A, doubleLiteral(2.1)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertTrue(result.getTupleDomain().isNone());
     }
@@ -759,23 +756,23 @@ public class TestDomainTranslator
             throws Exception
     {
         Expression originalExpression = new InPredicate(unprocessableExpression1(A), new InListExpression(ImmutableList.<Expression>of(TRUE_LITERAL)));
-        ExtractionResult result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), originalExpression);
         Assert.assertTrue(result.getTupleDomain().isAll());
 
         originalExpression = new InPredicate(reference(D), new InListExpression(ImmutableList.<Expression>of(unprocessableExpression1(D))));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), equal(D, unprocessableExpression1(D)));
         Assert.assertTrue(result.getTupleDomain().isAll());
 
         originalExpression = new InPredicate(reference(D), new InListExpression(ImmutableList.<Expression>of(TRUE_LITERAL, unprocessableExpression1(D))));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), or(equal(D, TRUE_LITERAL), equal(D, unprocessableExpression1(D))));
         Assert.assertTrue(result.getTupleDomain().isAll());
 
         // Test complement
         originalExpression = not(new InPredicate(reference(D), new InListExpression(ImmutableList.<Expression>of(unprocessableExpression1(D)))));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), not(equal(D, unprocessableExpression1(D))));
         Assert.assertTrue(result.getTupleDomain().isAll());
     }
@@ -785,17 +782,17 @@ public class TestDomainTranslator
             throws Exception
     {
         Expression originalExpression = in(A, ImmutableList.of(1L));
-        ExtractionResult result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.singleValue(1L))));
 
         originalExpression = in(A, ImmutableList.of(1L, 2L));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.equal(1L), Range.equal(2L)), false))));
 
         originalExpression = not(in(A, ImmutableList.of(1L, 2L)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThan(1L), Range.range(1L, false, 2L, false), Range.greaterThan(2L)), false))));
 
@@ -826,33 +823,33 @@ public class TestDomainTranslator
             throws Exception
     {
         Expression originalExpression = between(A, longLiteral(1L), longLiteral(2L));
-        ExtractionResult result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.range(1L, true, 2L, true)), false))));
 
         originalExpression = between(A, longLiteral(1L), doubleLiteral(2.1));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.range(1L, true, 2L, true)), false))));
 
         originalExpression = between(A, longLiteral(1L), nullLiteral());
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertTrue(result.getTupleDomain().isNone());
 
         // Test complements
         originalExpression = not(between(A, longLiteral(1L), longLiteral(2L)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThan(1L), Range.greaterThan(2L)), false))));
 
         originalExpression = not(between(A, longLiteral(1L), doubleLiteral(2.1)));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThan(1L), Range.greaterThan(2L)), false))));
 
         originalExpression = not(between(A, longLiteral(1L), nullLiteral()));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThan(1L)), false))));
     }
@@ -862,12 +859,12 @@ public class TestDomainTranslator
             throws Exception
     {
         Expression originalExpression = isNull(A);
-        ExtractionResult result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.onlyNull(Long.class))));
 
         originalExpression = not(isNull(A));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.notNull(Long.class))));
     }
@@ -877,12 +874,12 @@ public class TestDomainTranslator
             throws Exception
     {
         Expression originalExpression = isNotNull(A);
-        ExtractionResult result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.notNull(Long.class))));
 
         originalExpression = not(isNotNull(A));
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.onlyNull(Long.class))));
     }
@@ -892,22 +889,22 @@ public class TestDomainTranslator
             throws Exception
     {
         Expression originalExpression = TRUE_LITERAL;
-        ExtractionResult result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertTrue(result.getTupleDomain().isAll());
 
         originalExpression = not(TRUE_LITERAL);
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertTrue(result.getTupleDomain().isNone());
 
         originalExpression = FALSE_LITERAL;
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertTrue(result.getTupleDomain().isNone());
 
         originalExpression = not(FALSE_LITERAL);
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertTrue(result.getTupleDomain().isAll());
     }
@@ -917,12 +914,12 @@ public class TestDomainTranslator
             throws Exception
     {
         Expression originalExpression = nullLiteral();
-        ExtractionResult result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertTrue(result.getTupleDomain().isNone());
 
         originalExpression = not(nullLiteral());
-        result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
+        result = fromPredicate(MANAGER, TEST_SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertTrue(result.getTupleDomain().isNone());
     }

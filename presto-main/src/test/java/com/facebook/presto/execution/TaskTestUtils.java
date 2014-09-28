@@ -15,7 +15,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
-import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.connector.system.SystemRecordSetProvider;
 import com.facebook.presto.execution.TestSqlTaskManager.MockExchangeClientSupplier;
@@ -47,9 +46,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
-import java.util.Locale;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public final class TaskTestUtils
@@ -57,8 +55,6 @@ public final class TaskTestUtils
     private TaskTestUtils()
     {
     }
-
-    public static final Session SESSION = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, "test", "test");
 
     public static final ScheduledSplit SPLIT = new ScheduledSplit(0, new Split("test", new TestingSplit()));
 
@@ -104,6 +100,6 @@ public final class TaskTestUtils
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)
     {
-        return sqlTask.updateTask(SESSION, PLAN_FRAGMENT, taskSources, outputBuffers);
+        return sqlTask.updateTask(TEST_SESSION, PLAN_FRAGMENT, taskSources, outputBuffers);
     }
 }

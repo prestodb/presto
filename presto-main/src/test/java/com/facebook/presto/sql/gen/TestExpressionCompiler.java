@@ -58,7 +58,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
 
-import static com.facebook.presto.operator.scalar.FunctionAssertions.SESSION;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.collect.Iterables.transform;
@@ -940,8 +940,8 @@ public class TestExpressionCompiler
     public void testFunctionWithSessionCall()
             throws Exception
     {
-        assertExecute("now()", new SqlTimestampWithTimeZone(SESSION.getStartTime(), SESSION.getTimeZoneKey()));
-        assertExecute("current_timestamp", new SqlTimestampWithTimeZone(SESSION.getStartTime(), SESSION.getTimeZoneKey()));
+        assertExecute("now()", new SqlTimestampWithTimeZone(TEST_SESSION.getStartTime(), TEST_SESSION.getTimeZoneKey()));
+        assertExecute("current_timestamp", new SqlTimestampWithTimeZone(TEST_SESSION.getStartTime(), TEST_SESSION.getTimeZoneKey()));
 
         Futures.allAsList(futures).get();
     }
@@ -956,7 +956,7 @@ public class TestExpressionCompiler
                 Long millis = null;
                 if (left != null) {
                     millis = left.getMillis();
-                    expected = callExtractFunction(SESSION.toConnectorSession(), millis, field);
+                    expected = callExtractFunction(TEST_SESSION.toConnectorSession(), millis, field);
                 }
                 assertExecute(generateExpression("extract(" + field.toString() + " from from_unixtime(%s / 1000.0, 0, 0))", millis), expected);
             }

@@ -16,28 +16,23 @@ package com.facebook.presto;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tpch.TpchConnectorFactory;
-import com.facebook.presto.tpch.TpchMetadata;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.util.Locale;
-
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiddenColumns
 {
-    public static final Session SESSION = new Session("user", "source", "tpch", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, Locale.ENGLISH, "address", "agent");
-
     private LocalQueryRunner runner;
 
     public TestHiddenColumns()
     {
-        runner = new LocalQueryRunner(SESSION);
-        runner.createCatalog(SESSION.getCatalog(), new TpchConnectorFactory(runner.getNodeManager(), 1), ImmutableMap.<String, String>of());
+        runner = new LocalQueryRunner(TEST_SESSION);
+        runner.createCatalog(TEST_SESSION.getCatalog(), new TpchConnectorFactory(runner.getNodeManager(), 1), ImmutableMap.<String, String>of());
     }
 
     @AfterClass
@@ -52,7 +47,7 @@ public class TestHiddenColumns
     public void testDescribeTable()
             throws Exception
     {
-        MaterializedResult expected = MaterializedResult.resultBuilder(SESSION, VARCHAR, VARCHAR, BOOLEAN, BOOLEAN, VARCHAR)
+        MaterializedResult expected = MaterializedResult.resultBuilder(TEST_SESSION, VARCHAR, VARCHAR, BOOLEAN, BOOLEAN, VARCHAR)
                 .row("regionkey", "bigint", true, false, "")
                 .row("name", "varchar", true, false, "")
                 .row("comment", "varchar", true, false, "")

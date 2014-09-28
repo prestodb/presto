@@ -61,7 +61,6 @@ import javax.annotation.concurrent.GuardedBy;
 import java.net.URI;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -73,7 +72,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
 import static com.facebook.presto.util.Failures.toFailures;
@@ -88,7 +87,6 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestSqlStageExecution
 {
-    public static final Session SESSION = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
     public static final TaskId OUT = new TaskId("query", "stage", "out");
     private NodeTaskMap nodeTaskMap;
     private InMemoryNodeManager nodeManager;
@@ -195,7 +193,7 @@ public class TestSqlStageExecution
                 tableScanPlan,
                 nodeScheduler,
                 remoteTaskFactory,
-                SESSION,
+                TEST_SESSION,
                 splitBatchSize,
                 8,      // initialHashPartitions
                 executor,
@@ -224,7 +222,7 @@ public class TestSqlStageExecution
                     joinPlan,
                     new NodeScheduler(nodeManager, new NodeSchedulerConfig(), nodeTaskMap),
                     new MockRemoteTaskFactory(executor),
-                    SESSION,
+                    TEST_SESSION,
                     1000,
                     8,
                     executor,
@@ -393,8 +391,7 @@ public class TestSqlStageExecution
             {
                 this.taskStateMachine = new TaskStateMachine(checkNotNull(taskId, "taskId is null"), checkNotNull(executor, "executor is null"));
 
-                Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
-                this.taskContext = new TaskContext(taskStateMachine, executor, session, new DataSize(256, MEGABYTE), new DataSize(1, MEGABYTE), true);
+                this.taskContext = new TaskContext(taskStateMachine, executor, TEST_SESSION, new DataSize(256, MEGABYTE), new DataSize(1, MEGABYTE), true);
 
                 this.location = URI.create("fake://task/" + taskId);
 
