@@ -31,20 +31,27 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.Locale;
 import java.util.Properties;
 import java.util.UUID;
 
 import static com.facebook.presto.kafka.util.EmbeddedKafka.CloseableProducer;
 import static com.facebook.presto.kafka.util.TestUtils.createEmptyTopicDescription;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestMinimalFunctionality
 {
-    private static final Session SESSION = new Session("user", "source", "kafka", "default", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final Session SESSION = Session.builder()
+            .setUser("user")
+            .setSource("source")
+            .setCatalog("kafka")
+            .setSchema("default")
+            .setTimeZoneKey(UTC_KEY)
+            .setLocale(ENGLISH)
+            .build();
 
     private EmbeddedKafka embeddedKafka;
     private String topicName;

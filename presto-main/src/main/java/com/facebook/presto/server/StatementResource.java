@@ -31,8 +31,8 @@ import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.ExchangeClient;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimeZoneNotSupportedException;
@@ -170,7 +170,16 @@ public class StatementResource
 
         String remoteUserAddress = requestContext.getRemoteAddr();
 
-        Session session = new Session(user, source, catalog, schema, getTimeZoneKey(timeZoneId), locale, remoteUserAddress, userAgent);
+        Session session = Session.builder()
+                .setUser(user)
+                .setSource(source)
+                .setCatalog(catalog)
+                .setSchema(schema)
+                .setTimeZoneKey(getTimeZoneKey(timeZoneId))
+                .setLocale(locale)
+                .setRemoteUserAddress(remoteUserAddress)
+                .setUserAgent(userAgent)
+                .build();
 
         ExchangeClient exchangeClient = exchangeClientSupplier.get();
         Query query = new Query(session, statement, queryManager, exchangeClient);

@@ -83,6 +83,13 @@ public class TestRaptorDistributedQueries
 
     private static Session createSession(String schema)
     {
-        return new Session("user", "test", "default", schema, UTC_KEY, ENGLISH, null, null);
+        return Session.builder()
+                .setUser("user")
+                .setSource("test")
+                .setCatalog("default")
+                .setSchema(schema)
+                .setTimeZoneKey(UTC_KEY)
+                .setLocale(ENGLISH)
+                .build();
     }
 }

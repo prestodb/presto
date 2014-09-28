@@ -34,6 +34,7 @@ import java.util.TimeZone;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
+import static java.util.Locale.ENGLISH;
 import static org.joda.time.Days.daysBetween;
 import static org.joda.time.Hours.hoursBetween;
 import static org.joda.time.Minutes.minutesBetween;
@@ -69,7 +70,14 @@ public class TestDateTimeFunctions
     @BeforeClass
     public void setUp()
     {
-        session = new Session("user", "test", "catalog", "schema", TIME_ZONE_KEY, Locale.ENGLISH, null, null);
+        session = Session.builder()
+                .setUser("user")
+                .setSource("test")
+                .setCatalog("catalog")
+                .setSchema("schema")
+                .setTimeZoneKey(TIME_ZONE_KEY)
+                .setLocale(ENGLISH)
+                .build();
         functionAssertions = new FunctionAssertions(session);
     }
 
@@ -620,7 +628,14 @@ public class TestDateTimeFunctions
     public void testLocale()
     {
         Locale locale = Locale.JAPANESE;
-        Session localeSession = new Session("user", "test", "catalog", "schema", TIME_ZONE_KEY, locale, null, null);
+        Session localeSession = Session.builder()
+                .setUser("user")
+                .setSource("test")
+                .setCatalog("catalog")
+                .setSchema("schema")
+                .setTimeZoneKey(TIME_ZONE_KEY)
+                .setLocale(locale)
+                .build();
 
         FunctionAssertions localeAssertions = new FunctionAssertions(localeSession);
 

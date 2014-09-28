@@ -19,7 +19,16 @@ import static java.util.Locale.ENGLISH;
 
 public final class SessionTestUtils
 {
-    public static final Session TEST_SESSION = new Session("user", "source", "tpch", TINY_SCHEMA_NAME, UTC_KEY, ENGLISH, "address", "agent");
+    public static final Session TEST_SESSION = Session.builder()
+            .setUser("user")
+            .setSource("source")
+            .setCatalog("tpch")
+            .setSchema(TINY_SCHEMA_NAME)
+            .setTimeZoneKey(UTC_KEY)
+            .setLocale(ENGLISH)
+            .setRemoteUserAddress("address")
+            .setUserAgent("agent")
+            .build();
 
     private SessionTestUtils()
     {

@@ -95,6 +95,13 @@ public final class HiveQueryRunner
 
     private static Session createHiveSession(String schema)
     {
-        return new Session("user", "test", "hive", schema, UTC_KEY, ENGLISH, null, null);
+        return Session.builder()
+                .setUser("user")
+                .setSource("test")
+                .setCatalog("hive")
+                .setSchema(schema)
+                .setTimeZoneKey(UTC_KEY)
+                .setLocale(ENGLISH)
+                .build();
     }
 }
