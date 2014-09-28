@@ -60,6 +60,8 @@ public class TestJsonTableHandle
                     .put("remoteUserAddress", TEST_SESSION.getRemoteUserAddress())
                     .put("userAgent", TEST_SESSION.getUserAgent())
                     .put("startTime", TEST_SESSION.getStartTime())
+                    .put("systemProperties", ImmutableMap.of())
+                    .put("catalogProperties", ImmutableMap.of())
                     .build(),
             "catalogName", "information_schema_catalog",
             "schemaName", "information_schema_schema",

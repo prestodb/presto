@@ -13,8 +13,15 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.execution.QueryId;
+import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpUriBuilder;
+import io.airlift.http.client.Request;
 import io.airlift.http.client.StatusResponseHandler;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.testing.Closeables;
@@ -22,8 +29,21 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.net.URI;
+import java.util.List;
+
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static com.google.common.base.Charsets.UTF_8;
+import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.http.client.Request.Builder.prepareGet;
+import static io.airlift.http.client.Request.Builder.preparePost;
+import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static javax.ws.rs.core.Response.Status.OK;
 import static org.testng.Assert.assertEquals;
 
@@ -58,5 +78,56 @@ public class TestServer
                 createStatusResponseHandler());
 
         assertEquals(response.getStatusCode(), OK.getStatusCode());
+    }
+
+    @Test
+    public void testQuery()
+            throws Exception
+    {
+        // start query
+        Request request = preparePost()
+                .setUri(uriFor("/v1/statement"))
+                .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_SOURCE, "source")
+                .setHeader(PRESTO_CATALOG, "catalog")
+                .setHeader(PRESTO_SCHEMA, "schema")
+                .addHeader(PRESTO_SESSION, "system-name=system-value")
+                .addHeader(PRESTO_SESSION, "catalog.name=catalog-value")
+                .addHeader(PRESTO_SESSION, "catalog2.name=catalog2-value")
+                .build();
+
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+
+        // get the query info
+        QueryInfo queryInfo = server.getQueryManager().getQueryInfo(new QueryId(queryResults.getId()));
+
+        // verify session properties
+        assertEquals(queryInfo.getSession().getSystemProperties(), ImmutableMap.of("system-name", "system-value"));
+        assertEquals(queryInfo.getSession().getCatalogProperties(), ImmutableMap.of(
+                "catalog", ImmutableMap.of("name", "catalog-value"),
+                "catalog2", ImmutableMap.of("name", "catalog2-value")));
+
+        ImmutableList.Builder<List<Object>> data = ImmutableList.builder();
+        if (queryResults.getData() != null) {
+            data.addAll(queryResults.getData());
+        }
+
+        while (queryResults.getNextUri() != null) {
+            queryResults = client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(jsonCodec(QueryResults.class)));
+
+            if (queryResults.getData() != null) {
+                data.addAll(queryResults.getData());
+            }
+        }
+
+        // no catalogs in a the server by default
+        List<List<Object>> rows = data.build();
+        assertEquals(rows.size(), 0);
+    }
+
+    public URI uriFor(String path)
+    {
+        return HttpUriBuilder.uriBuilderFrom(server.getBaseUrl()).replacePath(path).build();
     }
 }
