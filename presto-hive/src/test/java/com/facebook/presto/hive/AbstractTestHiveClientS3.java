@@ -31,6 +31,7 @@ import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -68,7 +69,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 @Test(groups = "hive-s3")
-public abstract class AbstractTestHiveClientS3
+public abstract class AbstractTestHiveClientS3 extends AbstractTestHiveClient
 {
     private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
 
@@ -101,11 +102,18 @@ public abstract class AbstractTestHiveClientS3
 
     protected void setupHive(String databaseName)
     {
+        String connectorId = "hive-test";
         database = databaseName;
         tableS3 = new SchemaTableName(database, "presto_test_s3");
 
         String random = UUID.randomUUID().toString().toLowerCase().replace("-", "");
         temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_s3_" + random);
+
+        insertTableDestination = new SchemaTableName(database, "presto_insert_destination_s3");
+        insertTablePartitionedDestination = new SchemaTableName(database, "presto_insert_destination_partitioned_s3");
+
+        dsColumn = new HiveColumnHandle(connectorId, "ds", 0, HiveType.HIVE_STRING, StandardTypes.VARCHAR, -1, true);
+        dummyColumn = new HiveColumnHandle(connectorId, "dummy", 2, HiveType.HIVE_INT, StandardTypes.BIGINT, -1, true);
     }
 
     protected void setup(String host, int port, String databaseName, String awsAccessKey, String awsSecretKey, String writableBucket)
@@ -136,6 +144,11 @@ public abstract class AbstractTestHiveClientS3
                 sameThreadExecutor(),
                 new TypeRegistry());
 
+        metadata = client;
+        splitManager = client;
+        recordSinkProvider = client;
+        tableOwner = "presto_test";
+        super.metastoreClient = metastoreClient;
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, DEFAULT_HIVE_RECORD_CURSOR_PROVIDERS, TYPE_MANAGER);
     }
 

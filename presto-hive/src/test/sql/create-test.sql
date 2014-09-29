@@ -214,6 +214,30 @@ SELECT t_string, t_tinyint, t_smallint, t_int, t_bigint, t_float, t_double, t_bo
 FROM tmp_presto_test
 ;
 
+DROP TABLE IF EXISTS presto_insert_destination;
+CREATE TABLE presto_insert_destination (
+ t_string STRING,
+ t_int INT
+)
+COMMENT 'Presto Destination Table for Inserts'
+STORED AS TEXTFILE
+;
+
+DROP TABLE IF EXISTS presto_insert_destination_partitioned;
+CREATE TABLE presto_insert_destination_partitioned (
+ t_string STRING,
+ t_int INT
+)
+COMMENT 'Presto Destination Table partitioned for Inserts'
+PARTITIONED BY (ds STRING, dummy INT)
+;
+
+INSERT INTO TABLE presto_insert_destination SELECT CONCAT("Val", (t_tinyint-1)), (t_tinyint-1) from tmp_presto_test limit 2;
+
+INSERT INTO TABLE presto_insert_destination_partitioned partition(ds="2014-03-12", dummy=1) SELECT CONCAT("P1_Val", (t_tinyint-1)), (t_tinyint-1) from tmp_presto_test limit 2;
+INSERT INTO TABLE presto_insert_destination_partitioned partition(ds="2014-03-12", dummy=2) SELECT CONCAT("P2_Val", (t_tinyint-1)), 2 * (t_tinyint-1) from tmp_presto_test limit 2;
+
+
 DROP TABLE tmp_presto_test;
 
 ALTER TABLE presto_test_partition_schema_change ADD PARTITION (ds='2012-12-29');

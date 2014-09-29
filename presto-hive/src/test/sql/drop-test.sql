@@ -20,3 +20,10 @@ DROP TABLE IF EXISTS presto_test_bucketed_by_bigint_boolean;
 DROP TABLE IF EXISTS presto_test_bucketed_by_double_float;
 
 DROP VIEW IF EXISTS presto_test_view;
+
+DROP TABLE IF EXISTS presto_insert_destination;
+DROP TABLE IF EXISTS presto_insert_destination_partitioned;
+
+DROP TABLE IF EXISTS presto_insert_destination;
+DROP TABLE IF EXISTS presto_insert_destination_partitioned;
+

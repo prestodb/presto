@@ -55,4 +55,9 @@ public class HdfsEnvironment
 
         return fileSystem;
     }
+
+    public Configuration getConfiguration()
+    {
+        return hdfsConfiguration.getDefaultConfiguration();
+    }
 }
