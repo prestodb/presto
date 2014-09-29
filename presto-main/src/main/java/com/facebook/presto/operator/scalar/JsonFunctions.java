@@ -20,15 +20,23 @@ import com.facebook.presto.type.SqlType;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Charsets;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonParser.NumberType;
@@ -291,5 +299,66 @@ public final class JsonFunctions
     public static Long jsonSize(@SqlType(StandardTypes.VARCHAR) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
         return JsonExtract.extract(json, jsonPath.getSizeExtractor());
+    }
+
+    /**
+     * Until presto supports table generating functions, this is a workaround to support extracting multiple fields from a json string
+     * Presto also doesn't support variable length arguments so keys will be a string representation of an array of keys to extract, e.g., ["a", "b", "c.d"]
+     */
+    @ScalarFunction()
+    @SqlType(VarcharType.class)
+    public static Slice jsonExtractMultiple(@SqlType(VarcharType.class) Slice json, @SqlType(VarcharType.class) Slice keys)
+    {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode newNode = mapper.createObjectNode();
+        try {
+            JsonNode rootNode = mapper.readTree(json.getInput());
+            String [] keys2Extract = ArrayStringHelper.toStringArray(keys.toString(Charsets.UTF_8));
+            for (String key : keys2Extract) {
+                    JsonNode node = rootNode.get(key);
+                    if (node != null) {
+                        newNode.put(key, node);
+                    }
+            }
+        }
+        catch (IOException e) {
+            return null;
+        }
+
+        if (newNode.size() == 0) {
+            return null;
+        }
+        else {
+            return Slices.wrappedBuffer(newNode.toString().getBytes(Charsets.UTF_8));
+        }
+    }
+
+    @VisibleForTesting
+    public static class ArrayStringHelper
+    {
+        /**
+         * Input string has brackets and double quotes around individual array elements ["a", "b", "c.d"]
+         *
+         * @param stringRepr
+         * @return a string array created from the given stringRepr
+         */
+        public static String[] toStringArray(String stringRepr)
+        {
+            int len = stringRepr.length();
+            if (stringRepr.charAt(0) != '[' || stringRepr.charAt(len - 1) != ']') {
+                throw new IllegalArgumentException("Input string should have opening and closing brackets, e.g., [\"a\", \"b\", \"c.d\"]");
+            }
+            stringRepr = stringRepr.substring(1, len - 1);
+
+            List<String> matches = new ArrayList<String>();
+            //first split considering anything in double quotes
+            Pattern regex = Pattern.compile("\\s\"']+|\"[^\"]*\"");
+            Matcher regexMatcher = regex.matcher(stringRepr);
+            while (regexMatcher.find()) {
+                String stripped = regexMatcher.group().replaceAll("^\"|\"$", ""); //get rid of double quotes
+                matches.add(stripped);
+            }
+            return matches.toArray(new String[matches.size()]);
+        }
     }
 }
