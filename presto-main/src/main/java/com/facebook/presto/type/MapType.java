@@ -41,6 +41,7 @@ public class MapType
         extends AbstractVariableWidthType
 {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer()));
+    private static final ObjectMapper RAW_SLICE_OBJECT_MAPPER = new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new RawSliceSerializer()));
 
     private final Type keyType;
     private final Type valueType;
@@ -71,6 +72,26 @@ public class MapType
         }
     }
 
+    public static Slice rawValueSlicesToStackRepresentation(Map<?, ?> value)
+    {
+        try {
+            Map<String, Object> map = new HashMap<>();
+            for (Map.Entry<?, ?> entry : value.entrySet()) {
+                // Jackson only supports strings as keys
+                if (entry.getKey() instanceof Slice) {
+                    map.put(((Slice) entry.getKey()).toStringUtf8(), entry.getValue());
+                }
+                else {
+                    map.put(entry.getKey().toString(), entry.getValue());
+                }
+            }
+            return Slices.utf8Slice(RAW_SLICE_OBJECT_MAPPER.writeValueAsString(map));
+        }
+        catch (JsonProcessingException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
     public Type getKeyType()
     {
         return keyType;
@@ -88,8 +109,8 @@ public class MapType
             return null;
         }
 
-        String jsonString = block.getSlice(position, 0, block.getLength(position)).toStringUtf8();
-        return stackRepresentationToObject(session, jsonString, this);
+        Slice slice = block.getSlice(position, 0, block.getLength(position));
+        return stackRepresentationToObject(session, slice, this);
     }
 
     @Override

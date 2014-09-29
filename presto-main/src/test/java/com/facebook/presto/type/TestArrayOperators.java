@@ -20,10 +20,15 @@ import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.type.ArrayType.rawSlicesToStackRepresentation;
+import static com.facebook.presto.type.ArrayType.toStackRepresentation;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -43,6 +48,14 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testStackRepresentation()
+            throws Exception
+    {
+        Slice slice = rawSlicesToStackRepresentation(ImmutableList.of(toStackRepresentation(ImmutableList.of(1L, 2L)), toStackRepresentation(ImmutableList.of(3L))));
+        assertEquals(slice, Slices.utf8Slice("[[1,2],[3]]"));
+    }
+
+    @Test
     public void testConstructor()
             throws Exception
     {
@@ -53,6 +66,7 @@ public class TestArrayOperators
         assertFunction("ARRAY [NULL, 2, 3]", Lists.newArrayList(null, 2L, 3L));
         assertFunction("ARRAY [1, 2.0, 3]", ImmutableList.of(1.0, 2.0, 3.0));
         assertFunction("ARRAY [ARRAY[1, 2], ARRAY[3]]", ImmutableList.of(ImmutableList.of(1L, 2L), ImmutableList.of(3L)));
+        assertFunction("ARRAY [ARRAY[1, 2], NULL, ARRAY[3]]", Lists.newArrayList(ImmutableList.of(1L, 2L), null, ImmutableList.of(3L)));
         assertFunction("ARRAY [1.0, 2.5, 3.0]", ImmutableList.of(1.0, 2.5, 3.0));
         assertFunction("ARRAY ['puppies', 'kittens']", ImmutableList.of("puppies", "kittens"));
         assertFunction("ARRAY [TRUE, FALSE]", ImmutableList.of(true, false));
@@ -106,14 +120,14 @@ public class TestArrayOperators
             assertFunction("ARRAY [1, 2, 3][-1]", null);
             fail("Access to negative array element should fail");
         }
-        catch (PrestoException e) {
+        catch (RuntimeException e) {
             // Expected
         }
         try {
             assertFunction("ARRAY [1, 2, 3][4]", null);
             fail("Access to out of bounds array element should fail");
         }
-        catch (PrestoException e) {
+        catch (RuntimeException e) {
             // Expected
         }
         try {

@@ -18,6 +18,8 @@ import com.facebook.presto.operator.scalar.MapConstructor;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -25,6 +27,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.type.MapType.rawValueSlicesToStackRepresentation;
+import static org.testng.Assert.assertEquals;
 
 public class TestMapOperators
 {
@@ -41,6 +45,15 @@ public class TestMapOperators
     private void assertFunction(String projection, Object expected)
     {
         functionAssertions.assertFunction(projection, expected);
+    }
+
+    @Test
+    public void testStackRepresentation()
+            throws Exception
+    {
+        Slice array = ArrayType.toStackRepresentation(ImmutableList.of(1L, 2L));
+        Slice slice = rawValueSlicesToStackRepresentation(ImmutableMap.of(1.0, array));
+        assertEquals(slice, Slices.utf8Slice("{\"1.0\":[1,2]}"));
     }
 
     @Test
