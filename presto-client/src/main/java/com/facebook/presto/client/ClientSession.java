@@ -70,6 +70,20 @@ public class ClientSession
                 session.isDebug());
     }
 
+    public static ClientSession withProperties(ClientSession session, Map<String, String> properties)
+    {
+        return new ClientSession(
+                session.getServer(),
+                session.getUser(),
+                session.getSource(),
+                session.getCatalog(),
+                session.getSchema(),
+                session.getTimeZoneId(),
+                session.getLocale(),
+                properties,
+                session.isDebug());
+    }
+
     public ClientSession(URI server, String user, String source, String catalog, String schema, String timeZoneId, Locale locale, Map<String, String> properties, boolean debug)
     {
         this.server = checkNotNull(server, "server is null");
@@ -80,7 +94,7 @@ public class ClientSession
         this.locale = locale;
         this.timeZoneId = checkNotNull(timeZoneId, "timeZoneId is null");
         this.debug = debug;
-        this.properties = ImmutableMap.copyOf(checkNotNull(properties, "options is null"));
+        this.properties = ImmutableMap.copyOf(checkNotNull(properties, "properties is null"));
 
         // verify the properties are valid
         CharsetEncoder charsetEncoder = US_ASCII.newEncoder();

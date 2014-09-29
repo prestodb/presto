@@ -29,7 +29,7 @@ public class DropTableTask
         implements DataDefinitionTask<DropTable>
 {
     @Override
-    public void execute(DropTable statement, Session session, Metadata metadata)
+    public void execute(DropTable statement, Session session, Metadata metadata, QueryStateMachine stateMachine)
     {
         QualifiedTableName tableName = createQualifiedTableName(session, statement.getTableName());
 

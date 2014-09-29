@@ -19,5 +19,5 @@ import com.facebook.presto.sql.tree.Statement;
 
 public interface DataDefinitionTask<T extends Statement>
 {
-    void execute(T statement, Session session, Metadata metadata);
+    void execute(T statement, Session session, Metadata metadata, QueryStateMachine stateMachine);
 }

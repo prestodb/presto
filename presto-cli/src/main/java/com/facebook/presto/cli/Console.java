@@ -39,9 +39,12 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.cli.Help.getHelpText;
+import static com.facebook.presto.client.ClientSession.withProperties;
 import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
 import static com.facebook.presto.sql.parser.StatementSplitter.isEmptyStatement;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
@@ -232,6 +235,13 @@ public class Console
     {
         try (Query query = queryRunner.startQuery(sql)) {
             query.renderOutput(System.out, outputFormat, interactive);
+
+            // update session properties if present
+            if (!query.getSetSessionProperties().isEmpty()) {
+                Map<String, String> sessionProperties = new HashMap<>(queryRunner.getSession().getProperties());
+                sessionProperties.putAll(query.getSetSessionProperties());
+                queryRunner.setSession(withProperties(queryRunner.getSession(), sessionProperties));
+            }
         }
         catch (RuntimeException e) {
             System.out.println("Error running command: " + e.getMessage());

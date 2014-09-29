@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nullable;
@@ -27,6 +28,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -42,6 +44,7 @@ public class QueryInfo
     private final List<String> fieldNames;
     private final String query;
     private final QueryStats queryStats;
+    private final Map<String, String> setSessionProperties;
     private final StageInfo outputStage;
     private final FailureInfo failureInfo;
     private final ErrorCode errorCode;
@@ -57,6 +60,7 @@ public class QueryInfo
             @JsonProperty("fieldNames") List<String> fieldNames,
             @JsonProperty("query") String query,
             @JsonProperty("queryStats") QueryStats queryStats,
+            @JsonProperty("setSessionProperties") Map<String, String> setSessionProperties,
             @JsonProperty("outputStage") StageInfo outputStage,
             @JsonProperty("failureInfo") FailureInfo failureInfo,
             @JsonProperty("errorCode") ErrorCode errorCode,
@@ -68,6 +72,7 @@ public class QueryInfo
         Preconditions.checkNotNull(self, "self is null");
         Preconditions.checkNotNull(fieldNames, "fieldNames is null");
         Preconditions.checkNotNull(queryStats, "queryStats is null");
+        Preconditions.checkNotNull(setSessionProperties, "setSessionProperties is null");
         Preconditions.checkNotNull(query, "query is null");
         Preconditions.checkNotNull(inputs, "inputs is null");
 
@@ -79,6 +84,7 @@ public class QueryInfo
         this.fieldNames = ImmutableList.copyOf(fieldNames);
         this.query = query;
         this.queryStats = queryStats;
+        this.setSessionProperties = ImmutableMap.copyOf(setSessionProperties);
         this.outputStage = outputStage;
         this.failureInfo = failureInfo;
         this.errorCode = errorCode;
@@ -137,6 +143,12 @@ public class QueryInfo
     public QueryStats getQueryStats()
     {
         return queryStats;
+    }
+
+    @JsonProperty
+    public Map<String, String> getSetSessionProperties()
+    {
+        return setSessionProperties;
     }
 
     @JsonProperty

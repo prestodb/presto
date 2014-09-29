@@ -28,6 +28,7 @@ import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -106,13 +107,13 @@ public class KafkaLoader
                         }
                     }
 
-                    producer.send(new KeyedMessage<Long, Object>(topicName, count.getAndIncrement(), builder.build()));
+                    producer.send(new KeyedMessage<>(topicName, count.getAndIncrement(), builder.build()));
                 }
             }
         }
 
         @Override
-        public Void build()
+        public Void build(Map<String, String> setSessionProperties)
         {
             return null;
         }
