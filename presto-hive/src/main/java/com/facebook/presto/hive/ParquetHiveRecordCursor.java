@@ -636,7 +636,7 @@ class ParquetHiveRecordCursor
             return new ParquetMapJsonConverter(columnName, fieldName, type.asGroupType());
         }
         else if (type.getOriginalType() == null) {
-            // struct is does not have an original type
+            // struct does not have an original type
             return new ParquetStructJsonConverter(columnName, fieldName, type.asGroupType());
         }
         throw new IllegalArgumentException("Unsupported type " + type);
