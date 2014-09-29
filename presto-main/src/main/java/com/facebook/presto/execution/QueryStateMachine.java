@@ -35,7 +35,9 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
 
@@ -79,6 +81,9 @@ public class QueryStateMachine
     private Duration totalPlanningTime;
 
     private final StateMachine<QueryState> queryState;
+
+    @GuardedBy("this")
+    private final Map<String, String> setSessionProperties = new LinkedHashMap<>();
 
     @GuardedBy("this")
     private Throwable failureCause;
@@ -241,6 +246,7 @@ public class QueryStateMachine
                 outputFieldNames,
                 query,
                 queryStats,
+                setSessionProperties,
                 rootStage,
                 failureInfo,
                 errorCode,
@@ -257,6 +263,16 @@ public class QueryStateMachine
     {
         checkNotNull(inputs, "inputs is null");
         this.inputs = ImmutableSet.copyOf(inputs);
+    }
+
+    public synchronized Map<String, String> getSetSessionProperties()
+    {
+        return setSessionProperties;
+    }
+
+    public synchronized void addSetSessionProperties(String key, String value)
+    {
+        setSessionProperties.put(checkNotNull(key, "key is null"), checkNotNull(value, "value is null"));
     }
 
     public synchronized QueryState getQueryState()

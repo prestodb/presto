@@ -67,6 +67,7 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
@@ -77,13 +78,15 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.server.ResourceUtil.assertRequest;
 import static com.facebook.presto.server.ResourceUtil.createSessionForRequest;
 import static com.facebook.presto.util.Failures.toFailure;
@@ -96,13 +99,15 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @Path("/v1/statement")
 public class StatementResource
 {
     private static final Logger log = Logger.get(StatementResource.class);
 
-    private static final Duration MAX_WAIT_TIME = new Duration(1, TimeUnit.SECONDS);
+    private static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
     private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
     private static final long DESIRED_RESULT_BYTES = new DataSize(1, MEGABYTE).toBytes();
 
@@ -118,7 +123,7 @@ public class StatementResource
         this.queryManager = checkNotNull(queryManager, "queryManager is null");
         this.exchangeClientSupplier = checkNotNull(exchangeClientSupplier, "exchangeClientSupplier is null");
 
-        queryPurger.scheduleWithFixedDelay(new PurgeQueriesRunnable(queries, queryManager), 200, 200, TimeUnit.MILLISECONDS);
+        queryPurger.scheduleWithFixedDelay(new PurgeQueriesRunnable(queries, queryManager), 200, 200, MILLISECONDS);
     }
 
     @PreDestroy
@@ -142,7 +147,8 @@ public class StatementResource
         ExchangeClient exchangeClient = exchangeClientSupplier.get();
         Query query = new Query(session, statement, queryManager, exchangeClient);
         queries.put(query.getQueryId(), query);
-        return Response.ok(query.getNextResults(uriInfo, new Duration(1, TimeUnit.MILLISECONDS))).build();
+
+        return getQueryResults(query, Optional.empty(), uriInfo, new Duration(1, MILLISECONDS));
     }
 
     @GET
@@ -161,7 +167,27 @@ public class StatementResource
         }
 
         Duration wait = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait);
-        return Response.ok(query.getResults(token, uriInfo, wait)).build();
+        return getQueryResults(query, Optional.of(token), uriInfo, wait);
+    }
+
+    private static Response getQueryResults(Query query, Optional<Long> token, UriInfo uriInfo, Duration wait)
+            throws InterruptedException
+    {
+        QueryResults queryResults;
+        if (token.isPresent()) {
+            queryResults = query.getResults(token.get(), uriInfo, wait);
+        }
+        else {
+            queryResults = query.getNextResults(uriInfo, wait);
+        }
+
+        ResponseBuilder response = Response.ok(queryResults);
+
+        // add set session properties
+        query.getSetSessionProperties().entrySet().stream()
+                .forEach(entry -> response.header(PRESTO_SET_SESSION, entry.getKey() + '=' + entry.getValue()));
+
+        return response.build();
     }
 
     @DELETE
@@ -198,6 +224,9 @@ public class StatementResource
         @GuardedBy("this")
         private List<Column> columns;
 
+        @GuardedBy("this")
+        private Map<String, String> setSessionProperties;
+
         public Query(Session session,
                 String query,
                 QueryManager queryManager,
@@ -225,6 +254,11 @@ public class StatementResource
         public QueryId getQueryId()
         {
             return queryId;
+        }
+
+        public synchronized Map<String, String> getSetSessionProperties()
+        {
+            return setSessionProperties;
         }
 
         public synchronized QueryResults getResults(long token, UriInfo uriInfo, Duration maxWaitTime)
@@ -292,6 +326,9 @@ public class StatementResource
                 nextResultsUri = createNextResultsUri(uriInfo);
             }
 
+            // update setSessionProperties
+            setSessionProperties = queryInfo.getSetSessionProperties();
+
             // first time through, self is null
             QueryResults queryResults = new QueryResults(
                     queryId.toString(),
@@ -349,7 +386,7 @@ public class StatementResource
                 pages.add(new RowIterable(session.toConnectorSession(), types, page));
 
                 // only wait on first call
-                maxWait = new Duration(0, TimeUnit.MILLISECONDS);
+                maxWait = new Duration(0, MILLISECONDS);
             }
 
             if (bytes == 0) {

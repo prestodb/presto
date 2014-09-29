@@ -19,7 +19,9 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -63,6 +65,19 @@ public abstract class AbstractTestDistributedQueries
         assertQueryTrue("DROP TABLE " + table);
 
         assertFalse(queryRunner.tableExists(getSession(), table));
+    }
+
+    @Test
+    public void testSetSession()
+            throws Exception
+    {
+        MaterializedResult result = computeActual("SET SESSION foo = 'bar'");
+        assertTrue((Boolean) Iterables.getOnlyElement(result).getField(0));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("foo", "bar"));
+
+        result = computeActual("SET SESSION foo.bar = 'baz'");
+        assertTrue((Boolean) Iterables.getOnlyElement(result).getField(0));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("foo.bar", "baz"));
     }
 
     @Test

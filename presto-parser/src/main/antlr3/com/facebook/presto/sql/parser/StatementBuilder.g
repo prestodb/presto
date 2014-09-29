@@ -67,6 +67,7 @@ statement returns [Statement value]
     | showPartitions            { $value = $showPartitions.value; }
     | showFunctions             { $value = $showFunctions.value; }
     | use                       { $value = $use.value; }
+    | setSession                { $value = $setSession.value; }
     | createTable               { $value = $createTable.value; }
     | dropTable                 { $value = $dropTable.value; }
     | renameTable               { $value = $renameTable.value; }
@@ -547,6 +548,10 @@ showFunctions returns [Statement value]
 use returns [Statement value]
     : ^(USE schema=ident)               { $value = new Use(Optional.empty(), $schema.value); }
     | ^(USE catalog=ident schema=ident) { $value = new Use(Optional.ofNullable($catalog.value), $schema.value); }
+    ;
+
+setSession returns [Statement value]
+    : ^(SESSION_SET qname string) { $value = new SetSession($qname.value, $string.value); }
     ;
 
 createTable returns [Statement value]

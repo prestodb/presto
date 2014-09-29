@@ -88,7 +88,7 @@ public abstract class AbstractTestingPrestoClient<T>
             }
 
             if (!client.isFailed()) {
-                return resultsSession.build();
+                return resultsSession.build(client.getSetSessionProperties());
             }
 
             QueryError error = client.finalResults().getError();

@@ -122,6 +122,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    public R visitSetSession(SetSession node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitGenericLiteral(GenericLiteral node, C context)
     {
         return visitLiteral(node, context);

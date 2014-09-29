@@ -74,6 +74,7 @@ tokens {
     SHOW_PARTITIONS;
     SHOW_FUNCTIONS;
     USE;
+    SESSION_SET;
     CREATE_TABLE;
     DROP_TABLE;
     RENAME_TABLE;
@@ -167,6 +168,7 @@ statement
     | showPartitionsStmt
     | showFunctionsStmt
     | useStatement
+    | sessionStmt
     | createTableStmt
     | insertStmt
     | dropTableStmt
@@ -590,6 +592,10 @@ useStatement
     | USE catalog=ident '.' schema=ident -> ^(USE $catalog $schema)
     ;
 
+sessionStmt
+    : SET SESSION qname EQ STRING -> ^(SESSION_SET qname STRING)
+    ;
+
 explainStmt
     : EXPLAIN explainOptions? statement -> ^(EXPLAIN explainOptions? statement)
     ;
@@ -751,12 +757,12 @@ integer
     ;
 
 nonReserved
-    : SHOW | TABLES | COLUMNS | PARTITIONS | FUNCTIONS | SCHEMAS | CATALOGS
+    : SHOW | TABLES | COLUMNS | PARTITIONS | FUNCTIONS | SCHEMAS | CATALOGS | SESSION
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW
     | DATE | TIME | TIMESTAMP | INTERVAL
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     | EXPLAIN | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
-    | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | JSON | TO
+    | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | SET | JSON | TO
     | RESCALED | APPROXIMATE | AT | CONFIDENCE
     | VIEW | REPLACE
     ;
@@ -879,6 +885,8 @@ SCHEMAS: 'SCHEMAS';
 CATALOGS: 'CATALOGS';
 COLUMNS: 'COLUMNS';
 USE: 'USE';
+SESSION: 'SESSION';
+SET: 'SET';
 PARTITIONS: 'PARTITIONS';
 FUNCTIONS: 'FUNCTIONS';
 DROP: 'DROP';

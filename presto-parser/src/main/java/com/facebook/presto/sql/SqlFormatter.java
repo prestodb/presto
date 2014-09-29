@@ -42,6 +42,7 @@ import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowFunctions;
@@ -612,6 +613,17 @@ public final class SqlFormatter
                     .append(" ");
 
             process(node.getQuery(), indent);
+
+            return null;
+        }
+
+        @Override
+        public Void visitSetSession(SetSession node, Integer context)
+        {
+            builder.append("SET SESSION ")
+                    .append(node.getName())
+                    .append(" = ")
+                    .append(formatStringLiteral(node.getValue()));
 
             return null;
         }

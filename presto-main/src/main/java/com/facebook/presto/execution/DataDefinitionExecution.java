@@ -64,7 +64,7 @@ public class DataDefinitionExecution<T extends Statement>
 
             stateMachine.recordExecutionStart();
 
-            task.execute(statement, session, metadata);
+            task.execute(statement, session, metadata, stateMachine);
 
             stateMachine.finished();
         }

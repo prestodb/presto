@@ -34,6 +34,7 @@ import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Statement;
@@ -536,6 +537,15 @@ public class TestSqlParser
     public void testStackOverflowStatement()
     {
         SQL_PARSER.createStatement("SELECT " + Joiner.on(" OR ").join(nCopies(2000, "x = y")));
+    }
+
+    @Test
+    public void testSetSession()
+            throws Exception
+    {
+        assertStatement("SET SESSION foo = 'bar'", new SetSession(QualifiedName.of("foo"), "bar"));
+        assertStatement("SET SESSION foo.bar = 'baz'", new SetSession(QualifiedName.of("foo", "bar"), "baz"));
+        assertStatement("SET SESSION foo.bar.boo = 'baz'", new SetSession(QualifiedName.of("foo", "bar", "boo"), "baz"));
     }
 
     private static void assertStatement(String query, Statement expected)
