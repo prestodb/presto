@@ -40,6 +40,7 @@ public class ArrayType
         extends AbstractVariableWidthType
 {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer()));
+    private static final ObjectMapper RAW_SLICE_OBJECT_MAPPER = new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new RawSliceSerializer()));
 
     private final Type elementType;
 
@@ -67,6 +68,19 @@ public class ArrayType
         }
     }
 
+    /**
+     * Takes a list of json encoded slices and converts them to the stack representation of an array
+     */
+    public static Slice rawSlicesToStackRepresentation(List<Slice> values)
+    {
+        try {
+            return Slices.utf8Slice(RAW_SLICE_OBJECT_MAPPER.writeValueAsString(values));
+        }
+        catch (JsonProcessingException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
     @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
@@ -74,8 +88,8 @@ public class ArrayType
             return null;
         }
 
-        String jsonString = block.getSlice(position, 0, block.getLength(position)).toStringUtf8();
-        return stackRepresentationToObject(session, jsonString, this);
+        Slice slice = block.getSlice(position, 0, block.getLength(position));
+        return stackRepresentationToObject(session, slice, this);
     }
 
     @Override
