@@ -13,6 +13,7 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -22,9 +23,11 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nullable;
 
+import java.net.URI;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.TimeZone;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -152,6 +155,29 @@ public final class Session
     public ConnectorSession toConnectorSession(String catalog)
     {
         return new ConnectorSession(user, timeZoneKey, locale, startTime, catalogProperties.get(checkNotNull(catalog, "catalog is null")));
+    }
+
+    public ClientSession toClientSession(URI server, boolean debug)
+    {
+        ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
+        properties.putAll(systemProperties);
+        for (Entry<String, Map<String, String>> catalogProperties : this.catalogProperties.entrySet()) {
+            String catalog = catalogProperties.getKey();
+            for (Entry<String, String> entry : catalogProperties.getValue().entrySet()) {
+                properties.put(catalog + "." + entry.getKey(), entry.getValue());
+            }
+        }
+
+        return new ClientSession(
+                checkNotNull(server, "server is null"),
+                user,
+                source,
+                catalog,
+                schema,
+                timeZoneKey.getId(),
+                locale,
+                properties.build(),
+                debug);
     }
 
     @Override

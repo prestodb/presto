@@ -21,6 +21,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -159,7 +160,16 @@ public class PerfTest
 
             ImmutableList.Builder<QueryRunner> runners = ImmutableList.builder();
             for (int i = 0; i < maxParallelism; i++) {
-                ClientSession session = new ClientSession(server, "test-" + i, "presto-perf", catalog, schema, TimeZone.getDefault().getID(), Locale.getDefault(), debug);
+                ClientSession session = new ClientSession(
+                        server,
+                        "test-" + i,
+                        "presto-perf",
+                        catalog,
+                        schema,
+                        TimeZone.getDefault().getID(),
+                        Locale.getDefault(),
+                        ImmutableMap.<String, String>of(),
+                        debug);
                 runners.add(new QueryRunner(session, executor, timeout));
             }
             this.runners = runners.build();
