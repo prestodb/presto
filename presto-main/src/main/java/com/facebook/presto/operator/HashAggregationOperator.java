@@ -195,6 +195,9 @@ public class HashAggregationOperator
     public Page getOutput()
     {
         if (outputIterator == null || !outputIterator.hasNext()) {
+            // current output iterator is done
+            outputIterator = null;
+
             // no data
             if (aggregationBuilder == null) {
                 return null;
@@ -214,6 +217,8 @@ public class HashAggregationOperator
             aggregationBuilder = null;
 
             if (!outputIterator.hasNext()) {
+                // current output iterator is done
+                outputIterator = null;
                 return null;
             }
         }
