@@ -24,13 +24,14 @@ import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Iterator;
 import java.util.List;
 
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 public final class OperatorAssertion
 {
@@ -57,22 +58,26 @@ public final class OperatorAssertion
         }).list();
     }
 
-    public static List<Page> toPages(Operator operator, List<Page> input)
+    public static List<Page> toPages(Operator operator, Iterator<Page> input)
     {
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
 
-        // verify initial state
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), true);
-        assertEquals(operator.getOutput(), null);
+        while (input.hasNext()) {
+            Page inputPage = input.next();
 
-        // process input pages
-        for (Page inputPage : input) {
             // read output until input is needed or operator is finished
+            int nullPages = 0;
             while (!operator.needsInput() && !operator.isFinished()) {
                 Page outputPage = operator.getOutput();
-                assertNotNull(outputPage);
-                outputPages.add(outputPage);
+                if (outputPage == null) {
+                    // break infinite loop due to null pages
+                    assertTrue(nullPages < 1_000_000, "Too many null pages; infinite loop?");
+                    nullPages++;
+                }
+                else {
+                    outputPages.add(outputPage);
+                    nullPages = 0;
+                }
             }
 
             if (operator.isFinished()) {
@@ -95,6 +100,16 @@ public final class OperatorAssertion
         // add remaining output pages
         addRemainingOutputPages(operator, outputPages);
         return outputPages.build();
+    }
+
+    public static List<Page> toPages(Operator operator, List<Page> input)
+    {
+        // verify initial state
+        assertEquals(operator.isFinished(), false);
+        assertEquals(operator.needsInput(), true);
+        assertEquals(operator.getOutput(), null);
+
+        return toPages(operator, input.iterator());
     }
 
     public static List<Page> toPages(Operator operator)
