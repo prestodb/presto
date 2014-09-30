@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 
 import java.net.URI;
+import java.nio.charset.CharsetEncoder;
 import java.sql.Array;
 import java.sql.Blob;
 import java.sql.CallableStatement;
@@ -48,10 +49,12 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Maps.fromProperties;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilder;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 
 public class PrestoConnection
         implements Connection
@@ -65,6 +68,7 @@ public class PrestoConnection
     private final HostAndPort address;
     private final String user;
     private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
+    private final Map<String, String> sessionProperties = new ConcurrentHashMap<>();
     private final QueryExecutor queryExecutor;
 
     PrestoConnection(URI uri, String user, QueryExecutor queryExecutor)
@@ -484,6 +488,23 @@ public class PrestoConnection
         this.locale.set(locale);
     }
 
+    /**
+     * Adds a session property (experimental).
+     */
+    public void setSessionProperty(String name, String value)
+    {
+        checkNotNull(name, "name is null");
+        checkNotNull(value, "value is null");
+        checkArgument(!name.isEmpty(), "name is empty");
+
+        CharsetEncoder charsetEncoder = US_ASCII.newEncoder();
+        checkArgument(name.indexOf('=') < 0, "Session property name must not contain '=': %s", name);
+        checkArgument(charsetEncoder.canEncode(name), "Session property name is not US_ASCII: %s", name);
+        checkArgument(charsetEncoder.canEncode(value), "Session property value is not US_ASCII: %s", value);
+
+        sessionProperties.put(name, value);
+    }
+
     @Override
     public void abort(Executor executor)
             throws SQLException
@@ -547,7 +568,7 @@ public class PrestoConnection
                 schema.get(),
                 timeZoneId.get(),
                 locale.get(),
-                ImmutableMap.<String, String>of(),
+                ImmutableMap.copyOf(sessionProperties),
                 false);
 
         return queryExecutor.startQuery(session, sql);
