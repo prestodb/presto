@@ -29,6 +29,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -89,6 +90,7 @@ public class CachingHiveMetastore
     private final LoadingCache<HiveTableName, Table> tableCache;
     private final LoadingCache<HivePartitionName, Partition> partitionCache;
     private final LoadingCache<PartitionFilter, List<String>> partitionFilterCache;
+    private final boolean refreshInBackground;
 
     @Inject
     public CachingHiveMetastore(HiveCluster hiveCluster, @ForHiveMetastore ExecutorService executor, HiveClientConfig hiveClientConfig)
@@ -96,11 +98,18 @@ public class CachingHiveMetastore
         this(checkNotNull(hiveCluster, "hiveCluster is null"),
                 checkNotNull(executor, "executor is null"),
                 checkNotNull(hiveClientConfig, "hiveClientConfig is null").getMetastoreCacheTtl(),
-                hiveClientConfig.getMetastoreRefreshInterval());
+                hiveClientConfig.getMetastoreRefreshInterval(),
+                hiveClientConfig.getRefreshCacheInBackground());
     }
 
-    public CachingHiveMetastore(HiveCluster hiveCluster, ExecutorService executor, Duration cacheTtl, Duration refreshInterval)
+    private <K, V> CacheLoader<K, V> getCacheLoader(CacheLoader<K, V> foregroundLoader, CacheLoader<K, V> backgroundLoader)
     {
+        return refreshInBackground ? backgroundLoader : foregroundLoader;
+    }
+
+    public CachingHiveMetastore(HiveCluster hiveCluster, ExecutorService executor, Duration cacheTtl, Duration refreshInterval, boolean refreshInBackground)
+    {
+        this.refreshInBackground = refreshInBackground;
         this.clientProvider = checkNotNull(hiveCluster, "hiveCluster is null");
 
         long expiresAfterWriteMillis = checkNotNull(cacheTtl, "cacheTtl is null").toMillis();
@@ -108,18 +117,26 @@ public class CachingHiveMetastore
 
         ListeningExecutorService listeningExecutor = MoreExecutors.listeningDecorator(executor);
 
+        final CacheLoader<String, List<String>> databaseNamesCacheLoader = new CacheLoader<String, List<String>>() {
+            @Override
+            public List<String> load(String key) throws Exception
+            {
+                return loadAllDatabases();
+            }
+        };
+
         databaseNamesCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<String, List<String>>(listeningExecutor)
+                .build(getCacheLoader(databaseNamesCacheLoader, new BackgroundCacheLoader<String, List<String>>(listeningExecutor)
                 {
                     @Override
                     public List<String> load(String key)
                             throws Exception
                     {
-                        return loadAllDatabases();
+                        return databaseNamesCacheLoader.load(key);
                     }
-                });
+                }));
 
         databaseCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
@@ -134,31 +151,58 @@ public class CachingHiveMetastore
                     }
                 });
 
+        final CacheLoader<String, List<String>> tableNamesCacheLoader = new CacheLoader<String, List<String>>()
+        {
+            @Override
+            public List<String> load(String key) throws Exception
+            {
+                return loadAllTables(key);
+            }
+        };
+
         tableNamesCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<String, List<String>>(listeningExecutor)
+                .build(getCacheLoader(tableNamesCacheLoader, new BackgroundCacheLoader<String, List<String>>(listeningExecutor)
                 {
                     @Override
                     public List<String> load(String databaseName)
                             throws Exception
                     {
-                        return loadAllTables(databaseName);
+                        return tableNamesCacheLoader.load(databaseName);
                     }
-                });
+                }));
+
+        final CacheLoader<HiveTableName, Table> tableCacheLoader = new CacheLoader<HiveTableName, Table>()
+        {
+            @Override
+            public Table load(HiveTableName hiveTableName) throws Exception
+            {
+                return loadTable(hiveTableName);
+            }
+        };
 
         tableCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<HiveTableName, Table>(listeningExecutor)
+                .build(getCacheLoader(tableCacheLoader, new BackgroundCacheLoader<HiveTableName, Table>(listeningExecutor)
                 {
                     @Override
                     public Table load(HiveTableName hiveTableName)
                             throws Exception
                     {
-                        return loadTable(hiveTableName);
+                        return tableCacheLoader.load(hiveTableName);
                     }
-                });
+                }));
+
+        final CacheLoader<HiveTableName, List<String>> partitionNamesCacheLoader = new CacheLoader<HiveTableName, List<String>>()
+        {
+            @Override
+            public List<String> load(HiveTableName hiveTableName) throws Exception
+            {
+                return loadPartitionNames(hiveTableName);
+            }
+        };
 
         viewNamesCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
@@ -176,48 +220,74 @@ public class CachingHiveMetastore
         partitionNamesCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<HiveTableName, List<String>>(listeningExecutor)
+                .build(getCacheLoader(partitionNamesCacheLoader, new BackgroundCacheLoader<HiveTableName, List<String>>(listeningExecutor)
                 {
                     @Override
                     public List<String> load(HiveTableName hiveTableName)
                             throws Exception
                     {
-                        return loadPartitionNames(hiveTableName);
+                        return partitionNamesCacheLoader.load(hiveTableName);
                     }
-                });
+                }));
+
+        final CacheLoader<PartitionFilter, List<String>> partitionFilterCacheLoader = new CacheLoader<PartitionFilter, List<String>>()
+        {
+            @Override
+            public List<String> load(PartitionFilter partitionFilter) throws Exception
+            {
+                return loadPartitionNamesByParts(partitionFilter);
+            }
+        };
 
         partitionFilterCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<PartitionFilter, List<String>>(listeningExecutor)
+                .build(getCacheLoader(partitionFilterCacheLoader, new BackgroundCacheLoader<PartitionFilter, List<String>>(listeningExecutor)
                 {
                     @Override
                     public List<String> load(PartitionFilter partitionFilter)
                             throws Exception
                     {
-                        return loadPartitionNamesByParts(partitionFilter);
+                        return partitionFilterCacheLoader.load(partitionFilter);
                     }
-                });
+                }));
+
+        final CacheLoader<HivePartitionName, Partition> partitionCacheLoader = new CacheLoader<HivePartitionName, Partition>()
+        {
+            @Override
+            public Partition load(HivePartitionName partitionName)
+                    throws Exception
+            {
+                return loadPartitionByName(partitionName);
+            }
+
+            @Override
+            public Map<HivePartitionName, Partition> loadAll(Iterable<? extends HivePartitionName> partitionNames)
+                    throws Exception
+            {
+                return loadPartitionsByNames(partitionNames);
+            }
+        };
 
         partitionCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<HivePartitionName, Partition>(listeningExecutor)
+                .build(getCacheLoader(partitionCacheLoader, new BackgroundCacheLoader<HivePartitionName, Partition>(listeningExecutor)
                 {
                     @Override
                     public Partition load(HivePartitionName partitionName)
                             throws Exception
                     {
-                        return loadPartitionByName(partitionName);
+                        return partitionCacheLoader.load(partitionName);
                     }
 
                     @Override
                     public Map<HivePartitionName, Partition> loadAll(Iterable<? extends HivePartitionName> partitionNames)
                             throws Exception
                     {
-                        return loadPartitionsByNames(partitionNames);
+                        return partitionCacheLoader.loadAll(partitionNames);
                     }
-                });
+                }));
     }
 
     @Managed
