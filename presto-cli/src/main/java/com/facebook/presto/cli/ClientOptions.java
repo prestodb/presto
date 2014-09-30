@@ -14,15 +14,25 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientSession;
+import com.google.common.base.Objects;
+import com.google.common.base.Optional;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.command.Option;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.CharsetEncoder;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.TimeZone;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Locale.ENGLISH;
 
 public class ClientOptions
@@ -54,6 +64,9 @@ public class ClientOptions
     @Option(name = "--output-format", title = "output-format", description = "Output format for batch mode (default: CSV)")
     public OutputFormat outputFormat = OutputFormat.CSV;
 
+    @Option(name = "--session", title = "session", description = "Session property (property can be used multiple times; format is key=value)")
+    public final List<ClientSessionProperty> sessionProperties = new ArrayList<>();
+
     public enum OutputFormat
     {
         ALIGNED,
@@ -74,7 +87,7 @@ public class ClientOptions
                 schema,
                 TimeZone.getDefault().getID(),
                 Locale.getDefault(),
-                ImmutableMap.<String, String>of(),
+                toProperties(sessionProperties),
                 debug);
     }
 
@@ -91,6 +104,112 @@ public class ClientOptions
         }
         catch (URISyntaxException e) {
             throw new IllegalArgumentException(e);
+        }
+    }
+
+    private static Map<String, String> toProperties(List<ClientSessionProperty> sessionProperties)
+    {
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        for (ClientSessionProperty sessionProperty : sessionProperties) {
+            String name = sessionProperty.getName();
+            if (sessionProperty.getCatalog() != null) {
+                name = sessionProperty.getCatalog() + "." + name;
+            }
+            builder.put(name, sessionProperty.getValue());
+        }
+        return builder.build();
+    }
+
+    public static final class ClientSessionProperty
+    {
+        private static final Splitter NAME_VALUE_SPLITTER = Splitter.on('=').limit(2);
+        private static final Splitter NAME_SPLITTER = Splitter.on('.');
+        private final Optional<String> catalog;
+        private final String name;
+        private final String value;
+
+        public ClientSessionProperty(String property)
+        {
+            List<String> nameValue = NAME_VALUE_SPLITTER.splitToList(property);
+            checkArgument(nameValue.size() == 2, "Session property: %s", property);
+
+            List<String> nameParts = NAME_SPLITTER.splitToList(nameValue.get(0));
+            checkArgument(nameParts.size() == 1 || nameParts.size() == 2, "Invalid session property: %s", property);
+            if (nameParts.size() == 1) {
+                catalog = Optional.absent();
+                name = nameParts.get(0);
+            }
+            else {
+                catalog = Optional.of(nameParts.get(0));
+                name = nameParts.get(1);
+            }
+            value = nameValue.get(1);
+
+            verifyProperty(catalog, name, value);
+        }
+
+        public ClientSessionProperty(Optional<String> catalog, String name, String value)
+        {
+            this.catalog = checkNotNull(catalog, "catalog is null");
+            this.name = checkNotNull(name, "name is null");
+            this.value = checkNotNull(value, "value is null");
+
+            verifyProperty(catalog, name, value);
+        }
+
+        private static void verifyProperty(Optional<String> catalog, String name, String value)
+        {
+            checkArgument(!catalog.isPresent() || !catalog.get().isEmpty(), "Invalid session property: %s.%s:%s", catalog, name, value);
+            checkArgument(!name.isEmpty(), "Session property name is empty");
+
+            CharsetEncoder charsetEncoder = US_ASCII.newEncoder();
+            checkArgument(catalog.or("").indexOf('=') < 0, "Session property catalog must not contain '=': %s", name);
+            checkArgument(charsetEncoder.canEncode(catalog.or("")), "Session property catalog is not US_ASCII: %s", name);
+            checkArgument(name.indexOf('=') < 0, "Session property name must not contain '=': %s", name);
+            checkArgument(charsetEncoder.canEncode(name), "Session property name is not US_ASCII: %s", name);
+            checkArgument(charsetEncoder.canEncode(value), "Session property value is not US_ASCII: %s", value);
+        }
+
+        public Optional<String> getCatalog()
+        {
+            return catalog;
+        }
+
+        public String getName()
+        {
+            return name;
+        }
+
+        public String getValue()
+        {
+            return value;
+        }
+
+        @Override
+        public String toString()
+        {
+            return (catalog.isPresent() ? catalog.get() + '.' : "") + name + '=' + value;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hashCode(catalog, name, value);
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            ClientSessionProperty other = (ClientSessionProperty) obj;
+            return Objects.equal(this.catalog, other.catalog) &&
+                    Objects.equal(this.name, other.name) &&
+                    Objects.equal(this.value, other.value);
         }
     }
 }
