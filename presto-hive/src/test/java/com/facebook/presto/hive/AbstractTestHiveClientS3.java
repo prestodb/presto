@@ -250,10 +250,10 @@ public abstract class AbstractTestHiveClientS3
             assertEquals(row.getField(0), 1L);
 
             row = result.getMaterializedRows().get(1);
-            assertEquals(row.getField(0), 2L);
+            assertEquals(row.getField(0), 3L);
 
             row = result.getMaterializedRows().get(2);
-            assertEquals(row.getField(0), 3L);
+            assertEquals(row.getField(0), 2L);
         }
     }
 
