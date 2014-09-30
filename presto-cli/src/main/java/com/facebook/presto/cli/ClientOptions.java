@@ -14,6 +14,7 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientSession;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.command.Option;
 
@@ -65,7 +66,16 @@ public class ClientOptions
 
     public ClientSession toClientSession()
     {
-        return new ClientSession(parseServer(server), user, source, catalog, schema, TimeZone.getDefault().getID(), Locale.getDefault(), debug);
+        return new ClientSession(
+                parseServer(server),
+                user,
+                source,
+                catalog,
+                schema,
+                TimeZone.getDefault().getID(),
+                Locale.getDefault(),
+                ImmutableMap.<String, String>of(),
+                debug);
     }
 
     public static URI parseServer(String server)
