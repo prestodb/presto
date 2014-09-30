@@ -13,10 +13,14 @@
  */
 package com.facebook.presto.cli;
 
+import com.facebook.presto.cli.ClientOptions.ClientSessionProperty;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import static io.airlift.command.SingleCommand.singleCommand;
 import static org.testng.Assert.assertEquals;
 
 public class TestClientOptions
@@ -80,6 +84,53 @@ public class TestClientOptions
         ClientOptions options = new ClientOptions();
         options.server = "x:y";
         options.toClientSession();
+    }
+
+    @Test
+    public void testSessionProperties()
+    {
+        Console console = singleCommand(Console.class).parse("--session", "system=system-value", "--session", "catalog.name=catalog-property");
+
+        ClientOptions options = console.clientOptions;
+        assertEquals(options.sessionProperties, ImmutableList.of(
+                new ClientSessionProperty(Optional.<String>absent(), "system", "system-value"),
+                new ClientSessionProperty(Optional.of("catalog"), "name", "catalog-property")));
+
+        // special characters are allowed in the value
+        assertEquals(new ClientSessionProperty("foo=bar:=baz"), new ClientSessionProperty(Optional.<String>absent(), "foo", "bar:=baz"));
+
+        // empty values are allowed
+        assertEquals(new ClientSessionProperty("foo="), new ClientSessionProperty(Optional.<String>absent(), "foo", ""));
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testThreePartPropertyName()
+    {
+        new ClientSessionProperty("foo.bar.baz=value");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testEmptyPropertyName()
+    {
+        new ClientSessionProperty("=value");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testInvalidCharsetPropertyName()
+    {
+        new ClientSessionProperty("\u2603=value");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testInvalidCharsetPropertyValue()
+    {
+        new ClientSessionProperty("name=\u2603");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testEqualSignNoAllowedInPropertyCatalog()
+    {
+        new ClientSessionProperty(Optional.of("cat=alog"), "name", "value");
     }
 
     @Test
