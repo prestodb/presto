@@ -363,7 +363,7 @@ public class TestSqlStageExecution
                 Multimap<PlanNodeId, Split> initialSplits,
                 OutputBuffers outputBuffers)
         {
-            return new MockRemoteTask(taskId, fragment, executor, initialSplits);
+            return new MockRemoteTask(taskId, node.getNodeIdentifier(), fragment, executor, initialSplits);
         }
 
         private static class MockRemoteTask
@@ -375,6 +375,7 @@ public class TestSqlStageExecution
             private final TaskStateMachine taskStateMachine;
             private final TaskContext taskContext;
             private final SharedBuffer sharedBuffer;
+            private final String nodeId;
 
             private final PlanFragment fragment;
 
@@ -385,6 +386,7 @@ public class TestSqlStageExecution
             private final Multimap<PlanNodeId, Split> splits = HashMultimap.create();
 
             public MockRemoteTask(TaskId taskId,
+                    String nodeId,
                     PlanFragment fragment,
                     Executor executor,
                     Multimap<PlanNodeId, Split> initialSplits)
@@ -397,13 +399,14 @@ public class TestSqlStageExecution
 
                 this.sharedBuffer = new SharedBuffer(taskId, executor, checkNotNull(new DataSize(1, Unit.BYTE), "maxBufferSize is null"));
                 this.fragment = checkNotNull(fragment, "fragment is null");
+                this.nodeId = nodeId;
                 splits.putAll(initialSplits);
             }
 
             @Override
             public String getNodeId()
             {
-                return "node";
+                return nodeId;
             }
 
             @Override
