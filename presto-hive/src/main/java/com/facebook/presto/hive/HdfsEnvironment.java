@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hadoop.HadoopFileSystemCache;
+import com.facebook.presto.hadoop.HadoopNative;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -27,6 +29,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class HdfsEnvironment
 {
+    static {
+        HadoopNative.requireHadoopNative();
+        HadoopFileSystemCache.initialize();
+    }
+
     private final HdfsConfiguration hdfsConfiguration;
 
     @Inject
