@@ -111,6 +111,7 @@ public class DistributedQueryRunner
         if (coordinator) {
             properties.put("node-scheduler.include-coordinator", "false");
             properties.put("distributed-joins-enabled", "true");
+            properties.put("node-scheduler.multiple-tasks-per-node-enabled", "true");
         }
 
         TestingPrestoServer server = new TestingPrestoServer(coordinator, properties.build(), ENVIRONMENT, discoveryUri, ImmutableList.<Module>of());

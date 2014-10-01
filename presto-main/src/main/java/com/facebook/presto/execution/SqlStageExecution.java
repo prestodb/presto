@@ -36,13 +36,17 @@ import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.SetThreadName;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
@@ -106,7 +110,8 @@ public class SqlStageExecution
     private final PlanFragment fragment;
     private final Map<PlanFragmentId, StageExecutionNode> subStages;
 
-    private final ConcurrentMap<Node, RemoteTask> tasks = new ConcurrentHashMap<>();
+    private final Multimap<Node, TaskId> localNodeTaskMap = HashMultimap.create();
+    private final ConcurrentMap<TaskId, RemoteTask> tasks = new ConcurrentHashMap<>();
 
     private final Optional<SplitSource> dataSource;
     private final RemoteTaskFactory remoteTaskFactory;
@@ -235,7 +240,7 @@ public class SqlStageExecution
             this.subStages = subStages.build();
 
             String dataSourceName = dataSource.isPresent() ? dataSource.get().getDataSourceName() : null;
-            this.nodeSelector = nodeScheduler.createNodeSelector(dataSourceName, tasks);
+            this.nodeSelector = nodeScheduler.createNodeSelector(dataSourceName);
             this.nodeTaskMap = nodeTaskMap;
             stageState = new StateMachine<>("stage " + stageId, this.executor, StageState.PLANNED);
             stageState.addStateChangeListener(new StateChangeListener<StageState>()
@@ -497,9 +502,15 @@ public class SqlStageExecution
     }
 
     @VisibleForTesting
-    public Map<Node, RemoteTask> getTasks()
+    public List<RemoteTask> getAllTasks()
     {
-        return ImmutableMap.copyOf(tasks);
+        return ImmutableList.copyOf(tasks.values());
+    }
+
+    @VisibleForTesting
+    public List<RemoteTask> getTasks(Node node)
+    {
+        return FluentIterable.from(localNodeTaskMap.get(node)).transform(Functions.forMap(tasks)).toList();
     }
 
     public Future<?> start()
@@ -636,7 +647,7 @@ public class SqlStageExecution
                 getSplitDistribution.add(System.nanoTime() - start);
 
                 while (!pendingSplits.isEmpty() && !getState().isDone()) {
-                    Multimap<Node, Split> splitAssignment = nodeSelector.computeAssignments(pendingSplits);
+                    Multimap<Node, Split> splitAssignment = nodeSelector.computeAssignments(pendingSplits, tasks.values());
                     pendingSplits = ImmutableSet.copyOf(Sets.difference(pendingSplits, ImmutableSet.copyOf(splitAssignment.values())));
 
                     assignSplits(nextTaskId, splitAssignment);
@@ -663,7 +674,8 @@ public class SqlStageExecution
             long scheduleSplitStart = System.nanoTime();
             Node node = taskSplits.getKey();
 
-            RemoteTask task = tasks.get(node);
+            TaskId taskId = Iterables.getOnlyElement(localNodeTaskMap.get(node), null);
+            RemoteTask task = taskId != null ? tasks.get(taskId) : null;
             if (task == null) {
                 RemoteTask remoteTask = scheduleTask(nextTaskId.getAndIncrement(), node, fragment.getPartitionedSource(), taskSplits.getValue());
 
@@ -686,7 +698,7 @@ public class SqlStageExecution
             // before we block, we need to create all possible output buffers on the sub stages, or they can deadlock
             // waiting for the "noMoreBuffers" call
             nodeSelector.lockDownNodes();
-            for (Node node : Sets.difference(new HashSet<>(nodeSelector.allNodes()), tasks.keySet())) {
+            for (Node node : Sets.difference(new HashSet<>(nodeSelector.allNodes()), localNodeTaskMap.keySet())) {
                 scheduleTask(nextTaskId.getAndIncrement(), node);
             }
             // tell sub stages there will be no more output buffers
@@ -761,7 +773,8 @@ public class SqlStageExecution
         task.start();
 
         // record this task
-        tasks.put(node, task);
+        tasks.put(task.getTaskInfo().getTaskId(), task);
+        localNodeTaskMap.put(node, task.getTaskInfo().getTaskId());
         nodeTaskMap.addTask(node, task);
 
         // update in case task finished before listener was registered
