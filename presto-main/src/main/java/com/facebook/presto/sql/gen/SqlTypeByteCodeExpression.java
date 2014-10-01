@@ -55,7 +55,7 @@ public class SqlTypeByteCodeExpression
     @Override
     public ByteCodeNode getByteCode()
     {
-        return InvokeInstruction.invokeDynamic(type.getName(), binding.getType(), bootstrapMethod, binding.getBindingId());
+        return InvokeInstruction.invokeDynamic(type.getName().replaceAll("\\W+", "_"), binding.getType(), bootstrapMethod, binding.getBindingId());
     }
 
     @Override
