@@ -82,6 +82,8 @@ public class HiveClientConfig
 
     private List<String> resourceConfigFiles;
 
+    private boolean insertS3TempEnabled = true;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -565,6 +567,19 @@ public class HiveClientConfig
     public HiveClientConfig setS3MultipartMinPartSize(DataSize size)
     {
         this.s3MultipartMinPartSize = size;
+        return this;
+    }
+
+    public boolean getInsertS3TempEnabled()
+    {
+        return insertS3TempEnabled;
+    }
+
+    @Config("hive.insert-s3-temp-enabled")
+    @ConfigDescription("Use temporary location for Insert into s3 locations")
+    public HiveClientConfig setInsertS3TempEnabled(boolean enabled)
+    {
+        this.insertS3TempEnabled = enabled;
         return this;
     }
 }
