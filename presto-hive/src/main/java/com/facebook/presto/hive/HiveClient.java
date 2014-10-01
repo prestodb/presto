@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hadoop.HadoopFileSystemCache;
-import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.hive.util.BoundedExecutor;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -152,11 +150,6 @@ import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspe
 public class HiveClient
         implements ConnectorMetadata, ConnectorSplitManager, ConnectorRecordSinkProvider, ConnectorHandleResolver
 {
-    static {
-        HadoopNative.requireHadoopNative();
-        HadoopFileSystemCache.initialize();
-    }
-
     public static final String PRESTO_OFFLINE = "presto_offline";
 
     private static final Logger log = Logger.get(HiveClient.class);
