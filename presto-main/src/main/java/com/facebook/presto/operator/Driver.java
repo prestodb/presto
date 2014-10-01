@@ -424,7 +424,10 @@ public class Driver
                 inFlightException = newException;
             }
             else {
-                inFlightException.addSuppressed(newException);
+                // Self-suppression not permitted
+                if (inFlightException != newException) {
+                    inFlightException.addSuppressed(newException);
+                }
             }
         }
         else {
