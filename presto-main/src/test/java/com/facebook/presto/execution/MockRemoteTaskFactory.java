@@ -103,7 +103,7 @@ public class MockRemoteTaskFactory
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers)
     {
-        return new MockRemoteTask(taskId, fragment, executor, initialSplits);
+        return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, initialSplits);
     }
 
     private class MockRemoteTask
@@ -115,6 +115,7 @@ public class MockRemoteTaskFactory
         private final TaskStateMachine taskStateMachine;
         private final TaskContext taskContext;
         private final SharedBuffer sharedBuffer;
+        private final String nodeId;
 
         private final PlanFragment fragment;
 
@@ -126,6 +127,7 @@ public class MockRemoteTaskFactory
 
         public MockRemoteTask(TaskId taskId,
                 PlanFragment fragment,
+                String nodeId,
                 Executor executor,
                 Multimap<PlanNodeId, Split> initialSplits)
         {
@@ -137,13 +139,14 @@ public class MockRemoteTaskFactory
 
             this.sharedBuffer = new SharedBuffer(taskId, executor, checkNotNull(new DataSize(1, DataSize.Unit.BYTE), "maxBufferSize is null"));
             this.fragment = checkNotNull(fragment, "fragment is null");
+            this.nodeId = checkNotNull(nodeId, "nodeId is null");
             splits.putAll(initialSplits);
         }
 
         @Override
         public String getNodeId()
         {
-            return "node";
+            return nodeId;
         }
 
         @Override
