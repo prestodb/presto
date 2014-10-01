@@ -137,10 +137,9 @@ public class SqlTask
 
     private TaskInfo createTaskInfo(TaskHolder taskHolder)
     {
-        TaskInfo finalTaskInfo = taskHolder.getFinalTaskInfo();
-        if (finalTaskInfo != null) {
-            return finalTaskInfo;
-        }
+        // Always return a new TaskInfo with a larger version number;
+        // otherwise a client will not accept the update
+        long versionNumber = nextTaskInfoVersion.getAndIncrement();
 
         TaskState state = taskStateMachine.getState();
         List<ExecutionFailureInfo> failures = ImmutableList.of();
@@ -150,20 +149,27 @@ public class SqlTask
 
         TaskStats taskStats;
         Set<PlanNodeId> noMoreSplits;
-        SqlTaskExecution taskExecution = taskHolder.getTaskExecution();
-        if (taskExecution != null) {
-            taskStats = taskExecution.getTaskContext().getTaskStats();
-            noMoreSplits = taskExecution.getNoMoreSplits();
+
+        TaskInfo finalTaskInfo = taskHolder.getFinalTaskInfo();
+        if (finalTaskInfo != null) {
+            taskStats = finalTaskInfo.getStats();
+            noMoreSplits = finalTaskInfo.getNoMoreSplits();
         }
         else {
-            taskStats = new TaskStats(taskStateMachine.getCreatedTime());
-            noMoreSplits = ImmutableSet.of();
+            SqlTaskExecution taskExecution = taskHolder.getTaskExecution();
+            if (taskExecution != null) {
+                taskStats = taskExecution.getTaskContext().getTaskStats();
+                noMoreSplits = taskExecution.getNoMoreSplits();
+            }
+            else {
+                taskStats = new TaskStats(taskStateMachine.getCreatedTime());
+                noMoreSplits = ImmutableSet.of();
+            }
         }
 
-        // todo is the version number stuff good?
         return new TaskInfo(
                 taskStateMachine.getTaskId(),
-                nextTaskInfoVersion.getAndIncrement(),
+                versionNumber,
                 state,
                 location,
                 lastHeartbeat.get(),
