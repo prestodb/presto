@@ -19,7 +19,9 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
@@ -789,7 +791,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitExpression(Expression node, Object context)
         {
-            throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
+            throw new PrestoException(StandardErrorCode.NOT_SUPPORTED.toErrorCode(), "not yet implemented: " + node.getClass().getName());
         }
 
         @Override
