@@ -1,0 +1,164 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>9.9. Release 0.69 &mdash; Presto 0.77 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.77',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.77 Documentation" href="../index.html" />
+    <link rel="up" title="9. Release Notes" href="../release.html" />
+    <link rel="next" title="9.10. Release 0.68" href="release-0.68.html" />
+    <link rel="prev" title="9.8. Release 0.70" href="release-0.70.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.77 Documentation</span></a></h1>
+    <h2 class="heading"><span>9.9. Release 0.69</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.70.html">9.8. Release 0.70</a>
+    </span>
+    <span class="right">
+        <a href="release-0.68.html">9.10. Release 0.68</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-69">
+<h1>9.9. Release 0.69</h1>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p>The following config properties must be removed from the
+<tt class="docutils literal"><span class="pre">etc/config.properties</span></tt> file on both the coordinator and workers:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">presto-metastore.db.type</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">presto-metastore.db.filename</span></tt></li>
+</ul>
+<p class="last">Additionally, the <tt class="docutils literal"><span class="pre">datasources</span></tt> property is now deprecated
+and should also be removed (see <a class="reference internal" href="#datasource-configuration">Datasource Configuration</a>).</p>
+</div>
+<div class="section" id="prevent-scheduling-work-on-coordinator">
+<h2>Prevent Scheduling Work on Coordinator</h2>
+<p>We have a new config property, <tt class="docutils literal"><span class="pre">node-scheduler.include-coordinator</span></tt>,
+that allows or disallows scheduling work on the coordinator.
+Previously, tasks like final aggregations could be scheduled on the
+coordinator. For larger clusters, processing work on the coordinator
+can impact query performance because the machine&#8217;s resources are not
+available for the critical task of scheduling, managing and monitoring
+query execution.</p>
+<p>We recommend setting this property to <tt class="docutils literal"><span class="pre">false</span></tt> for the coordinator.
+See <a class="reference internal" href="../installation/deployment.html#config-properties"><em>Config Properties</em></a> for an example.</p>
+</div>
+<div class="section" id="datasource-configuration">
+<h2>Datasource Configuration</h2>
+<p>The <tt class="docutils literal"><span class="pre">datasources</span></tt> config property has been deprecated.
+Please remove it from your <tt class="docutils literal"><span class="pre">etc/config.properties</span></tt> file.
+The datasources configuration is now automatically generated based
+on the <tt class="docutils literal"><span class="pre">node-scheduler.include-coordinator</span></tt> property
+(see <a class="reference internal" href="#prevent-scheduling-work-on-coordinator">Prevent Scheduling Work on Coordinator</a>).</p>
+</div>
+<div class="section" id="raptor-connector">
+<h2>Raptor Connector</h2>
+<p>Presto has an extremely experimental connector that was previously called
+the <tt class="docutils literal"><span class="pre">native</span></tt> connector and was intertwined with the main Presto code
+(it was written before Presto had connectors). This connector is now
+named <tt class="docutils literal"><span class="pre">raptor</span></tt> and lives in a separate plugin.</p>
+<p>As part of this refactoring, the <tt class="docutils literal"><span class="pre">presto-metastore.db.type</span></tt> and
+<tt class="docutils literal"><span class="pre">presto-metastore.db.filename</span></tt> config properties no longer exist
+and must be removed from <tt class="docutils literal"><span class="pre">etc/config.properties</span></tt>.</p>
+<p>The Raptor connector stores data on the Presto machines in a
+columnar format using the same layout that Presto uses for in-memory
+data. Currently, it has major limitations: lack of replication,
+dropping a table does not reclaim the storage, etc. It is only
+suitable for experimentation, temporary tables, caching of data from
+slower connectors, etc. The metadata and data formats are subject to
+change in incompatible ways between releases.</p>
+<p>If you would like to experiment with the connector, create a catalog
+properties file such as <tt class="docutils literal"><span class="pre">etc/catalog/raptor.properties</span></tt> on both the
+coordinator and workers that contains the following:</p>
+<div class="highlight-none"><div class="highlight"><pre>connector.name=raptor
+metadata.db.type=h2
+metadata.db.filename=var/data/db/MetaStore
+</pre></div>
+</div>
+</div>
+<div class="section" id="machine-learning-functions">
+<h2>Machine Learning Functions</h2>
+<p>Presto now has functions to train and use machine learning models
+(classifiers and regressors). This is currently only a proof of concept
+and is not ready for use in production. Example usage is as follows:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">evaluate_classifier_predictions</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="n">classify</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">model</span><span class="p">))</span>
+<span class="k">FROM</span> <span class="p">(</span>
+    <span class="k">SELECT</span> <span class="n">learn_classifier</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="n">features</span><span class="p">)</span> <span class="k">AS</span> <span class="n">model</span>
+    <span class="k">FROM</span> <span class="n">training_data</span>
+<span class="p">)</span>
+<span class="k">CROSS</span> <span class="k">JOIN</span> <span class="n">validation_data</span>
+</pre></div>
+</div>
+<p>In the above example, the column <tt class="docutils literal"><span class="pre">label</span></tt> is a <tt class="docutils literal"><span class="pre">bigint</span></tt> and the column
+<tt class="docutils literal"><span class="pre">features</span></tt> is a map of feature identifiers to feature values. The feature
+identifiers must be integers (encoded as strings because JSON only supports
+strings for map keys) and the feature values are numbers (floating point).</p>
+</div>
+<div class="section" id="variable-length-binary-type">
+<h2>Variable Length Binary Type</h2>
+<p>Presto now supports the <tt class="docutils literal"><span class="pre">varbinary</span></tt> type for variable length binary data.
+Currently, the only supported function is <a class="reference internal" href="../functions/string.html#length" title="length"><tt class="xref py py-func docutils literal"><span class="pre">length()</span></tt></a>.
+The Hive connector now maps the Hive <tt class="docutils literal"><span class="pre">BINARY</span></tt> type to <tt class="docutils literal"><span class="pre">varbinary</span></tt>.</p>
+</div>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Add missing operator: <tt class="docutils literal"><span class="pre">timestamp</span> <span class="pre">with</span> <span class="pre">time</span> <span class="pre">zone</span></tt> - <tt class="docutils literal"><span class="pre">interval</span> <span class="pre">year</span> <span class="pre">to</span> <span class="pre">month</span></tt></li>
+<li>Support explaining sampled queries</li>
+<li>Add JMX stats for abandoned and canceled queries</li>
+<li>Add <tt class="docutils literal"><span class="pre">javax.inject</span></tt> to parent-first class list for plugins</li>
+<li>Improve error categorization in event logging</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.70.html">9.8. Release 0.70</a>
+    </span>
+    <span class="right">
+        <a href="release-0.68.html">9.10. Release 0.68</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
