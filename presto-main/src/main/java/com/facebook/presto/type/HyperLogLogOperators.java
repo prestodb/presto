@@ -19,7 +19,7 @@ import io.airlift.slice.Slice;
 
 import static com.facebook.presto.metadata.OperatorType.CAST;
 
-public class HyperLogLogOperators
+public final class HyperLogLogOperators
 {
     private HyperLogLogOperators()
     {
