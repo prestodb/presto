@@ -28,7 +28,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestHiveSplit
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", UTC_KEY, Locale.ENGLISH, System.currentTimeMillis());
+    private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, Locale.ENGLISH, System.currentTimeMillis());
     private final JsonCodec<HiveSplit> codec = JsonCodec.jsonCodec(HiveSplit.class);
 
     @Test

@@ -26,13 +26,11 @@ public class ConnectorSession
     private final String user;
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
-    private final String schema;
     private final long startTime;
 
     @JsonCreator
     public ConnectorSession(
             @JsonProperty("user") String user,
-            @JsonProperty("schema") String schema,
             @JsonProperty("timeZoneKey") TimeZoneKey timeZoneKey,
             @JsonProperty("locale") Locale locale,
             @JsonProperty("startTime") long startTime)
@@ -40,7 +38,6 @@ public class ConnectorSession
         this.user = requireNonNull(user, "user is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
-        this.schema = requireNonNull(schema, "schema is null");
         this.startTime = startTime;
     }
 
@@ -48,16 +45,6 @@ public class ConnectorSession
     public String getUser()
     {
         return user;
-    }
-
-    /**
-     * DO NOT CALL THIS FROM CONNECTORS. IT WILL BE REMOVED SOON.
-     */
-    @Deprecated
-    @JsonProperty
-    public String getSchema()
-    {
-        return schema;
     }
 
     @JsonProperty
@@ -83,7 +70,6 @@ public class ConnectorSession
     {
         StringBuilder builder = new StringBuilder("Session{");
         builder.append("user='").append(user).append('\'');
-        builder.append(", schema='").append(schema).append('\'');
         builder.append(", timeZoneKey=").append(timeZoneKey);
         builder.append(", locale=").append(locale);
         builder.append(", startTime=").append(startTime);

@@ -71,7 +71,7 @@ import static org.testng.Assert.assertTrue;
 @Test(groups = "hive-s3")
 public abstract class AbstractTestHiveClientS3
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", "default", UTC_KEY, Locale.ENGLISH, System.currentTimeMillis());
+    private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, Locale.ENGLISH, System.currentTimeMillis());
 
     protected String database;
     protected SchemaTableName tableS3;

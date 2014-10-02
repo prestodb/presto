@@ -41,7 +41,7 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestExampleMetadata
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", "default", UTC_KEY, Locale.ENGLISH, System.currentTimeMillis());
+    private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, Locale.ENGLISH, System.currentTimeMillis());
     private static final String CONNECTOR_ID = "TEST";
     private static final ExampleTableHandle NUMBERS_TABLE_HANDLE = new ExampleTableHandle(CONNECTOR_ID, "example", "numbers");
     private ExampleMetadata metadata;

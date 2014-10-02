@@ -65,7 +65,7 @@ public class TestHiveFileFormats
         extends AbstractTestHiveFileFormats
 {
     private static final TimeZoneKey TIME_ZONE_KEY = TimeZoneKey.getTimeZoneKey(DateTimeZone.getDefault().getID());
-    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", TIME_ZONE_KEY, Locale.ENGLISH, System.currentTimeMillis());
+    private static final ConnectorSession SESSION = new ConnectorSession("user", TIME_ZONE_KEY, Locale.ENGLISH, System.currentTimeMillis());
     private static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
 
     @BeforeMethod(alwaysRun = true)

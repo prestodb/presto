@@ -123,7 +123,7 @@ public final class Session
 
     public ConnectorSession toConnectorSession()
     {
-        return new ConnectorSession(user, schema, timeZoneKey, locale, startTime);
+        return new ConnectorSession(user, timeZoneKey, locale, startTime);
     }
 
     @Override
