@@ -20,6 +20,7 @@ public class ServerConfig
     private boolean coordinator = true;
     private String prestoVersion;
     private String dataSources;
+    private boolean includeExceptionInResponse = true;
 
     public boolean isCoordinator()
     {
@@ -56,6 +57,18 @@ public class ServerConfig
     public ServerConfig setDataSources(String dataSources)
     {
         this.dataSources = dataSources;
+        return this;
+    }
+
+    public boolean isIncludeExceptionInResponse()
+    {
+        return includeExceptionInResponse;
+    }
+
+    @Config("http.include-exception-in-response")
+    public ServerConfig setIncludeExceptionInResponse(boolean includeExceptionInResponse)
+    {
+        this.includeExceptionInResponse = includeExceptionInResponse;
         return this;
     }
 }
