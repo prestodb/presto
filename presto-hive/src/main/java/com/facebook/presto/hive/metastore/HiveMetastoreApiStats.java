@@ -46,9 +46,15 @@ public class HiveMetastoreApiStats
                 catch (Exception e) {
                     if (e instanceof MetaException) {
                         metastoreExceptions.update(1);
+                        // Need to throw here instead of falling through due to JDK-8059299
+                        totalFailures.update(1);
+                        throw e;
                     }
                     else if (e instanceof TException) {
                         thriftExceptions.update(1);
+                        // Need to throw here instead of falling through due to JDK-8059299
+                        totalFailures.update(1);
+                        throw e;
                     }
                     totalFailures.update(1);
 
