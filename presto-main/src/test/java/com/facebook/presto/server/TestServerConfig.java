@@ -30,7 +30,8 @@ public class TestServerConfig
         assertRecordedDefaults(ConfigAssertions.recordDefaults(ServerConfig.class)
                 .setCoordinator(true)
                 .setPrestoVersion(null)
-                .setDataSources(null));
+                .setDataSources(null)
+                .setIncludeExceptionInResponse(true));
     }
 
     @Test
@@ -40,12 +41,14 @@ public class TestServerConfig
                 .put("coordinator", "false")
                 .put("presto.version", "test")
                 .put("datasources", "jmx")
+                .put("http.include-exception-in-response", "false")
                 .build();
 
         ServerConfig expected = new ServerConfig()
                 .setCoordinator(false)
                 .setPrestoVersion("test")
-                .setDataSources("jmx");
+                .setDataSources("jmx")
+                .setIncludeExceptionInResponse(false);
 
         assertFullMapping(properties, expected);
     }

@@ -140,6 +140,8 @@ public class ServerMainModule
 
         bindFailureDetector(binder, serverConfig.isCoordinator());
 
+        jaxrsBinder(binder).bind(ThrowableMapper.class);
+
         // task execution
         jaxrsBinder(binder).bind(TaskResource.class);
         binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);
