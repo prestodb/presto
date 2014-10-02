@@ -4,6 +4,22 @@ Migrating From Hive
 
 Presto uses ANSI SQL syntax and semantics, whereas Hive uses a SQL-like language called HiveQL which is loosely modeled after MySQL (which itself has many differences from ANSI SQL).
 
+Use subscript for accessing a dynamic index of an array instead of a udf
+------------------------------------------------------------------------
+
+The subscript operator in SQL supports full expressions, unlike Hive (which only supports constants). Therefore you can write queries like::
+
+    SELECT my_array[CARDINALITY(my_array)] as last_element
+    FROM ...
+
+Avoid out of bounds access of arrays
+------------------------------------
+
+Accessing out of bounds elements of an array will result in an exception. You can avoid this with an ``if`` as follows::
+
+    SELECT IF(CARDINALITY(my_array) >= 3, my_array[3], NULL)
+    FROM ...
+
 Use ANSI SQL syntax for arrays
 ------------------------------
 
