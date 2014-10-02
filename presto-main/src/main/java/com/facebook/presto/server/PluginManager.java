@@ -302,7 +302,7 @@ public class PluginManager
     private static List<Artifact> sortedArtifacts(List<Artifact> artifacts)
     {
         List<Artifact> list = Lists.newArrayList(artifacts);
-        Collections.sort(list, Ordering.natural().onResultOf(artifactFileGetter()));
+        Collections.sort(list, Ordering.natural().nullsLast().onResultOf(artifactFileGetter()));
         return list;
     }
 
