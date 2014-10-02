@@ -50,6 +50,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Iterator;
@@ -293,6 +294,7 @@ public class PluginManager
         if (installedPluginsDir != null && installedPluginsDir.isDirectory()) {
             File[] files = installedPluginsDir.listFiles();
             if (files != null) {
+                Arrays.sort(files);
                 return ImmutableList.copyOf(files);
             }
         }
