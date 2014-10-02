@@ -93,7 +93,7 @@ import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_T
 @SuppressWarnings("UseOfSystemOutOrSystemErr")
 public final class BenchmarkHiveFileFormats
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", UTC_KEY, Locale.ENGLISH, System.currentTimeMillis());
+    private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, Locale.ENGLISH, System.currentTimeMillis());
 
     private static final File DATA_DIR = new File("target");
     private static final JobConf JOB_CONF = new JobConf();

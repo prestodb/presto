@@ -33,7 +33,7 @@ import static org.testng.Assert.assertTrue;
 @Test
 public class TestJsonHiveHandles
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", UTC_KEY, Locale.ENGLISH, System.currentTimeMillis());
+    private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, Locale.ENGLISH, System.currentTimeMillis());
 
     private static final Map<String, Object> TABLE_HANDLE_AS_MAP = ImmutableMap.<String, Object>of(
             "clientId", "hive",
@@ -41,7 +41,6 @@ public class TestJsonHiveHandles
             "tableName", "hive_table",
             "session", ImmutableMap.builder()
                     .put("user", SESSION.getUser())
-                    .put("schema", SESSION.getSchema())
                     .put("timeZoneKey", (int) SESSION.getTimeZoneKey().getKey())
                     .put("locale", SESSION.getLocale().toString())
                     .put("startTime", SESSION.getStartTime())

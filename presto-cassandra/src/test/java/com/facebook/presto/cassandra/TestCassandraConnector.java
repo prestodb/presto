@@ -81,7 +81,7 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestCassandraConnector
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", UTC_KEY, Locale.ENGLISH, System.currentTimeMillis());
+    private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, Locale.ENGLISH, System.currentTimeMillis());
     protected static final String INVALID_DATABASE = "totally_invalid_database";
 
     private ConnectorMetadata metadata;
