@@ -40,6 +40,7 @@ import java.sql.SQLClientInfoException;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -454,6 +455,14 @@ public class Validator
                 }
                 if (a.getClass() != b.getClass()) {
                     throw new TypesDoNotMatchException(format("item types do not match: %s vs %s", a.getClass().getName(), b.getClass().getName()));
+                }
+                if (a instanceof Collection && b instanceof Collection) {
+                    if (a.equals(b)) {
+                        return 0;
+                    }
+                    else {
+                        return a.hashCode() < b.hashCode() ? -1 : 1;
+                    }
                 }
                 checkArgument(a instanceof Comparable, "item is not Comparable: %s", a.getClass().getName());
                 return ((Comparable<Object>) a).compareTo(b);
