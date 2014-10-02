@@ -31,4 +31,11 @@ public class HyperLogLogOperators
     {
         return slice;
     }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.HYPER_LOG_LOG)
+    public static Slice castFromVarbinary(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return slice;
+    }
 }
