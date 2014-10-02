@@ -43,6 +43,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
@@ -456,7 +457,7 @@ public class Validator
                 if (a.getClass() != b.getClass()) {
                     throw new TypesDoNotMatchException(format("item types do not match: %s vs %s", a.getClass().getName(), b.getClass().getName()));
                 }
-                if (a instanceof Collection && b instanceof Collection) {
+                if ((a instanceof Collection && b instanceof Collection) || (a instanceof Map && b instanceof Map)) {
                     if (a.equals(b)) {
                         return 0;
                     }
