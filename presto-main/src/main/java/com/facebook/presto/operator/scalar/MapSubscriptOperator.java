@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.ParametricOperator;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.google.common.base.Throwables;
@@ -67,7 +68,7 @@ public class MapSubscriptOperator
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity)
+    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager)
     {
         Type keyType = types.get("K");
         Type valueType = types.get("V");

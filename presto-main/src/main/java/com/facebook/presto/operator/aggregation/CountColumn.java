@@ -24,6 +24,7 @@ import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
@@ -71,7 +72,7 @@ public class CountColumn
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity)
+    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager)
     {
         Type type = types.get("T");
         Signature signature = new Signature(NAME, StandardTypes.BIGINT, type.getName());

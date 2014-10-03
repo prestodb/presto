@@ -20,6 +20,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.google.common.base.Throwables;
@@ -87,7 +88,7 @@ public class ArraySubscriptOperator
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity)
+    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager)
     {
         checkArgument(types.size() == 1, "Expected one type, got %s", types);
         Type elementType = types.get("E");

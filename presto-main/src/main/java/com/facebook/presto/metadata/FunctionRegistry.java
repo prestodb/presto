@@ -307,7 +307,7 @@ public class FunctionRegistry
             Map<String, Type> boundTypeParameters = function.getSignature().bindTypeParameters(resolvedTypes, false, typeManager);
             if (boundTypeParameters != null) {
                 checkArgument(match == null, "Ambiguous call to %s with parameters %s", name, parameterTypes);
-                match = function.specialize(boundTypeParameters, resolvedTypes.size());
+                match = function.specialize(boundTypeParameters, resolvedTypes.size(), typeManager);
             }
         }
 
@@ -320,7 +320,7 @@ public class FunctionRegistry
             Map<String, Type> boundTypeParameters = function.getSignature().bindTypeParameters(resolvedTypes, true, typeManager);
             if (boundTypeParameters != null) {
                 // TODO: This should also check for ambiguities
-                return function.specialize(boundTypeParameters, resolvedTypes.size());
+                return function.specialize(boundTypeParameters, resolvedTypes.size(), typeManager);
             }
         }
 
@@ -376,7 +376,7 @@ public class FunctionRegistry
             List<Type> argumentTypes = resolveTypes(signature.getArgumentTypes(), typeManager);
             Map<String, Type> boundTypeParameters = operator.getSignature().bindTypeParameters(returnType, argumentTypes, false, typeManager);
             if (boundTypeParameters != null) {
-                return operator.specialize(boundTypeParameters, signature.getArgumentTypes().size());
+                return operator.specialize(boundTypeParameters, signature.getArgumentTypes().size(), typeManager);
             }
         }
         return null;
