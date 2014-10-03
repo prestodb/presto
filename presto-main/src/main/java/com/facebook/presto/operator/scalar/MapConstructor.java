@@ -100,7 +100,7 @@ public final class MapConstructor
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity)
+    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager)
     {
         Type keyType = types.get("K");
         Type valueType = types.get("V");
@@ -133,7 +133,7 @@ public final class MapConstructor
         catch (NoSuchMethodException | IllegalAccessException e) {
             throw Throwables.propagate(e);
         }
-        Type mapType = typeManager.getParameterizedType(MAP.getName(), ImmutableList.of(keyType.getName(), valueType.getName()));
+        Type mapType = this.typeManager.getParameterizedType(MAP.getName(), ImmutableList.of(keyType.getName(), valueType.getName()));
         Signature signature = new Signature("map", ImmutableList.<TypeParameter>of(), mapType.getName(), actualArgumentNames.build(), false, true);
         List<Boolean> nullableParameters = ImmutableList.copyOf(Collections.nCopies(stackTypes.size(), true));
         return new FunctionInfo(signature, "Constructs a map of the given entries", true, methodHandle, true, false, nullableParameters);
