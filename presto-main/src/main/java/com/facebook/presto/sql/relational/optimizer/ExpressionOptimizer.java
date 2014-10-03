@@ -26,10 +26,10 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.UnknownType;
+import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -116,14 +116,15 @@ public class ExpressionOptimizer
                 }
             }
 
-            List<RowExpression> arguments = Lists.transform(call.getArguments(), new Function<RowExpression, RowExpression>()
-            {
-                @Override
-                public RowExpression apply(RowExpression input)
-                {
-                    return input.accept(Visitor.this, context);
-                }
-            });
+            List<RowExpression> arguments = IterableTransformer.on(call.getArguments())
+                    .transform(new Function<RowExpression, RowExpression>()
+                    {
+                        @Override
+                        public RowExpression apply(RowExpression input)
+                        {
+                            return input.accept(Visitor.this, context);
+                        }
+                    }).list();
 
             if (Iterables.all(arguments, instanceOf(ConstantExpression.class)) && function.isDeterministic()) {
                 MethodHandle method = function.getMethodHandle();
