@@ -56,6 +56,19 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testArrayToJson()
+            throws Exception
+    {
+        assertFunction("CAST(ARRAY [1, 2, 3] AS JSON)", "[1,2,3]");
+        assertFunction("CAST(ARRAY [1, NULL, 3] AS JSON)", "[1,null,3]");
+        assertFunction("CAST(ARRAY [1, 2.0, 3] AS JSON)", "[1.0,2.0,3.0]");
+        assertFunction("CAST(ARRAY [1.0, 2.5, 3.0] AS JSON)", "[1.0,2.5,3.0]");
+        assertFunction("CAST(ARRAY ['puppies', 'kittens'] AS JSON)", "[\"puppies\",\"kittens\"]");
+        assertFunction("CAST(ARRAY [TRUE, FALSE] AS JSON)", "[true,false]");
+        assertFunction("CAST(ARRAY [from_unixtime(1)] AS JSON)", "[\"" + new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()).toString() + "\"]");
+    }
+
+    @Test
     public void testConstructor()
             throws Exception
     {
