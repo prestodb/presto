@@ -46,6 +46,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.ColorType.COLOR;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
+import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.MapParametricType.MAP;
 import static com.facebook.presto.type.RegexpType.REGEXP;
@@ -93,6 +94,7 @@ public final class TypeRegistry
         addType(LIKE_PATTERN);
         addType(JSON_PATH);
         addType(COLOR);
+        addType(JSON);
         addParametricType(ARRAY);
         addParametricType(MAP);
 
