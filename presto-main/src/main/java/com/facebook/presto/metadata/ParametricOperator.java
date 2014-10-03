@@ -83,4 +83,11 @@ public abstract class ParametricOperator
     {
         return true;
     }
+
+    @Override
+    public String getDescription()
+    {
+        // Operators are internal, and don't need a description
+        return "";
+    }
 }

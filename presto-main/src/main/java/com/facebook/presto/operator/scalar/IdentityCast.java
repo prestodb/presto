@@ -38,13 +38,6 @@ public class IdentityCast
     }
 
     @Override
-    public String getDescription()
-    {
-        // Internal function, so it doesn't need one
-        return "";
-    }
-
-    @Override
     public FunctionInfo specialize(Map<String, Type> types, int arity)
     {
         checkArgument(types.size() == 1, "Expected only one type");

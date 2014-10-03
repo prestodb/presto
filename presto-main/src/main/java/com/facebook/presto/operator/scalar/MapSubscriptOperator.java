@@ -67,12 +67,6 @@ public class MapSubscriptOperator
     }
 
     @Override
-    public String getDescription()
-    {
-        return null;
-    }
-
-    @Override
     public FunctionInfo specialize(Map<String, Type> types, int arity)
     {
         Type keyType = types.get("K");

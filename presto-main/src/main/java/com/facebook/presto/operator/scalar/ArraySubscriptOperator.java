@@ -87,12 +87,6 @@ public class ArraySubscriptOperator
     }
 
     @Override
-    public String getDescription()
-    {
-        return "Array subscript";
-    }
-
-    @Override
     public FunctionInfo specialize(Map<String, Type> types, int arity)
     {
         checkArgument(types.size() == 1, "Expected one type, got %s", types);
