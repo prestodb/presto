@@ -17,13 +17,13 @@ public abstract class ParametricAggregation
         implements ParametricFunction
 {
     @Override
-    public boolean isScalar()
+    public final boolean isScalar()
     {
         return false;
     }
 
     @Override
-    public boolean isAggregate()
+    public final boolean isAggregate()
     {
         return true;
     }
@@ -41,7 +41,7 @@ public abstract class ParametricAggregation
     }
 
     @Override
-    public boolean isWindow()
+    public final boolean isWindow()
     {
         return false;
     }
@@ -53,7 +53,7 @@ public abstract class ParametricAggregation
     }
 
     @Override
-    public boolean isUnbound()
+    public final boolean isUnbound()
     {
         return true;
     }
