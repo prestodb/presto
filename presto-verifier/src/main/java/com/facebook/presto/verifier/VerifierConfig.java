@@ -55,6 +55,7 @@ public class VerifierConfig
     private int queryRepetitions = 1;
     private String skipCorrectnessRegex = "^$";
     private boolean checkCorrectness = true;
+    private boolean explainOnly = false;
     private boolean verboseResultsComparison;
     private String testCatalogOverride;
     private String testSchemaOverride;
@@ -248,6 +249,19 @@ public class VerifierConfig
     public VerifierConfig setCheckCorrectnessEnabled(boolean checkCorrectness)
     {
         this.checkCorrectness = checkCorrectness;
+        return this;
+    }
+
+    public boolean isExplainOnly()
+    {
+        return explainOnly;
+    }
+
+    @ConfigDescription("Only attempt to explain queries but do not execute them")
+    @Config("explain-only")
+    public VerifierConfig setExplainOnly(boolean explainOnly)
+    {
+        this.explainOnly = explainOnly;
         return this;
     }
 
