@@ -82,6 +82,20 @@ public class TestMapOperators
     }
 
     @Test
+    public void testCardinality()
+            throws Exception
+    {
+        assertFunction("CARDINALITY(MAP(1, 2, 3, 4))", 2);
+        assertFunction("CARDINALITY(MAP(1, 2, 3, NULL))", 2);
+        assertFunction("CARDINALITY(MAP(1, 2.0, 3, 4.0))", 2);
+        assertFunction("CARDINALITY(MAP(1.0, ARRAY[1, 2], 2.0, ARRAY[3]))", 2);
+        assertFunction("CARDINALITY(MAP('puppies', 'kittens'))", 1);
+        assertFunction("CARDINALITY(MAP(TRUE, 2))", 1);
+        assertFunction("CARDINALITY(MAP('1', from_unixtime(1)))", 1);
+        assertFunction("CARDINALITY(MAP(from_unixtime(1), 1.0))", 1);
+    }
+
+    @Test
     public void testMapToJson()
             throws Exception
     {
