@@ -30,6 +30,7 @@ public final class StandardTypes
     public static final String VARCHAR = "varchar";
     public static final String ARRAY = "array";
     public static final String MAP = "map";
+    public static final String JSON = "json";
 
     private StandardTypes() {}
 }
