@@ -33,6 +33,7 @@ import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.util.SetThreadName;
 import com.google.common.base.Objects;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.FutureCallback;
@@ -141,8 +142,18 @@ public class SqlTaskExecution
         this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
 
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
-            LocalExecutionPlan localExecutionPlan = planner.plan(taskContext.getSession(), fragment.getRoot(), fragment.getSymbols(), new TaskOutputFactory(sharedBuffer));
-            List<DriverFactory> driverFactories = localExecutionPlan.getDriverFactories();
+            List<DriverFactory> driverFactories;
+            try {
+                LocalExecutionPlan localExecutionPlan = planner.plan(taskContext.getSession(), fragment.getRoot(), fragment.getSymbols(), new TaskOutputFactory(sharedBuffer));
+                driverFactories = localExecutionPlan.getDriverFactories();
+            }
+            catch (Throwable e) {
+                // planning failed
+                taskStateMachine.failed(e);
+                Throwables.propagateIfInstanceOf(e, Error.class);
+
+                driverFactories = ImmutableList.of();
+            }
 
             // index driver factories
             DriverSplitRunnerFactory partitionedDriverFactory = null;
@@ -164,9 +175,14 @@ public class SqlTaskExecution
             this.partitionedSourceId = fragment.getPartitionedSource();
             this.partitionedDriverFactory = partitionedDriverFactory;
 
-            taskHandle = taskExecutor.addTask(taskId);
-
-            taskStateMachine.addStateChangeListener(new RemoveTaskHandleWhenDone(taskExecutor, taskHandle));
+            // don't register the task if it is already completed (most likely failed during planning above)
+            if (!taskStateMachine.getState().isDone()) {
+                taskHandle = taskExecutor.addTask(taskId);
+                taskStateMachine.addStateChangeListener(new RemoveTaskHandleWhenDone(taskExecutor, taskHandle));
+            }
+            else {
+                taskHandle = null;
+            }
 
             sharedBuffer.addStateChangeListener(new CheckTaskCompletionOnBufferFinish(SqlTaskExecution.this));
         }
