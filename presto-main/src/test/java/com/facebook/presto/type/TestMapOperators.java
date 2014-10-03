@@ -82,6 +82,20 @@ public class TestMapOperators
     }
 
     @Test
+    public void testMapToJson()
+            throws Exception
+    {
+        assertFunction("CAST(MAP(1, 2, 3, 4) AS JSON)", "{\"1\":2,\"3\":4}");
+        assertFunction("CAST(MAP(1, 2, 3, NULL) AS JSON)", "{\"1\":2,\"3\":null}");
+        assertFunction("CAST(MAP(1, 2.0, 3, 4.0) AS JSON)", "{\"1\":2.0,\"3\":4.0}");
+        assertFunction("CAST(MAP(1.0, ARRAY[1, 2], 2.0, ARRAY[3]) AS JSON)", "{\"1.0\":[1,2],\"2.0\":[3]}");
+        assertFunction("CAST(MAP('puppies', 'kittens') AS JSON)", "{\"puppies\":\"kittens\"}");
+        assertFunction("CAST(MAP(TRUE, 2) AS JSON)", "{\"true\":2}");
+        assertFunction("CAST(MAP('1', from_unixtime(1)) AS JSON)", "{\"1\":\"" + new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()).toString() + "\"}");
+        assertFunction("CAST(MAP(from_unixtime(1), 1.0) AS JSON)", "{\"" + new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()).toString() + "\":1.0}");
+    }
+
+    @Test
     public void testSubscript()
             throws Exception
     {
