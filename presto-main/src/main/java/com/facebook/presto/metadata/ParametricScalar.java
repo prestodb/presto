@@ -17,31 +17,31 @@ public abstract class ParametricScalar
         implements ParametricFunction
 {
     @Override
-    public boolean isScalar()
+    public final boolean isScalar()
     {
         return true;
     }
 
     @Override
-    public boolean isAggregate()
+    public final boolean isAggregate()
     {
         return false;
     }
 
     @Override
-    public boolean isApproximate()
+    public final boolean isApproximate()
     {
         return false;
     }
 
     @Override
-    public boolean isWindow()
+    public final boolean isWindow()
     {
         return false;
     }
 
     @Override
-    public boolean isUnbound()
+    public final boolean isUnbound()
     {
         return true;
     }

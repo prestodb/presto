@@ -43,43 +43,43 @@ public abstract class ParametricOperator
     }
 
     @Override
-    public boolean isScalar()
+    public final boolean isScalar()
     {
         return true;
     }
 
     @Override
-    public boolean isAggregate()
+    public final boolean isAggregate()
     {
         return false;
     }
 
     @Override
-    public boolean isHidden()
+    public final boolean isHidden()
     {
         return true;
     }
 
     @Override
-    public boolean isApproximate()
+    public final boolean isApproximate()
     {
         return false;
     }
 
     @Override
-    public boolean isWindow()
+    public final boolean isWindow()
     {
         return false;
     }
 
     @Override
-    public boolean isDeterministic()
+    public final boolean isDeterministic()
     {
         return true;
     }
 
     @Override
-    public boolean isUnbound()
+    public final boolean isUnbound()
     {
         return true;
     }
