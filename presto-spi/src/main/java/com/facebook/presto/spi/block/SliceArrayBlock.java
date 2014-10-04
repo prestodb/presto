@@ -23,6 +23,7 @@ public class SliceArrayBlock
 {
     private final int positionCount;
     private final Slice[] values;
+    private final int sizeInBytes;
 
     public SliceArrayBlock(int positionCount, Slice[] values)
     {
@@ -32,6 +33,8 @@ public class SliceArrayBlock
             throw new IllegalArgumentException("values length is less than positionCount");
         }
         this.values = values;
+
+        sizeInBytes = getSliceArraySizeInBytes(values);
     }
 
     Slice[] getValues()
@@ -78,12 +81,7 @@ public class SliceArrayBlock
     @Override
     public int getSizeInBytes()
     {
-        // todo how to include the size of the distinct slice instances
-        long size = SizeOf.sizeOf(values);
-        if (size > Integer.MAX_VALUE) {
-            return Integer.MAX_VALUE;
-        }
-        return (int) size;
+        return sizeInBytes;
     }
 
     @Override
@@ -105,5 +103,19 @@ public class SliceArrayBlock
         sb.append("positionCount=").append(getPositionCount());
         sb.append('}');
         return sb.toString();
+    }
+
+    static int getSliceArraySizeInBytes(Slice[] values)
+    {
+        long sizeInBytes = SizeOf.sizeOf(values);
+        for (Slice value : values) {
+            if (value != null) {
+                sizeInBytes += value.length();
+            }
+        }
+        if (sizeInBytes > Integer.MAX_VALUE) {
+            sizeInBytes = Integer.MAX_VALUE;
+        }
+        return (int) sizeInBytes;
     }
 }
