@@ -32,6 +32,11 @@ VARBINARY
 
     Variable length binary data.
 
+JSON
+----
+
+    Variable length json data.
+
 DATE
 ----
 
@@ -91,6 +96,8 @@ ARRAY
 -----
 
     An array of the given component type.
+
+    Example: ``ARRAY[1, 2, 3]``
 
 .. _map_type:
 
