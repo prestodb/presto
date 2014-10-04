@@ -16,6 +16,7 @@ package com.facebook.presto.spi;
 import com.facebook.presto.spi.block.Block;
 
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static java.util.Objects.requireNonNull;
 
@@ -23,7 +24,7 @@ public class Page
 {
     private final Block[] blocks;
     private final int positionCount;
-    private final long sizeInBytes;
+    private final AtomicLong sizeInBytes = new AtomicLong(-1);
 
     public Page(Block... blocks)
     {
@@ -35,12 +36,6 @@ public class Page
         requireNonNull(blocks, "blocks is null");
         this.blocks = Arrays.copyOf(blocks, blocks.length);
         this.positionCount = positionCount;
-
-        long sizeInBytes = 0;
-        for (Block block : blocks) {
-            sizeInBytes += block.getSizeInBytes();
-        }
-        this.sizeInBytes = sizeInBytes;
     }
 
     public int getChannelCount()
@@ -55,6 +50,14 @@ public class Page
 
     public long getSizeInBytes()
     {
+        long sizeInBytes = this.sizeInBytes.get();
+        if (sizeInBytes < 0) {
+            sizeInBytes = 0;
+            for (Block block : blocks) {
+                sizeInBytes += block.getSizeInBytes();
+            }
+            this.sizeInBytes.set(sizeInBytes);
+        }
         return sizeInBytes;
     }
 
