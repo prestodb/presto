@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.spi.block;
 
-import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static com.facebook.presto.spi.block.SliceArrayBlock.getSliceArraySizeInBytes;
 
 public class LazySliceArrayBlock
         extends AbstractVariableWidthBlock
@@ -25,6 +27,7 @@ public class LazySliceArrayBlock
     private final int positionCount;
     private final LazyBlockLoader<LazySliceArrayBlock> loader;
     private Slice[] values;
+    private final AtomicInteger sizeInBytes = new AtomicInteger(-1);
 
     public LazySliceArrayBlock(int positionCount, LazyBlockLoader<LazySliceArrayBlock> loader)
     {
@@ -88,12 +91,13 @@ public class LazySliceArrayBlock
     @Override
     public int getSizeInBytes()
     {
-        // todo how to include the size of the distinct slice instances
-        long size = SizeOf.sizeOf(values);
-        if (size > Integer.MAX_VALUE) {
-            return Integer.MAX_VALUE;
+        int sizeInBytes = this.sizeInBytes.get();
+        if (sizeInBytes < 0) {
+            assureLoaded();
+            sizeInBytes = getSliceArraySizeInBytes(values);
+            this.sizeInBytes.set(sizeInBytes);
         }
-        return (int) size;
+        return sizeInBytes;
     }
 
     @Override
