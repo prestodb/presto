@@ -20,3 +20,4 @@ Functions and Operators
     functions/window
     functions/color
     functions/array
+    functions/map
