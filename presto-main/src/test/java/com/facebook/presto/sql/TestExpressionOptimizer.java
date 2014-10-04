@@ -31,7 +31,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 public class TestExpressionOptimizer
 {
     @Test(timeOut = 10_000)
-    public void testPossibleQuadraticOptimizationTime()
+    public void testPossibleExponentialOptimizationTime()
     {
         TypeRegistry typeManager = new TypeRegistry();
         ExpressionOptimizer optimizer = new ExpressionOptimizer(new FunctionRegistry(typeManager, false), typeManager, TEST_SESSION);
