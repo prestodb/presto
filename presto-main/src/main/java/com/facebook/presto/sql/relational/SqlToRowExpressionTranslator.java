@@ -54,6 +54,7 @@ import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.UnknownType;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slices;
@@ -253,9 +254,14 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitFunctionCall(FunctionCall node, Void context)
         {
-            List<RowExpression> arguments = Lists.transform(node.getArguments(), processFunction(context));
+            List<RowExpression> arguments = FluentIterable.from(node.getArguments())
+                    .transform(processFunction(context))
+                    .toList();
 
-            List<String> argumentTypes = Lists.transform(Lists.transform(arguments, typeGetter()), nameGetter());
+            List<String> argumentTypes = FluentIterable.from(arguments)
+                    .transform(typeGetter())
+                    .transform(nameGetter())
+                    .toList();
             Signature signature = new Signature(node.getName().getSuffix(), types.get(node).getName(), argumentTypes);
 
             return call(signature, types.get(node), arguments);
@@ -310,9 +316,11 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitCoalesceExpression(CoalesceExpression node, Void context)
         {
-            List<RowExpression> arguments = Lists.transform(node.getOperands(), processFunction(context));
+            List<RowExpression> arguments = FluentIterable.from(node.getOperands())
+                    .transform(processFunction(context))
+                    .toList();
 
-            List<Type> argumentTypes = Lists.transform(arguments, typeGetter());
+            List<Type> argumentTypes = FluentIterable.from(arguments).transform(typeGetter()).toList();
             return call(coalesceSignature(types.get(node), argumentTypes), types.get(node), arguments);
         }
 
@@ -496,8 +504,12 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitArrayConstructor(ArrayConstructor node, Void context)
         {
-            List<RowExpression> arguments = Lists.transform(node.getValues(), processFunction(context));
-            List<Type> argumentTypes = Lists.transform(arguments, typeGetter());
+            List<RowExpression> arguments = FluentIterable.from(node.getValues())
+                    .transform(processFunction(context))
+                    .toList();
+            List<Type> argumentTypes = FluentIterable.from(arguments)
+                    .transform(typeGetter())
+                    .toList();
             return call(arrayConstructorSignature(types.get(node), argumentTypes), types.get(node), arguments);
         }
     }
