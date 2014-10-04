@@ -186,7 +186,7 @@ public final class SerDeUtils
         for (Map.Entry<?, ?> entry : map.entrySet()) {
             // Hive skips map entries with null keys
             if (entry.getKey() != null) {
-                generator.writeFieldName(getPrimitiveAsString(sessionTimeZone, entry.getKey(), keyInspector));
+                generator.writeFieldName(getPrimitiveAsString(sessionTimeZone, entry.getKey(), keyInspector, context == null ? JsonContext.JSON_STACK : context));
                 serializeObject(sessionTimeZone, generator, entry.getValue(), valueInspector, context == null ? JsonContext.JSON_STACK : context);
             }
         }
@@ -262,7 +262,7 @@ public final class SerDeUtils
         generator.writeEndObject();
     }
 
-    private static String getPrimitiveAsString(DateTimeZone sessionTimeZone, Object object, PrimitiveObjectInspector inspector)
+    private static String getPrimitiveAsString(DateTimeZone sessionTimeZone, Object object, PrimitiveObjectInspector inspector, JsonContext context)
     {
         switch (inspector.getPrimitiveCategory()) {
             case BOOLEAN:
@@ -275,9 +275,19 @@ public final class SerDeUtils
             case STRING:
                 return String.valueOf(inspector.getPrimitiveJavaObject(object));
             case DATE:
-                return String.valueOf(formatDate(object, (DateObjectInspector) inspector));
+                if (context == JsonContext.JSON_STACK) {
+                    return String.valueOf(formatDateAsLong(object, (DateObjectInspector) inspector));
+                }
+                else {
+                    return formatDate(object, (DateObjectInspector) inspector);
+                }
             case TIMESTAMP:
-                return String.valueOf(formatTimestamp(sessionTimeZone, object, (TimestampObjectInspector) inspector));
+                if (context == JsonContext.JSON_STACK) {
+                    return String.valueOf(formatTimestampAsLong(object, (TimestampObjectInspector) inspector));
+                }
+                else {
+                    return formatTimestamp(sessionTimeZone, object, (TimestampObjectInspector) inspector);
+                }
             case BINARY:
                 // Using same Base64 encoder which Jackson uses in JsonGenerator.writeBinary().
                 BytesWritable writable = ((BinaryObjectInspector) inspector).getPrimitiveWritableObject(object);
