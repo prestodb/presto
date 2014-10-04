@@ -132,6 +132,15 @@ public final class TypeJsonUtils
         else if (type.getJavaType() == Slice.class) {
             type.writeSlice(blockBuilder, Slices.utf8Slice(jsonKey));
         }
-        return type.getObjectValue(session, blockBuilder.build(), 0);
+
+        Object value = type.getObjectValue(session, blockBuilder.build(), 0);
+        if (type.equals(DateType.DATE)) {
+            return new Date(((SqlDate) value).getMillisAtMidnight());
+        }
+        if (type.equals(TimestampType.TIMESTAMP)) {
+            return new Timestamp(((SqlTimestamp) value).getMillisUtc());
+        }
+
+        return value;
     }
 }
