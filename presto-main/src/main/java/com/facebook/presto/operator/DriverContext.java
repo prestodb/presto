@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -66,6 +67,9 @@ public class DriverContext
     private final AtomicLong processWallNanos = new AtomicLong();
     private final AtomicLong processCpuNanos = new AtomicLong();
     private final AtomicLong processUserNanos = new AtomicLong();
+
+    private final AtomicReference<BlockedMonitor> blockedMonitor = new AtomicReference<>();
+    private final AtomicLong blockedWallNanos = new AtomicLong();
 
     private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> executionEndTime = new AtomicReference<>();
@@ -133,6 +137,20 @@ public class DriverContext
         processWallNanos.getAndAdd(nanosBetween(intervalWallStart.get(), System.nanoTime()));
         processCpuNanos.getAndAdd(nanosBetween(intervalCpuStart.get(), currentThreadCpuTime()));
         processUserNanos.getAndAdd(nanosBetween(intervalUserStart.get(), currentThreadUserTime()));
+    }
+
+    public void recordBlocked(ListenableFuture<?> blocked)
+    {
+        checkNotNull(blocked, "blocked is null");
+
+        BlockedMonitor monitor = new BlockedMonitor();
+
+        BlockedMonitor oldMonitor = blockedMonitor.getAndSet(monitor);
+        if (oldMonitor != null) {
+            oldMonitor.run();
+        }
+
+        blocked.addListener(monitor, executor);
     }
 
     public void finished()
@@ -242,13 +260,14 @@ public class DriverContext
         long totalScheduledTime = processWallNanos.get();
         long totalCpuTime = processCpuNanos.get();
         long totalUserTime = processUserNanos.get();
-        long totalBlockedTime = 0;
 
-        List<OperatorStats> operators = ImmutableList.copyOf(transform(operatorContexts, operatorStatsGetter()));
-        for (OperatorStats operator : operators) {
-            totalBlockedTime += operator.getBlockedWall().roundTo(NANOSECONDS);
+        long totalBlockedTime = blockedWallNanos.get();
+        BlockedMonitor blockedMonitor = this.blockedMonitor.get();
+        if (blockedMonitor != null) {
+            totalBlockedTime += blockedMonitor.getBlockedTime();
         }
 
+        List<OperatorStats> operators = ImmutableList.copyOf(transform(operatorContexts, operatorStatsGetter()));
         OperatorStats inputOperator = getFirst(operators, null);
         DataSize rawInputDataSize;
         long rawInputPositions;
@@ -348,5 +367,30 @@ public class DriverContext
     public Executor getExecutor()
     {
         return executor;
+    }
+
+    private class BlockedMonitor
+            implements Runnable
+    {
+        private final long start = System.nanoTime();
+        private boolean finished;
+
+        @Override
+        public void run()
+        {
+            synchronized (this) {
+                if (finished) {
+                    return;
+                }
+                finished = true;
+                blockedMonitor.compareAndSet(this, null);
+                blockedWallNanos.getAndAdd(getBlockedTime());
+            }
+        }
+
+        public long getBlockedTime()
+        {
+            return nanosBetween(start, System.nanoTime());
+        }
     }
 }
