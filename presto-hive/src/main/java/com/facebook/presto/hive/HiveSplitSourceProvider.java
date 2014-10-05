@@ -74,12 +74,15 @@ import static com.facebook.presto.hive.HiveType.getSupportedHiveType;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.HiveUtil.isSplittable;
 import static com.facebook.presto.hive.UnpartitionedPartition.isUnpartitioned;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 class HiveSplitSourceProvider
 {
+    public static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
+
     private static final ConnectorSplit FINISHED_MARKER = new ConnectorSplit()
     {
         @Override
@@ -118,6 +121,7 @@ class HiveSplitSourceProvider
     private long remainingInitialSplits;
     private final ConnectorSession session;
     private final boolean recursiveDirWalkerEnabled;
+    private final boolean forceLocalScheduling;
 
     HiveSplitSourceProvider(String connectorId,
             Table table,
@@ -134,6 +138,7 @@ class HiveSplitSourceProvider
             ConnectorSession session,
             DataSize maxInitialSplitSize,
             int maxInitialSplits,
+            boolean forceLocalScheduling,
             boolean recursiveDirWalkerEnabled)
     {
         this.connectorId = connectorId;
@@ -153,6 +158,7 @@ class HiveSplitSourceProvider
         this.maxInitialSplitSize = maxInitialSplitSize;
         this.remainingInitialSplits = maxInitialSplits;
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
+        this.forceLocalScheduling = forceLocalScheduling;
     }
 
     public ConnectorSplitSource get()
@@ -366,6 +372,9 @@ class HiveSplitSourceProvider
             throws IOException
     {
         ImmutableList.Builder<HiveSplit> builder = ImmutableList.builder();
+
+        boolean forceLocalScheduling = getForceLocalScheduling(session);
+
         if (splittable) {
             for (BlockLocation blockLocation : blockLocations) {
                 // get the addresses for the block
@@ -397,6 +406,7 @@ class HiveSplitSourceProvider
                             schema,
                             partitionKeys,
                             addresses,
+                            forceLocalScheduling,
                             session,
                             tupleDomain));
 
@@ -423,10 +433,26 @@ class HiveSplitSourceProvider
                     schema,
                     partitionKeys,
                     addresses,
+                    forceLocalScheduling,
                     session,
                     tupleDomain));
         }
         return builder.build();
+    }
+
+    private boolean getForceLocalScheduling(ConnectorSession session)
+    {
+        String forceLocalScheduling = session.getProperties().get(FORCE_LOCAL_SCHEDULING);
+        if (forceLocalScheduling == null) {
+            return this.forceLocalScheduling;
+        }
+
+        try {
+            return Boolean.valueOf(forceLocalScheduling);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(NOT_SUPPORTED.toErrorCode(), "Invalid Hive session property '" + FORCE_LOCAL_SCHEDULING + "=" + forceLocalScheduling + "'");
+        }
     }
 
     private static List<HostAddress> toHostAddress(String[] hosts)

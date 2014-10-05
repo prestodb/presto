@@ -168,6 +168,7 @@ public class HiveClient
     private final int maxSplitIteratorThreads;
     private final int minPartitionBatchSize;
     private final int maxPartitionBatchSize;
+    private final boolean forceLocalScheduling;
     private final boolean allowDropTable;
     private final boolean allowRenameTable;
     private final boolean allowCorruptWritesForTesting;
@@ -208,6 +209,7 @@ public class HiveClient
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxInitialSplitSize(),
                 hiveClientConfig.getMaxInitialSplits(),
+                hiveClientConfig.isForceLocalScheduling(),
                 hiveClientConfig.getAllowDropTable(),
                 hiveClientConfig.getAllowRenameTable(),
                 hiveClientConfig.getAllowCorruptWritesForTesting(),
@@ -230,6 +232,7 @@ public class HiveClient
             int maxPartitionBatchSize,
             DataSize maxInitialSplitSize,
             int maxInitialSplits,
+            boolean forceLocalScheduling,
             boolean allowDropTable,
             boolean allowRenameTable,
             boolean allowCorruptWritesForTesting,
@@ -247,6 +250,7 @@ public class HiveClient
         this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.maxInitialSplitSize = checkNotNull(maxInitialSplitSize, "maxInitialSplitSize is null");
         this.maxInitialSplits = maxInitialSplits;
+        this.forceLocalScheduling = forceLocalScheduling;
         this.allowDropTable = allowDropTable;
         this.allowRenameTable = allowRenameTable;
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
@@ -1090,6 +1094,7 @@ public class HiveClient
                 hiveTableHandle.getSession(),
                 maxInitialSplitSize,
                 maxInitialSplits,
+                forceLocalScheduling,
                 recursiveDfsWalkerEnabled).get();
     }
 
