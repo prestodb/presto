@@ -216,6 +216,11 @@ public class PipelineContext
         memoryReservation.getAndAdd(-bytes);
     }
 
+    public boolean isVerboseStats()
+    {
+        return taskContext.isVerboseStats();
+    }
+
     public boolean isCpuTimerEnabled()
     {
         return taskContext.isCpuTimerEnabled();

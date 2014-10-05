@@ -74,6 +74,7 @@ public class OperatorContext
     private final AtomicLong memoryReservation = new AtomicLong();
 
     private final AtomicReference<Supplier<Object>> infoSupplier = new AtomicReference<>();
+    private final boolean collectTimings;
 
     public OperatorContext(int operatorId, String operatorType, DriverContext driverContext, Executor executor)
     {
@@ -82,6 +83,8 @@ public class OperatorContext
         this.operatorType = checkNotNull(operatorType, "operatorType is null");
         this.driverContext = checkNotNull(driverContext, "driverContext is null");
         this.executor = checkNotNull(executor, "executor is null");
+
+        collectTimings = driverContext.isVerboseStats() && driverContext.isCpuTimerEnabled();
     }
 
     public int getOperatorId()
@@ -292,7 +295,7 @@ public class OperatorContext
 
     private long currentThreadUserTime()
     {
-        if (!driverContext.isCpuTimerEnabled()) {
+        if (!collectTimings) {
             return 0;
         }
         return THREAD_MX_BEAN.getCurrentThreadUserTime();
@@ -300,7 +303,7 @@ public class OperatorContext
 
     private long currentThreadCpuTime()
     {
-        if (!driverContext.isCpuTimerEnabled()) {
+        if (!collectTimings) {
             return 0;
         }
         return THREAD_MX_BEAN.getCurrentThreadCpuTime();

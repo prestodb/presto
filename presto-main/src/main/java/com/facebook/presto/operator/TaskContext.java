@@ -64,6 +64,7 @@ public class TaskContext
 
     private final List<PipelineContext> pipelineContexts = new CopyOnWriteArrayList<>();
 
+    private final boolean verboseStats;
     private final boolean cpuTimerEnabled;
 
     public TaskContext(TaskId taskId, Executor executor, Session session)
@@ -93,10 +94,17 @@ public class TaskContext
                 session,
                 checkNotNull(maxMemory, "maxMemory is null"),
                 new DataSize(1, MEGABYTE),
+                true,
                 cpuTimerEnabled);
     }
 
-    public TaskContext(TaskStateMachine taskStateMachine, Executor executor, Session session, DataSize maxMemory, DataSize operatorPreAllocatedMemory, boolean cpuTimerEnabled)
+    public TaskContext(TaskStateMachine taskStateMachine,
+            Executor executor,
+            Session session,
+            DataSize maxMemory,
+            DataSize operatorPreAllocatedMemory,
+            boolean verboseStats,
+            boolean cpuTimerEnabled)
     {
         this.taskStateMachine = checkNotNull(taskStateMachine, "taskStateMachine is null");
         this.executor = checkNotNull(executor, "executor is null");
@@ -116,6 +124,7 @@ public class TaskContext
             }
         });
 
+        this.verboseStats = verboseStats;
         this.cpuTimerEnabled = cpuTimerEnabled;
     }
 
@@ -182,6 +191,11 @@ public class TaskContext
     {
         checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
         memoryReservation.getAndAdd(-bytes);
+    }
+
+    public boolean isVerboseStats()
+    {
+        return verboseStats;
     }
 
     public boolean isCpuTimerEnabled()

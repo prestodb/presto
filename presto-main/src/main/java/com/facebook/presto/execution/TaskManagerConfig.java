@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 
 public class TaskManagerConfig
 {
+    private boolean verboseStats;
     private boolean taskCpuTimerEnabled = true;
     private DataSize maxTaskMemoryUsage = new DataSize(256, Unit.MEGABYTE);
     private DataSize operatorPreAllocatedMemory = new DataSize(16, Unit.MEGABYTE);
@@ -36,6 +37,18 @@ public class TaskManagerConfig
 
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
+
+    public boolean isVerboseStats()
+    {
+        return verboseStats;
+    }
+
+    @Config("task.verbose-stats")
+    public TaskManagerConfig setVerboseStats(boolean verboseStats)
+    {
+        this.verboseStats = verboseStats;
+        return this;
+    }
 
     public boolean isTaskCpuTimerEnabled()
     {

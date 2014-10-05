@@ -292,54 +292,58 @@ public class Driver
                     return NOT_BLOCKED;
                 }
 
-                driverContext.start();
-
-                if (!newSources.isEmpty()) {
-                    processNewSources();
-                }
-
-                for (int i = 0; i < operators.size() - 1 && !driverContext.isDone(); i++) {
-                    // check if current operator is blocked
-                    Operator current = operators.get(i);
-                    ListenableFuture<?> blocked = current.isBlocked();
-                    if (!blocked.isDone()) {
-                        current.getOperatorContext().recordBlocked(blocked);
-                        return blocked;
+                driverContext.startProcessTimer();
+                try {
+                    if (!newSources.isEmpty()) {
+                        processNewSources();
                     }
 
-                    // check if next operator is blocked
-                    Operator next = operators.get(i + 1);
-                    blocked = next.isBlocked();
-                    if (!blocked.isDone()) {
-                        next.getOperatorContext().recordBlocked(blocked);
-                        return blocked;
-                    }
+                    for (int i = 0; i < operators.size() - 1 && !driverContext.isDone(); i++) {
+                        // check if current operator is blocked
+                        Operator current = operators.get(i);
+                        ListenableFuture<?> blocked = current.isBlocked();
+                        if (!blocked.isDone()) {
+                            current.getOperatorContext().recordBlocked(blocked);
+                            return blocked;
+                        }
 
-                    // if current operator is finished...
-                    if (current.isFinished()) {
-                        // let next operator know there will be no more data
-                        next.getOperatorContext().startIntervalTimer();
-                        next.finish();
-                        next.getOperatorContext().recordFinish();
-                    }
-                    else {
-                        // if next operator needs input...
-                        if (next.needsInput()) {
-                            // get an output page from current operator
-                            current.getOperatorContext().startIntervalTimer();
-                            Page page = current.getOutput();
-                            current.getOperatorContext().recordGetOutput(page);
+                        // check if next operator is blocked
+                        Operator next = operators.get(i + 1);
+                        blocked = next.isBlocked();
+                        if (!blocked.isDone()) {
+                            next.getOperatorContext().recordBlocked(blocked);
+                            return blocked;
+                        }
 
-                            // if we got an output page, add it to the next operator
-                            if (page != null) {
-                                next.getOperatorContext().startIntervalTimer();
-                                next.addInput(page);
-                                next.getOperatorContext().recordAddInput(page);
+                        // if current operator is finished...
+                        if (current.isFinished()) {
+                            // let next operator know there will be no more data
+                            next.getOperatorContext().startIntervalTimer();
+                            next.finish();
+                            next.getOperatorContext().recordFinish();
+                        }
+                        else {
+                            // if next operator needs input...
+                            if (next.needsInput()) {
+                                // get an output page from current operator
+                                current.getOperatorContext().startIntervalTimer();
+                                Page page = current.getOutput();
+                                current.getOperatorContext().recordGetOutput(page);
+
+                                // if we got an output page, add it to the next operator
+                                if (page != null) {
+                                    next.getOperatorContext().startIntervalTimer();
+                                    next.addInput(page);
+                                    next.getOperatorContext().recordAddInput(page);
+                                }
                             }
                         }
                     }
+                    return NOT_BLOCKED;
                 }
-                return NOT_BLOCKED;
+                finally {
+                    driverContext.recordProcessed();
+                }
             }
             catch (Throwable t) {
                 driverContext.failed(t);

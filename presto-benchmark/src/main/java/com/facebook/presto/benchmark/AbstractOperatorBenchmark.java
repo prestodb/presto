@@ -98,6 +98,7 @@ public abstract class AbstractOperatorBenchmark
                 session,
                 new DataSize(256, MEGABYTE),
                 new DataSize(1, MEGABYTE),
+                false,
                 false);
 
         CpuTimer cpuTimer = new CpuTimer();
