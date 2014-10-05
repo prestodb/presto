@@ -18,7 +18,6 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
@@ -130,11 +129,6 @@ public class TaskContext
         PipelineContext pipelineContext = new PipelineContext(this, executor, inputPipeline, outputPipeline);
         pipelineContexts.add(pipelineContext);
         return pipelineContext;
-    }
-
-    public List<PipelineContext> getPipelineContexts()
-    {
-        return ImmutableList.copyOf(pipelineContexts);
     }
 
     public Session getSession()
@@ -340,17 +334,5 @@ public class TaskContext
                 new DataSize(outputDataSize, BYTE).convertToMostSuccinctDataSize(),
                 outputPositions,
                 pipelineStats);
-    }
-
-    public static Function<TaskContext, TaskStats> taskStatsGetter()
-    {
-        return new Function<TaskContext, TaskStats>()
-        {
-            @Override
-            public TaskStats apply(TaskContext taskContext)
-            {
-                return taskContext.getTaskStats();
-            }
-        };
     }
 }

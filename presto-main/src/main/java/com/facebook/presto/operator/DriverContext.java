@@ -15,9 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -300,19 +298,7 @@ public class DriverContext
                 processedInputPositions,
                 outputDataSize.convertToMostSuccinctDataSize(),
                 outputPositions,
-                ImmutableList.copyOf(Iterables.transform(operatorContexts, operatorStatsGetter())));
-    }
-
-    public static Function<DriverContext, DriverStats> driverStatsGetter()
-    {
-        return new Function<DriverContext, DriverStats>()
-        {
-            @Override
-            public DriverStats apply(DriverContext driverContext)
-            {
-                return driverContext.getDriverStats();
-            }
-        };
+                ImmutableList.copyOf(transform(operatorContexts, operatorStatsGetter())));
     }
 
     public boolean isPartitioned()
