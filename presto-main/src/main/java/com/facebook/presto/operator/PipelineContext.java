@@ -118,11 +118,6 @@ public class PipelineContext
         return driverContext;
     }
 
-    public List<DriverContext> getDrivers()
-    {
-        return ImmutableList.copyOf(drivers);
-    }
-
     public Session getSession()
     {
         return taskContext.getSession();
