@@ -206,7 +206,7 @@ public class MockTaskManager
                 ScheduledExecutorService stateNotificationExecutor)
         {
             this.taskStateMachine = new TaskStateMachine(checkNotNull(taskId, "taskId is null"), checkNotNull(stateNotificationExecutor, "stateNotificationExecutor is null"));
-            this.taskContext = new TaskContext(taskStateMachine, stateNotificationExecutor, session, new DataSize(256, MEGABYTE), new DataSize(1, MEGABYTE), true);
+            this.taskContext = new TaskContext(taskStateMachine, stateNotificationExecutor, session, new DataSize(256, MEGABYTE), new DataSize(1, MEGABYTE), true, true);
 
             this.location = checkNotNull(location, "location is null");
 

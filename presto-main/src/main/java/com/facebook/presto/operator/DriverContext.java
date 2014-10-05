@@ -23,6 +23,8 @@ import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
@@ -43,6 +45,8 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 @ThreadSafe
 public class DriverContext
 {
+    private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
+
     private final PipelineContext pipelineContext;
     private final Executor executor;
 
@@ -53,6 +57,15 @@ public class DriverContext
 
     private final AtomicLong startNanos = new AtomicLong();
     private final AtomicLong endNanos = new AtomicLong();
+
+    private final AtomicLong intervalWallStart = new AtomicLong();
+    private final AtomicLong intervalCpuStart = new AtomicLong();
+    private final AtomicLong intervalUserStart = new AtomicLong();
+
+    private final AtomicLong processCalls = new AtomicLong();
+    private final AtomicLong processWallNanos = new AtomicLong();
+    private final AtomicLong processCpuNanos = new AtomicLong();
+    private final AtomicLong processUserNanos = new AtomicLong();
 
     private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> executionEndTime = new AtomicReference<>();
@@ -102,14 +115,24 @@ public class DriverContext
         return pipelineContext.getSession();
     }
 
-    public void start()
+    public void startProcessTimer()
     {
-        if (!startNanos.compareAndSet(0, System.nanoTime())) {
-            // already started
-            return;
+        if (startNanos.compareAndSet(0, System.nanoTime())) {
+            pipelineContext.start();
+            executionStartTime.set(DateTime.now());
         }
-        pipelineContext.start();
-        executionStartTime.set(DateTime.now());
+
+        intervalWallStart.set(System.nanoTime());
+        intervalCpuStart.set(currentThreadCpuTime());
+        intervalUserStart.set(currentThreadUserTime());
+    }
+
+    public void recordProcessed()
+    {
+        processCalls.incrementAndGet();
+        processWallNanos.getAndAdd(nanosBetween(intervalWallStart.get(), System.nanoTime()));
+        processCpuNanos.getAndAdd(nanosBetween(intervalCpuStart.get(), currentThreadCpuTime()));
+        processUserNanos.getAndAdd(nanosBetween(intervalUserStart.get(), currentThreadUserTime()));
     }
 
     public void finished()
@@ -158,6 +181,11 @@ public class DriverContext
     {
         pipelineContext.freeMemory(bytes);
         memoryReservation.getAndAdd(-bytes);
+    }
+
+    public boolean isVerboseStats()
+    {
+        return pipelineContext.isVerboseStats();
     }
 
     public boolean isCpuTimerEnabled()
@@ -211,25 +239,13 @@ public class DriverContext
 
     public DriverStats getDriverStats()
     {
-        long totalScheduledTime = 0;
-        long totalCpuTime = 0;
-        long totalUserTime = 0;
+        long totalScheduledTime = processWallNanos.get();
+        long totalCpuTime = processCpuNanos.get();
+        long totalUserTime = processUserNanos.get();
         long totalBlockedTime = 0;
 
         List<OperatorStats> operators = ImmutableList.copyOf(transform(operatorContexts, operatorStatsGetter()));
         for (OperatorStats operator : operators) {
-            totalScheduledTime += operator.getGetOutputWall().roundTo(NANOSECONDS);
-            totalCpuTime += operator.getGetOutputCpu().roundTo(NANOSECONDS);
-            totalUserTime += operator.getGetOutputUser().roundTo(NANOSECONDS);
-
-            totalScheduledTime += operator.getAddInputWall().roundTo(NANOSECONDS);
-            totalCpuTime += operator.getAddInputCpu().roundTo(NANOSECONDS);
-            totalUserTime += operator.getAddInputUser().roundTo(NANOSECONDS);
-
-            totalScheduledTime += operator.getFinishWall().roundTo(NANOSECONDS);
-            totalCpuTime += operator.getFinishCpu().roundTo(NANOSECONDS);
-            totalUserTime += operator.getFinishUser().roundTo(NANOSECONDS);
-
             totalBlockedTime += operator.getBlockedWall().roundTo(NANOSECONDS);
         }
 
@@ -304,6 +320,27 @@ public class DriverContext
     public boolean isPartitioned()
     {
         return partitioned;
+    }
+
+    private long currentThreadUserTime()
+    {
+        if (!isCpuTimerEnabled()) {
+            return 0;
+        }
+        return THREAD_MX_BEAN.getCurrentThreadUserTime();
+    }
+
+    private long currentThreadCpuTime()
+    {
+        if (!isCpuTimerEnabled()) {
+            return 0;
+        }
+        return THREAD_MX_BEAN.getCurrentThreadCpuTime();
+    }
+
+    private static long nanosBetween(long start, long end)
+    {
+        return Math.abs(end - start);
     }
 
     // hack for index joins
