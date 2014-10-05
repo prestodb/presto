@@ -1469,6 +1469,7 @@ public final class BenchmarkHiveFileFormats
                 partitionProperties,
                 ImmutableList.<HivePartitionKey>of(),
                 ImmutableList.<HostAddress>of(),
+                false,
                 SESSION,
                 TupleDomain.<HiveColumnHandle>all());
     }

@@ -51,6 +51,7 @@ public class TestHiveSplit
                 schema,
                 partitionKeys,
                 addresses,
+                true,
                 SESSION,
                 TupleDomain.<HiveColumnHandle>all());
 
@@ -71,5 +72,6 @@ public class TestHiveSplit
         assertEquals(actual.getSession().getLocale(), expected.getSession().getLocale());
         assertEquals(actual.getSession().getTimeZoneKey(), expected.getSession().getTimeZoneKey());
         assertEquals(actual.getSession().getStartTime(), expected.getSession().getStartTime());
+        assertEquals(actual.isForceLocalScheduling(), expected.isForceLocalScheduling());
     }
 }

@@ -47,6 +47,7 @@ public class HiveClientConfig
     private int maxPartitionBatchSize = 100;
     private int maxInitialSplits = 200;
     private DataSize maxInitialSplitSize;
+    private boolean forceLocalScheduling;
     private boolean allowDropTable;
     private boolean allowRenameTable;
 
@@ -108,6 +109,18 @@ public class HiveClientConfig
     public HiveClientConfig setMaxInitialSplitSize(DataSize maxInitialSplitSize)
     {
         this.maxInitialSplitSize = maxInitialSplitSize;
+        return this;
+    }
+
+    public boolean isForceLocalScheduling()
+    {
+        return forceLocalScheduling;
+    }
+
+    @Config("hive.force-local-scheduling")
+    public HiveClientConfig setForceLocalScheduling(boolean forceLocalScheduling)
+    {
+        this.forceLocalScheduling = forceLocalScheduling;
         return this;
     }
 

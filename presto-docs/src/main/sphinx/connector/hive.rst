@@ -81,6 +81,11 @@ Property Name                                      Description                  
                                                    absolutely necessary to access HDFS.
 
 ``hive.storage-format``                            The default file format used when creating new tables        ``RCBINARY``
+
+``hive.force-local-scheduling``                    Force splits to be scheduled on the same node as the Hadoop  ``true``
+                                                   DataNode process serving the split data.  This is useful for
+                                                   installations where Presto is collocated with every
+                                                   DataNode.
 ================================================== ============================================================ ==========
 
 Querying Hive Tables
