@@ -222,18 +222,18 @@ public abstract class AbstractTestHiveClient
                                 .build(),
                         Optional.<HiveBucket>absent()))
                 .add(new HivePartition(tablePartitionFormat,
-                        "ds=2012-12-29/file_format=rcfile-text/dummy=3",
+                        "ds=2012-12-29/file_format=rctext/dummy=3",
                         ImmutableMap.<ConnectorColumnHandle, SerializableNativeValue>builder()
                                 .put(dsColumn, new SerializableNativeValue(Slice.class, utf8Slice("2012-12-29")))
-                                .put(fileFormatColumn, new SerializableNativeValue(Slice.class, utf8Slice("rcfile-text")))
+                                .put(fileFormatColumn, new SerializableNativeValue(Slice.class, utf8Slice("rctext")))
                                 .put(dummyColumn, new SerializableNativeValue(Long.class, 3L))
                                 .build(),
                         Optional.<HiveBucket>absent()))
                 .add(new HivePartition(tablePartitionFormat,
-                        "ds=2012-12-29/file_format=rcfile-binary/dummy=4",
+                        "ds=2012-12-29/file_format=rcbinary/dummy=4",
                         ImmutableMap.<ConnectorColumnHandle, SerializableNativeValue>builder()
                                 .put(dsColumn, new SerializableNativeValue(Slice.class, utf8Slice("2012-12-29")))
-                                .put(fileFormatColumn, new SerializableNativeValue(Slice.class, utf8Slice("rcfile-binary")))
+                                .put(fileFormatColumn, new SerializableNativeValue(Slice.class, utf8Slice("rcbinary")))
                                 .put(dummyColumn, new SerializableNativeValue(Long.class, 4L))
                                 .build(),
                         Optional.<HiveBucket>absent()))
