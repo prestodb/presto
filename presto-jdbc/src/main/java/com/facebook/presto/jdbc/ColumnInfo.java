@@ -13,12 +13,18 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.facebook.presto.spi.type.TypeSignature;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 
 class ColumnInfo
 {
     private final int columnType;
-    private final String columnTypeName;
+    private final List<Integer> columnParameterTypes;
+    private final TypeSignature columnTypeSignature;
     private final int nullable;
     private final boolean currency;
     private final boolean signed;
@@ -32,11 +38,12 @@ class ColumnInfo
     private final String catalogName;
 
     public ColumnInfo(
-            int columnType, String columnTypeName, int nullable, boolean currency, boolean signed, int precision, int scale,
+            int columnType, List<Integer> columnParameterTypes, TypeSignature columnTypeSignature, int nullable, boolean currency, boolean signed, int precision, int scale,
             int columnDisplaySize, String columnLabel, String columnName, String tableName, String schemaName, String catalogName)
     {
         this.columnType = columnType;
-        this.columnTypeName = checkNotNull(columnTypeName, "columnTypeName is null");
+        this.columnParameterTypes = ImmutableList.copyOf(checkNotNull(columnParameterTypes, "columnParameterTypes is null"));
+        this.columnTypeSignature = checkNotNull(columnTypeSignature, "columnTypeName is null");
         this.nullable = nullable;
         this.currency = currency;
         this.signed = signed;
@@ -55,9 +62,19 @@ class ColumnInfo
         return columnType;
     }
 
+    public List<Integer> getColumnParameterTypes()
+    {
+        return columnParameterTypes;
+    }
+
     public String getColumnTypeName()
     {
-        return columnTypeName;
+        return columnTypeSignature.toString();
+    }
+
+    public TypeSignature getColumnTypeSignature()
+    {
+        return columnTypeSignature;
     }
 
     public int getNullable()
@@ -118,7 +135,8 @@ class ColumnInfo
     static class Builder
     {
         private int columnType;
-        private String columnTypeName;
+        private List<Integer> columnParameterTypes;
+        private TypeSignature columnTypeSignature;
         private int nullable;
         private boolean currency;
         private boolean signed;
@@ -137,9 +155,14 @@ class ColumnInfo
             return this;
         }
 
-        public Builder setColumnTypeName(String columnTypeName)
+        public void setColumnParameterTypes(List<Integer> columnParameterTypes)
         {
-            this.columnTypeName = columnTypeName;
+            this.columnParameterTypes = ImmutableList.copyOf(checkNotNull(columnParameterTypes, "columnParameterTypes is null"));
+        }
+
+        public Builder setColumnTypeSignature(TypeSignature columnTypeSignature)
+        {
+            this.columnTypeSignature = columnTypeSignature;
             return this;
         }
 
@@ -212,7 +235,7 @@ class ColumnInfo
         public ColumnInfo build()
         {
             return new ColumnInfo(
-                    columnType, columnTypeName, nullable, currency, signed, precision, scale,
+                    columnType, columnParameterTypes, columnTypeSignature, nullable, currency, signed, precision, scale,
                     columnDisplaySize, columnLabel, columnName, tableName, schemaName, catalogName);
         }
     }
