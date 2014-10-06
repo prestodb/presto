@@ -94,27 +94,24 @@ public class TestJdbcResultSet
     public void testObjectTypes()
             throws Exception
     {
-        // TODO: enable these after the server is fixed
-//        String sql = "SELECT 123, 0.1, true, 'hello', 1.0 / 0.0, 0.0 / 0.0";
-        String sql = "SELECT 123, 0.1, true, 'hello'";
+        String sql = "SELECT 123, 0.1, true, 'hello', 1.0 / 0.0, 0.0 / 0.0";
         try (ResultSet rs = statement.executeQuery(sql)) {
             ResultSetMetaData metadata = rs.getMetaData();
-//            assertEquals(metadata.getColumnCount(), 6);
-            assertEquals(metadata.getColumnCount(), 4);
+            assertEquals(metadata.getColumnCount(), 6);
             assertEquals(metadata.getColumnType(1), Types.BIGINT);
             assertEquals(metadata.getColumnType(2), Types.DOUBLE);
             assertEquals(metadata.getColumnType(3), Types.BOOLEAN);
             assertEquals(metadata.getColumnType(4), Types.LONGNVARCHAR);
-//            assertEquals(metadata.getColumnType(5), Types.DOUBLE);
-//            assertEquals(metadata.getColumnType(6), Types.DOUBLE);
+            assertEquals(metadata.getColumnType(5), Types.DOUBLE);
+            assertEquals(metadata.getColumnType(6), Types.DOUBLE);
 
             assertTrue(rs.next());
             assertEquals(rs.getObject(1), 123L);
             assertEquals(rs.getObject(2), 0.1d);
             assertEquals(rs.getObject(3), true);
             assertEquals(rs.getObject(4), "hello");
-//            assertEquals(rs.getObject(5), Double.POSITIVE_INFINITY);
-//            assertEquals(rs.getObject(6), Double.NaN);
+            assertEquals(rs.getObject(5), Double.POSITIVE_INFINITY);
+            assertEquals(rs.getObject(6), Double.NaN);
         }
     }
 
