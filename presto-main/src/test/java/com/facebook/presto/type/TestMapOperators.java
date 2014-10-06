@@ -40,6 +40,7 @@ public class TestMapOperators
         functionAssertions = new FunctionAssertions();
         functionAssertions.getMetadata().getFunctionRegistry().addFunctions(ImmutableList.of(new MapConstructor(1, new TypeRegistry())));
         functionAssertions.getMetadata().getFunctionRegistry().addFunctions(ImmutableList.of(new MapConstructor(2, new TypeRegistry())));
+        functionAssertions.getMetadata().getFunctionRegistry().addFunctions(ImmutableList.of(new MapConstructor(4, new TypeRegistry())));
     }
 
     private void assertFunction(String projection, Object expected)
@@ -99,7 +100,7 @@ public class TestMapOperators
     public void testMapToJson()
             throws Exception
     {
-        assertFunction("CAST(MAP(1, 2, 3, 4) AS JSON)", "{\"1\":2,\"3\":4}");
+        assertFunction("CAST(MAP(1, 2, 3, 4, 5, 6, 7, 8) AS JSON)", "{\"1\":2,\"3\":4,\"5\":6,\"7\":8}");
         assertFunction("CAST(MAP(1, 2, 3, NULL) AS JSON)", "{\"1\":2,\"3\":null}");
         assertFunction("CAST(MAP(1, 2.0, 3, 4.0) AS JSON)", "{\"1\":2.0,\"3\":4.0}");
         assertFunction("CAST(MAP(1.0, ARRAY[1, 2], 2.0, ARRAY[3]) AS JSON)", "{\"1.0\":[1,2],\"2.0\":[3]}");
