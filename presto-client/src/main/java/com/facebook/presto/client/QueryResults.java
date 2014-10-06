@@ -208,6 +208,7 @@ public class QueryResults
             case "boolean":
                 return Boolean.class.cast(value);
             case "varchar":
+            case "json":
             case "time":
             case "time with time zone":
             case "timestamp":
