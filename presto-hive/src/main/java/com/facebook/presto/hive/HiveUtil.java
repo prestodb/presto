@@ -369,4 +369,9 @@ public final class HiveUtil
     {
         return hiveType.getCategory() == Category.LIST || hiveType.getCategory() == Category.MAP;
     }
+
+    public static boolean isStructuralType(HiveType hiveType)
+    {
+        return isArrayOrMap(hiveType) || hiveType.getCategory() == Category.STRUCT;
+    }
 }

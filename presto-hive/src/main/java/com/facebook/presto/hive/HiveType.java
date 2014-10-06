@@ -36,6 +36,7 @@ import java.util.Set;
 
 import static com.facebook.presto.hive.HiveUtil.isArrayType;
 import static com.facebook.presto.hive.HiveUtil.isMapType;
+import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
@@ -111,7 +112,7 @@ public final class HiveType
     public static HiveType getHiveType(String hiveTypeName)
     {
         HiveType hiveType = new HiveType(hiveTypeName);
-        if (!(hiveType.getCategory() == Category.LIST || hiveType.getCategory() == Category.MAP || hiveType.getCategory() == Category.STRUCT || SUPPORTED_HIVE_TYPES.contains(hiveType))) {
+        if (!isStructuralType(hiveType) && !SUPPORTED_HIVE_TYPES.contains(hiveType)) {
             return null;
         }
         return hiveType;
