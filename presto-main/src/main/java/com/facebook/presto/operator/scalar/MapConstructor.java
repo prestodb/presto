@@ -39,7 +39,7 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -169,10 +169,10 @@ public final class MapConstructor
                 .getBody();
 
         Variable valuesVariable = context.declareVariable(Map.class, "values");
-        body.comment("Map<Object, Object> values = new HashMap();")
-                .newObject(HashMap.class)
+        body.comment("Map<Object, Object> values = new LinkedHashMap();")
+                .newObject(LinkedHashMap.class)
                 .dup()
-                .invokeConstructor(HashMap.class)
+                .invokeConstructor(LinkedHashMap.class)
                 .putVariable(valuesVariable);
 
         for (int i = 0; i < stackTypes.size(); i += 2) {

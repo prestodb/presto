@@ -30,7 +30,7 @@ import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -56,7 +56,7 @@ public class MapType
     public static Slice toStackRepresentation(Map<?, ?> value)
     {
         try {
-            Map<String, Object> map = new HashMap<>();
+            Map<String, Object> map = new LinkedHashMap<>();
             for (Map.Entry<?, ?> entry : value.entrySet()) {
                 if (entry.getKey() instanceof Slice) {
                     map.put(((Slice) entry.getKey()).toStringUtf8(), entry.getValue());
@@ -75,7 +75,7 @@ public class MapType
     public static Slice rawValueSlicesToStackRepresentation(Map<?, ?> value)
     {
         try {
-            Map<String, Object> map = new HashMap<>();
+            Map<String, Object> map = new LinkedHashMap<>();
             for (Map.Entry<?, ?> entry : value.entrySet()) {
                 // Jackson only supports strings as keys
                 if (entry.getKey() instanceof Slice) {
