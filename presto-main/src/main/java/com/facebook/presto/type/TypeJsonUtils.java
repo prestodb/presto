@@ -27,7 +27,7 @@ import io.airlift.slice.Slices;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -73,7 +73,7 @@ public final class TypeJsonUtils
         }
 
         if (type instanceof MapType) {
-            Map<Object, Object> map = new HashMap<>();
+            Map<Object, Object> map = new LinkedHashMap<>();
             checkState(parser.getCurrentToken() == JsonToken.START_OBJECT, "Expected a json object");
             while (parser.nextValue() != JsonToken.END_OBJECT) {
                 Object key = mapKeyToObject(session, parser.getCurrentName(), ((MapType) type).getKeyType());
