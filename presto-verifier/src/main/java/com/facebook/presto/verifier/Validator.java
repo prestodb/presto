@@ -33,6 +33,7 @@ import io.airlift.units.Duration;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.sql.Array;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -40,7 +41,7 @@ import java.sql.SQLClientInfoException;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -357,6 +358,9 @@ public class Validator
                         object = ((BigDecimal) object).doubleValue();
                     }
                 }
+                if (object instanceof Array) {
+                    object = ((Array) object).getArray();
+                }
                 row.add(object);
 
             }
@@ -463,13 +467,17 @@ public class Validator
                 if (a.getClass() != b.getClass()) {
                     throw new TypesDoNotMatchException(format("item types do not match: %s vs %s", a.getClass().getName(), b.getClass().getName()));
                 }
-                if ((a instanceof Collection && b instanceof Collection) || (a instanceof Map && b instanceof Map)) {
+                if ((a.getClass().isArray() && b.getClass().isArray())) {
+                    if (Arrays.deepEquals((Object[]) a, (Object[]) b)) {
+                        return 0;
+                    }
+                    return Arrays.hashCode((Object[]) a) < Arrays.hashCode((Object[]) b) ? -1 : 1;
+                }
+                if ((a instanceof Map && b instanceof Map)) {
                     if (a.equals(b)) {
                         return 0;
                     }
-                    else {
-                        return a.hashCode() < b.hashCode() ? -1 : 1;
-                    }
+                    return a.hashCode() < b.hashCode() ? -1 : 1;
                 }
                 checkArgument(a instanceof Comparable, "item is not Comparable: %s", a.getClass().getName());
                 return ((Comparable<Object>) a).compareTo(b);

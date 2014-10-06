@@ -17,10 +17,12 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Function;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Period;
 import org.joda.time.format.DateTimeFormat;
@@ -59,6 +61,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Throwables.propagate;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
@@ -546,6 +549,8 @@ public class PrestoResultSet
                 return getTime(columnIndex);
             case Types.TIMESTAMP:
                 return getTimestamp(columnIndex);
+            case Types.ARRAY:
+                return getArray(columnIndex);
             case Types.JAVA_OBJECT:
                 if (columnInfo.getColumnTypeName().equalsIgnoreCase("interval year to month")) {
                     return getIntervalYearMonth(columnIndex);
@@ -1132,7 +1137,14 @@ public class PrestoResultSet
     public Array getArray(int columnIndex)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getArray");
+        Object value = column(columnIndex);
+        if (value == null) {
+            return null;
+        }
+
+        String elementTypeName = Iterables.getOnlyElement(columnInfoList.get(columnIndex - 1).getColumnTypeSignature().getParameters()).toString();
+        int elementType = Iterables.getOnlyElement(columnInfoList.get(columnIndex - 1).getColumnParameterTypes());
+        return new PrestoArray(elementTypeName, elementType, (List) value);
     }
 
     @Override
@@ -1167,7 +1179,7 @@ public class PrestoResultSet
     public Array getArray(String columnLabel)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getArray");
+        return getArray(columnIndex(columnLabel));
     }
 
     @Override
@@ -1787,95 +1799,117 @@ public class PrestoResultSet
                     .setTableName("") // TODO
                     .setColumnLabel(column.getName())
                     .setColumnName(column.getName()) // TODO
-                    .setColumnTypeName(column.getType().toUpperCase(ENGLISH))
+                    .setColumnTypeSignature(parseTypeSignature(column.getType().toUpperCase(ENGLISH)))
                     .setNullable(ResultSetMetaData.columnNullableUnknown)
                     .setCurrency(false);
-            setTypeInfo(builder, column.getType());
+            setTypeInfo(builder, parseTypeSignature(column.getType()));
             list.add(builder.build());
         }
         return list.build();
     }
 
-    private static void setTypeInfo(ColumnInfo.Builder builder, String type)
+    private static void setTypeInfo(ColumnInfo.Builder builder, TypeSignature type)
     {
-        switch (type) {
+        builder.setColumnType(getType(type));
+        ImmutableList.Builder<Integer> parameterTypes = ImmutableList.builder();
+        for (TypeSignature parameter : type.getParameters()) {
+            parameterTypes.add(getType(parameter));
+        }
+        builder.setColumnParameterTypes(parameterTypes.build());
+        switch (type.toString()) {
             case "boolean":
-                builder.setColumnType(Types.BOOLEAN);
                 builder.setColumnDisplaySize(5);
                 break;
             case "bigint":
-                builder.setColumnType(Types.BIGINT);
                 builder.setSigned(true);
                 builder.setPrecision(19);
                 builder.setScale(0);
                 builder.setColumnDisplaySize(20);
                 break;
             case "double":
-                builder.setColumnType(Types.DOUBLE);
                 builder.setSigned(true);
                 builder.setPrecision(17);
                 builder.setScale(0);
                 builder.setColumnDisplaySize(24);
                 break;
             case "varchar":
-                builder.setColumnType(Types.LONGNVARCHAR);
                 builder.setSigned(true);
                 builder.setPrecision(VARCHAR_MAX);
                 builder.setScale(0);
                 builder.setColumnDisplaySize(VARCHAR_MAX);
                 break;
             case "varbinary":
-                builder.setColumnType(Types.LONGVARBINARY);
                 builder.setSigned(true);
                 builder.setPrecision(VARBINARY_MAX);
                 builder.setScale(0);
                 builder.setColumnDisplaySize(VARBINARY_MAX);
                 break;
             case "time":
-                builder.setColumnType(Types.TIME);
                 builder.setSigned(true);
                 builder.setPrecision(3);
                 builder.setScale(0);
                 builder.setColumnDisplaySize(TIME_MAX);
                 break;
             case "time with time zone":
-                builder.setColumnType(Types.TIME);
                 builder.setSigned(true);
                 builder.setPrecision(3);
                 builder.setScale(0);
                 builder.setColumnDisplaySize(TIME_WITH_TIME_ZONE_MAX);
                 break;
             case "timestamp":
-                builder.setColumnType(Types.TIMESTAMP);
                 builder.setSigned(true);
                 builder.setPrecision(3);
                 builder.setScale(0);
                 builder.setColumnDisplaySize(TIMESTAMP_MAX);
                 break;
             case "timestamp with time zone":
-                builder.setColumnType(Types.TIMESTAMP);
                 builder.setSigned(true);
                 builder.setPrecision(3);
                 builder.setScale(0);
                 builder.setColumnDisplaySize(TIMESTAMP_WITH_TIME_ZONE_MAX);
                 break;
             case "date":
-                builder.setColumnType(Types.DATE);
                 builder.setSigned(true);
                 builder.setScale(0);
                 builder.setColumnDisplaySize(DATE_MAX);
                 break;
             case "interval year to month":
-                builder.setColumnType(Types.JAVA_OBJECT);
                 builder.setColumnDisplaySize(TIMESTAMP_MAX);
                 break;
             case "interval day to second":
-                builder.setColumnType(Types.JAVA_OBJECT);
                 builder.setColumnDisplaySize(TIMESTAMP_MAX);
                 break;
+        }
+    }
+
+    private static int getType(TypeSignature type)
+    {
+        if (type.getBase().equals("array")) {
+            return Types.ARRAY;
+        }
+        switch (type.toString()) {
+            case "boolean":
+                return Types.BOOLEAN;
+            case "bigint":
+                return Types.BIGINT;
+            case "double":
+                return Types.DOUBLE;
+            case "varchar":
+                return Types.LONGNVARCHAR;
+            case "varbinary":
+                return Types.LONGVARBINARY;
+            case "time":
+                return Types.TIME;
+            case "time with time zone":
+                return Types.TIME;
+            case "timestamp":
+                return Types.TIMESTAMP;
+            case "timestamp with time zone":
+                return Types.TIMESTAMP;
+            case "date":
+                return Types.DATE;
             default:
-                builder.setColumnType(Types.JAVA_OBJECT);
-                break;
+                return Types.JAVA_OBJECT;
         }
     }
 }
