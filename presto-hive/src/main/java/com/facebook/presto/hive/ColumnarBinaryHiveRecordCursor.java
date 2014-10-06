@@ -56,6 +56,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
 import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
+import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.HiveUtil.isArrayOrMap;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
@@ -561,7 +562,7 @@ class ColumnarBinaryHiveRecordCursor<K>
         }
         else {
             nulls[column] = false;
-            if (hiveTypes[column].getCategory() == Category.MAP || hiveTypes[column].getCategory() == Category.LIST || hiveTypes[column].getCategory() == Category.STRUCT) {
+            if (isStructuralType(hiveTypes[column])) {
                 // temporarily special case MAP, LIST, and STRUCT types as strings
                 // TODO: create a real parser for these complex types when we implement data types
                 LazyBinaryObject<? extends ObjectInspector> lazyObject = LazyBinaryFactory.createLazyBinaryObject(fieldInspectors[column]);

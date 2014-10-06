@@ -29,7 +29,6 @@ import org.apache.hadoop.hive.serde2.lazy.ByteArrayRef;
 import org.apache.hadoop.hive.serde2.lazy.LazyFactory;
 import org.apache.hadoop.hive.serde2.lazy.LazyObject;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
@@ -50,6 +49,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
+import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
@@ -101,7 +101,7 @@ public class RcTextBlockLoader
         if (HIVE_BINARY.equals(hiveType)) {
             return new LazyBinaryBlockLoader(batch, fieldId);
         }
-        if (hiveType.getCategory() == Category.MAP || hiveType.getCategory() == Category.LIST || hiveType.getCategory() == Category.STRUCT) {
+        if (isStructuralType(hiveType)) {
             return new LazyJsonSliceBlockLoader(batch, fieldId, fieldInspector, sessionTimeZone);
         }
         throw new UnsupportedOperationException("Unsupported column type: " + hiveType);
