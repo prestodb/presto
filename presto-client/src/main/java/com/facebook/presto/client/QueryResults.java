@@ -199,6 +199,9 @@ public class QueryResults
         }
         switch (type) {
             case "bigint":
+                if (value instanceof String) {
+                    return Long.parseLong((String) value);
+                }
                 return ((Number) value).longValue();
             case "double":
                 if (value instanceof String) {
@@ -206,6 +209,9 @@ public class QueryResults
                 }
                 return ((Number) value).doubleValue();
             case "boolean":
+                if (value instanceof String) {
+                    return Boolean.parseBoolean((String) value);
+                }
                 return Boolean.class.cast(value);
             case "varchar":
             case "json":
