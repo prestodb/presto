@@ -168,15 +168,15 @@ SELECT * FROM tmp_presto_test
 
 ALTER TABLE presto_test_partition_format SET FILEFORMAT RCFILE;
 ALTER TABLE presto_test_partition_format SET SERDE 'org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe';
-ALTER TABLE presto_test_partition_format ADD PARTITION (ds='2012-12-29', file_format='rcfile-text', dummy=3);
-INSERT INTO TABLE presto_test_partition_format PARTITION (ds='2012-12-29', file_format='rcfile-text', dummy=3)
+ALTER TABLE presto_test_partition_format ADD PARTITION (ds='2012-12-29', file_format='rctext', dummy=3);
+INSERT INTO TABLE presto_test_partition_format PARTITION (ds='2012-12-29', file_format='rctext', dummy=3)
 SELECT * FROM tmp_presto_test
 ;
 
 ALTER TABLE presto_test_partition_format SET FILEFORMAT RCFILE;
 ALTER TABLE presto_test_partition_format SET SERDE 'org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe';
-ALTER TABLE presto_test_partition_format ADD PARTITION (ds='2012-12-29', file_format='rcfile-binary', dummy=4);
-INSERT INTO TABLE presto_test_partition_format PARTITION (ds='2012-12-29', file_format='rcfile-binary', dummy=4)
+ALTER TABLE presto_test_partition_format ADD PARTITION (ds='2012-12-29', file_format='rcbinary', dummy=4);
+INSERT INTO TABLE presto_test_partition_format PARTITION (ds='2012-12-29', file_format='rcbinary', dummy=4)
 SELECT * FROM tmp_presto_test
 ;
 
