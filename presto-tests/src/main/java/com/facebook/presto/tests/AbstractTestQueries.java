@@ -3150,6 +3150,28 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testUnionAllPredicateMoveAroundWithOverlappingProjections()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT COUNT(*)\n" +
+                "FROM (\n" +
+                "  SELECT orderkey AS x, orderkey as y\n" +
+                "  FROM orders\n" +
+                "  WHERE orderkey % 3 = 0\n" +
+                "  UNION ALL\n" +
+                "  SELECT orderkey AS x, orderkey as y\n" +
+                "  FROM orders\n" +
+                "  WHERE orderkey % 2 = 0\n" +
+                ") a\n" +
+                "JOIN (\n" +
+                "  SELECT orderkey AS x, orderkey as y\n" +
+                "  FROM orders\n" +
+                ") b\n" +
+                "ON a.x = b.x");
+    }
+
+    @Test
     public void testTableSampleBernoulliBoundaryValues()
             throws Exception
     {
