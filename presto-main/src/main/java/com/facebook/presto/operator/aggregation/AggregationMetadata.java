@@ -184,7 +184,7 @@ public class AggregationMetadata
         verifyStaticAndPublic(method);
         Class<?>[] parameters = method.getParameterTypes();
         checkArgument(stateInterface == parameters[0], "First argument of aggregation input function must be %s", stateInterface.getSimpleName());
-        checkArgument(parameters.length > 1, "Aggregation input function must have at least one parameter");
+        checkArgument(parameters.length > 0, "Aggregation input function must have at least one parameter");
         checkArgument(parameterMetadatas.get(0).getParameterType() == ParameterMetadata.ParameterType.STATE, "First parameter must be state");
         for (int i = 1; i < parameters.length; i++) {
             ParameterMetadata metadata = parameterMetadatas.get(i);

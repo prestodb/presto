@@ -242,7 +242,6 @@ public class AggregationCompiler
         }
 
         ImmutableList<Type> types = builder.build();
-        checkArgument(!types.isEmpty(), "Input function has no parameters");
         return types;
     }
 
