@@ -17,7 +17,6 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Function;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -61,6 +60,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.jdbc.ColumnInfo.setTypeInfo;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Throwables.propagate;
@@ -119,15 +119,6 @@ public class PrestoResultSet
     private static final int MINUTE_FIELD = 5;
     private static final int SECOND_FIELD = 6;
     private static final int MILLIS_FIELD = 7;
-
-    private static final int VARCHAR_MAX = 1024 * 1024 * 1024;
-    private static final int VARBINARY_MAX = 1024 * 1024 * 1024;
-    private static final int TIME_ZONE_MAX = 40; // current longest time zone is 32
-    private static final int TIME_MAX = "HH:mm:ss.SSS".length();
-    private static final int TIME_WITH_TIME_ZONE_MAX = TIME_MAX + TIME_ZONE_MAX;
-    private static final int TIMESTAMP_MAX = "yyyy-MM-dd HH:mm:ss.SSS".length();
-    private static final int TIMESTAMP_WITH_TIME_ZONE_MAX = TIMESTAMP_MAX + TIME_ZONE_MAX;
-    private static final int DATE_MAX = "yyyy-MM-dd".length();
 
     private final StatementClient client;
     private final DateTimeZone sessionTimeZone;
@@ -1806,110 +1797,5 @@ public class PrestoResultSet
             list.add(builder.build());
         }
         return list.build();
-    }
-
-    private static void setTypeInfo(ColumnInfo.Builder builder, TypeSignature type)
-    {
-        builder.setColumnType(getType(type));
-        ImmutableList.Builder<Integer> parameterTypes = ImmutableList.builder();
-        for (TypeSignature parameter : type.getParameters()) {
-            parameterTypes.add(getType(parameter));
-        }
-        builder.setColumnParameterTypes(parameterTypes.build());
-        switch (type.toString()) {
-            case "boolean":
-                builder.setColumnDisplaySize(5);
-                break;
-            case "bigint":
-                builder.setSigned(true);
-                builder.setPrecision(19);
-                builder.setScale(0);
-                builder.setColumnDisplaySize(20);
-                break;
-            case "double":
-                builder.setSigned(true);
-                builder.setPrecision(17);
-                builder.setScale(0);
-                builder.setColumnDisplaySize(24);
-                break;
-            case "varchar":
-                builder.setSigned(true);
-                builder.setPrecision(VARCHAR_MAX);
-                builder.setScale(0);
-                builder.setColumnDisplaySize(VARCHAR_MAX);
-                break;
-            case "varbinary":
-                builder.setSigned(true);
-                builder.setPrecision(VARBINARY_MAX);
-                builder.setScale(0);
-                builder.setColumnDisplaySize(VARBINARY_MAX);
-                break;
-            case "time":
-                builder.setSigned(true);
-                builder.setPrecision(3);
-                builder.setScale(0);
-                builder.setColumnDisplaySize(TIME_MAX);
-                break;
-            case "time with time zone":
-                builder.setSigned(true);
-                builder.setPrecision(3);
-                builder.setScale(0);
-                builder.setColumnDisplaySize(TIME_WITH_TIME_ZONE_MAX);
-                break;
-            case "timestamp":
-                builder.setSigned(true);
-                builder.setPrecision(3);
-                builder.setScale(0);
-                builder.setColumnDisplaySize(TIMESTAMP_MAX);
-                break;
-            case "timestamp with time zone":
-                builder.setSigned(true);
-                builder.setPrecision(3);
-                builder.setScale(0);
-                builder.setColumnDisplaySize(TIMESTAMP_WITH_TIME_ZONE_MAX);
-                break;
-            case "date":
-                builder.setSigned(true);
-                builder.setScale(0);
-                builder.setColumnDisplaySize(DATE_MAX);
-                break;
-            case "interval year to month":
-                builder.setColumnDisplaySize(TIMESTAMP_MAX);
-                break;
-            case "interval day to second":
-                builder.setColumnDisplaySize(TIMESTAMP_MAX);
-                break;
-        }
-    }
-
-    private static int getType(TypeSignature type)
-    {
-        if (type.getBase().equals("array")) {
-            return Types.ARRAY;
-        }
-        switch (type.toString()) {
-            case "boolean":
-                return Types.BOOLEAN;
-            case "bigint":
-                return Types.BIGINT;
-            case "double":
-                return Types.DOUBLE;
-            case "varchar":
-                return Types.LONGNVARCHAR;
-            case "varbinary":
-                return Types.LONGVARBINARY;
-            case "time":
-                return Types.TIME;
-            case "time with time zone":
-                return Types.TIME;
-            case "timestamp":
-                return Types.TIMESTAMP;
-            case "timestamp with time zone":
-                return Types.TIMESTAMP;
-            case "date":
-                return Types.DATE;
-            default:
-                return Types.JAVA_OBJECT;
-        }
     }
 }
