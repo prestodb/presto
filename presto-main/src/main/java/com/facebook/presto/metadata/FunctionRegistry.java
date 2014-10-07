@@ -23,6 +23,7 @@ import com.facebook.presto.operator.aggregation.ApproximateSumAggregations;
 import com.facebook.presto.operator.aggregation.AverageAggregations;
 import com.facebook.presto.operator.aggregation.BooleanMaxAggregation;
 import com.facebook.presto.operator.aggregation.BooleanMinAggregation;
+import com.facebook.presto.operator.aggregation.CountAggregation;
 import com.facebook.presto.operator.aggregation.CountIfAggregation;
 import com.facebook.presto.operator.aggregation.DoubleMaxAggregation;
 import com.facebook.presto.operator.aggregation.DoubleMinAggregation;
@@ -121,7 +122,6 @@ import java.util.Set;
 import static com.facebook.presto.metadata.ParametricFunctionUtils.isAggregationPredicate;
 import static com.facebook.presto.metadata.ParametricFunctionUtils.isHiddenPredicate;
 import static com.facebook.presto.operator.aggregation.ApproximateCountAggregation.APPROXIMATE_COUNT_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.CountColumn.COUNT_COLUMN;
 import static com.facebook.presto.operator.aggregation.MaxBy.MAX_BY;
 import static com.facebook.presto.operator.scalar.ArrayCardinalityFunction.ARRAY_CARDINALITY;
@@ -212,7 +212,7 @@ public class FunctionRegistry
                 .window("lead", VARCHAR, ImmutableList.<Type>of(VARCHAR), VarcharLeadFunction.class)
                 .window("lead", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT), VarcharLeadFunction.class)
                 .window("lead", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT, VARCHAR), VarcharLeadFunction.class)
-                .aggregate(COUNT)
+                .aggregate(CountAggregation.class)
                 .aggregate(VarianceAggregation.class)
                 .aggregate(ApproximateLongPercentileAggregations.class)
                 .aggregate(ApproximateDoublePercentileAggregations.class)
