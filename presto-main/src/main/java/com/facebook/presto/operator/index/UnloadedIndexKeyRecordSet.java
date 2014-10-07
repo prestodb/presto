@@ -19,13 +19,16 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntListIterator;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 import static com.facebook.presto.operator.index.IndexSnapshot.UNLOADED_INDEX_KEY;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -37,35 +40,42 @@ public class UnloadedIndexKeyRecordSet
     private final List<Type> types;
     private final List<PageAndPositions> pageAndPositions;
 
-    public UnloadedIndexKeyRecordSet(IndexSnapshot existingSnapshot, List<Type> types, List<UpdateRequest> requests)
+    public UnloadedIndexKeyRecordSet(IndexSnapshot existingSnapshot, Set<Integer> channelsForDistinct, List<Type> types, List<UpdateRequest> requests)
     {
         checkNotNull(existingSnapshot, "existingSnapshot is null");
         this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
         checkNotNull(requests, "requests is null");
 
-        // Distinct is essentially a group by on all channels
-        int[] allChannels = new int[types.size()];
-        for (int i = 0; i < allChannels.length; i++) {
-            allChannels[i] = i;
+        int[] distinctChannels = Ints.toArray(channelsForDistinct);
+        List<Type> distinctChannelTypes = new ArrayList<>();
+        for (int distinctChannel : distinctChannels) {
+            distinctChannelTypes.add(types.get(distinctChannel));
         }
 
         ImmutableList.Builder<PageAndPositions> builder = ImmutableList.builder();
         long nextDistinctId = 0;
-        GroupByHash groupByHash = new GroupByHash(types, allChannels, 10_000);
+        GroupByHash groupByHash = new GroupByHash(distinctChannelTypes, distinctChannels, 10_000);
         for (UpdateRequest request : requests) {
             IntList positions = new IntArrayList();
             Block[] blocks = request.getBlocks();
+
+            Block[] distinctBlocks = new Block[distinctChannels.length];
+            for (int i = 0; i < distinctBlocks.length; i++) {
+                distinctBlocks[i] = blocks[distinctChannels[i]];
+            }
 
             // Move through the positions while advancing the cursors in lockstep
             int positionCount = blocks[0].getPositionCount();
             for (int position = 0; position < positionCount; position++) {
                 // We are reading ahead in the cursors, so we need to filter any nulls since they can not join
-                if (!containsNullValue(position, blocks) && groupByHash.putIfAbsent(position, blocks) == nextDistinctId) {
-                    nextDistinctId++;
-
+                if (!containsNullValue(position, blocks)) {
                     // Only include the key if it is not already in the index
                     if (existingSnapshot.getJoinPosition(position, blocks) == UNLOADED_INDEX_KEY) {
-                        positions.add(position);
+                        // Only add the position if we have not seen this tuple before (based on the distinct channels)
+                        if (groupByHash.putIfAbsent(position, distinctBlocks) == nextDistinctId) {
+                            nextDistinctId++;
+                            positions.add(position);
+                        }
                     }
                 }
             }

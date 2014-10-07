@@ -315,7 +315,8 @@ public final class PlanSanityChecker
             Set<Symbol> lookupSymbols = FluentIterable.from(node.getCriteria())
                     .transform(IndexJoinNode.EquiJoinClause.indexGetter())
                     .toSet();
-            Preconditions.checkArgument(IndexKeyTracer.trace(node.getIndexSource(), lookupSymbols).keySet().containsAll(lookupSymbols),
+            Map<Symbol, Symbol> trace = IndexKeyTracer.trace(node.getIndexSource(), lookupSymbols);
+            Preconditions.checkArgument(!trace.isEmpty() && lookupSymbols.containsAll(trace.keySet()),
                     "Index lookup symbols are not traceable to index source: %s",
                     lookupSymbols);
 
