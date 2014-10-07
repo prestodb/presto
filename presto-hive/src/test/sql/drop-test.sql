@@ -22,3 +22,11 @@ DROP TABLE IF EXISTS presto_test_bucketed_by_double_float;
 DROP TABLE IF EXISTS presto_test_partition_schema_change;
 
 DROP VIEW IF EXISTS presto_test_view;
+
+DROP TABLE IF EXISTS presto_test_types_textfile;
+DROP TABLE IF EXISTS presto_test_types_sequencefile;
+DROP TABLE IF EXISTS presto_test_types_rctext;
+DROP TABLE IF EXISTS presto_test_types_rcbinary;
+DROP TABLE IF EXISTS presto_test_types_orc;
+DROP TABLE IF EXISTS presto_test_types_parquet;
+DROP TABLE IF EXISTS presto_test_types_dwrf;
