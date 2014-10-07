@@ -15,25 +15,70 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public interface InternalAggregationFunction
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
+public final class InternalAggregationFunction
 {
-    String name();
+    private final String name;
+    private final List<Type> parameterTypes;
+    private final Type intermediateType;
+    private final Type finalType;
+    private final boolean decomposable;
+    private final boolean approximate;
+    private final GenericAccumulatorFactoryBinder factory;
 
-    List<Type> getParameterTypes();
+    public InternalAggregationFunction(String name, List<Type> parameterTypes, Type intermediateType, Type finalType, boolean decomposable, boolean approximate, GenericAccumulatorFactoryBinder factory)
+    {
+        this.name = checkNotNull(name, "name is null");
+        checkArgument(!name.isEmpty(), "name is empty");
+        this.parameterTypes = ImmutableList.copyOf(checkNotNull(parameterTypes, "parameterTypes is null"));
+        this.intermediateType = checkNotNull(intermediateType, "intermediateType is null");
+        this.finalType = checkNotNull(finalType, "finalType is null");
+        this.decomposable = decomposable;
+        this.approximate = approximate;
+        this.factory = checkNotNull(factory, "factory is null");
+    }
 
-    Type getFinalType();
+    public String name()
+    {
+        return name;
+    }
 
-    Type getIntermediateType();
+    public List<Type> getParameterTypes()
+    {
+        return parameterTypes;
+    }
+
+    public Type getFinalType()
+    {
+        return finalType;
+    }
+
+    public Type getIntermediateType()
+    {
+        return intermediateType;
+    }
 
     /**
      * Indicates that the aggregation can be decomposed, and run as partial aggregations followed by a final aggregation to combine the intermediate results
      */
-    boolean isDecomposable();
+    public boolean isDecomposable()
+    {
+        return decomposable;
+    }
 
-    boolean isApproximate();
+    public boolean isApproximate()
+    {
+        return approximate;
+    }
 
-    AccumulatorFactory bind(List<Integer> inputChannels, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence);
+    public AccumulatorFactory bind(List<Integer> inputChannels, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence)
+    {
+        return factory.bind(inputChannels, maskChannel, sampleWeightChannel, confidence);
+    }
 }

@@ -106,7 +106,7 @@ public class CountColumn
                 false);
 
         GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new GenericAggregationFunction(NAME, inputTypes, intermediateType, BIGINT, true, false, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, BIGINT, true, false, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)
