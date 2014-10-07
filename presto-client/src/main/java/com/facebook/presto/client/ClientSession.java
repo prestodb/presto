@@ -81,7 +81,7 @@ public class ClientSession
         // verify the properties are valid
         CharsetEncoder charsetEncoder = US_ASCII.newEncoder();
         for (Entry<String, String> entry : properties.entrySet()) {
-            checkArgument(entry.getKey().isEmpty(), "Session property name is empty");
+            checkArgument(!entry.getKey().isEmpty(), "Session property name is empty");
             checkArgument(entry.getKey().indexOf('=') < 0, "Session property name must not contain '=': %s", entry.getKey());
             checkArgument(charsetEncoder.canEncode(entry.getKey()), "Session property name is not US_ASCII: %s", entry.getKey());
             checkArgument(charsetEncoder.canEncode(entry.getValue()), "Session property value is not US_ASCII: %s", entry.getValue());
