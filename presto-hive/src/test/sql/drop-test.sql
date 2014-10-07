@@ -19,4 +19,6 @@ DROP TABLE IF EXISTS presto_test_bucketed_by_string_int;
 DROP TABLE IF EXISTS presto_test_bucketed_by_bigint_boolean;
 DROP TABLE IF EXISTS presto_test_bucketed_by_double_float;
 
+DROP TABLE IF EXISTS presto_test_partition_schema_change;
+
 DROP VIEW IF EXISTS presto_test_view;
