@@ -39,13 +39,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 
-public class LearnLibSvmAggregation
+public class LearnLibSvmClassifierAggregation
         implements InternalAggregationFunction
 {
     private final Type modelType;
     private final Type labelType;
 
-    public LearnLibSvmAggregation(Type modelType, Type labelType)
+    public LearnLibSvmClassifierAggregation(Type modelType, Type labelType)
     {
         this.modelType = modelType;
         this.labelType = labelType;
