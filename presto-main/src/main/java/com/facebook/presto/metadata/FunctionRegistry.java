@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.aggregation.ApproximateAverageAggregations;
+import com.facebook.presto.operator.aggregation.ApproximateCountAggregation;
 import com.facebook.presto.operator.aggregation.ApproximateCountColumnAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations;
@@ -121,7 +122,6 @@ import java.util.Set;
 
 import static com.facebook.presto.metadata.ParametricFunctionUtils.isAggregationPredicate;
 import static com.facebook.presto.metadata.ParametricFunctionUtils.isHiddenPredicate;
-import static com.facebook.presto.operator.aggregation.ApproximateCountAggregation.APPROXIMATE_COUNT_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.CountColumn.COUNT_COLUMN;
 import static com.facebook.presto.operator.aggregation.MaxBy.MAX_BY;
 import static com.facebook.presto.operator.scalar.ArrayCardinalityFunction.ARRAY_CARDINALITY;
@@ -270,7 +270,7 @@ public class FunctionRegistry
         if (experimentalSyntaxEnabled) {
             builder.aggregate(ApproximateAverageAggregations.class)
                     .aggregate(ApproximateSumAggregations.class)
-                    .aggregate(APPROXIMATE_COUNT_AGGREGATION)
+                    .aggregate(ApproximateCountAggregation.class)
                     .aggregate(ApproximateCountColumnAggregations.class);
         }
 
