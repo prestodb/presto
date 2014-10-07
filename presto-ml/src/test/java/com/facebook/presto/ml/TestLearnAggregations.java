@@ -58,7 +58,8 @@ public class TestLearnAggregations
     public void testLearn()
             throws Exception
     {
-        LearnAggregation aggregation = new LearnAggregation(ClassifierType.CLASSIFIER, BigintType.BIGINT);
+        Type mapType = typeManager.getParameterizedType("map", ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.DOUBLE)));
+        InternalAggregationFunction aggregation = new AggregationCompiler(typeManager).generateAggregationFunction(LearnClassifierAggregation.class, ClassifierType.CLASSIFIER, ImmutableList.of(BigintType.BIGINT, mapType));
         assertLearnClassifer(aggregation.bind(ImmutableList.of(0, 1), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0).createAccumulator());
     }
 
