@@ -25,6 +25,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -33,7 +34,7 @@ public final class MapParametricType
 {
     public static final MapParametricType MAP = new MapParametricType();
     // TODO: support types that don't use == for comparison of the bits in their stack type
-    private static final Set<Type> SUPPORTED_KEY_TYPES = ImmutableSet.<Type>of(VARCHAR, BIGINT, DOUBLE, BOOLEAN, DATE, TIMESTAMP);
+    private static final Set<Type> SUPPORTED_KEY_TYPES = ImmutableSet.<Type>of(VARCHAR, VARBINARY, BIGINT, DOUBLE, BOOLEAN, DATE, TIMESTAMP);
 
     private MapParametricType()
     {
