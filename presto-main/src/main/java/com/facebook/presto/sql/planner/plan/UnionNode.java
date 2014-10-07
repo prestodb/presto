@@ -19,10 +19,13 @@ import com.facebook.presto.util.IterableTransformer;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -89,7 +92,7 @@ public class UnionNode
     public List<Symbol> sourceOutputLayout(int sourceIndex)
     {
         // Make sure the sourceOutputLayout symbols are listed in the same order as the corresponding output symbols
-        return IterableTransformer.<Symbol>on(getOutputSymbols())
+        return IterableTransformer.on(getOutputSymbols())
                 .transform(outputToSourceSymbolFunction(sourceIndex))
                 .list();
     }
@@ -99,22 +102,22 @@ public class UnionNode
      */
     public Map<Symbol, QualifiedNameReference> sourceSymbolMap(int sourceIndex)
     {
-        return IterableTransformer.<Symbol>on(getOutputSymbols())
+        return IterableTransformer.on(getOutputSymbols())
                 .toMap(outputToSourceSymbolFunction(sourceIndex))
-                .<QualifiedNameReference>transformValues(symbolToQualifiedNameReference())
+                .transformValues(symbolToQualifiedNameReference())
                 .immutableMap();
     }
 
     /**
-     * Returns the input to output symbol mapping for the given source channel
+     * Returns the input to output symbol mapping for the given source channel.
+     * A single input symbol can map to multiple output symbols, thus requiring a Multimap.
      */
-    public Map<Symbol, QualifiedNameReference> outputSymbolMap(int sourceIndex)
+    public Multimap<Symbol, QualifiedNameReference> outputSymbolMap(int sourceIndex)
     {
-        return IterableTransformer.<Symbol>on(getOutputSymbols())
+        return Multimaps.transformValues(FluentIterable.from(getOutputSymbols())
                 .toMap(outputToSourceSymbolFunction(sourceIndex))
-                .inverse()
-                .<QualifiedNameReference>transformValues(symbolToQualifiedNameReference())
-                .immutableMap();
+                .asMultimap()
+                .inverse(), symbolToQualifiedNameReference());
     }
 
     private Function<Symbol, Symbol> outputToSourceSymbolFunction(final int sourceIndex)
