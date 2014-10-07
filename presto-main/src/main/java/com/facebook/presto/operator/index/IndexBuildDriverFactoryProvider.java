@@ -15,7 +15,9 @@ package com.facebook.presto.operator.index;
 
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -31,15 +33,19 @@ public class IndexBuildDriverFactoryProvider
     private final boolean inputDriver;
     private final List<OperatorFactory> coreOperatorFactories;
     private final List<Type> outputTypes;
+    private final Optional<DynamicTupleFilterFactory> dynamicTupleFilterFactory;
 
-    public IndexBuildDriverFactoryProvider(int outputOperatorId, boolean inputDriver, List<OperatorFactory> coreOperatorFactories)
+    public IndexBuildDriverFactoryProvider(int outputOperatorId, boolean inputDriver, List<OperatorFactory> coreOperatorFactories, Optional<DynamicTupleFilterFactory> dynamicTupleFilterFactory)
     {
-        this.outputOperatorId = outputOperatorId;
-        this.inputDriver = inputDriver;
         checkNotNull(coreOperatorFactories, "coreOperatorFactories is null");
         checkArgument(!coreOperatorFactories.isEmpty(), "coreOperatorFactories is empty");
+        checkNotNull(dynamicTupleFilterFactory, "dynamicTupleFilterFactory is null");
+
+        this.outputOperatorId = outputOperatorId;
+        this.inputDriver = inputDriver;
         this.coreOperatorFactories = ImmutableList.copyOf(coreOperatorFactories);
         this.outputTypes = ImmutableList.copyOf(this.coreOperatorFactories.get(this.coreOperatorFactories.size() - 1).getTypes());
+        this.dynamicTupleFilterFactory = dynamicTupleFilterFactory;
     }
 
     public List<Type> getOutputTypes()
@@ -47,7 +53,7 @@ public class IndexBuildDriverFactoryProvider
         return outputTypes;
     }
 
-    public DriverFactory create(IndexSnapshotBuilder indexSnapshotBuilder)
+    public DriverFactory createSnapshot(IndexSnapshotBuilder indexSnapshotBuilder)
     {
         checkArgument(indexSnapshotBuilder.getOutputTypes().equals(outputTypes));
         return new DriverFactory(inputDriver, false, ImmutableList.<OperatorFactory>builder()
@@ -56,11 +62,18 @@ public class IndexBuildDriverFactoryProvider
                 .build());
     }
 
-    public DriverFactory create(PageBuffer pageBuffer)
+    public DriverFactory createStreaming(PageBuffer pageBuffer, Page indexKeyTuple)
     {
-        return new DriverFactory(inputDriver, false, ImmutableList.<OperatorFactory>builder()
-                .addAll(coreOperatorFactories)
-                .add(new PageBufferOperatorFactory(outputOperatorId, pageBuffer))
-                .build());
+        ImmutableList.Builder<OperatorFactory> operatorFactories = ImmutableList.<OperatorFactory>builder()
+                .addAll(coreOperatorFactories);
+
+        if (dynamicTupleFilterFactory.isPresent()) {
+            // Bind in a dynamic tuple filter if necessary
+            operatorFactories.add(dynamicTupleFilterFactory.get().filterWithTuple(indexKeyTuple));
+        }
+
+        operatorFactories.add(new PageBufferOperatorFactory(outputOperatorId, pageBuffer));
+
+        return new DriverFactory(inputDriver, false, operatorFactories.build());
     }
 }

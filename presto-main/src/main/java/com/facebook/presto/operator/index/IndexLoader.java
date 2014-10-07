@@ -38,6 +38,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
@@ -61,8 +62,9 @@ public class IndexLoader
     private final IndexJoinLookupStats stats;
 
     private final AtomicReference<TaskContext> taskContextReference = new AtomicReference<>();
-    private final List<Integer> indexChannels;
-    private final List<Type> indexTypes;
+    private final Set<Integer> lookupSourceInputChannels;
+    private final List<Integer> keyOutputChannels;
+    private final List<Type> keyTypes;
 
     @GuardedBy("this")
     private IndexSnapshotLoader indexSnapshotLoader; // Lazily initialized
@@ -73,29 +75,42 @@ public class IndexLoader
     @GuardedBy("this")
     private final AtomicReference<IndexSnapshot> indexSnapshotReference;
 
-    public IndexLoader(List<Integer> indexChannels,
-            List<Type> types,
+    public IndexLoader(
+            Set<Integer> lookupSourceInputChannels,
+            List<Integer> keyOutputChannels,
+            List<Type> outputTypes,
             IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider,
             int expectedPositions,
             DataSize maxIndexMemorySize,
             IndexJoinLookupStats stats)
     {
-        checkArgument(!indexChannels.isEmpty(), "indexChannels must not be empty");
-        this.indexChannels = ImmutableList.copyOf(checkNotNull(indexChannels, "indexChannels is null"));
-        this.outputTypes = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        this.indexBuildDriverFactoryProvider = checkNotNull(indexBuildDriverFactoryProvider, "indexBuildDriverFactoryProvider is null");
-        this.expectedPositions = checkNotNull(expectedPositions, "expectedPositions is null");
-        this.maxIndexMemorySize = checkNotNull(maxIndexMemorySize, "maxIndexMemorySize is null");
-        this.stats = checkNotNull(stats, "stats is null");
+        checkNotNull(lookupSourceInputChannels, "lookupSourceInputChannels is null");
+        checkArgument(!lookupSourceInputChannels.isEmpty(), "lookupSourceInputChannels must not be empty");
+        checkNotNull(keyOutputChannels, "keyOutputChannels is null");
+        checkArgument(!keyOutputChannels.isEmpty(), "keyOutputChannels must not be empty");
+        checkArgument(lookupSourceInputChannels.size() <= keyOutputChannels.size(), "Lookup channels must supply a subset of the actual index columns");
+        checkNotNull(outputTypes, "outputTypes is null");
+        checkNotNull(indexBuildDriverFactoryProvider, "indexBuildDriverFactoryProvider is null");
+        checkNotNull(expectedPositions, "expectedPositions is null");
+        checkNotNull(maxIndexMemorySize, "maxIndexMemorySize is null");
+        checkNotNull(stats, "stats is null");
 
-        ImmutableList.Builder<Type> typeBuilder = ImmutableList.builder();
-        for (int outputIndexChannel : indexChannels) {
-            typeBuilder.add(types.get(outputIndexChannel));
+        this.lookupSourceInputChannels = ImmutableSet.copyOf(lookupSourceInputChannels);
+        this.keyOutputChannels = ImmutableList.copyOf(keyOutputChannels);
+        this.outputTypes = ImmutableList.copyOf(outputTypes);
+        this.indexBuildDriverFactoryProvider = indexBuildDriverFactoryProvider;
+        this.expectedPositions = expectedPositions;
+        this.maxIndexMemorySize = maxIndexMemorySize;
+        this.stats = stats;
+
+        ImmutableList.Builder<Type> keyTypeBuilder = ImmutableList.builder();
+        for (int keyOutputChannel : keyOutputChannels) {
+            keyTypeBuilder.add(outputTypes.get(keyOutputChannel));
         }
-        this.indexTypes = typeBuilder.build();
+        this.keyTypes = keyTypeBuilder.build();
 
         // start with an empty source
-        indexSnapshotReference = new AtomicReference<>(new IndexSnapshot(new EmptyLookupSource(types.size()), new EmptyLookupSource(indexChannels.size())));
+        this.indexSnapshotReference = new AtomicReference<>(new IndexSnapshot(new EmptyLookupSource(outputTypes.size()), new EmptyLookupSource(keyOutputChannels.size())));
     }
 
     // This is a ghetto way to acquire a TaskContext at runtime (unavailable at planning)
@@ -199,16 +214,17 @@ public class IndexLoader
 
     public IndexedData streamIndexDataForSingleKey(UpdateRequest updateRequest)
     {
+        Page indexKeyTuple = new Page(sliceBlocks(updateRequest.getBlocks(), 0, 1));
+
         PageBuffer pageBuffer = new PageBuffer(100);
-        DriverFactory driverFactory = indexBuildDriverFactoryProvider.create(pageBuffer);
+        DriverFactory driverFactory = indexBuildDriverFactoryProvider.createStreaming(pageBuffer, indexKeyTuple);
         Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext());
 
-        Page indedKeyTuple = new Page(sliceBlocks(updateRequest.getBlocks(), 0, 1));
-        PageRecordSet pageRecordSet = new PageRecordSet(indexTypes, indedKeyTuple);
+        PageRecordSet pageRecordSet = new PageRecordSet(keyTypes, indexKeyTuple);
         PlanNodeId planNodeId = Iterables.getOnlyElement(driverFactory.getSourceIds());
         driver.updateSource(new TaskSource(planNodeId, ImmutableSet.of(new ScheduledSplit(0, new Split("index", new IndexSplit(pageRecordSet)))), true));
 
-        return new StreamingIndexedData(outputTypes, indexTypes, indedKeyTuple, pageBuffer, driver);
+        return new StreamingIndexedData(outputTypes, keyTypes, indexKeyTuple, pageBuffer, driver);
     }
 
     private synchronized void initializeStateIfNecessary()
@@ -223,8 +239,9 @@ public class IndexLoader
                     indexBuildDriverFactoryProvider,
                     pipelineContext,
                     indexSnapshotReference,
-                    indexTypes,
-                    indexChannels,
+                    lookupSourceInputChannels,
+                    keyTypes,
+                    keyOutputChannels,
                     expectedPositions,
                     maxIndexMemorySize);
         }
@@ -235,7 +252,9 @@ public class IndexLoader
     {
         private final DriverFactory driverFactory;
         private final PipelineContext pipelineContext;
-        private final List<Type> types;
+        private final Set<Integer> lookupSourceInputChannels;
+        private final Set<Integer> allInputChannels;
+        private final List<Type> outputTypes;
         private final List<Type> indexTypes;
         private final AtomicReference<IndexSnapshot> indexSnapshotReference;
 
@@ -244,23 +263,31 @@ public class IndexLoader
         private IndexSnapshotLoader(IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider,
                 PipelineContext pipelineContext,
                 AtomicReference<IndexSnapshot> indexSnapshotReference,
+                Set<Integer> lookupSourceInputChannels,
                 List<Type> indexTypes,
-                List<Integer> indexChannels,
+                List<Integer> keyOutputChannels,
                 int expectedPositions,
                 DataSize maxIndexMemorySize)
         {
             this.pipelineContext = pipelineContext;
             this.indexSnapshotReference = indexSnapshotReference;
-            this.types = indexBuildDriverFactoryProvider.getOutputTypes();
+            this.lookupSourceInputChannels = lookupSourceInputChannels;
+            this.outputTypes = indexBuildDriverFactoryProvider.getOutputTypes();
             this.indexTypes = indexTypes;
 
             this.indexSnapshotBuilder = new IndexSnapshotBuilder(
-                    types,
-                    indexChannels,
+                    outputTypes,
+                    keyOutputChannels,
                     pipelineContext.addDriverContext(),
                     maxIndexMemorySize,
                     expectedPositions);
-            this.driverFactory = indexBuildDriverFactoryProvider.create(this.indexSnapshotBuilder);
+            this.driverFactory = indexBuildDriverFactoryProvider.createSnapshot(this.indexSnapshotBuilder);
+
+            ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
+            for (int i = 0; i < indexTypes.size(); i++) {
+                builder.add(i);
+            }
+            this.allInputChannels = builder.build();
         }
 
         public long getCacheSizeInBytes()
@@ -270,12 +297,13 @@ public class IndexLoader
 
         public boolean load(List<UpdateRequest> requests)
         {
-            UnloadedIndexKeyRecordSet unloadedKeysRecordSet = new UnloadedIndexKeyRecordSet(indexSnapshotReference.get(), indexTypes, requests);
+            // Generate a RecordSet that only presents index keys that have not been cached and are deduped based on lookupSourceInputChannels
+            UnloadedIndexKeyRecordSet recordSetForLookupSource = new UnloadedIndexKeyRecordSet(indexSnapshotReference.get(), lookupSourceInputChannels, indexTypes, requests);
 
             // Drive index lookup to produce the output (landing in indexSnapshotBuilder)
             Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext());
             PlanNodeId sourcePlanNodeId = Iterables.getOnlyElement(driverFactory.getSourceIds());
-            driver.updateSource(new TaskSource(sourcePlanNodeId, ImmutableSet.of(new ScheduledSplit(0, new Split("index", new IndexSplit(unloadedKeysRecordSet)))), true));
+            driver.updateSource(new TaskSource(sourcePlanNodeId, ImmutableSet.of(new ScheduledSplit(0, new Split("index", new IndexSplit(recordSetForLookupSource)))), true));
             while (!driver.isFinished()) {
                 ListenableFuture<?> process = driver.process();
                 checkState(process.isDone(), "Driver should never block");
@@ -286,8 +314,13 @@ public class IndexLoader
                 return false;
             }
 
+            // Generate a RecordSet that presents unique index keys that have not been cached
+            UnloadedIndexKeyRecordSet indexKeysRecordSet = (lookupSourceInputChannels.equals(allInputChannels))
+                    ? recordSetForLookupSource
+                    : new UnloadedIndexKeyRecordSet(indexSnapshotReference.get(), allInputChannels, indexTypes, requests);
+
             // Create lookup source with new data
-            IndexSnapshot newValue = indexSnapshotBuilder.createIndexSnapshot(unloadedKeysRecordSet);
+            IndexSnapshot newValue = indexSnapshotBuilder.createIndexSnapshot(indexKeysRecordSet);
             if (newValue == null) {
                 clearCachedData();
                 return false;
@@ -302,7 +335,7 @@ public class IndexLoader
 
         private void clearCachedData()
         {
-            indexSnapshotReference.set(new IndexSnapshot(new EmptyLookupSource(types.size()), new EmptyLookupSource(indexTypes.size())));
+            indexSnapshotReference.set(new IndexSnapshot(new EmptyLookupSource(outputTypes.size()), new EmptyLookupSource(indexTypes.size())));
             indexSnapshotBuilder.reset();
         }
 

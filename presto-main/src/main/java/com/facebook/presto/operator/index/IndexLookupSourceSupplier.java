@@ -22,6 +22,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import java.util.List;
+import java.util.Set;
 
 public class IndexLookupSourceSupplier
         implements LookupSourceSupplier
@@ -29,13 +30,14 @@ public class IndexLookupSourceSupplier
     private final IndexLoader indexLoader;
 
     public IndexLookupSourceSupplier(
-            List<Integer> indexChannels,
-            List<Type> types,
+            Set<Integer> lookupSourceInputChannels,
+            List<Integer> keyOutputChannels,
+            List<Type> outputTypes,
             IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider,
             DataSize maxIndexMemorySize,
             IndexJoinLookupStats stats)
     {
-        this.indexLoader = new IndexLoader(indexChannels, types, indexBuildDriverFactoryProvider, 100_000, maxIndexMemorySize, stats);
+        this.indexLoader = new IndexLoader(lookupSourceInputChannels, keyOutputChannels, outputTypes, indexBuildDriverFactoryProvider, 100_000, maxIndexMemorySize, stats);
     }
 
     @Override
