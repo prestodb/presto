@@ -43,10 +43,9 @@ public class MLFunctionFactory
                 .aggregate(new LearnAggregation(CLASSIFIER, DOUBLE))
                 .aggregate(new LearnAggregation(REGRESSOR, BIGINT))
                 .aggregate(new LearnAggregation(REGRESSOR, DOUBLE))
-                .aggregate(new LearnLibSvmAggregation(CLASSIFIER, BIGINT))
-                .aggregate(new LearnLibSvmAggregation(CLASSIFIER, DOUBLE))
-                .aggregate(new LearnLibSvmAggregation(REGRESSOR, BIGINT))
-                .aggregate(new LearnLibSvmAggregation(REGRESSOR, DOUBLE))
+                .aggregate(new LearnLibSvmClassifierAggregation(CLASSIFIER, BIGINT))
+                .aggregate(new LearnLibSvmClassifierAggregation(CLASSIFIER, DOUBLE))
+                .aggregate(LearnLibSvmRegressorAggregation.class)
                 .aggregate(EvaluateClassifierPredictionsAggregation.class)
                 .scalar(MLFunctions.class)
                 .getFunctions();

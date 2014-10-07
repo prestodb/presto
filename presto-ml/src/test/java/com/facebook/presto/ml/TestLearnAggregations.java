@@ -47,7 +47,7 @@ public class TestLearnAggregations
     public void testLearnLibSvm()
             throws Exception
     {
-        LearnLibSvmAggregation aggregation = new LearnLibSvmAggregation(ClassifierType.CLASSIFIER, BigintType.BIGINT);
+        LearnLibSvmClassifierAggregation aggregation = new LearnLibSvmClassifierAggregation(ClassifierType.CLASSIFIER, BigintType.BIGINT);
         assertLearnClassifer(aggregation.bind(ImmutableList.of(0, 1, 2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0).createAccumulator());
     }
 
