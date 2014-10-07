@@ -14,12 +14,20 @@
 package com.facebook.presto.ml;
 
 import com.facebook.presto.ml.type.ClassifierType;
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.ml.type.ModelType;
+import com.facebook.presto.ml.type.RegressorType;
 import com.facebook.presto.operator.RowPageBuilder;
 import com.facebook.presto.operator.aggregation.Accumulator;
+import com.facebook.presto.operator.aggregation.AggregationCompiler;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
@@ -30,11 +38,22 @@ import org.testng.annotations.Test;
 
 import java.util.Random;
 
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestLearnAggregations
 {
+    private static final TypeManager typeManager;
+
+    static {
+        TypeRegistry typeRegistry = new TypeRegistry();
+        typeRegistry.addType(ModelType.MODEL);
+        typeRegistry.addType(ClassifierType.CLASSIFIER);
+        typeRegistry.addType(RegressorType.REGRESSOR);
+        typeManager = typeRegistry;
+    }
+
     @Test
     public void testLearn()
             throws Exception
@@ -47,7 +66,8 @@ public class TestLearnAggregations
     public void testLearnLibSvm()
             throws Exception
     {
-        LearnLibSvmClassifierAggregation aggregation = new LearnLibSvmClassifierAggregation(ClassifierType.CLASSIFIER, BigintType.BIGINT);
+        Type mapType = typeManager.getParameterizedType("map", ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.DOUBLE)));
+        InternalAggregationFunction aggregation = new AggregationCompiler(typeManager).generateAggregationFunction(LearnLibSvmClassifierAggregation.class, ClassifierType.CLASSIFIER, ImmutableList.of(BigintType.BIGINT, mapType, VarcharType.VARCHAR));
         assertLearnClassifer(aggregation.bind(ImmutableList.of(0, 1, 2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0).createAccumulator());
     }
 
@@ -65,9 +85,10 @@ public class TestLearnAggregations
     private static Page getPage()
             throws JsonProcessingException
     {
+        Type mapType = typeManager.getParameterizedType("map", ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.DOUBLE)));
         int datapoints = 100;
         ObjectMapper mapper = new ObjectMapper();
-        RowPageBuilder builder = RowPageBuilder.rowPageBuilder(BigintType.BIGINT, VarcharType.VARCHAR, VarcharType.VARCHAR);
+        RowPageBuilder builder = RowPageBuilder.rowPageBuilder(BigintType.BIGINT, mapType, VarcharType.VARCHAR);
         Random rand = new Random(0);
         for (int i = 0; i < datapoints; i++) {
             long label = rand.nextDouble() < 0.5 ? 0 : 1;
