@@ -140,7 +140,7 @@ public class HiveSplitManager
                 hiveClientConfig.getMaxInitialSplits(),
                 hiveClientConfig.isForceLocalScheduling(),
                 hiveClientConfig.isAssumeCanonicalPartitionKeys(),
-                false);
+                hiveClientConfig.getRecursiveDirWalkerEnabled());
     }
 
     public HiveSplitManager(
