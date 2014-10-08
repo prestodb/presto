@@ -13,38 +13,38 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.google.common.base.Throwables;
 import org.skife.jdbi.v2.exceptions.UnableToExecuteStatementException;
 
 import java.sql.SQLException;
 import java.util.concurrent.Callable;
+
+import static java.util.concurrent.Executors.callable;
 
 public final class SqlUtils
 {
     private SqlUtils() {}
 
     /**
-     * Run a SQL query as Runnable ignoring any constraint violations.
-     * This is a HACK to allow us to support idempotent inserts on
+     * Run a SQL query as ignoring any constraint violations.
+     * This allows idempotent inserts (equivalent to INSERT IGNORE).
      */
     public static void runIgnoringConstraintViolation(Runnable task)
     {
         try {
-            task.run();
+            runIgnoringConstraintViolation(callable(task), null);
         }
-        catch (UnableToExecuteStatementException e) {
-            if (e.getCause() instanceof SQLException) {
-                String state = ((SQLException) e.getCause()).getSQLState();
-                if (state.startsWith("23")) {
-                    return;
-                }
+        catch (Exception e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
             }
-            throw e;
+            throw Throwables.propagate(e);
         }
     }
 
     /**
-     * Run a SQL query as Runnable ignoring any constraint violations.
-     * This is a HACK to allow us to support idempotent inserts on
+     * Run a SQL query as ignoring any constraint violations.
+     * This allows idempotent inserts (equivalent to INSERT IGNORE).
      */
     public static <T> T runIgnoringConstraintViolation(Callable<T> task, T defaultValue)
             throws Exception
