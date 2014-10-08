@@ -64,7 +64,11 @@ General Changes
 * Fix :func:`chr` function to work with Unicode code points instead of ASCII code points.
 * The JDBC driver no longer hangs the JVM on shutdown (all threads are daemon threads).
 * Fix incorrect parsing of function arguments.
-* The bytecode compiler now caches generated code for join and group by queries, which should improve performance and CPU efficiency for these types of queries.
+* The bytecode compiler now caches generated code for join and group byqueries,
+  which should improve performance and CPU efficiency for these types of queries.
 * Improve planning performance for certain trivial queries over tables with lots of partitions.
-* Avoid creating large output pages. This should mitigate some cases of "Remote page is too large" errors.
-* The coordinator/worker communication layer is now fully asynchronous.  Specifically, long-poll requests no longer tie up a thread on the worker.  This makes heavily loaded clusters more efficient.
+* Avoid creating large output pages. This should mitigate some cases of
+  *"Remote page is too large"* errors.
+* The coordinator/worker communication layer is now fully asynchronous.
+  Specifically, long-poll requests no longer tie up a thread on the worker.
+  This makes heavily loaded clusters more efficient.
