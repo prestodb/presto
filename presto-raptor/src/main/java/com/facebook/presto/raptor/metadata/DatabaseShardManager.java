@@ -55,7 +55,7 @@ public class DatabaseShardManager
     private final ShardManagerDao dao;
 
     @Inject
-    public DatabaseShardManager(@ForShardManager IDBI dbi)
+    public DatabaseShardManager(@ForMetadata IDBI dbi)
     {
         this.dbi = dbi;
         this.dao = dbi.onDemand(ShardManagerDao.class);
