@@ -40,9 +40,6 @@ public class StorageModule
         bindConfig(binder).to(DatabaseLocalStorageManagerConfig.class);
         binder.bind(LocalStorageManager.class).to(DatabaseLocalStorageManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(LocalStorageManager.class).withGeneratedName();
-
-        // TODO: figure out how to add this dynamically
-        binder.bind(ShardResource.class).in(Scopes.SINGLETON);
     }
 
     @Provides
