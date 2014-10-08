@@ -55,3 +55,5 @@ General Changes
 * Fix expression optimizer, so that it runs in linear time instead of exponential time.
 * Add :func:`cardinality` for maps.
 * Fix race condition in SqlTask creation which can cause queries to hang.
+* Fix ``node-scheduler.multiple-tasks-per-node-enabled`` option.
+* Fix an exception when planning a query with a UNION under a JOIN.
