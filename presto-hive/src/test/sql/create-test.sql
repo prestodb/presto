@@ -102,6 +102,7 @@ CREATE TABLE presto_test_partition_schema_change (
 )
 COMMENT 'Presto test partition schema change'
 PARTITIONED BY (ds STRING)
+STORED AS TEXTFILE
 TBLPROPERTIES ('RETENTION'='-1')
 ;
 
