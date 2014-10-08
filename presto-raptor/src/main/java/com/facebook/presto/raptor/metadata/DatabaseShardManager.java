@@ -56,7 +56,6 @@ public class DatabaseShardManager
 
     @Inject
     public DatabaseShardManager(@ForShardManager IDBI dbi)
-            throws InterruptedException
     {
         this.dbi = dbi;
         this.dao = dbi.onDemand(ShardManagerDao.class);
