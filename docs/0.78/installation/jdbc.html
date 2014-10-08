@@ -1,0 +1,88 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>2.3. JDBC Driver &mdash; Presto 0.78 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.78',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.78 Documentation" href="../index.html" />
+    <link rel="up" title="2. Installation" href="../installation.html" />
+    <link rel="next" title="2.4. Presto Verifier" href="verifier.html" />
+    <link rel="prev" title="2.2. Command Line Interface" href="cli.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.78 Documentation</span></a></h1>
+    <h2 class="heading"><span>2.3. JDBC Driver</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="cli.html">2.2. Command Line Interface</a>
+    </span>
+    <span class="right">
+        <a href="verifier.html">2.4. Presto Verifier</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="jdbc-driver">
+<h1>2.3. JDBC Driver</h1>
+<p>Presto can be accessed from Java using the JDBC driver.
+Download <a class="reference external" href="http://central.maven.org/maven2/com/facebook/presto/presto-jdbc/0.78/presto-jdbc-0.78.jar">presto-jdbc-0.78.jar</a> and add it to the class path of your Java application.
+The following JDBC URL formats are supported:</p>
+<div class="highlight-none"><div class="highlight"><pre>jdbc:presto://host:port
+jdbc:presto://host:port/catalog
+jdbc:presto://host:port/catalog/schema
+</pre></div>
+</div>
+<p>For example, use the following URL to connect to Presto
+running on <tt class="docutils literal"><span class="pre">example.net</span></tt> port <tt class="docutils literal"><span class="pre">8080</span></tt> with the catalog <tt class="docutils literal"><span class="pre">hive</span></tt>
+and the schema <tt class="docutils literal"><span class="pre">sales</span></tt>:</p>
+<div class="highlight-none"><div class="highlight"><pre>jdbc:presto://example.net:8080/hive/sales
+</pre></div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="cli.html">2.2. Command Line Interface</a>
+    </span>
+    <span class="right">
+        <a href="verifier.html">2.4. Presto Verifier</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
