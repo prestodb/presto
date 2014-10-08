@@ -33,21 +33,17 @@ public class MetadataModule
     {
         binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
 
-        bindDataSource(binder, "metadata", ForMetadata.class, ForShardManager.class);
+        bindDataSource(binder, "metadata", ForMetadata.class);
         bindResultSetMapper(binder, TableColumn.Mapper.class, ForMetadata.class);
-        bindResultSetMapper(binder, PartitionKey.Mapper.class, ForShardManager.class);
+        bindResultSetMapper(binder, PartitionKey.Mapper.class, ForMetadata.class);
     }
 
-    @SafeVarargs
-    private final void bindDataSource(Binder binder, String type, Class<? extends Annotation> annotation, Class<? extends Annotation>... aliases)
+    private void bindDataSource(Binder binder, String type, Class<? extends Annotation> annotation)
     {
         String property = type + ".db.type";
-        install(installIfPropertyEquals(new MySqlDataSourceModule(type, annotation, aliases), property, "mysql"));
-        install(installIfPropertyEquals(new H2EmbeddedDataSourceModule(type, annotation, aliases), property, "h2"));
+        install(installIfPropertyEquals(new MySqlDataSourceModule(type, annotation), property, "mysql"));
+        install(installIfPropertyEquals(new H2EmbeddedDataSourceModule(type, annotation), property, "h2"));
 
         bindDbiToDataSource(binder, annotation);
-        for (Class<? extends Annotation> alias : aliases) {
-            bindDbiToDataSource(binder, alias);
-        }
     }
 }
