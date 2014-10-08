@@ -49,6 +49,7 @@ public class HiveClientConfig
     private int maxInitialSplits = 200;
     private DataSize maxInitialSplitSize;
     private boolean forceLocalScheduling;
+    private boolean recursiveDirWalkerEnabled;
     private boolean allowDropTable;
     private boolean allowRenameTable;
 
@@ -138,6 +139,18 @@ public class HiveClientConfig
     public TimeZone getTimeZone()
     {
         return timeZone;
+    }
+
+    @Config("hive.recursive-directories")
+    public HiveClientConfig setRecursiveDirWalkerEnabled(boolean recursiveDirWalkerEnabled)
+    {
+        this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
+        return this;
+    }
+
+    public boolean getRecursiveDirWalkerEnabled()
+    {
+        return recursiveDirWalkerEnabled;
     }
 
     @Config("hive.time-zone")
