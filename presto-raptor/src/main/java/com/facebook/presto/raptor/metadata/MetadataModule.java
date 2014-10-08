@@ -24,8 +24,6 @@ import java.lang.annotation.Annotation;
 import static com.facebook.presto.guice.ConditionalModule.installIfPropertyEquals;
 import static com.facebook.presto.raptor.util.DbiProvider.bindDbiToDataSource;
 import static com.facebook.presto.raptor.util.DbiProvider.bindResultSetMapper;
-import static io.airlift.configuration.ConfigurationModule.bindConfig;
-import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 
 public class MetadataModule
         extends AbstractConfigurationAwareModule
@@ -38,10 +36,6 @@ public class MetadataModule
         bindDataSource(binder, "metadata", ForMetadata.class, ForShardManager.class);
         bindResultSetMapper(binder, TableColumn.Mapper.class, ForMetadata.class);
         bindResultSetMapper(binder, PartitionKey.Mapper.class, ForShardManager.class);
-
-        bindConfig(binder).to(ShardCleanerConfig.class);
-        binder.bind(ShardCleaner.class).in(Scopes.SINGLETON);
-        httpClientBinder(binder).bindHttpClient("raptor-shard-cleaner", ForShardCleaner.class);
     }
 
     @SafeVarargs
