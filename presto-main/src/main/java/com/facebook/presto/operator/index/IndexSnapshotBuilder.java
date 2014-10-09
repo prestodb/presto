@@ -79,7 +79,8 @@ public class IndexSnapshotBuilder
         this.missingKeysChannels = missingKeysChannels.build();
 
         // create a bogus operator context with unlimited memory for the pages index
-        this.bogusOperatorContext = new TaskContext(driverContext.getTaskId(), driverContext.getExecutor(), driverContext.getSession(), new DataSize(Long.MAX_VALUE, Unit.BYTE))
+        boolean cpuTimerEnabled = driverContext.getPipelineContext().getTaskContext().isCpuTimerEnabled();
+        this.bogusOperatorContext = new TaskContext(driverContext.getTaskId(), driverContext.getExecutor(), driverContext.getSession(), new DataSize(Long.MAX_VALUE, Unit.BYTE), cpuTimerEnabled)
                 .addPipelineContext(true, true)
                 .addDriverContext()
                 .addOperatorContext(0, "operator");
