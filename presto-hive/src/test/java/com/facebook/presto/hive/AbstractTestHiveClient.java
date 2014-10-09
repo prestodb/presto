@@ -76,6 +76,7 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveClient.STORAGE_FORMAT_PROPERTY;
+import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveStorageFormat.RCBINARY;
@@ -123,6 +124,8 @@ public abstract class AbstractTestHiveClient
     protected static final String INVALID_DATABASE = "totally_invalid_database_name";
     protected static final String INVALID_TABLE = "totally_invalid_table_name";
     protected static final String INVALID_COLUMN = "totally_invalid_column_name";
+
+    protected Set<HiveStorageFormat> createTableFormats = ImmutableSet.copyOf(HiveStorageFormat.values());
 
     protected String database;
     protected SchemaTableName tablePartitionFormat;
@@ -899,7 +902,7 @@ public abstract class AbstractTestHiveClient
     public void testTypesDwrf()
             throws Exception
     {
-        assertGetRecordsOptional("presto_test_types_dwrf", ORC);
+        assertGetRecordsOptional("presto_test_types_dwrf", DWRF);
     }
 
     @Test
@@ -943,7 +946,7 @@ public abstract class AbstractTestHiveClient
     public void testTableCreation()
             throws Exception
     {
-        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+        for (HiveStorageFormat storageFormat : createTableFormats) {
             try {
                 doCreateTable(storageFormat);
             }
