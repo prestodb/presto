@@ -212,7 +212,7 @@ public class HiveClient
                 hiveClientConfig.getAllowRenameTable(),
                 hiveClientConfig.getAllowCorruptWritesForTesting(),
                 hiveClientConfig.getHiveStorageFormat(),
-                false,
+                hiveClientConfig.getRecursiveDirWalkerEnabled(),
                 typeManager);
     }
 
