@@ -58,6 +58,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.net.HostAndPort;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -119,7 +120,7 @@ import static org.testng.Assert.fail;
 @Test(groups = "hive")
 public abstract class AbstractTestHiveClient
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
+    private static final ConnectorSession SESSION = new ConnectorSession("presto_test", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
 
     protected static final String INVALID_DATABASE = "totally_invalid_database_name";
     protected static final String INVALID_TABLE = "totally_invalid_table_name";
@@ -144,7 +145,6 @@ public abstract class AbstractTestHiveClient
     protected SchemaTableName temporaryRenameTableOld;
     protected SchemaTableName temporaryRenameTableNew;
     protected SchemaTableName temporaryCreateView;
-    protected String tableOwner;
 
     protected ConnectorTableHandle invalidTableHandle;
 
@@ -159,8 +159,6 @@ public abstract class AbstractTestHiveClient
     protected ConnectorPartition invalidPartition;
 
     protected DateTimeZone timeZone;
-
-    protected HiveMetastore metastoreClient;
 
     protected ConnectorMetadata metadata;
     protected ConnectorSplitManager splitManager;
@@ -204,7 +202,6 @@ public abstract class AbstractTestHiveClient
         temporaryRenameTableOld = new SchemaTableName(database, "tmp_presto_test_rename_" + randomName());
         temporaryRenameTableNew = new SchemaTableName(database, "tmp_presto_test_rename_" + randomName());
         temporaryCreateView = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
-        tableOwner = "presto_test";
 
         invalidTableHandle = new HiveTableHandle("hive", database, INVALID_TABLE, SESSION);
 
@@ -271,7 +268,7 @@ public abstract class AbstractTestHiveClient
 
         HiveCluster hiveCluster = new TestingHiveCluster(hiveClientConfig, host, port);
 
-        metastoreClient = new CachingHiveMetastore(hiveCluster, executor, Duration.valueOf("1m"), Duration.valueOf("15s"));
+        HiveMetastore metastoreClient = new CachingHiveMetastore(hiveCluster, executor, Duration.valueOf("1m"), Duration.valueOf("15s"));
 
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig));
         HiveClient client = new HiveClient(
@@ -289,7 +286,7 @@ public abstract class AbstractTestHiveClient
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxInitialSplitSize(),
                 hiveClientConfig.getMaxInitialSplits(),
-                false,
+                true,
                 true,
                 true,
                 hiveClientConfig.getHiveStorageFormat(),
@@ -987,7 +984,7 @@ public abstract class AbstractTestHiveClient
     private void createDummyTable(SchemaTableName tableName)
     {
         List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", VARCHAR, 1, false));
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, tableOwner);
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, SESSION.getUser());
         ConnectorOutputTableHandle handle = metadata.beginCreateTable(SESSION, tableMetadata);
         metadata.commitCreateTable(handle, ImmutableList.<String>of());
     }
@@ -1048,7 +1045,7 @@ public abstract class AbstractTestHiveClient
                 .add(new ColumnMetadata("sales", BIGINT, 1, false))
                 .build();
 
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateSampledTable, columns, tableOwner, true);
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateSampledTable, columns, SESSION.getUser(), true);
         ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, tableMetadata);
 
         // write the records
@@ -1081,7 +1078,7 @@ public abstract class AbstractTestHiveClient
 
         // verify the metadata
         tableMetadata = metadata.getTableMetadata(getTableHandle(temporaryCreateSampledTable));
-        assertEquals(tableMetadata.getOwner(), tableOwner);
+        assertEquals(tableMetadata.getOwner(), SESSION.getUser());
 
         Map<String, ColumnMetadata> columnMap = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
         assertEquals(columnMap.size(), 1);
@@ -1127,7 +1124,7 @@ public abstract class AbstractTestHiveClient
                 .add(new ColumnMetadata("t_boolean", BOOLEAN, 5, false))
                 .build();
 
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateTable, columns, tableOwner);
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateTable, columns, SESSION.getUser());
 
         ConnectorSession session = new ConnectorSession(
                 SESSION.getUser(),
@@ -1176,7 +1173,7 @@ public abstract class AbstractTestHiveClient
 
         // verify the metadata
         tableMetadata = metadata.getTableMetadata(getTableHandle(temporaryCreateTable));
-        assertEquals(tableMetadata.getOwner(), tableOwner);
+        assertEquals(tableMetadata.getOwner(), session.getUser());
 
         Map<String, ColumnMetadata> columnMap = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
@@ -1421,10 +1418,13 @@ public abstract class AbstractTestHiveClient
     private void dropTable(SchemaTableName table)
     {
         try {
-            metastoreClient.dropTable(table.getSchemaName(), table.getTableName());
+            ConnectorTableHandle handle = metadata.getTableHandle(SESSION, table);
+            if (handle != null) {
+                metadata.dropTable(handle);
+            }
         }
         catch (RuntimeException e) {
-            // this usually occurs because the table was not created
+            Logger.get(getClass()).warn(e, "failed to drop table");
         }
     }
 
