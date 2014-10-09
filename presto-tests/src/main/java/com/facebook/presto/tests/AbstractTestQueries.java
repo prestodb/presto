@@ -1784,7 +1784,7 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testRowNumberLimit()
+    public void testRowNumberUnpartitionedLimit()
             throws Exception
     {
         MaterializedResult actual = computeActual("" +
@@ -1799,7 +1799,7 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testPartitionedRowNumberLimit()
+    public void testRowNumberPartitionedLimit()
             throws Exception
     {
         MaterializedResult actual = computeActual("" +
