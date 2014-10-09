@@ -149,7 +149,7 @@ public final class Session
 
     public ConnectorSession toConnectorSession()
     {
-        return new ConnectorSession(user, timeZoneKey, locale, startTime, null);
+        return new ConnectorSession(user, timeZoneKey, locale, startTime, systemProperties);
     }
 
     public ConnectorSession toConnectorSession(String catalog)
