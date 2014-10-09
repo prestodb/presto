@@ -77,6 +77,7 @@ public class HiveClientConfig
     private File s3StagingDirectory = new File(StandardSystemProperty.JAVA_IO_TMPDIR.value());
     private DataSize s3MultipartMinFileSize = new DataSize(16, MEGABYTE);
     private DataSize s3MultipartMinPartSize = new DataSize(5, MEGABYTE);
+    private boolean refreshCacheInBackground = true;
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
 
@@ -564,6 +565,19 @@ public class HiveClientConfig
     public HiveClientConfig setS3MultipartMinPartSize(DataSize size)
     {
         this.s3MultipartMinPartSize = size;
+        return this;
+    }
+
+    public boolean getRefreshCacheInBackground()
+    {
+        return refreshCacheInBackground;
+    }
+
+    @Config("hive.metastore-refresh-in-background")
+    @ConfigDescription("Whether to refresh the hive metastore cache in the background")
+    public HiveClientConfig setRefreshCacheInBackground(boolean refreshCacheInBackground)
+    {
+        this.refreshCacheInBackground = refreshCacheInBackground;
         return this;
     }
 }

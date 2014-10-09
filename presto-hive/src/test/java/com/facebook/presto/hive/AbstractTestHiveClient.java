@@ -271,7 +271,7 @@ public abstract class AbstractTestHiveClient
 
         HiveCluster hiveCluster = new TestingHiveCluster(hiveClientConfig, host, port);
 
-        metastoreClient = new CachingHiveMetastore(hiveCluster, executor, Duration.valueOf("1m"), Duration.valueOf("15s"));
+        metastoreClient = new CachingHiveMetastore(hiveCluster, executor, Duration.valueOf("1m"), Duration.valueOf("15s"), true);
 
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig));
         HiveClient client = new HiveClient(
