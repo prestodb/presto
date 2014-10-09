@@ -112,8 +112,8 @@ public class ClientOptions
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         for (ClientSessionProperty sessionProperty : sessionProperties) {
             String name = sessionProperty.getName();
-            if (sessionProperty.getCatalog() != null) {
-                name = sessionProperty.getCatalog() + "." + name;
+            if (sessionProperty.getCatalog().isPresent()) {
+                name = sessionProperty.getCatalog().get() + "." + name;
             }
             builder.put(name, sessionProperty.getValue());
         }

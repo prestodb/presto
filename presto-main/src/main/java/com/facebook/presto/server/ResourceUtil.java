@@ -126,9 +126,9 @@ final class ResourceUtil
 
     private static String getRequiredHeader(HttpServletRequest servletRequest, String name, String description)
     {
-        String user = servletRequest.getHeader(name);
-        assertRequest(!isNullOrEmpty(user), description + " (%s) is empty", PRESTO_USER);
-        return user;
+        String value = servletRequest.getHeader(name);
+        assertRequest(!isNullOrEmpty(value), description + " (%s) is empty", name);
+        return value;
     }
 
     public static void assertRequest(boolean expression, String format, Object... args)
