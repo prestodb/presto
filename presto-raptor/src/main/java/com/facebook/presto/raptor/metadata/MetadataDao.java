@@ -32,7 +32,7 @@ public interface MetadataDao
             "  table_name VARCHAR(255) NOT NULL,\n" +
             "  UNIQUE (catalog_name, schema_name, table_name)\n" +
             ")")
-    void createTablesTable();
+    void createTableTables();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS columns (\n" +
             "  table_id BIGINT NOT NULL,\n" +
@@ -45,7 +45,7 @@ public interface MetadataDao
             "  UNIQUE (table_id, ordinal_position),\n" +
             "  FOREIGN KEY (table_id) REFERENCES tables (table_id)\n" +
             ")")
-    void createColumnsTable();
+    void createTableColumns();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS views (\n" +
             "  catalog_name VARCHAR(255) NOT NULL,\n" +
@@ -54,7 +54,7 @@ public interface MetadataDao
             "  data TEXT NOT NULL,\n" +
             "  PRIMARY KEY (catalog_name, schema_name, table_name)\n" +
             ")")
-    void createViewsTable();
+    void createTableViews();
 
     @SqlQuery("SELECT table_id FROM tables\n" +
             "WHERE catalog_name = :catalogName\n" +
