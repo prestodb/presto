@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.execution.SampledSplitSource;
-import com.facebook.presto.execution.SplitSource;
+import com.facebook.presto.split.SampledSplitSource;
+import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Partition;
 import com.facebook.presto.metadata.PartitionResult;

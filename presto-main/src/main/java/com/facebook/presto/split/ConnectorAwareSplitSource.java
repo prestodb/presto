@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.split;
 
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -22,7 +22,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ConnectorAwareSplitSource
-    implements SplitSource
+        implements SplitSource
 {
     private final String connectorId;
     private final ConnectorSplitSource source;

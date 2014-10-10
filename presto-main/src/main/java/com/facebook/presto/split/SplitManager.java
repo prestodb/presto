@@ -15,8 +15,6 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.connector.system.SystemSplitManager;
 import com.facebook.presto.connector.system.SystemTablesManager;
-import com.facebook.presto.execution.ConnectorAwareSplitSource;
-import com.facebook.presto.execution.SplitSource;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Partition;
 import com.facebook.presto.metadata.PartitionResult;

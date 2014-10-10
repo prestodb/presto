@@ -23,7 +23,7 @@ import com.facebook.presto.connector.system.SystemRecordSetProvider;
 import com.facebook.presto.connector.system.SystemSplitManager;
 import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
-import com.facebook.presto.execution.SplitSource;
+import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.index.IndexManager;
