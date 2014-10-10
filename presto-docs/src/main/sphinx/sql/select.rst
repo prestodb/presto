@@ -219,6 +219,8 @@ Using sampling with joins::
     JOIN lineitem i TABLESAMPLE BERNOULLI (40)
       ON o.orderkey = i.orderkey;
 
+.. _unnest:
+
 UNNEST
 ------
 
