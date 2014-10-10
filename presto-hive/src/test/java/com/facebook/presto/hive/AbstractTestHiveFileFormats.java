@@ -228,7 +228,7 @@ public abstract class AbstractTestHiveFileFormats
             HiveType hiveType = HiveType.getHiveType(inspector);
             Type type = getType(inspector, TYPE_MANAGER);
 
-            String typeName = type.getName();
+            String typeName = type.getTypeSignature().toString();
 
             columns.add(new HiveColumnHandle("client_id", testColumn.getName(), i, hiveType, typeName, columnIndex, testColumn.isPartitionKey()));
         }

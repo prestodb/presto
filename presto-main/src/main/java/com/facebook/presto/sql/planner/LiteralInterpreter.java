@@ -91,7 +91,7 @@ public final class LiteralInterpreter
         }
 
         if (object == null) {
-            return new Cast(new NullLiteral(), type.getName());
+            return new Cast(new NullLiteral(), type.getTypeSignature().toString());
         }
 
         if (type.equals(BIGINT)) {

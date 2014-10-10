@@ -24,19 +24,19 @@ import java.util.List;
 public abstract class AbstractType
         implements Type
 {
-    private final String name;
+    private final TypeSignature signature;
     private final Class<?> javaType;
 
     protected AbstractType(String name, Class<?> javaType)
     {
-        this.name = name;
+        this.signature = TypeSignature.parseTypeSignature(name);
         this.javaType = javaType;
     }
 
     @Override
-    public final String getName()
+    public final TypeSignature getTypeSignature()
     {
-        return name;
+        return signature;
     }
 
     @Override
@@ -66,19 +66,19 @@ public abstract class AbstractType
     @Override
     public int hash(Block block, int position)
     {
-        throw new UnsupportedOperationException(getName() + " type is not comparable");
+        throw new UnsupportedOperationException(getTypeSignature() + " type is not comparable");
     }
 
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        throw new UnsupportedOperationException(getName() + " type is not comparable");
+        throw new UnsupportedOperationException(getTypeSignature() + " type is not comparable");
     }
 
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        throw new UnsupportedOperationException(getName() + " type is not ordered");
+        throw new UnsupportedOperationException(getTypeSignature() + " type is not ordered");
     }
 
     @Override
@@ -138,7 +138,7 @@ public abstract class AbstractType
     @Override
     public final String toString()
     {
-        return getName();
+        return getTypeSignature().toString();
     }
 
     @Override

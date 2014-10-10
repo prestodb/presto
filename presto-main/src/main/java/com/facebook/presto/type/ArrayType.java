@@ -46,7 +46,7 @@ public class ArrayType
 
     public ArrayType(Type elementType)
     {
-        super(format("array<%s>", elementType.getName()), Slice.class);
+        super(format("array<%s>", elementType.getTypeSignature()), Slice.class);
         this.elementType = checkNotNull(elementType, "elementType is null");
     }
 

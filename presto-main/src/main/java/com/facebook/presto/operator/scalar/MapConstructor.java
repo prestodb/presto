@@ -25,6 +25,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TypeParameter;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.gen.ByteCodeUtils;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
@@ -51,7 +52,6 @@ import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.metadata.Signature.typeParameter;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
 import static com.facebook.presto.type.MapParametricType.MAP;
@@ -107,7 +107,7 @@ public final class MapConstructor
         Type valueType = types.get("V");
 
         ImmutableList.Builder<Class<?>> builder = ImmutableList.builder();
-        ImmutableList.Builder<String> actualArgumentNames = ImmutableList.builder();
+        ImmutableList.Builder<TypeSignature> actualArgumentNames = ImmutableList.builder();
         for (int i = 0; i < arity; i++) {
             Type type;
             if (i % 2 == 0) {
@@ -116,7 +116,7 @@ public final class MapConstructor
             else {
                 type = valueType;
             }
-            actualArgumentNames.add(type.getName());
+            actualArgumentNames.add(type.getTypeSignature());
             if (type.getJavaType().isPrimitive()) {
                 builder.add(Primitives.wrap(type.getJavaType()));
             }
@@ -134,8 +134,8 @@ public final class MapConstructor
         catch (NoSuchMethodException | IllegalAccessException e) {
             throw Throwables.propagate(e);
         }
-        Type mapType = this.typeManager.getParameterizedType(MAP.getName(), ImmutableList.of(parseTypeSignature(keyType.getName()), parseTypeSignature(valueType.getName())));
-        Signature signature = new Signature("map", ImmutableList.<TypeParameter>of(), mapType.getName(), actualArgumentNames.build(), false, true);
+        Type mapType = this.typeManager.getParameterizedType(MAP.getName(), ImmutableList.of(keyType.getTypeSignature(), valueType.getTypeSignature()));
+        Signature signature = new Signature("map", ImmutableList.<TypeParameter>of(), mapType.getTypeSignature(), actualArgumentNames.build(), false, true);
         List<Boolean> nullableParameters = ImmutableList.copyOf(Collections.nCopies(stackTypes.size(), true));
         return new FunctionInfo(signature, "Constructs a map of the given entries", true, methodHandle, true, false, nullableParameters);
     }

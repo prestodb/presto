@@ -435,7 +435,7 @@ public class BaseJdbcClient
         if (sqlType != null) {
             return sqlType;
         }
-        throw new PrestoException(NOT_SUPPORTED.toErrorCode(), "Unsuported column type: " + type.getName());
+        throw new PrestoException(NOT_SUPPORTED.toErrorCode(), "Unsuported column type: " + type.getTypeSignature());
     }
 
     protected String quoted(String name)

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.example;
 
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
@@ -55,10 +56,10 @@ public final class MetadataUtil
             extends FromStringDeserializer<Type>
     {
         private final Map<String, Type> types = ImmutableMap.<String, Type>of(
-                BOOLEAN.getName(), BOOLEAN,
-                BIGINT.getName(), BIGINT,
-                DOUBLE.getName(), DOUBLE,
-                VARCHAR.getName(), VARCHAR);
+                StandardTypes.BOOLEAN, BOOLEAN,
+                StandardTypes.BIGINT, BIGINT,
+                StandardTypes.DOUBLE, DOUBLE,
+                StandardTypes.VARCHAR, VARCHAR);
 
         public TestingTypeDeserializer()
         {

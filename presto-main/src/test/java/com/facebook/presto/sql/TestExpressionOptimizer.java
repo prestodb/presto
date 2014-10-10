@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 
 public class TestExpressionOptimizer
 {
@@ -37,7 +38,7 @@ public class TestExpressionOptimizer
         ExpressionOptimizer optimizer = new ExpressionOptimizer(new FunctionRegistry(typeManager, false), typeManager, TEST_SESSION);
         RowExpression expression = new ConstantExpression(1L, BIGINT);
         for (int i = 0; i < 100; i++) {
-            Signature signature = Signature.internalOperator(OperatorType.ADD.name(), StandardTypes.BIGINT, StandardTypes.BIGINT, StandardTypes.BIGINT);
+            Signature signature = Signature.internalOperator(OperatorType.ADD.name(), parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT));
             expression = new CallExpression(signature, BIGINT, ImmutableList.of(expression, new ConstantExpression(1L, BIGINT)));
         }
         optimizer.optimize(expression);

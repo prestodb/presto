@@ -18,8 +18,8 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Function;
-import com.google.common.base.Joiner;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
@@ -50,13 +50,13 @@ public final class TypeUtils
         return type.equalTo(leftBlock, leftPosition, rightBlock, rightPosition);
     }
 
-    public static Function<Type, String> nameGetter()
+    public static Function<Type, TypeSignature> typeSignatureGetter()
     {
-        return new Function<Type, String>() {
+        return new Function<Type, TypeSignature>() {
             @Override
-            public String apply(Type input)
+            public TypeSignature apply(Type input)
             {
-                return input.getName();
+                return input.getTypeSignature();
             }
         };
     }
@@ -83,8 +83,8 @@ public final class TypeUtils
         }).toList();
     }
 
-    public static String parameterizedTypeName(String base, String... argumentNames)
+    public static TypeSignature parameterizedTypeName(String base, TypeSignature... argumentNames)
     {
-        return base + "<" + Joiner.on(",").join(argumentNames) + ">";
+        return new TypeSignature(base, ImmutableList.copyOf(argumentNames));
     }
 }

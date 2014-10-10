@@ -27,6 +27,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -78,6 +79,6 @@ public final class ArrayCardinalityFunction
     {
         checkArgument(types.size() == 1, "Cardinality expects only one argument");
         Type type = types.get("E");
-        return new FunctionInfo(new Signature("cardinality", StandardTypes.BIGINT, parameterizedTypeName("array", type.getName())), "Returns the cardinality (length) of the array", false, METHOD_HANDLE, true, true, ImmutableList.of(false));
+        return new FunctionInfo(new Signature("cardinality", parseTypeSignature(StandardTypes.BIGINT), parameterizedTypeName("array", type.getTypeSignature())), "Returns the cardinality (length) of the array", false, METHOD_HANDLE, true, true, ImmutableList.of(false));
     }
 }

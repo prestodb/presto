@@ -163,7 +163,7 @@ public class StateCompiler
             }
         }
 
-        body.comment("return %s", type.getName())
+        body.comment("return %s", type.getTypeSignature())
                 .append(constantType(new CompilerContext(BOOTSTRAP_METHOD), callSiteBinder, type))
                 .retObject();
     }

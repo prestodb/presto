@@ -44,6 +44,6 @@ public class IdentityCast
         checkArgument(types.size() == 1, "Expected only one type");
         Type type = types.get("T");
         MethodHandle identity = MethodHandles.identity(type.getJavaType());
-        return operatorInfo(OperatorType.CAST, type.getName(), ImmutableList.of(type.getName()), identity, false, ImmutableList.of(false));
+        return operatorInfo(OperatorType.CAST, type.getTypeSignature(), ImmutableList.of(type.getTypeSignature()), identity, false, ImmutableList.of(false));
     }
 }

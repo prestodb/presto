@@ -128,7 +128,7 @@ public class ByteCodeExpressionVisitor
         }
 
         // use LDC for primitives (boolean, short, int, long, float, double)
-        block.comment("constant " + constant.getType().getName());
+        block.comment("constant " + constant.getType().getTypeSignature());
         if (javaType == boolean.class) {
             return block.append(loadBoolean((Boolean) value));
         }

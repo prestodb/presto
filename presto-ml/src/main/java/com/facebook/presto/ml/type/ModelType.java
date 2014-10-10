@@ -19,12 +19,15 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.VariableWidthType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.util.List;
+
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 
 // Layout is <size>:<model>, where
 //   size: is an int describing the length of the model bytes
@@ -33,6 +36,7 @@ public class ModelType
         implements VariableWidthType
 {
     public static final ModelType MODEL = new ModelType();
+    private static final TypeSignature SIGNATURE = parseTypeSignature("Model");
 
     @JsonCreator
     public ModelType()
@@ -40,9 +44,9 @@ public class ModelType
     }
 
     @Override
-    public String getName()
+    public TypeSignature getTypeSignature()
     {
-        return "Model";
+        return SIGNATURE;
     }
 
     @Override
@@ -72,19 +76,19 @@ public class ModelType
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        throw new UnsupportedOperationException(String.format("%s type is not comparable", getName()));
+        throw new UnsupportedOperationException(String.format("%s type is not comparable", getTypeSignature()));
     }
 
     @Override
     public int hash(Block block, int position)
     {
-        throw new UnsupportedOperationException(String.format("%s type is not comparable", getName()));
+        throw new UnsupportedOperationException(String.format("%s type is not comparable", getTypeSignature()));
     }
 
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        throw new UnsupportedOperationException(String.format("%s type is not ordered", getName()));
+        throw new UnsupportedOperationException(String.format("%s type is not ordered", getTypeSignature()));
     }
 
     @Override
@@ -160,7 +164,7 @@ public class ModelType
             return null;
         }
 
-        return String.format("<%s>", getName());
+        return String.format("<%s>", getTypeSignature());
     }
 
     @Override
@@ -191,6 +195,6 @@ public class ModelType
     @Override
     public String toString()
     {
-        return getName();
+        return getTypeSignature().toString();
     }
 }

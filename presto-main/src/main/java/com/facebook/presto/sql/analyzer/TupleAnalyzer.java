@@ -90,7 +90,6 @@ import java.util.Set;
 
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.Field.typeGetter;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
@@ -638,7 +637,7 @@ class TupleAnalyzer
                 @Override
                 public TypeSignature apply(Expression input)
                 {
-                    return parseTypeSignature(analysis.getType(input).getName());
+                    return analysis.getType(input).getTypeSignature();
                 }
             });
 

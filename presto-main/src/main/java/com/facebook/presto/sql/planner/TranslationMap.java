@@ -175,7 +175,7 @@ class TranslationMap
                 // cast expression if coercion is registered
                 Type coercion = analysis.getCoercion(node);
                 if (coercion != null) {
-                    rewrittenExpression = new Cast(rewrittenExpression, coercion.getName());
+                    rewrittenExpression = new Cast(rewrittenExpression, coercion.getTypeSignature().toString());
                 }
 
                 return rewrittenExpression;
@@ -197,7 +197,7 @@ class TranslationMap
                 // cast expression if coercion is registered
                 Type coercion = analysis.getCoercion(node);
                 if (coercion != null) {
-                    rewrittenExpression = new Cast(rewrittenExpression, coercion.getName());
+                    rewrittenExpression = new Cast(rewrittenExpression, coercion.getTypeSignature().toString());
                 }
 
                 return rewrittenExpression;

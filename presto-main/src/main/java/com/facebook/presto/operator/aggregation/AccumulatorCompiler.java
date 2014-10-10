@@ -436,28 +436,28 @@ public class AccumulatorCompiler
             block.append(getBlockByteCode);
         }
         else if (parameter == long.class) {
-            block.comment("%s.getLong(block, position)", sqlType.getName())
+            block.comment("%s.getLong(block, position)", sqlType.getTypeSignature())
                     .append(SqlTypeByteCodeExpression.constantType(new CompilerContext(BOOTSTRAP_METHOD), callSiteBinder, sqlType))
                     .append(getBlockByteCode)
                     .getVariable("position")
                     .invokeInterface(Type.class, "getLong", long.class, com.facebook.presto.spi.block.Block.class, int.class);
         }
         else if (parameter == double.class) {
-            block.comment("%s.getDouble(block, position)", sqlType.getName())
+            block.comment("%s.getDouble(block, position)", sqlType.getTypeSignature())
                     .append(SqlTypeByteCodeExpression.constantType(new CompilerContext(BOOTSTRAP_METHOD), callSiteBinder, sqlType))
                     .append(getBlockByteCode)
                     .getVariable("position")
                     .invokeInterface(Type.class, "getDouble", double.class, com.facebook.presto.spi.block.Block.class, int.class);
         }
         else if (parameter == boolean.class) {
-            block.comment("%s.getBoolean(block, position)", sqlType.getName())
+            block.comment("%s.getBoolean(block, position)", sqlType.getTypeSignature())
                     .append(SqlTypeByteCodeExpression.constantType(new CompilerContext(BOOTSTRAP_METHOD), callSiteBinder, sqlType))
                     .append(getBlockByteCode)
                     .getVariable("position")
                     .invokeInterface(Type.class, "getBoolean", boolean.class, com.facebook.presto.spi.block.Block.class, int.class);
         }
         else if (parameter == Slice.class) {
-            block.comment("%s.getBoolean(block, position)", sqlType.getName())
+            block.comment("%s.getBoolean(block, position)", sqlType.getTypeSignature())
                     .append(SqlTypeByteCodeExpression.constantType(new CompilerContext(BOOTSTRAP_METHOD), callSiteBinder, sqlType))
                     .append(getBlockByteCode)
                     .getVariable("position")

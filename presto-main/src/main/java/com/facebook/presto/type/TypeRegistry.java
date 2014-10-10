@@ -38,7 +38,6 @@ import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
@@ -71,7 +70,7 @@ public final class TypeRegistry
         checkNotNull(types, "types is null");
 
         // Manually register UNKNOWN type without a verifyTypeClass call since it is a special type that can not be used by functions
-        this.types.put(parseTypeSignature(UNKNOWN.getName()), UNKNOWN);
+        this.types.put(UNKNOWN.getTypeSignature(), UNKNOWN);
 
         // always add the built-in types; Presto will not function without these
         addType(BOOLEAN);
@@ -132,7 +131,7 @@ public final class TypeRegistry
             return;
         }
         Type instantiatedType = parametricType.createType(parameterTypes.build());
-        checkState(parseTypeSignature(instantiatedType.getName()).equals(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType.getName(), signature);
+        checkState(instantiatedType.getTypeSignature().equals(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
         addType(instantiatedType);
     }
 
@@ -145,8 +144,8 @@ public final class TypeRegistry
     public void addType(Type type)
     {
         verifyTypeClass(type);
-        Type existingType = types.putIfAbsent(parseTypeSignature(type.getName()), type);
-        checkState(existingType == null || existingType.equals(type), "Type %s is already registered", type.getName());
+        Type existingType = types.putIfAbsent(type.getTypeSignature(), type);
+        checkState(existingType == null || existingType.equals(type), "Type %s is already registered", type);
     }
 
     public void addParametricType(ParametricType parametricType)

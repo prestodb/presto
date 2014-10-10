@@ -27,6 +27,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -80,7 +81,7 @@ public final class MapCardinalityFunction
         checkArgument(arity == 1, "Cardinality expects only one argument");
         Type keyType = types.get("K");
         Type valueType = types.get("V");
-        return new FunctionInfo(new Signature("cardinality", StandardTypes.BIGINT, parameterizedTypeName("map", keyType.getName(), valueType.getName())), "Returns the cardinality (size) of the map", false, METHOD_HANDLE, true, true, ImmutableList.of(false));
+        return new FunctionInfo(new Signature("cardinality", parseTypeSignature(StandardTypes.BIGINT), parameterizedTypeName("map", keyType.getTypeSignature(), valueType.getTypeSignature())), "Returns the cardinality (size) of the map", false, METHOD_HANDLE, true, true, ImmutableList.of(false));
     }
 
     public static Long mapCardinality(Slice slice)
