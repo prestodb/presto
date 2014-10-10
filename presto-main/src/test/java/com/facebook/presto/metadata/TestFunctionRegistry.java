@@ -48,8 +48,8 @@ public class TestFunctionRegistry
         FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
         FunctionInfo exactOperator = registry.getCoercion(HYPER_LOG_LOG, HYPER_LOG_LOG);
         assertEquals(exactOperator.getSignature().getName(), mangleOperatorName(OperatorType.CAST.name()));
-        assertEquals(exactOperator.getArgumentTypes(), ImmutableList.of(StandardTypes.HYPER_LOG_LOG));
-        assertEquals(exactOperator.getReturnType(), StandardTypes.HYPER_LOG_LOG);
+        assertEquals(transform(exactOperator.getArgumentTypes(), Functions.toStringFunction()), ImmutableList.of(StandardTypes.HYPER_LOG_LOG));
+        assertEquals(exactOperator.getReturnType().getBase(), StandardTypes.HYPER_LOG_LOG);
     }
 
     @Test
@@ -83,7 +83,7 @@ public class TestFunctionRegistry
 
         FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
         FunctionInfo function = registry.resolveFunction(QualifiedName.of(signature.getName()), transform(signature.getArgumentTypes(), Functions.toStringFunction()), false);
-        assertEquals(function.getArgumentTypes(), ImmutableList.of(StandardTypes.BIGINT));
+        assertEquals(function.getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
     }
 

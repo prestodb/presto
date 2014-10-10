@@ -18,12 +18,11 @@ import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collections;
@@ -45,7 +44,7 @@ public final class FunctionInfo
     private final List<Boolean> nullableArguments;
 
     private final boolean isAggregate;
-    private final String intermediateType;
+    private final TypeSignature intermediateType;
     private final InternalAggregationFunction aggregationFunction;
     private final boolean isApproximate;
 
@@ -74,7 +73,7 @@ public final class FunctionInfo
         this.windowFunctionSupplier = checkNotNull(windowFunctionSupplier, "windowFunction is null");
     }
 
-    public FunctionInfo(Signature signature, String description, String intermediateType, InternalAggregationFunction function, boolean isApproximate)
+    public FunctionInfo(Signature signature, String description, TypeSignature intermediateType, InternalAggregationFunction function, boolean isApproximate)
     {
         this.signature = signature;
         this.description = description;
@@ -164,17 +163,17 @@ public final class FunctionInfo
         return isApproximate;
     }
 
-    public String getReturnType()
+    public TypeSignature getReturnType()
     {
-        return signature.getReturnType().toString();
+        return signature.getReturnType();
     }
 
-    public List<String> getArgumentTypes()
+    public List<TypeSignature> getArgumentTypes()
     {
-        return Lists.transform(signature.getArgumentTypes(), Functions.toStringFunction());
+        return signature.getArgumentTypes();
     }
 
-    public String getIntermediateType()
+    public TypeSignature getIntermediateType()
     {
         return intermediateType;
     }
