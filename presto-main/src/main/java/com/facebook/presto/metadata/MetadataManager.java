@@ -30,6 +30,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeDeserializer;
@@ -65,7 +66,6 @@ import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
@@ -136,9 +136,9 @@ public class MetadataManager
     }
 
     @Override
-    public Type getType(String typeName)
+    public Type getType(TypeSignature signature)
     {
-        return typeManager.getType(parseTypeSignature(typeName));
+        return typeManager.getType(signature);
     }
 
     @Override

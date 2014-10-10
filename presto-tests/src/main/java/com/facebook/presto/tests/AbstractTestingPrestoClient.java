@@ -35,6 +35,7 @@ import java.io.Closeable;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -137,7 +138,7 @@ public abstract class AbstractTestingPrestoClient<T>
             public Type apply(Column column)
             {
                 String typeName = column.getType();
-                Type type = prestoServer.getMetadata().getType(typeName);
+                Type type = prestoServer.getMetadata().getType(parseTypeSignature(typeName));
                 if (type == null) {
                     throw new AssertionError("Unhandled type: " + typeName);
                 }

@@ -45,6 +45,7 @@ import java.util.List;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
@@ -175,7 +176,7 @@ public final class LiteralInterpreter
         @Override
         protected Object visitGenericLiteral(GenericLiteral node, ConnectorSession session)
         {
-            Type type = metadata.getType(node.getType());
+            Type type = metadata.getType(parseTypeSignature(node.getType()));
             if (type == null) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }

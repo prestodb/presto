@@ -30,6 +30,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -61,8 +62,8 @@ public class TestUnnestOperator
             throws Exception
     {
         MetadataManager metadata = new MetadataManager();
-        Type arrayType = metadata.getType("array<bigint>");
-        Type mapType = metadata.getType("map<bigint,bigint>");
+        Type arrayType = metadata.getType(parseTypeSignature("array<bigint>"));
+        Type mapType = metadata.getType(parseTypeSignature("map<bigint,bigint>"));
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
                 .row(1, "[2, 3]", "{\"4\": 5}")
