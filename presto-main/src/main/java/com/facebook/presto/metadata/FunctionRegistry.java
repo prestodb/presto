@@ -73,6 +73,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
@@ -87,12 +88,12 @@ import com.facebook.presto.type.TimeOperators;
 import com.facebook.presto.type.TimeWithTimeZoneOperators;
 import com.facebook.presto.type.TimestampOperators;
 import com.facebook.presto.type.TimestampWithTimeZoneOperators;
+import com.facebook.presto.type.TypeUtils;
 import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharOperators;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
@@ -308,7 +309,7 @@ public class FunctionRegistry
             }
         }).list();
 
-        List<Type> resolvedTypes = resolveTypes(parameterTypes, typeManager);
+        List<Type> resolvedTypes = resolveTypes(Lists.transform(parameterTypes, TypeUtils.typeSignatureParser()), typeManager);
         // search for exact match
         FunctionInfo match = null;
         for (ParametricFunction function : candidates) {
@@ -381,7 +382,7 @@ public class FunctionRegistry
         // search for exact match
         for (ParametricFunction operator : candidates) {
             Type returnType = typeManager.getType(signature.getReturnType());
-            List<Type> argumentTypes = resolveTypes(Lists.transform(signature.getArgumentTypes(), Functions.toStringFunction()), typeManager);
+            List<Type> argumentTypes = resolveTypes(signature.getArgumentTypes(), typeManager);
             Map<String, Type> boundTypeParameters = operator.getSignature().bindTypeParameters(returnType, argumentTypes, false, typeManager);
             if (boundTypeParameters != null) {
                 return operator.specialize(boundTypeParameters, signature.getArgumentTypes().size(), typeManager);
@@ -425,13 +426,13 @@ public class FunctionRegistry
         }
     }
 
-    public static List<Type> resolveTypes(List<String> typeNames, final TypeManager typeManager)
+    public static List<Type> resolveTypes(List<TypeSignature> signatures, final TypeManager typeManager)
     {
-        return FluentIterable.from(typeNames).transform(new Function<String, Type>() {
+        return FluentIterable.from(signatures).transform(new Function<TypeSignature, Type>() {
             @Override
-            public Type apply(String type)
+            public Type apply(TypeSignature signature)
             {
-                return checkNotNull(typeManager.getType(parseTypeSignature(type)), "Type '%s' not found", type);
+                return checkNotNull(typeManager.getType(signature), "Type '%s' not found", signature);
             }
         }).toList();
     }

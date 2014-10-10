@@ -28,7 +28,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.SqlType;
 import com.facebook.presto.type.TypeUtils;
-import com.google.common.base.Functions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -234,7 +233,7 @@ public class FunctionListBuilder
     {
         Type returnType = typeManager.getType(returnTypeName);
         checkNotNull(returnType, "returnType is null");
-        List<Type> argumentTypes = resolveTypes(Lists.transform(argumentTypeNames, Functions.toStringFunction()), typeManager);
+        List<Type> argumentTypes = resolveTypes(argumentTypeNames, typeManager);
         checkArgument(Primitives.unwrap(method.getReturnType()) == returnType.getJavaType(),
                 "Expected method %s return type to be %s (%s)",
                 method,
