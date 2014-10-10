@@ -29,12 +29,12 @@ import java.util.List;
 
 import static com.facebook.presto.metadata.FunctionRegistry.getMagicLiteralFunctionSignature;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
-import static com.facebook.presto.metadata.FunctionRegistry.resolveTypes;
 import static com.facebook.presto.metadata.FunctionRegistry.unmangleOperator;
 import static com.facebook.presto.metadata.ParametricFunctionUtils.nameGetter;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.google.common.collect.Lists.transform;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

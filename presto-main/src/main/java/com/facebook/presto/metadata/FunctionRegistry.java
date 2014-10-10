@@ -73,7 +73,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
@@ -147,6 +146,7 @@ import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.RegexpType.REGEXP;
 import static com.facebook.presto.type.TypeUtils.nameGetter;
+import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -424,17 +424,6 @@ public class FunctionRegistry
                 throw e;
             }
         }
-    }
-
-    public static List<Type> resolveTypes(List<TypeSignature> signatures, final TypeManager typeManager)
-    {
-        return FluentIterable.from(signatures).transform(new Function<TypeSignature, Type>() {
-            @Override
-            public Type apply(TypeSignature signature)
-            {
-                return checkNotNull(typeManager.getType(signature), "Type '%s' not found", signature);
-            }
-        }).toList();
     }
 
     public FunctionInfo getCoercion(Type fromType, Type toType)
