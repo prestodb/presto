@@ -121,6 +121,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -465,14 +466,14 @@ public class HiveClient
                 if (keyType == null || valueType == null) {
                     return null;
                 }
-                return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(keyType.getName(), valueType.getName()));
+                return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(parseTypeSignature(keyType.getName()), parseTypeSignature(valueType.getName())));
             case LIST:
                 ListObjectInspector listObjectInspector = checkType(fieldInspector, ListObjectInspector.class, "fieldInspector");
                 Type elementType = getType(listObjectInspector.getListElementObjectInspector(), typeManager);
                 if (elementType == null) {
                     return null;
                 }
-                return typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(elementType.getName()));
+                return typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(parseTypeSignature(elementType.getName())));
             case STRUCT:
                 return VARCHAR;
             default:
@@ -1289,7 +1290,7 @@ public class HiveClient
             {
                 return new ColumnMetadata(
                         input.getName(),
-                        typeManager.getType(input.getTypeName()),
+                        typeManager.getType(parseTypeSignature(input.getTypeName())),
                         input.getOrdinalPosition(),
                         input.isPartitionKey(),
                         columnComment.get(input.getName()),
@@ -1322,7 +1323,7 @@ public class HiveClient
                         HiveColumnHandle columnHandle = checkType(handle, HiveColumnHandle.class, "handle");
 
                         String value = entry.getValue();
-                        Type type = typeManager.getType(columnHandle.getTypeName());
+                        Type type = typeManager.getType(parseTypeSignature(columnHandle.getTypeName()));
                         if (HiveUtil.isHiveNull(value.getBytes(StandardCharsets.UTF_8))) {
                             builder.put(columnHandle, new SerializableNativeValue(Primitives.wrap(type.getJavaType()), null));
                         }

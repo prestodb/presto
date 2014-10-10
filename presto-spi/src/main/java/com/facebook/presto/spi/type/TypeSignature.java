@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
@@ -29,7 +30,7 @@ public class TypeSignature
     private final String base;
     private final List<TypeSignature> parameters;
 
-    private TypeSignature(String base, List<TypeSignature> parameters)
+    public TypeSignature(String base, List<TypeSignature> parameters)
     {
         checkArgument(base != null, "base is null");
         this.base = base;
@@ -127,14 +128,14 @@ public class TypeSignature
 
         TypeSignature other = (TypeSignature) o;
 
-        return Objects.equals(this.base, other.base) &&
+        return Objects.equals(this.base.toLowerCase(Locale.ENGLISH), other.base.toLowerCase(Locale.ENGLISH)) &&
                 Objects.equals(this.parameters, other.parameters);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(base, parameters);
+        return Objects.hash(base.toLowerCase(Locale.ENGLISH), parameters);
     }
 
     private static void checkArgument(boolean argument, String format, Object...args)

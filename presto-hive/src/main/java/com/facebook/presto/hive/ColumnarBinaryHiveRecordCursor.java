@@ -56,9 +56,9 @@ import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
 import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
+import static com.facebook.presto.hive.HiveUtil.isArrayOrMap;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
-import static com.facebook.presto.hive.HiveUtil.isArrayOrMap;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -66,6 +66,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -165,7 +166,7 @@ class ColumnarBinaryHiveRecordCursor<K>
             HiveColumnHandle column = columns.get(i);
 
             names[i] = column.getName();
-            types[i] = typeManager.getType(column.getTypeName());
+            types[i] = typeManager.getType(parseTypeSignature(column.getTypeName()));
             hiveTypes[i] = column.getHiveType();
 
             if (!column.isPartitionKey()) {

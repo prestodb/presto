@@ -300,10 +300,10 @@ public final class Signature
         }
 
         if (allowCoercion) {
-            return canCoerce(type, typeManager.getType(signature.getBase()));
+            return canCoerce(type, typeManager.getType(parseTypeSignature(signature.getBase())));
         }
         else {
-            return type.equals(typeManager.getType(signature.getBase()));
+            return type.equals(typeManager.getType(parseTypeSignature(signature.getBase())));
         }
     }
 

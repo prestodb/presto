@@ -30,6 +30,7 @@ import org.apache.hadoop.hive.metastore.api.Table;
 import java.util.Map;
 
 import static com.facebook.presto.hive.util.Types.checkType;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -105,7 +106,7 @@ public class HiveColumnHandle
 
     public ColumnMetadata getColumnMetadata(TypeManager typeManager)
     {
-        return new ColumnMetadata(name, typeManager.getType(typeName), ordinalPosition, partitionKey);
+        return new ColumnMetadata(name, typeManager.getType(parseTypeSignature(typeName)), ordinalPosition, partitionKey);
     }
 
     @JsonProperty
@@ -203,7 +204,7 @@ public class HiveColumnHandle
             {
                 return new ColumnMetadata(
                         input.getName(),
-                        typeManager.getType(input.getTypeName()),
+                        typeManager.getType(parseTypeSignature(input.getTypeName())),
                         input.getOrdinalPosition(),
                         input.isPartitionKey(),
                         columnComment.get(input.getName()),
@@ -219,7 +220,7 @@ public class HiveColumnHandle
             @Override
             public Type apply(HiveColumnHandle input)
             {
-                return typeManager.getType(input.getTypeName());
+                return typeManager.getType(parseTypeSignature(input.getTypeName()));
             }
         };
     }

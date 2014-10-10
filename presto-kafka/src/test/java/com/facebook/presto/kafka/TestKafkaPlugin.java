@@ -20,6 +20,7 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -66,13 +67,13 @@ public class TestKafkaPlugin
             implements TypeManager
     {
         @Override
-        public Type getType(String typeName)
+        public Type getType(TypeSignature signature)
         {
             return null;
         }
 
         @Override
-        public Type getParameterizedType(String metaTypeName, List<String> typeNames)
+        public Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters)
         {
             return null;
         }

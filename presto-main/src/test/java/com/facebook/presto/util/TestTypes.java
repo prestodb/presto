@@ -17,6 +17,7 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.TypeRegistry;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Types.checkType;
 import static org.testng.Assert.assertNull;
 
@@ -45,6 +46,6 @@ public class TestTypes
     public void testNonexistentType()
     {
         TypeManager typeManager = new TypeRegistry();
-        assertNull(typeManager.getType("not a real type"));
+        assertNull(typeManager.getType(parseTypeSignature("not a real type")));
     }
 }

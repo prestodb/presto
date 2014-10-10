@@ -41,6 +41,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.fromAnnotations;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -234,7 +235,8 @@ public class AggregationCompiler
         for (Annotation[] annotations : parameterAnnotations) {
             for (Annotation annotation : annotations) {
                 if (annotation instanceof SqlType) {
-                    builder.add(typeManager.getType(((SqlType) annotation).value()));
+                    String typeName = ((SqlType) annotation).value();
+                    builder.add(typeManager.getType(parseTypeSignature(typeName)));
                 }
             }
         }

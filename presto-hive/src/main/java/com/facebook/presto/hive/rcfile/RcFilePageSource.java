@@ -62,6 +62,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -139,7 +140,7 @@ public class RcFilePageSource
             HiveColumnHandle column = columns.get(columnIndex);
 
             String name = column.getName();
-            Type type = typeManager.getType(column.getTypeName());
+            Type type = typeManager.getType(parseTypeSignature(column.getTypeName()));
 
             namesBuilder.add(name);
             typesBuilder.add(type);

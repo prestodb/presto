@@ -35,6 +35,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
@@ -154,7 +155,7 @@ public class ExpressionOptimizer
                 }
             }
 
-            return call(signature, typeManager.getType(signature.getReturnType()), arguments);
+            return call(signature, typeManager.getType(parseTypeSignature(signature.getReturnType())), arguments);
         }
     }
 }
