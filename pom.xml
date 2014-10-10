@@ -616,7 +616,7 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <configuration combine.children="append">
-                        <argLine>-Duser.timezone=${test.timezone} -Xmx2g -Xms2g -XX:MaxPermSize=512m</argLine>
+                        <argLine>-Duser.timezone=${test.timezone} -Xmx1800m -Xms1800m -XX:PermSize=200m -XX:MaxPermSize=400m -XX:NewRatio=1 -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:+UseCompressedOops -XX:+UseParNewGC -XX:SurvivorRatio=5 -XX:MaxTenuringThreshold=25 -XX:CMSInitiatingOccupancyFraction=85</argLine>
                         <parallel>methods</parallel>
                         <threadCount>8</threadCount>
                         <systemPropertyVariables>

@@ -323,6 +323,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <excludedGroups>hive</excludedGroups>
+                    <threadCount>2</threadCount>
                 </configuration>
             </plugin>
         </plugins>
