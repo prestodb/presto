@@ -157,7 +157,7 @@ public class ScanFilterAndProjectOperator
     @Override
     public final boolean isFinished()
     {
-        if (pageSource != null && pageSource.isFinished()) {
+        if (pageSource != null && pageSource.isFinished() && currentPage == null) {
             finishing = true;
         }
 
