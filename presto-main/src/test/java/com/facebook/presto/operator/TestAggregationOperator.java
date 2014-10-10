@@ -41,6 +41,7 @@ import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_S
 import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -73,7 +74,7 @@ public class TestAggregationOperator
             throws Exception
     {
         MetadataManager metadata = new MetadataManager();
-        InternalAggregationFunction countVarcharColumn = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of(StandardTypes.VARCHAR), false).getAggregationFunction();
+        InternalAggregationFunction countVarcharColumn = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of(parseTypeSignature(StandardTypes.VARCHAR)), false).getAggregationFunction();
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, VARCHAR, BIGINT, DOUBLE, VARCHAR)
                 .addSequencePage(100, 0, 0, 300, 500, 500, 500)
                 .build();

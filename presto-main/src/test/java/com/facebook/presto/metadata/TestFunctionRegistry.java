@@ -82,7 +82,7 @@ public class TestFunctionRegistry
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
 
         FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
-        FunctionInfo function = registry.resolveFunction(QualifiedName.of(signature.getName()), transform(signature.getArgumentTypes(), Functions.toStringFunction()), false);
+        FunctionInfo function = registry.resolveFunction(QualifiedName.of(signature.getName()), signature.getArgumentTypes(), false);
         assertEquals(function.getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
     }

@@ -20,9 +20,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.FluentIterable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,7 +36,7 @@ public class FunctionCallCodeGenerator
         FunctionInfo function = registry.getExactFunction(signature);
         if (function == null) {
             // TODO: temporary hack to deal with magic timestamp literal functions which don't have an "exact" form and need to be "resolved"
-            function = registry.resolveFunction(QualifiedName.of(signature.getName()), FluentIterable.from(signature.getArgumentTypes()).transform(Functions.toStringFunction()).toList(), false);
+            function = registry.resolveFunction(QualifiedName.of(signature.getName()), signature.getArgumentTypes(), false);
         }
 
         Preconditions.checkArgument(function != null, "Function %s not found", signature);

@@ -21,6 +21,8 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.type.TypeUtils;
+import com.google.common.collect.Lists;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -34,7 +36,7 @@ public abstract class AbstractTestAggregationFunction
 
     protected final InternalAggregationFunction getFunction()
     {
-        return functionRegistry.resolveFunction(QualifiedName.of(getFunctionName()), getFunctionParameterTypes(), isApproximate()).getAggregationFunction();
+        return functionRegistry.resolveFunction(QualifiedName.of(getFunctionName()), Lists.transform(getFunctionParameterTypes(), TypeUtils.typeSignatureParser()), isApproximate()).getAggregationFunction();
     }
 
     protected abstract String getFunctionName();

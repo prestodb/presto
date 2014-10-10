@@ -142,7 +142,7 @@ public class MetadataManager
     }
 
     @Override
-    public FunctionInfo resolveFunction(QualifiedName name, List<String> parameterTypes, boolean approximate)
+    public FunctionInfo resolveFunction(QualifiedName name, List<TypeSignature> parameterTypes, boolean approximate)
     {
         return functions.resolveFunction(name, parameterTypes, approximate);
     }

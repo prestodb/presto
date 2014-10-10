@@ -26,6 +26,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -89,6 +90,7 @@ import java.util.Set;
 
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.Field.typeGetter;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
@@ -631,12 +633,12 @@ class TupleAnalyzer
                 throw new SemanticException(NOT_SUPPORTED, node, "Window frames not yet supported");
             }
 
-            List<String> argumentTypes = Lists.transform(windowFunction.getArguments(), new Function<Expression, String>()
+            List<TypeSignature> argumentTypes = Lists.transform(windowFunction.getArguments(), new Function<Expression, TypeSignature>()
             {
                 @Override
-                public String apply(Expression input)
+                public TypeSignature apply(Expression input)
                 {
-                    return analysis.getType(input).getName();
+                    return parseTypeSignature(analysis.getType(input).getName());
                 }
             });
 
