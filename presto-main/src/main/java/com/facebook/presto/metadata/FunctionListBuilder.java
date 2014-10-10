@@ -50,6 +50,7 @@ import java.util.regex.Pattern;
 
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.nameGetter;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
@@ -195,7 +196,7 @@ public class FunctionListBuilder
 
     private static Type type(TypeManager typeManager, SqlType explicitType)
     {
-        Type type = typeManager.getType(explicitType.value());
+        Type type = typeManager.getType(parseTypeSignature(explicitType.value()));
         checkNotNull(type, "No type found for '%s'", explicitType.value());
         return type;
     }
@@ -228,7 +229,7 @@ public class FunctionListBuilder
 
     private static void verifyMethodSignature(Method method, String returnTypeName, List<String> argumentTypeNames, TypeManager typeManager)
     {
-        Type returnType = typeManager.getType(returnTypeName);
+        Type returnType = typeManager.getType(parseTypeSignature(returnTypeName));
         checkNotNull(returnType, "returnType is null");
         List<Type> argumentTypes = resolveTypes(argumentTypeNames, typeManager);
         checkArgument(Primitives.unwrap(method.getReturnType()) == returnType.getJavaType(),

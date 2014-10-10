@@ -19,6 +19,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Function;
 
@@ -69,7 +70,7 @@ public final class AggregationUtils
             return serializer.getSerializedType();
         }
         else {
-            return typeManager.getType(outputFunction.getAnnotation(OutputFunction.class).value());
+            return typeManager.getType(TypeSignature.parseTypeSignature(outputFunction.getAnnotation(OutputFunction.class).value()));
         }
     }
 

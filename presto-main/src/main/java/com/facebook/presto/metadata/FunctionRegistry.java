@@ -139,6 +139,7 @@ import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
@@ -346,12 +347,12 @@ public class FunctionRegistry
             String typeName = name.getSuffix().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
 
             // lookup the type
-            Type type = typeManager.getType(typeName);
+            Type type = typeManager.getType(parseTypeSignature(typeName));
             checkNotNull(type, "Type %s not registered", typeName);
 
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
-            Type parameterType = typeManager.getType(parameterTypes.get(0));
+            Type parameterType = typeManager.getType(parseTypeSignature(parameterTypes.get(0)));
             checkNotNull(parameterType, "Type %s not foudn", parameterTypes.get(0));
             checkArgument(parameterType.getJavaType() == type.getJavaType(),
                     "Expected type %s to use Java type %s, but Java type is %s",
@@ -378,7 +379,7 @@ public class FunctionRegistry
         Iterable<ParametricFunction> candidates = functions.get(QualifiedName.of(signature.getName()));
         // search for exact match
         for (ParametricFunction operator : candidates) {
-            Type returnType = typeManager.getType(signature.getReturnType());
+            Type returnType = typeManager.getType(parseTypeSignature(signature.getReturnType()));
             List<Type> argumentTypes = resolveTypes(signature.getArgumentTypes(), typeManager);
             Map<String, Type> boundTypeParameters = operator.getSignature().bindTypeParameters(returnType, argumentTypes, false, typeManager);
             if (boundTypeParameters != null) {
@@ -429,7 +430,7 @@ public class FunctionRegistry
             @Override
             public Type apply(String type)
             {
-                return checkNotNull(typeManager.getType(type), "Type '%s' not found", type);
+                return checkNotNull(typeManager.getType(parseTypeSignature(type)), "Type '%s' not found", type);
             }
         }).toList();
     }

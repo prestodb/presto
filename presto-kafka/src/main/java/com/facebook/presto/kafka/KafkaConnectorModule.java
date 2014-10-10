@@ -25,6 +25,7 @@ import com.google.inject.multibindings.Multibinder;
 
 import javax.inject.Inject;
 
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
@@ -84,7 +85,7 @@ public class KafkaConnectorModule
         @Override
         protected Type _deserialize(String value, DeserializationContext context)
         {
-            Type type = typeManager.getType(value);
+            Type type = typeManager.getType(parseTypeSignature(value));
             checkArgument(type != null, "Unknown type %s", value);
             return type;
         }

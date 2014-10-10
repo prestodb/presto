@@ -22,6 +22,7 @@ import com.google.common.collect.FluentIterable;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class TypeUtils
@@ -65,7 +66,7 @@ public final class TypeUtils
             @Override
             public Type apply(String type)
             {
-                return checkNotNull(typeManager.getType(type), "Type '%s' not found", type);
+                return checkNotNull(typeManager.getType(parseTypeSignature(type)), "Type '%s' not found", type);
             }
         }).toList();
     }

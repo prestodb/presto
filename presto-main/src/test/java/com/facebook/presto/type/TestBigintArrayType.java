@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class TestBigintArrayType
@@ -27,7 +28,7 @@ public class TestBigintArrayType
 {
     public TestBigintArrayType()
     {
-        super(new TypeRegistry().getType("array<bigint>"), List.class, createTestBlock(new TypeRegistry().getType("array<bigint>")));
+        super(new TypeRegistry().getType(parseTypeSignature("array<bigint>")), List.class, createTestBlock(new TypeRegistry().getType(parseTypeSignature("array<bigint>"))));
     }
 
     public static Block createTestBlock(Type arrayType)

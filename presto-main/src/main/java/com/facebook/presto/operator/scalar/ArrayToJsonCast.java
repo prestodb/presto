@@ -35,6 +35,7 @@ import java.util.Map;
 
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -72,7 +73,7 @@ public class ArrayToJsonCast
     {
         checkArgument(arity == 1, "Expected arity to be 1");
         Type type = types.get("T");
-        Type arrayType = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(type.getName()));
+        Type arrayType = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(parseTypeSignature(type.getName())));
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(arrayType);
         return operatorInfo(OperatorType.CAST, StandardTypes.JSON, ImmutableList.of(arrayType.getName()), methodHandle, false, ImmutableList.of(false));
     }

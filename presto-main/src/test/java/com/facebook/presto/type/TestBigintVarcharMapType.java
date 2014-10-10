@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.Type;
 
 import java.util.Map;
 
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class TestBigintVarcharMapType
@@ -27,7 +28,7 @@ public class TestBigintVarcharMapType
 {
     public TestBigintVarcharMapType()
     {
-        super(new TypeRegistry().getType("map<bigint,varchar>"), Map.class, createTestBlock(new TypeRegistry().getType("map<bigint,varchar>")));
+        super(new TypeRegistry().getType(parseTypeSignature("map<bigint,varchar>")), Map.class, createTestBlock(new TypeRegistry().getType(parseTypeSignature("map<bigint,varchar>"))));
     }
 
     public static Block createTestBlock(Type arrayType)

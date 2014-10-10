@@ -28,6 +28,7 @@ import javax.inject.Inject;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.compose;
 import static com.google.common.base.Predicates.equalTo;
@@ -131,7 +132,7 @@ public final class PartitionKey
         {
             return new PartitionKey(r.getString("partition_name"),
                     r.getString("key_name"),
-                    typeManager.getType(r.getString("key_type")),
+                    typeManager.getType(parseTypeSignature(r.getString("key_type"))),
                     r.getString("key_value"));
         }
     }

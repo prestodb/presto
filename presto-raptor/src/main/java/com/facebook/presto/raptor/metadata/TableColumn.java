@@ -27,6 +27,7 @@ import javax.inject.Inject;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -143,7 +144,7 @@ public class TableColumn
                     r.getString("table_name"));
 
             String typeName = r.getString("data_type");
-            Type type = typeManager.getType(typeName);
+            Type type = typeManager.getType(parseTypeSignature(typeName));
             checkArgument(type != null, "Unknown type %s", typeName);
 
             return new TableColumn(

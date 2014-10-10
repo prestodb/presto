@@ -51,6 +51,7 @@ import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
 import static com.facebook.presto.type.MapParametricType.MAP;
@@ -133,7 +134,7 @@ public final class MapConstructor
         catch (NoSuchMethodException | IllegalAccessException e) {
             throw Throwables.propagate(e);
         }
-        Type mapType = this.typeManager.getParameterizedType(MAP.getName(), ImmutableList.of(keyType.getName(), valueType.getName()));
+        Type mapType = this.typeManager.getParameterizedType(MAP.getName(), ImmutableList.of(parseTypeSignature(keyType.getName()), parseTypeSignature(valueType.getName())));
         Signature signature = new Signature("map", ImmutableList.<TypeParameter>of(), mapType.getName(), actualArgumentNames.build(), false, true);
         List<Boolean> nullableParameters = ImmutableList.copyOf(Collections.nCopies(stackTypes.size(), true));
         return new FunctionInfo(signature, "Constructs a map of the given entries", true, methodHandle, true, false, nullableParameters);
