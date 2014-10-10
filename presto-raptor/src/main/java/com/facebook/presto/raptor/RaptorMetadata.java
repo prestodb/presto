@@ -17,9 +17,9 @@ import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.MetadataDaoUtils;
 import com.facebook.presto.raptor.metadata.ShardManager;
+import com.facebook.presto.raptor.metadata.ShardNode;
 import com.facebook.presto.raptor.metadata.Table;
 import com.facebook.presto.raptor.metadata.TableColumn;
-import com.facebook.presto.raptor.metadata.TablePartition;
 import com.facebook.presto.raptor.metadata.ViewResult;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
@@ -55,7 +55,6 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 
@@ -64,7 +63,6 @@ import static com.facebook.presto.raptor.metadata.MetadataDaoUtils.createMetadat
 import static com.facebook.presto.raptor.metadata.SqlUtils.runIgnoringConstraintViolation;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -274,11 +272,7 @@ public class RaptorMetadata
             protected void execute(Handle handle, TransactionStatus status)
                     throws Exception
             {
-                Set<TablePartition> partitions = shardManager.getPartitions(raptorHandle);
-                for (TablePartition partition : partitions) {
-                    shardManager.dropPartition(raptorHandle, partition.getPartitionName());
-                }
-
+                shardManager.dropTableShards(raptorHandle.getTableId());
                 MetadataDaoUtils.dropTable(dao, raptorHandle.getTableId());
             }
         });
@@ -348,16 +342,12 @@ public class RaptorMetadata
             }
         });
 
-        shardManager.commitUnpartitionedTable(tableId, parseFragments(fragments));
+        shardManager.commitTable(tableId, parseFragments(fragments));
     }
 
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        if (!shardManager.getAllPartitionKeys(tableHandle).isEmpty()) {
-            throw new PrestoException(NOT_SUPPORTED.toErrorCode(), "Inserting into partitioned tables is yet not supported");
-        }
-
         long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
 
         ImmutableList.Builder<RaptorColumnHandle> columnHandles = ImmutableList.builder();
@@ -374,7 +364,7 @@ public class RaptorMetadata
     public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
     {
         long tableId = checkType(insertHandle, RaptorInsertTableHandle.class, "insertHandle").getTableId();
-        shardManager.commitUnpartitionedTable(tableId, parseFragments(fragments));
+        shardManager.commitTable(tableId, parseFragments(fragments));
     }
 
     @Override
@@ -444,14 +434,14 @@ public class RaptorMetadata
         return new RaptorColumnHandle(connectorId, tableColumn.getColumnName(), tableColumn.getColumnId(), tableColumn.getDataType());
     }
 
-    private static Map<UUID, String> parseFragments(Collection<String> fragments)
+    private static List<ShardNode> parseFragments(Collection<String> fragments)
     {
-        ImmutableMap.Builder<UUID, String> shards = ImmutableMap.builder();
+        ImmutableList.Builder<ShardNode> shards = ImmutableList.builder();
         for (String fragment : fragments) {
             Iterator<String> split = Splitter.on(':').split(fragment).iterator();
             String nodeId = split.next();
             UUID shardUuid = UUID.fromString(split.next());
-            shards.put(shardUuid, nodeId);
+            shards.add(new ShardNode(shardUuid, nodeId));
         }
         return shards.build();
     }

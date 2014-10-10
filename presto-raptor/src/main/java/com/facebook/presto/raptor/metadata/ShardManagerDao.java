@@ -13,14 +13,13 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.skife.jdbi.v2.sqlobject.Bind;
 import org.skife.jdbi.v2.sqlobject.GetGeneratedKeys;
 import org.skife.jdbi.v2.sqlobject.SqlQuery;
 import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
 import org.skife.jdbi.v2.sqlobject.customizers.RegisterArgumentFactory;
-
-import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Set;
@@ -54,33 +53,14 @@ public interface ShardManagerDao
             ")")
     void createTableShardNodes();
 
-    @SqlUpdate("CREATE TABLE IF NOT EXISTS table_partitions (\n" +
-            "  partition_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
-            "  partition_name VARCHAR(255) NOT NULL,\n" +
+    // TODO: FOREIGN KEY (table_id) REFERENCES tables (table_id)
+    @SqlUpdate("CREATE TABLE IF NOT EXISTS table_shards (\n" +
             "  table_id BIGINT NOT NULL,\n" +
-            "  UNIQUE (table_id, partition_name)\n" +
-            ")")
-    void createTablePartitions();
-
-    @SqlUpdate("CREATE TABLE IF NOT EXISTS partition_keys (\n" +
-            "  partition_key_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
-            "  table_id BIGINT NOT NULL,\n" +
-            "  partition_name VARCHAR(255) NOT NULL,\n" +
-            "  key_name VARCHAR(255) NOT NULL,\n" +
-            "  key_type VARCHAR(255) NOT NULL,\n" +
-            "  key_value VARCHAR(255) NOT NULL,\n" +
-            "  UNIQUE (table_id, partition_name, key_name, key_type, key_value)\n" +
-            ")")
-    void createPartitionKeys();
-
-    @SqlUpdate("CREATE TABLE IF NOT EXISTS partition_shards (\n" +
             "  shard_id BIGINT NOT NULL,\n" +
-            "  table_id BIGINT NOT NULL,\n" +
-            "  partition_id BIGINT NOT NULL,\n" +
-            "  FOREIGN KEY (shard_id) REFERENCES shards (shard_id),\n" +
-            "  FOREIGN KEY (partition_id) REFERENCES table_partitions (partition_id)\n" +
+            "  PRIMARY KEY (table_id, shard_id),\n" +
+            "  FOREIGN KEY (shard_id) REFERENCES shards (shard_id)\n" +
             ")")
-    void createPartitionShards();
+    void createTableTableShards();
 
     @SqlUpdate("INSERT INTO nodes (node_identifier) VALUES (:nodeIdentifier)")
     void insertNode(@Bind("nodeIdentifier") String nodeIdentifier);
@@ -91,119 +71,28 @@ public interface ShardManagerDao
 
     @SqlUpdate("INSERT INTO shard_nodes (shard_id, node_id)\n" +
             "VALUES (:shardId, :nodeId)\n")
-    void insertShardNode(
-            @Bind("shardId") long shardId,
-            @Bind("nodeId") long nodeId);
+    void insertShardNode(@Bind("shardId") long shardId, @Bind("nodeId") long nodeId);
 
-    @SqlUpdate("INSERT INTO partition_keys (table_id, partition_name, key_name, key_type, key_value)\n" +
-            "VALUES (:tableId, :partitionName, :keyName, :keyType, :keyValue)")
-    @GetGeneratedKeys
-    long insertPartitionKey(
-            @Bind("tableId") long tableId,
-            @Bind("partitionName") String partitionName,
-            @Bind("keyName") String keyName,
-            @Bind("keyType") String keyType,
-            @Bind("keyValue") String keyValue);
-
-    @SqlUpdate("INSERT INTO table_partitions (partition_name, table_id)\n" +
-            "VALUES (:partitionName, :tableId)\n")
-    @GetGeneratedKeys
-    long insertPartition(
-            @Bind("tableId") long tableId,
-            @Bind("partitionName") String partitionName);
-
-    @SqlUpdate("INSERT INTO partition_shards (shard_id, table_id, partition_id)\n" +
-            "VALUES (:shardId, :tableId, :partitionId)\n")
-    void insertPartitionShard(
-            @Bind("shardId") long shardId,
-            @Bind("tableId") long tableId,
-            @Bind("partitionId") long partitionId);
+    @SqlUpdate("INSERT INTO table_shards (table_id, shard_id)\n" +
+            "VALUES (:tableId, :shardId)\n")
+    void insertTableShard(@Bind("tableId") long tableId, @Bind("shardId") long shardId);
 
     @SqlQuery("SELECT node_id FROM nodes WHERE node_identifier = :nodeIdentifier")
     Long getNodeId(@Bind("nodeIdentifier") String nodeIdentifier);
 
-    @SqlQuery("SELECT partition_id\n" +
-            "FROM table_partitions\n" +
-            "WHERE table_id = :tableId\n" +
-            "  AND partition_name = :partitionName")
-    Long getPartitionId(@Bind("tableId") long tableId, @Bind("partitionName") String partitionName);
-
-    @SqlQuery("SELECT partition_name, key_name, key_type, key_value\n" +
-            " FROM partition_keys\n" +
-            " WHERE table_id = :tableId")
-    Set<PartitionKey> getPartitionKeys(@Bind("tableId") long tableId);
-
-    @SqlQuery("SELECT partition_id, partition_name, table_id\n" +
-            " FROM table_partitions\n" +
-            " WHERE table_id = :tableId\n")
-    @Mapper(TablePartition.Mapper.class)
-    Set<TablePartition> getPartitions(@Bind("tableId") long tableId);
-
-    @SqlQuery("SELECT s.shard_uuid, n.node_identifier, ps.table_id, ps.partition_id\n" +
-            "FROM shard_nodes sn\n" +
+    @SqlQuery("SELECT s.shard_uuid, n.node_identifier\n" +
+            "FROM table_shards ts\n" +
+            "JOIN shard_nodes sn ON (ts.shard_id = sn.shard_id)\n" +
             "JOIN shards s ON (sn.shard_id = s.shard_id)\n" +
             "JOIN nodes n ON (sn.node_id = n.node_id)\n" +
-            "JOIN partition_shards ps ON (ps.shard_id = s.shard_id)\n" +
-            "WHERE ps.table_id = :tableId")
+            "WHERE ts.table_id = :tableId")
     @Mapper(ShardNode.Mapper.class)
     List<ShardNode> getShardNodes(@Bind("tableId") long tableId);
 
-    @SqlQuery("SELECT DISTINCT n.node_identifier\n" +
-            "FROM shard_nodes sn\n" +
-            "JOIN shards s ON (sn.shard_id = s.shard_id)\n" +
-            "JOIN nodes n ON (sn.node_id = n.node_id)\n" +
-            "JOIN partition_shards ps ON (ps.shard_id = s.shard_id)\n" +
-            "WHERE ps.table_id = :tableId")
-    Set<String> getTableNodes(@Bind("tableId") long tableId);
-
+    @VisibleForTesting
     @SqlQuery("SELECT node_identifier FROM nodes")
-    List<String> getAllNodesInUse();
+    Set<String> getAllNodesInUse();
 
-    @SqlQuery("SELECT ps.shard_id\n" +
-            "FROM table_partitions tp\n" +
-            "JOIN partition_shards ps ON (tp.partition_id = ps.partition_id)\n" +
-            "WHERE tp.table_id = :tableId\n" +
-            "  AND tp.partition_name = :partitionName\n")
-    List<Long> getAllShards(@Bind("tableId") long tableId, @Bind("partitionName") String partitionName);
-
-    @SqlUpdate("DELETE FROM partition_shards\n" +
-            "WHERE shard_id = :shardId\n")
-    void deleteShardFromPartitionShards(@Bind("shardId") long shardId);
-
-    @SqlUpdate("DELETE FROM shards\n" +
-            "  WHERE shard_id = :shardId\n")
-    void deleteShard(@Bind("shardId") long shardId);
-
-    @SqlUpdate("DELETE FROM shard_nodes\n" +
-            "  WHERE shard_id = :shardId\n" +
-            "  AND (:nodeIdentifier IS NULL OR node_id = (SELECT node_id FROM nodes WHERE node_identifier = :nodeIdentifier))")
-    void dropShardNode(@Bind("shardId") long shardId, @Nullable @Bind("nodeIdentifier") String nodeIdentifier);
-
-    @SqlUpdate("DELETE FROM table_partitions\n" +
-            "WHERE table_id = :tableId\n" +
-            "  AND partition_name = :partitionName\n")
-    void dropPartition(@Bind("tableId") long tableId, @Bind("partitionName") String partitionName);
-
-    @SqlUpdate("DELETE FROM partition_keys\n" +
-            "WHERE table_id = :tableId\n" +
-            "  AND partition_name = :partitionName\n")
-    void dropPartitionKeys(@Bind("tableId") long tableId, @Bind("partitionName") String partitionName);
-
-    @SqlQuery("SELECT shard_id\n" +
-            "FROM shards\n" +
-            "WHERE shard_id NOT IN (SELECT shard_id FROM partition_shards)\n" +
-            "  AND shard_id NOT IN (SELECT shard_id FROM shard_nodes WHERE node_id =\n" +
-            "    (SELECT node_id FROM nodes WHERE node_identifier = :nodeIdentifier))")
-    List<Long> getOrphanedShards(@Bind("nodeIdentifier") String nodeIdentifier);
-
-    @SqlQuery("SELECT shard_id\n" +
-            "FROM shards\n" +
-            "WHERE shard_id NOT IN (SELECT shard_id FROM partition_shards)\n" +
-            "  AND shard_id NOT IN (SELECT shard_id FROM shard_nodes)")
-    List<Long> getAllOrphanedShards();
-
-    @SqlUpdate("DELETE FROM table_partitions\n" +
-            "  WHERE table_id NOT IN (SELECT table_id FROM tables)\n" +
-            "  AND partition_id NOT IN (SELECT partition_id FROM partition_shards)\n")
-    void dropAllOrphanedPartitions();
+    @SqlUpdate("DELETE FROM table_shards WHERE table_id = :tableId")
+    void dropTableShards(@Bind("tableId") long tableId);
 }

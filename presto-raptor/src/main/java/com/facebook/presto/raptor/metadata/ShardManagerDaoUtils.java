@@ -46,9 +46,7 @@ public final class ShardManagerDaoUtils
         dao.createTableNodes();
         dao.createTableShards();
         dao.createTableShardNodes();
-        dao.createTablePartitions();
-        dao.createPartitionKeys();
-        dao.createPartitionShards();
+        dao.createTableTableShards();
     }
 
     private static void sleep(Duration duration)
