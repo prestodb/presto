@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.split;
 
 import com.facebook.presto.metadata.Split;
 import com.google.common.base.Predicate;
