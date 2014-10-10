@@ -72,13 +72,13 @@ public final class TypeUtils
         };
     }
 
-    public static List<Type> resolveTypes(List<String> typeNames, final TypeManager typeManager)
+    public static List<Type> resolveTypes(List<TypeSignature> typeNames, final TypeManager typeManager)
     {
-        return FluentIterable.from(typeNames).transform(new Function<String, Type>() {
+        return FluentIterable.from(typeNames).transform(new Function<TypeSignature, Type>() {
             @Override
-            public Type apply(String type)
+            public Type apply(TypeSignature type)
             {
-                return checkNotNull(typeManager.getType(parseTypeSignature(type)), "Type '%s' not found", type);
+                return checkNotNull(typeManager.getType(type), "Type '%s' not found", type);
             }
         }).toList();
     }
