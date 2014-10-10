@@ -17,9 +17,12 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.MapType;
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.google.common.base.Throwables;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -47,6 +50,13 @@ public class ArrayUnnester
         try {
             if (jsonParser.getCurrentToken() == JsonToken.VALUE_NULL) {
                 blockBuilder.appendNull();
+            }
+            else if (elementType instanceof ArrayType || elementType instanceof MapType) {
+                DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(ESTIMATED_JSON_OUTPUT_SIZE);
+                try (JsonGenerator jsonGenerator = JSON_FACTORY.createJsonGenerator(dynamicSliceOutput)) {
+                    jsonGenerator.copyCurrentStructure(jsonParser);
+                }
+                elementType.writeSlice(blockBuilder, dynamicSliceOutput.slice());
             }
             else if (elementType.getJavaType() == long.class) {
                 elementType.writeLong(blockBuilder, jsonParser.getLongValue());
