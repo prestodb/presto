@@ -32,7 +32,8 @@ import static com.google.common.base.Preconditions.checkState;
 public abstract class Unnester
         implements Closeable
 {
-    private static final JsonFactory JSON_FACTORY = new JsonFactory().disable(CANONICALIZE_FIELD_NAMES);
+    protected static final JsonFactory JSON_FACTORY = new JsonFactory().disable(CANONICALIZE_FIELD_NAMES);
+    protected static final int ESTIMATED_JSON_OUTPUT_SIZE = 512;
 
     private final int channelCount;
     private final JsonParser jsonParser;

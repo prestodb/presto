@@ -88,6 +88,9 @@ public abstract class AbstractTestQueries
     public void testUnnest()
             throws Exception
     {
+        assertQuery("SELECT x[1] FROM UNNEST(ARRAY[ARRAY[2, 2, 3]]) t(x)", "SELECT 2");
+        assertQuery("SELECT x[1][2] FROM UNNEST(ARRAY[ARRAY[ARRAY[2, 2, 3]]]) t(x)", "SELECT 2");
+        assertQuery("SELECT x[2] FROM UNNEST(ARRAY[MAP(1, 'hello', 2, 'hi')]) t(x)", "SELECT 'hi'");
         assertQuery("SELECT * FROM UNNEST(ARRAY[1, 2, 3])", "SELECT * FROM VALUES (1), (2), (3)");
         assertQuery("SELECT a FROM UNNEST(ARRAY[1, 2, 3]) t(a)", "SELECT * FROM VALUES (1), (2), (3)");
         assertQuery("SELECT a, b FROM UNNEST(ARRAY[1, 2], ARRAY[3, 4]) t(a, b)", "SELECT * FROM VALUES (1, 3), (2, 4)");
