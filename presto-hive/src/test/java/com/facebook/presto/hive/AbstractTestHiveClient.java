@@ -99,6 +99,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
@@ -209,11 +210,11 @@ public abstract class AbstractTestHiveClient
 
         invalidTableHandle = new HiveTableHandle("hive", database, INVALID_TABLE, SESSION);
 
-        dsColumn = new HiveColumnHandle(connectorId, "ds", 0, HIVE_STRING, StandardTypes.VARCHAR, -1, true);
-        fileFormatColumn = new HiveColumnHandle(connectorId, "file_format", 1, HIVE_STRING, StandardTypes.VARCHAR, -1, true);
-        dummyColumn = new HiveColumnHandle(connectorId, "dummy", 2, HIVE_INT, StandardTypes.BIGINT, -1, true);
-        intColumn = new HiveColumnHandle(connectorId, "t_int", 0, HIVE_INT, StandardTypes.BIGINT, -1, true);
-        invalidColumnHandle = new HiveColumnHandle(connectorId, INVALID_COLUMN, 0, HIVE_STRING, StandardTypes.VARCHAR, 0, false);
+        dsColumn = new HiveColumnHandle(connectorId, "ds", 0, HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), -1, true);
+        fileFormatColumn = new HiveColumnHandle(connectorId, "file_format", 1, HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), -1, true);
+        dummyColumn = new HiveColumnHandle(connectorId, "dummy", 2, HIVE_INT, parseTypeSignature(StandardTypes.BIGINT), -1, true);
+        intColumn = new HiveColumnHandle(connectorId, "t_int", 0, HIVE_INT, parseTypeSignature(StandardTypes.BIGINT), -1, true);
+        invalidColumnHandle = new HiveColumnHandle(connectorId, INVALID_COLUMN, 0, HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), 0, false);
 
         partitions = ImmutableSet.<ConnectorPartition>builder()
                 .add(new HivePartition(tablePartitionFormat,

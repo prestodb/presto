@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 import java.util.Map;
 
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
@@ -52,7 +53,7 @@ public class TestJsonHiveHandles
             .put("name", "column")
             .put("ordinalPosition", 42)
             .put("hiveType", "float")
-            .put("typeName", "double")
+            .put("typeSignature", "double")
             .put("hiveColumnIndex", -1)
             .put("partitionKey", true)
             .build();
@@ -88,7 +89,7 @@ public class TestJsonHiveHandles
     public void testColumnHandleSerialize()
             throws Exception
     {
-        HiveColumnHandle columnHandle = new HiveColumnHandle("hive", "column", 42, HiveType.HIVE_FLOAT, StandardTypes.DOUBLE, -1, true);
+        HiveColumnHandle columnHandle = new HiveColumnHandle("hive", "column", 42, HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), -1, true);
 
         assertTrue(objectMapper.canSerialize(HiveColumnHandle.class));
         String json = objectMapper.writeValueAsString(columnHandle);

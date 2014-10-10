@@ -1484,7 +1484,7 @@ public final class BenchmarkHiveFileFormats
                     column.getColumnName(),
                     ordinal,
                     HiveType.getHiveType(inspector),
-                    getType(inspector, TYPE_MANAGER).getTypeSignature().toString(),
+                    getType(inspector, TYPE_MANAGER).getTypeSignature(),
                     ordinal,
                     false));
         }

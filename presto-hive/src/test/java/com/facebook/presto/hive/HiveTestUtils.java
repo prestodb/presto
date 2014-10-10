@@ -22,8 +22,6 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-
 public final class HiveTestUtils
 {
     private HiveTestUtils()
@@ -49,7 +47,7 @@ public final class HiveTestUtils
     {
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (ConnectorColumnHandle columnHandle : columnHandles) {
-            types.add(TYPE_MANAGER.getType(parseTypeSignature(((HiveColumnHandle) columnHandle).getTypeName())));
+            types.add(TYPE_MANAGER.getType(((HiveColumnHandle) columnHandle).getTypeSignature()));
         }
         return types.build();
     }
