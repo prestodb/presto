@@ -74,6 +74,9 @@ public class SplitManager
 
     public SplitSource getPartitionSplits(TableHandle handle, List<Partition> partitions)
     {
+        if (partitions.isEmpty()) {
+            return new EmptySplitSource();
+        }
         ConnectorTableHandle table = handle.getConnectorHandle();
         ConnectorSplitSource source = getConnectorSplitManager(handle).getPartitionSplits(table, Lists.transform(partitions, connectorPartitionGetter()));
         return new ConnectorAwareSplitSource(handle.getConnectorId(), source);
