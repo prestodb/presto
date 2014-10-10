@@ -93,7 +93,6 @@ import com.facebook.presto.type.VarcharOperators;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
@@ -565,7 +564,7 @@ public class FunctionRegistry
 
     public static FunctionInfo operatorInfo(OperatorType operatorType, TypeSignature returnType, List<TypeSignature> argumentTypes, MethodHandle method, boolean nullable, List<Boolean> nullableArguments)
     {
-        operatorType.validateSignature(returnType.toString(), ImmutableList.copyOf(Lists.transform(argumentTypes, Functions.toStringFunction())));
+        operatorType.validateSignature(returnType, argumentTypes);
 
         Signature signature = Signature.internalOperator(operatorType.name(), returnType, argumentTypes);
         return new FunctionInfo(signature, operatorType.getOperator(), true, method, true, nullable, nullableArguments);
