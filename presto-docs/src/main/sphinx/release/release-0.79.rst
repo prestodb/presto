@@ -10,3 +10,8 @@ Hive Changes
 * Add new experimental optimized RCFile reader.  The reader can be enabled by
   setting the configuration option ``hive.optimized-reader.enabled`` or session
   property ``optimized_reader_enabled``.
+
+General Changes
+---------------
+
+* Add support for :ref:`unnest`, which can be used as a replacement for the `explode()` function in Hive.
