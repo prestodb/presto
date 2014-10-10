@@ -47,14 +47,16 @@ public class UnloadedIndexKeyRecordSet
         checkNotNull(requests, "requests is null");
 
         int[] distinctChannels = Ints.toArray(channelsForDistinct);
-        List<Type> distinctChannelTypes = new ArrayList<>();
-        for (int distinctChannel : distinctChannels) {
-            distinctChannelTypes.add(types.get(distinctChannel));
+        int[] normalizedDistinctChannels = new int[distinctChannels.length];
+        List<Type> distinctChannelTypes = new ArrayList<>(distinctChannels.length);
+        for (int i = 0; i < distinctChannels.length; i++) {
+            normalizedDistinctChannels[i] = i;
+            distinctChannelTypes.add(types.get(distinctChannels[i]));
         }
 
         ImmutableList.Builder<PageAndPositions> builder = ImmutableList.builder();
         long nextDistinctId = 0;
-        GroupByHash groupByHash = new GroupByHash(distinctChannelTypes, distinctChannels, 10_000);
+        GroupByHash groupByHash = new GroupByHash(distinctChannelTypes, normalizedDistinctChannels, 10_000);
         for (UpdateRequest request : requests) {
             IntList positions = new IntArrayList();
             Block[] blocks = request.getBlocks();
