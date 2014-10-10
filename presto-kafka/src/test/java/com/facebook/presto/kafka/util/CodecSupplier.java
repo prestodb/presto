@@ -24,6 +24,8 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+
 public final class CodecSupplier<T>
         implements Supplier<JsonCodec<T>>
 {
@@ -59,7 +61,7 @@ public final class CodecSupplier<T>
         @Override
         protected Type _deserialize(String value, DeserializationContext context)
         {
-            Type type = metadata.getType(value);
+            Type type = metadata.getType(parseTypeSignature(value));
             if (type == null) {
                 throw new IllegalArgumentException(String.valueOf("Unknown type " + value));
             }

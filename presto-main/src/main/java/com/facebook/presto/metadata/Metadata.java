@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Optional;
 
@@ -28,7 +29,7 @@ import java.util.Map;
 
 public interface Metadata
 {
-    Type getType(String typeName);
+    Type getType(TypeSignature signature);
 
     FunctionInfo resolveFunction(QualifiedName name, List<String> parameterTypes, boolean approximate);
 
