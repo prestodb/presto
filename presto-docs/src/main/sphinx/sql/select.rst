@@ -223,13 +223,36 @@ UNNEST
 ------
 
 ``UNNEST`` can be used to expand an :ref:`array_type` or :ref:`map_type` into a relation.
-Arrays are expanded into a single column, and maps are expanded into two columns (key then value).
+Arrays are expanded into a single column, and maps are expanded into two columns (key, value).
 ``UNNEST`` can also be used with multiple arguments, in which case they are expanded into multiple columns,
 with as many rows as the highest cardinality argument (the other columns are padded with nulls).
-When used in a ``JOIN``, ``UNNEST`` can reference columns from relations on the left side of the join.
+``UNNEST`` is normally used with a ``JOIN`` and can reference columns
+from relations on the left side of the join.
 
-Example::
+Using a single column::
 
-    SELECT element, element2
-    FROM array_table CROSS JOIN UNNEST(array_col, array_col2) t(element, element2);
+    SELECT student, score
+    FROM tests
+    CROSS JOIN UNNEST(scores) AS t (score);
 
+Using multiple columns::
+
+    SELECT numbers, animals, n, a
+    FROM (
+      VALUES
+        (ARRAY[2, 5], ARRAY['dog', 'cat', 'bird']),
+        (ARRAY[7, 8, 9], ARRAY['cow', 'pig'])
+    ) AS x (numbers, animals)
+    CROSS JOIN UNNEST(numbers, animals) AS t (n, a);
+
+.. code-block:: none
+
+      numbers  |     animals      |  n   |  a
+    -----------+------------------+------+------
+     [2, 5]    | [dog, cat, bird] |    2 | dog
+     [2, 5]    | [dog, cat, bird] |    5 | cat
+     [2, 5]    | [dog, cat, bird] | NULL | bird
+     [7, 8, 9] | [cow, pig]       |    7 | cow
+     [7, 8, 9] | [cow, pig]       |    8 | pig
+     [7, 8, 9] | [cow, pig]       |    9 | NULL
+    (6 rows)
