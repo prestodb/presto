@@ -75,7 +75,7 @@ public class TestHiveClientConfig
                 .setS3MultipartMinPartSize(new DataSize(5, Unit.MEGABYTE))
                 .setS3MaxConnections(500)
                 .setS3StagingDirectory(new File(StandardSystemProperty.JAVA_IO_TMPDIR.value()))
-                .setOptimizedReaderEnabled(true));
+                .setOptimizedReaderEnabled(false));
     }
 
     @Test
@@ -119,7 +119,7 @@ public class TestHiveClientConfig
                 .put("hive.s3.multipart.min-part-size", "15MB")
                 .put("hive.s3.max-connections", "77")
                 .put("hive.s3.staging-directory", "/s3-staging")
-                .put("hive.optimized-reader.enabled", "false")
+                .put("hive.optimized-reader.enabled", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -160,7 +160,7 @@ public class TestHiveClientConfig
                 .setS3MultipartMinPartSize(new DataSize(15, Unit.MEGABYTE))
                 .setS3MaxConnections(77)
                 .setS3StagingDirectory(new File("/s3-staging"))
-                .setOptimizedReaderEnabled(false);
+                .setOptimizedReaderEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
