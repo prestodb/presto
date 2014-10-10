@@ -14,7 +14,6 @@
 package com.facebook.presto.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.ArrayList;
@@ -61,13 +60,11 @@ public class TypeSignature
         return typeName;
     }
 
-    @JsonProperty
     public String getBase()
     {
         return base;
     }
 
-    @JsonProperty
     public List<TypeSignature> getParameters()
     {
         return parameters;
