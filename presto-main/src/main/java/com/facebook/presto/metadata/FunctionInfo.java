@@ -20,8 +20,10 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collections;
@@ -164,12 +166,12 @@ public final class FunctionInfo
 
     public String getReturnType()
     {
-        return signature.getReturnType();
+        return signature.getReturnType().toString();
     }
 
     public List<String> getArgumentTypes()
     {
-        return signature.getArgumentTypes();
+        return Lists.transform(signature.getArgumentTypes(), Functions.toStringFunction());
     }
 
     public String getIntermediateType()

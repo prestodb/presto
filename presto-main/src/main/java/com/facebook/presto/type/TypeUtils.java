@@ -16,6 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.FluentIterable;
@@ -56,6 +57,17 @@ public final class TypeUtils
             public String apply(Type input)
             {
                 return input.getName();
+            }
+        };
+    }
+
+    public static Function<String, TypeSignature> typeSignatureParser()
+    {
+        return new Function<String, TypeSignature>() {
+            @Override
+            public TypeSignature apply(String input)
+            {
+                return parseTypeSignature(input);
             }
         };
     }

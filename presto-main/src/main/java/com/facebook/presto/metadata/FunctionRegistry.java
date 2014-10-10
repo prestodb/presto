@@ -92,6 +92,7 @@ import com.facebook.presto.type.VarcharOperators;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
@@ -379,8 +380,8 @@ public class FunctionRegistry
         Iterable<ParametricFunction> candidates = functions.get(QualifiedName.of(signature.getName()));
         // search for exact match
         for (ParametricFunction operator : candidates) {
-            Type returnType = typeManager.getType(parseTypeSignature(signature.getReturnType()));
-            List<Type> argumentTypes = resolveTypes(signature.getArgumentTypes(), typeManager);
+            Type returnType = typeManager.getType(signature.getReturnType());
+            List<Type> argumentTypes = resolveTypes(Lists.transform(signature.getArgumentTypes(), Functions.toStringFunction()), typeManager);
             Map<String, Type> boundTypeParameters = operator.getSignature().bindTypeParameters(returnType, argumentTypes, false, typeManager);
             if (boundTypeParameters != null) {
                 return operator.specialize(boundTypeParameters, signature.getArgumentTypes().size(), typeManager);

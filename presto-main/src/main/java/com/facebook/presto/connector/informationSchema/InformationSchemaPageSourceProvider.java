@@ -243,7 +243,7 @@ public class InformationSchemaPageSourceProvider
             table.add(
                     function.getSignature().getName(),
                     Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
-                    function.getSignature().getReturnType(),
+                    function.getSignature().getReturnType().toString(),
                     functionType,
                     nullToEmpty(function.getDescription()));
         }

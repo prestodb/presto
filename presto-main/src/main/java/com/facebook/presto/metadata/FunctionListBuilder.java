@@ -25,7 +25,10 @@ import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.SqlType;
+import com.facebook.presto.type.TypeUtils;
+import com.google.common.base.Functions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -227,11 +230,11 @@ public class FunctionListBuilder
         return types.build();
     }
 
-    private static void verifyMethodSignature(Method method, String returnTypeName, List<String> argumentTypeNames, TypeManager typeManager)
+    private static void verifyMethodSignature(Method method, TypeSignature returnTypeName, List<TypeSignature> argumentTypeNames, TypeManager typeManager)
     {
-        Type returnType = typeManager.getType(parseTypeSignature(returnTypeName));
+        Type returnType = typeManager.getType(returnTypeName);
         checkNotNull(returnType, "returnType is null");
-        List<Type> argumentTypes = resolveTypes(argumentTypeNames, typeManager);
+        List<Type> argumentTypes = resolveTypes(Lists.transform(argumentTypeNames, Functions.toStringFunction()), typeManager);
         checkArgument(Primitives.unwrap(method.getReturnType()) == returnType.getJavaType(),
                 "Expected method %s return type to be %s (%s)",
                 method,
@@ -311,7 +314,7 @@ public class FunctionListBuilder
             checkArgument(explicitType != null, "Method %s return type does not have a @SqlType annotation", method);
             returnType = type(typeManager, explicitType);
 
-            verifyMethodSignature(method, returnType.getName(), Lists.transform(parameterTypes, nameGetter()), typeManager);
+            verifyMethodSignature(method, parseTypeSignature(returnType.getName()), Lists.transform(Lists.transform(parameterTypes, nameGetter()), TypeUtils.typeSignatureParser()), typeManager);
         }
 
         List<Boolean> nullableArguments = getNullableArguments(method);

@@ -28,14 +28,15 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.UnknownType;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Iterables;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
@@ -112,7 +113,7 @@ public class ExpressionOptimizer
                         function = registry.getExactFunction(signature);
                         if (function == null) {
                             // TODO: temporary hack to deal with magic timestamp literal functions which don't have an "exact" form and need to be "resolved"
-                            function = registry.resolveFunction(QualifiedName.of(signature.getName()), signature.getArgumentTypes(), false);
+                            function = registry.resolveFunction(QualifiedName.of(signature.getName()), FluentIterable.from(signature.getArgumentTypes()).transform(Functions.toStringFunction()).toList(), false);
                         }
                 }
             }
@@ -155,7 +156,7 @@ public class ExpressionOptimizer
                 }
             }
 
-            return call(signature, typeManager.getType(parseTypeSignature(signature.getReturnType())), arguments);
+            return call(signature, typeManager.getType(signature.getReturnType()), arguments);
         }
     }
 }
