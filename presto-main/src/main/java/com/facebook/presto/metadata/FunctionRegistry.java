@@ -73,6 +73,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
@@ -299,7 +300,7 @@ public class FunctionRegistry
         return Iterables.any(functions.get(name), isAggregationPredicate());
     }
 
-    public FunctionInfo resolveFunction(QualifiedName name, List<String> parameterTypes, final boolean approximate)
+    public FunctionInfo resolveFunction(QualifiedName name, List<TypeSignature> parameterTypes, final boolean approximate)
     {
         List<ParametricFunction> candidates = IterableTransformer.on(functions.get(name)).select(new Predicate<ParametricFunction>() {
             @Override
@@ -309,7 +310,7 @@ public class FunctionRegistry
             }
         }).list();
 
-        List<Type> resolvedTypes = resolveTypes(Lists.transform(parameterTypes, TypeUtils.typeSignatureParser()), typeManager);
+        List<Type> resolvedTypes = resolveTypes(parameterTypes, typeManager);
         // search for exact match
         FunctionInfo match = null;
         for (ParametricFunction function : candidates) {
@@ -354,7 +355,7 @@ public class FunctionRegistry
 
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
-            Type parameterType = typeManager.getType(parseTypeSignature(parameterTypes.get(0)));
+            Type parameterType = typeManager.getType(parameterTypes.get(0));
             checkNotNull(parameterType, "Type %s not foudn", parameterTypes.get(0));
             checkArgument(parameterType.getJavaType() == type.getJavaType(),
                     "Expected type %s to use Java type %s, but Java type is %s",
@@ -414,7 +415,7 @@ public class FunctionRegistry
             throws OperatorNotFoundException
     {
         try {
-            return resolveFunction(QualifiedName.of(mangleOperatorName(operatorType)), Lists.transform(argumentTypes, nameGetter()), false);
+            return resolveFunction(QualifiedName.of(mangleOperatorName(operatorType)), Lists.transform(Lists.transform(argumentTypes, nameGetter()), TypeUtils.typeSignatureParser()), false);
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode().getCode()) {

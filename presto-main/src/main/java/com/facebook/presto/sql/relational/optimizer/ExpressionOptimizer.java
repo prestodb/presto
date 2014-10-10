@@ -28,9 +28,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.UnknownType;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.base.Throwables;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Iterables;
 
 import java.lang.invoke.MethodHandle;
@@ -113,7 +111,7 @@ public class ExpressionOptimizer
                         function = registry.getExactFunction(signature);
                         if (function == null) {
                             // TODO: temporary hack to deal with magic timestamp literal functions which don't have an "exact" form and need to be "resolved"
-                            function = registry.resolveFunction(QualifiedName.of(signature.getName()), FluentIterable.from(signature.getArgumentTypes()).transform(Functions.toStringFunction()).toList(), false);
+                            function = registry.resolveFunction(QualifiedName.of(signature.getName()), signature.getArgumentTypes(), false);
                         }
                 }
             }

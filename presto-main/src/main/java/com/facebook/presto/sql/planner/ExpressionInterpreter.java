@@ -55,6 +55,7 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.LikeFunctions;
+import com.facebook.presto.type.TypeUtils;
 import com.google.common.base.Charsets;
 import com.google.common.base.Functions;
 import com.google.common.base.Predicate;
@@ -625,7 +626,7 @@ public class ExpressionInterpreter
                 argumentValues.add(value);
                 argumentTypes.add(type);
             }
-            FunctionInfo function = metadata.resolveFunction(node.getName(), Lists.transform(argumentTypes, nameGetter()), false);
+            FunctionInfo function = metadata.resolveFunction(node.getName(), Lists.transform(Lists.transform(argumentTypes, nameGetter()), TypeUtils.typeSignatureParser()), false);
             for (int i = 0; i < argumentValues.size(); i++) {
                 Object value = argumentValues.get(i);
                 if (value == null && !function.getNullableArguments().get(i)) {

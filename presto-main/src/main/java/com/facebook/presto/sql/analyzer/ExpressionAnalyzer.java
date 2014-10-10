@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.Symbol;
@@ -532,9 +533,9 @@ public class ExpressionAnalyzer
                 }
             }
 
-            ImmutableList.Builder<String> argumentTypes = ImmutableList.builder();
+            ImmutableList.Builder<TypeSignature> argumentTypes = ImmutableList.builder();
             for (Expression expression : node.getArguments()) {
-                argumentTypes.add(process(expression, context).getName());
+                argumentTypes.add(parseTypeSignature(process(expression, context).getName()));
             }
 
             FunctionInfo function = metadata.resolveFunction(node.getName(), argumentTypes.build(), context.isApproximate());
