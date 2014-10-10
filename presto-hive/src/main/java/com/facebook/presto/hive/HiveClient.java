@@ -121,7 +121,6 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -407,7 +406,7 @@ public class HiveClient
             if (hiveType != null && (includeSampleWeight || !field.getFieldName().equals(SAMPLE_WEIGHT_COLUMN_NAME))) {
                 Type type = getType(field.getFieldObjectInspector(), typeManager);
                 checkNotNull(type, "Unsupported hive type: %s", field.getFieldObjectInspector().getTypeName());
-                columns.add(new HiveColumnHandle(connectorId, field.getFieldName(), hiveColumnIndex, hiveType, type.getTypeSignature().toString(), hiveColumnIndex, false));
+                columns.add(new HiveColumnHandle(connectorId, field.getFieldName(), hiveColumnIndex, hiveType, type.getTypeSignature(), hiveColumnIndex, false));
             }
             hiveColumnIndex++;
         }
@@ -418,7 +417,7 @@ public class HiveClient
             FieldSchema field = partitionKeys.get(i);
 
             HiveType hiveType = getSupportedHiveType(field.getType());
-            columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveColumnIndex + i, hiveType, getType(field.getType()).getTypeSignature().toString(), -1, true));
+            columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveColumnIndex + i, hiveType, getType(field.getType()).getTypeSignature(), -1, true));
         }
 
         return columns.build();
@@ -986,7 +985,7 @@ public class HiveClient
             FieldSchema field = partitionKeys.get(i);
 
             HiveType hiveType = getSupportedHiveType(field.getType());
-            HiveColumnHandle columnHandle = new HiveColumnHandle(connectorId, field.getName(), i, hiveType, getType(field.getType()).getTypeSignature().toString(), -1, true);
+            HiveColumnHandle columnHandle = new HiveColumnHandle(connectorId, field.getName(), i, hiveType, getType(field.getType()).getTypeSignature(), -1, true);
             partitionKeysByNameBuilder.put(field.getName(), columnHandle);
 
             // only add to prefix if all previous keys have a value
@@ -1290,7 +1289,7 @@ public class HiveClient
             {
                 return new ColumnMetadata(
                         input.getName(),
-                        typeManager.getType(parseTypeSignature(input.getTypeName())),
+                        typeManager.getType(input.getTypeSignature()),
                         input.getOrdinalPosition(),
                         input.isPartitionKey(),
                         columnComment.get(input.getName()),
@@ -1323,7 +1322,7 @@ public class HiveClient
                         HiveColumnHandle columnHandle = checkType(handle, HiveColumnHandle.class, "handle");
 
                         String value = entry.getValue();
-                        Type type = typeManager.getType(parseTypeSignature(columnHandle.getTypeName()));
+                        Type type = typeManager.getType(columnHandle.getTypeSignature());
                         if (HiveUtil.isHiveNull(value.getBytes(StandardCharsets.UTF_8))) {
                             builder.put(columnHandle, new SerializableNativeValue(Primitives.wrap(type.getJavaType()), null));
                         }

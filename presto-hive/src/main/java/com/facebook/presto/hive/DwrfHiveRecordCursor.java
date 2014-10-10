@@ -72,7 +72,6 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -165,7 +164,7 @@ class DwrfHiveRecordCursor
             HiveColumnHandle column = columns.get(i);
 
             names[i] = column.getName();
-            types[i] = typeManager.getType(parseTypeSignature(column.getTypeName()));
+            types[i] = typeManager.getType(column.getTypeSignature());
             hiveTypes[i] = column.getHiveType();
 
             if (!column.isPartitionKey()) {

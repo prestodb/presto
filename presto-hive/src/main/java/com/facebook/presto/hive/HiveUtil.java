@@ -171,7 +171,7 @@ public final class HiveUtil
 
     private static HiveColumnHandle createHiveColumnHandle(String clientId, int index, StructField field, ObjectInspector inspector, TypeManager typeManager)
     {
-        return new HiveColumnHandle(clientId, field.getFieldName(), index, getSupportedHiveType(inspector), getType(inspector, typeManager).getTypeSignature().toString(), index, false);
+        return new HiveColumnHandle(clientId, field.getFieldName(), index, getSupportedHiveType(inspector), getType(inspector, typeManager).getTypeSignature(), index, false);
     }
 
     static InputFormat<?, ?> getInputFormat(Configuration configuration, Properties schema, boolean symlinkTarget)

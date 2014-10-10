@@ -17,6 +17,7 @@ import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveColumnHandle
@@ -26,7 +27,7 @@ public class TestHiveColumnHandle
     @Test
     public void testRoundTrip()
     {
-        HiveColumnHandle expected = new HiveColumnHandle("client", "name", 42, HiveType.HIVE_FLOAT, StandardTypes.DOUBLE, 88, true);
+        HiveColumnHandle expected = new HiveColumnHandle("client", "name", 42, HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), 88, true);
 
         String json = codec.toJson(expected);
         HiveColumnHandle actual = codec.fromJson(json);
