@@ -34,7 +34,7 @@ public final class TypeSerde
             throw new NullPointerException("type is null");
         }
 
-        writeLengthPrefixedString(sliceOutput, type.getName());
+        writeLengthPrefixedString(sliceOutput, type.getTypeSignature().toString());
     }
 
     public static Type readType(TypeManager typeManager, SliceInput sliceInput)

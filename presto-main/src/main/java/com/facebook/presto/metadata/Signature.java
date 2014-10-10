@@ -91,12 +91,12 @@ public final class Signature
         this(name, returnType, ImmutableList.copyOf(argumentTypes));
     }
 
-    public static Signature internalOperator(String name, String returnType, List<String> argumentTypes)
+    public static Signature internalOperator(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
         return internalFunction(mangleOperatorName(name), returnType, argumentTypes);
     }
 
-    public static Signature internalOperator(String name, String returnType, String... argumentTypes)
+    public static Signature internalOperator(String name, TypeSignature returnType, TypeSignature... argumentTypes)
     {
         return internalFunction(mangleOperatorName(name), returnType, ImmutableList.copyOf(argumentTypes));
     }
@@ -107,6 +107,16 @@ public final class Signature
     }
 
     public static Signature internalFunction(String name, String returnType, List<String> argumentTypes)
+    {
+        return new Signature(name, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, false, true);
+    }
+
+    public static Signature internalFunction(String name, TypeSignature returnType, TypeSignature... argumentTypes)
+    {
+        return internalFunction(name, returnType, ImmutableList.copyOf(argumentTypes));
+    }
+
+    public static Signature internalFunction(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
         return new Signature(name, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, false, true);
     }
@@ -295,7 +305,7 @@ public final class Signature
 
         // We've already checked all the components, so just match the base type
         if (!signature.getParameters().isEmpty()) {
-            return parseTypeSignature(type.getName()).getBase().equals(signature.getBase());
+            return type.getTypeSignature().getBase().equals(signature.getBase());
         }
 
         if (allowCoercion) {

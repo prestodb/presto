@@ -44,6 +44,7 @@ import static com.facebook.presto.operator.scalar.JsonExtract.JsonValueJsonExtra
 import static com.facebook.presto.operator.scalar.JsonExtract.LongJsonExtractor;
 import static com.facebook.presto.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
 import static com.facebook.presto.operator.scalar.JsonExtract.generateExtractor;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -101,7 +102,7 @@ public class ArraySubscriptOperator
             methodHandle = METHOD_HANDLES.get(elementType.getJavaType());
         }
         checkNotNull(methodHandle, "methodHandle is null");
-        return new FunctionInfo(Signature.internalOperator(SUBSCRIPT.name(), elementType.getName(), parameterizedTypeName("array", elementType.getName()), StandardTypes.BIGINT), "Array subscript", true, methodHandle, true, true, ImmutableList.of(false, false));
+        return new FunctionInfo(Signature.internalOperator(SUBSCRIPT.name(), elementType.getTypeSignature(), parameterizedTypeName("array", elementType.getTypeSignature()), parseTypeSignature(StandardTypes.BIGINT)), "Array subscript", true, methodHandle, true, true, ImmutableList.of(false, false));
     }
 
     public static Long longSubscript(Slice array, long index)

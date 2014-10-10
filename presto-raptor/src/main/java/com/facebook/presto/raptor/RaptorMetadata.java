@@ -33,6 +33,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.ViewNotFoundException;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Predicate;
 import com.google.common.base.Splitter;
@@ -232,11 +233,11 @@ public class RaptorMetadata
                         int ordinalPosition = 0;
                         for (ColumnMetadata column : tableMetadata.getColumns()) {
                             long columnId = ordinalPosition + 1;
-                            dao.insertColumn(tableId, columnId, column.getName(), ordinalPosition, column.getType().getName());
+                            dao.insertColumn(tableId, columnId, column.getName(), ordinalPosition, column.getType().getTypeSignature().toString());
                             ordinalPosition++;
                         }
                         if (tableMetadata.isSampled()) {
-                            dao.insertColumn(tableId, ordinalPosition + 1, SAMPLE_WEIGHT_COLUMN_NAME, ordinalPosition, BIGINT.getName());
+                            dao.insertColumn(tableId, ordinalPosition + 1, SAMPLE_WEIGHT_COLUMN_NAME, ordinalPosition, StandardTypes.BIGINT);
                         }
                         return tableId;
                     }
@@ -336,7 +337,7 @@ public class RaptorMetadata
                 for (int i = 0; i < table.getColumnTypes().size(); i++) {
                     RaptorColumnHandle column = table.getColumnHandles().get(i);
                     Type columnType = table.getColumnTypes().get(i);
-                    dao.insertColumn(tableId, i + 1, column.getColumnName(), i, columnType.getName());
+                    dao.insertColumn(tableId, i + 1, column.getColumnName(), i, columnType.getTypeSignature().toString());
                 }
                 return tableId;
             }

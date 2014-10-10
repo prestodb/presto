@@ -73,9 +73,9 @@ public class ArrayToJsonCast
     {
         checkArgument(arity == 1, "Expected arity to be 1");
         Type type = types.get("T");
-        Type arrayType = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(parseTypeSignature(type.getName())));
+        Type arrayType = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(type.getTypeSignature()));
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(arrayType);
-        return operatorInfo(OperatorType.CAST, StandardTypes.JSON, ImmutableList.of(arrayType.getName()), methodHandle, false, ImmutableList.of(false));
+        return operatorInfo(OperatorType.CAST, parseTypeSignature(StandardTypes.JSON), ImmutableList.of(arrayType.getTypeSignature()), methodHandle, false, ImmutableList.of(false));
     }
 
     public static Slice toJson(Type arrayType, ConnectorSession session, Slice array)

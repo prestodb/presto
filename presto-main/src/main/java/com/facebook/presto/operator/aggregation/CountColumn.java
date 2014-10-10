@@ -25,7 +25,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
@@ -40,6 +39,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 
 public class CountColumn
         extends ParametricAggregation
@@ -76,9 +76,9 @@ public class CountColumn
     public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager)
     {
         Type type = types.get("T");
-        Signature signature = new Signature(NAME, StandardTypes.BIGINT, type.getName());
+        Signature signature = new Signature(NAME, parseTypeSignature(StandardTypes.BIGINT), type.getTypeSignature());
         InternalAggregationFunction aggregation = generateAggregation(type);
-        return new FunctionInfo(signature, getDescription(), TypeSignature.parseTypeSignature(aggregation.getIntermediateType().getName()), aggregation, false);
+        return new FunctionInfo(signature, getDescription(), aggregation.getIntermediateType().getTypeSignature(), aggregation, false);
     }
 
     private static InternalAggregationFunction generateAggregation(Type type)

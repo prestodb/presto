@@ -159,7 +159,7 @@ public class InformationSchemaPageSourceProvider
                         column.getOrdinalPosition() + 1,
                         null,
                         "YES",
-                        column.getType().getName(),
+                        column.getType().getTypeSignature().toString(),
                         column.isPartitionKey() ? "YES" : "NO",
                         column.getComment());
             }

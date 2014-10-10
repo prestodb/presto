@@ -88,12 +88,12 @@ import com.facebook.presto.type.TimeOperators;
 import com.facebook.presto.type.TimeWithTimeZoneOperators;
 import com.facebook.presto.type.TimestampOperators;
 import com.facebook.presto.type.TimestampWithTimeZoneOperators;
-import com.facebook.presto.type.TypeUtils;
 import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharOperators;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
@@ -146,8 +146,8 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.RegexpType.REGEXP;
-import static com.facebook.presto.type.TypeUtils.nameGetter;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
+import static com.facebook.presto.type.TypeUtils.typeSignatureGetter;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -415,7 +415,7 @@ public class FunctionRegistry
             throws OperatorNotFoundException
     {
         try {
-            return resolveFunction(QualifiedName.of(mangleOperatorName(operatorType)), Lists.transform(Lists.transform(argumentTypes, nameGetter()), TypeUtils.typeSignatureParser()), false);
+            return resolveFunction(QualifiedName.of(mangleOperatorName(operatorType)), Lists.transform(argumentTypes, typeSignatureGetter()), false);
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
@@ -435,7 +435,7 @@ public class FunctionRegistry
     private FunctionInfo getExactOperator(OperatorType operatorType, List<? extends Type> argumentTypes, Type returnType)
             throws OperatorNotFoundException
     {
-        FunctionInfo functionInfo = getExactFunction(Signature.internalOperator(operatorType.name(), returnType.getName(), Lists.transform(argumentTypes, nameGetter())));
+        FunctionInfo functionInfo = getExactFunction(Signature.internalOperator(operatorType.name(), returnType.getTypeSignature(), Lists.transform(argumentTypes, typeSignatureGetter())));
 
         if (functionInfo == null) {
             throw new OperatorNotFoundException(operatorType, argumentTypes, returnType);
@@ -553,9 +553,9 @@ public class FunctionRegistry
 
     public static Signature getMagicLiteralFunctionSignature(Type type)
     {
-        return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getName(),
-                type.getName(),
-                Lists.transform(ImmutableList.of(type(type.getJavaType())), nameGetter()));
+        return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getTypeSignature(),
+                type.getTypeSignature(),
+                Lists.transform(ImmutableList.of(type(type.getJavaType())), typeSignatureGetter()));
     }
 
     public static boolean isSupportedLiteralType(Type type)
@@ -563,9 +563,9 @@ public class FunctionRegistry
         return SUPPORTED_LITERAL_TYPES.contains(type.getJavaType());
     }
 
-    public static FunctionInfo operatorInfo(OperatorType operatorType, String returnType, List<String> argumentTypes, MethodHandle method, boolean nullable, List<Boolean> nullableArguments)
+    public static FunctionInfo operatorInfo(OperatorType operatorType, TypeSignature returnType, List<TypeSignature> argumentTypes, MethodHandle method, boolean nullable, List<Boolean> nullableArguments)
     {
-        operatorType.validateSignature(returnType, ImmutableList.copyOf(argumentTypes));
+        operatorType.validateSignature(returnType.toString(), ImmutableList.copyOf(Lists.transform(argumentTypes, Functions.toStringFunction())));
 
         Signature signature = Signature.internalOperator(operatorType.name(), returnType, argumentTypes);
         return new FunctionInfo(signature, operatorType.getOperator(), true, method, true, nullable, nullableArguments);

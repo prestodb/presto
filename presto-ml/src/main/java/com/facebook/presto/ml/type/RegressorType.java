@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.ml.type;
 
+import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
+
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 
 // Layout is <size>:<model>, where
 //   size: is an int describing the length of the model bytes
@@ -23,6 +26,7 @@ public class RegressorType
 {
     public static final RegressorType REGRESSOR = new RegressorType();
     public static final String NAME = "Regressor";
+    private static final TypeSignature SIGNATURE = parseTypeSignature(NAME);
 
     @JsonCreator
     public RegressorType()
@@ -30,8 +34,8 @@ public class RegressorType
     }
 
     @Override
-    public String getName()
+    public TypeSignature getTypeSignature()
     {
-        return NAME;
+        return SIGNATURE;
     }
 }

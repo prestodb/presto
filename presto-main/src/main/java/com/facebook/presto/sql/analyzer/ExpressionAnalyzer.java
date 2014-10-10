@@ -419,7 +419,7 @@ public class ExpressionAnalyzer
         protected Type visitArrayConstructor(ArrayConstructor node, AnalysisContext context)
         {
             Type type = coerceToSingleType(context, "All ARRAY elements must be the same type: %s", node.getValues());
-            Type arrayType = metadata.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(parseTypeSignature(type.getName())));
+            Type arrayType = metadata.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(type.getTypeSignature()));
             expressionTypes.put(node, arrayType);
             return arrayType;
         }
@@ -535,7 +535,7 @@ public class ExpressionAnalyzer
 
             ImmutableList.Builder<TypeSignature> argumentTypes = ImmutableList.builder();
             for (Expression expression : node.getArguments()) {
-                argumentTypes.add(parseTypeSignature(process(expression, context).getName()));
+                argumentTypes.add(process(expression, context).getTypeSignature());
             }
 
             FunctionInfo function = metadata.resolveFunction(node.getName(), argumentTypes.build(), context.isApproximate());

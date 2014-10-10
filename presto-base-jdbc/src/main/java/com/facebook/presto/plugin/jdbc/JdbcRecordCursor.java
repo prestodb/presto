@@ -154,7 +154,7 @@ public class JdbcRecordCursor
                 Timestamp timestamp = resultSet.getTimestamp(field + 1);
                 return timestamp.getTime();
             }
-            throw new PrestoException(INTERNAL_ERROR.toErrorCode(), "Unhandled type for long: " + type.getName());
+            throw new PrestoException(INTERNAL_ERROR.toErrorCode(), "Unhandled type for long: " + type.getTypeSignature());
         }
         catch (SQLException e) {
             throw handleSqlException(e);
@@ -185,7 +185,7 @@ public class JdbcRecordCursor
             if (type.equals(VarbinaryType.VARBINARY)) {
                 return wrappedBuffer(resultSet.getBytes(field + 1));
             }
-            throw new PrestoException(INTERNAL_ERROR.toErrorCode(), "Unhandled type for slice: " + type.getName());
+            throw new PrestoException(INTERNAL_ERROR.toErrorCode(), "Unhandled type for slice: " + type.getTypeSignature());
         }
         catch (SQLException e) {
             throw handleSqlException(e);

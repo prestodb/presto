@@ -197,7 +197,7 @@ public class PluginManager
         }
 
         for (Type type : plugin.getServices(Type.class)) {
-            log.info("Registering type %s", type.getName());
+            log.info("Registering type %s", type.getTypeSignature());
             typeRegistry.addType(type);
         }
 

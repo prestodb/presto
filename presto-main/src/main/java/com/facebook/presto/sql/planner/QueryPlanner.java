@@ -231,7 +231,7 @@ class QueryPlanner
             Symbol symbol = symbolAllocator.newSymbol(expression, Objects.firstNonNull(coercion, analysis.getType(expression)));
             Expression rewritten = subPlan.rewrite(expression);
             if (coercion != null) {
-                rewritten = new Cast(rewritten, coercion.getName());
+                rewritten = new Cast(rewritten, coercion.getTypeSignature().toString());
             }
             projections.put(symbol, rewritten);
             translations.put(expression, symbol);
