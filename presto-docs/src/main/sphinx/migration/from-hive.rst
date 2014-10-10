@@ -88,6 +88,24 @@ When you want to re-use a complex output expression as a filter, use either an i
     FROM a
     WHERE x = 'foo'
 
+Use UNNEST to expand arrays and maps
+------------------------------------
+
+Presto supports :ref:`unnest` for expanding arrays and maps.
+Use ``UNNEST`` instead of ``LATERAL VIEW explode()``.
+
+Hive query::
+
+    SELECT student, score
+    FROM tests
+    LATERAL VIEW explode(scores) t AS score;
+
+Presto query::
+
+    SELECT student, score
+    FROM tests
+    CROSS JOIN UNNEST(scores) AS t (score);
+
 Outer Join Differences
 ----------------------
 
