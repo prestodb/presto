@@ -11,3 +11,6 @@ General Changes
 
 * Add property ``task.verbose-stats`` to enable verbose statistics collection for
   tasks. The default is ``false``.
+
+* Format binary data in the CLI as a hex dump.
+

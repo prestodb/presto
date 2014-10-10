@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.cli;
 
+import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import org.fusesource.jansi.AnsiString;
@@ -25,6 +27,9 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.repeat;
+import static com.google.common.collect.Iterables.partition;
+import static com.google.common.collect.Iterables.transform;
+import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 
@@ -32,6 +37,9 @@ public class AlignedTablePrinter
         implements OutputPrinter
 {
     private static final Splitter LINE_SPLITTER = Splitter.on('\n');
+    private static final Splitter HEX_SPLITTER = Splitter.fixedLength(2);
+    private static final Joiner HEX_BYTE_JOINER = Joiner.on(' ');
+    private static final Joiner HEX_LINE_JOINER = Joiner.on('\n');
 
     private final List<String> fieldNames;
     private final Writer writer;
@@ -126,7 +134,45 @@ public class AlignedTablePrinter
 
     static String formatValue(Object o)
     {
-        return (o == null) ? "NULL" : o.toString();
+        if (o == null) {
+            return "NULL";
+        }
+
+        if (o instanceof byte[]) {
+            return formatHexDump((byte[]) o, 16);
+        }
+
+        return o.toString();
+    }
+
+    private static String formatHexDump(byte[] bytes, int bytesPerLine)
+    {
+        // hex dump: "616263"
+        String hexDump = base16().lowerCase().encode(bytes);
+
+        // hex pairs: ["61", "62", "63"]
+        Iterable<String> hexPairs = HEX_SPLITTER.split(hexDump);
+
+        // hex lines: [["61", "62", "63], [...]]
+        Iterable<List<String>> hexLines = partition(hexPairs, bytesPerLine);
+
+        // lines: ["61 62 63", ...]
+        Iterable<String> lines = transform(hexLines, joinerFunction(HEX_BYTE_JOINER));
+
+        // joined: "61 62 63\n..."
+        return HEX_LINE_JOINER.join(lines);
+    }
+
+    private static Function<Iterable<String>, String> joinerFunction(final Joiner joiner)
+    {
+        return new Function<Iterable<String>, String>()
+        {
+            @Override
+            public String apply(Iterable<String> iterable)
+            {
+                return joiner.join(iterable);
+            }
+        };
     }
 
     private static String center(String s, int maxWidth, int padding)
