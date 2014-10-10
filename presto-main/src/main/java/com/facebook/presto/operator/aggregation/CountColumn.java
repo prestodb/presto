@@ -25,6 +25,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
@@ -77,7 +78,7 @@ public class CountColumn
         Type type = types.get("T");
         Signature signature = new Signature(NAME, StandardTypes.BIGINT, type.getName());
         InternalAggregationFunction aggregation = generateAggregation(type);
-        return new FunctionInfo(signature, getDescription(), aggregation.getIntermediateType().getName(), aggregation, false);
+        return new FunctionInfo(signature, getDescription(), TypeSignature.parseTypeSignature(aggregation.getIntermediateType().getName()), aggregation, false);
     }
 
     private static InternalAggregationFunction generateAggregation(Type type)

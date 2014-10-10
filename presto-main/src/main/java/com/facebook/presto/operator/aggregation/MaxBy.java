@@ -24,6 +24,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
@@ -79,7 +80,7 @@ public class MaxBy
         Type valueType = types.get("V");
         Signature signature = new Signature(NAME, valueType.getName(), valueType.getName(), keyType.getName());
         InternalAggregationFunction aggregation = generateAggregation(valueType, keyType);
-        return new FunctionInfo(signature, getDescription(), aggregation.getIntermediateType().getName(), aggregation, false);
+        return new FunctionInfo(signature, getDescription(), TypeSignature.parseTypeSignature(aggregation.getIntermediateType().getName()), aggregation, false);
     }
 
     private static InternalAggregationFunction generateAggregation(Type valueType, Type keyType)

@@ -61,7 +61,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
@@ -206,7 +205,7 @@ public class DistributedLogicalPlanner
                 Signature signature = functions.get(entry.getKey());
                 FunctionInfo function = metadata.getExactFunction(signature);
 
-                Symbol intermediateSymbol = allocator.newSymbol(function.getName().getSuffix(), metadata.getType(parseTypeSignature(function.getIntermediateType())));
+                Symbol intermediateSymbol = allocator.newSymbol(function.getName().getSuffix(), metadata.getType(function.getIntermediateType()));
                 intermediateCalls.put(intermediateSymbol, entry.getValue());
                 intermediateFunctions.put(intermediateSymbol, signature);
                 if (masks.containsKey(entry.getKey())) {

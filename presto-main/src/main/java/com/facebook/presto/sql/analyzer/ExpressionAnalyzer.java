@@ -540,13 +540,13 @@ public class ExpressionAnalyzer
             FunctionInfo function = metadata.resolveFunction(node.getName(), argumentTypes.build(), context.isApproximate());
             for (int i = 0; i < node.getArguments().size(); i++) {
                 Expression expression = node.getArguments().get(i);
-                Type type = metadata.getType(parseTypeSignature(function.getArgumentTypes().get(i)));
+                Type type = metadata.getType(function.getArgumentTypes().get(i));
                 checkNotNull(type, "Type %s not found", function.getArgumentTypes().get(i));
                 coerceType(context, expression, type, String.format("Function %s argument %d", function.getSignature(), i));
             }
             resolvedFunctions.put(node, function);
 
-            Type type = metadata.getType(parseTypeSignature(function.getReturnType()));
+            Type type = metadata.getType(function.getReturnType());
             expressionTypes.put(node, type);
 
             return type;
@@ -691,11 +691,11 @@ public class ExpressionAnalyzer
 
             for (int i = 0; i < arguments.length; i++) {
                 Expression expression = arguments[i];
-                Type type = metadata.getType(parseTypeSignature(operatorInfo.getArgumentTypes().get(i)));
+                Type type = metadata.getType(operatorInfo.getArgumentTypes().get(i));
                 coerceType(context, expression, type, String.format("Operator %s argument %d", operatorInfo, i));
             }
 
-            Type type = metadata.getType(parseTypeSignature(operatorInfo.getReturnType()));
+            Type type = metadata.getType(operatorInfo.getReturnType());
             expressionTypes.put(node, type);
 
             return type;
