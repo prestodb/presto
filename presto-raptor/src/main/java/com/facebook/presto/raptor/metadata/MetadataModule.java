@@ -35,7 +35,6 @@ public class MetadataModule
 
         bindDataSource(binder, "metadata", ForMetadata.class);
         bindResultSetMapper(binder, TableColumn.Mapper.class, ForMetadata.class);
-        bindResultSetMapper(binder, PartitionKey.Mapper.class, ForMetadata.class);
     }
 
     private void bindDataSource(Binder binder, String type, Class<? extends Annotation> annotation)

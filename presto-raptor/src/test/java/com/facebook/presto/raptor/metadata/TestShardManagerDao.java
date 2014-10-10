@@ -14,9 +14,7 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.type.TypeRegistry;
-import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import io.airlift.dbpool.H2EmbeddedDataSource;
 import io.airlift.dbpool.H2EmbeddedDataSourceConfig;
 import org.skife.jdbi.v2.DBI;
@@ -28,15 +26,12 @@ import org.testng.annotations.Test;
 import javax.sql.DataSource;
 
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.metadata.ShardManagerDaoUtils.createShardTablesWithRetry;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.fail;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestShardManagerDao
@@ -68,126 +63,78 @@ public class TestShardManagerDao
     public void testTableCreation()
             throws Exception
     {
-        List<String> nodes = dao.getAllNodesInUse();
-        assertNotNull(nodes);
-        assertEquals(nodes.size(), 0);
+        assertEquals(dao.getAllNodesInUse(), ImmutableSet.of());
     }
 
     @Test
     public void testNodeInsert()
             throws Exception
     {
-        List<String> nodes = dao.getAllNodesInUse();
-        assertNotNull(nodes);
-        assertEquals(nodes.size(), 0);
+        assertEquals(dao.getAllNodesInUse(), ImmutableSet.of());
 
         String nodeName = UUID.randomUUID().toString();
         dao.insertNode(nodeName);
 
-        nodes = dao.getAllNodesInUse();
-        assertNotNull(nodes);
-        assertEquals(nodes.size(), 1);
-        assertEquals(nodes.get(0), nodeName);
+        assertEquals(dao.getAllNodesInUse(), ImmutableSet.of(nodeName));
     }
 
     @Test
     public void testShardSelection()
             throws Exception
     {
-        String nodeName = UUID.randomUUID().toString();
-        dao.insertNode(nodeName);
-        Long nodeId = dao.getNodeId(nodeName);
-        assertNotNull(nodeId);
+        assertEquals(dao.getAllNodesInUse(), ImmutableSet.of());
+
+        String nodeName1 = UUID.randomUUID().toString();
+        dao.insertNode(nodeName1);
+        Long nodeId1 = dao.getNodeId(nodeName1);
+        assertNotNull(nodeId1);
+
+        assertEquals(dao.getAllNodesInUse(), ImmutableSet.of(nodeName1));
+
+        String nodeName2 = UUID.randomUUID().toString();
+        dao.insertNode(nodeName2);
+        Long nodeId2 = dao.getNodeId(nodeName2);
+        assertNotNull(nodeId2);
+
+        assertEquals(dao.getAllNodesInUse(), ImmutableSet.of(nodeName1, nodeName2));
 
         long tableId = 1;
 
-        long partitionId0 = dao.insertPartition(tableId, "part_0");
-        long partitionId1 = dao.insertPartition(tableId, "part_1");
-        long partitionId2 = dao.insertPartition(tableId, "part_2");
-
-        UUID shardUuid0 = UUID.randomUUID();
         UUID shardUuid1 = UUID.randomUUID();
-        UUID shardUuid2a = UUID.randomUUID();
-        UUID shardUuid2b = UUID.randomUUID();
+        UUID shardUuid2 = UUID.randomUUID();
+        UUID shardUuid3 = UUID.randomUUID();
+        UUID shardUuid4 = UUID.randomUUID();
 
-        long shardId0 = dao.insertShard(shardUuid0);
         long shardId1 = dao.insertShard(shardUuid1);
-        long shardId2a = dao.insertShard(shardUuid2a);
-        long shardId2b = dao.insertShard(shardUuid2b);
+        long shardId2 = dao.insertShard(shardUuid2);
+        long shardId3 = dao.insertShard(shardUuid3);
+        long shardId4 = dao.insertShard(shardUuid4);
 
-        dao.insertShardNode(shardId0, nodeId);
-        dao.insertShardNode(shardId1, nodeId);
-        dao.insertShardNode(shardId2a, nodeId);
-        dao.insertShardNode(shardId2b, nodeId);
+        dao.insertShardNode(shardId1, nodeId1);
+        dao.insertShardNode(shardId1, nodeId2);
+        dao.insertShardNode(shardId2, nodeId1);
+        dao.insertShardNode(shardId3, nodeId1);
+        dao.insertShardNode(shardId4, nodeId1);
+        dao.insertShardNode(shardId4, nodeId2);
 
-        dao.insertPartitionShard(shardId0, tableId, partitionId0);
-        dao.insertPartitionShard(shardId1, tableId, partitionId1);
-        dao.insertPartitionShard(shardId2a, tableId, partitionId2);
-        dao.insertPartitionShard(shardId2b, tableId, partitionId2);
-
-        Set<TablePartition> partitions = dao.getPartitions(tableId);
-        assertEquals(partitions.size(), 3);
+        dao.insertTableShard(tableId, shardId1);
+        dao.insertTableShard(tableId, shardId2);
+        dao.insertTableShard(tableId, shardId3);
+        dao.insertTableShard(tableId, shardId4);
 
         List<ShardNode> shardNodes = dao.getShardNodes(tableId);
-        assertEquals(shardNodes.size(), 4);
+        assertEquals(shardNodes.size(), 6);
 
-        assertContainsShardNode(shardNodes, tableId, nodeName, partitionId0, shardUuid0);
-        assertContainsShardNode(shardNodes, tableId, nodeName, partitionId1, shardUuid1);
-        assertContainsShardNode(shardNodes, tableId, nodeName, partitionId2, shardUuid2a);
-        assertContainsShardNode(shardNodes, tableId, nodeName, partitionId2, shardUuid2b);
-
-        Set<String> nodes = dao.getTableNodes(tableId);
-        assertEquals(nodes, ImmutableSet.of(nodeName));
+        assertContainsShardNode(shardNodes, nodeName1, shardUuid1);
+        assertContainsShardNode(shardNodes, nodeName2, shardUuid1);
+        assertContainsShardNode(shardNodes, nodeName1, shardUuid2);
+        assertContainsShardNode(shardNodes, nodeName1, shardUuid3);
+        assertContainsShardNode(shardNodes, nodeName1, shardUuid4);
+        assertContainsShardNode(shardNodes, nodeName2, shardUuid4);
     }
 
-    @Test
-    public void testPartitionKey()
+    private static void assertContainsShardNode(List<ShardNode> nodes, String nodeName, UUID shardUuid)
     {
-        long tableId0 = 1;
-        long tableId1 = 2;
-
-        String partitionName0 = "ds=2013-06-01";
-        String partitionName1 = "foo=bar";
-
-        dao.insertPartition(tableId0, partitionName0);
-        dao.insertPartition(tableId1, partitionName1);
-
-        PartitionKey testKey0 = new PartitionKey(partitionName0, "ds", VARCHAR, "2013-06-01");
-        PartitionKey testKey1 = new PartitionKey(partitionName1, "foo", VARCHAR, "bar");
-
-        long keyId0 = dao.insertPartitionKey(tableId0, partitionName0, testKey0.getName(), testKey0.getType().toString(), testKey0.getValue());
-
-        long keyId1 = dao.insertPartitionKey(tableId0, partitionName0, testKey1.getName(), testKey1.getType().toString(), testKey1.getValue());
-        assertNotEquals(keyId1, keyId0);
-
-        long keyId2 = dao.insertPartitionKey(tableId1, partitionName1, testKey1.getName(), testKey1.getType().toString(), testKey1.getValue());
-        assertNotEquals(keyId2, keyId0);
-
-        Set<PartitionKey> filteredKeys = ImmutableSet.copyOf(Collections2.filter(dao.getPartitionKeys(tableId1), PartitionKey.partitionNamePredicate(partitionName1)));
-        assertEquals(filteredKeys.size(), 1);
-
-        Set<PartitionKey> retrievedKeys = dao.getPartitionKeys(tableId1);
-        assertNotNull(retrievedKeys);
-        assertEquals(retrievedKeys.size(), 1);
-        assertEquals(Iterables.getOnlyElement(retrievedKeys), testKey1);
-    }
-
-    private static void assertContainsShardNode(List<ShardNode> nodes, long tableId, String nodeName, long partitionId, UUID shardUuid)
-    {
-        ShardNode expected = new ShardNode(shardUuid, nodeName, tableId, partitionId);
-        for (ShardNode node : nodes) {
-            if (shardNodesEqual(node, expected)) {
-                return;
-            }
-        }
-        fail(expected.toString());
-    }
-
-    private static boolean shardNodesEqual(ShardNode a, ShardNode b)
-    {
-        return (a.getTableId() == b.getTableId()) &&
-                (a.getPartitionId() == b.getPartitionId()) &&
-                a.getNodeIdentifier().equals(b.getNodeIdentifier()) &&
-                a.getShardUuid().equals(b.getShardUuid());
+        assertTrue(nodes.contains(new ShardNode(shardUuid, nodeName)));
     }
 }

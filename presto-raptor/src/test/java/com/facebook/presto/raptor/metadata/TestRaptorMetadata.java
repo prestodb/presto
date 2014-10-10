@@ -69,7 +69,6 @@ public class TestRaptorMetadata
         TypeRegistry typeRegistry = new TypeRegistry();
         DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
-        dbi.registerMapper(new PartitionKey.Mapper(typeRegistry));
         dummyHandle = dbi.open();
         metadata = new RaptorMetadata(new RaptorConnectorId("default"), dbi, new DatabaseShardManager(dbi));
     }
