@@ -482,7 +482,7 @@ class StatementAnalyzer
                 Optional.<With>absent(),
                 new QuerySpecification(
                         selectList(new AllColumns()),
-                        ImmutableList.of(aliased(
+                        Optional.of(aliased(
                                 values(row(new StringLiteral((queryPlan)))),
                                 "plan",
                                 ImmutableList.of("Query Plan")

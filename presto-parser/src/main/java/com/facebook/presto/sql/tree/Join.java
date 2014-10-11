@@ -26,8 +26,8 @@ public class Join
     {
         checkNotNull(left, "left is null");
         checkNotNull(right, "right is null");
-        if (type.equals(Type.CROSS)) {
-            checkArgument(!criteria.isPresent(), "Cross join cannot have join criteria");
+        if (type.equals(Type.CROSS) || type.equals(Type.IMPLICIT)) {
+            checkArgument(!criteria.isPresent(), "%s join cannot have join criteria", type);
         }
         else {
             checkArgument(criteria.isPresent(), "No join criteria specified");
@@ -41,7 +41,7 @@ public class Join
 
     public enum Type
     {
-        CROSS, INNER, LEFT, RIGHT, FULL
+        CROSS, INNER, LEFT, RIGHT, FULL, IMPLICIT
     }
 
     private final Type type;

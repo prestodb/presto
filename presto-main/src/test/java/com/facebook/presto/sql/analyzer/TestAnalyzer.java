@@ -312,9 +312,10 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testImplicitCrossJoinNotSupported()
+    public void testImplicitCrossJoin()
     {
-        assertFails(NOT_SUPPORTED, "SELECT * FROM a, b");
+        // TODO: validate output
+        analyze("SELECT * FROM t1, t2");
     }
 
     @Test

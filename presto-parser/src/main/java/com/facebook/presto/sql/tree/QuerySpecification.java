@@ -16,8 +16,6 @@ package com.facebook.presto.sql.tree;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 
-import javax.annotation.Nullable;
-
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -26,7 +24,7 @@ public class QuerySpecification
         extends QueryBody
 {
     private final Select select;
-    private final List<Relation> from;
+    private final Optional<Relation> from;
     private final Optional<Expression> where;
     private final List<Expression> groupBy;
     private final Optional<Expression> having;
@@ -35,7 +33,7 @@ public class QuerySpecification
 
     public QuerySpecification(
             Select select,
-            @Nullable List<Relation> from,
+            Optional<Relation> from,
             Optional<Expression> where,
             List<Expression> groupBy,
             Optional<Expression> having,
@@ -43,6 +41,7 @@ public class QuerySpecification
             Optional<String> limit)
     {
         checkNotNull(select, "select is null");
+        checkNotNull(from, "from is null");
         checkNotNull(where, "where is null");
         checkNotNull(groupBy, "groupBy is null");
         checkNotNull(having, "having is null");
@@ -63,7 +62,7 @@ public class QuerySpecification
         return select;
     }
 
-    public List<Relation> getFrom()
+    public Optional<Relation> getFrom()
     {
         return from;
     }

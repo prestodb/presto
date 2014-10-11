@@ -86,6 +86,7 @@ public class JoinNode
                 case RIGHT:
                     return Type.RIGHT;
                 case CROSS:
+                case IMPLICIT:
                     return Type.CROSS;
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + joinType);

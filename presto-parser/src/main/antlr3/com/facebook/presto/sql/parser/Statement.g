@@ -44,6 +44,7 @@ tokens {
     JOINED_TABLE;
     QUALIFIED_JOIN;
     CROSS_JOIN;
+    IMPLICIT_JOIN;
     INNER_JOIN;
     LEFT_JOIN;
     RIGHT_JOIN;
@@ -243,7 +244,12 @@ selectClause
     ;
 
 fromClause
-    : FROM tableRef (',' tableRef)* -> ^(FROM tableRef+)
+    : FROM fromRelation -> ^(FROM fromRelation)
+    ;
+
+fromRelation
+    : (tableRef     -> tableRef)
+      (',' tableRef -> ^(IMPLICIT_JOIN $fromRelation tableRef))*
     ;
 
 whereClause

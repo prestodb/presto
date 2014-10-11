@@ -271,7 +271,7 @@ public class TestSqlParser
     {
         return new QuerySpecification(
                 new Select(false, ImmutableList.<SelectItem>of(new SingleColumn(new LongLiteral("123")))),
-                null,
+                Optional.<Relation>absent(),
                 Optional.<Expression>absent(),
                 ImmutableList.<Expression>of(),
                 Optional.<Expression>absent(),
@@ -307,7 +307,7 @@ public class TestSqlParser
                         Optional.<With>absent(),
                         new QuerySpecification(
                                 selectList(new AllColumns()),
-                                ImmutableList.<Relation>of(new TableSubquery(
+                                Optional.<Relation>of(new TableSubquery(
                                         new Query(
                                                 Optional.<With>absent(),
                                                 new Values(ImmutableList.of(
