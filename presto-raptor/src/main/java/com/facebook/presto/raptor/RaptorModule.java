@@ -13,9 +13,20 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.raptor.metadata.DatabaseShardManager;
+import com.facebook.presto.raptor.metadata.ForMetadata;
+import com.facebook.presto.raptor.metadata.ShardManager;
+import com.facebook.presto.raptor.metadata.TableColumn;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import org.skife.jdbi.v2.DBI;
+import org.skife.jdbi.v2.IDBI;
+import org.skife.jdbi.v2.tweak.ConnectionFactory;
+
+import javax.inject.Singleton;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -39,5 +50,17 @@ public class RaptorModule
         binder.bind(RaptorPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(RaptorRecordSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(RaptorHandleResolver.class).in(Scopes.SINGLETON);
+
+        binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
+    }
+
+    @ForMetadata
+    @Singleton
+    @Provides
+    public IDBI createDBI(@ForMetadata ConnectionFactory connectionFactory, TypeManager typeManager)
+    {
+        DBI dbi = new DBI(connectionFactory);
+        dbi.registerMapper(new TableColumn.Mapper(typeManager));
+        return dbi;
     }
 }

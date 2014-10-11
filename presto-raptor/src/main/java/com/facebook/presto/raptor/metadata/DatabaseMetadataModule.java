@@ -15,34 +15,49 @@ package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.guice.AbstractConfigurationAwareModule;
 import com.google.inject.Binder;
-import com.google.inject.Scopes;
+import com.google.inject.Provides;
 import io.airlift.dbpool.H2EmbeddedDataSourceModule;
 import io.airlift.dbpool.MySqlDataSourceModule;
+import org.skife.jdbi.v2.tweak.ConnectionFactory;
+
+import javax.inject.Singleton;
+import javax.sql.DataSource;
 
 import java.lang.annotation.Annotation;
+import java.sql.Connection;
+import java.sql.SQLException;
 
 import static com.facebook.presto.raptor.util.ConditionalModule.installIfPropertyEquals;
-import static com.facebook.presto.raptor.util.DbiProvider.bindDbiToDataSource;
-import static com.facebook.presto.raptor.util.DbiProvider.bindResultSetMapper;
 
-public class MetadataModule
+public class DatabaseMetadataModule
         extends AbstractConfigurationAwareModule
 {
     @Override
     protected void setup(Binder binder)
     {
-        binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
-
-        bindDataSource(binder, "metadata", ForMetadata.class);
-        bindResultSetMapper(binder, TableColumn.Mapper.class, ForMetadata.class);
+        bindDataSource("metadata", ForMetadata.class);
     }
 
-    private void bindDataSource(Binder binder, String type, Class<? extends Annotation> annotation)
+    @ForMetadata
+    @Singleton
+    @Provides
+    public ConnectionFactory createConnectionFactory(@ForMetadata final DataSource dataSource)
+    {
+        return new ConnectionFactory()
+        {
+            @Override
+            public Connection openConnection()
+                    throws SQLException
+            {
+                return dataSource.getConnection();
+            }
+        };
+    }
+
+    private void bindDataSource(String type, Class<? extends Annotation> annotation)
     {
         String property = type + ".db.type";
         install(installIfPropertyEquals(new MySqlDataSourceModule(type, annotation), property, "mysql"));
         install(installIfPropertyEquals(new H2EmbeddedDataSourceModule(type, annotation), property, "h2"));
-
-        bindDbiToDataSource(binder, annotation);
     }
 }
