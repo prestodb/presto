@@ -111,7 +111,7 @@ querySpec returns [QuerySpecification value]
         limitClause?)
         { $value = new QuerySpecification(
             $selectClause.value,
-            $fromClause.value,
+            Optional.fromNullable($fromClause.value),
             Optional.fromNullable($whereClause.value),
             Objects.firstNonNull($groupClause.value, ImmutableList.<Expression>of()),
             Optional.fromNullable($havingClause.value),
@@ -169,8 +169,8 @@ selectItem returns [SelectItem value]
     | ALL_COLUMNS                                      { $value = new AllColumns(); }
     ;
 
-fromClause returns [List<Relation> value]
-    : ^(FROM t=relationList) { $value = $t.value; }
+fromClause returns [Relation value]
+    : ^(FROM relation) { $value = $relation.value; }
     ;
 
 whereClause returns [Expression value]
@@ -223,10 +223,6 @@ stratifyOn returns [List<Expression> value]
     : ^(STRATIFY_ON exprList) { $value = $exprList.value; }
     ;
 
-relationList returns [List<Relation> value = new ArrayList<>()]
-    : ( relation { $value.add($relation.value); } )+
-    ;
-
 relation returns [Relation value]
     : relationType      { $value = $relationType.value; }
     | aliasedRelation   { $value = $aliasedRelation.value; }
@@ -256,6 +252,7 @@ joinedTable returns [Relation value]
 joinRelation returns [Join value]
     : ^(CROSS_JOIN a=relation b=relation)                               { $value = new Join(Join.Type.CROSS, $a.value, $b.value, Optional.<JoinCriteria>absent()); }
     | ^(QUALIFIED_JOIN t=joinType c=joinCriteria a=relation b=relation) { $value = new Join($t.value, $a.value, $b.value, Optional.fromNullable($c.value)); }
+    | ^(IMPLICIT_JOIN a=relation b=relation)                            { $value = new Join(Join.Type.IMPLICIT, $a.value, $b.value, Optional.<JoinCriteria>absent()); }
     ;
 
 aliasedRelation returns [AliasedRelation value]

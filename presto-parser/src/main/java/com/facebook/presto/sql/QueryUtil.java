@@ -32,6 +32,7 @@ import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.WhenClause;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -74,14 +75,14 @@ public final class QueryUtil
         return new Select(false, items);
     }
 
-    public static List<Relation> table(QualifiedName name)
+    public static Optional<Relation> table(QualifiedName name)
     {
-        return ImmutableList.<Relation>of(new Table(name));
+        return Optional.<Relation>of(new Table(name));
     }
 
-    public static List<Relation> subquery(Query query)
+    public static Optional<Relation> subquery(Query query)
     {
-        return ImmutableList.<Relation>of(new TableSubquery(query));
+        return Optional.<Relation>of(new TableSubquery(query));
     }
 
     public static SortItem ascending(String name)

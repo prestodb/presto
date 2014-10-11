@@ -323,10 +323,8 @@ public abstract class DefaultTraversalVisitor<R, C>
     protected R visitQuerySpecification(QuerySpecification node, C context)
     {
         process(node.getSelect(), context);
-        if (node.getFrom() != null) {
-            for (Relation relation : node.getFrom()) {
-                process(relation, context);
-            }
+        if (node.getFrom().isPresent()) {
+            process(node.getFrom().get(), context);
         }
         if (node.getWhere().isPresent()) {
             process(node.getWhere().get(), context);

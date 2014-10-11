@@ -188,7 +188,7 @@ class RelationPlanner
             else {
                 unnest = (Unnest) node.getRight();
             }
-            if (node.getType() != Join.Type.CROSS) {
+            if (node.getType() != Join.Type.CROSS && node.getType() != Join.Type.IMPLICIT) {
                 throw new SemanticException(NOT_SUPPORTED, unnest, "UNNEST only supported on the right side of CROSS JOIN");
             }
             return planCrossJoinUnnest(leftPlan, node, unnest);
@@ -208,7 +208,7 @@ class RelationPlanner
                 .build();
 
         ImmutableList.Builder<JoinNode.EquiJoinClause> clauses = ImmutableList.builder();
-        if (node.getType() != Join.Type.CROSS) {
+        if (node.getType() != Join.Type.CROSS && node.getType() != Join.Type.IMPLICIT) {
             List<EquiJoinClause> criteria = analysis.getJoinCriteria(node);
             Analysis.JoinInPredicates joinInPredicates = analysis.getJoinInPredicates(node);
 

@@ -165,24 +165,11 @@ public final class SqlFormatter
         {
             process(node.getSelect(), indent);
 
-            if (node.getFrom() != null) {
+            if (node.getFrom().isPresent()) {
                 append(indent, "FROM");
-                if (node.getFrom().size() > 1) {
-                    builder.append('\n');
-                    append(indent, "  ");
-                    Iterator<Relation> relations = node.getFrom().iterator();
-                    while (relations.hasNext()) {
-                        process(relations.next(), indent);
-                        if (relations.hasNext()) {
-                            builder.append('\n');
-                            append(indent, ", ");
-                        }
-                    }
-                }
-                else {
-                    builder.append(' ');
-                    process(getOnlyElement(node.getFrom()), indent);
-                }
+                builder.append('\n');
+                append(indent, "  ");
+                process(node.getFrom().get(), indent);
             }
 
             builder.append('\n');
@@ -281,31 +268,42 @@ public final class SqlFormatter
                 type = "NATURAL " + type;
             }
 
-            builder.append('(');
+            if (node.getType() != Join.Type.IMPLICIT) {
+                builder.append('(');
+            }
             process(node.getLeft(), indent);
 
             builder.append('\n');
-            append(indent, type).append(" JOIN ");
+            if (node.getType() == Join.Type.IMPLICIT) {
+                append(indent, ", ");
+            }
+            else {
+                append(indent, type).append(" JOIN ");
+            }
 
             process(node.getRight(), indent);
 
-            if (criteria instanceof JoinUsing) {
-                JoinUsing using = (JoinUsing) criteria;
-                builder.append(" USING (")
-                        .append(Joiner.on(", ").join(using.getColumns()))
-                        .append(")");
-            }
-            else if (criteria instanceof JoinOn) {
-                JoinOn on = (JoinOn) criteria;
-                builder.append(" ON (")
-                        .append(formatExpression(on.getExpression()))
-                        .append(")");
-            }
-            else if (node.getType() != Join.Type.CROSS && !(criteria instanceof NaturalJoin)) {
-                throw new UnsupportedOperationException("unknown join criteria: " + criteria);
+            if (node.getType() != Join.Type.CROSS && node.getType() != Join.Type.IMPLICIT) {
+                if (criteria instanceof JoinUsing) {
+                    JoinUsing using = (JoinUsing) criteria;
+                    builder.append(" USING (")
+                            .append(Joiner.on(", ").join(using.getColumns()))
+                            .append(")");
+                }
+                else if (criteria instanceof JoinOn) {
+                    JoinOn on = (JoinOn) criteria;
+                    builder.append(" ON (")
+                            .append(formatExpression(on.getExpression()))
+                            .append(")");
+                }
+                else if (!(criteria instanceof NaturalJoin)) {
+                    throw new UnsupportedOperationException("unknown join criteria: " + criteria);
+                }
             }
 
-            builder.append(")");
+            if (node.getType() != Join.Type.IMPLICIT) {
+                builder.append(")");
+            }
 
             return null;
         }

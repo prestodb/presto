@@ -413,7 +413,7 @@ class TupleAnalyzer
 
         TupleDescriptor output = left.joinWith(right);
 
-        if (node.getType() == Join.Type.CROSS) {
+        if (node.getType() == Join.Type.CROSS || node.getType() == Join.Type.IMPLICIT) {
             analysis.setOutputDescriptor(node, output);
             return output;
         }
@@ -907,13 +907,11 @@ class TupleAnalyzer
     {
         TupleDescriptor fromDescriptor = new TupleDescriptor();
 
-        if (node.getFrom() != null && !node.getFrom().isEmpty()) {
+        if (node.getFrom().isPresent()) {
             TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata, sqlParser, experimentalSyntaxEnabled);
-            if (node.getFrom().size() != 1) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Implicit cross joins are not yet supported; use CROSS JOIN");
-            }
-            fromDescriptor = analyzer.process(Iterables.getOnlyElement(node.getFrom()), context);
+            fromDescriptor = analyzer.process(node.getFrom().get(), context);
         }
+
         return fromDescriptor;
     }
 
