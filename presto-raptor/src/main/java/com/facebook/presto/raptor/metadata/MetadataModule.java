@@ -21,7 +21,7 @@ import io.airlift.dbpool.MySqlDataSourceModule;
 
 import java.lang.annotation.Annotation;
 
-import static com.facebook.presto.guice.ConditionalModule.installIfPropertyEquals;
+import static com.facebook.presto.raptor.util.ConditionalModule.installIfPropertyEquals;
 import static com.facebook.presto.raptor.util.DbiProvider.bindDbiToDataSource;
 import static com.facebook.presto.raptor.util.DbiProvider.bindResultSetMapper;
 
