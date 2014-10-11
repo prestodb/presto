@@ -126,24 +126,6 @@ setOperation returns [SetOperation value]
     | ^(EXCEPT q1=queryBody q2=queryBody d=distinct[true])      { $value = new Except($q1.value, $q2.value, $d.value); }
     ;
 
-restrictedSelectStmt returns [Query value]
-    : selectClause fromClause
-        { $value = new Query(
-            Optional.<With>absent(),
-            new QuerySpecification(
-                $selectClause.value,
-                $fromClause.value,
-                Optional.<Expression>absent(),
-                ImmutableList.<Expression>of(),
-                Optional.<Expression>absent(),
-                ImmutableList.<SortItem>of(),
-                Optional.<String>absent()),
-            ImmutableList.<SortItem>of(),
-            Optional.<String>absent(),
-            Optional.<Approximate>absent());
-        }
-    ;
-
 withClause returns [With value]
     : ^(WITH recursive withList) { $value = new With($recursive.value, $withList.value); }
     ;
