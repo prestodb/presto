@@ -20,22 +20,47 @@ import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Module;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.ServiceLoader;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.Iterables.getOnlyElement;
 
 public class RaptorPlugin
         implements Plugin
 {
+    private final String name;
+    private final Module module;
+
     private Map<String, String> optionalConfig = ImmutableMap.of();
     private NodeManager nodeManager;
     private BlockEncodingSerde blockEncodingSerde;
     private TypeManager typeManager;
+
+    public RaptorPlugin()
+    {
+        this(getPluginInfo());
+    }
+
+    private RaptorPlugin(PluginInfo info)
+    {
+        this(info.getName(), info.getModule());
+    }
+
+    public RaptorPlugin(String name, Module module)
+    {
+        checkArgument(!isNullOrEmpty(name), "name is null or empty");
+        this.name = name;
+        this.module = checkNotNull(module, "module is null");
+    }
 
     @Override
     public void setOptionalConfig(Map<String, String> optionalConfig)
@@ -70,11 +95,21 @@ public class RaptorPlugin
 
         if (type == ConnectorFactory.class) {
             return ImmutableList.of(type.cast(new RaptorConnectorFactory(
+                    name,
+                    module,
                     optionalConfig,
                     nodeManager,
                     blockEncodingSerde,
                     typeManager)));
         }
         return ImmutableList.of();
+    }
+
+    private static PluginInfo getPluginInfo()
+    {
+        ClassLoader classLoader = RaptorPlugin.class.getClassLoader();
+        ServiceLoader<PluginInfo> loader = ServiceLoader.load(PluginInfo.class, classLoader);
+        List<PluginInfo> list = ImmutableList.copyOf(loader);
+        return list.isEmpty() ? new PluginInfo() : getOnlyElement(list);
     }
 }
