@@ -13,23 +13,20 @@
  */
 package com.facebook.presto.hive.orc;
 
-import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
 import com.facebook.presto.hive.orc.metadata.ColumnStatistics;
 import com.facebook.presto.hive.orc.metadata.CompressionKind;
 import com.facebook.presto.hive.orc.metadata.MetadataReader;
 import com.facebook.presto.hive.orc.metadata.OrcType;
+import com.facebook.presto.hive.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.hive.orc.metadata.StripeInformation;
 import com.facebook.presto.hive.orc.metadata.StripeStatistics;
-import com.facebook.presto.hive.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.hive.orc.reader.StreamReader;
 import com.facebook.presto.hive.orc.reader.StreamReaders;
 import com.facebook.presto.hive.orc.stream.StreamSources;
-import com.facebook.presto.spi.TupleDomain;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import org.joda.time.DateTimeZone;
 
@@ -37,8 +34,8 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
-import static com.facebook.presto.hive.orc.OrcDomainExtractor.extractDomain;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -50,6 +47,7 @@ public class OrcRecordReader
 
     private final long totalRowCount;
     private final long splitLength;
+    private final Set<Integer> presentColumns;
     private long currentPosition;
 
     private final List<StripeInformation> stripes;
@@ -60,9 +58,9 @@ public class OrcRecordReader
     private long currentGroupRowCount;
     private long nextRowInGroup;
 
-    private final Map<HiveColumnHandle, Integer> columnHandleStreamIndex;
-
     public OrcRecordReader(
+            Set<Integer> includedColumns,
+            OrcPredicate predicate,
             long numberOfRows,
             List<StripeInformation> fileStripes,
             List<ColumnStatistics> fileStats,
@@ -70,28 +68,36 @@ public class OrcRecordReader
             OrcDataSource orcDataSource,
             long splitOffset,
             long splitLength,
-            TupleDomain<HiveColumnHandle> tupleDomain,
-            List<HiveColumnHandle> columnHandles,
             List<OrcType> types,
             CompressionKind compressionKind,
             int bufferSize,
             int rowsInRowGroup,
             DateTimeZone hiveStorageTimeZone,
             DateTimeZone sessionTimeZone,
-            MetadataReader metadataReader,
-            TypeManager typeManager)
+            MetadataReader metadataReader)
             throws IOException
     {
+        checkNotNull(includedColumns, "includedColumns is null");
+        checkNotNull(predicate, "predicate is null");
         checkNotNull(fileStripes, "fileStripes is null");
         checkNotNull(stripeStats, "stripeStats is null");
         checkNotNull(orcDataSource, "orcDataSource is null");
-        checkNotNull(tupleDomain, "tupleDomain is null");
-        checkNotNull(columnHandles, "columnHandles is null");
         checkNotNull(types, "types is null");
         checkNotNull(compressionKind, "compressionKind is null");
         checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         checkNotNull(sessionTimeZone, "sessionTimeZone is null");
-        checkNotNull(typeManager, "typeManager is null");
+
+        // reduce the included columns to the set that is also present
+        ImmutableSet.Builder<Integer> presentColumns = ImmutableSet.builder();
+        OrcType root = types.get(0);
+        for (int includedColumn : includedColumns) {
+            // an old file can have less columns since columns can be added
+            // after the file was written
+            if (includedColumn < root.getFieldCount()) {
+                presentColumns.add(includedColumn);
+            }
+        }
+        this.presentColumns = presentColumns.build();
 
         this.orcDataSource = orcDataSource;
         this.splitLength = splitLength;
@@ -99,17 +105,13 @@ public class OrcRecordReader
         // it is possible that old versions of orc use 0 to mean there are no row groups
         checkArgument(rowsInRowGroup > 0, "rowsInRowGroup must be greater than zero");
 
-        boolean[] includedStreams = findIncludedStreams(types, columnHandles);
-
-        columnHandleStreamIndex = getColumnHandleStreamIndex(types, columnHandles);
-
         long totalRowCount = 0;
         ImmutableList.Builder<StripeInformation> stripes = ImmutableList.builder();
-        if (doesFileOverlapTupleDomain(typeManager, numberOfRows, fileStats, tupleDomain, columnHandleStreamIndex)) {
+        if (predicate.matches(numberOfRows, indexByOrdinal(fileStats))) {
             // select stripes that start within the specified split
-            for (int i = 0; i < fileStripes.size(); i++) {
-                StripeInformation stripe = fileStripes.get(i);
-                if (splitContainsStripe(splitOffset, splitLength, stripe) && doesStripOverlapTupleDomain(typeManager, stripe, stripeStats, tupleDomain, columnHandleStreamIndex, i)) {
+            for (int stripeIndex = 0; stripeIndex < fileStripes.size(); stripeIndex++) {
+                StripeInformation stripe = fileStripes.get(stripeIndex);
+                if (splitContainsStripe(splitOffset, splitLength, stripe) && isStripeIncluded(stripe, stripeStats, predicate, stripeIndex)) {
                     stripes.add(stripe);
                     totalRowCount += stripe.getNumberOfRows();
                 }
@@ -123,14 +125,12 @@ public class OrcRecordReader
                 compressionKind,
                 types,
                 bufferSize,
-                includedStreams,
+                this.presentColumns,
                 rowsInRowGroup,
-                columnHandleStreamIndex,
-                tupleDomain,
-                metadataReader,
-                typeManager);
+                predicate,
+                metadataReader);
 
-        streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, sessionTimeZone, includedStreams);
+        streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, sessionTimeZone, this.presentColumns);
     }
 
     private static boolean splitContainsStripe(long splitOffset, long splitLength, StripeInformation stripe)
@@ -139,33 +139,30 @@ public class OrcRecordReader
         return splitOffset <= stripe.getOffset() && stripe.getOffset() < splitEndOffset;
     }
 
-    private static boolean doesFileOverlapTupleDomain(
-            TypeManager typeManager,
-            long numberOfRows,
-            List<ColumnStatistics> columnStats,
-            TupleDomain<HiveColumnHandle> tupleDomain,
-            Map<HiveColumnHandle, Integer> columnHandleStreamIndex)
-    {
-        TupleDomain<HiveColumnHandle> stripeDomain = extractDomain(typeManager, columnHandleStreamIndex, numberOfRows, columnStats);
-        return tupleDomain.overlaps(stripeDomain);
-    }
-
-    private static boolean doesStripOverlapTupleDomain(
-            TypeManager typeManager,
+    private static boolean isStripeIncluded(
             StripeInformation stripe,
             List<StripeStatistics> stripeStats,
-            TupleDomain<HiveColumnHandle> tupleDomain,
-            Map<HiveColumnHandle, Integer> columnHandleStreamIndex,
+            OrcPredicate predicate,
             int stripeIndex)
     {
         // if there are no stats, include the column
-        if (stripeStats.size() <= stripeIndex) {
+        if (stripeIndex >= stripeStats.size()) {
             return true;
         }
 
-        List<ColumnStatistics> columnStats = stripeStats.get(stripeIndex).getColumnStatistics();
-        TupleDomain<HiveColumnHandle> stripeDomain = extractDomain(typeManager, columnHandleStreamIndex, stripe.getNumberOfRows(), columnStats);
-        return tupleDomain.overlaps(stripeDomain);
+        return predicate.matches(stripe.getNumberOfRows(), indexByOrdinal(stripeStats.get(stripeIndex).getColumnStatistics()));
+    }
+
+    private static <T> Map<Integer, T> indexByOrdinal(List<T> elements)
+    {
+        ImmutableMap.Builder<Integer, T> statistics = ImmutableMap.builder();
+        for (int ordinal = 0; ordinal < elements.size(); ordinal++) {
+            T element = elements.get(ordinal);
+            if (element != null) {
+                statistics.put(ordinal, element);
+            }
+        }
+        return statistics.build();
     }
 
     public long getPosition()
@@ -194,9 +191,9 @@ public class OrcRecordReader
         orcDataSource.close();
     }
 
-    public boolean isColumnPresent(HiveColumnHandle columnHandle)
+    public boolean isColumnPresent(int hiveColumnIndex)
     {
-        return columnHandleStreamIndex.containsKey(columnHandle);
+        return presentColumns.contains(hiveColumnIndex);
     }
 
     public int nextBatch()
@@ -283,60 +280,20 @@ public class OrcRecordReader
         }
     }
 
-    private static Map<HiveColumnHandle, Integer> getColumnHandleStreamIndex(List<OrcType> types, List<HiveColumnHandle> columns)
-    {
-        ImmutableMap.Builder<HiveColumnHandle, Integer> builder = ImmutableMap.builder();
-
-        OrcType root = types.get(0);
-        for (HiveColumnHandle column : columns) {
-            if (!column.isPartitionKey() && column.getHiveColumnIndex() < root.getFieldCount()) {
-                builder.put(column, root.getFieldTypeIndex(column.getHiveColumnIndex()));
-            }
-        }
-
-        return builder.build();
-    }
-
-    private static boolean[] findIncludedStreams(List<OrcType> types, List<HiveColumnHandle> columns)
-    {
-        boolean[] includes = new boolean[types.size()];
-
-        OrcType root = types.get(0);
-        List<Integer> included = Lists.transform(columns, HiveColumnHandle.hiveColumnIndexGetter());
-        for (int i = 0; i < root.getFieldCount(); ++i) {
-            if (included.contains(i)) {
-                includeStreamRecursive(types, includes, root.getFieldTypeIndex(i));
-            }
-        }
-
-        return includes;
-    }
-
-    private static void includeStreamRecursive(List<OrcType> types, boolean[] result, int typeId)
-    {
-        result[typeId] = true;
-        OrcType type = types.get(typeId);
-        int children = type.getFieldCount();
-        for (int i = 0; i < children; ++i) {
-            includeStreamRecursive(types, result, type.getFieldTypeIndex(i));
-        }
-    }
-
     private static StreamReader[] createStreamReaders(OrcDataSource orcDataSource,
             List<OrcType> types,
             DateTimeZone hiveStorageTimeZone,
             DateTimeZone sessionTimeZone,
-            boolean[] includedStreams)
+            Set<Integer> includedColumns)
     {
         List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
 
         OrcType rowType = types.get(0);
         StreamReader[] streamReaders = new StreamReader[rowType.getFieldCount()];
-        for (int fieldId = 0; fieldId < rowType.getFieldCount(); fieldId++) {
-            int streamId = rowType.getFieldTypeIndex(fieldId);
-            if (includedStreams == null || includedStreams[streamId]) {
-                StreamDescriptor streamDescriptor = streamDescriptors.get(fieldId);
-                streamReaders[fieldId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone, sessionTimeZone);
+        for (int columnId = 0; columnId < rowType.getFieldCount(); columnId++) {
+            if (includedColumns.contains(columnId)) {
+                StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
+                streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone, sessionTimeZone);
             }
         }
         return streamReaders;

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.orc;
 
-import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.orc.metadata.CompressionKind;
 import com.facebook.presto.hive.orc.metadata.Footer;
 import com.facebook.presto.hive.orc.metadata.Metadata;
@@ -21,8 +20,6 @@ import com.facebook.presto.hive.orc.metadata.MetadataReader;
 import com.facebook.presto.hive.orc.metadata.OrcType;
 import com.facebook.presto.hive.orc.metadata.PostScript;
 import com.facebook.presto.hive.orc.stream.OrcInputStream;
-import com.facebook.presto.spi.TupleDomain;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Joiner;
 import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
@@ -33,6 +30,7 @@ import org.joda.time.DateTimeZone;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -49,19 +47,17 @@ public class OrcReader
 
     private final OrcDataSource orcDataSource;
     private final MetadataReader metadataReader;
-    private final TypeManager typeManager;
     private final CompressionKind compressionKind;
     private final int bufferSize;
     private final Footer footer;
     private final Metadata metadata;
 
     // This is based on the Apache Hive ORC code
-    public OrcReader(OrcDataSource orcDataSource, MetadataReader metadataReader, TypeManager typeManager)
+    public OrcReader(OrcDataSource orcDataSource, MetadataReader metadataReader)
             throws IOException
     {
         this.orcDataSource = checkNotNull(orcDataSource, "orcDataSource is null");
         this.metadataReader = checkNotNull(metadataReader, "metadataReader is null");
-        this.typeManager = checkNotNull(typeManager, "typeManager is null");
 
         //
         // Read the file tail:
@@ -156,15 +152,17 @@ public class OrcReader
     }
 
     public OrcRecordReader createRecordReader(
+            Set<Integer> includedColumns,
+            OrcPredicate predicate,
             long offset,
             long length,
-            List<HiveColumnHandle> columnHandles,
-            TupleDomain<HiveColumnHandle> tupleDomain,
             DateTimeZone hiveStorageTimeZone,
             DateTimeZone sessionTimeZone)
             throws IOException
     {
         return new OrcRecordReader(
+                checkNotNull(includedColumns, "includedColumns is null"),
+                checkNotNull(predicate, "predicate is null"),
                 footer.getNumberOfRows(),
                 footer.getStripes(),
                 footer.getFileStats(),
@@ -172,16 +170,13 @@ public class OrcReader
                 orcDataSource,
                 offset,
                 length,
-                checkNotNull(tupleDomain, "tupleDomain is null"),
-                checkNotNull(columnHandles, "columnHandles is null"),
                 footer.getTypes(),
                 compressionKind,
                 bufferSize,
                 footer.getRowsInRowGroup(),
-                hiveStorageTimeZone,
-                sessionTimeZone,
-                metadataReader,
-                typeManager);
+                checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null"),
+                checkNotNull(sessionTimeZone, "sessionTimeZone is null"),
+                metadataReader);
     }
 
     /**

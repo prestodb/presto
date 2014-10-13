@@ -14,16 +14,21 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.orc.HdfsOrcDataSource;
+import com.facebook.presto.hive.orc.OrcPredicate;
 import com.facebook.presto.hive.orc.OrcReader;
 import com.facebook.presto.hive.orc.OrcRecordReader;
+import com.facebook.presto.hive.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.hive.orc.metadata.MetadataReader;
 import com.facebook.presto.hive.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -125,13 +130,25 @@ public class OrcPageSourceFactory
             throw Throwables.propagate(e);
         }
 
+        ImmutableSet.Builder<Integer> includedColumns = ImmutableSet.builder();
+        ImmutableList.Builder<ColumnReference<HiveColumnHandle>> columnReferences = ImmutableList.builder();
+        for (HiveColumnHandle column : columns) {
+            if (!column.isPartitionKey()) {
+                includedColumns.add(column.getHiveColumnIndex());
+                Type type = typeManager.getType(column.getTypeSignature());
+                columnReferences.add(new ColumnReference<>(column, column.getHiveColumnIndex(), type));
+            }
+        }
+
+        OrcPredicate predicate = new TupleDomainOrcPredicate<>(tupleDomain, columnReferences.build());
+
         try {
-            OrcReader reader = new OrcReader(orcDataSource, metadataReader, typeManager);
+            OrcReader reader = new OrcReader(orcDataSource, metadataReader);
             OrcRecordReader recordReader = reader.createRecordReader(
+                    includedColumns.build(),
+                    predicate,
                     start,
                     length,
-                    columns,
-                    tupleDomain,
                     hiveStorageTimeZone,
                     DateTimeZone.forID(session.getTimeZoneKey().getId()));
 
