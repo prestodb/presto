@@ -18,7 +18,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncoding;
-import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
@@ -26,23 +25,6 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class TestUncompressedBlockSerde
 {
-    @Test
-    public void testRoundTrip()
-    {
-        BlockBuilder expectedBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
-        VARCHAR.writeString(expectedBlockBuilder, "alice");
-        VARCHAR.writeString(expectedBlockBuilder, "bob");
-        VARCHAR.writeString(expectedBlockBuilder, "charlie");
-        VARCHAR.writeString(expectedBlockBuilder, "dave");
-        Block expectedBlock = expectedBlockBuilder.build();
-
-        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        BlockEncoding blockEncoding = new VariableWidthBlockEncoding();
-        blockEncoding.writeBlock(sliceOutput, expectedBlock);
-        Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
-        BlockAssertions.assertBlockEquals(VARCHAR, actualBlock, expectedBlock);
-    }
-
     @Test
     public void testCreateBlockWriter()
     {
