@@ -1845,6 +1845,18 @@ public abstract class AbstractTestQueries
         // there are 3 distinct orderstatus, so expect 15 rows.
         assertEquals(actual.getMaterializedRows().size(), 15);
         assertTrue(all.getMaterializedRows().containsAll(actual.getMaterializedRows()));
+
+        // Test for unreferenced outputs
+        actual = computeActual("" +
+                "SELECT orderkey FROM (\n" +
+                "   SELECT row_number() OVER (PARTITION BY orderstatus) rn, orderkey\n" +
+                "   FROM orders\n" +
+                ") WHERE rn <= 5\n");
+        all = computeExpected("SELECT orderkey FROM ORDERS", actual.getTypes());
+
+        // there are 3 distinct orderstatus, so expect 15 rows.
+        assertEquals(actual.getMaterializedRows().size(), 15);
+        assertTrue(all.getMaterializedRows().containsAll(actual.getMaterializedRows()));
     }
 
     @Test
@@ -1877,6 +1889,37 @@ public abstract class AbstractTestQueries
                 .row(2, 5, "F")
                 .row(1, 65, "P")
                 .row(2, 197, "P")
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+
+        // Test for unreferenced outputs
+        actual = computeActual("" +
+                "SELECT * FROM (\n" +
+                "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey\n" +
+                "   FROM orders\n" +
+                ") WHERE rn <= 2\n");
+        expected = resultBuilder(getSession(), BIGINT, BIGINT)
+                .row(1, 1)
+                .row(2, 2)
+                .row(1, 3)
+                .row(2, 5)
+                .row(1, 65)
+                .row(2, 197)
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+
+        actual = computeActual("" +
+                "SELECT * FROM (\n" +
+                "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderstatus\n" +
+                "   FROM orders\n" +
+                ") WHERE rn <= 2\n");
+        expected = resultBuilder(getSession(), BIGINT, VARCHAR)
+                .row(1, "O")
+                .row(2, "O")
+                .row(1, "F")
+                .row(2, "F")
+                .row(1, "P")
+                .row(2, "P")
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
