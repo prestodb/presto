@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.serde;
+package com.facebook.presto.block;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -27,8 +27,8 @@ import java.util.Iterator;
 import java.util.List;
 
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
-import static com.facebook.presto.serde.PagesSerde.readPages;
-import static com.facebook.presto.serde.PagesSerde.writePages;
+import static com.facebook.presto.block.PagesSerde.readPages;
+import static com.facebook.presto.block.PagesSerde.writePages;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;

@@ -14,7 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.serde.PagesSerde;
+import com.facebook.presto.block.PagesSerde;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.google.common.base.Throwables;
 import com.google.common.reflect.TypeToken;
