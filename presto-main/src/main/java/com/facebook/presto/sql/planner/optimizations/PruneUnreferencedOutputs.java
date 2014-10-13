@@ -308,6 +308,9 @@ public class PruneUnreferencedOutputs
                     .addAll(unnestSymbols.keySet());
 
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
+            if (unnestSymbols.isEmpty()) {
+                return source;
+            }
             return new UnnestNode(node.getId(), source, replicateSymbols, unnestSymbols);
         }
 
