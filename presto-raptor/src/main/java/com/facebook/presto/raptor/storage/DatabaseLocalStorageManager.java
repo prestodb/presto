@@ -15,13 +15,13 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.RaptorPageSource;
-import com.facebook.presto.serde.BlocksFileReader;
+import com.facebook.presto.raptor.block.BlocksFileReader;
+import com.facebook.presto.raptor.util.KeyBoundedExecutor;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.util.KeyBoundedExecutor;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.cache.CacheBuilder;

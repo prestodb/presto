@@ -14,7 +14,7 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
-import com.facebook.presto.serde.BlocksFileWriter;
+import com.facebook.presto.raptor.block.BlocksFileWriter;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
