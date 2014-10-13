@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.rle.RunLengthEncodedBlock;
+import com.facebook.presto.testing.RunLengthEncodedBlock;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
