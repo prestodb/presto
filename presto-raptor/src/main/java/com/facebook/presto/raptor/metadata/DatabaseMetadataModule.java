@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import com.facebook.presto.guice.AbstractConfigurationAwareModule;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.dbpool.H2EmbeddedDataSourceModule;
 import io.airlift.dbpool.MySqlDataSourceModule;
 import org.skife.jdbi.v2.tweak.ConnectionFactory;
