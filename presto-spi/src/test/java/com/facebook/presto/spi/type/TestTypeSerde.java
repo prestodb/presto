@@ -11,16 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.serde;
+package com.facebook.presto.spi.type;
 
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.TypeRegistry;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSerde.readType;
 import static com.facebook.presto.spi.type.TypeSerde.writeType;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static org.testng.Assert.assertEquals;
 
 public class TestTypeSerde
@@ -30,7 +31,34 @@ public class TestTypeSerde
     {
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         writeType(sliceOutput, BOOLEAN);
-        Type actualType = readType(new TypeRegistry(), sliceOutput.slice().getInput());
+        Type actualType = readType(new TestingTypeRegistry(), sliceOutput.slice().getInput());
         assertEquals(actualType, BOOLEAN);
+    }
+
+    private static class TestingTypeRegistry
+            implements TypeManager
+    {
+        @Override
+        public Type getType(TypeSignature signature)
+        {
+            for (Type type : getTypes()) {
+                if (signature.equals(type.getTypeSignature())) {
+                    return type;
+                }
+            }
+            return null;
+        }
+
+        @Override
+        public Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters)
+        {
+            return getType(new TypeSignature(baseTypeName, typeParameters));
+        }
+
+        @Override
+        public List<Type> getTypes()
+        {
+            return ImmutableList.<Type>of(BOOLEAN);
+        }
     }
 }
