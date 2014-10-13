@@ -31,8 +31,7 @@ public class TestDatabaseLocalStorageManagerConfig
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(DatabaseLocalStorageManagerConfig.class)
                 .setDataDirectory(new File("var/data"))
-                .setTasksPerNode(32)
-                .setCompressed(true));
+                .setTasksPerNode(32));
     }
 
     @Test
@@ -41,13 +40,11 @@ public class TestDatabaseLocalStorageManagerConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("storage.data-directory", "/data")
                 .put("storage.tasks-per-node", "16")
-                .put("storage.compress", "false")
                 .build();
 
         DatabaseLocalStorageManagerConfig expected = new DatabaseLocalStorageManagerConfig()
                 .setDataDirectory(new File("/data"))
-                .setTasksPerNode(16)
-                .setCompressed(false);
+                .setTasksPerNode(16);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
