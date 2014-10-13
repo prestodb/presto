@@ -11,9 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.serde;
+package com.facebook.presto.raptor.block;
 
-import com.facebook.presto.operator.ChannelSet.ChannelSetBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
@@ -27,7 +26,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 
-import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -36,7 +34,6 @@ public class BlocksFileWriter
 {
     private final BlockEncodingSerde blockEncodingSerde;
     private final OutputSupplier<? extends OutputStream> outputSupplier;
-    private final StatsBuilder statsBuilder;
     private final Type type;
     private Encoder encoder;
     private SliceOutput sliceOutput;
@@ -45,7 +42,6 @@ public class BlocksFileWriter
     public BlocksFileWriter(Type type, BlockEncodingSerde blockEncodingSerde, OutputSupplier<? extends OutputStream> outputSupplier)
     {
         this.type = checkNotNull(type, "type is null");
-        this.statsBuilder = new StatsBuilder(type);
         this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingManager is null");
         this.outputSupplier = checkNotNull(outputSupplier, "outputSupplier is null");
     }
@@ -56,7 +52,6 @@ public class BlocksFileWriter
         if (encoder == null) {
             open();
         }
-        statsBuilder.process(block);
         encoder.append(block);
         return this;
     }
@@ -101,9 +96,6 @@ public class BlocksFileWriter
         // write file encoding
         blockEncodingSerde.writeBlockEncoding(sliceOutput, blockEncoding);
 
-        // write stats
-        BlocksFileStats.serialize(statsBuilder.build(), sliceOutput);
-
         // write footer size
         int footerSize = sliceOutput.size() - startingIndex;
         checkState(footerSize > 0);
@@ -124,61 +116,6 @@ public class BlocksFileWriter
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
-        }
-    }
-
-    private static class StatsBuilder
-    {
-        private static final int MAX_UNIQUE_COUNT = 1000;
-
-        private final Type type;
-
-        private long rowCount;
-        private long runsCount;
-        private Block lastValue;
-        private ChannelSetBuilder dictionaryBuilder;
-
-        private StatsBuilder(Type type)
-        {
-            this.type = type;
-        }
-
-        public void process(Block block)
-        {
-            checkNotNull(block, "block is null");
-
-            if (dictionaryBuilder == null) {
-                dictionaryBuilder = new ChannelSetBuilder(type, MAX_UNIQUE_COUNT, null);
-            }
-
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                // update run length stats
-                Block value = block.getSingleValueBlock(position);
-                if (lastValue == null) {
-                    lastValue = value;
-                }
-                else if (!positionEqualsPosition(type, value, 0, lastValue, 0)) {
-                    runsCount++;
-                    lastValue = value;
-                }
-
-                // update dictionary stats
-                if (dictionaryBuilder.size() < MAX_UNIQUE_COUNT) {
-                    dictionaryBuilder.add(position, block);
-                }
-
-                rowCount++;
-            }
-        }
-
-        public BlocksFileStats build()
-        {
-            // TODO: expose a way to indicate whether the unique count is EXACT or APPROXIMATE
-            return new BlocksFileStats(
-                    rowCount,
-                    runsCount + 1,
-                    rowCount / (runsCount + 1),
-                    (dictionaryBuilder.size() >= MAX_UNIQUE_COUNT) ? Integer.MAX_VALUE : dictionaryBuilder.size());
         }
     }
 }

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.serde;
+package com.facebook.presto.raptor.block;
 
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.spi.block.Block;
@@ -25,7 +25,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.serde.BlocksFileReader.readBlocks;
+import static com.facebook.presto.raptor.block.BlocksFileReader.readBlocks;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static org.testng.Assert.assertEquals;
@@ -73,11 +73,6 @@ public class TestBlocksFile
         BlocksFileReader actualBlocks = readBlocks(createTestingBlockEncodingManager(), slice);
         List<Object> actualValues = BlockAssertions.toValues(VARCHAR, actualBlocks);
         assertEquals(actualValues, expectedValues);
-        BlocksFileStats stats = actualBlocks.getStats();
-        assertEquals(stats.getAvgRunLength(), 1);
-        assertEquals(stats.getRowCount(), 12);
-        assertEquals(stats.getRunsCount(), 12);
-        assertEquals(stats.getUniqueCount(), 4);
     }
 
     private static class DynamicSliceOutputSupplier

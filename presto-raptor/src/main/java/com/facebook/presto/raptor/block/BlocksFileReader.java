@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.serde;
+package com.facebook.presto.raptor.block;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncoding;
@@ -33,7 +33,6 @@ public class BlocksFileReader
 
     private final BlockEncoding blockEncoding;
     private final Iterable<Block> blocks;
-    private final BlocksFileStats stats;
 
     public BlocksFileReader(BlockEncodingSerde blockEncodingSerde, Slice slice)
     {
@@ -48,9 +47,6 @@ public class BlocksFileReader
         // read file encoding
         blockEncoding = blockEncodingSerde.readBlockEncoding(input);
 
-        // read stats
-        stats = BlocksFileStats.deserialize(input);
-
         Slice blocksSlice = slice.slice(0, footerOffset);
         blocks = new EncodedBlockIterable(blockEncoding, blocksSlice);
     }
@@ -58,11 +54,6 @@ public class BlocksFileReader
     public BlockEncoding getEncoding()
     {
         return blockEncoding;
-    }
-
-    public BlocksFileStats getStats()
-    {
-        return stats;
     }
 
     @Override
