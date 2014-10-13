@@ -13,12 +13,8 @@
  */
 package com.facebook.presto.hive.orc;
 
-import com.facebook.presto.hive.HiveColumnHandle;
-import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.orc.metadata.ColumnStatistics;
 import com.facebook.presto.hive.orc.metadata.OrcMetadataReader;
-import com.facebook.presto.spi.TupleDomain;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
@@ -26,6 +22,7 @@ import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Range;
 import com.google.common.io.BaseEncoding;
@@ -79,11 +76,9 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.hive.HiveClient.getType;
 import static com.google.common.base.Functions.compose;
 import static com.google.common.base.Functions.constant;
 import static com.google.common.base.Functions.toStringFunction;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
@@ -112,7 +107,6 @@ import static org.testng.Assert.assertTrue;
 public class TestOrcReader
 {
     private static final JsonCodec<Object> OBJECT_JSON_CODEC = new JsonCodecFactory().jsonCodec(Object.class);
-    private static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
     private static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("Asia/Katmandu");
 
     @BeforeClass
@@ -396,7 +390,7 @@ public class TestOrcReader
     private static void assertFileContents(ObjectInspector objectInspector, TempFile tempFile, Iterable<?> expectedValues, boolean skipFirstBatch)
             throws IOException
     {
-        OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, objectInspector);
+        OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile);
 
         Vector vector = createResultsVector(objectInspector);
 
@@ -455,7 +449,7 @@ public class TestOrcReader
         }
     }
 
-    private static OrcRecordReader createCustomOrcRecordReader(TempFile tempFile, ObjectInspector objectInspector)
+    private static OrcRecordReader createCustomOrcRecordReader(TempFile tempFile)
             throws IOException
     {
         Path path = new Path(tempFile.getFile().toURI());
@@ -465,12 +459,20 @@ public class TestOrcReader
         FSDataInputStream inputStream = fileSystem.open(path);
         try {
             HdfsOrcDataSource orcDataSource = new HdfsOrcDataSource(path.toString(), inputStream, size);
-            OrcReader orcReader = new OrcReader(orcDataSource, new OrcMetadataReader(), TYPE_MANAGER);
-            Type type = getType(objectInspector, TYPE_MANAGER);
-            checkArgument(type != null, "No type for object inspector: %s", objectInspector);
-            HiveColumnHandle columnHandle = new HiveColumnHandle("clientId", "col_0", 0, HiveType.toHiveType(type), type.getTypeSignature(), 0, false);
-
-            return orcReader.createRecordReader(0, tempFile.getFile().length(), ImmutableList.of(columnHandle), TupleDomain.<HiveColumnHandle>all(), HIVE_STORAGE_TIME_ZONE, HIVE_STORAGE_TIME_ZONE);
+            OrcReader orcReader = new OrcReader(orcDataSource, new OrcMetadataReader());
+            return orcReader.createRecordReader(
+                    ImmutableSet.of(0),
+                    new OrcPredicate() {
+                        @Override
+                        public boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByHiveColumnIndex)
+                        {
+                            return true;
+                        }
+                    },
+                    0,
+                    tempFile.getFile().length(),
+                    HIVE_STORAGE_TIME_ZONE,
+                    HIVE_STORAGE_TIME_ZONE);
         }
         catch (Throwable e) {
             inputStream.close();

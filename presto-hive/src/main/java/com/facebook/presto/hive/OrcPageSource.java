@@ -198,7 +198,7 @@ class OrcPageSource
 
                 constantBlocks[columnIndex] = blockBuilder.build();
             }
-            else if (!recordReader.isColumnPresent(column)) {
+            else if (!recordReader.isColumnPresent(column.getHiveColumnIndex())) {
                 BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
                 for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                     blockBuilder.appendNull();

@@ -136,7 +136,6 @@ public class SliceDictionaryJsonReader
     {
         int dictionarySize = encoding.get(streamDescriptor.getStreamId()).getDictionarySize();
         if (dictionarySize > 0) {
-
             // initialize offset and length arrays
             if (dictionary.length < dictionarySize) {
                 dictionary = new DictionaryEntry[dictionarySize];

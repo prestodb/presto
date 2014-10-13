@@ -11,143 +11,80 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.orc;
+package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.HiveColumnHandle;
-import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.orc.OrcPredicate;
 import com.facebook.presto.hive.orc.metadata.BucketStatistics;
 import com.facebook.presto.hive.orc.metadata.ColumnStatistics;
 import com.facebook.presto.hive.orc.metadata.RangeStatistics;
-import com.facebook.presto.hive.orc.metadata.RowGroupIndex;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
-import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Predicates.compose;
+import static com.google.common.base.Predicates.in;
+import static com.google.common.collect.Iterables.filter;
+import static com.google.common.collect.Iterables.transform;
 import static io.airlift.slice.Slices.utf8Slice;
 
-public final class OrcDomainExtractor
+public class TupleDomainOrcPredicate<C>
+        implements OrcPredicate
 {
     private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
 
-    private OrcDomainExtractor()
+    private final TupleDomain<C> tupleDomain;
+    private final List<ColumnReference<C>> columnReferences;
+
+    public TupleDomainOrcPredicate(TupleDomain<C> tupleDomain, List<ColumnReference<C>> columnReferences)
     {
+        this.tupleDomain = checkNotNull(tupleDomain, "tupleDomain is null");
+        checkNotNull(columnReferences, "columnReferences is null");
+
+        // verify all columns in tuple domain have a column reference
+        Set<C> filteredColumns = tupleDomain.getDomains().keySet();
+        checkArgument(ImmutableSet.copyOf(transform(columnReferences, ColumnReference.<C>columnGetter())).containsAll(filteredColumns),
+                "Tuple domain references columns not in column reference list");
+
+        // only keep columns used in the tuple domain
+        this.columnReferences = ImmutableList.copyOf(filter(columnReferences, compose(in(filteredColumns), ColumnReference.<C>columnGetter())));
     }
 
-    public static List<TupleDomain<HiveColumnHandle>> extractDomain(
-            TypeManager typeManager,
-            Map<HiveColumnHandle, Integer> columnHandles,
-            int rowsInStripe,
-            int rowsInRowGroup,
-            List<List<RowGroupIndex>> columnIndexes)
+    @Override
+    public boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByHiveColumnIndex)
     {
-        ImmutableList.Builder<TupleDomain<HiveColumnHandle>> rowGroupTupleDomains = ImmutableList.builder();
+        ImmutableMap.Builder<C, Domain> domains = ImmutableMap.builder();
 
-        int rowGroup = 0;
-        for (int remainingRows = rowsInStripe; remainingRows > 0; remainingRows -= rowsInRowGroup) {
-            int rows = Math.min(remainingRows, rowsInRowGroup);
-            TupleDomain<HiveColumnHandle> rowGroupTupleDomain = extractDomain(typeManager, columnHandles, columnIndexes, rowGroup, rows);
-            rowGroupTupleDomains.add(rowGroupTupleDomain);
-            rowGroup++;
+        for (ColumnReference<C> columnReference : columnReferences) {
+            ColumnStatistics columnStatistics = statisticsByHiveColumnIndex.get(columnReference.getOrdinal());
+            if (columnStatistics == null) {
+                // no stats for column
+                return true;
+            }
+
+            domains.put(columnReference.getColumn(), getDomain(columnReference.getType(), numberOfRows, columnStatistics));
         }
+        TupleDomain<C> stripeDomain = TupleDomain.withColumnDomains(domains.build());
 
-        return rowGroupTupleDomains.build();
+        return tupleDomain.overlaps(stripeDomain);
     }
 
-    public static TupleDomain<HiveColumnHandle> extractDomain(
-            TypeManager typeManager,
-            Map<HiveColumnHandle, Integer> columnHandles,
-            List<List<RowGroupIndex>> columnIndexes,
-            int rowGroup,
-            long rowCount)
-    {
-        ImmutableMap.Builder<HiveColumnHandle, Domain> domains = ImmutableMap.builder();
-        for (Entry<HiveColumnHandle, Integer> entry : columnHandles.entrySet()) {
-            HiveColumnHandle columnHandle = entry.getKey();
-            Integer streamIndex = entry.getValue();
-
-            RowGroupIndex rowGroupIndex = columnIndexes.get(streamIndex).get(rowGroup);
-            Domain domain = getDomain(toPrestoType(typeManager, columnHandle.getHiveType()), rowCount, rowGroupIndex.getColumnStatistics());
-            domains.put(columnHandle, domain);
-        }
-        return TupleDomain.withColumnDomains(domains.build());
-    }
-
-    public static TupleDomain<HiveColumnHandle> extractDomain(
-            TypeManager typeManager,
-            Map<HiveColumnHandle, Integer> columnHandles,
-            long rowCount,
-            List<ColumnStatistics> stripeColumnStatistics)
-    {
-        ImmutableMap.Builder<HiveColumnHandle, Domain> domains = ImmutableMap.builder();
-        for (Entry<HiveColumnHandle, Integer> entry : columnHandles.entrySet()) {
-            HiveColumnHandle columnHandle = entry.getKey();
-            Integer columnIndex = entry.getValue();
-
-            Domain domain = getDomain(toPrestoType(typeManager, columnHandle.getHiveType()), rowCount, stripeColumnStatistics.get(columnIndex));
-            domains.put(columnHandle, domain);
-        }
-        return TupleDomain.withColumnDomains(domains.build());
-    }
-
-    private static Type toPrestoType(TypeManager typeManager, HiveType hiveType)
-    {
-        TypeInfo typeInfo = TypeInfoUtils.getTypeInfoFromTypeString(hiveType.getHiveTypeName());
-        switch (typeInfo.getCategory()) {
-            case MAP:
-            case LIST:
-            case STRUCT:
-                return VARCHAR;
-            case PRIMITIVE:
-                PrimitiveTypeInfo primitiveTypeInfo = (PrimitiveTypeInfo) typeInfo;
-                switch (primitiveTypeInfo.getPrimitiveCategory()) {
-                    case BOOLEAN:
-                        return BOOLEAN;
-                    case BYTE:
-                    case SHORT:
-                    case INT:
-                    case LONG:
-                        return BIGINT;
-                    case FLOAT:
-                    case DOUBLE:
-                        return DOUBLE;
-                    case STRING:
-                        return VARCHAR;
-                    case DATE:
-                        return DATE;
-                    case TIMESTAMP:
-                        return TIMESTAMP;
-                    case BINARY:
-                        return VARBINARY;
-                }
-        }
-        throw new IllegalArgumentException("Unsupported hive type " + hiveType);
-    }
-
-    public static Domain getDomain(Type type, long rowCount, ColumnStatistics columnStatistics)
+    private static Domain getDomain(Type type, long rowCount, ColumnStatistics columnStatistics)
     {
         Class<?> boxedJavaType = Primitives.wrap(type.getJavaType());
         if (rowCount == 0) {
@@ -228,5 +165,47 @@ public final class OrcDomainExtractor
             return Domain.create(SortedRangeSet.of(Range.greaterThanOrEqual(function.apply(min))), hasNullValue);
         }
         return Domain.create(SortedRangeSet.all(boxedJavaType), hasNullValue);
+    }
+
+    public static class ColumnReference<C>
+    {
+        private final C column;
+        private final int ordinal;
+        private final Type type;
+
+        public ColumnReference(C column, int ordinal, Type type)
+        {
+            this.column = checkNotNull(column, "column is null");
+            checkArgument(ordinal >= 0, "ordinal is negative");
+            this.ordinal = ordinal;
+            this.type = checkNotNull(type, "type is null");
+        }
+
+        public C getColumn()
+        {
+            return column;
+        }
+
+        public int getOrdinal()
+        {
+            return ordinal;
+        }
+
+        public Type getType()
+        {
+            return type;
+        }
+
+        public static <C> Function<ColumnReference<C>, C> columnGetter()
+        {
+            return new Function<ColumnReference<C>, C>()
+            {
+                @Override
+                public C apply(ColumnReference<C> input)
+                {
+                    return input.getColumn();
+                }
+            };
+        }
     }
 }
