@@ -14,7 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.client.PrestoHeaders;
-import com.facebook.presto.serde.PagesSerde;
+import com.facebook.presto.block.PagesSerde;
 import com.facebook.presto.spi.Page;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableListMultimap;

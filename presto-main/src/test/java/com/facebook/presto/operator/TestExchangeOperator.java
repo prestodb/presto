@@ -16,7 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ExchangeOperator.ExchangeOperatorFactory;
-import com.facebook.presto.serde.PagesSerde;
+import com.facebook.presto.block.PagesSerde;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.RemoteSplit;
