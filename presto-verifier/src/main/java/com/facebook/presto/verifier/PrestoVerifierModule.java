@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.verifier;
 
-import com.facebook.presto.guice.AbstractConfigurationAwareModule;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import com.google.inject.name.Names;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.event.client.EventClient;
 
 import java.util.Set;

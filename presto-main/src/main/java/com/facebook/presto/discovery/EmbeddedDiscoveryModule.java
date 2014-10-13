@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.discovery;
 
-import com.facebook.presto.guice.AbstractConfigurationAwareModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceInventory;
 import io.airlift.discovery.client.ServiceSelector;
