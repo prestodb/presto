@@ -34,11 +34,13 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.RowNumberLimitNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -364,6 +366,31 @@ public class PruneUnreferencedOutputs
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
 
             return new TopNNode(node.getId(), source, node.getCount(), node.getOrderBy(), node.getOrderings(), node.isPartial());
+        }
+
+        @Override
+        public PlanNode rewriteRowNumberLimit(RowNumberLimitNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
+        {
+            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(expectedOutputs)
+                    .addAll(node.getPartitionBy());
+
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
+
+            return new RowNumberLimitNode(node.getId(), source, node.getPartitionBy(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition());
+        }
+
+        @Override
+        public PlanNode rewriteTopNRowNumber(TopNRowNumberNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
+        {
+            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(expectedOutputs)
+                    .addAll(node.getPartitionBy())
+                    .addAll(node.getOrderBy());
+
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
+
+            return new TopNRowNumberNode(node.getId(), source, node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition());
         }
 
         @Override
