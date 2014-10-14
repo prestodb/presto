@@ -87,7 +87,7 @@ public class MockLocalStorageManager
             for (ConnectorColumnHandle handle : columnHandles) {
             File tmpfile = File.createTempFile("mock-storage", "mock", storageFolder);
             tmpfile.deleteOnExit();
-            builder.addColumn(handle, tmpfile);
+            builder.addExistingColumn(handle, tmpfile);
         }
         return builder.build();
     }

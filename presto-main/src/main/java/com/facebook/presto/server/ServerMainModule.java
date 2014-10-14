@@ -14,9 +14,6 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.block.dictionary.DictionaryBlockEncoding;
-import com.facebook.presto.block.rle.RunLengthBlockEncoding;
-import com.facebook.presto.block.snappy.SnappyBlockEncoding;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.informationSchema.InformationSchemaModule;
@@ -264,9 +261,6 @@ public class ServerMainModule
         Multibinder<BlockEncodingFactory<?>> blockEncodingFactoryBinder = newSetBinder(binder, new TypeLiteral<BlockEncodingFactory<?>>() {});
         blockEncodingFactoryBinder.addBinding().toInstance(VariableWidthBlockEncoding.FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(FixedWidthBlockEncoding.FACTORY);
-        blockEncodingFactoryBinder.addBinding().toInstance(RunLengthBlockEncoding.FACTORY);
-        blockEncodingFactoryBinder.addBinding().toInstance(DictionaryBlockEncoding.FACTORY);
-        blockEncodingFactoryBinder.addBinding().toInstance(SnappyBlockEncoding.FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(SliceArrayBlockEncoding.FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(LazySliceArrayBlockEncoding.FACTORY);
 

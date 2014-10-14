@@ -35,7 +35,6 @@ public class BlocksFileWriter
         implements Closeable
 {
     private final BlockEncodingSerde blockEncodingSerde;
-    private final BlocksFileEncoding encoding;
     private final OutputSupplier<? extends OutputStream> outputSupplier;
     private final StatsBuilder statsBuilder;
     private final Type type;
@@ -43,12 +42,11 @@ public class BlocksFileWriter
     private SliceOutput sliceOutput;
     private boolean closed;
 
-    public BlocksFileWriter(Type type, BlockEncodingSerde blockEncodingSerde, BlocksFileEncoding encoding, OutputSupplier<? extends OutputStream> outputSupplier)
+    public BlocksFileWriter(Type type, BlockEncodingSerde blockEncodingSerde, OutputSupplier<? extends OutputStream> outputSupplier)
     {
         this.type = checkNotNull(type, "type is null");
         this.statsBuilder = new StatsBuilder(type);
         this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingManager is null");
-        this.encoding = checkNotNull(encoding, "encoding is null");
         this.outputSupplier = checkNotNull(outputSupplier, "outputSupplier is null");
     }
 
@@ -73,7 +71,7 @@ public class BlocksFileWriter
             else {
                 sliceOutput = new OutputStreamSliceOutput(outputStream);
             }
-            encoder = encoding.createBlocksWriter(type, sliceOutput);
+            encoder = new UncompressedEncoder(type, sliceOutput);
         }
         catch (IOException e) {
             throw Throwables.propagate(e);

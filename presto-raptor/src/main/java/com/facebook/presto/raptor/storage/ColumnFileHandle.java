@@ -13,11 +13,10 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.raptor.RaptorColumnHandle;
-import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.serde.BlocksFileWriter;
 import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.google.common.base.Throwables;
@@ -142,13 +141,12 @@ public class ColumnFileHandle
         }
 
         /**
-         * Register a file as part of the column set with a given encoding.
+         * Register a file as part of the column set.
          */
-        public Builder addColumn(RaptorColumnHandle columnHandle, File targetFile, BlocksFileEncoding encoding)
+        public Builder addColumn(RaptorColumnHandle columnHandle, File targetFile)
         {
             checkNotNull(columnHandle, "columnHandle is null");
             checkNotNull(targetFile, "targetFile is null");
-            checkNotNull(encoding, "encoding is null");
 
             // This is not a 100% check because it is still possible that some other thread creates the file right between
             // the check and the actual opening of the file for writing (which might or might not be deferred by the buffered
@@ -159,7 +157,6 @@ public class ColumnFileHandle
             writers.put(columnHandle, new BlocksFileWriter(
                     columnHandle.getColumnType(),
                     blockEncodingSerde,
-                    encoding,
                     new BufferedOutputSupplier(newOutputStreamSupplier(targetFile),
                     OUTPUT_BUFFER_SIZE)));
 
@@ -169,7 +166,7 @@ public class ColumnFileHandle
         /**
          * Register a file as part of the column set which does not get written.
          */
-        public Builder addColumn(ConnectorColumnHandle columnHandle, File targetFile)
+        public Builder addExistingColumn(ConnectorColumnHandle columnHandle, File targetFile)
         {
             checkNotNull(columnHandle, "columnHandle is null");
             checkNotNull(targetFile, "targetFile is null");
