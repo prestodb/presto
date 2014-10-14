@@ -40,6 +40,7 @@ public interface ShardManagerDao
     @SqlUpdate("CREATE TABLE IF NOT EXISTS shards (\n" +
             "  shard_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
             "  shard_uuid BINARY(16) NOT NULL,\n" +
+            "  create_time DATETIME NOT NULL,\n" +
             "  UNIQUE (shard_uuid)\n" +
             ")")
     void createTableShards();
@@ -65,7 +66,8 @@ public interface ShardManagerDao
     @SqlUpdate("INSERT INTO nodes (node_identifier) VALUES (:nodeIdentifier)")
     void insertNode(@Bind("nodeIdentifier") String nodeIdentifier);
 
-    @SqlUpdate("INSERT INTO shards (shard_uuid) VALUES (:shardUuid)")
+    @SqlUpdate("INSERT INTO shards (shard_uuid, create_time)\n" +
+            "VALUES (:shardUuid, CURRENT_TIMESTAMP)")
     @GetGeneratedKeys
     long insertShard(@Bind("shardUuid") UUID shardUuid);
 
