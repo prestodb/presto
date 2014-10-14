@@ -15,7 +15,6 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.RaptorPageSource;
-import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.serde.BlocksFileReader;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -92,7 +91,6 @@ public class DatabaseLocalStorageManager
             return Slices.mapFileReadOnly(file);
         }
     });
-    private final BlocksFileEncoding defaultEncoding = BlocksFileEncoding.RAW;
 
     @Inject
     public DatabaseLocalStorageManager(@ForLocalStorageManager IDBI dbi, BlockEncodingSerde blockEncodingSerde, DatabaseLocalStorageManagerConfig config)
@@ -136,9 +134,9 @@ public class DatabaseLocalStorageManager
         ColumnFileHandle.Builder builder = ColumnFileHandle.builder(shardUuid, blockEncodingSerde);
 
         for (RaptorColumnHandle columnHandle : columnHandles) {
-            File file = getColumnFile(shardPath, columnHandle, defaultEncoding);
+            File file = getColumnFile(shardPath, columnHandle);
             Files.createParentDirs(file);
-            builder.addColumn(columnHandle, file, defaultEncoding);
+            builder.addColumn(columnHandle, file);
         }
 
         return builder.build();
@@ -179,16 +177,16 @@ public class DatabaseLocalStorageManager
                 Slice slice = mappedFileCache.getUnchecked(file.getAbsoluteFile());
                 checkState(file.length() == slice.length(), "File %s, length %s was mapped to Slice length %s", file.getAbsolutePath(), file.length(), slice.length());
 
-                File outputFile = getColumnFile(shardPath, columnHandle, defaultEncoding);
+                File outputFile = getColumnFile(shardPath, columnHandle);
                 Files.createParentDirs(outputFile);
 
                 Files.move(file, outputFile);
-                builder.addColumn(columnHandle, outputFile);
+                builder.addExistingColumn(columnHandle, outputFile);
             }
             else {
                 // fake file
-                File outputFile = getColumnFile(shardPath, columnHandle, defaultEncoding);
-                builder.addColumn(columnHandle, outputFile);
+                File outputFile = getColumnFile(shardPath, columnHandle);
+                builder.addExistingColumn(columnHandle, outputFile);
             }
         }
 
@@ -253,10 +251,10 @@ public class DatabaseLocalStorageManager
                 .toFile();
     }
 
-    private static File getColumnFile(File shardPath, ConnectorColumnHandle columnHandle, BlocksFileEncoding encoding)
+    private static File getColumnFile(File shardPath, ConnectorColumnHandle columnHandle)
     {
         long columnId = checkType(columnHandle, RaptorColumnHandle.class, "columnHandle").getColumnId();
-        return new File(shardPath, format("%s.%s.column", columnId, encoding.getName()));
+        return new File(shardPath, format("%s.%s.column", columnId, "raw"));
     }
 
     private void commitShardColumns(final ColumnFileHandle columnFileHandle)

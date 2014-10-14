@@ -30,7 +30,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static org.testng.Assert.assertEquals;
 
-public class TestFileBlocksSerde
+public class TestBlocksFile
 {
     private final List<String> expectedValues = ImmutableList.of(
             "alice",
@@ -48,7 +48,7 @@ public class TestFileBlocksSerde
 
     private final Block expectedBlock;
 
-    public TestFileBlocksSerde()
+    public TestBlocksFile()
     {
         BlockBuilder expectedBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
         VARCHAR.writeString(expectedBlockBuilder, "alice");
@@ -61,35 +61,18 @@ public class TestFileBlocksSerde
     @Test
     public void testRoundTrip()
     {
-        for (BlocksFileEncoding encoding : BlocksFileEncoding.values()) {
-            try {
-                testRoundTrip(encoding);
-            }
-            catch (Throwable e) {
-                throw new RuntimeException("Round trip failed for encoding: " + encoding, e);
-            }
-        }
-    }
-
-    public void testRoundTrip(BlocksFileEncoding encoding)
-    {
         DynamicSliceOutputSupplier sliceOutput = new DynamicSliceOutputSupplier(1024);
-
         // write 3 copies the expected block
-        BlocksFileWriter fileWriter = new BlocksFileWriter(VARCHAR, createTestingBlockEncodingManager(), encoding, sliceOutput);
+        BlocksFileWriter fileWriter = new BlocksFileWriter(VARCHAR, createTestingBlockEncodingManager(), sliceOutput);
         fileWriter.append(expectedBlock);
         fileWriter.append(expectedBlock);
         fileWriter.append(expectedBlock);
         fileWriter.close();
-
         // read the block
         Slice slice = sliceOutput.getLastSlice();
         BlocksFileReader actualBlocks = readBlocks(createTestingBlockEncodingManager(), slice);
-
         List<Object> actualValues = BlockAssertions.toValues(VARCHAR, actualBlocks);
-
         assertEquals(actualValues, expectedValues);
-
         BlocksFileStats stats = actualBlocks.getStats();
         assertEquals(stats.getAvgRunLength(), 1);
         assertEquals(stats.getRowCount(), 12);
