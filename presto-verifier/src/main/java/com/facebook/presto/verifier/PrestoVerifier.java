@@ -79,8 +79,13 @@ public class PrestoVerifier
             Set<EventClient> eventClients = injector.getInstance(Key.get(new TypeLiteral<Set<EventClient>>() {}));
 
             VerifierDao dao = new DBI(config.getQueryDatabase()).onDemand(VerifierDao.class);
-            List<QueryPair> queries = dao.getQueriesBySuite(config.getSuite(), config.getMaxQueries());
 
+            ImmutableList.Builder<QueryPair> queriesBuilder = ImmutableList.builder();
+            for (String suite : config.getSuites()) {
+                queriesBuilder.addAll(dao.getQueriesBySuite(suite, config.getMaxQueries()));
+            }
+
+            List<QueryPair> queries = queriesBuilder.build();
             queries = applyOverrides(config, queries);
             queries = filterQueries(queries);
 

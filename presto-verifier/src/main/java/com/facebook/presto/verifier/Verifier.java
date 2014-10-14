@@ -149,7 +149,7 @@ public class Verifier
 
         // TODO implement cpu time tracking
         return new VerifierQueryEvent(
-                config.getSuite(),
+                queryPair.getSuite(),
                 config.getRunId(),
                 config.getSource(),
                 queryPair.getName(),
