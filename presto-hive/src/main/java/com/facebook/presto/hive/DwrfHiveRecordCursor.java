@@ -279,7 +279,7 @@ class DwrfHiveRecordCursor
         }
         catch (IOException | RuntimeException e) {
             closeWithSuppression(e);
-            throw new PrestoException(HIVE_CURSOR_ERROR.toErrorCode(), e);
+            throw new PrestoException(HIVE_CURSOR_ERROR, e);
         }
     }
 
@@ -540,6 +540,6 @@ class DwrfHiveRecordCursor
 
     private static <T extends Writable> T checkWritable(Object object, Class<T> clazz)
     {
-        return checkType(object, clazz, HIVE_BAD_DATA.toErrorCode(), "materialized object");
+        return checkType(object, clazz, HIVE_BAD_DATA, "materialized object");
     }
 }

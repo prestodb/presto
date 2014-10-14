@@ -18,26 +18,26 @@ public class PrestoException
 {
     private final ErrorCode errorCode;
 
-    public PrestoException(ErrorCode errorCode, String message)
+    public PrestoException(ErrorCodeSupplier errorCode, String message)
     {
         this(errorCode, message, null);
     }
 
-    public PrestoException(ErrorCode errorCode, Throwable throwable)
+    public PrestoException(ErrorCodeSupplier errorCode, Throwable throwable)
     {
         this(errorCode, null, throwable);
     }
 
-    public PrestoException(ErrorCode errorCode, String message, Throwable cause)
+    public PrestoException(ErrorCodeSupplier errorCodeSupplier, String message, Throwable cause)
     {
         super(message, cause);
-        this.errorCode = errorCode;
+        this.errorCode = errorCodeSupplier.toErrorCode();
     }
 
-    public PrestoException(ErrorCode errorCode, String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace)
+    public PrestoException(ErrorCodeSupplier errorCodeSupplier, String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace)
     {
         super(message, cause, enableSuppression, writableStackTrace);
-        this.errorCode = errorCode;
+        this.errorCode = errorCodeSupplier.toErrorCode();
     }
 
     public ErrorCode getErrorCode()

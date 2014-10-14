@@ -557,7 +557,7 @@ public class HiveClient
     public void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
         if (!allowRenameTable) {
-            throw new PrestoException(PERMISSION_DENIED.toErrorCode(), "Renaming tables is disabled in this Hive catalog");
+            throw new PrestoException(PERMISSION_DENIED, "Renaming tables is disabled in this Hive catalog");
         }
 
         HiveTableHandle handle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
@@ -571,13 +571,13 @@ public class HiveClient
         SchemaTableName tableName = getTableName(tableHandle);
 
         if (!allowDropTable) {
-            throw new PrestoException(PERMISSION_DENIED.toErrorCode(), "DROP TABLE is disabled in this Hive catalog");
+            throw new PrestoException(PERMISSION_DENIED, "DROP TABLE is disabled in this Hive catalog");
         }
 
         try {
             Table table = metastore.getTable(handle.getSchemaName(), handle.getTableName());
             if (!handle.getSession().getUser().equals(table.getOwner())) {
-                throw new PrestoException(PERMISSION_DENIED.toErrorCode(), format("Unable to drop table '%s': owner of the table is different from session user", table));
+                throw new PrestoException(PERMISSION_DENIED, format("Unable to drop table '%s': owner of the table is different from session user", table));
             }
             metastore.dropTable(handle.getSchemaName(), handle.getTableName());
         }
@@ -679,7 +679,7 @@ public class HiveClient
             return HiveStorageFormat.valueOf(storageFormatString.toUpperCase());
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY.toErrorCode(), "Hive storage-format is invalid: " + storageFormatString);
+            throw new PrestoException(INVALID_SESSION_PROPERTY, "Hive storage-format is invalid: " + storageFormatString);
         }
     }
 
@@ -1154,7 +1154,7 @@ public class HiveClient
                                 String tableType = tableColumns.get(i).getType();
                                 String partitionType = partitionColumns.get(i).getType();
                                 if (!tableType.equals(partitionType)) {
-                                    throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH.toErrorCode(), format(
+                                    throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
                                             "Table '%s' partition '%s' column '%s' type '%s' does not match table column type '%s'",
                                             tableName,
                                             partName,

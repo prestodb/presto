@@ -14,11 +14,13 @@
 package com.facebook.presto.kafka;
 
 import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.ErrorCodeSupplier;
 
 /**
  * Kafka connector specific error codes.
  */
 public enum KafkaErrorCode
+        implements ErrorCodeSupplier
 {
     // Connectors can use error codes starting at EXTERNAL
 
@@ -35,6 +37,7 @@ public enum KafkaErrorCode
         errorCode = new ErrorCode(code, name());
     }
 
+    @Override
     public ErrorCode toErrorCode()
     {
         return errorCode;

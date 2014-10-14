@@ -63,6 +63,7 @@ import java.util.concurrent.Callable;
 import static com.facebook.presto.hive.HiveClient.getType;
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnIndexGetter;
 import static com.facebook.presto.hive.HiveColumnHandle.isPartitionKeyPredicate;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveType.getSupportedHiveType;
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -141,7 +142,7 @@ public final class HiveUtil
             });
         }
         catch (Exception e) {
-            throw new PrestoException(HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT.toErrorCode(), String.format("Error opening Hive split %s (offset=%s, length=%s) using %s: %s",
+            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, String.format("Error opening Hive split %s (offset=%s, length=%s) using %s: %s",
                     path,
                     start,
                     length,

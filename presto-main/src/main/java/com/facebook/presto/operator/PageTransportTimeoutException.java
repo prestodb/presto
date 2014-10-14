@@ -22,6 +22,6 @@ public class PageTransportTimeoutException
 {
     public PageTransportTimeoutException(String message, Throwable cause)
     {
-        super(PAGE_TRANSPORT_TIMEOUT.toErrorCode(), message, cause);
+        super(PAGE_TRANSPORT_TIMEOUT, message, cause);
     }
 }

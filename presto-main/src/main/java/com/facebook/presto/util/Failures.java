@@ -17,8 +17,8 @@ import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.Failure;
 import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -68,12 +68,7 @@ public final class Failures
                 errorCode);
     }
 
-    public static void checkCondition(boolean condition, StandardErrorCode errorCode, String formatString, Object... args)
-    {
-        checkCondition(condition, errorCode.toErrorCode(), formatString, args);
-    }
-
-    public static void checkCondition(boolean condition, ErrorCode errorCode, String formatString, Object... args)
+    public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, String formatString, Object... args)
     {
         if (!condition) {
             throw new PrestoException(errorCode, format(formatString, args));

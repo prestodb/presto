@@ -52,7 +52,7 @@ public final class NumberParser
             return Double.parseDouble(string);
         }
         catch (NumberFormatException e) {
-            throw new PrestoException(HIVE_BAD_DATA.toErrorCode(), e);
+            throw new PrestoException(HIVE_BAD_DATA, e);
         }
     }
 }

@@ -283,7 +283,7 @@ class OrcHiveRecordCursor
         }
         catch (IOException | RuntimeException e) {
             closeWithSuppression(e);
-            throw new PrestoException(HIVE_CURSOR_ERROR.toErrorCode(), e);
+            throw new PrestoException(HIVE_CURSOR_ERROR, e);
         }
     }
 

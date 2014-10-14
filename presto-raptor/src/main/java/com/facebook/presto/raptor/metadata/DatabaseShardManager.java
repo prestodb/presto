@@ -103,7 +103,7 @@ public class DatabaseShardManager
 
         id = dao.getNodeId(nodeIdentifier);
         if (id == null) {
-            throw new PrestoException(INTERNAL_ERROR.toErrorCode(), "node does not exist after insert");
+            throw new PrestoException(INTERNAL_ERROR, "node does not exist after insert");
         }
         return id;
     }

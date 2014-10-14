@@ -160,7 +160,7 @@ public class JsonPathTokenizer
 
     public PrestoException invalidJsonPath()
     {
-        return new PrestoException(INVALID_FUNCTION_ARGUMENT.toErrorCode(), format("Invalid JSON path: '%s'", path));
+        return new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Invalid JSON path: '%s'", path));
     }
 
     @Override

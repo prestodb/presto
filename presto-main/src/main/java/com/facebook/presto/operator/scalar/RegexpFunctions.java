@@ -16,7 +16,6 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.RegexpType;
 import com.facebook.presto.type.SqlType;
@@ -30,6 +29,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class RegexpFunctions
@@ -46,7 +46,7 @@ public final class RegexpFunctions
             return Pattern.compile(pattern.toString(UTF_8));
         }
         catch (PatternSyntaxException e) {
-            throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT.toErrorCode(), e);
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
         }
     }
 

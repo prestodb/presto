@@ -164,7 +164,7 @@ public class RcFilePageSourceFactory
             return Boolean.valueOf(enabled);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NOT_SUPPORTED.toErrorCode(), "Invalid Hive session property '" + OPTIMIZED_READER_ENABLED + "=" + enabled + "'");
+            throw new PrestoException(NOT_SUPPORTED, "Invalid Hive session property '" + OPTIMIZED_READER_ENABLED + "=" + enabled + "'");
         }
     }
 }
