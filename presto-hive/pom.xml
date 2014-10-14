@@ -210,9 +210,9 @@
         </dependency>
 
         <dependency>
-            <groupId>com.intellij</groupId>
+            <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
-            <scope>test</scope>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>

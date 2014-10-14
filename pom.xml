@@ -420,9 +420,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.intellij</groupId>
+                <groupId>org.jetbrains</groupId>
                 <artifactId>annotations</artifactId>
-                <version>9.0.4</version>
+                <version>13.0</version>
             </dependency>
 
             <dependency>
