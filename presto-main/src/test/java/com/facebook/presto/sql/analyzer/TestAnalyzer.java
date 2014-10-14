@@ -89,6 +89,13 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testNonComparableGroupBy()
+            throws Exception
+    {
+        assertFails(TYPE_MISMATCH, "SELECT * FROM (SELECT ARRAY[1,2]) GROUP BY 1");
+    }
+
+    @Test
     public void testHavingReferencesOutputAlias()
             throws Exception
     {

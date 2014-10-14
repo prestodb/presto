@@ -782,8 +782,16 @@ class TupleAnalyzer
                     groupByExpression = new FieldOrExpression(expression);
                 }
 
+                Type type;
                 if (groupByExpression.isExpression()) {
                     Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, groupByExpression.getExpression(), "GROUP BY");
+                    type = analysis.getType(groupByExpression.getExpression());
+                }
+                else {
+                    type = tupleDescriptor.getFieldByIndex(groupByExpression.getFieldIndex()).getType();
+                }
+                if (!type.isComparable()) {
+                    throw new SemanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in GROUP BY", type);
                 }
 
                 groupByExpressionsBuilder.add(groupByExpression);
