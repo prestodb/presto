@@ -42,6 +42,7 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -50,6 +51,8 @@ import com.google.common.collect.Iterables;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Converts cardinality-insensitive aggregations (max, min, "distinct") over partition keys
@@ -65,6 +68,9 @@ public class MetadataQueryOptimizer
 
     public MetadataQueryOptimizer(Metadata metadata, SplitManager splitManager)
     {
+        checkNotNull(metadata, "metadata is null");
+        checkNotNull(splitManager, "splitManager is null");
+
         this.metadata = metadata;
         this.splitManager = splitManager;
     }
@@ -130,10 +136,17 @@ public class MetadataQueryOptimizer
 
             // Materialize the list of partitions and replace the TableScan node
             // with a Values node
-            PartitionResult partitionResult = splitManager.getPartitions(result.get().getTable(), Optional.of(tableScan.getPartitionsDomainSummary()));
+            List<Partition> partitions;
+            if (tableScan.getGeneratedPartitions().isPresent()) {
+                partitions = tableScan.getGeneratedPartitions().get().getPartitions();
+            }
+            else {
+                partitions = splitManager.getPartitions(result.get().getTable(), Optional.of(tableScan.getPartitionsDomainSummary()))
+                        .getPartitions();
+            }
 
             ImmutableList.Builder<List<Expression>> rowsBuilder = ImmutableList.builder();
-            for (Partition partition : partitionResult.getPartitions()) {
+            for (Partition partition : partitions) {
                 Map<ColumnHandle, SerializableNativeValue> entries = partition.getTupleDomain().extractNullableFixedValues();
 
                 ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
@@ -143,7 +156,8 @@ public class MetadataQueryOptimizer
                     Type type = types.get(input);
                     SerializableNativeValue value = entries.get(column);
                     if (value == null) {
-                        rowBuilder.add(LiteralInterpreter.toExpression(null, type));
+                        // partition key does not have a single value, so bail out to be safe
+                        return null;
                     }
                     else {
                         rowBuilder.add(LiteralInterpreter.toExpression(value.getValue(), type));

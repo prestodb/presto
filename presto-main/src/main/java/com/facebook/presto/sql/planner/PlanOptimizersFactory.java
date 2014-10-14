@@ -66,8 +66,11 @@ public class PlanOptimizersFactory
                 new CountConstantOptimizer(),
                 new WindowFilterPushDown(), // This must run after PredicatePushDown so that it squashes any successive filter nodes
                 new PruneUnreferencedOutputs(), // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
-                new PruneRedundantProjections(), // This MUST run after PruneUnreferencedOutputs as it may introduce new redundant projections
-                new MetadataQueryOptimizer(metadata, splitManager));
+                new PruneRedundantProjections()); // This MUST run after PruneUnreferencedOutputs as it may introduce new redundant projections
+
+        if (featuresConfig.isOptimizeMetadataQueries()) {
+            builder.add(new MetadataQueryOptimizer(metadata, splitManager));
+        }
 
         // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging
         // TODO: figure out how to improve the set flattening optimizer so that it can run at any point
