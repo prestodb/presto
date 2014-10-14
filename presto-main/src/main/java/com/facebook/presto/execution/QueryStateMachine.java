@@ -19,7 +19,6 @@ import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -43,6 +42,7 @@ import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.inDoneState;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
+import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -319,7 +319,7 @@ public class QueryStateMachine
         }
         synchronized (this) {
             if (failureCause == null) {
-                failureCause = new PrestoException(StandardErrorCode.USER_CANCELED.toErrorCode(), "Query was canceled");
+                failureCause = new PrestoException(USER_CANCELED, "Query was canceled");
             }
         }
         return queryState.setIf(CANCELED, Predicates.not(inDoneState()));

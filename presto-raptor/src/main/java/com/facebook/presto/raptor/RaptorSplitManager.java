@@ -90,7 +90,7 @@ public class RaptorSplitManager
             Collection<String> nodeId = entry.getValue();
             List<HostAddress> addresses = getAddressesForNodes(nodesById, nodeId);
             if (addresses.isEmpty()) {
-                throw new PrestoException(INTERNAL_ERROR.toErrorCode(), format("no host for shard %s found: %s", shardId, nodeId));
+                throw new PrestoException(INTERNAL_ERROR, format("no host for shard %s found: %s", shardId, nodeId));
             }
             splits.add(new RaptorSplit(shardId, addresses, raptorTableHandle.getCountColumnHandle()));
         }

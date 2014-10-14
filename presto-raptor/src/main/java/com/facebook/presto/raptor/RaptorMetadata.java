@@ -394,7 +394,7 @@ public class RaptorMetadata
         }
         catch (UnableToExecuteStatementException e) {
             if (viewExists(session, viewName)) {
-                throw new PrestoException(ALREADY_EXISTS.toErrorCode(), "View already exists: " + viewName);
+                throw new PrestoException(ALREADY_EXISTS, "View already exists: " + viewName);
             }
             throw e;
         }

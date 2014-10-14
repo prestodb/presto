@@ -515,7 +515,7 @@ public class HttpRemoteTask
         Duration timeSinceLastSuccess = Duration.nanosSince(lastSuccessfulRequest.get());
         if (errorCount > maxConsecutiveErrorCount && timeSinceLastSuccess.compareTo(minErrorDuration) > 0) {
             // it is weird to mark the task failed locally and then cancel the remote task, but there is no way to tell a remote task that it is failed
-            PrestoException exception = new PrestoException(TOO_MANY_REQUESTS_FAILED.toErrorCode(),
+            PrestoException exception = new PrestoException(TOO_MANY_REQUESTS_FAILED,
                     format("Encountered too many errors talking to a worker node. The node may have crashed or be under too much load. This is probably a transient issue, so please retry your query in a few minutes (%s - %s failures, time since last success %s)",
                     taskInfo.getSelf(),
                     errorCount,
@@ -742,10 +742,10 @@ public class HttpRemoteTask
                     Exception cause = response.getException();
                     if (cause == null) {
                         if (response.getStatusCode() == HttpStatus.OK.code()) {
-                            cause = new PrestoException(REMOTE_TASK_ERROR.toErrorCode(), format("Expected response from %s is empty", uri));
+                            cause = new PrestoException(REMOTE_TASK_ERROR, format("Expected response from %s is empty", uri));
                         }
                         else {
-                            cause = new PrestoException(REMOTE_TASK_ERROR.toErrorCode(), format("Expected response code from %s to be %s, but was %s: %s%n%s",
+                            cause = new PrestoException(REMOTE_TASK_ERROR, format("Expected response code from %s to be %s, but was %s: %s%n%s",
                                     uri,
                                     HttpStatus.OK.code(),
                                     response.getStatusCode(),

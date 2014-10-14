@@ -345,7 +345,7 @@ public final class MathFunctions
     public static double greatest(@SqlType(StandardTypes.DOUBLE) double value1, @SqlType(StandardTypes.DOUBLE) double value2)
     {
         if (Double.isNaN(value1) || Double.isNaN(value2)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT.toErrorCode(), "Invalid argument to greatest(): NaN");
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid argument to greatest(): NaN");
         }
 
         return value1 > value2 ? value1 : value2;
@@ -365,7 +365,7 @@ public final class MathFunctions
     public static double least(@SqlType(StandardTypes.DOUBLE) double value1, @SqlType(StandardTypes.DOUBLE) double value2)
     {
         if (Double.isNaN(value1) || Double.isNaN(value2)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT.toErrorCode(), "Invalid argument to least(): NaN");
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid argument to least(): NaN");
         }
 
         return value1 < value2 ? value1 : value2;

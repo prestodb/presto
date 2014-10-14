@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.util;
 
-import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -34,7 +34,7 @@ public final class Types
         return target.cast(value);
     }
 
-    public static <A, B extends A> B checkType(A value, Class<B> target, ErrorCode errorCode, String name)
+    public static <A, B extends A> B checkType(A value, Class<B> target, ErrorCodeSupplier errorCode, String name)
     {
         checkNotNull(value, "%s is null", name);
         if (!target.isInstance(value)) {

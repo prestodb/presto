@@ -14,7 +14,6 @@
 package com.facebook.presto.kafka.decoder.json;
 
 import com.facebook.presto.kafka.KafkaColumnHandle;
-import com.facebook.presto.kafka.KafkaErrorCode;
 import com.facebook.presto.kafka.KafkaFieldValueProvider;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -27,6 +26,7 @@ import org.joda.time.format.ISODateTimeFormat;
 import java.util.Locale;
 import java.util.Set;
 
+import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_CONVERSION_NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
@@ -77,13 +77,13 @@ public class ISO8601JsonKafkaFieldDecoder
         @Override
         public boolean getBoolean()
         {
-            throw new PrestoException(KafkaErrorCode.KAFKA_CONVERSION_NOT_SUPPORTED.toErrorCode(), "conversion to boolean not supported");
+            throw new PrestoException(KAFKA_CONVERSION_NOT_SUPPORTED, "conversion to boolean not supported");
         }
 
         @Override
         public double getDouble()
         {
-            throw new PrestoException(KafkaErrorCode.KAFKA_CONVERSION_NOT_SUPPORTED.toErrorCode(), "conversion to double not supported");
+            throw new PrestoException(KAFKA_CONVERSION_NOT_SUPPORTED, "conversion to double not supported");
         }
 
         @Override

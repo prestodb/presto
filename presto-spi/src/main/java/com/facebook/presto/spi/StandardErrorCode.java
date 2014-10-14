@@ -14,6 +14,7 @@
 package com.facebook.presto.spi;
 
 public enum StandardErrorCode
+        implements ErrorCodeSupplier
 {
     USER_ERROR(0x0000_0000),
     SYNTAX_ERROR(0x0000_0001),
@@ -54,6 +55,7 @@ public enum StandardErrorCode
         errorCode = new ErrorCode(code, name());
     }
 
+    @Override
     public ErrorCode toErrorCode()
     {
         return errorCode;

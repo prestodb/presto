@@ -182,7 +182,7 @@ public class CassandraSplitManager
                 throw Throwables.propagate(e);
             }
             catch (ExecutionException e) {
-                throw new PrestoException(EXTERNAL.toErrorCode(), "Error fetching cassandra partitions", e);
+                throw new PrestoException(EXTERNAL, "Error fetching cassandra partitions", e);
             }
         }
 

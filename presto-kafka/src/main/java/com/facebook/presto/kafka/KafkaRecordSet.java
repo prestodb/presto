@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -309,7 +310,7 @@ public class KafkaRecordSet
                 if (fetchResponse.hasError()) {
                     short errorCode = fetchResponse.errorCode(split.getTopicName(), split.getPartitionId());
                     log.warn("Fetch response has error: %d", errorCode);
-                    throw new PrestoException(KafkaErrorCode.KAFKA_SPLIT_ERROR.toErrorCode(), "could not fetch data from Kafka, error code is '" + errorCode + "'");
+                    throw new PrestoException(KAFKA_SPLIT_ERROR, "could not fetch data from Kafka, error code is '" + errorCode + "'");
                 }
 
                 messageAndOffsetIterator = fetchResponse.messageSet(split.getTopicName(), split.getPartitionId()).iterator();

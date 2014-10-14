@@ -15,12 +15,13 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.AbstractType;
 import org.joni.Regex;
+
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL;
 
 public class LikePatternType
         extends AbstractType
@@ -48,6 +49,6 @@ public class LikePatternType
     @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
     {
-        throw new PrestoException(StandardErrorCode.INTERNAL.toErrorCode(), "LikePattern type cannot be serialized");
+        throw new PrestoException(INTERNAL, "LikePattern type cannot be serialized");
     }
 }

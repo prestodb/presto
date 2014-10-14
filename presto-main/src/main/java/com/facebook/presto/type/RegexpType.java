@@ -15,13 +15,14 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.AbstractType;
 
 import java.util.regex.Pattern;
+
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL;
 
 public class RegexpType
         extends AbstractType
@@ -49,6 +50,6 @@ public class RegexpType
     @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
     {
-        throw new PrestoException(StandardErrorCode.INTERNAL.toErrorCode(), "RegExp type cannot be serialized");
+        throw new PrestoException(INTERNAL, "RegExp type cannot be serialized");
     }
 }

@@ -223,7 +223,7 @@ public class CassandraMetadata
         checkArgument(tableHandle instanceof CassandraTableHandle, "tableHandle is not an instance of CassandraTableHandle");
 
         if (!allowDropTable) {
-            throw new PrestoException(PERMISSION_DENIED.toErrorCode(), "DROP TABLE is disabled in this Hive catalog");
+            throw new PrestoException(PERMISSION_DENIED, "DROP TABLE is disabled in this Hive catalog");
         }
 
         CassandraTableHandle cassandraTableHandle = (CassandraTableHandle) tableHandle;

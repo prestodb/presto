@@ -13,14 +13,16 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.execution.Failure;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
-import com.facebook.presto.execution.Failure;
 
 import javax.annotation.Nullable;
+
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL;
+import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 
 public final class ErrorCodes
 {
@@ -42,11 +44,11 @@ public final class ErrorCodes
             return ((Failure) throwable).getErrorCode();
         }
         if (throwable instanceof ParsingException || throwable instanceof SemanticException) {
-            return StandardErrorCode.SYNTAX_ERROR.toErrorCode();
+            return SYNTAX_ERROR.toErrorCode();
         }
         if (throwable.getCause() != null) {
             return toErrorCode(throwable.getCause());
         }
-        return StandardErrorCode.INTERNAL.toErrorCode();
+        return INTERNAL.toErrorCode();
     }
 }

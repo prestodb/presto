@@ -178,7 +178,7 @@ public class BaseJdbcClient
                     return null;
                 }
                 if (tableHandles.size() > 1) {
-                    throw new PrestoException(NOT_SUPPORTED.toErrorCode(), "Multiple tables matched: " + schemaTableName);
+                    throw new PrestoException(NOT_SUPPORTED, "Multiple tables matched: " + schemaTableName);
                 }
                 return getOnlyElement(tableHandles);
             }
@@ -211,7 +211,7 @@ public class BaseJdbcClient
                     throw new TableNotFoundException(tableHandle.getSchemaTableName());
                 }
                 if (columns.isEmpty()) {
-                    throw new PrestoException(NOT_SUPPORTED.toErrorCode(), "Table has no supported column types: " + tableHandle.getSchemaTableName());
+                    throw new PrestoException(NOT_SUPPORTED, "Table has no supported column types: " + tableHandle.getSchemaTableName());
                 }
                 return ImmutableList.copyOf(columns);
             }
@@ -279,7 +279,7 @@ public class BaseJdbcClient
         String table = schemaTableName.getTableName();
 
         if (!getSchemaNames().contains(schema)) {
-            throw new PrestoException(NOT_FOUND.toErrorCode(), "Schema not found: " + schema);
+            throw new PrestoException(NOT_FOUND, "Schema not found: " + schema);
         }
 
         try (Connection connection = driver.connect(connectionUrl, connectionProperties)) {
@@ -435,7 +435,7 @@ public class BaseJdbcClient
         if (sqlType != null) {
             return sqlType;
         }
-        throw new PrestoException(NOT_SUPPORTED.toErrorCode(), "Unsuported column type: " + type.getTypeSignature());
+        throw new PrestoException(NOT_SUPPORTED, "Unsuported column type: " + type.getTypeSignature());
     }
 
     protected String quoted(String name)

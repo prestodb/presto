@@ -21,13 +21,23 @@ public class TestPrestoException
     @Test
     public void testMessage()
     {
-        PrestoException exception = new PrestoException(new ErrorCode(0, "test"), "test");
+        PrestoException exception = new PrestoException(new TestErrorCode(), "test");
         Assert.assertEquals(exception.getMessage(), "test");
 
-        exception = new PrestoException(new ErrorCode(0, "test"), new RuntimeException("test2"));
+        exception = new PrestoException(new TestErrorCode(), new RuntimeException("test2"));
         Assert.assertEquals(exception.getMessage(), "test2");
 
-        exception = new PrestoException(new ErrorCode(0, "test"), new RuntimeException());
+        exception = new PrestoException(new TestErrorCode(), new RuntimeException());
         Assert.assertEquals(exception.getMessage(), "test");
+    }
+
+    private static class TestErrorCode
+            implements ErrorCodeSupplier
+    {
+        @Override
+        public ErrorCode toErrorCode()
+        {
+            return new ErrorCode(0, "test");
+        }
     }
 }

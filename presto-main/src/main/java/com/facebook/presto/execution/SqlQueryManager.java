@@ -243,7 +243,7 @@ public class SqlQueryManager
 
         // start the query in the background
         if (!queryStarter.submit(queryExecution)) {
-            return createFailedQuery(session, query, queryId, new PrestoException(QUERY_QUEUE_FULL.toErrorCode(), "Too many queued queries!"));
+            return createFailedQuery(session, query, queryId, new PrestoException(QUERY_QUEUE_FULL, "Too many queued queries!"));
         }
 
         return queryExecution.getQueryInfo();

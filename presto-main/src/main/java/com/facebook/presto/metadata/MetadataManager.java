@@ -325,10 +325,10 @@ public class MetadataManager
         String catalogName = newTableName.getCatalogName();
         ConnectorMetadataEntry target = connectorsByCatalog.get(catalogName);
         if (target == null) {
-            throw new PrestoException(NOT_FOUND.toErrorCode(), format("Target catalog '%s' does not exist", catalogName));
+            throw new PrestoException(NOT_FOUND, format("Target catalog '%s' does not exist", catalogName));
         }
         if (!tableHandle.getConnectorId().equals(target.getConnectorId())) {
-            throw new PrestoException(SYNTAX_ERROR.toErrorCode(), "Cannot rename tables across catalogs");
+            throw new PrestoException(SYNTAX_ERROR, "Cannot rename tables across catalogs");
         }
 
         lookupConnectorFor(tableHandle).renameTable(tableHandle.getConnectorHandle(), newTableName.asSchemaTableName());
@@ -466,7 +466,7 @@ public class MetadataManager
             return viewCodec.fromJson(data);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_VIEW.toErrorCode(), "Invalid view JSON: " + data, e);
+            throw new PrestoException(INVALID_VIEW, "Invalid view JSON: " + data, e);
         }
     }
 

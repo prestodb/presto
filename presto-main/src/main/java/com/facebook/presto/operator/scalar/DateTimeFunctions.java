@@ -16,7 +16,6 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import com.facebook.presto.util.DateTimeZoneIndex;
@@ -415,7 +414,7 @@ public final class DateTimeFunctions
             return formatter.parseDateTime(datetimeString);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT.toErrorCode(), e);
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
         }
     }
 
@@ -487,7 +486,7 @@ public final class DateTimeFunctions
             return formatter.parseMillis(dateTime.toString(Charsets.UTF_8));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT.toErrorCode(), e);
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
         }
     }
 
@@ -972,7 +971,7 @@ public final class DateTimeFunctions
                     case 'V': // %V Week (01..53), where Sunday is the first day of the week; used with %X
                     case 'X': // %X Year for the week where Sunday is the first day of the week, numeric, four digits; used with %V
                     case 'D': // %D Day of the month with English suffix (0th, 1st, 2nd, 3rd, …)
-                        throw new PrestoException(INVALID_FUNCTION_ARGUMENT.toErrorCode(), String.format("%%%s not supported in date format string", character));
+                        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, String.format("%%%s not supported in date format string", character));
                     case '%': // %% A literal “%” character
                         builder.appendLiteral('%');
                         break;
@@ -994,7 +993,7 @@ public final class DateTimeFunctions
             return builder.toFormatter();
         }
         catch (UnsupportedOperationException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT.toErrorCode(), e);
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
         }
     }
 }

@@ -14,13 +14,13 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
@@ -32,7 +32,7 @@ public class OperatorNotFoundException extends PrestoException
 
     public OperatorNotFoundException(OperatorType operatorType, List<? extends Type> argumentTypes)
     {
-        super(StandardErrorCode.OPERATOR_NOT_FOUND.toErrorCode(), format("Operator %s(%s) not registered", operatorType, Joiner.on(", ").join(argumentTypes)));
+        super(OPERATOR_NOT_FOUND, format("Operator %s(%s) not registered", operatorType, Joiner.on(", ").join(argumentTypes)));
         this.operatorType = checkNotNull(operatorType, "operatorType is null");
         this.returnType = null;
         this.argumentTypes = ImmutableList.copyOf(checkNotNull(argumentTypes, "argumentTypes is null"));
@@ -40,7 +40,7 @@ public class OperatorNotFoundException extends PrestoException
 
     public OperatorNotFoundException(OperatorType operatorType, List<? extends Type> argumentTypes, Type returnType)
     {
-        super(StandardErrorCode.OPERATOR_NOT_FOUND.toErrorCode(), format("Operator %s(%s):%s not registered", operatorType, Joiner.on(", ").join(argumentTypes), returnType));
+        super(OPERATOR_NOT_FOUND, format("Operator %s(%s):%s not registered", operatorType, Joiner.on(", ").join(argumentTypes), returnType));
         this.operatorType = checkNotNull(operatorType, "operatorType is null");
         this.argumentTypes = ImmutableList.copyOf(checkNotNull(argumentTypes, "argumentTypes is null"));
         this.returnType = checkNotNull(returnType, "returnType is null");

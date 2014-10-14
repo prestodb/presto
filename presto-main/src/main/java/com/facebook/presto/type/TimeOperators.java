@@ -126,7 +126,7 @@ public final class TimeOperators
             return parseTimeWithoutTimeZone(session.getTimeZoneKey(), value.toStringUtf8());
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT.toErrorCode(), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, e);
         }
     }
 

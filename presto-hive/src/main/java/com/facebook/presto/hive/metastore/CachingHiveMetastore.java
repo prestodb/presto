@@ -13,15 +13,14 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.presto.hive.util.BackgroundCacheLoader;
 import com.facebook.presto.hive.ForHiveMetastore;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCluster;
-import com.facebook.presto.hive.HiveErrorCode;
 import com.facebook.presto.hive.HiveMetastoreClient;
 import com.facebook.presto.hive.HiveViewNotSupportedException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.hive.shaded.org.apache.thrift.TException;
+import com.facebook.presto.hive.util.BackgroundCacheLoader;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -63,6 +62,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.HiveUtil.isPrestoView;
 import static com.facebook.presto.hive.RetryDriver.retry;
@@ -290,7 +290,7 @@ public class CachingHiveMetastore
             }));
         }
         catch (TException e) {
-            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
     }
 
@@ -321,7 +321,7 @@ public class CachingHiveMetastore
             throw e;
         }
         catch (TException e) {
-            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
     }
 
@@ -380,7 +380,7 @@ public class CachingHiveMetastore
             throw e;
         }
         catch (TException e) {
-            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
     }
 
@@ -419,7 +419,7 @@ public class CachingHiveMetastore
             throw new NoSuchObjectException(e.getMessage());
         }
         catch (TException e) {
-            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
     }
 
@@ -452,7 +452,7 @@ public class CachingHiveMetastore
             throw Throwables.propagate(e);
         }
         catch (TException e) {
-            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             if (e instanceof InterruptedException) {
@@ -486,7 +486,7 @@ public class CachingHiveMetastore
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
         catch (TException e) {
-            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             if (e instanceof InterruptedException) {
@@ -526,7 +526,7 @@ public class CachingHiveMetastore
             throw Throwables.propagate(e);
         }
         catch (TException e) {
-            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             if (e instanceof InterruptedException) {
@@ -560,7 +560,7 @@ public class CachingHiveMetastore
             throw e;
         }
         catch (TException e) {
-            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
     }
 
@@ -591,7 +591,7 @@ public class CachingHiveMetastore
             throw e;
         }
         catch (TException e) {
-            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
     }
 
@@ -625,7 +625,7 @@ public class CachingHiveMetastore
             throw e;
         }
         catch (TException e) {
-            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
     }
 
@@ -665,7 +665,7 @@ public class CachingHiveMetastore
             throw e;
         }
         catch (TException e) {
-            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
     }
 
@@ -711,7 +711,7 @@ public class CachingHiveMetastore
             throw e;
         }
         catch (TException e) {
-            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
     }
 

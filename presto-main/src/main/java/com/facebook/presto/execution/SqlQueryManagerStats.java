@@ -19,6 +19,8 @@ import io.airlift.stats.TimeStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
+import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class SqlQueryManagerStats
@@ -60,10 +62,10 @@ public class SqlQueryManagerStats
                     break;
             }
 
-            if (info.getErrorCode().getCode() == StandardErrorCode.ABANDONED_QUERY.toErrorCode().getCode()) {
+            if (info.getErrorCode().getCode() == ABANDONED_QUERY.toErrorCode().getCode()) {
                 abandonedQueries.update(1);
             }
-            else if (info.getErrorCode().getCode() == StandardErrorCode.USER_CANCELED.toErrorCode().getCode()) {
+            else if (info.getErrorCode().getCode() == USER_CANCELED.toErrorCode().getCode()) {
                 canceledQueries.update(1);
             }
             failedQueries.update(1);

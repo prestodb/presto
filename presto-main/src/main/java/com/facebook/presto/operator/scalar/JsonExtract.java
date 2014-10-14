@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParseException;
@@ -30,6 +29,7 @@ import io.airlift.slice.Slices;
 
 import java.io.IOException;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
@@ -243,7 +243,7 @@ public final class JsonExtract
                 if (token == END_ARRAY) {
                     // Index out of bounds
                     if (exceptionOnOutOfBounds) {
-                        throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT.toErrorCode(), "Index out of bounds");
+                        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Index out of bounds");
                     }
                     return null;
                 }
