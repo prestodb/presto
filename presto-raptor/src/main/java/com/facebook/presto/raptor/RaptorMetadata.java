@@ -35,6 +35,7 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Splitter;
 import com.google.common.collect.FluentIterable;
@@ -343,7 +344,7 @@ public class RaptorMetadata
             }
         });
 
-        shardManager.commitTable(tableId, parseFragments(fragments));
+        shardManager.commitTable(tableId, parseFragments(fragments), Optional.<String>absent());
     }
 
     @Override
@@ -358,14 +359,19 @@ public class RaptorMetadata
             columnTypes.add(column.getDataType());
         }
 
-        return new RaptorInsertTableHandle(connectorId, tableId, columnHandles.build(), columnTypes.build());
+        String externalBatchId = session.getProperties().get("external_batch_id");
+
+        return new RaptorInsertTableHandle(connectorId, tableId, columnHandles.build(), columnTypes.build(), externalBatchId);
     }
 
     @Override
     public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
     {
-        long tableId = checkType(insertHandle, RaptorInsertTableHandle.class, "insertHandle").getTableId();
-        shardManager.commitTable(tableId, parseFragments(fragments));
+        RaptorInsertTableHandle handle = checkType(insertHandle, RaptorInsertTableHandle.class, "insertHandle");
+        long tableId = handle.getTableId();
+        Optional<String> externalBatchId = Optional.fromNullable(handle.getExternalBatchId());
+
+        shardManager.commitTable(tableId, parseFragments(fragments), externalBatchId);
     }
 
     @Override

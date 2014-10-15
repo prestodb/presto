@@ -19,6 +19,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -31,13 +33,16 @@ public class RaptorInsertTableHandle
     private final long tableId;
     private final List<RaptorColumnHandle> columnHandles;
     private final List<Type> columnTypes;
+    @Nullable
+    private final String externalBatchId;
 
     @JsonCreator
     public RaptorInsertTableHandle(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("tableId") long tableId,
             @JsonProperty("columnHandles") List<RaptorColumnHandle> columnHandles,
-            @JsonProperty("columnTypes") List<Type> columnTypes)
+            @JsonProperty("columnTypes") List<Type> columnTypes,
+            @JsonProperty("externalBatchId") @Nullable String externalBatchId)
     {
         checkArgument(tableId > 0, "tableId must be greater than zero");
 
@@ -45,6 +50,7 @@ public class RaptorInsertTableHandle
         this.tableId = tableId;
         this.columnHandles = ImmutableList.copyOf(checkNotNull(columnHandles, "columnHandles is null"));
         this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
+        this.externalBatchId = externalBatchId;
     }
 
     @JsonProperty
@@ -69,6 +75,13 @@ public class RaptorInsertTableHandle
     public List<Type> getColumnTypes()
     {
         return columnTypes;
+    }
+
+    @Nullable
+    @JsonProperty
+    public String getExternalBatchId()
+    {
+        return externalBatchId;
     }
 
     @Override

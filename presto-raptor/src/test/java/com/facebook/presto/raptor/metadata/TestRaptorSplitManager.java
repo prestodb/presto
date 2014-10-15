@@ -31,6 +31,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.type.TypeRegistry;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
@@ -97,7 +98,7 @@ public class TestRaptorSplitManager
 
         long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
 
-        shardManager.commitTable(tableId, shardNodes);
+        shardManager.commitTable(tableId, shardNodes, Optional.<String>absent());
 
         raptorSplitManager = new RaptorSplitManager(connectorId, nodeManager, shardManager);
     }

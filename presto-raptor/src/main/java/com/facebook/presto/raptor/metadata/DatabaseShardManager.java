@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.base.Optional;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionStatus;
@@ -24,6 +25,7 @@ import javax.inject.Inject;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
 import static com.facebook.presto.raptor.metadata.ShardManagerDaoUtils.createShardTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.SqlUtils.runIgnoringConstraintViolation;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
@@ -46,8 +48,13 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void commitTable(final long tableId, final Iterable<ShardNode> shardNodes)
+    public void commitTable(final long tableId, final Iterable<ShardNode> shardNodes, final Optional<String> externalBatchId)
     {
+        // attempt to fail up front with a proper exception
+        if (externalBatchId.isPresent() && dao.externalBatchExists(externalBatchId.get())) {
+            throw new PrestoException(RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS, "External batch already exists: " + externalBatchId.get());
+        }
+
         final Map<String, Long> nodeIds = new HashMap<>();
         for (ShardNode shardNode : shardNodes) {
             String nodeIdentifier = shardNode.getNodeIdentifier();
@@ -62,11 +69,16 @@ public class DatabaseShardManager
             protected void execute(Handle handle, TransactionStatus status)
             {
                 ShardManagerDao dao = handle.attach(ShardManagerDao.class);
+
                 for (ShardNode shardNode : shardNodes) {
                     long nodeId = nodeIds.get(shardNode.getNodeIdentifier());
                     long shardId = dao.insertShard(shardNode.getShardUuid());
                     dao.insertShardNode(shardId, nodeId);
                     dao.insertTableShard(tableId, shardId);
+                }
+
+                if (externalBatchId.isPresent()) {
+                    dao.insertExternalBatch(externalBatchId.get());
                 }
             }
         });

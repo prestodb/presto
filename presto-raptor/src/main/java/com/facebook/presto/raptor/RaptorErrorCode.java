@@ -11,24 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor.metadata;
+package com.facebook.presto.raptor;
 
-import com.google.common.base.Optional;
+import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.ErrorCodeSupplier;
 
-public interface ShardManager
+public enum RaptorErrorCode
+        implements ErrorCodeSupplier
 {
-    /**
-     * Commit an unpartitioned table.
-     */
-    void commitTable(long tableId, Iterable<ShardNode> shardNodes, Optional<String> externalBatchId);
+    RAPTOR_ERROR(0x0300_0000),
+    RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS(0x0300_0001);
 
-    /**
-     * Return the shard nodes a given table.
-     */
-    Iterable<ShardNode> getShardNodes(long tableId);
+    private final ErrorCode errorCode;
 
-    /**
-     * Drop all shards in a given table.
-     */
-    void dropTableShards(long tableId);
+    RaptorErrorCode(int code)
+    {
+        errorCode = new ErrorCode(code, name());
+    }
+
+    @Override
+    public ErrorCode toErrorCode()
+    {
+        return errorCode;
+    }
 }
