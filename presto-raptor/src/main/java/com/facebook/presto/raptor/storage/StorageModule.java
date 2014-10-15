@@ -37,15 +37,15 @@ public class StorageModule
     @Override
     public void configure(Binder binder)
     {
-        bindConfig(binder).to(DatabaseLocalStorageManagerConfig.class);
-        binder.bind(LocalStorageManager.class).to(DatabaseLocalStorageManager.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(LocalStorageManager.class).withGeneratedName();
+        bindConfig(binder).to(StorageManagerConfig.class);
+        binder.bind(StorageManager.class).to(DatabaseStorageManager.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(StorageManager.class).withGeneratedName();
     }
 
     @Provides
     @Singleton
-    @ForLocalStorageManager
-    public IDBI createLocalStorageManagerDBI(DatabaseLocalStorageManagerConfig config)
+    @ForStorageManager
+    public IDBI createLocalStorageManagerDBI(StorageManagerConfig config)
             throws Exception
     {
         return new DBI(new H2EmbeddedDataSource(new H2EmbeddedDataSourceConfig()

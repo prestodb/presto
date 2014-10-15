@@ -14,7 +14,7 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.storage.ColumnFileHandle;
-import com.facebook.presto.raptor.storage.LocalStorageManager;
+import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.util.CurrentNodeId;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -34,16 +34,16 @@ import static java.util.UUID.randomUUID;
 public class RaptorRecordSinkProvider
         implements ConnectorRecordSinkProvider
 {
-    private final LocalStorageManager storageManager;
+    private final StorageManager storageManager;
     private final String nodeId;
 
     @Inject
-    public RaptorRecordSinkProvider(LocalStorageManager storageManager, CurrentNodeId currentNodeId)
+    public RaptorRecordSinkProvider(StorageManager storageManager, CurrentNodeId currentNodeId)
     {
         this(storageManager, currentNodeId.toString());
     }
 
-    public RaptorRecordSinkProvider(LocalStorageManager storageManager, String nodeId)
+    public RaptorRecordSinkProvider(StorageManager storageManager, String nodeId)
     {
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
         this.nodeId = checkNotNull(nodeId, "nodeId is null");

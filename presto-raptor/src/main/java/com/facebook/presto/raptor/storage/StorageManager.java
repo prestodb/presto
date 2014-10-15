@@ -20,7 +20,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
-public interface LocalStorageManager
+public interface StorageManager
 {
     ConnectorPageSource getPageSource(UUID shardUuid, List<Long> columnIds, long countColumnId);
 

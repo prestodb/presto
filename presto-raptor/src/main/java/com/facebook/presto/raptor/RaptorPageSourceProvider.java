@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.raptor.storage.LocalStorageManager;
+import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
@@ -31,10 +31,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class RaptorPageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private final LocalStorageManager storageManager;
+    private final StorageManager storageManager;
 
     @Inject
-    public RaptorPageSourceProvider(LocalStorageManager storageManager)
+    public RaptorPageSourceProvider(StorageManager storageManager)
     {
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
     }

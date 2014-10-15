@@ -13,19 +13,28 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import javax.inject.Qualifier;
+import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
+import javax.validation.constraints.NotNull;
 
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.ElementType.METHOD;
-import static java.lang.annotation.ElementType.PARAMETER;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import java.io.File;
 
-@Retention(RUNTIME)
-@Target({FIELD, PARAMETER, METHOD})
-@Qualifier
-public @interface ForLocalStorageManager
+public class StorageManagerConfig
 {
+    private File dataDirectory = new File("var/data");
+
+    @NotNull
+    public File getDataDirectory()
+    {
+        return dataDirectory;
+    }
+
+    @Config("storage.data-directory")
+    @ConfigDescription("Base directory to use for storing shard data")
+    public StorageManagerConfig setDataDirectory(File dataDirectory)
+    {
+        this.dataDirectory = dataDirectory;
+        return this;
+    }
 }
