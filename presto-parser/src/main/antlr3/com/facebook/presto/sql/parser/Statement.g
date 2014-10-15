@@ -892,7 +892,6 @@ ALTER: 'ALTER';
 RENAME: 'RENAME';
 TEMP: 'TEMP';
 DATA: 'DATA';
-TRIM: 'TRIM';
 
 EQ  : '=';
 NEQ : '<>' | '!=';
