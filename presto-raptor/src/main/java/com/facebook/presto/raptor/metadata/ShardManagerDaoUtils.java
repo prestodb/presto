@@ -47,6 +47,7 @@ public final class ShardManagerDaoUtils
         dao.createTableShards();
         dao.createTableShardNodes();
         dao.createTableTableShards();
+        dao.createTableExternalBatches();
     }
 
     private static void sleep(Duration duration)

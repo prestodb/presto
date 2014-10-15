@@ -63,6 +63,12 @@ public interface ShardManagerDao
             ")")
     void createTableTableShards();
 
+    @SqlUpdate("CREATE TABLE IF NOT EXISTS external_batches (\n" +
+            "  external_batch_id VARCHAR(255) PRIMARY KEY,\n" +
+            "  successful BOOLEAN NOT NULL\n" +
+            ")")
+    void createTableExternalBatches();
+
     @SqlUpdate("INSERT INTO nodes (node_identifier) VALUES (:nodeIdentifier)")
     void insertNode(@Bind("nodeIdentifier") String nodeIdentifier);
 
@@ -97,4 +103,13 @@ public interface ShardManagerDao
 
     @SqlUpdate("DELETE FROM table_shards WHERE table_id = :tableId")
     void dropTableShards(@Bind("tableId") long tableId);
+
+    @SqlUpdate("INSERT INTO external_batches (external_batch_id, successful)\n" +
+            "VALUES (:externalBatchId, TRUE)")
+    void insertExternalBatch(@Bind("externalBatchId") String externalBatchId);
+
+    @SqlQuery("SELECT count(*)\n" +
+            "FROM external_batches\n" +
+            "WHERE external_batch_id = :externalBatchId")
+    boolean externalBatchExists(@Bind("externalBatchId") String externalBatchId);
 }

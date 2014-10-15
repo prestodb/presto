@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.presto.spi.PrestoException;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
@@ -29,7 +31,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestDatabaseShardManager
@@ -66,11 +71,33 @@ public class TestDatabaseShardManager
                 .add(new ShardNode(UUID.randomUUID(), "node2"))
                 .build();
 
-        shardManager.commitTable(tableId, shards);
+        shardManager.commitTable(tableId, shards, Optional.<String>absent());
 
         Set<ShardNode> actual = ImmutableSet.copyOf(shardManager.getShardNodes(tableId));
         for (ShardNode shard : shards) {
             assertTrue(actual.contains(shard));
+        }
+    }
+
+    @Test
+    public void testExternalBatches()
+            throws Exception
+    {
+        long tableId = 1;
+        Optional<String> externalBatchId = Optional.of("foo");
+
+        List<ShardNode> shards = ImmutableList.of(new ShardNode(UUID.randomUUID(), "node1"));
+
+        shardManager.commitTable(tableId, shards, externalBatchId);
+
+        shards = ImmutableList.of(new ShardNode(UUID.randomUUID(), "node1"));
+
+        try {
+            shardManager.commitTable(tableId, shards, externalBatchId);
+            fail("expected external batch exception");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS.toErrorCode());
         }
     }
 }

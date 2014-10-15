@@ -19,19 +19,24 @@ import io.airlift.dbpool.H2EmbeddedDataSource;
 import io.airlift.dbpool.H2EmbeddedDataSourceConfig;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
+import org.skife.jdbi.v2.exceptions.UnableToExecuteStatementException;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import javax.sql.DataSource;
 
+import java.sql.SQLException;
 import java.util.List;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.metadata.ShardManagerDaoUtils.createShardTablesWithRetry;
+import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestShardManagerDao
@@ -57,6 +62,27 @@ public class TestShardManagerDao
     public void teardown()
     {
         handle.close();
+    }
+
+    @Test
+    public void testExternalBatches()
+    {
+        assertFalse(dao.externalBatchExists("foo"));
+        assertFalse(dao.externalBatchExists("bar"));
+
+        dao.insertExternalBatch("foo");
+
+        assertTrue(dao.externalBatchExists("foo"));
+        assertFalse(dao.externalBatchExists("bar"));
+
+        try {
+            dao.insertExternalBatch("foo");
+            fail("expected exception");
+        }
+        catch (UnableToExecuteStatementException e) {
+            assertInstanceOf(e.getCause(), SQLException.class);
+            assertTrue(((SQLException) e.getCause()).getSQLState().startsWith("23"));
+        }
     }
 
     @Test
