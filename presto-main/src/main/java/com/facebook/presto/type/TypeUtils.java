@@ -85,6 +85,6 @@ public final class TypeUtils
 
     public static TypeSignature parameterizedTypeName(String base, TypeSignature... argumentNames)
     {
-        return new TypeSignature(base, ImmutableList.copyOf(argumentNames));
+        return new TypeSignature(base, ImmutableList.copyOf(argumentNames), ImmutableList.of());
     }
 }
