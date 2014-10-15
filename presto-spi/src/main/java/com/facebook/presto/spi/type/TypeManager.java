@@ -25,7 +25,7 @@ public interface TypeManager
     /**
      * Gets the type with the specified base type, and the given parameters, or null if not found.
      */
-    Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters);
+    Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters, List<Object> literalParameters);
 
     /**
      * Gets a list of all registered types.

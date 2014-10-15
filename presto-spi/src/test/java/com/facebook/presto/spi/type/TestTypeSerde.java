@@ -50,9 +50,9 @@ public class TestTypeSerde
         }
 
         @Override
-        public Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters)
+        public Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters, List<Object> literalParameters)
         {
-            return getType(new TypeSignature(baseTypeName, typeParameters, ImmutableList.of()));
+            return getType(new TypeSignature(baseTypeName, typeParameters, literalParameters));
         }
 
         @Override

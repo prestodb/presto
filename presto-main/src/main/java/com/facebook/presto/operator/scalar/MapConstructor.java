@@ -134,7 +134,7 @@ public final class MapConstructor
         catch (NoSuchMethodException | IllegalAccessException e) {
             throw Throwables.propagate(e);
         }
-        Type mapType = this.typeManager.getParameterizedType(MAP.getName(), ImmutableList.of(keyType.getTypeSignature(), valueType.getTypeSignature()));
+        Type mapType = this.typeManager.getParameterizedType(MAP.getName(), ImmutableList.of(keyType.getTypeSignature(), valueType.getTypeSignature()), ImmutableList.of());
         Signature signature = new Signature("map", ImmutableList.<TypeParameter>of(), mapType.getTypeSignature(), actualArgumentNames.build(), false, true);
         List<Boolean> nullableParameters = ImmutableList.copyOf(Collections.nCopies(stackTypes.size(), true));
         return new FunctionInfo(signature, "Constructs a map of the given entries", true, methodHandle, true, false, nullableParameters);
