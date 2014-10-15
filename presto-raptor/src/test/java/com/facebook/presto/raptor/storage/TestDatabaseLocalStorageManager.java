@@ -15,12 +15,11 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.raptor.RaptorColumnHandle;
-import com.facebook.presto.raptor.RaptorPageSource;
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import io.airlift.testing.FileUtils;
 import org.skife.jdbi.v2.DBI;
@@ -120,13 +119,15 @@ public class TestDatabaseLocalStorageManager
 
         assertTrue(storageManager.shardExists(shardUuid));
 
-        RaptorPageSource raptorPageSource = new RaptorPageSource(ImmutableList.of(
-                storageManager.getBlocks(shardUuid, columnHandles.get(0)),
-                storageManager.getBlocks(shardUuid, columnHandles.get(1))));
+        List<Long> columnIds = ImmutableList.of(
+                columnHandles.get(0).getColumnId(),
+                columnHandles.get(1).getColumnId());
+
+        ConnectorPageSource pageSource = storageManager.getPageSource(shardUuid, columnIds, columnIds.get(0));
 
         List<Page> actualPages = new ArrayList<>();
-        while (!raptorPageSource.isFinished()) {
-            Page page = raptorPageSource.getNextPage();
+        while (!pageSource.isFinished()) {
+            Page page = pageSource.getNextPage();
             if (page != null) {
                 actualPages.add(page);
             }
@@ -148,7 +149,10 @@ public class TestDatabaseLocalStorageManager
 
         assertTrue(storageManager.shardExists(shardUuid));
 
-        assertTrue(Iterables.isEmpty(storageManager.getBlocks(shardUuid, columnHandles.get(0))));
+        List<Long> columnIds = ImmutableList.of(columnHandles.get(0).getColumnId());
+
+        ConnectorPageSource pageSource = storageManager.getPageSource(shardUuid, columnIds, columnIds.get(0));
+        assertTrue(pageSource.isFinished());
     }
 
     @Test

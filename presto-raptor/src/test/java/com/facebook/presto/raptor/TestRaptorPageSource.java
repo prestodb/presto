@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.raptor.block.BlockPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
@@ -56,7 +57,7 @@ public class TestRaptorPageSource
                 .row("dave", 11)
                 .build();
 
-        RaptorPageSource raptorDataSource = createRaptorDataSource();
+        BlockPageSource raptorDataSource = createRaptorDataSource();
         List<Page> actual = new ArrayList<>();
         while (!raptorDataSource.isFinished()) {
             Page nextPage = raptorDataSource.getNextPage();
@@ -76,7 +77,7 @@ public class TestRaptorPageSource
     public void testFinish()
             throws Exception
     {
-        RaptorPageSource raptorDataSource = createRaptorDataSource();
+        BlockPageSource raptorDataSource = createRaptorDataSource();
 
         // verify initial state
         assertEquals(raptorDataSource.isFinished(), false);
@@ -111,7 +112,7 @@ public class TestRaptorPageSource
         assertEquals(raptorDataSource.getNextPage(), null);
     }
 
-    private static RaptorPageSource createRaptorDataSource()
+    private static BlockPageSource createRaptorDataSource()
     {
         Iterable<Block> channel0 = ImmutableList.of(
                 createStringsBlock("alice", "bob", "charlie", "dave"),
@@ -120,6 +121,6 @@ public class TestRaptorPageSource
 
         Iterable<Block> channel1 = ImmutableList.of(createLongSequenceBlock(0, 12));
 
-        return new RaptorPageSource(ImmutableList.of(channel0, channel1));
+        return new BlockPageSource(ImmutableList.of(channel0, channel1));
     }
 }
