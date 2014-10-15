@@ -24,12 +24,11 @@ import com.facebook.presto.hive.orc.stream.DoubleStreamSource;
 import com.facebook.presto.hive.orc.stream.FloatStreamSource;
 import com.facebook.presto.hive.orc.stream.LongStreamSource;
 import com.facebook.presto.hive.orc.stream.OrcByteSource;
-import com.facebook.presto.hive.orc.stream.StreamSource;
+import com.facebook.presto.hive.orc.stream.OrcInputStream;
 import com.facebook.presto.hive.orc.stream.RowGroupDictionaryLengthStreamSource;
+import com.facebook.presto.hive.orc.stream.StreamSource;
 import com.google.common.collect.Iterables;
-import com.google.common.io.ByteSource;
 import com.google.common.primitives.Ints;
-import io.airlift.slice.Slice;
 
 import java.util.List;
 
@@ -56,26 +55,30 @@ public final class StreamSources
 
     public static StreamSource<?> createStreamSource(
             StreamId streamId,
-            Slice slice,
+            OrcInputStream inputStream,
             OrcTypeKind type,
             ColumnEncodingKind encoding,
             boolean usesVInt,
             CompressionKind compressionKind,
-            List<Integer> offsetPositions,
-            int bufferSize)
+            List<Integer> offsetPositions)
     {
         // create byte source with initial offset into uncompressed stream
-        int inputStreamInitialOffset = 0;
+        int compressedBlockOffset = 0;
         if (!offsetPositions.isEmpty()) {
-            int sliceOffset = Ints.checkedCast(offsetPositions.get(0));
-            slice = slice.slice(sliceOffset, slice.length() - sliceOffset);
+            compressedBlockOffset = Ints.checkedCast(offsetPositions.get(0));
             offsetPositions = offsetPositions.subList(1, offsetPositions.size());
         }
+
+        int decompressedOffset;
         if (!offsetPositions.isEmpty() & compressionKind != UNCOMPRESSED) {
-            inputStreamInitialOffset = Ints.checkedCast(offsetPositions.get(0));
+            decompressedOffset = Ints.checkedCast(offsetPositions.get(0));
             offsetPositions = offsetPositions.subList(1, offsetPositions.size());
         }
-        ByteSource byteSource = new OrcByteSource(slice, compressionKind, bufferSize, inputStreamInitialOffset);
+        else {
+            decompressedOffset = compressedBlockOffset;
+            compressedBlockOffset = 0;
+        }
+        OrcByteSource byteSource = new OrcByteSource(inputStream, compressedBlockOffset, decompressedOffset);
 
         if (streamId.getStreamKind() == PRESENT) {
             return new BooleanStreamSource(byteSource, getBooleanStreamStartOffset(offsetPositions));

@@ -13,42 +13,32 @@
  */
 package com.facebook.presto.hive.orc.stream;
 
-import com.facebook.presto.hive.orc.metadata.CompressionKind;
 import com.google.common.base.Objects;
 import com.google.common.io.ByteSource;
-import io.airlift.slice.Slice;
 
 import java.io.IOException;
 
-import static com.facebook.presto.hive.orc.stream.OrcStreamUtils.skipFully;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class OrcByteSource
         extends ByteSource
 {
-    private final Slice compressedSlice;
-    private final CompressionKind compressionKind;
-    private final int bufferSize;
-    private final int initialOffset;
+    private final OrcInputStream inputStream;
+    private final int compressedBlockOffset;
+    private final int decompressedOffset;
 
-    public OrcByteSource(Slice slice, CompressionKind compressionKind, int bufferSize, int initialOffset)
+    public OrcByteSource(OrcInputStream inputStream, int compressedBlockOffset, int decompressedOffset)
     {
-        this.compressedSlice = checkNotNull(slice, "slice is null");
-        this.compressionKind = checkNotNull(compressionKind, "compressionKind is null");
-        this.bufferSize = bufferSize;
-        this.initialOffset = initialOffset;
+        this.inputStream = checkNotNull(inputStream, "inputStream is null");
+        this.compressedBlockOffset = compressedBlockOffset;
+        this.decompressedOffset = decompressedOffset;
     }
 
     @Override
     public OrcInputStream openStream()
             throws IOException
     {
-        OrcInputStream inputStream = new OrcInputStream(compressedSlice.getInput(), compressionKind, bufferSize);
-
-        if (initialOffset > 0) {
-            skipFully(inputStream, initialOffset);
-        }
-
+        inputStream.resetStream(compressedBlockOffset, decompressedOffset);
         return inputStream;
     }
 
@@ -56,10 +46,9 @@ public class OrcByteSource
     public String toString()
     {
         return Objects.toStringHelper(this)
-                .add("compressedSlice", compressedSlice)
-                .add("compressionKind", compressionKind)
-                .add("bufferSize", bufferSize)
-                .add("initialOffset", initialOffset)
+                .add("inputStream", inputStream)
+                .add("rawOffset", compressedBlockOffset)
+                .add("decompressedOffset", decompressedOffset)
                 .toString();
     }
 }

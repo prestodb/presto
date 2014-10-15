@@ -17,10 +17,10 @@ import com.facebook.presto.hive.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.hive.orc.metadata.CompressionKind;
 import com.facebook.presto.hive.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.hive.orc.reader.StreamSources;
+import com.facebook.presto.hive.orc.stream.OrcInputStream;
 import com.facebook.presto.hive.orc.stream.StreamSource;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
 import java.util.List;
 
@@ -87,10 +87,10 @@ public class StreamLayout
         return diskRange;
     }
 
-    public StreamSource<?> createStreamSource(Slice slice, int bufferSize)
+    public StreamSource<?> createStreamSource(OrcInputStream inputStream)
     {
-        checkNotNull(slice, "slice is null");
-        return StreamSources.createStreamSource(streamId, slice, type, encoding, usesVInt, compressionKind, offsetPositions, bufferSize);
+        checkNotNull(inputStream, "inputStream is null");
+        return StreamSources.createStreamSource(streamId, inputStream, type, encoding, usesVInt, compressionKind, offsetPositions);
     }
 
     public StreamLayout mergeWith(StreamLayout otherStreamLayout)
