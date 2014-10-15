@@ -21,9 +21,9 @@ public abstract class AbstractVariableWidthType
         extends AbstractType
         implements VariableWidthType
 {
-    protected AbstractVariableWidthType(String name, Class<?> javaType)
+    protected AbstractVariableWidthType(TypeSignature signature, Class<?> javaType)
     {
-        super(name, javaType);
+        super(signature, javaType);
     }
 
     @Override

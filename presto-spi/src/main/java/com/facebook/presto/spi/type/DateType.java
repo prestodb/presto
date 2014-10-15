@@ -18,6 +18,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 
 import static com.facebook.presto.spi.type.TimeZoneIndex.getTimeZoneForKey;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
 //
@@ -35,7 +36,7 @@ public final class DateType
 
     private DateType()
     {
-        super(StandardTypes.DATE, long.class, SIZE_OF_LONG);
+        super(parseTypeSignature(StandardTypes.DATE), long.class, SIZE_OF_LONG);
     }
 
     @Override

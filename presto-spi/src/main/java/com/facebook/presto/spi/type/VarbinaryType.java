@@ -21,6 +21,8 @@ import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
 
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+
 public class VarbinaryType
         extends AbstractVariableWidthType
 {
@@ -29,7 +31,7 @@ public class VarbinaryType
     @JsonCreator
     public VarbinaryType()
     {
-        super(StandardTypes.VARBINARY, Slice.class);
+        super(parseTypeSignature(StandardTypes.VARBINARY), Slice.class);
     }
 
     @Override

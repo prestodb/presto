@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
 public final class BigintType
@@ -26,7 +27,7 @@ public final class BigintType
 
     private BigintType()
     {
-        super(StandardTypes.BIGINT, long.class, SIZE_OF_LONG);
+        super(parseTypeSignature(StandardTypes.BIGINT), long.class, SIZE_OF_LONG);
     }
 
     @Override

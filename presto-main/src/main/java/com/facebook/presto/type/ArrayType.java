@@ -33,8 +33,8 @@ import io.airlift.slice.Slices;
 import java.util.List;
 
 import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
+import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.lang.String.format;
 
 public class ArrayType
         extends AbstractVariableWidthType
@@ -46,7 +46,7 @@ public class ArrayType
 
     public ArrayType(Type elementType)
     {
-        super(format("array<%s>", elementType.getTypeSignature()), Slice.class);
+        super(parameterizedTypeName("array", elementType.getTypeSignature()), Slice.class);
         this.elementType = checkNotNull(elementType, "elementType is null");
     }
 

@@ -18,6 +18,8 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.AbstractFixedWidthType;
 
+import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+
 public final class UnknownType
         extends AbstractFixedWidthType
 {
@@ -26,7 +28,7 @@ public final class UnknownType
 
     private UnknownType()
     {
-        super(NAME, void.class, 0);
+        super(parameterizedTypeName(NAME), void.class, 0);
     }
 
     @Override

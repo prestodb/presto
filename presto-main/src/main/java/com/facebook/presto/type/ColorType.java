@@ -19,6 +19,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.AbstractFixedWidthType;
 
+import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 
 public class ColorType
@@ -29,7 +30,7 @@ public class ColorType
 
     private ColorType()
     {
-        super(NAME, long.class, SIZE_OF_INT);
+        super(parameterizedTypeName(NAME), long.class, SIZE_OF_INT);
     }
 
     @Override

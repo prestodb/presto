@@ -21,6 +21,8 @@ import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
 
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+
 // Layout is <size>:<hll>, where
 //   size: is a short describing the length of the hll bytes
 //   hll: is the serialized hll
@@ -32,7 +34,7 @@ public class HyperLogLogType
     @JsonCreator
     public HyperLogLogType()
     {
-        super(StandardTypes.HYPER_LOG_LOG, Slice.class);
+        super(parseTypeSignature(StandardTypes.HYPER_LOG_LOG), Slice.class);
     }
 
     @Override

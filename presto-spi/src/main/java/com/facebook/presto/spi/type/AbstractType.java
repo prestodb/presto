@@ -27,9 +27,9 @@ public abstract class AbstractType
     private final TypeSignature signature;
     private final Class<?> javaType;
 
-    protected AbstractType(String name, Class<?> javaType)
+    protected AbstractType(TypeSignature signature, Class<?> javaType)
     {
-        this.signature = TypeSignature.parseTypeSignature(name);
+        this.signature = signature;
         this.javaType = javaType;
     }
 
