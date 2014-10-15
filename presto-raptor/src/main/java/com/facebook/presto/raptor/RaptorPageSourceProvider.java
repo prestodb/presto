@@ -18,13 +18,12 @@ import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.block.Block;
 import com.google.common.base.Function;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.FluentIterable;
 import com.google.inject.Inject;
 
 import java.util.List;
+import java.util.UUID;
 
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -44,34 +43,23 @@ public class RaptorPageSourceProvider
     public ConnectorPageSource createPageSource(ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
         RaptorSplit raptorSplit = checkType(split, RaptorSplit.class, "split");
-        checkNotNull(columns, "columns is null");
 
-        if (columns.isEmpty()) {
-            return createNoColumnsOperator(raptorSplit);
-        }
-        return createAlignmentOperator(columns, raptorSplit);
+        UUID shardUuid = raptorSplit.getShardUuid();
+        long countColumnId = raptorSplit.getCountColumnHandle().getColumnId();
+        List<Long> columnIds = FluentIterable.from(columns).transform(raptorColumnId()).toList();
+
+        return storageManager.getPageSource(shardUuid, columnIds, countColumnId);
     }
 
-    public ConnectorPageSource createNoColumnsOperator(RaptorSplit raptorSplit)
+    private static Function<ConnectorColumnHandle, Long> raptorColumnId()
     {
-        RaptorColumnHandle countColumnHandle = raptorSplit.getCountColumnHandle();
-        Iterable<Block> blocks = storageManager.getBlocks(raptorSplit.getShardUuid(), countColumnHandle);
-        return new NoColumnsPageSource(Iterables.transform(blocks, new Function<Block, Integer>()
+        return new Function<ConnectorColumnHandle, Long>()
         {
             @Override
-            public Integer apply(Block input)
+            public Long apply(ConnectorColumnHandle handle)
             {
-                return input.getPositionCount();
+                return checkType(handle, RaptorColumnHandle.class, "columnHandle").getColumnId();
             }
-        }));
-    }
-
-    public ConnectorPageSource createAlignmentOperator(List<ConnectorColumnHandle> columns, RaptorSplit raptorSplit)
-    {
-        ImmutableList.Builder<Iterable<Block>> channels = ImmutableList.builder();
-        for (ConnectorColumnHandle column : columns) {
-            channels.add(storageManager.getBlocks(raptorSplit.getShardUuid(), column));
-        }
-        return new RaptorPageSource(channels.build());
+        };
     }
 }

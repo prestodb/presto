@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor;
+package com.facebook.presto.raptor.block;
 
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
@@ -24,7 +24,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 
-public class RaptorPageSource
+public class BlockPageSource
         implements ConnectorPageSource
 {
     private final List<Iterator<Block>> iterators;
@@ -33,7 +33,7 @@ public class RaptorPageSource
     private boolean finished;
     private long sizeInBytes;
 
-    public RaptorPageSource(Iterable<Iterable<Block>> channels)
+    public BlockPageSource(Iterable<Iterable<Block>> channels)
     {
         ImmutableList.Builder<Iterator<Block>> iterators = ImmutableList.builder();
         for (Iterable<Block> channel : channels) {
@@ -127,7 +127,7 @@ public class RaptorPageSource
         return page;
     }
 
-    private final class BlockPosition
+    private static final class BlockPosition
     {
         private final Block block;
         private int position;
