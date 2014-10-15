@@ -34,7 +34,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.orc.json.JsonReaders.createJsonReader;
-import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.STRUCT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -66,12 +65,10 @@ public class JsonStreamReader
 
     private List<ColumnEncoding> encoding;
 
-    public JsonStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, DateTimeZone sessionTimeZone)
+    public JsonStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
-
-        boolean writeStackType = streamDescriptor.getStreamType() != STRUCT;
-        this.jsonReader = createJsonReader(streamDescriptor, false, writeStackType, hiveStorageTimeZone, sessionTimeZone);
+        this.jsonReader = createJsonReader(streamDescriptor, false, hiveStorageTimeZone);
     }
 
     @Override

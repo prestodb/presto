@@ -70,7 +70,6 @@ final class OrcTestingUtil
                 OrcPredicate.TRUE,
                 0,
                 dataSource.getSize(),
-                DateTimeZone.UTC,
                 DateTimeZone.UTC);
     }
 

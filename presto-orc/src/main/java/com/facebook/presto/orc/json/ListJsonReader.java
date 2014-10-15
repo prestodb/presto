@@ -48,12 +48,12 @@ public class ListJsonReader
     @Nullable
     private LongStream lengthStream;
 
-    public ListJsonReader(StreamDescriptor streamDescriptor, boolean writeStackType, boolean checkForNulls, DateTimeZone hiveStorageTimeZone, DateTimeZone sessionTimeZone)
+    public ListJsonReader(StreamDescriptor streamDescriptor, boolean checkForNulls, DateTimeZone hiveStorageTimeZone)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
         this.checkForNulls = checkForNulls;
 
-        elementReader = createJsonReader(streamDescriptor.getNestedStreams().get(0), true, writeStackType, hiveStorageTimeZone, sessionTimeZone);
+        elementReader = createJsonReader(streamDescriptor.getNestedStreams().get(0), true, hiveStorageTimeZone);
     }
 
     @Override

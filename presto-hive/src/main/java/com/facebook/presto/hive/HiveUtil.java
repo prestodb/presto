@@ -416,13 +416,8 @@ public final class HiveUtil
         return type.getTypeSignature().getBase().equals(StandardTypes.MAP);
     }
 
-    public static boolean isArrayOrMap(HiveType hiveType)
-    {
-        return hiveType.getCategory() == Category.LIST || hiveType.getCategory() == Category.MAP;
-    }
-
     public static boolean isStructuralType(HiveType hiveType)
     {
-        return isArrayOrMap(hiveType) || hiveType.getCategory() == Category.STRUCT;
+        return hiveType.getCategory() == Category.LIST || hiveType.getCategory() == Category.MAP || hiveType.getCategory() == Category.STRUCT;
     }
 }

@@ -197,31 +197,11 @@ public final class SerDeUtils
             return;
         }
 
-        if (context == JsonContext.JSON_STACK) {
-            // Write struct as a json encoded string
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            try (JsonGenerator structGenerator = new JsonFactory().createGenerator(out)) {
-                serializeStructHelper(sessionTimeZone, object, inspector, structGenerator);
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
-            generator.writeString(out.toString());
-        }
-        else {
-            serializeStructHelper(sessionTimeZone, object, inspector, generator);
-        }
-    }
-
-    private static void serializeStructHelper(DateTimeZone sessionTimeZone, Object object, StructObjectInspector inspector, JsonGenerator generator)
-            throws IOException
-    {
-        generator.writeStartObject();
+        generator.writeStartArray();
         for (StructField field : inspector.getAllStructFieldRefs()) {
-            generator.writeFieldName(field.getFieldName());
-            serializeObject(sessionTimeZone, generator, inspector.getStructFieldData(object, field), field.getFieldObjectInspector(), JsonContext.JSON);
+            serializeObject(sessionTimeZone, generator, inspector.getStructFieldData(object, field), field.getFieldObjectInspector(), JsonContext.JSON_STACK);
         }
-        generator.writeEndObject();
+        generator.writeEndArray();
     }
 
     private static String getPrimitiveAsString(DateTimeZone sessionTimeZone, Object object, PrimitiveObjectInspector inspector, JsonContext context)

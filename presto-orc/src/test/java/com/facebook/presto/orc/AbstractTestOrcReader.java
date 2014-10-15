@@ -144,7 +144,7 @@ public abstract class AbstractTestOrcReader
         tester.testRoundTrip(javaShortObjectInspector, transform(writeValues, intToShort()), shortToLong());
         tester.testRoundTrip(javaIntObjectInspector, writeValues, intToLong());
         tester.testRoundTrip(javaLongObjectInspector, transform(writeValues, intToLong()));
-        tester.testRoundTrip(javaTimestampObjectInspector, transform(writeValues, intToTimestamp()), timestampToLong(), timestampToString());
+        tester.testRoundTrip(javaTimestampObjectInspector, transform(writeValues, intToTimestamp()), timestampToLong(), timestampToLong());
 
         // date has three representations
         // normal format: DAYS since 1970
@@ -153,8 +153,7 @@ public abstract class AbstractTestOrcReader
         tester.testRoundTrip(javaDateObjectInspector,
                 transform(writeValues, intToDate()),
                 transform(writeValues, intToDays()),
-                transform(writeValues, intToDaysMillis()),
-                transform(writeValues, intToDateString()));
+                transform(writeValues, intToDaysMillis()));
     }
 
     @Test
@@ -207,7 +206,6 @@ public abstract class AbstractTestOrcReader
         tester.testRoundTrip(javaByteArrayObjectInspector,
                 writeValues,
                 transform(writeValues, byteArrayToString()),
-                transform(writeValues, byteArrayToBase64()),
                 transform(writeValues, byteArrayToBase64()));
     }
 
@@ -219,7 +217,6 @@ public abstract class AbstractTestOrcReader
         tester.testRoundTrip(javaByteArrayObjectInspector,
                 writeValues,
                 transform(writeValues, byteArrayToString()),
-                transform(writeValues, byteArrayToBase64()),
                 transform(writeValues, byteArrayToBase64()));
     }
 

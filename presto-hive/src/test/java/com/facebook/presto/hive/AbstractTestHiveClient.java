@@ -1516,9 +1516,9 @@ public abstract class AbstractTestHiveClient
                         assertNull(row.getField(index));
                     }
                     else {
-                        String expectedJson1 = "{\"s_string\":\"test abc\",\"s_double\":0.1}";
-                        String expectedJson2 = "{\"s_string\":\"test xyz\",\"s_double\":0.2}";
-                        assertEquals(row.getField(index), ImmutableList.of(expectedJson1, expectedJson2));
+                        List<Object> expected1 = ImmutableList.<Object>of("test abc", 0.1);
+                        List<Object> expected2 = ImmutableList.<Object>of("test xyz", 0.2);
+                        assertEquals(row.getField(index), ImmutableList.of(expected1, expected2));
                     }
                 }
 
@@ -1529,9 +1529,9 @@ public abstract class AbstractTestHiveClient
                         assertNull(row.getField(index));
                     }
                     else {
-                        String expectedJson1 = "{\"s_string\":\"test abc\",\"s_double\":0.1}";
-                        String expectedJson2 = "{\"s_string\":\"test xyz\",\"s_double\":0.2}";
-                        assertEquals(row.getField(index), ImmutableMap.of(1L, ImmutableList.of(expectedJson1, expectedJson2)));
+                        List<Object> expected1 = ImmutableList.<Object>of("test abc", 0.1);
+                        List<Object> expected2 = ImmutableList.<Object>of("test xyz", 0.2);
+                        assertEquals(row.getField(index), ImmutableMap.of(1L, ImmutableList.of(expected1, expected2)));
                     }
                 }
 

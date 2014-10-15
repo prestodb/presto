@@ -88,7 +88,6 @@ public class DwrfPageSourceFactory
         return Optional.of(createOrcPageSource(
                 new DwrfMetadataReader(),
                 configuration,
-                session,
                 path,
                 start,
                 length,
