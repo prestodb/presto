@@ -37,7 +37,7 @@ import java.util.UUID;
 
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.raptor.storage.DatabaseLocalStorageManager.getShardPath;
+import static com.facebook.presto.raptor.storage.DatabaseStorageManager.getShardPath;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -48,11 +48,11 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
-public class TestDatabaseLocalStorageManager
+public class TestDatabaseStorageManager
 {
     private Handle dummyHandle;
     private File dataDir;
-    private LocalStorageManager storageManager;
+    private StorageManager storageManager;
 
     @BeforeMethod
     public void setup()
@@ -61,8 +61,8 @@ public class TestDatabaseLocalStorageManager
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
         dataDir = Files.createTempDir();
-        DatabaseLocalStorageManagerConfig config = new DatabaseLocalStorageManagerConfig().setDataDirectory(dataDir);
-        storageManager = new DatabaseLocalStorageManager(dbi, createTestingBlockEncodingManager(), config);
+        StorageManagerConfig config = new StorageManagerConfig().setDataDirectory(dataDir);
+        storageManager = new DatabaseStorageManager(dbi, createTestingBlockEncodingManager(), config);
     }
 
     @AfterMethod

@@ -14,7 +14,6 @@
 package com.facebook.presto.raptor.storage;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
 import javax.validation.constraints.NotNull;
@@ -22,14 +21,17 @@ import javax.validation.constraints.NotNull;
 import java.io.File;
 import java.util.Map;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 
-public class TestDatabaseLocalStorageManagerConfig
+public class TestDatabaseStorageManagerConfig
 {
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(DatabaseLocalStorageManagerConfig.class)
+        assertRecordedDefaults(recordDefaults(StorageManagerConfig.class)
                 .setDataDirectory(new File("var/data")));
     }
 
@@ -40,15 +42,15 @@ public class TestDatabaseLocalStorageManagerConfig
                 .put("storage.data-directory", "/data")
                 .build();
 
-        DatabaseLocalStorageManagerConfig expected = new DatabaseLocalStorageManagerConfig()
+        StorageManagerConfig expected = new StorageManagerConfig()
                 .setDataDirectory(new File("/data"));
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 
     @Test
     public void testValidations()
     {
-        assertFailsValidation(new DatabaseLocalStorageManagerConfig().setDataDirectory(null), "dataDirectory", "may not be null", NotNull.class);
+        assertFailsValidation(new StorageManagerConfig().setDataDirectory(null), "dataDirectory", "may not be null", NotNull.class);
     }
 }

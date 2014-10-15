@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.raptor.storage.ColumnFileHandle;
-import com.facebook.presto.raptor.storage.LocalStorageManager;
+import com.facebook.presto.raptor.storage.StorageManager;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -38,14 +38,14 @@ public class RaptorRecordSink
 {
     private final String nodeId;
     private final ColumnFileHandle fileHandle;
-    private final LocalStorageManager storageManager;
+    private final StorageManager storageManager;
     private final List<Type> columnTypes;
     private final PageBuilder pageBuilder;
     private final int sampleWeightField;
 
     private int field = -1;
 
-    public RaptorRecordSink(String nodeId, ColumnFileHandle fileHandle, LocalStorageManager storageManager, List<Type> columnTypes, RaptorColumnHandle sampleWeightColumnHandle)
+    public RaptorRecordSink(String nodeId, ColumnFileHandle fileHandle, StorageManager storageManager, List<Type> columnTypes, RaptorColumnHandle sampleWeightColumnHandle)
     {
         this.nodeId = checkNotNull(nodeId, "nodeId is null");
         this.fileHandle = checkNotNull(fileHandle, "fileHandle is null");

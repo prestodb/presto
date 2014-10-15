@@ -52,8 +52,8 @@ import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
 import static java.util.Locale.ENGLISH;
 
-public class DatabaseLocalStorageManager
-        implements LocalStorageManager
+public class DatabaseStorageManager
+        implements StorageManager
 {
     private final IDBI dbi;
     private final BlockEncodingSerde blockEncodingSerde;
@@ -77,7 +77,7 @@ public class DatabaseLocalStorageManager
     });
 
     @Inject
-    public DatabaseLocalStorageManager(@ForLocalStorageManager IDBI dbi, BlockEncodingSerde blockEncodingSerde, DatabaseLocalStorageManagerConfig config)
+    public DatabaseStorageManager(@ForStorageManager IDBI dbi, BlockEncodingSerde blockEncodingSerde, StorageManagerConfig config)
             throws IOException
     {
         this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingManager is null");
