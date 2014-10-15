@@ -56,7 +56,6 @@ import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
 import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
-import static com.facebook.presto.hive.HiveUtil.isArrayOrMap;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
@@ -513,7 +512,7 @@ class ColumnarBinaryHiveRecordCursor<K>
         checkState(!closed, "Cursor is closed");
 
         Type type = types[fieldId];
-        if (!type.equals(VARCHAR) && !type.equals(VARBINARY) && !isArrayOrMap(hiveTypes[fieldId])) {
+        if (!type.equals(VARCHAR) && !type.equals(VARBINARY) && !isStructuralType(hiveTypes[fieldId])) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
             throw new IllegalArgumentException(String.format("Expected field to be VARCHAR or VARBINARY, actual %s (field %s)", type, fieldId));
         }
@@ -606,7 +605,7 @@ class ColumnarBinaryHiveRecordCursor<K>
         else if (DOUBLE.equals(type)) {
             parseDoubleColumn(column);
         }
-        else if (VARCHAR.equals(type) || VARBINARY.equals(type) || isArrayOrMap(hiveTypes[column])) {
+        else if (VARCHAR.equals(type) || VARBINARY.equals(type) || isStructuralType(hiveTypes[column])) {
             parseStringColumn(column);
         }
         else if (DATE.equals(type)) {

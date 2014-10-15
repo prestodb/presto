@@ -120,7 +120,6 @@ public class OrcStorageManager
                     predicate,
                     0,
                     dataSource.getSize(),
-                    UTC,
                     UTC);
 
             return new OrcPageSource(recordReader, dataSource, columnIds, columnTypes, columnIndexes.build());

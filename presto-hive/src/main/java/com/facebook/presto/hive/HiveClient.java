@@ -45,6 +45,7 @@ import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
@@ -78,6 +79,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
+import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
 
@@ -467,7 +469,18 @@ public class HiveClient
                 }
                 return typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(elementType.getTypeSignature()), ImmutableList.of());
             case STRUCT:
-                return VARCHAR;
+                StructObjectInspector structObjectInspector = checkType(fieldInspector, StructObjectInspector.class, "fieldInspector");
+                List<TypeSignature> fieldTypes = new ArrayList<>();
+                List<Object> fieldNames = new ArrayList<>();
+                for (StructField field : structObjectInspector.getAllStructFieldRefs()) {
+                    fieldNames.add(field.getFieldName());
+                    Type fieldType = getType(field.getFieldObjectInspector(), typeManager);
+                    if (fieldType == null) {
+                        return null;
+                    }
+                    fieldTypes.add(fieldType.getTypeSignature());
+                }
+                return typeManager.getParameterizedType(StandardTypes.ROW, fieldTypes, fieldNames);
             default:
                 throw new IllegalArgumentException("Unsupported hive type " + fieldInspector.getTypeName());
         }

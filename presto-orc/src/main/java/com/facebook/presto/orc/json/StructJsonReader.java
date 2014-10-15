@@ -17,9 +17,7 @@ import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.StreamSources;
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
-import io.airlift.slice.DynamicSliceOutput;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
@@ -36,54 +34,27 @@ public class StructJsonReader
         implements JsonReader
 {
     private final StreamDescriptor streamDescriptor;
-    private final boolean writeStackType;
     private final boolean checkForNulls;
-
-    private final String[] structFieldNames;
     private final JsonReader[] structFields;
-
-    private final DynamicSliceOutput buffer;
 
     @Nullable
     private BooleanStream presentStream;
 
-    public StructJsonReader(StreamDescriptor streamDescriptor, boolean writeStackType, boolean checkForNulls, DateTimeZone hiveStorageTimeZone, DateTimeZone sessionTimeZone)
+    public StructJsonReader(StreamDescriptor streamDescriptor, boolean checkForNulls, DateTimeZone hiveStorageTimeZone)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
-        this.writeStackType = writeStackType;
         this.checkForNulls = checkForNulls;
 
         List<StreamDescriptor> nestedStreams = streamDescriptor.getNestedStreams();
-        this.structFieldNames = new String[nestedStreams.size()];
         this.structFields = new JsonReader[nestedStreams.size()];
         for (int i = 0; i < nestedStreams.size(); i++) {
             StreamDescriptor nestedStream = nestedStreams.get(i);
-            this.structFields[i] = createJsonReader(nestedStream, true, false, hiveStorageTimeZone, sessionTimeZone);
-            this.structFieldNames[i] = nestedStream.getFieldName();
+            this.structFields[i] = createJsonReader(nestedStream, true, hiveStorageTimeZone);
         }
-
-        buffer = new DynamicSliceOutput(1024);
     }
 
     @Override
     public void readNextValueInto(JsonGenerator generator)
-            throws IOException
-    {
-        if (writeStackType) {
-            buffer.reset();
-            try (JsonGenerator jsonGenerator = new JsonFactory().createGenerator(buffer)) {
-                readNextValueIntoInternal(jsonGenerator);
-            }
-
-            byte[] byteArray = (byte[]) buffer.getUnderlyingSlice().getBase();
-            generator.writeUTF8String(byteArray, 0, buffer.size());
-        }
-        else {
-            readNextValueIntoInternal(generator);
-        }
-    }
-
-    public void readNextValueIntoInternal(JsonGenerator generator)
             throws IOException
     {
         if (presentStream != null && !presentStream.nextBit()) {
@@ -91,12 +62,11 @@ public class StructJsonReader
             return;
         }
 
-        generator.writeStartObject();
-        for (int structFieldIndex = 0; structFieldIndex < structFields.length; structFieldIndex++) {
-            generator.writeFieldName(structFieldNames[structFieldIndex]);
-            structFields[structFieldIndex].readNextValueInto(generator);
+        generator.writeStartArray();
+        for (JsonReader structField : structFields) {
+            structField.readNextValueInto(generator);
         }
-        generator.writeEndObject();
+        generator.writeEndArray();
     }
 
     @Override

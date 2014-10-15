@@ -155,8 +155,7 @@ public class OrcReader
             OrcPredicate predicate,
             long offset,
             long length,
-            DateTimeZone hiveStorageTimeZone,
-            DateTimeZone sessionTimeZone)
+            DateTimeZone hiveStorageTimeZone)
             throws IOException
     {
         return new OrcRecordReader(
@@ -174,7 +173,6 @@ public class OrcReader
                 bufferSize,
                 footer.getRowsInRowGroup(),
                 checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null"),
-                checkNotNull(sessionTimeZone, "sessionTimeZone is null"),
                 metadataReader);
     }
 

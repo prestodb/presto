@@ -60,6 +60,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
+import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -126,7 +127,7 @@ public class OrcPageSource
             typesBuilder.add(type);
 
             String typeBase = column.getTypeSignature().getBase();
-            isStructuralType[columnIndex] = ARRAY.equals(typeBase) || MAP.equals(typeBase);
+            isStructuralType[columnIndex] = ARRAY.equals(typeBase) || MAP.equals(typeBase) || ROW.equals(typeBase);
 
             hiveColumnIndexes[columnIndex] = column.getHiveColumnIndex();
 

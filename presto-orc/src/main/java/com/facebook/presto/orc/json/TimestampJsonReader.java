@@ -21,8 +21,6 @@ import com.facebook.presto.orc.stream.StreamSources;
 import com.fasterxml.jackson.core.JsonGenerator;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 
 import javax.annotation.Nullable;
 
@@ -40,12 +38,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class TimestampJsonReader
         implements JsonMapKeyReader
 {
-    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
-
     private final StreamDescriptor streamDescriptor;
-    private final boolean writeStackType;
-
-    private final DateTimeFormatter timestampFormatter;
 
     private final long baseTimestampInSeconds;
 
@@ -58,11 +51,9 @@ public class TimestampJsonReader
     @Nullable
     private LongStream nanosStream;
 
-    public TimestampJsonReader(StreamDescriptor streamDescriptor, boolean writeStackType, DateTimeZone hiveStorageTimeZone, DateTimeZone sessionTimeZone)
+    public TimestampJsonReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
-        this.writeStackType = writeStackType;
-        this.timestampFormatter = TIMESTAMP_FORMATTER.withZone(sessionTimeZone);
         this.baseTimestampInSeconds = new DateTime(2015, 1, 1, 0, 0, checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null")).getMillis() / 1000;
     }
 
@@ -79,13 +70,7 @@ public class TimestampJsonReader
         verifyFormat(nanosStream != null, "Value is not null but nanos stream is not present");
 
         long timestamp = decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds);
-        if (writeStackType) {
-            generator.writeNumber(timestamp);
-        }
-        else {
-            String formattedTimestamp = timestampFormatter.print(timestamp);
-            generator.writeString(formattedTimestamp);
-        }
+        generator.writeNumber(timestamp);
     }
 
     @Override
@@ -100,10 +85,7 @@ public class TimestampJsonReader
         verifyFormat(nanosStream != null, "Value is not null but nanos stream is not present");
 
         long timestamp = decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds);
-        if (writeStackType) {
-            return String.valueOf(timestamp);
-        }
-        return timestampFormatter.print(timestamp);
+        return String.valueOf(timestamp);
     }
 
     @Override

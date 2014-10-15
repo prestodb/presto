@@ -59,7 +59,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -158,21 +157,20 @@ public class OrcTester
     {
         Iterable<R> readValues = transform(writeValues, readTransform);
         Iterable<J> readJsonJsonValues = transform(writeValues, readJsonTransform);
-        testRoundTrip(columnObjectInspector, writeValues, readValues, readValues, readJsonJsonValues);
+        testRoundTrip(columnObjectInspector, writeValues, readValues, readValues);
     }
 
     public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues)
             throws Exception
     {
-        testRoundTrip(objectInspector, writeValues, readValues, readValues, readValues);
+        testRoundTrip(objectInspector, writeValues, readValues, readValues);
     }
 
     public void testRoundTrip(
             ObjectInspector objectInspector,
             Iterable<?> writeValues,
             Iterable<?> readValues,
-            Iterable<?> readJsonStackValues,
-            Iterable<?> readJsonJsonValues)
+            Iterable<?> readJsonStackValues)
             throws Exception
     {
         // just the values
@@ -183,12 +181,12 @@ public class OrcTester
 
         // values wrapped in struct
         if (structTestsEnabled) {
-            testStructRoundTrip(objectInspector, writeValues, readJsonJsonValues);
+            testStructRoundTrip(objectInspector, writeValues, readJsonStackValues);
         }
 
         // values wrapped in a struct wrapped in a struct
         if (complexStructuralTestsEnabled) {
-            testStructRoundTrip(createHiveStructInspector(objectInspector), transform(writeValues, toHiveStruct()), transform(readJsonJsonValues, toObjectStruct()));
+            testStructRoundTrip(createHiveStructInspector(objectInspector), transform(writeValues, toHiveStruct()), transform(readJsonStackValues, toObjectStruct()));
         }
 
         // values wrapped in map
@@ -407,7 +405,6 @@ public class OrcTester
                 predicate,
                 0,
                 tempFile.getFile().length(),
-                HIVE_STORAGE_TIME_ZONE,
                 HIVE_STORAGE_TIME_ZONE);
     }
 
@@ -605,9 +602,9 @@ public class OrcTester
                 if (input instanceof Float) {
                     input = ((Float) input).doubleValue();
                 }
-                Map<Object, Object> data = new LinkedHashMap<>();
-                data.put("a", input);
-                data.put("b", input);
+                List<Object> data = new ArrayList<>();
+                data.add(input);
+                data.add(input);
                 return OBJECT_JSON_CODEC.toJson(data);
             }
         };
@@ -624,9 +621,9 @@ public class OrcTester
                 if (input instanceof Float) {
                     input = ((Float) input).doubleValue();
                 }
-                Map<Object, Object> data = new LinkedHashMap<>();
-                data.put("a", input);
-                data.put("b", input);
+                List<Object> data = new ArrayList<>();
+                data.add(input);
+                data.add(input);
                 return data;
             }
         };

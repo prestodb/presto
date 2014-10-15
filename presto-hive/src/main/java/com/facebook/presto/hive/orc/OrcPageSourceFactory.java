@@ -102,7 +102,6 @@ public class OrcPageSourceFactory
         return Optional.of(createOrcPageSource(
                 new OrcMetadataReader(),
                 configuration,
-                session,
                 path,
                 start,
                 length,
@@ -115,7 +114,6 @@ public class OrcPageSourceFactory
 
     public static OrcPageSource createOrcPageSource(MetadataReader metadataReader,
             Configuration configuration,
-            ConnectorSession session,
             Path path,
             long start,
             long length,
@@ -155,8 +153,7 @@ public class OrcPageSourceFactory
                     predicate,
                     start,
                     length,
-                    hiveStorageTimeZone,
-                    DateTimeZone.forID(session.getTimeZoneKey().getId()));
+                    hiveStorageTimeZone);
 
             return new OrcPageSource(
                     recordReader,

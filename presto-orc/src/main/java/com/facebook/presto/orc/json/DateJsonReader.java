@@ -19,8 +19,6 @@ import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.fasterxml.jackson.core.JsonGenerator;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 
 import javax.annotation.Nullable;
 
@@ -38,10 +36,8 @@ public class DateJsonReader
         implements JsonMapKeyReader
 {
     private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
-    private static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date().withZoneUTC();
 
     private final StreamDescriptor streamDescriptor;
-    private final boolean writeStackType;
 
     @Nullable
     private BooleanStream presentStream;
@@ -49,10 +45,9 @@ public class DateJsonReader
     @Nullable
     private LongStream dataStream;
 
-    public DateJsonReader(StreamDescriptor streamDescriptor, boolean writeStackType)
+    public DateJsonReader(StreamDescriptor streamDescriptor)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
-        this.writeStackType = writeStackType;
     }
 
     @Override
@@ -67,12 +62,7 @@ public class DateJsonReader
         verifyFormat(dataStream != null, "Value is not null but data stream is not present");
 
         long millis = dataStream.next() * MILLIS_IN_DAY;
-        if (writeStackType) {
-            generator.writeNumber(millis);
-        }
-        else {
-            generator.writeString(DATE_FORMATTER.print(millis));
-        }
+        generator.writeNumber(millis);
     }
 
     @Override
@@ -86,12 +76,7 @@ public class DateJsonReader
         verifyFormat(dataStream != null, "Value is not null but data stream is not present");
 
         long millis = dataStream.next() * MILLIS_IN_DAY;
-        if (writeStackType) {
-            return String.valueOf(millis);
-        }
-        else {
-            return DATE_FORMATTER.print(millis);
-        }
+        return String.valueOf(millis);
     }
 
     @Override

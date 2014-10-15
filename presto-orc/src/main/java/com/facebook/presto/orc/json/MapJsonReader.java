@@ -49,13 +49,13 @@ public class MapJsonReader
     @Nullable
     private LongStream lengthStream;
 
-    public MapJsonReader(StreamDescriptor streamDescriptor, boolean writeStackType, boolean checkForNulls, DateTimeZone hiveStorageTimeZone, DateTimeZone sessionTimeZone)
+    public MapJsonReader(StreamDescriptor streamDescriptor, boolean checkForNulls, DateTimeZone hiveStorageTimeZone)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
         this.checkForNulls = checkForNulls;
 
-        keyReader = createJsonMapKeyReader(streamDescriptor.getNestedStreams().get(0), writeStackType, hiveStorageTimeZone, sessionTimeZone);
-        valueReader = createJsonReader(streamDescriptor.getNestedStreams().get(1), true, writeStackType, hiveStorageTimeZone, sessionTimeZone);
+        keyReader = createJsonMapKeyReader(streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone);
+        valueReader = createJsonReader(streamDescriptor.getNestedStreams().get(1), true, hiveStorageTimeZone);
     }
 
     @Override

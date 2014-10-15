@@ -73,7 +73,6 @@ public class OrcRecordReader
             int bufferSize,
             int rowsInRowGroup,
             DateTimeZone hiveStorageTimeZone,
-            DateTimeZone sessionTimeZone,
             MetadataReader metadataReader)
             throws IOException
     {
@@ -85,7 +84,6 @@ public class OrcRecordReader
         checkNotNull(types, "types is null");
         checkNotNull(compressionKind, "compressionKind is null");
         checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
-        checkNotNull(sessionTimeZone, "sessionTimeZone is null");
 
         // reduce the included columns to the set that is also present
         ImmutableSet.Builder<Integer> presentColumns = ImmutableSet.builder();
@@ -130,7 +128,7 @@ public class OrcRecordReader
                 predicate,
                 metadataReader);
 
-        streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, sessionTimeZone, this.presentColumns);
+        streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, this.presentColumns);
     }
 
     private static boolean splitContainsStripe(long splitOffset, long splitLength, StripeInformation stripe)
@@ -272,7 +270,6 @@ public class OrcRecordReader
     private static StreamReader[] createStreamReaders(OrcDataSource orcDataSource,
             List<OrcType> types,
             DateTimeZone hiveStorageTimeZone,
-            DateTimeZone sessionTimeZone,
             Set<Integer> includedColumns)
     {
         List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
@@ -282,7 +279,7 @@ public class OrcRecordReader
         for (int columnId = 0; columnId < rowType.getFieldCount(); columnId++) {
             if (includedColumns.contains(columnId)) {
                 StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
-                streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone, sessionTimeZone);
+                streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone);
             }
         }
         return streamReaders;

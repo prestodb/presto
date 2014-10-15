@@ -22,7 +22,7 @@ public final class JsonReaders
     {
     }
 
-    public static JsonMapKeyReader createJsonMapKeyReader(StreamDescriptor streamDescriptor, boolean writeStackType, DateTimeZone hiveStorageTimeZone, DateTimeZone sessionTimeZone)
+    public static JsonMapKeyReader createJsonMapKeyReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
     {
         switch (streamDescriptor.getStreamType()) {
             case BOOLEAN:
@@ -42,9 +42,9 @@ public final class JsonReaders
             case STRING:
                 return new SliceJsonReader(streamDescriptor, false);
             case TIMESTAMP:
-                return new TimestampJsonReader(streamDescriptor, writeStackType, hiveStorageTimeZone, sessionTimeZone);
+                return new TimestampJsonReader(streamDescriptor, hiveStorageTimeZone);
             case DATE:
-                return new DateJsonReader(streamDescriptor, writeStackType);
+                return new DateJsonReader(streamDescriptor);
             case STRUCT:
             case LIST:
             case MAP:
@@ -60,9 +60,7 @@ public final class JsonReaders
     public static JsonReader createJsonReader(
             StreamDescriptor streamDescriptor,
             boolean checkForNulls,
-            boolean writeStackType,
-            DateTimeZone hiveStorageTimeZone,
-            DateTimeZone sessionTimeZone)
+            DateTimeZone hiveStorageTimeZone)
     {
         switch (streamDescriptor.getStreamType()) {
             case BOOLEAN:
@@ -82,15 +80,15 @@ public final class JsonReaders
             case STRING:
                 return new SliceJsonReader(streamDescriptor, false);
             case TIMESTAMP:
-                return new TimestampJsonReader(streamDescriptor, writeStackType, hiveStorageTimeZone, sessionTimeZone);
+                return new TimestampJsonReader(streamDescriptor, hiveStorageTimeZone);
             case DATE:
-                return new DateJsonReader(streamDescriptor, writeStackType);
+                return new DateJsonReader(streamDescriptor);
             case STRUCT:
-                return new StructJsonReader(streamDescriptor, writeStackType, checkForNulls, hiveStorageTimeZone, sessionTimeZone);
+                return new StructJsonReader(streamDescriptor, checkForNulls, hiveStorageTimeZone);
             case LIST:
-                return new ListJsonReader(streamDescriptor, writeStackType, checkForNulls, hiveStorageTimeZone, sessionTimeZone);
+                return new ListJsonReader(streamDescriptor, checkForNulls, hiveStorageTimeZone);
             case MAP:
-                return new MapJsonReader(streamDescriptor, writeStackType, checkForNulls, hiveStorageTimeZone, sessionTimeZone);
+                return new MapJsonReader(streamDescriptor, checkForNulls, hiveStorageTimeZone);
             case UNION:
             case DECIMAL:
             case VARCHAR:

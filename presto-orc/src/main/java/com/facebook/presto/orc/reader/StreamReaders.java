@@ -22,7 +22,7 @@ public final class StreamReaders
     {
     }
 
-    public static StreamReader createStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, DateTimeZone sessionTimeZone)
+    public static StreamReader createStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
     {
         switch (streamDescriptor.getStreamType()) {
             case BOOLEAN:
@@ -46,7 +46,7 @@ public final class StreamReaders
             case STRUCT:
             case LIST:
             case MAP:
-                return new JsonStreamReader(streamDescriptor, hiveStorageTimeZone, sessionTimeZone);
+                return new JsonStreamReader(streamDescriptor, hiveStorageTimeZone);
             case UNION:
             case DECIMAL:
             case VARCHAR:

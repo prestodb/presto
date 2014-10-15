@@ -213,7 +213,7 @@ public abstract class AbstractTestHiveFileFormats
                             )
                     ),
                     ImmutableMap.of("test", ImmutableList.<Object>of(new Integer[] {1})),
-                    "{\"test\":[\"{\\\"s_int\\\":1}\"]}"
+                    "{\"test\":[[1]]}"
             ))
             .build();
 
