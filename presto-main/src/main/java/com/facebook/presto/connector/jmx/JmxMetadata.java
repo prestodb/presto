@@ -172,6 +172,12 @@ public class JmxMetadata
         return columns.build();
     }
 
+    @Override
+    public void refreshTableMetadata(ConnectorTableHandle table)
+    {
+        throw new UnsupportedOperationException("Refresh is not supported");
+    }
+
     private Type getColumnType(MBeanAttributeInfo attribute)
     {
         Type columnType;

@@ -934,6 +934,18 @@ public class HiveClient
     }
 
     @Override
+    public void refreshTableMetadata(ConnectorTableHandle tableHandle)
+    {
+        SchemaTableName tableName = getTableName(tableHandle);
+        try {
+            metastore.refreshTableMetadata(tableName.getSchemaName(), tableName.getTableName());
+        }
+        catch (NoSuchObjectException e) {
+            throw new TableNotFoundException(tableName);
+        }
+    }
+
+    @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         checkArgument(allowCorruptWritesForTesting || timeZone.equals(DateTimeZone.getDefault()),

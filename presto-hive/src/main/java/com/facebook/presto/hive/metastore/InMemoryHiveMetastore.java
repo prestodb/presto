@@ -173,6 +173,12 @@ public class InMemoryHiveMetastore
     }
 
     @Override
+    public void refreshTableMetadata(String databaseName, String tableName) throws NoSuchObjectException
+    {
+        throw new UnsupportedOperationException("Refresh is not supported");
+    }
+
+    @Override
     public void flushCache()
     {
     }

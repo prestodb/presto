@@ -335,4 +335,10 @@ public class CassandraMetadata
     {
         return emptyMap();
     }
+
+    @Override
+    public void refreshTableMetadata(ConnectorTableHandle table)
+    {
+        throw new UnsupportedOperationException("Refresh is not supported");
+    }
 }

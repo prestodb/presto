@@ -193,4 +193,10 @@ public class JdbcMetadata
     {
         return ImmutableMap.of();
     }
+
+    @Override
+    public void refreshTableMetadata(ConnectorTableHandle table)
+    {
+        throw new UnsupportedOperationException("Refresh is not supported");
+    }
 }

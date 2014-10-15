@@ -179,6 +179,13 @@ public interface Metadata
      */
     void dropView(Session session, QualifiedTableName viewName);
 
+    /**
+     * Refreshes the metadata of the specified table.
+     *
+     */
+    @NotNull
+    void refreshTableMetadata(TableHandle tableHandle);
+
     FunctionRegistry getFunctionRegistry();
 
     TypeManager getTypeManager();

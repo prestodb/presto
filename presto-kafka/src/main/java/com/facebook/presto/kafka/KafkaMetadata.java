@@ -192,6 +192,12 @@ public class KafkaMetadata
     }
 
     @Override
+    public void refreshTableMetadata(ConnectorTableHandle table)
+    {
+        throw new UnsupportedOperationException("Refresh is not supported");
+    }
+
+    @Override
     public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
     {
         handleResolver.convertTableHandle(tableHandle);

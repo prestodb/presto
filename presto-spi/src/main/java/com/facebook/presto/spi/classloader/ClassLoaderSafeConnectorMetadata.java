@@ -203,6 +203,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void refreshTableMetadata(ConnectorTableHandle tableHandle)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.refreshTableMetadata(tableHandle);
+        }
+    }
+
+    @Override
     public String toString()
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

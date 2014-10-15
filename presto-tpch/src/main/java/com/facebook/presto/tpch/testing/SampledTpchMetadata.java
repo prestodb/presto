@@ -36,4 +36,10 @@ public class SampledTpchMetadata
     {
         return new TpchColumnHandle(SAMPLE_WEIGHT_COLUMN_NAME, SAMPLE_WEIGHT_COLUMN_INDEX, BIGINT);
     }
+
+    @Override
+    public void refreshTableMetadata(ConnectorTableHandle table)
+    {
+        throw new UnsupportedOperationException("Refresh is not supported");
+    }
 }

@@ -201,6 +201,12 @@ public class InformationSchemaMetadata
         return builder.build();
     }
 
+    @Override
+    public void refreshTableMetadata(ConnectorTableHandle table)
+    {
+        throw new UnsupportedOperationException("Refresh is not supported");
+    }
+
     static List<ColumnMetadata> informationSchemaTableColumns(SchemaTableName tableName)
     {
         checkArgument(TABLES.containsKey(tableName), "table does not exist: %s", tableName);
