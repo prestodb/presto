@@ -435,6 +435,7 @@ exprPrimary
     | (literal) => literal
     | qnameOrFunction
     | specialFunction
+    | veroFunction
     | number
     | bool
     | STRING
@@ -509,10 +510,14 @@ specialFunction
     | CURRENT_TIMESTAMP ('(' integer ')')?         -> ^(CURRENT_TIMESTAMP integer?)
     | LOCALTIME ('(' integer ')')?                 -> ^(LOCALTIME integer?)
     | LOCALTIMESTAMP ('(' integer ')')?            -> ^(LOCALTIMESTAMP integer?)
-    | SUBSTRING '(' expr FROM expr (FOR expr)? ')' -> ^(FUNCTION_CALL ^(QNAME IDENT["substr"]) expr expr expr?)
+    | SUBSTRING '(' expr (FROM|',') expr ((FOR|',') expr)? ')' -> ^(FUNCTION_CALL ^(QNAME IDENT["substr"]) expr expr expr?) 
     | EXTRACT '(' ident FROM expr ')'              -> ^(EXTRACT ident expr)
     | CAST '(' expr AS type ')'                    -> ^(CAST expr type)
-    | TRY_CAST '(' expr AS type ')'                -> ^(TRY_CAST expr type)
+    | TRY_CAST '(' expr AS type ')'                -> ^(TRY_CAST expr type) 
+    ;
+
+veroFunction
+    : TRIM '(' expr ')'         -> ^(FUNCTION_CALL ^(QNAME IDENT["trim"]) BOTH SPACE expr)
     ;
 
 // TODO: this should be 'dataType', which supports arbitrary type specifications. For now we constrain to simple types
@@ -888,6 +893,9 @@ ALTER: 'ALTER';
 RENAME: 'RENAME';
 TEMP: 'TEMP';
 DATA: 'DATA';
+TRIM: 'TRIM';
+BOTH: 'BOTH';
+SPACE: ' ';
 
 EQ  : '=';
 NEQ : '<>' | '!=';
