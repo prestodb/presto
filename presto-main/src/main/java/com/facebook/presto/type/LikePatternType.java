@@ -22,6 +22,7 @@ import com.facebook.presto.spi.type.AbstractType;
 import org.joni.Regex;
 
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 
 public class LikePatternType
         extends AbstractType
@@ -31,7 +32,7 @@ public class LikePatternType
 
     public LikePatternType()
     {
-        super(NAME, Regex.class);
+        super(parameterizedTypeName(NAME), Regex.class);
     }
 
     @Override

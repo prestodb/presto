@@ -23,6 +23,8 @@ import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+
 public class JsonType
         extends AbstractVariableWidthType
 {
@@ -30,7 +32,7 @@ public class JsonType
 
     public JsonType()
     {
-        super(StandardTypes.JSON, Slice.class);
+        super(parameterizedTypeName(StandardTypes.JSON), Slice.class);
     }
 
     @Override

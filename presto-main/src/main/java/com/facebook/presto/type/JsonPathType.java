@@ -22,6 +22,7 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.AbstractType;
 
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 
 public class JsonPathType
         extends AbstractType
@@ -31,7 +32,7 @@ public class JsonPathType
 
     public JsonPathType()
     {
-        super(NAME, JsonPath.class);
+        super(parameterizedTypeName(NAME), JsonPath.class);
     }
 
     @Override

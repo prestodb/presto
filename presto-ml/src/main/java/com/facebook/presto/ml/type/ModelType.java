@@ -27,7 +27,7 @@ import io.airlift.slice.Slice;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 
 // Layout is <size>:<model>, where
 //   size: is an int describing the length of the model bytes
@@ -36,7 +36,7 @@ public class ModelType
         implements VariableWidthType
 {
     public static final ModelType MODEL = new ModelType();
-    private static final TypeSignature SIGNATURE = parseTypeSignature("Model");
+    private static final TypeSignature SIGNATURE = parameterizedTypeName("Model");
 
     @JsonCreator
     public ModelType()

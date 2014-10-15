@@ -23,6 +23,7 @@ import com.facebook.presto.spi.type.AbstractType;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 
 public class RegexpType
         extends AbstractType
@@ -32,7 +33,7 @@ public class RegexpType
 
     public RegexpType()
     {
-        super(NAME, Pattern.class);
+        super(parameterizedTypeName(NAME), Pattern.class);
     }
 
     @Override
