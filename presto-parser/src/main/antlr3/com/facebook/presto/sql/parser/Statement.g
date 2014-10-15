@@ -509,7 +509,7 @@ specialFunction
     | CURRENT_TIMESTAMP ('(' integer ')')?         -> ^(CURRENT_TIMESTAMP integer?)
     | LOCALTIME ('(' integer ')')?                 -> ^(LOCALTIME integer?)
     | LOCALTIMESTAMP ('(' integer ')')?            -> ^(LOCALTIMESTAMP integer?)
-    | SUBSTRING '(' expr FROM expr (FOR expr)? ')' -> ^(FUNCTION_CALL ^(QNAME IDENT["substr"]) expr expr expr?)
+    | SUBSTRING '(' expr (FROM|',') expr ((FOR|',') expr)? ')' -> ^(FUNCTION_CALL ^(QNAME IDENT["substr"]) expr expr expr?) 
     | EXTRACT '(' ident FROM expr ')'              -> ^(EXTRACT ident expr)
     | CAST '(' expr AS type ')'                    -> ^(CAST expr type)
     | TRY_CAST '(' expr AS type ')'                -> ^(TRY_CAST expr type)
