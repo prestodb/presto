@@ -133,7 +133,7 @@ public class StripeReader
         diskRanges = Maps.filterKeys(diskRanges, Predicates.in(streams.keySet()));
 
         // read the file regions
-        Map<StreamId, Slice> streamsData = readDiskRanges(stripe.getOffset(), diskRanges);
+        Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripe.getOffset(), diskRanges);
 
         // read the row index for each column
         Map<Integer, List<RowGroupIndex>> columnIndexes = readColumnIndexes(streams, streamsData);
@@ -168,10 +168,10 @@ public class StripeReader
         for (StreamLayout dictionaryStreamLayout : dictionaryStreamLayouts) {
             StreamId streamId = dictionaryStreamLayout.getStreamId();
 
-            Slice data = streamsData.get(streamId);
-            checkArgument(data != null, "No data for stream %s", streamId);
+            OrcInputStream inputStream = streamsData.get(streamId);
+            checkArgument(inputStream != null, "No data for stream %s", streamId);
 
-            StreamSource<?> streamSource = dictionaryStreamLayout.createStreamSource(data, bufferSize);
+            StreamSource<?> streamSource = dictionaryStreamLayout.createStreamSource(inputStream);
             dictionaryStreamBuilder.put(streamId, streamSource);
         }
         StreamSources dictionaryStreamSources = new StreamSources(dictionaryStreamBuilder.build());
@@ -179,13 +179,13 @@ public class StripeReader
         // build the row groups
         ImmutableList.Builder<RowGroup> rowGroupBuilder = ImmutableList.builder();
         for (RowGroupLayout rowGroupLayout : rowGroupLayouts) {
-            rowGroupBuilder.add(rowGroupLayout.createRowGroup(streamsData, bufferSize));
+            rowGroupBuilder.add(rowGroupLayout.createRowGroup(streamsData));
         }
 
         return new Stripe(stripe.getNumberOfRows(), stripeFooter.getColumnEncodings(), rowGroupBuilder.build(), dictionaryStreamSources);
     }
 
-    public Map<StreamId, Slice> readDiskRanges(final long stripeOffset, Map<StreamId, DiskRange> diskRanges)
+    public Map<StreamId, OrcInputStream> readDiskRanges(final long stripeOffset, Map<StreamId, DiskRange> diskRanges)
             throws IOException
     {
         // transform ranges to have an absolute offset in file
@@ -196,7 +196,17 @@ public class StripeReader
                 return new DiskRange(stripeOffset + diskRange.getOffset(), diskRange.getLength());
             }
         });
-        return orcDataSource.readFully(diskRanges);
+
+        Map<StreamId, Slice> streamsData = orcDataSource.readFully(diskRanges);
+
+        return ImmutableMap.copyOf(Maps.transformValues(streamsData, new Function<Slice, OrcInputStream>()
+        {
+            @Override
+            public OrcInputStream apply(Slice input)
+            {
+                return new OrcInputStream(input.getInput(), compressionKind, bufferSize);
+            }
+        }));
     }
 
     public StripeFooter readStripeFooter(StripeInformation stripe)
@@ -212,15 +222,15 @@ public class StripeReader
         return metadataReader.readStripeFooter(types, inputStream);
     }
 
-    private Map<Integer, List<RowGroupIndex>> readColumnIndexes(Map<StreamId, Stream> streams, Map<StreamId, Slice> streamsData)
+    private Map<Integer, List<RowGroupIndex>> readColumnIndexes(Map<StreamId, Stream> streams, Map<StreamId, OrcInputStream> streamsData)
             throws IOException
     {
         ImmutableMap.Builder<Integer, List<RowGroupIndex>> columnIndexes = ImmutableMap.builder();
         for (Entry<StreamId, Stream> entry : streams.entrySet()) {
             Stream stream = entry.getValue();
             if (stream.getStreamKind() == ROW_INDEX) {
-                Slice slice = streamsData.get(entry.getKey());
-                columnIndexes.put(stream.getColumn(), metadataReader.readRowIndexes(new OrcInputStream(slice.getInput(), compressionKind, bufferSize)));
+                OrcInputStream inputStream = streamsData.get(entry.getKey());
+                columnIndexes.put(stream.getColumn(), metadataReader.readRowIndexes(inputStream));
             }
         }
         return columnIndexes.build();

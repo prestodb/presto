@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.orc;
 
+import com.facebook.presto.hive.orc.stream.OrcInputStream;
 import com.facebook.presto.hive.orc.stream.StreamSource;
 import com.facebook.presto.hive.orc.stream.StreamSources;
 import com.google.common.base.Function;
@@ -20,7 +21,6 @@ import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
-import io.airlift.slice.Slice;
 
 import java.util.List;
 import java.util.Map;
@@ -56,11 +56,11 @@ public final class RowGroupLayout
         return streamLayouts;
     }
 
-    public RowGroup createRowGroup(Map<StreamId, Slice> streamsData, int bufferSize)
+    public RowGroup createRowGroup(Map<StreamId, OrcInputStream> streamsData)
     {
         ImmutableMap.Builder<StreamId, StreamSource<?>> builder = ImmutableMap.builder();
         for (StreamLayout streamLayout : streamLayouts) {
-            builder.put(streamLayout.getStreamId(), streamLayout.createStreamSource(streamsData.get(streamLayout.getStreamId()), bufferSize));
+            builder.put(streamLayout.getStreamId(), streamLayout.createStreamSource(streamsData.get(streamLayout.getStreamId())));
         }
         StreamSources rowGroupStreams = new StreamSources(builder.build());
         return new RowGroup(groupId, rowCount, rowGroupStreams);

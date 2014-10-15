@@ -107,6 +107,7 @@ public class OrcTester
     private boolean reverseTestsEnabled;
     private boolean nullTestsEnabled;
     private boolean skipBatchTestsEnabled;
+    private boolean skipStripeTestsEnabled;
     private Set<Format> formats = ImmutableSet.of();
     private Set<Compression> compressions = ImmutableSet.of();
 
@@ -134,6 +135,7 @@ public class OrcTester
         orcTester.reverseTestsEnabled = true;
         orcTester.nullTestsEnabled = true;
         orcTester.skipBatchTestsEnabled = true;
+        orcTester.skipStripeTestsEnabled = true;
         orcTester.formats = ImmutableSet.copyOf(Format.values());
         orcTester.compressions = ImmutableSet.copyOf(Compression.values());
         return orcTester;
@@ -310,10 +312,14 @@ public class OrcTester
                 try (TempFile tempFile = new TempFile("test", "orc")) {
                     writeOrcColumn(tempFile.getFile(), formatVersion, compression, objectInspector, writeValues.iterator());
 
-                    assertFileContents(objectInspector, tempFile, readValues, false, metadataReader);
+                    assertFileContents(objectInspector, tempFile, readValues, false, false, metadataReader);
 
                     if (skipBatchTestsEnabled) {
-                        assertFileContents(objectInspector, tempFile, readValues, true, metadataReader);
+                        assertFileContents(objectInspector, tempFile, readValues, true, false, metadataReader);
+                    }
+
+                    if (skipStripeTestsEnabled) {
+                        assertFileContents(objectInspector, tempFile, readValues, false, true, metadataReader);
                     }
                 }
             }
@@ -324,6 +330,7 @@ public class OrcTester
             TempFile tempFile,
             Iterable<?> expectedValues,
             boolean skipFirstBatch,
+            boolean skipStripe,
             MetadataReader metadataReader)
             throws IOException
     {
@@ -332,10 +339,15 @@ public class OrcTester
         Vector vector = createResultsVector(objectInspector);
 
         boolean isFirst = true;
+        int rowsProcessed = 0;
         Iterator<?> iterator = expectedValues.iterator();
         for (int batchSize = Ints.checkedCast(recordReader.nextBatch()); batchSize >= 0; batchSize = Ints.checkedCast(recordReader.nextBatch())) {
-            if (skipFirstBatch && isFirst) {
+            if (skipStripe && rowsProcessed < 10000) {
                 assertEquals(advance(iterator, batchSize), batchSize);
+            }
+            else if (skipFirstBatch && isFirst) {
+                assertEquals(advance(iterator, batchSize), batchSize);
+                isFirst = false;
             }
             else {
                 recordReader.readVector(0, vector);
@@ -350,7 +362,6 @@ public class OrcTester
                     }
                 }
             }
-            isFirst = false;
         }
         assertFalse(iterator.hasNext());
         recordReader.close();

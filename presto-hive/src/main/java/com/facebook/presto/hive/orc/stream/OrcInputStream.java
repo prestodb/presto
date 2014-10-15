@@ -18,7 +18,6 @@ import com.facebook.presto.hive.orc.metadata.CompressionKind;
 import com.facebook.presto.hive.shaded.org.iq80.snappy.Snappy;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
@@ -26,6 +25,7 @@ import java.io.InputStream;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
+import static com.facebook.presto.hive.orc.OrcCorruptionException.verifyFormat;
 import static com.facebook.presto.hive.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.hive.orc.metadata.CompressionKind.UNCOMPRESSED;
 import static com.facebook.presto.hive.orc.metadata.CompressionKind.ZLIB;
@@ -39,14 +39,16 @@ public final class OrcInputStream
 {
     public static final int BLOCK_HEADER_SIZE = 3;
 
-    private final SliceInput compressedSliceInput;
+    private final BasicSliceInput compressedSliceInput;
     private final CompressionKind compressionKind;
     private final int bufferSize;
+
+    private int currentReadPosition;
     private BasicSliceInput current;
+
     private Slice buffer;
 
     public OrcInputStream(BasicSliceInput sliceInput, CompressionKind compressionKind, int bufferSize)
-            throws IOException
     {
         checkNotNull(sliceInput, "sliceInput is null");
 
@@ -60,7 +62,7 @@ public final class OrcInputStream
         else {
             checkArgument(compressionKind == SNAPPY || compressionKind == ZLIB, "%s compression not supported", compressionKind);
             this.compressedSliceInput = checkNotNull(sliceInput, "compressedSliceInput is null");
-            advance();
+            this.current = EMPTY_SLICE.getInput();
         }
     }
 
@@ -68,16 +70,7 @@ public final class OrcInputStream
     public void close()
             throws IOException
     {
-        if (current == null) {
-            return;
-        }
-
-        try {
-            current.close();
-        }
-        finally {
-            current = null;
-        }
+        current = null;
     }
 
     @Override
@@ -131,6 +124,25 @@ public final class OrcInputStream
         return current.read(b, off, length);
     }
 
+    public void resetStream(int compressedBlockOffset, int decompressedOffset)
+            throws IOException
+    {
+        if (compressedBlockOffset != currentReadPosition) {
+            verifyFormat(compressionKind != UNCOMPRESSED, "Reset stream has a compressed block offset but stream is not compressed");
+            compressedSliceInput.setPosition(compressedBlockOffset);
+            current = EMPTY_SLICE.getInput();
+        }
+
+        if (decompressedOffset != current.position()) {
+            current.setPosition(0);
+            if (current.available() < decompressedOffset)  {
+                decompressedOffset -= current.available();
+                advance();
+            }
+            current.setPosition(decompressedOffset);
+        }
+    }
+
     @Override
     public long skip(long n)
             throws IOException
@@ -160,6 +172,7 @@ public final class OrcInputStream
 
         // 3 byte header
         // NOTE: this must match BLOCK_HEADER_SIZE
+        currentReadPosition = compressedSliceInput.position();
         int b0 = compressedSliceInput.readUnsignedByte();
         int b1 = compressedSliceInput.readUnsignedByte();
         int b2 = compressedSliceInput.readUnsignedByte();
