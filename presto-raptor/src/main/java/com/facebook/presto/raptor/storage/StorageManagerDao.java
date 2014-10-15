@@ -18,7 +18,6 @@ import org.skife.jdbi.v2.sqlobject.SqlQuery;
 import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 import org.skife.jdbi.v2.sqlobject.customizers.RegisterArgumentFactory;
 
-import java.util.List;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.util.UuidArguments.UuidArgumentFactory;
@@ -49,17 +48,8 @@ public interface StorageManagerDao
             @Bind("shardUuid") UUID shardUuid,
             @Bind("columnId") long columnId);
 
-    @SqlQuery("SELECT filename\n" +
-            "FROM columns\n" +
-            "WHERE shard_uuid = :shardUuid")
-    List<String> getShardFiles(@Bind("shardUuid") UUID shardUuid);
-
     @SqlQuery("SELECT COUNT(*) > 0\n" +
             "FROM columns\n" +
             "WHERE shard_uuid = :shardUuid")
     boolean shardExists(@Bind("shardUuid") UUID shardUuid);
-
-    @SqlUpdate("DELETE FROM columns\n" +
-            "WHERE shard_uuid = :shardUuid")
-    void dropShard(@Bind("shardUuid") UUID shardUuid);
 }

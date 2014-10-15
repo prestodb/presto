@@ -27,10 +27,6 @@ public interface LocalStorageManager
 
     boolean shardExists(UUID shardUuid);
 
-    void dropShard(UUID shardUuid);
-
-    boolean isShardActive(UUID shardUuid);
-
     ColumnFileHandle createStagingFileHandles(UUID shardUuid, List<RaptorColumnHandle> columnHandles)
             throws IOException;
 
