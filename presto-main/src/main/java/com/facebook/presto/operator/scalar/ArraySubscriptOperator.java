@@ -22,6 +22,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
+import com.facebook.presto.type.RowType;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -88,7 +89,7 @@ public class ArraySubscriptOperator
         Type elementType = types.get("E");
 
         MethodHandle methodHandle;
-        if (elementType instanceof ArrayType || elementType instanceof MapType) {
+        if (elementType instanceof ArrayType || elementType instanceof MapType || elementType instanceof RowType) {
             methodHandle = STRUCTURAL_METHOD_HANDLE;
         }
         else {
