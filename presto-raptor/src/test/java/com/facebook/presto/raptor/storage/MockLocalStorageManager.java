@@ -69,17 +69,6 @@ public class MockLocalStorageManager
     }
 
     @Override
-    public void dropShard(UUID shardUuid)
-    {
-    }
-
-    @Override
-    public boolean isShardActive(UUID shardUuid)
-    {
-        return false;
-    }
-
-    @Override
     public ColumnFileHandle createStagingFileHandles(UUID shardUuid, List<RaptorColumnHandle> columnHandles)
             throws IOException
     {

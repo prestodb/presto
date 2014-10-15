@@ -16,7 +16,6 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.RaptorPageSource;
 import com.facebook.presto.raptor.block.BlocksFileReader;
-import com.facebook.presto.raptor.util.KeyBoundedExecutor;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
@@ -31,46 +30,30 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import com.google.inject.Inject;
-import io.airlift.concurrent.ThreadPoolExecutorMBean;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionStatus;
 import org.skife.jdbi.v2.VoidTransactionCallback;
-import org.weakref.jmx.Managed;
-import org.weakref.jmx.Nested;
-
-import javax.annotation.PreDestroy;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.concurrent.Threads.threadsNamed;
 import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
 import static java.util.Locale.ENGLISH;
-import static java.util.concurrent.Executors.newFixedThreadPool;
 
 public class DatabaseLocalStorageManager
         implements LocalStorageManager
 {
-    private static final Logger log = Logger.get(DatabaseLocalStorageManager.class);
-
-    private final ExecutorService executor;
-    private final ThreadPoolExecutorMBean executorMBean;
-    private final KeyBoundedExecutor<UUID> shardBoundedExecutor;
-
     private final IDBI dbi;
     private final BlockEncodingSerde blockEncodingSerde;
     private final File baseStorageDir;
@@ -105,24 +88,7 @@ public class DatabaseLocalStorageManager
         this.dbi = checkNotNull(dbi, "dbi is null");
         this.dao = dbi.onDemand(StorageManagerDao.class);
 
-        this.executor = newFixedThreadPool(config.getTasksPerNode(), threadsNamed("local-storage-manager-%s"));
-        this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
-        this.shardBoundedExecutor = new KeyBoundedExecutor<>(executor);
-
         dao.createTableColumns();
-    }
-
-    @PreDestroy
-    public void stop()
-    {
-        executor.shutdown();
-    }
-
-    @Managed
-    @Nested
-    public ThreadPoolExecutorMBean getExecutor()
-    {
-        return executorMBean;
     }
 
     @Override
@@ -318,47 +284,10 @@ public class DatabaseLocalStorageManager
         return dao.shardExists(shardUuid);
     }
 
-    @Override
-    public void dropShard(UUID shardUuid)
-    {
-        shardBoundedExecutor.execute(shardUuid, new DropJob(shardUuid));
-    }
-
-    @Override
-    public boolean isShardActive(UUID shardUuid)
-    {
-        return shardBoundedExecutor.isActive(shardUuid);
-    }
-
     private static File createDirectory(File dir)
             throws IOException
     {
         createDirectories(dir.toPath());
         return dir;
-    }
-
-    private class DropJob
-            implements Runnable
-    {
-        private final UUID shardUuid;
-
-        private DropJob(UUID shardUuid)
-        {
-            this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
-        }
-
-        @Override
-        public void run()
-        {
-            // TODO: dropping needs to be globally coordinated with read queries
-            List<String> shardFiles = dao.getShardFiles(shardUuid);
-            for (String shardFile : shardFiles) {
-                File file = new File(getShardPath(baseStorageDir, shardUuid), shardFile);
-                if (!file.delete()) {
-                    log.warn("failed to delete file: %s", file.getAbsolutePath());
-                }
-            }
-            dao.dropShard(shardUuid);
-        }
     }
 }
