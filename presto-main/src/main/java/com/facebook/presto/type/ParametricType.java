@@ -21,5 +21,5 @@ public interface ParametricType
 {
     String getName();
 
-    Type createType(List<Type> types);
+    Type createType(List<Type> types, List<Object> literals);
 }

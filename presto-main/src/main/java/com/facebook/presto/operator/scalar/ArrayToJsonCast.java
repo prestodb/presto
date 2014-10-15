@@ -63,7 +63,7 @@ public class ArrayToJsonCast
     {
         checkArgument(arity == 1, "Expected arity to be 1");
         Type type = types.get("T");
-        Type arrayType = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(type.getTypeSignature()));
+        Type arrayType = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(type.getTypeSignature()), ImmutableList.of());
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(arrayType);
         return operatorInfo(OperatorType.CAST, parseTypeSignature(StandardTypes.JSON), ImmutableList.of(arrayType.getTypeSignature()), methodHandle, false, ImmutableList.of(false));
     }
