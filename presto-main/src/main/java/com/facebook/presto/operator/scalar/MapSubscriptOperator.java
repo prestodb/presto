@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
+import com.facebook.presto.type.RowType;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -80,7 +81,7 @@ public class MapSubscriptOperator
     private static MethodHandle lookupMethod(Type keyType, Type valueType)
     {
         String methodName = keyType.getJavaType().getSimpleName();
-        if (valueType instanceof ArrayType || valueType instanceof MapType) {
+        if (valueType instanceof ArrayType || valueType instanceof MapType || valueType instanceof RowType) {
             methodName += "Structural";
         }
         else {

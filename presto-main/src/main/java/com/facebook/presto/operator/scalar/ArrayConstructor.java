@@ -29,6 +29,7 @@ import com.facebook.presto.sql.gen.ByteCodeUtils;
 import com.facebook.presto.sql.gen.CompilerUtils;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
+import com.facebook.presto.type.RowType;
 import com.facebook.presto.type.UnknownType;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -178,7 +179,7 @@ public final class ArrayConstructor
             body.invokeInterface(List.class, "add", boolean.class, Object.class);
         }
 
-        if (elementType instanceof ArrayType || elementType instanceof MapType) {
+        if (elementType instanceof ArrayType || elementType instanceof MapType || elementType instanceof RowType) {
             body.comment("return rawSlicesToStackRepresentation(values);")
                     .getVariable(valuesVariable)
                     .invokeStatic(ArrayType.class, "rawSlicesToStackRepresentation", Slice.class, List.class)
