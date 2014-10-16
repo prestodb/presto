@@ -102,6 +102,7 @@ import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
+import static com.facebook.presto.hive.HiveSessionProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveType.columnTypeToHiveType;
 import static com.facebook.presto.hive.HiveType.getHiveType;
 import static com.facebook.presto.hive.HiveType.getSupportedHiveType;
@@ -114,7 +115,6 @@ import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.HiveUtil.partitionIdGetter;
 import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_PARTITION;
 import static com.facebook.presto.hive.util.Types.checkType;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -158,7 +158,6 @@ import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspe
 public class HiveClient
         implements ConnectorMetadata, ConnectorSplitManager, ConnectorRecordSinkProvider, ConnectorHandleResolver
 {
-    public static final String STORAGE_FORMAT_PROPERTY = "storage_format";
     public static final String PRESTO_OFFLINE = "presto_offline";
 
     private static final Logger log = Logger.get(HiveClient.class);
@@ -595,7 +594,7 @@ public class HiveClient
 
         checkArgument(!isNullOrEmpty(tableMetadata.getOwner()), "Table owner is null or empty");
 
-        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(session);
+        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(session, this.hiveStorageFormat);
 
         ImmutableList.Builder<String> columnNames = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
@@ -666,21 +665,6 @@ public class HiveClient
                 temporaryPath.toString(),
                 session,
                 hiveStorageFormat);
-    }
-
-    public HiveStorageFormat getHiveStorageFormat(ConnectorSession session)
-    {
-        String storageFormatString = session.getProperties().get(STORAGE_FORMAT_PROPERTY);
-        if (storageFormatString == null) {
-            return this.hiveStorageFormat;
-        }
-
-        try {
-            return HiveStorageFormat.valueOf(storageFormatString.toUpperCase());
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, "Hive storage-format is invalid: " + storageFormatString);
-        }
     }
 
     @Override
