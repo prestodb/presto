@@ -11,11 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.orc;
 
-import com.facebook.hive.orc.RecordReader;
-import com.facebook.hive.orc.lazy.OrcLazyObject;
-import com.facebook.hive.orc.lazy.OrcLazyRow;
+import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.HivePartitionKey;
+import com.facebook.presto.hive.HiveRecordCursor;
+import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.HiveUtil;
+import com.facebook.presto.hive.util.Types;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -23,7 +26,10 @@ import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.apache.hadoop.hive.ql.io.orc.OrcStruct;
+import org.apache.hadoop.hive.ql.io.orc.RecordReader;
 import org.apache.hadoop.hive.serde2.io.ByteWritable;
+import org.apache.hadoop.hive.serde2.io.DateWritable;
 import org.apache.hadoop.hive.serde2.io.DoubleWritable;
 import org.apache.hadoop.hive.serde2.io.ShortWritable;
 import org.apache.hadoop.hive.serde2.io.TimestampWritable;
@@ -35,23 +41,22 @@ import org.apache.hadoop.io.FloatWritable;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.io.Writable;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveBooleanParser.isFalse;
 import static com.facebook.presto.hive.HiveBooleanParser.isTrue;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveType.HIVE_BINARY;
 import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
+import static com.facebook.presto.hive.HiveType.HIVE_DATE;
 import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
 import static com.facebook.presto.hive.HiveType.HIVE_FLOAT;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
@@ -66,7 +71,6 @@ import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
 import static com.facebook.presto.hive.util.SerDeUtils.getJsonBytes;
-import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -80,10 +84,13 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static org.apache.hadoop.hive.ql.io.orc.OrcUtil.getFieldValue;
 
-public class DwrfHiveRecordCursor
+public class OrcHiveRecordCursor
         extends HiveRecordCursor
 {
+    private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
+
     private final RecordReader recordReader;
     private final DateTimeZone sessionTimeZone;
 
@@ -98,7 +105,7 @@ public class DwrfHiveRecordCursor
 
     private final boolean[] isPartitionColumn;
 
-    private OrcLazyRow value;
+    private OrcStruct row;
 
     private final boolean[] loaded;
     private final boolean[] booleans;
@@ -112,7 +119,7 @@ public class DwrfHiveRecordCursor
     private boolean closed;
     private final long timeZoneCorrection;
 
-    public DwrfHiveRecordCursor(RecordReader recordReader,
+    public OrcHiveRecordCursor(RecordReader recordReader,
             long totalBytes,
             Properties splitSchema,
             List<HivePartitionKey> partitionKeys,
@@ -152,7 +159,10 @@ public class DwrfHiveRecordCursor
         this.slices = new Slice[size];
         this.nulls = new boolean[size];
 
-        // DWRF uses an epoch sensitive to the JVM default timezone, so we need to correct for this
+        // ORC stores timestamps relative to 2015-01-01 00:00:00 but in the timezone of the writer
+        // When reading back a timestamp the Hive ORC reader will an epoch in this machine's timezone
+        // We must correct for the difference between the writer's timezone and this machine's
+        // timezone (on 2015-01-01)
         long hiveStorageCorrection = new DateTime(2015, 1, 1, 0, 0, hiveStorageTimeZone).getMillis() - new DateTime(2015, 1, 1, 0, 0, DateTimeZone.UTC).getMillis();
         long jvmCorrection = new DateTime(2015, 1, 1, 0, 0).getMillis() - new DateTime(2015, 1, 1, 0, 0, DateTimeZone.UTC).getMillis();
         timeZoneCorrection = hiveStorageCorrection - jvmCorrection;
@@ -185,11 +195,10 @@ public class DwrfHiveRecordCursor
 
                 byte[] bytes = partitionKey.getValue().getBytes(Charsets.UTF_8);
 
-                Type type = types[columnIndex];
                 if (HiveUtil.isHiveNull(bytes)) {
                     nulls[columnIndex] = true;
                 }
-                else if (BOOLEAN.equals(type)) {
+                else if (types[columnIndex].equals(BOOLEAN)) {
                     if (isTrue(bytes, 0, bytes.length)) {
                         booleans[columnIndex] = true;
                     }
@@ -201,29 +210,29 @@ public class DwrfHiveRecordCursor
                         throw new IllegalArgumentException(String.format("Invalid partition value '%s' for BOOLEAN partition key %s", valueString, names[columnIndex]));
                     }
                 }
-                else if (BIGINT.equals(type)) {
+                else if (types[columnIndex].equals(BIGINT)) {
                     if (bytes.length == 0) {
                         throw new IllegalArgumentException(String.format("Invalid partition value '' for BIGINT partition key %s", names[columnIndex]));
                     }
                     longs[columnIndex] = parseLong(bytes, 0, bytes.length);
                 }
-                else if (DOUBLE.equals(type)) {
+                else if (types[columnIndex].equals(DOUBLE)) {
                     if (bytes.length == 0) {
                         throw new IllegalArgumentException(String.format("Invalid partition value '' for DOUBLE partition key %s", names[columnIndex]));
                     }
                     doubles[columnIndex] = parseDouble(bytes, 0, bytes.length);
                 }
-                else if (VARCHAR.equals(type)) {
-                    slices[columnIndex] = Slices.wrappedBuffer(Arrays.copyOf(bytes, bytes.length));
+                else if (types[columnIndex].equals(VARCHAR)) {
+                    slices[columnIndex] = Slices.wrappedBuffer(bytes);
                 }
-                else if (DATE.equals(type)) {
+                else if (types[columnIndex].equals(DATE)) {
                     longs[columnIndex] = ISODateTimeFormat.date().withZone(DateTimeZone.UTC).parseMillis(partitionKey.getValue());
                 }
-                else if (TIMESTAMP.equals(type)) {
+                else if (types[columnIndex].equals(TIMESTAMP)) {
                     longs[columnIndex] = parseHiveTimestamp(partitionKey.getValue(), hiveStorageTimeZone);
                 }
                 else {
-                    throw new UnsupportedOperationException("Unsupported column type: " + type);
+                    throw new UnsupportedOperationException("Unsupported column type: " + types[columnIndex]);
                 }
             }
         }
@@ -269,7 +278,7 @@ public class DwrfHiveRecordCursor
                 return false;
             }
 
-            value = (OrcLazyRow) recordReader.next(value);
+            row = (OrcStruct) recordReader.next(row);
 
             // reset loaded flags
             // partition keys are already loaded, but everything else is not
@@ -302,15 +311,14 @@ public class DwrfHiveRecordCursor
 
         loaded[column] = true;
 
-        Object object = getMaterializedValue(column);
+        Object object = getFieldValue(row, hiveColumnIndexes[column]);
 
         if (object == null) {
             nulls[column] = true;
         }
         else {
             nulls[column] = false;
-            BooleanWritable booleanWritable = checkWritable(object, BooleanWritable.class);
-            booleans[column] = booleanWritable.get();
+            booleans[column] = ((BooleanWritable) object).get();
         }
     }
 
@@ -332,7 +340,7 @@ public class DwrfHiveRecordCursor
         checkArgument(!isPartitionColumn[column], "Column is a partition key");
 
         loaded[column] = true;
-        Object object = getMaterializedValue(column);
+        Object object = getFieldValue(row, hiveColumnIndexes[column]);
         if (object == null) {
             nulls[column] = true;
         }
@@ -341,8 +349,11 @@ public class DwrfHiveRecordCursor
 
             HiveType type = hiveTypes[column];
             if (hiveTypes[column].equals(HIVE_SHORT)) {
-                ShortWritable shortWritable = checkWritable(object, ShortWritable.class);
+                ShortWritable shortWritable = (ShortWritable) object;
                 longs[column] = shortWritable.get();
+            }
+            else if (hiveTypes[column].equals(HIVE_DATE)) {
+                longs[column] = ((DateWritable) object).getDays() * MILLIS_IN_DAY;
             }
             else if (hiveTypes[column].equals(HIVE_TIMESTAMP)) {
                 TimestampWritable timestampWritable = (TimestampWritable) object;
@@ -351,15 +362,15 @@ public class DwrfHiveRecordCursor
                 longs[column] = (seconds * 1000) + (nanos / 1_000_000) + timeZoneCorrection;
             }
             else if (hiveTypes[column].equals(HIVE_BYTE)) {
-                ByteWritable byteWritable = checkWritable(object, ByteWritable.class);
+                ByteWritable byteWritable = (ByteWritable) object;
                 longs[column] = byteWritable.get();
             }
             else if (hiveTypes[column].equals(HIVE_INT)) {
-                IntWritable intWritable = checkWritable(object, IntWritable.class);
+                IntWritable intWritable = (IntWritable) object;
                 longs[column] = intWritable.get();
             }
             else if (hiveTypes[column].equals(HIVE_LONG)) {
-                LongWritable longWritable = checkWritable(object, LongWritable.class);
+                LongWritable longWritable = (LongWritable) object;
                 longs[column] = longWritable.get();
             }
             else {
@@ -386,7 +397,7 @@ public class DwrfHiveRecordCursor
         checkArgument(!isPartitionColumn[column], "Column is a partition key");
 
         loaded[column] = true;
-        Object object = getMaterializedValue(column);
+        Object object = getFieldValue(row, hiveColumnIndexes[column]);
         if (object == null) {
             nulls[column] = true;
         }
@@ -395,11 +406,11 @@ public class DwrfHiveRecordCursor
 
             HiveType type = hiveTypes[column];
             if (hiveTypes[column].equals(HIVE_FLOAT)) {
-                FloatWritable floatWritable = checkWritable(object, FloatWritable.class);
+                FloatWritable floatWritable = (FloatWritable) object;
                 doubles[column] = floatWritable.get();
             }
             else if (hiveTypes[column].equals(HIVE_DOUBLE)) {
-                DoubleWritable doubleWritable = checkWritable(object, DoubleWritable.class);
+                DoubleWritable doubleWritable = (DoubleWritable) object;
                 doubles[column] = doubleWritable.get();
             }
             else {
@@ -428,28 +439,22 @@ public class DwrfHiveRecordCursor
         loaded[column] = true;
         nulls[column] = false;
 
-        OrcLazyObject lazyObject = getRawValue(column);
-        if (lazyObject == null) {
-            nulls[column] = true;
-            return;
-        }
-
-        Object value = materializeValue(lazyObject);
-        if (value == null) {
+        Object object = getFieldValue(row, hiveColumnIndexes[column]);
+        if (object == null) {
             nulls[column] = true;
             return;
         }
 
         HiveType type = hiveTypes[column];
         if (isStructuralType(type)) {
-            slices[column] = Slices.wrappedBuffer(getJsonBytes(sessionTimeZone, lazyObject, fieldInspectors[column]));
+            slices[column] = Slices.wrappedBuffer(getJsonBytes(sessionTimeZone, object, fieldInspectors[column]));
         }
         else if (type.equals(HIVE_STRING)) {
-            Text text = checkWritable(value, Text.class);
+            Text text = Types.checkType(object, Text.class, "materialized string value");
             slices[column] = Slices.copyOf(Slices.wrappedBuffer(text.getBytes()), 0, text.getLength());
         }
         else if (type.equals(HIVE_BINARY)) {
-            BytesWritable bytesWritable = checkWritable(value, BytesWritable.class);
+            BytesWritable bytesWritable = Types.checkType(object, BytesWritable.class, "materialized binary value");
             slices[column] = Slices.copyOf(Slices.wrappedBuffer(bytesWritable.getBytes()), 0, bytesWritable.getLength());
         }
         else {
@@ -485,6 +490,9 @@ public class DwrfHiveRecordCursor
         else if (types[column].equals(TIMESTAMP)) {
             parseLongColumn(column);
         }
+        else if (types[column].equals(DATE)) {
+            parseLongColumn(column);
+        }
         else {
             throw new UnsupportedOperationException("Unsupported column type: " + types[column]);
         }
@@ -496,27 +504,6 @@ public class DwrfHiveRecordCursor
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
             throw new IllegalArgumentException(String.format("Expected field to be %s, actual %s (field %s)", javaType.getName(), types[fieldId].getJavaType().getName(), fieldId));
         }
-    }
-
-    private static Object materializeValue(OrcLazyObject object)
-    {
-        try {
-            return object.materialize();
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    private OrcLazyObject getRawValue(int column)
-    {
-        return this.value.getFieldValue(hiveColumnIndexes[column]);
-    }
-
-    private Object getMaterializedValue(int column)
-    {
-        OrcLazyObject value = getRawValue(column);
-        return (value == null) ? null : materializeValue(value);
     }
 
     @Override
@@ -536,10 +523,5 @@ public class DwrfHiveRecordCursor
         catch (IOException e) {
             throw Throwables.propagate(e);
         }
-    }
-
-    private static <T extends Writable> T checkWritable(Object object, Class<T> clazz)
-    {
-        return checkType(object, clazz, HIVE_BAD_DATA, "materialized object");
     }
 }
