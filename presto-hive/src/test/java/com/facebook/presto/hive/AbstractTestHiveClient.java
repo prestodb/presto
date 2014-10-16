@@ -84,7 +84,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
-import static com.facebook.presto.hive.HiveClient.STORAGE_FORMAT_PROPERTY;
+import static com.facebook.presto.hive.HiveSessionProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;

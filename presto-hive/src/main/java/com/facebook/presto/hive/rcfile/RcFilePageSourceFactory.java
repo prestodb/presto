@@ -19,7 +19,6 @@ import com.facebook.presto.hive.HivePageSourceFactory;
 import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Joiner;
@@ -46,8 +45,8 @@ import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnIndexGetter;
 import static com.facebook.presto.hive.HiveColumnHandle.isPartitionKeyPredicate;
+import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedReaderEnabled;
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
@@ -56,7 +55,6 @@ import static com.google.common.collect.Lists.transform;
 public class RcFilePageSourceFactory
         implements HivePageSourceFactory
 {
-    private static final String OPTIMIZED_READER_ENABLED = "optimized_reader_enabled";
     private final TypeManager typeManager;
     private final boolean enabled;
 
@@ -91,7 +89,7 @@ public class RcFilePageSourceFactory
             TupleDomain<HiveColumnHandle> tupleDomain,
             DateTimeZone hiveStorageTimeZone)
     {
-        if (!isEnabled(session)) {
+        if (!isOptimizedReaderEnabled(session, enabled)) {
             return Optional.absent();
         }
 
@@ -150,21 +148,6 @@ public class RcFilePageSourceFactory
             catch (Exception ignored) {
             }
             throw Throwables.propagate(e);
-        }
-    }
-
-    public boolean isEnabled(ConnectorSession session)
-    {
-        String enabled = session.getProperties().get(OPTIMIZED_READER_ENABLED);
-        if (enabled == null) {
-            return this.enabled;
-        }
-
-        try {
-            return Boolean.valueOf(enabled);
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(NOT_SUPPORTED, "Invalid Hive session property '" + OPTIMIZED_READER_ENABLED + "=" + enabled + "'");
         }
     }
 }
