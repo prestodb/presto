@@ -15,12 +15,12 @@ package com.facebook.presto.hive.orc;
 
 import org.testng.annotations.Test;
 
-@Test
-public class TestOrcReader
-    extends AbstractTestOrcReader
+@Test(groups = "ci")
+public class TestFullOrcReader
+        extends AbstractTestOrcReader
 {
-    public TestOrcReader()
+    public TestFullOrcReader()
     {
-        super(OrcTester.quickOrcTester());
+        super(OrcTester.fullOrcTester());
     }
 }
