@@ -46,6 +46,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedReaderEnabled;
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -86,7 +87,7 @@ public class OrcPageSourceFactory
             TupleDomain<HiveColumnHandle> tupleDomain,
             DateTimeZone hiveStorageTimeZone)
     {
-        if (!enabled) {
+        if (!isOptimizedReaderEnabled(session, enabled)) {
             return Optional.absent();
         }
 
