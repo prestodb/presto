@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
 import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
 
+import static com.facebook.presto.cassandra.CassandraTestingUtils.createOrReplaceKeyspace;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -46,8 +47,8 @@ public final class CassandraQueryRunner
             throws Exception
     {
         EmbeddedCassandraServerHelper.startEmbeddedCassandra();
-        TestCassandraConnector.createOrReplaceKeyspace("tpch");
-        TestCassandraConnector.createOrReplaceKeyspace("tpch_sampled");
+        createOrReplaceKeyspace("tpch");
+        createOrReplaceKeyspace("tpch_sampled");
 
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession(), 4);
 
