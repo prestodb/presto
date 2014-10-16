@@ -90,7 +90,7 @@ public final class JsonReaders
             case LIST:
                 return new ListJsonReader(streamDescriptor, writeStackType, checkForNulls, hiveStorageTimeZone, sessionTimeZone);
             case MAP:
-                return new MapJsonReader(streamDescriptor, writeStackType, checkForNulls, sessionTimeZone, sessionTimeZone);
+                return new MapJsonReader(streamDescriptor, writeStackType, checkForNulls, hiveStorageTimeZone, sessionTimeZone);
             case UNION:
             case DECIMAL:
             case VARCHAR:
