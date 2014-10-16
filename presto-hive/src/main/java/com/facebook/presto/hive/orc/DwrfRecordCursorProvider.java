@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.orc;
 
 import com.facebook.hive.orc.OrcFile;
 import com.facebook.hive.orc.OrcProto;
@@ -19,6 +19,10 @@ import com.facebook.hive.orc.OrcProto.Type;
 import com.facebook.hive.orc.OrcSerde;
 import com.facebook.hive.orc.Reader;
 import com.facebook.hive.orc.RecordReader;
+import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.HivePartitionKey;
+import com.facebook.presto.hive.HiveRecordCursor;
+import com.facebook.presto.hive.HiveRecordCursorProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;

@@ -11,9 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.orc;
 
 import com.facebook.hive.orc.OrcSerde;
+import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.HivePageSourceFactory;
+import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.orc.metadata.DwrfMetadataReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -31,7 +35,7 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
-import static com.facebook.presto.hive.OrcPageSourceFactory.createOrcPageSource;
+import static com.facebook.presto.hive.orc.OrcPageSourceFactory.createOrcPageSource;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class DwrfPageSourceFactory

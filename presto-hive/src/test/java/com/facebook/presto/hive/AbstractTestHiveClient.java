@@ -15,6 +15,11 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastore;
+import com.facebook.presto.hive.orc.DwrfHiveRecordCursor;
+import com.facebook.presto.hive.orc.DwrfRecordCursorProvider;
+import com.facebook.presto.hive.orc.OrcHiveRecordCursor;
+import com.facebook.presto.hive.orc.OrcPageSource;
+import com.facebook.presto.hive.orc.OrcRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSource;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
