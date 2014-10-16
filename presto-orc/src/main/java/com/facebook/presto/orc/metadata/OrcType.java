@@ -88,6 +88,11 @@ public class OrcType
         return fieldNames.get(field);
     }
 
+    public List<String> getFieldNames()
+    {
+        return fieldNames;
+    }
+
     @Override
     public String toString()
     {
