@@ -262,6 +262,7 @@
                     <!-- integration tests take a very long time so only run them in the CI server -->
                     <excludes>
                         <exclude>**/TestHiveDistributedQueries.java</exclude>
+                        <exclude>**/TestFullOrcReader.java</exclude>
                     </excludes>
                 </configuration>
             </plugin>
