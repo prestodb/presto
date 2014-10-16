@@ -25,7 +25,6 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.UnionObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.BinaryObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.BooleanObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.ByteObjectInspector;
@@ -88,9 +87,6 @@ public final class SerDeUtils
                 return;
             case STRUCT:
                 serializeStruct(sessionTimeZone, generator, object, (StructObjectInspector) inspector, context);
-                return;
-            case UNION:
-                serializeUnion(sessionTimeZone, generator, object, (UnionObjectInspector) inspector, context);
                 return;
         }
         throw new RuntimeException("Unknown object inspector category: " + inspector.getCategory());
@@ -225,40 +221,6 @@ public final class SerDeUtils
             generator.writeFieldName(field.getFieldName());
             serializeObject(sessionTimeZone, generator, inspector.getStructFieldData(object, field), field.getFieldObjectInspector(), JsonContext.JSON);
         }
-        generator.writeEndObject();
-    }
-
-    private static void serializeUnion(DateTimeZone sessionTimeZone, JsonGenerator generator, Object object, UnionObjectInspector inspector, JsonContext context)
-            throws IOException
-    {
-        if (object == null) {
-            generator.writeNull();
-            return;
-        }
-
-        byte tag = inspector.getTag(object);
-        if (context == JsonContext.JSON_STACK) {
-            // Write union as a json encoded string
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            try (JsonGenerator unionGenerator = new JsonFactory().createGenerator(out)) {
-                serializeUnionHelper(sessionTimeZone, object, inspector, tag, unionGenerator);
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
-            generator.writeString(out.toString());
-        }
-        else {
-            serializeUnionHelper(sessionTimeZone, object, inspector, tag, generator);
-        }
-    }
-
-    private static void serializeUnionHelper(DateTimeZone sessionTimeZone, Object object, UnionObjectInspector inspector, byte tag, JsonGenerator generator)
-            throws IOException
-    {
-        generator.writeStartObject();
-        generator.writeFieldName(String.valueOf(tag));
-        serializeObject(sessionTimeZone, generator, inspector.getField(object), inspector.getObjectInspectors().get(tag), JsonContext.JSON);
         generator.writeEndObject();
     }
 
