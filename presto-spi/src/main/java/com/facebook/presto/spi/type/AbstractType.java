@@ -40,6 +40,12 @@ public abstract class AbstractType
     }
 
     @Override
+    public String getDisplayName()
+    {
+        return signature.toString();
+    }
+
+    @Override
     public final Class<?> getJavaType()
     {
         return javaType;
