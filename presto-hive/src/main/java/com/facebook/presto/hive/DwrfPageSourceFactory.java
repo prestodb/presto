@@ -14,7 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.hive.orc.OrcSerde;
-import com.facebook.presto.hive.orc.metadata.DwrfMetadataReader;
+import com.facebook.presto.orc.metadata.DwrfMetadataReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;

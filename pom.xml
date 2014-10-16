@@ -58,6 +58,7 @@
         <module>presto-spi</module>
         <module>presto-kafka</module>
         <module>presto-cassandra</module>
+        <module>presto-orc</module>
         <module>presto-hive</module>
         <module>presto-hive-hadoop1</module>
         <module>presto-hive-hadoop2</module>
@@ -87,6 +88,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-spi</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-orc</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -417,6 +424,12 @@
                 <groupId>io.airlift</groupId>
                 <artifactId>floatingdecimal</artifactId>
                 <version>0.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.iq80.snappy</groupId>
+                <artifactId>snappy</artifactId>
+                <version>0.3</version>
             </dependency>
 
             <dependency>

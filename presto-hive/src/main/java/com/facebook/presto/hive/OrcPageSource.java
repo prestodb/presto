@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.orc.BooleanVector;
-import com.facebook.presto.hive.orc.DoubleVector;
-import com.facebook.presto.hive.orc.HdfsOrcDataSource;
-import com.facebook.presto.hive.orc.LongVector;
-import com.facebook.presto.hive.orc.OrcRecordReader;
-import com.facebook.presto.hive.orc.SliceVector;
+import com.facebook.presto.orc.BooleanVector;
+import com.facebook.presto.orc.DoubleVector;
+import com.facebook.presto.orc.LongVector;
+import com.facebook.presto.orc.OrcRecordReader;
+import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
@@ -51,7 +50,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
-import static com.facebook.presto.hive.orc.Vector.MAX_VECTOR_LENGTH;
+import static com.facebook.presto.orc.Vector.MAX_VECTOR_LENGTH;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;

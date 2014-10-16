@@ -13,13 +13,12 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.orc.HdfsOrcDataSource;
-import com.facebook.presto.hive.orc.OrcPredicate;
-import com.facebook.presto.hive.orc.OrcReader;
-import com.facebook.presto.hive.orc.OrcRecordReader;
+import com.facebook.presto.orc.OrcPredicate;
+import com.facebook.presto.orc.OrcReader;
+import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.hive.TupleDomainOrcPredicate.ColumnReference;
-import com.facebook.presto.hive.orc.metadata.MetadataReader;
-import com.facebook.presto.hive.orc.metadata.OrcMetadataReader;
+import com.facebook.presto.orc.metadata.MetadataReader;
+import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
