@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.orc.OrcPredicate;
-import com.facebook.presto.hive.orc.metadata.BucketStatistics;
-import com.facebook.presto.hive.orc.metadata.ColumnStatistics;
-import com.facebook.presto.hive.orc.metadata.RangeStatistics;
+import com.facebook.presto.orc.OrcPredicate;
+import com.facebook.presto.orc.metadata.BucketStatistics;
+import com.facebook.presto.orc.metadata.ColumnStatistics;
+import com.facebook.presto.orc.metadata.RangeStatistics;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.SortedRangeSet;
