@@ -47,9 +47,9 @@ public class TestEvaluateClassifierPredictions
             throws Exception
     {
         TypeRegistry typeRegistry = new TypeRegistry();
-        typeRegistry.addType(new ClassifierType());
-        typeRegistry.addType(new RegressorType());
-        typeRegistry.addType(new ModelType());
+        typeRegistry.addType(ClassifierType.CLASSIFIER);
+        typeRegistry.addType(RegressorType.REGRESSOR);
+        typeRegistry.addType(ModelType.MODEL);
         metadata.addFunctions(new MLFunctionFactory(typeRegistry).listFunctions());
         InternalAggregationFunction aggregation = metadata.getExactFunction(new Signature("evaluate_classifier_predictions", StandardTypes.VARCHAR, StandardTypes.BIGINT, StandardTypes.BIGINT)).getAggregationFunction();
         Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0).createAccumulator();

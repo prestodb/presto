@@ -16,16 +16,9 @@ package com.facebook.presto.ml.type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.AbstractVariableWidthType;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.spi.type.VariableWidthType;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-
-import java.util.List;
 
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 
@@ -33,62 +26,18 @@ import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 //   size: is an int describing the length of the model bytes
 //   model: is the serialized model
 public class ModelType
-        implements VariableWidthType
+        extends AbstractVariableWidthType
 {
     public static final ModelType MODEL = new ModelType();
-    private static final TypeSignature SIGNATURE = parameterizedTypeName("Model");
 
-    @JsonCreator
-    public ModelType()
+    private ModelType()
     {
+        super(parameterizedTypeName("Model"), Slice.class);
     }
 
-    @Override
-    public TypeSignature getTypeSignature()
+    protected ModelType(TypeSignature signature)
     {
-        return SIGNATURE;
-    }
-
-    @Override
-    public boolean isComparable()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isOrderable()
-    {
-        return false;
-    }
-
-    @Override
-    public Class<?> getJavaType()
-    {
-        return Slice.class;
-    }
-
-    @Override
-    public List<Type> getTypeParameters()
-    {
-        return ImmutableList.of();
-    }
-
-    @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        throw new UnsupportedOperationException(String.format("%s type is not comparable", getTypeSignature()));
-    }
-
-    @Override
-    public int hash(Block block, int position)
-    {
-        throw new UnsupportedOperationException(String.format("%s type is not comparable", getTypeSignature()));
-    }
-
-    @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        throw new UnsupportedOperationException(String.format("%s type is not ordered", getTypeSignature()));
+        super(signature, Slice.class);
     }
 
     @Override
@@ -101,42 +50,6 @@ public class ModelType
             block.writeBytesTo(position, 0, block.getLength(position), blockBuilder);
             blockBuilder.closeEntry();
         }
-    }
-
-    @Override
-    public boolean getBoolean(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeBoolean(BlockBuilder sliceOutput, boolean value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public long getLong(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeLong(BlockBuilder sliceOutput, long value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public double getDouble(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeDouble(BlockBuilder sliceOutput, double value)
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -165,36 +78,5 @@ public class ModelType
         }
 
         return String.format("<%s>", getTypeSignature());
-    }
-
-    @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
-    {
-        return new VariableWidthBlockBuilder(blockBuilderStatus);
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        return true;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return getClass().hashCode();
-    }
-
-    @Override
-    public String toString()
-    {
-        return getTypeSignature().toString();
     }
 }
