@@ -14,12 +14,9 @@
 package com.facebook.presto.hive.util;
 
 import com.fasterxml.jackson.core.Base64Variants;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.UnionObject;
-import org.apache.hadoop.hive.serde2.objectinspector.UnionObjectInspector;
 import org.apache.hadoop.io.BytesWritable;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -38,8 +35,6 @@ import static com.facebook.presto.hive.util.SerDeUtils.getJsonBytes;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.ObjectInspectorOptions;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getReflectionObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardUnionObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.StandardUnionObjectInspector.StandardUnion;
 import static org.testng.Assert.assertEquals;
 
 @SuppressWarnings("PackageVisibleField")
@@ -224,17 +219,6 @@ public class TestSerDeUtils
                 "\"twelve\":{\"intval\":0,\"longval\":5}}," +
                 "\"innerstruct\":{\"intval\":18,\"longval\":19}}";
 
-        assertEquals(actual, expected);
-    }
-
-    @Test
-    public void testUnionJsonString()
-    {
-        UnionObjectInspector unionInspector = getStandardUnionObjectInspector(ImmutableList.of(getInspector(InnerStruct.class)));
-
-        UnionObject union = new StandardUnion((byte) 0, new InnerStruct(1, 2L));
-        String actual = toJsonString(union, unionInspector);
-        String expected = "{\"0\":{\"intval\":1,\"longval\":2}}";
         assertEquals(actual, expected);
     }
 
