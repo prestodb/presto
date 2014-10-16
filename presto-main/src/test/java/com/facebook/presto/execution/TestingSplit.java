@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -22,6 +23,21 @@ import java.util.List;
 public class TestingSplit
         implements ConnectorSplit
 {
+    public TestingSplit()
+    {
+    }
+
+    public TestingSplit(@JsonProperty("dummy") int dummy)
+    {
+    }
+
+    // we need a dummy property because Jackson refuses to serialize/deserialize an empty object
+    @JsonProperty
+    public int getDummy()
+    {
+        return 0;
+    }
+
     @Override
     public boolean isRemotelyAccessible()
     {
