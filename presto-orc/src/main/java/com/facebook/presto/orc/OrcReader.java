@@ -17,7 +17,6 @@ import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.Metadata;
 import com.facebook.presto.orc.metadata.MetadataReader;
-import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.PostScript;
 import com.facebook.presto.orc.stream.OrcInputStream;
 import com.google.common.base.Joiner;
@@ -126,9 +125,9 @@ public class OrcReader
         this.footer = metadataReader.readFooter(footerInputStream);
     }
 
-    public List<OrcType> getTypes()
+    public List<String> getColumnNames()
     {
-        return footer.getTypes();
+        return footer.getTypes().get(0).getFieldNames();
     }
 
     public Footer getFooter()

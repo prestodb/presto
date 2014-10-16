@@ -399,6 +399,9 @@ public class OrcTester
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile());
         OrcReader orcReader = new OrcReader(orcDataSource, metadataReader);
+
+        assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
+
         return orcReader.createRecordReader(
                 ImmutableSet.of(0),
                 new OrcPredicate()
