@@ -135,6 +135,7 @@ import static com.facebook.presto.operator.scalar.MapSubscriptOperator.MAP_SUBSC
 import static com.facebook.presto.operator.scalar.MapToJsonCast.MAP_TO_JSON;
 import static com.facebook.presto.operator.scalar.MapKeys.MAP_KEYS;
 import static com.facebook.presto.operator.scalar.MapValues.MAP_VALUES;
+import static com.facebook.presto.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -273,7 +274,8 @@ public class FunctionRegistry
                 .function(ARRAY_TO_JSON)
                 .function(MAP_TO_JSON)
                 .function(MAP_KEYS)
-                .function(MAP_VALUES);
+                .function(MAP_VALUES)
+                .function(ROW_TO_JSON);
 
         if (experimentalSyntaxEnabled) {
             builder.aggregate(ApproximateAverageAggregations.class)
