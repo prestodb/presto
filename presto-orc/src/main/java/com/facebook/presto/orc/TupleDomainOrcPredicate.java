@@ -13,33 +13,29 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.metadata.BucketStatistics;
+import com.facebook.presto.orc.metadata.BooleanStatistics;
 import com.facebook.presto.orc.metadata.ColumnStatistics;
 import com.facebook.presto.orc.metadata.RangeStatistics;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Predicates.compose;
-import static com.google.common.base.Predicates.in;
-import static com.google.common.collect.Iterables.filter;
-import static com.google.common.collect.Iterables.transform;
 import static io.airlift.slice.Slices.utf8Slice;
 
 public class TupleDomainOrcPredicate<C>
@@ -47,21 +43,13 @@ public class TupleDomainOrcPredicate<C>
 {
     private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
 
-    private final TupleDomain<C> tupleDomain;
+    private final TupleDomain<C> effectivePredicate;
     private final List<ColumnReference<C>> columnReferences;
 
-    public TupleDomainOrcPredicate(TupleDomain<C> tupleDomain, List<ColumnReference<C>> columnReferences)
+    public TupleDomainOrcPredicate(TupleDomain<C> effectivePredicate, List<ColumnReference<C>> columnReferences)
     {
-        this.tupleDomain = checkNotNull(tupleDomain, "tupleDomain is null");
-        checkNotNull(columnReferences, "columnReferences is null");
-
-        // verify all columns in tuple domain have a column reference
-        Set<C> filteredColumns = tupleDomain.getDomains().keySet();
-        checkArgument(ImmutableSet.copyOf(transform(columnReferences, ColumnReference.<C>columnGetter())).containsAll(filteredColumns),
-                "Tuple domain references columns not in column reference list");
-
-        // only keep columns used in the tuple domain
-        this.columnReferences = ImmutableList.copyOf(filter(columnReferences, compose(in(filteredColumns), ColumnReference.<C>columnGetter())));
+        this.effectivePredicate = checkNotNull(effectivePredicate, "effectivePredicate is null");
+        this.columnReferences = ImmutableList.copyOf(checkNotNull(columnReferences, "columnReferences is null"));
     }
 
     @Override
@@ -71,16 +59,20 @@ public class TupleDomainOrcPredicate<C>
 
         for (ColumnReference<C> columnReference : columnReferences) {
             ColumnStatistics columnStatistics = statisticsByColumnIndex.get(columnReference.getOrdinal());
+
+            Domain domain;
             if (columnStatistics == null) {
                 // no stats for column
-                return true;
+                domain = Domain.all(Primitives.wrap(columnReference.getType().getJavaType()));
             }
-
-            domains.put(columnReference.getColumn(), getDomain(columnReference.getType(), numberOfRows, columnStatistics));
+            else {
+                domain = getDomain(columnReference.getType(), numberOfRows, columnStatistics);
+            }
+            domains.put(columnReference.getColumn(), domain);
         }
         TupleDomain<C> stripeDomain = TupleDomain.withColumnDomains(domains.build());
 
-        return tupleDomain.overlaps(stripeDomain);
+        return effectivePredicate.overlaps(stripeDomain);
     }
 
     private static Domain getDomain(Type type, long rowCount, ColumnStatistics columnStatistics)
@@ -100,11 +92,11 @@ public class TupleDomainOrcPredicate<C>
 
         boolean hasNullValue = columnStatistics.getNumberOfValues() != rowCount;
 
-        if (boxedJavaType == Boolean.class && columnStatistics.getBucketStatistics() != null) {
-            BucketStatistics bucketStatistics = columnStatistics.getBucketStatistics();
+        if (boxedJavaType == Boolean.class && columnStatistics.getBooleanStatistics() != null) {
+            BooleanStatistics booleanStatistics = columnStatistics.getBooleanStatistics();
 
-            boolean hasTrueValues = (bucketStatistics.getCount(0) != 0);
-            boolean hasFalseValues = (columnStatistics.getNumberOfValues() != bucketStatistics.getCount(0));
+            boolean hasTrueValues = (booleanStatistics.getTrueValueCount() != 0);
+            boolean hasFalseValues = (columnStatistics.getNumberOfValues() != booleanStatistics.getTrueValueCount());
             if (hasTrueValues && hasFalseValues) {
                 return Domain.all(Boolean.class);
             }
@@ -115,10 +107,21 @@ public class TupleDomainOrcPredicate<C>
                 return Domain.create(SortedRangeSet.singleValue(false), hasNullValue);
             }
         }
+        else if (type.getTypeSignature().getBase().equals(StandardTypes.DATE) && columnStatistics.getDateStatistics() != null) {
+            // TODO remove this when DATE type memory representation is changed to days instead of millis
+            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getDateStatistics(), new Function<Integer, Long>()
+            {
+                @Override
+                public Long apply(Integer days)
+                {
+                    return days * MILLIS_IN_DAY;
+                }
+            });
+        }
         else if (boxedJavaType == Long.class && columnStatistics.getIntegerStatistics() != null) {
             return createDomain(boxedJavaType, hasNullValue, columnStatistics.getIntegerStatistics());
         }
-        else if (boxedJavaType == Double.class && columnStatistics.getDateStatistics() != null) {
+        else if (boxedJavaType == Double.class && columnStatistics.getDoubleStatistics() != null) {
             return createDomain(boxedJavaType, hasNullValue, columnStatistics.getDoubleStatistics());
         }
         else if (boxedJavaType == Slice.class && columnStatistics.getStringStatistics() != null) {
@@ -128,16 +131,6 @@ public class TupleDomainOrcPredicate<C>
                 public Slice apply(String value)
                 {
                     return utf8Slice(value);
-                }
-            });
-        }
-        else if (boxedJavaType == Long.class && columnStatistics.getDateStatistics() != null) {
-            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getDateStatistics(), new Function<Integer, Long>()
-            {
-                @Override
-                public Long apply(Integer days)
-                {
-                    return days * MILLIS_IN_DAY;
                 }
             });
         }
@@ -195,16 +188,14 @@ public class TupleDomainOrcPredicate<C>
             return type;
         }
 
-        public static <C> Function<ColumnReference<C>, C> columnGetter()
+        @Override
+        public String toString()
         {
-            return new Function<ColumnReference<C>, C>()
-            {
-                @Override
-                public C apply(ColumnReference<C> input)
-                {
-                    return input.getColumn();
-                }
-            };
+            return MoreObjects.toStringHelper(this)
+                    .add("column", column)
+                    .add("ordinal", ordinal)
+                    .add("type", type)
+                    .toString();
         }
     }
 }

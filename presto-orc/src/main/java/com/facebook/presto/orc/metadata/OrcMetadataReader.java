@@ -180,7 +180,7 @@ public class OrcMetadataReader
     {
         return new ColumnStatistics(
                 statistics.getNumberOfValues(),
-                toBucketStatistics(statistics.getBucketStatistics()),
+                toBooleanStatistics(statistics.getBucketStatistics()),
                 toIntegerStatistics(statistics.getIntStatistics()),
                 toDoubleStatistics(statistics.getDoubleStatistics()),
                 toStringStatistics(statistics.getStringStatistics()),
@@ -202,13 +202,21 @@ public class OrcMetadataReader
         }));
     }
 
-    private static BucketStatistics toBucketStatistics(OrcProto.BucketStatistics bucketStatistics)
+    private static BooleanStatistics toBooleanStatistics(OrcProto.BucketStatistics bucketStatistics)
     {
-        return new BucketStatistics(bucketStatistics.getCountList());
+        if (bucketStatistics.getCountCount() == 0) {
+            return null;
+        }
+
+        return new BooleanStatistics(bucketStatistics.getCount(0));
     }
 
     private static IntegerStatistics toIntegerStatistics(OrcProto.IntegerStatistics integerStatistics)
     {
+        if (!integerStatistics.hasMinimum() && !integerStatistics.hasMaximum()) {
+            return null;
+        }
+
         return new IntegerStatistics(
                 integerStatistics.hasMinimum() ? integerStatistics.getMinimum() : null,
                 integerStatistics.hasMaximum() ? integerStatistics.getMaximum() : null);
@@ -216,6 +224,10 @@ public class OrcMetadataReader
 
     private static DoubleStatistics toDoubleStatistics(OrcProto.DoubleStatistics doubleStatistics)
     {
+        if (!doubleStatistics.hasMinimum() && !doubleStatistics.hasMaximum()) {
+            return null;
+        }
+
         return new DoubleStatistics(
                 doubleStatistics.hasMinimum() ? doubleStatistics.getMinimum() : null,
                 doubleStatistics.hasMaximum() ? doubleStatistics.getMaximum() : null);
@@ -223,6 +235,10 @@ public class OrcMetadataReader
 
     private static StringStatistics toStringStatistics(OrcProto.StringStatistics stringStatistics)
     {
+        if (!stringStatistics.hasMinimum() && !stringStatistics.hasMaximum()) {
+            return null;
+        }
+
         return new StringStatistics(
                 stringStatistics.hasMinimum() ? stringStatistics.getMinimum() : null,
                 stringStatistics.hasMaximum() ? stringStatistics.getMaximum() : null);
@@ -230,6 +246,10 @@ public class OrcMetadataReader
 
     private static DateStatistics toDateStatistics(OrcProto.DateStatistics dateStatistics)
     {
+        if (!dateStatistics.hasMinimum() && !dateStatistics.hasMaximum()) {
+            return null;
+        }
+
         return new DateStatistics(
                 dateStatistics.hasMinimum() ? dateStatistics.getMinimum() : null,
                 dateStatistics.hasMaximum() ? dateStatistics.getMaximum() : null);

@@ -13,23 +13,17 @@
  */
 package com.facebook.presto.orc.metadata;
 
-import com.google.common.collect.ImmutableList;
-
-import java.util.List;
-
-import static com.google.common.base.Preconditions.checkNotNull;
-
-public class BucketStatistics
+public class BooleanStatistics
 {
-    private final List<Long> bucketCounts;
+    private final long trueValueCount;
 
-    public BucketStatistics(List<Long> bucketCounts)
+    public BooleanStatistics(long trueValueCount)
     {
-        this.bucketCounts = ImmutableList.copyOf(checkNotNull(bucketCounts, "bucketCounts is null"));
+        this.trueValueCount = trueValueCount;
     }
 
-    public long getCount(int bucket)
+    public long getTrueValueCount()
     {
-        return bucketCounts.get(bucket);
+        return trueValueCount;
     }
 }
