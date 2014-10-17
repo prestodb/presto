@@ -76,6 +76,7 @@ public class RcFilePageSource
     private final RCFile.Reader recordReader;
     private final RcFileBlockLoader blockLoader;
     private final long startFilePosition;
+    private final long endFilePosition;
 
     private final List<String> columnNames;
     private final List<Type> types;
@@ -100,6 +101,8 @@ public class RcFilePageSource
 
     public RcFilePageSource(
             Reader recordReader,
+            long offset,
+            long length,
             RcFileBlockLoader blockLoader,
             Properties splitSchema,
             List<HivePartitionKey> partitionKeys,
@@ -115,12 +118,19 @@ public class RcFilePageSource
         checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         checkNotNull(typeManager, "typeManager is null");
 
+        // seek to start
         try {
+            if (offset > recordReader.getPosition()) {
+                recordReader.sync(offset);
+            }
+
             this.startFilePosition = recordReader.getPosition();
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
         }
+
+        this.endFilePosition = offset + length;
 
         Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey.nameGetter());
 
@@ -275,7 +285,7 @@ public class RcFilePageSource
             // if the batch has been consumed, read the next batch
             if (positionInBatch >= currentBatchSize) {
                 //noinspection deprecation
-                if (!recordReader.nextColumnsBatch()) {
+                if (!recordReader.nextColumnsBatch() || recordReader.lastSeenSyncPos() >= endFilePosition) {
                     close();
                     return null;
                 }

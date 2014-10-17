@@ -51,7 +51,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.transform;
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IO_FILE_BUFFER_SIZE_KEY;
 
 public class RcFilePageSourceFactory
         implements HivePageSourceFactory
@@ -126,8 +125,7 @@ public class RcFilePageSourceFactory
         RCFile.Reader recordReader;
         try {
             FileSystem fileSystem = path.getFileSystem(configuration);
-            int bufferSize = configuration.getInt(IO_FILE_BUFFER_SIZE_KEY, 4096);
-            recordReader = new RCFile.Reader(fileSystem, path, bufferSize, configuration, start, length);
+            recordReader = new RCFile.Reader(fileSystem, path, configuration);
         }
         catch (Exception e) {
             throw Throwables.propagate(e);
@@ -136,6 +134,8 @@ public class RcFilePageSourceFactory
         try {
             return Optional.of(new RcFilePageSource(
                     recordReader,
+                    start,
+                    length,
                     blockLoader,
                     schema,
                     partitionKeys,
