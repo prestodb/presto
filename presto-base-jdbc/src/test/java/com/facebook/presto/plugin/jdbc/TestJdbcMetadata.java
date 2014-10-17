@@ -51,6 +51,7 @@ public class TestJdbcMetadata
         database = new TestingDatabase();
         metadata = new JdbcMetadata(new JdbcConnectorId(CONNECTOR_ID), database.getJdbcClient());
         tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
+        //test
     }
 
     @AfterClass
