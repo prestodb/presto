@@ -492,7 +492,9 @@ public class TestEffectivePredicateExtractor
                         and(
                                 equals(DE, EE),
                                 lessThan(FE, number(100)))),
-                HASH_SYMBOL, HASH_SYMBOL, criteria);
+                HASH_SYMBOL,
+                HASH_SYMBOL,
+                criteria);
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
@@ -545,7 +547,9 @@ public class TestEffectivePredicateExtractor
                         and(
                                 equals(DE, EE),
                                 lessThan(FE, number(100)))),
-                HASH_SYMBOL, HASH_SYMBOL, criteria);
+                HASH_SYMBOL,
+                HASH_SYMBOL,
+                criteria);
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
@@ -598,7 +602,9 @@ public class TestEffectivePredicateExtractor
                         and(
                                 equals(DE, EE),
                                 lessThan(FE, number(100)))),
-                HASH_SYMBOL, HASH_SYMBOL, criteria);
+                HASH_SYMBOL,
+                HASH_SYMBOL,
+                criteria);
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
@@ -619,7 +625,9 @@ public class TestEffectivePredicateExtractor
         PlanNode node = new SemiJoinNode(newId(),
                 filter(baseTableScan, and(greaterThan(AE, number(10)), lessThan(AE, number(100)))),
                 filter(baseTableScan, greaterThan(AE, number(5))),
-                HASH_SYMBOL, HASH_SYMBOL, A, B, C);
+                HASH_SYMBOL,
+                HASH_SYMBOL,
+                A, B, C);
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 

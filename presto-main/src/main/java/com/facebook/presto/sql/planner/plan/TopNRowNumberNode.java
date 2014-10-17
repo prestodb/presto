@@ -132,6 +132,7 @@ public final class TopNRowNumberNode
         return partial;
     }
 
+    @JsonProperty
     public Symbol getHashSymbol()
     {
         return hashSymbol;

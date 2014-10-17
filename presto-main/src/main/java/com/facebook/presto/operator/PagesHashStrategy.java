@@ -19,7 +19,7 @@ import com.facebook.presto.spi.block.Block;
 public interface PagesHashStrategy
 {
     /**
-     * Gets the total of the columns held in in this PagesHashStrategy.  This includes both the hashed
+     * Gets the total of the columns held in in this PagesHashStrategy. This includes both the hashed
      * and non-hashed columns.
      */
     int getChannelCount();

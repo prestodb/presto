@@ -17,9 +17,8 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.TypeUtils;
+import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -42,15 +41,17 @@ import static it.unimi.dsi.fastutil.HashCommon.maxFill;
 // This implementation assumes arrays used in the hash are always a power of 2
 public class GroupByHash
 {
+    private static final JoinCompiler JOIN_COMPILER = new JoinCompiler();
     private static final float FILL_RATIO = 0.75f;
     private final List<Type> types;
     private final int[] channels;
     private final int inputHashChannel;
     private final int outputHashChannel;
 
+    private final PagesHashStrategy hashStrategy;
     private final List<ObjectArrayList<Block>> channelBuilders;
-    private PageBuilder currentPageBuilder;
 
+    private PageBuilder currentPageBuilder;
     private long completedPagesMemorySize;
 
     private int maxFill;
@@ -59,7 +60,6 @@ public class GroupByHash
     private int[] value;
 
     private final LongBigArray groupAddress;
-
     private int nextGroupId;
 
     /**
@@ -74,14 +74,16 @@ public class GroupByHash
         checkArgument(!types.isEmpty(), "empty types");
         checkArgument(types.size() == channels.length, "types and channels have different sizes");
         checkArgument(inputHashChannel >= 0, "invalid input hash column");
+        checkArgument(expectedSize >= 0, "invalid expectedSize");
 
-        this.channelBuilders = getChannelBuilders(channels);
         // Additional BIGINT channel for storing hash
         this.types = ImmutableList.copyOf(Iterables.concat(types, ImmutableList.of(BIGINT)));
         this.channels = checkNotNull(channels, "channels is null").clone();
 
         this.inputHashChannel = inputHashChannel;
         this.outputHashChannel = channels.length;   // Output hash goes in last channel
+
+        this.channelBuilders = createChannelBuilders(channels);
 
         startNewPage();
 
@@ -97,6 +99,16 @@ public class GroupByHash
 
         groupAddress = new LongBigArray();
         groupAddress.ensureCapacity(maxFill);
+
+        ImmutableList.Builder<Integer> hashChannels = ImmutableList.builder();
+        for (int i = 0; i < channels.length; i++) {
+            hashChannels.add(i);
+        }
+
+        JoinCompiler.PagesHashStrategyFactory pagesHashStrategyFactory = JOIN_COMPILER.compilePagesHashStrategyFactory(this.types, hashChannels.build());
+        hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(this.channelBuilders, outputHashChannel);
+        // non-compiled code
+        // hashStrategy = new SimplePagesHashStrategy(this.types, ImmutableList.<List<Block>>copyOf(channelBuilders), hashChannels.build(), outputHashChannel);
     }
 
     public long getEstimatedSize()
@@ -127,13 +139,14 @@ public class GroupByHash
         long address = groupAddress.get(groupId);
         int blockIndex = decodeSliceIndex(address);
         int position = decodePosition(address);
-        for (int i = 0; i < channels.length; i++) {
-            Type type = types.get(i);
-            Block block = channelBuilders.get(i).get(blockIndex);
-            type.appendTo(block, position, pageBuilder.getBlockBuilder(outputChannelOffset));
-            outputChannelOffset++;
-        }
-        BIGINT.appendTo(channelBuilders.get(outputHashChannel).get(blockIndex), position, pageBuilder.getBlockBuilder(outputHashChannel));
+        hashStrategy.appendTo(blockIndex, position, pageBuilder, outputChannelOffset);
+//        for (int i = 0; i < channels.length; i++) {
+//            Type type = types.get(i);
+//            Block block = channelBuilders.get(i).get(blockIndex);
+//            type.appendTo(block, position, pageBuilder.getBlockBuilder(outputChannelOffset));
+//            outputChannelOffset++;
+//        }
+//        BIGINT.appendTo(channelBuilders.get(outputHashChannel).get(blockIndex), position, pageBuilder.getBlockBuilder(outputHashChannel));
     }
 
     /**
@@ -176,8 +189,8 @@ public class GroupByHash
      */
     public boolean contains(int position, Block hashBlock, Block... blocks)
     {
-        int rawHash = (int) BIGINT.getLong(hashBlock, position);
-        int hashPosition = ((int) Murmur3.hash64(rawHash)) & mask;
+        int rawHash = getRawHash(hashBlock, position);
+        int hashPosition = getHashPosition(rawHash, mask);
 
         // look for a slot containing this key
         while (key[hashPosition] != -1) {
@@ -196,10 +209,10 @@ public class GroupByHash
     /**
      * Inspect the values at position and add a new group if necessary
      */
-    public int putIfAbsent(int position, final Block hashBlock, Block... blocks)
+    public int putIfAbsent(int position, Block hashBlock, Block... blocks)
     {
-        int rawHash = (int) BIGINT.getLong(hashBlock, position);
-        int hashPosition = ((int) Murmur3.hash64(rawHash)) & mask;
+        int rawHash = getRawHash(hashBlock, position);
+        int hashPosition = getHashPosition(rawHash, mask);
 
         // look for an empty slot or a slot containing this key
         int groupId = -1;
@@ -220,21 +233,6 @@ public class GroupByHash
             groupId = addNewGroup(hashPosition, position, blocks, rawHash);
         }
         return groupId;
-    }
-
-    private static List<ObjectArrayList<Block>> getChannelBuilders(int[] channels)
-    {
-        // For each hashed channel, create an appendable list to hold the blocks (builders).  As we
-        // add new values we append them to the existing block builder until it fills up and then
-        // we add a new block builder to each list.
-        ImmutableList.Builder<Integer> hashChannels = ImmutableList.builder();
-        ImmutableList.Builder<ObjectArrayList<Block>> channelBuilders = ImmutableList.builder();
-        for (int i = 0; i < channels.length; i++) {
-            hashChannels.add(i);
-            channelBuilders.add(ObjectArrayList.wrap(new Block[1024], 0));
-        }
-        channelBuilders.add(ObjectArrayList.wrap(new Block[1024], 0)); // additional channel for storing hash
-        return channelBuilders.build();
     }
 
     private int addNewGroup(int hashPosition, int position, Block[] blocks, int rawHash)
@@ -303,7 +301,7 @@ public class GroupByHash
             long address = key[oldIndex];
 
             // find an empty slot for the address
-            int pos = ((int) Murmur3.hash64(hashPosition(address))) & newMask;
+            int pos = getHashPosition(getRawHash(address), newMask);
             while (newKey[pos] != -1) {
                 pos = (pos + 1) & newMask;
             }
@@ -321,28 +319,52 @@ public class GroupByHash
         groupAddress.ensureCapacity(maxFill);
     }
 
-    private int hashPosition(long sliceAddress)
+    private boolean positionEqualsCurrentRow(int sliceIndex, int slicePosition, int position, int rawHash, Block[] blocks)
+    {
+        if (getRawHash(channelBuilders.get(outputHashChannel).get(sliceIndex), slicePosition) != rawHash) {
+            return false;
+        }
+
+        return hashStrategy.positionEqualsRow(sliceIndex, slicePosition, position, blocks);
+//        for (int hashChannel = 0; hashChannel < channels.length; hashChannel++) {
+//            Type type = types.get(hashChannel);
+//            Block leftBlock = channelBuilders.get(hashChannel).get(sliceIndex);
+//            Block rightBlock = blocks[hashChannel];
+//            if (!TypeUtils.positionEqualsPosition(type, leftBlock, slicePosition, rightBlock, position)) {
+//                return false;
+//            }
+//        }
+//        return true;
+    }
+
+    private static int getHashPosition(int rawHash, int mask)
+    {
+        return ((int) Murmur3.hash64(rawHash)) & mask;
+    }
+
+    private int getRawHash(long sliceAddress)
     {
         int sliceIndex = decodeSliceIndex(sliceAddress);
         int position = decodePosition(sliceAddress);
         Block hashBlock = channelBuilders.get(outputHashChannel).get(sliceIndex);
-        return (int) BigintType.BIGINT.getLong(hashBlock, position);
+        return getRawHash(hashBlock, position);
     }
 
-    private boolean positionEqualsCurrentRow(int sliceIndex, int slicePosition, int position, int rawHash, Block[] blocks)
+    private static int getRawHash(Block hashBlock, int position)
     {
-        if ((int) BIGINT.getLong(channelBuilders.get(outputHashChannel).get(sliceIndex), slicePosition) != rawHash) {
-            return false;
-        }
+        return (int) BIGINT.getLong(hashBlock, position);
+    }
 
-        for (int hashChannel = 0; hashChannel < channels.length; hashChannel++) {
-            Type type = types.get(hashChannel);
-            Block leftBlock = channelBuilders.get(hashChannel).get(sliceIndex);
-            Block rightBlock = blocks[hashChannel];
-            if (!TypeUtils.positionEqualsPosition(type, leftBlock, slicePosition, rightBlock, position)) {
-                return false;
-            }
+    private static List<ObjectArrayList<Block>> createChannelBuilders(int[] channels)
+    {
+        // For each hashed channel, create an appendable list to hold the blocks (builders).  As we
+        // add new values we append them to the existing block builder until it fills up and then
+        // we add a new block builder to each list.
+        ImmutableList.Builder<ObjectArrayList<Block>> channelBuilders = ImmutableList.builder();
+        for (int channel : channels) {
+            channelBuilders.add(ObjectArrayList.wrap(new Block[1024], 0));
         }
-        return true;
+        channelBuilders.add(ObjectArrayList.wrap(new Block[1024], 0)); // additional channel for storing hash
+        return channelBuilders.build();
     }
 }

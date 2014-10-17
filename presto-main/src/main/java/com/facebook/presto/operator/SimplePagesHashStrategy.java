@@ -39,7 +39,7 @@ public class SimplePagesHashStrategy
         checkArgument(types.size() == channels.size(), "Expected types and channels to be the same length");
         this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
         checkArgument(channelContainingHash >= 0, "invalid channelContainingHash");
-        this.channelContainingHash = channels.get(channelContainingHash);
+        this.channelContainingHash = this.channels.get(channelContainingHash);
     }
 
     @Override

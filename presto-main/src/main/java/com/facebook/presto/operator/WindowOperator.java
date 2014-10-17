@@ -172,7 +172,7 @@ public class WindowOperator
 
         this.types = toTypes(sourceTypes, outputChannels, windowFunctions);
 
-        this.pagesIndex = new PagesIndex(sourceTypes, expectedPositions, hashChannel, operatorContext);
+        this.pagesIndex = new PagesIndex(sourceTypes, expectedPositions, operatorContext);
         this.pageBuilder = new PageBuilder(this.types);
     }
 

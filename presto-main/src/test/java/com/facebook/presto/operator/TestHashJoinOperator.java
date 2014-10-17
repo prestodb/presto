@@ -30,8 +30,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
-import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.operator.RowPagesBuilderWithHash.rowPagesBuilderWithHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.concat;
@@ -70,7 +69,7 @@ public class TestHashJoinOperator
         List<Type> buildOperatorTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT, BIGINT);
         List<Integer> buildChannels = ImmutableList.of(0);
         int buildHashChannel = 3;
-        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilder(buildChannels, buildTypes)
+        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilderWithHash(buildChannels, buildTypes)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
         HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildOperator.getTypes(), buildChannels, buildHashChannel, 100);
@@ -86,7 +85,7 @@ public class TestHashJoinOperator
         List<Type> probeOperatorTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT, BIGINT); // Additional BIGINT for hash
         List<Integer> probeChannels = ImmutableList.of(0);
         int probeHashChannel = 3;
-        List<Page> probeInput = rowPagesBuilder(probeChannels, probeTypes)
+        List<Page> probeInput = rowPagesBuilderWithHash(probeChannels, probeTypes)
                 .addSequencePage(1000, 0, 1000, 2000)
                 .build();
         OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
@@ -125,7 +124,7 @@ public class TestHashJoinOperator
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
         List<Type> buildOperatorTypes = ImmutableList.<Type>of(VARCHAR, BIGINT);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilder(Ints.asList(0), buildTypes)
+        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilderWithHash(Ints.asList(0), buildTypes)
                 .row("a")
                 .row("b")
                 .row("c")
@@ -141,7 +140,7 @@ public class TestHashJoinOperator
         // probe
         List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
         List<Type> probeOperatorTypes = ImmutableList.<Type>of(VARCHAR, BIGINT);
-        List<Page> probeInput = rowPagesBuilder(Ints.asList(0), probeTypes)
+        List<Page> probeInput = rowPagesBuilderWithHash(Ints.asList(0), probeTypes)
                 .row("a")
                 .row((String) null)
                 .row((String) null)
@@ -176,7 +175,7 @@ public class TestHashJoinOperator
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
         List<Type> buildOperatorTypes = ImmutableList.<Type>of(VARCHAR, BIGINT);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilder(Ints.asList(0), buildTypes)
+        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilderWithHash(Ints.asList(0), buildTypes)
                 .row("a")
                 .row((String) null)
                 .row((String) null)
@@ -194,7 +193,7 @@ public class TestHashJoinOperator
         // probe
         List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
         List<Type> probeOperatorTypes = ImmutableList.<Type>of(VARCHAR, BIGINT);
-        List<Page> probeInput = rowPagesBuilder(Ints.asList(0), probeTypes)
+        List<Page> probeInput = rowPagesBuilderWithHash(Ints.asList(0), probeTypes)
                 .row("a")
                 .row("b")
                 .row("c")
@@ -227,7 +226,7 @@ public class TestHashJoinOperator
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
         List<Type> buildOperatorTypes = ImmutableList.<Type>of(VARCHAR, BIGINT);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilder(Ints.asList(0), buildTypes)
+        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilderWithHash(Ints.asList(0), buildTypes)
                 .row("a")
                 .row((String) null)
                 .row((String) null)
@@ -245,7 +244,7 @@ public class TestHashJoinOperator
         // probe
         List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
         List<Type> probeOperatorTypes = ImmutableList.<Type>of(VARCHAR, BIGINT);
-        List<Page> probeInput = rowPagesBuilder(Ints.asList(0), probeTypes)
+        List<Page> probeInput = rowPagesBuilderWithHash(Ints.asList(0), probeTypes)
                 .row("a")
                 .row("b")
                 .row((String) null)
@@ -279,7 +278,7 @@ public class TestHashJoinOperator
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
         List<Type> buildOperatorTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT, BIGINT);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilder(Ints.asList(0), buildTypes)
+        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilderWithHash(Ints.asList(0), buildTypes)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
 
@@ -294,7 +293,7 @@ public class TestHashJoinOperator
         // probe
         List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
         List<Type> probeOperatorTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT, BIGINT);
-        List<Page> probeInput = rowPagesBuilder(Ints.asList(0), probeTypes)
+        List<Page> probeInput = rowPagesBuilderWithHash(Ints.asList(0), probeTypes)
                 .addSequencePage(15, 20, 1020, 2020)
                 .build();
         OperatorFactory joinOperatorFactory = LookupJoinOperators.outerJoin(
@@ -338,7 +337,7 @@ public class TestHashJoinOperator
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
         List<Type> buildOperatorTypes = ImmutableList.<Type>of(VARCHAR, BIGINT);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilder(Ints.asList(0), buildTypes)
+        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilderWithHash(Ints.asList(0), buildTypes)
                 .row("a")
                 .row("b")
                 .row("c")
@@ -354,7 +353,7 @@ public class TestHashJoinOperator
         // probe
         List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
         List<Type> probeOperatorTypes = ImmutableList.<Type>of(VARCHAR, BIGINT);
-        List<Page> probeInput = rowPagesBuilder(Ints.asList(0), probeTypes)
+        List<Page> probeInput = rowPagesBuilderWithHash(Ints.asList(0), probeTypes)
                 .row("a")
                 .row((String) null)
                 .row((String) null)
@@ -391,7 +390,7 @@ public class TestHashJoinOperator
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
         List<Type> buildOperatorTypes = ImmutableList.<Type>of(VARCHAR, BIGINT);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilder(Ints.asList(0), buildTypes)
+        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilderWithHash(Ints.asList(0), buildTypes)
                 .row("a")
                 .row((String) null)
                 .row((String) null)
@@ -409,7 +408,7 @@ public class TestHashJoinOperator
         // probe
         List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
         List<Type> probeOperatorTypes = ImmutableList.<Type>of(VARCHAR, BIGINT);
-        List<Page> probeInput = rowPagesBuilder(Ints.asList(0), probeTypes)
+        List<Page> probeInput = rowPagesBuilderWithHash(Ints.asList(0), probeTypes)
                 .row("a")
                 .row("b")
                 .row("c")
@@ -443,7 +442,7 @@ public class TestHashJoinOperator
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
         List<Type> buildOperatorTypes = ImmutableList.<Type>of(VARCHAR, BIGINT);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilder(Ints.asList(0), buildTypes)
+        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilderWithHash(Ints.asList(0), buildTypes)
                 .row("a")
                 .row((String) null)
                 .row((String) null)
@@ -461,7 +460,7 @@ public class TestHashJoinOperator
         // probe
         List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
         List<Type> probeOperatorTypes = ImmutableList.<Type>of(VARCHAR, BIGINT);
-        List<Page> probeInput = rowPagesBuilder(Ints.asList(0), probeTypes)
+        List<Page> probeInput = rowPagesBuilderWithHash(Ints.asList(0), probeTypes)
                 .row("a")
                 .row("b")
                 .row((String) null)
@@ -498,7 +497,7 @@ public class TestHashJoinOperator
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
         List<Type> buildOperatorTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilder(Ints.asList(0), buildTypes)
+        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilderWithHash(Ints.asList(0), buildTypes)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
 

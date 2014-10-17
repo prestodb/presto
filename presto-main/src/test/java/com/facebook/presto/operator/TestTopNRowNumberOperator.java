@@ -28,7 +28,7 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
-import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.operator.RowPagesBuilderWithHash.rowPagesBuilderWithHash;
 import static com.facebook.presto.operator.TopNRowNumberOperator.TopNRowNumberOperatorFactory;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -61,7 +61,7 @@ public class TestTopNRowNumberOperator
     public void testTopNRowNumberPartitioned()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(ImmutableList.of(0), BIGINT, DOUBLE)
+        List<Page> input = rowPagesBuilderWithHash(ImmutableList.of(0), BIGINT, DOUBLE)
                 .row(1, 0.3)
                 .row(2, 0.2)
                 .row(3, 0.1)

@@ -66,7 +66,7 @@ public final class InMemoryJoinHash
 
         // index pages
         for (int position = 0; position < addresses.size(); position++) {
-            int pos = ((int) Murmur3.hash64(hashPosition(position))) & mask;
+            int pos = getHashPosition(hashPosition(position), mask);
 
             // look for an empty slot or a slot containing this key
             while (key[pos] != -1) {
@@ -96,7 +96,7 @@ public final class InMemoryJoinHash
     @Override
     public long getJoinPosition(int position, Block hashBlock, Block... blocks)
     {
-        int pos = ((int) Murmur3.hash64((int) BigintType.BIGINT.getLong(hashBlock, position))) & mask;
+        int pos = getHashPosition(getRawHash(hashBlock, position), mask);
 
         while (key[pos] != -1) {
             if (positionEqualsCurrentRow(key[pos], position, blocks)) {
@@ -158,5 +158,15 @@ public final class InMemoryJoinHash
         int rightBlockPosition = decodePosition(rightPageAddress);
 
         return pagesHashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition);
+    }
+
+    private static int getRawHash(Block hashBlock, int position)
+    {
+        return (int) BigintType.BIGINT.getLong(hashBlock, position);
+    }
+
+    private static int getHashPosition(int rawHash, int mask)
+    {
+        return ((int) Murmur3.hash64(rawHash)) & mask;
     }
 }

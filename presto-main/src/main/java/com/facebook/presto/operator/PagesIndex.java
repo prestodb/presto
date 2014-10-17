@@ -21,7 +21,6 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.OrderingCompiler;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -38,8 +37,8 @@ import java.util.List;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
+import static com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
 
 /**
@@ -66,7 +65,6 @@ public class PagesIndex
     private final OperatorContext operatorContext;
     private final LongArrayList valueAddresses;
     private final ObjectArrayList<Block>[] channels;
-    private final Optional<Integer> channelContainingHash;
 
     private int positionCount;
     private long pagesMemorySize;
@@ -74,18 +72,7 @@ public class PagesIndex
 
     public PagesIndex(List<Type> types, int expectedPositions, OperatorContext operatorContext)
     {
-        this(types, expectedPositions, Optional.<Integer>absent(), operatorContext);
-    }
-
-    public PagesIndex(List<Type> types, int expectedPositions, int channelContainingHash, OperatorContext operatorContext)
-    {
-        this(types, expectedPositions, Optional.of(channelContainingHash), operatorContext);
-    }
-
-    public PagesIndex(List<Type> types, int expectedPositions, Optional<Integer> channelContainingHash, OperatorContext operatorContext)
-    {
         this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        this.channelContainingHash = checkNotNull(channelContainingHash, "channelContainingHash is null");
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.valueAddresses = new LongArrayList(expectedPositions);
 
@@ -256,35 +243,33 @@ public class PagesIndex
         };
     }
 
-    public LookupSource createLookupSource(List<Integer> joinChannels)
+    public LookupSource createLookupSource(List<Integer> joinChannels, int channelContainingHash)
     {
-//        checkState(channelContainingHash.isPresent(), "channelContainingHash is absent");
-//        try {
-//            LookupSourceFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels, channelContainingHash.get());
-//
-//            ImmutableList.Builder<Type> joinChannelTypes = ImmutableList.builder();
-//            for (Integer joinChannel : joinChannels) {
-//                joinChannelTypes.add(types.get(joinChannel));
-//            }
-//            LookupSource lookupSource = lookupSourceFactory.createLookupSource(
-//                    valueAddresses,
-//                    joinChannelTypes.build(),
-//                    ImmutableList.<List<Block>>copyOf(channels),
-//                    channelContainingHash.get(),
-//                    operatorContext);
-//
-//            return lookupSource;
-//        }
-//        catch (Exception e) {
-//            log.error(e, "Lookup source compile failed for types=%s error=%s", types, e);
-//        }
+        try {
+            LookupSourceFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels, channelContainingHash);
 
-        checkState(channelContainingHash.isPresent(), "channelContainingHash is absent");
+            ImmutableList.Builder<Type> joinChannelTypes = ImmutableList.builder();
+            for (Integer joinChannel : joinChannels) {
+                joinChannelTypes.add(types.get(joinChannel));
+            }
+            LookupSource lookupSource = lookupSourceFactory.createLookupSource(
+                    valueAddresses,
+                    joinChannelTypes.build(),
+                    ImmutableList.<List<Block>>copyOf(channels),
+                    channelContainingHash,
+                    operatorContext);
+
+            return lookupSource;
+        }
+        catch (Exception e) {
+            log.error(e, "Lookup source compile failed for types=%s error=%s", types, e);
+        }
+
         PagesHashStrategy hashStrategy = new SimplePagesHashStrategy(
                 types,
                 ImmutableList.<List<Block>>copyOf(channels),
                 joinChannels,
-                channelContainingHash.get());
+                channelContainingHash);
 
         ImmutableList.Builder<Type> hashTypes = ImmutableList.builder();
         for (Integer channel : joinChannels) {

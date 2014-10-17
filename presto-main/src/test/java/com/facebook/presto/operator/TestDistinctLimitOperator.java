@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.operator.RowPagesBuilderWithHash.rowPagesBuilderWithHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -58,7 +58,7 @@ public class TestDistinctLimitOperator
             throws Exception
     {
         List<Integer> hashChannel = ImmutableList.of(0);
-        List<Page> input = rowPagesBuilder(hashChannel, BIGINT)
+        List<Page> input = rowPagesBuilderWithHash(hashChannel, BIGINT)
                 .addSequencePage(3, 1)
                 .addSequencePage(5, 2)
                 .build();
@@ -82,7 +82,7 @@ public class TestDistinctLimitOperator
             throws Exception
     {
         List<Integer> hashChannel = ImmutableList.of(0);
-        List<Page> input = rowPagesBuilder(hashChannel, BIGINT)
+        List<Page> input = rowPagesBuilderWithHash(hashChannel, BIGINT)
                 .addSequencePage(3, 1)
                 .addSequencePage(3, 2)
                 .build();
@@ -104,7 +104,7 @@ public class TestDistinctLimitOperator
             throws Exception
     {
         List<Integer> hashChannel = ImmutableList.of(0);
-        List<Page> input = rowPagesBuilder(hashChannel, BIGINT)
+        List<Page> input = rowPagesBuilderWithHash(hashChannel, BIGINT)
                 .addSequencePage(3, 1)
                 .addSequencePage(3, 2)
                 .build();

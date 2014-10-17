@@ -42,6 +42,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.operator.RowPagesBuilderWithHash.rowPagesBuilderWithHash;
 import static com.facebook.presto.operator.WindowFunctionDefinition.window;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -100,7 +101,7 @@ public class TestWindowOperator
     public void testRowNumber()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(Ints.asList(0), BIGINT, DOUBLE)
+        List<Page> input = rowPagesBuilderWithHash(Ints.asList(0), BIGINT, DOUBLE)
                 .row(2, 0.3)
                 .row(4, 0.2)
                 .row(6, 0.1)
@@ -137,7 +138,7 @@ public class TestWindowOperator
     public void testRowNumberPartition()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(Ints.asList(0), VARCHAR, BIGINT, DOUBLE, BOOLEAN)
+        List<Page> input = rowPagesBuilderWithHash(Ints.asList(0), VARCHAR, BIGINT, DOUBLE, BOOLEAN)
                 .row("b", -1, -0.1, true)
                 .row("a", 2, 0.3, false)
                 .row("a", 4, 0.2, true)
@@ -174,7 +175,7 @@ public class TestWindowOperator
     public void testRowNumberArbitrary()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(Ints.asList(0), BIGINT)
+        List<Page> input = rowPagesBuilderWithHash(Ints.asList(0), BIGINT)
                 .row(1)
                 .row(3)
                 .row(5)
@@ -216,7 +217,7 @@ public class TestWindowOperator
     public void testMemoryLimit()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(Ints.asList(0), BIGINT, DOUBLE)
+        List<Page> input = rowPagesBuilderWithHash(Ints.asList(0), BIGINT, DOUBLE)
                 .row(1, 0.1)
                 .row(2, 0.2)
                 .pageBreak()
@@ -287,7 +288,7 @@ public class TestWindowOperator
     public void testLastValuePartition()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(Ints.asList(0), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
+        List<Page> input = rowPagesBuilderWithHash(Ints.asList(0), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1, true, "")
                 .row("a", "A2", 1, false, "")
                 .row("a", "B1", 2, true, "")
@@ -326,7 +327,7 @@ public class TestWindowOperator
     public void testNthValuePartition()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(Ints.asList(0), VARCHAR, VARCHAR, BIGINT, BIGINT, BOOLEAN, VARCHAR)
+        List<Page> input = rowPagesBuilderWithHash(Ints.asList(0), VARCHAR, VARCHAR, BIGINT, BIGINT, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1, 2, true, "")
                 .row("a", "A2", 1, 3, false, "")
                 .row("a", "B1", 2, 2, true, "")
@@ -365,7 +366,7 @@ public class TestWindowOperator
     public void testLagPartition()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(Ints.asList(0), VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR)
+        List<Page> input = rowPagesBuilderWithHash(Ints.asList(0), VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1, 1, "D", true, "")
                 .row("a", "A2", 1, 2, "D", false, "")
                 .row("a", "B1", 2, 2, "D", true, "")
@@ -404,7 +405,7 @@ public class TestWindowOperator
     public void testLeadPartition()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(Ints.asList(0), VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR)
+        List<Page> input = rowPagesBuilderWithHash(Ints.asList(0), VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1, 1, "D", true, "")
                 .row("a", "A2", 1, 2, "D", false, "")
                 .row("a", "B1", 2, 2, "D", true, "")

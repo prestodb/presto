@@ -24,6 +24,7 @@ public final class CombineHashFunction
     @SqlType(StandardTypes.BIGINT)
     public static long getHash(@SqlType(StandardTypes.BIGINT) long previousHashValue, @SqlType(StandardTypes.BIGINT) long value)
     {
-        return 31 * previousHashValue + value;
+        // We use int hashes everywhere, so force this to be int
+        return (int) (31 * previousHashValue + value);
     }
 }

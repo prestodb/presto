@@ -18,6 +18,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
@@ -63,14 +64,12 @@ public class UnloadedIndexKeyRecordSet
 
         for (UpdateRequest request : requests) {
             IntList positions = new IntArrayList();
-
             Block[] blocks = request.getBlocks();
-            Block hashBlock = request.getHashBlock();
-
             Block[] distinctBlocks = new Block[distinctChannels.length];
             for (int i = 0; i < distinctBlocks.length; i++) {
                 distinctBlocks[i] = blocks[distinctChannels[i]];
             }
+            Block hashBlock = TypeUtils.getHashBlock(distinctChannelTypes, distinctBlocks);
 
             // Move through the positions while advancing the cursors in lockstep
             int positionCount = blocks[0].getPositionCount();
@@ -124,6 +123,7 @@ public class UnloadedIndexKeyRecordSet
         private final List<Type> types;
         private final Iterator<PageAndPositions> pageAndPositionsIterator;
         private Block[] blocks;
+        private Block hashBlock;
         private IntListIterator positionIterator;
         private int position;
 
@@ -167,6 +167,7 @@ public class UnloadedIndexKeyRecordSet
                 }
                 PageAndPositions pageAndPositions = pageAndPositionsIterator.next();
                 blocks = pageAndPositions.getUpdateRequest().getBlocks();
+                hashBlock = pageAndPositions.getUpdateRequest().getHashBlock();
                 checkState(types.size() == blocks.length);
                 positionIterator = pageAndPositions.getPositions().iterator();
             }
@@ -179,6 +180,11 @@ public class UnloadedIndexKeyRecordSet
         public Block[] getBlocks()
         {
             return blocks;
+        }
+
+        public Block getHashBlock()
+        {
+            return hashBlock;
         }
 
         public int getPosition()

@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.operator.RowPagesBuilderWithHash.rowPagesBuilderWithHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
@@ -70,7 +70,7 @@ public class TestHashSemiJoinOperator
         List<Type> buildTypes = ImmutableList.<Type>of(BIGINT);
         List<Type> buildOperatorTypes = ImmutableList.<Type>of(BIGINT, BIGINT);
         List<Integer> hashChannel = ImmutableList.of(0);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilder(hashChannel, buildTypes)
+        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilderWithHash(hashChannel, buildTypes)
                 .row(10)
                 .row(30)
                 .row(30)
@@ -91,7 +91,7 @@ public class TestHashSemiJoinOperator
         // probe
         List<Type> probeTypes = ImmutableList.<Type>of(BIGINT, BIGINT);
         List<Type> probeOperatorTypes = ImmutableList.<Type>of(BIGINT, BIGINT, BIGINT);
-        List<Page> probeInput = rowPagesBuilder(Ints.asList(0), probeTypes)
+        List<Page> probeInput = rowPagesBuilderWithHash(Ints.asList(0), probeTypes)
                 .addSequencePage(10, 30, 0)
                 .build();
         HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
@@ -131,7 +131,7 @@ public class TestHashSemiJoinOperator
         List<Type> buildTypes = ImmutableList.<Type>of(BIGINT);
         List<Type> buildOperatorTypes = ImmutableList.<Type>of(BIGINT);
         List<Integer> hashChannel = ImmutableList.of(0);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilder(hashChannel, buildTypes)
+        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilderWithHash(hashChannel, buildTypes)
                 .row(0)
                 .row(1)
                 .row(2)
@@ -151,7 +151,7 @@ public class TestHashSemiJoinOperator
         // probe
         List<Type> probeTypes = ImmutableList.<Type>of(BIGINT);
         List<Type> probeOperatorTypes = ImmutableList.<Type>of(BIGINT, BIGINT);
-        List<Page> probeInput = rowPagesBuilder(Ints.asList(0), probeTypes)
+        List<Page> probeInput = rowPagesBuilderWithHash(Ints.asList(0), probeTypes)
                 .addSequencePage(4, 1)
                 .build();
         HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
@@ -184,7 +184,7 @@ public class TestHashSemiJoinOperator
         List<Type> buildTypes = ImmutableList.<Type>of(BIGINT);
         List<Type> buildOperatorTypes = ImmutableList.<Type>of(BIGINT, BIGINT);
         List<Integer> hashChannel = ImmutableList.of(0);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilder(hashChannel, buildTypes)
+        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilderWithHash(hashChannel, buildTypes)
                 .row(0)
                 .row(1)
                 .row(3)
@@ -201,7 +201,7 @@ public class TestHashSemiJoinOperator
         // probe
         List<Type> probeTypes = ImmutableList.<Type>of(BIGINT);
         List<Type> probeOperatorTypes = ImmutableList.<Type>of(BIGINT, BIGINT);
-        List<Page> probeInput = rowPagesBuilder(Ints.asList(0), probeTypes)
+        List<Page> probeInput = rowPagesBuilderWithHash(Ints.asList(0), probeTypes)
                 .row(0)
                 .row((Object) null)
                 .row(1)
@@ -237,7 +237,7 @@ public class TestHashSemiJoinOperator
         List<Type> buildTypes = ImmutableList.<Type>of(BIGINT);
         List<Type> buildOperatorTypes = ImmutableList.<Type>of(BIGINT, BIGINT);
         List<Integer> hashChannel = ImmutableList.of(0);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilder(hashChannel, buildTypes)
+        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilderWithHash(hashChannel, buildTypes)
                 .row(0)
                 .row(1)
                 .row((Object) null)
@@ -255,7 +255,7 @@ public class TestHashSemiJoinOperator
         // probe
         List<Type> probeTypes = ImmutableList.<Type>of(BIGINT);
         List<Type> probeOperatorTypes = ImmutableList.<Type>of(BIGINT, BIGINT);
-        List<Page> probeInput = rowPagesBuilder(Ints.asList(0), probeTypes)
+        List<Page> probeInput = rowPagesBuilderWithHash(Ints.asList(0), probeTypes)
                 .row(0)
                 .row((Object) null)
                 .row(1)
@@ -292,7 +292,7 @@ public class TestHashSemiJoinOperator
         List<Type> buildTypes = ImmutableList.<Type>of(BIGINT);
         List<Type> buildOperatorTypes = ImmutableList.<Type>of(BIGINT, BIGINT);
         List<Integer> hashChannel = ImmutableList.of(0);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilder(hashChannel, buildTypes)
+        Operator buildOperator = new ValuesOperator(operatorContext, buildOperatorTypes, rowPagesBuilderWithHash(hashChannel, buildTypes)
                 .addSequencePage(10000, 20)
                 .build());
 

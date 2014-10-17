@@ -39,6 +39,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.operator.RowPagesBuilderWithHash.rowPagesBuilderWithHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
@@ -131,7 +132,7 @@ public class TestRowNumberOperator
             throws Exception
     {
         DriverContext driverContext = getDriverContext();
-        List<Page> input = rowPagesBuilder(Ints.asList(0), BIGINT, DOUBLE)
+        List<Page> input = rowPagesBuilderWithHash(Ints.asList(0), BIGINT, DOUBLE)
                 .row(1, 0.3)
                 .row(2, 0.2)
                 .row(3, 0.1)
@@ -197,7 +198,7 @@ public class TestRowNumberOperator
             throws Exception
     {
         DriverContext driverContext = getDriverContext();
-        List<Page> input = rowPagesBuilder(Ints.asList(0), BIGINT, DOUBLE)
+        List<Page> input = rowPagesBuilderWithHash(Ints.asList(0), BIGINT, DOUBLE)
                 .row(1, 0.3)
                 .row(2, 0.2)
                 .row(3, 0.1)

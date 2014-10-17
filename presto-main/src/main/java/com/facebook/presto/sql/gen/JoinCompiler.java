@@ -70,7 +70,7 @@ public class JoinCompiler
                 public LookupSourceFactory load(CacheKey key)
                         throws Exception
                 {
-                    return internalCompileLookupSourceFactory(key.getTypes(), key.getJoinChannels(), key.getHashChannel());
+                    return internalCompileLookupSourceFactory(key.getTypes(), key.getJoinChannels());
                 }
             });
 
@@ -80,7 +80,7 @@ public class JoinCompiler
                 public Class<? extends PagesHashStrategy> load(CacheKey key)
                         throws Exception
                 {
-                    return internalCompileHashStrategy(key.getTypes(), key.getJoinChannels(), key.getHashChannel());
+                    return internalCompileHashStrategy(key.getTypes(), key.getJoinChannels());
                 }
             });
 
@@ -91,29 +91,29 @@ public class JoinCompiler
         checkArgument(hashChannel >= 0, "invalid hashChannel");
 
         try {
-            return lookupSourceFactories.get(new CacheKey(types, joinChannels, hashChannel));
+            return lookupSourceFactories.get(new CacheKey(types, joinChannels));
         }
         catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
             throw Throwables.propagate(e.getCause());
         }
     }
 
-    public PagesHashStrategyFactory compilePagesHashStrategyFactory(List<Type> types, List<Integer> joinChannels, int hashChannel)
+    public PagesHashStrategyFactory compilePagesHashStrategyFactory(List<Type> types, List<Integer> joinChannels)
     {
         checkNotNull(types, "types is null");
         checkNotNull(joinChannels, "joinChannels is null");
 
         try {
-            return new PagesHashStrategyFactory(hashStrategies.get(new CacheKey(types, joinChannels, hashChannel)));
+            return new PagesHashStrategyFactory(hashStrategies.get(new CacheKey(types, joinChannels)));
         }
         catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
             throw Throwables.propagate(e.getCause());
         }
     }
 
-    private LookupSourceFactory internalCompileLookupSourceFactory(List<Type> types, List<Integer> joinChannels, int hashChannel)
+    private LookupSourceFactory internalCompileLookupSourceFactory(List<Type> types, List<Integer> joinChannels)
     {
-        Class<? extends PagesHashStrategy> pagesHashStrategyClass = internalCompileHashStrategy(types, joinChannels, hashChannel);
+        Class<? extends PagesHashStrategy> pagesHashStrategyClass = internalCompileHashStrategy(types, joinChannels);
 
         Class<? extends LookupSource> lookupSourceClass = IsolatedClass.isolateClass(
                 new DynamicClassLoader(getClass().getClassLoader()),
@@ -123,7 +123,7 @@ public class JoinCompiler
         return new LookupSourceFactory(lookupSourceClass, new PagesHashStrategyFactory(pagesHashStrategyClass));
     }
 
-    private Class<? extends PagesHashStrategy> internalCompileHashStrategy(List<Type> types, List<Integer> joinChannels, int hashChannel)
+    private Class<? extends PagesHashStrategy> internalCompileHashStrategy(List<Type> types, List<Integer> joinChannels)
     {
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
@@ -191,6 +191,7 @@ public class JoinCompiler
             constructor.append(compilerContext.getVariable("this").setField(joinChannelFields.get(index), joinChannel));
         }
 
+        constructor.comment("Set hash channel field");
         ByteCodeExpression hashChannel = compilerContext.getVariable("channels")
                 .invoke("get", Object.class, compilerContext.getVariable("channelContainingHash"))
                 .cast(type(List.class, com.facebook.presto.spi.block.Block.class));
@@ -277,7 +278,7 @@ public class JoinCompiler
             List<FieldDefinition> joinChannelFields)
     {
         CompilerContext compilerContext = new CompilerContext(BOOTSTRAP_METHOD);
-        MethodDefinition hashPositionMethod = classDefinition.declareMethod(compilerContext,
+        MethodDefinition positionEqualsRowMethod = classDefinition.declareMethod(compilerContext,
                 a(PUBLIC),
                 "positionEqualsRow",
                 type(boolean.class),
@@ -300,7 +301,7 @@ public class JoinCompiler
                     .getElement(index);
 
             LabelNode checkNextField = new LabelNode("checkNextField");
-            hashPositionMethod
+            positionEqualsRowMethod
                     .getBody()
                     .append(typeEquals(compilerContext,
                             type,
@@ -314,7 +315,7 @@ public class JoinCompiler
                     .visitLabel(checkNextField);
         }
 
-        hashPositionMethod
+        positionEqualsRowMethod
                 .getBody()
                 .push(true)
                 .retInt();
@@ -454,13 +455,11 @@ public class JoinCompiler
     {
         private final List<Type> types;
         private final List<Integer> joinChannels;
-        private final int hashChannel;
 
-        private CacheKey(List<? extends Type> types, List<Integer> joinChannels, int hashChannel)
+        private CacheKey(List<? extends Type> types, List<Integer> joinChannels)
         {
             this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
             this.joinChannels = ImmutableList.copyOf(checkNotNull(joinChannels, "joinChannels is null"));
-            this.hashChannel = hashChannel;
         }
 
         private List<Type> getTypes()
@@ -471,11 +470,6 @@ public class JoinCompiler
         private List<Integer> getJoinChannels()
         {
             return joinChannels;
-        }
-
-        public int getHashChannel()
-        {
-            return hashChannel;
         }
 
         @Override

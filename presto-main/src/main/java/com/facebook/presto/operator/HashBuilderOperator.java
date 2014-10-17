@@ -93,6 +93,7 @@ public class HashBuilderOperator
     private final OperatorContext operatorContext;
     private final SettableLookupSourceSupplier lookupSourceSupplier;
     private final List<Integer> hashChannels;
+    private final int channelContainingHash;
 
     private final PagesIndex pagesIndex;
 
@@ -111,8 +112,8 @@ public class HashBuilderOperator
 
         checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
         this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
-
-        this.pagesIndex = new PagesIndex(lookupSourceSupplier.getTypes(), expectedPositions, channelContainingHash, operatorContext);
+        this.channelContainingHash = channelContainingHash;
+        this.pagesIndex = new PagesIndex(lookupSourceSupplier.getTypes(), expectedPositions, operatorContext);
     }
 
     @Override
@@ -134,7 +135,7 @@ public class HashBuilderOperator
             return;
         }
 
-        LookupSource lookupSource = pagesIndex.createLookupSource(hashChannels);
+        LookupSource lookupSource = pagesIndex.createLookupSource(hashChannels, channelContainingHash);
         lookupSourceSupplier.setLookupSource(lookupSource);
         finished = true;
     }

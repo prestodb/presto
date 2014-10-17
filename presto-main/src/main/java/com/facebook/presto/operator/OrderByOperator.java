@@ -17,7 +17,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -132,7 +131,7 @@ public class OrderByOperator
         this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
         this.sortOrder = ImmutableList.copyOf(checkNotNull(sortOrder, "sortOrder is null"));
 
-        this.pageIndex = new PagesIndex(sourceTypes, expectedPositions, Optional.<Integer>absent(), operatorContext);
+        this.pageIndex = new PagesIndex(sourceTypes, expectedPositions, operatorContext);
 
         this.pageBuilder = new PageBuilder(this.types);
     }
