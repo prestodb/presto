@@ -58,7 +58,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
-import com.google.common.primitives.Primitives;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -85,7 +84,6 @@ import org.joda.time.DateTimeZone;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -110,7 +108,7 @@ import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
 import static com.facebook.presto.hive.HiveUtil.encodeViewData;
 import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
-import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
+import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
 import static com.facebook.presto.hive.HiveUtil.partitionIdGetter;
 import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_PARTITION;
 import static com.facebook.presto.hive.util.Types.checkType;
@@ -132,10 +130,6 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
-import static io.airlift.slice.Slices.utf8Slice;
-import static java.lang.Boolean.parseBoolean;
-import static java.lang.Double.parseDouble;
-import static java.lang.Long.parseLong;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
@@ -1305,44 +1299,7 @@ public class HiveClient
                         checkArgument(handle != null, "Invalid partition key %s in partition %s", entry.getKey(), partitionId);
                         HiveColumnHandle columnHandle = checkType(handle, HiveColumnHandle.class, "handle");
 
-                        String value = entry.getValue();
-                        Type type = typeManager.getType(columnHandle.getTypeSignature());
-                        if (HiveUtil.isHiveNull(value.getBytes(StandardCharsets.UTF_8))) {
-                            builder.put(columnHandle, new SerializableNativeValue(Primitives.wrap(type.getJavaType()), null));
-                        }
-                        else if (BOOLEAN.equals(type)) {
-                            if (value.isEmpty()) {
-                                builder.put(columnHandle, new SerializableNativeValue(Boolean.class, false));
-                            }
-                            else {
-                                builder.put(columnHandle, new SerializableNativeValue(Boolean.class, parseBoolean(value)));
-                            }
-                        }
-                        else if (BIGINT.equals(type)) {
-                            if (value.isEmpty()) {
-                                builder.put(columnHandle, new SerializableNativeValue(Long.class, 0L));
-                            }
-                            else if (columnHandle.getHiveType().equals(HiveType.HIVE_TIMESTAMP)) {
-                                builder.put(columnHandle, new SerializableNativeValue(Long.class, parseHiveTimestamp(value, timeZone)));
-                            }
-                            else {
-                                builder.put(columnHandle, new SerializableNativeValue(Long.class, parseLong(value)));
-                            }
-                        }
-                        else if (DOUBLE.equals(type)) {
-                            if (value.isEmpty()) {
-                                builder.put(columnHandle, new SerializableNativeValue(Double.class, 0.0));
-                            }
-                            else {
-                                builder.put(columnHandle, new SerializableNativeValue(Double.class, parseDouble(value)));
-                            }
-                        }
-                        else if (VARCHAR.equals(type)) {
-                            builder.put(columnHandle, new SerializableNativeValue(Slice.class, utf8Slice(value)));
-                        }
-                        else {
-                            throw new IllegalArgumentException(format("Unsupported partition type [%s] for partition: %s", type, partitionId));
-                        }
+                        builder.put(columnHandle, parsePartitionValue(partitionId, entry.getValue(), columnHandle.getHiveType(), timeZone));
                     }
                     return new HivePartition(tableName, partitionId, builder.build(), bucket);
                 }

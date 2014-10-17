@@ -15,12 +15,14 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SerializableNativeValue;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -48,6 +50,7 @@ import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.DateTimeParser;
 import org.joda.time.format.DateTimePrinter;
+import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -59,12 +62,27 @@ import java.util.concurrent.Callable;
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnIndexGetter;
 import static com.facebook.presto.hive.HiveColumnHandle.isPartitionKeyPredicate;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
+import static com.facebook.presto.hive.HiveType.HIVE_BOOLEAN;
+import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
+import static com.facebook.presto.hive.HiveType.HIVE_DATE;
+import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
+import static com.facebook.presto.hive.HiveType.HIVE_FLOAT;
+import static com.facebook.presto.hive.HiveType.HIVE_INT;
+import static com.facebook.presto.hive.HiveType.HIVE_LONG;
+import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
+import static com.facebook.presto.hive.HiveType.HIVE_STRING;
+import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
 import static com.facebook.presto.hive.RetryDriver.retry;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.transform;
 import static com.google.common.io.BaseEncoding.base64;
+import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Boolean.parseBoolean;
+import static java.lang.Double.parseDouble;
+import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getTableMetadata;
@@ -299,6 +317,65 @@ public final class HiveUtil
     public static boolean isHiveNull(byte[] bytes)
     {
         return bytes.length == 2 && bytes[0] == '\\' && bytes[1] == 'N';
+    }
+
+    public static SerializableNativeValue parsePartitionValue(String partitionName, String value, HiveType hiveType, DateTimeZone timeZone)
+    {
+        boolean isNull = isHiveNull(value.getBytes(UTF_8));
+
+        if (HIVE_BOOLEAN.equals(hiveType)) {
+            if (isNull) {
+                return new SerializableNativeValue(Boolean.class, null);
+            }
+            if (value.isEmpty()) {
+                return new SerializableNativeValue(Boolean.class, false);
+            }
+            return new SerializableNativeValue(Boolean.class, parseBoolean(value));
+        }
+
+        if (HIVE_BYTE.equals(hiveType) || HIVE_SHORT.equals(hiveType) || HIVE_INT.equals(hiveType) || HIVE_LONG.equals(hiveType)) {
+            if (isNull) {
+                return new SerializableNativeValue(Long.class, null);
+            }
+            if (value.isEmpty()) {
+                return new SerializableNativeValue(Long.class, 0L);
+            }
+            return new SerializableNativeValue(Long.class, parseLong(value));
+        }
+
+        if (HIVE_DATE.equals(hiveType)) {
+            if (isNull) {
+                return new SerializableNativeValue(Long.class, null);
+            }
+            long dateInMillis = ISODateTimeFormat.date().withZone(DateTimeZone.UTC).parseMillis(value);
+            return new SerializableNativeValue(Long.class, dateInMillis);
+        }
+
+        if (HIVE_TIMESTAMP.equals(hiveType)) {
+            if (isNull) {
+                return new SerializableNativeValue(Long.class, null);
+            }
+            return new SerializableNativeValue(Long.class, parseHiveTimestamp(value, timeZone));
+        }
+
+        if (HIVE_FLOAT.equals(hiveType) || HIVE_DOUBLE.equals(hiveType)) {
+            if (isNull) {
+                return new SerializableNativeValue(Double.class, null);
+            }
+            if (value.isEmpty()) {
+                return new SerializableNativeValue(Double.class, 0.0);
+            }
+            return new SerializableNativeValue(Double.class, parseDouble(value));
+        }
+
+        if (HIVE_STRING.equals(hiveType)) {
+            if (isNull) {
+                return new SerializableNativeValue(Slice.class, null);
+            }
+            return new SerializableNativeValue(Slice.class, utf8Slice(value));
+        }
+
+        throw new PrestoException(NOT_SUPPORTED, format("Unsupported partition type [%s] for partition: %s", hiveType, partitionName));
     }
 
     public static boolean isPrestoView(Table table)
