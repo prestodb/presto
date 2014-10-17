@@ -16,21 +16,21 @@ package com.facebook.presto.orc.metadata;
 public class ColumnStatistics
 {
     private final Long numberOfValues;
-    private final BucketStatistics bucketStatistics;
+    private final BooleanStatistics booleanStatistics;
     private final IntegerStatistics integerStatistics;
     private final DoubleStatistics doubleStatistics;
     private final StringStatistics stringStatistics;
     private final DateStatistics dateStatistics;
 
     public ColumnStatistics(Long numberOfValues,
-            BucketStatistics bucketStatistics,
+            BooleanStatistics booleanStatistics,
             IntegerStatistics integerStatistics,
             DoubleStatistics doubleStatistics,
             StringStatistics stringStatistics,
             DateStatistics dateStatistics)
     {
         this.numberOfValues = numberOfValues;
-        this.bucketStatistics = bucketStatistics;
+        this.booleanStatistics = booleanStatistics;
         this.integerStatistics = integerStatistics;
         this.doubleStatistics = doubleStatistics;
         this.stringStatistics = stringStatistics;
@@ -47,9 +47,9 @@ public class ColumnStatistics
         return numberOfValues == null ? 0 : numberOfValues;
     }
 
-    public BucketStatistics getBucketStatistics()
+    public BooleanStatistics getBooleanStatistics()
     {
-        return bucketStatistics;
+        return booleanStatistics;
     }
 
     public DateStatistics getDateStatistics()
