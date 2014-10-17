@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.metadata.ParametricFunction;
+import com.facebook.presto.operator.scalar.RowFieldAccessor;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.type.RowType.RowField;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -47,5 +50,15 @@ public final class RowParametricType
             builder.add(checkType(literal, String.class, "literal"));
         }
         return new RowType(types, builder.build());
+    }
+
+    public List<ParametricFunction> createFunctions(Type type)
+    {
+        RowType rowType = checkType(type, RowType.class, "type");
+        ImmutableList.Builder<ParametricFunction> builder = ImmutableList.builder();
+        for (RowField field : rowType.getFields()) {
+            builder.add(new RowFieldAccessor(rowType, field.getName()));
+        }
+        return builder.build();
     }
 }

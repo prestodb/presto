@@ -64,6 +64,7 @@ import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
+import com.facebook.presto.type.RowType;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -104,9 +105,11 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
+import static com.facebook.presto.type.RowType.RowField;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.DateTimeUtils.timeHasTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.timestampHasTimeZone;
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -121,6 +124,7 @@ public class ExpressionAnalyzer
     private final IdentityHashMap<FunctionCall, FunctionInfo> resolvedFunctions = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> expressionTypes = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> expressionCoercions = new IdentityHashMap<>();
+    private final IdentityHashMap<Expression, Boolean> rowFieldAccessors = new IdentityHashMap<>();
     private final Set<InPredicate> subqueryInPredicates = Collections.newSetFromMap(new IdentityHashMap<InPredicate, Boolean>());
 
     public ExpressionAnalyzer(Analysis analysis, Session session, Metadata metadata, SqlParser sqlParser, boolean experimentalSyntaxEnabled)
@@ -150,6 +154,11 @@ public class ExpressionAnalyzer
     public IdentityHashMap<Expression, Type> getExpressionCoercions()
     {
         return expressionCoercions;
+    }
+
+    public IdentityHashMap<Expression, Boolean> getRowFieldAccessors()
+    {
+        return rowFieldAccessors;
     }
 
     public Set<InPredicate> getSubqueryInPredicates()
@@ -226,7 +235,8 @@ public class ExpressionAnalyzer
         {
             List<Field> matches = tupleDescriptor.resolveFields(node.getName());
             if (matches.isEmpty()) {
-                throw new SemanticException(MISSING_ATTRIBUTE, node, "Column '%s' cannot be resolved", node.getName());
+                // TODO This is kind of hacky, instead we should change the way QualifiedNameReferences are parsed
+                return tryVisitRowFieldAccessor(node, context);
             }
             else if (matches.size() > 1) {
                 throw new SemanticException(AMBIGUOUS_ATTRIBUTE, node, "Column '%s' is ambiguous", node.getName());
@@ -238,6 +248,48 @@ public class ExpressionAnalyzer
             expressionTypes.put(node, field.getType());
 
             return field.getType();
+        }
+
+        private Type tryVisitRowFieldAccessor(QualifiedNameReference node, AnalysisContext context)
+        {
+            if (node.getName().getParts().size() < 2) {
+                throw createMissingAttributeException(node);
+            }
+            QualifiedName base = new QualifiedName(node.getName().getParts().subList(0, node.getName().getParts().size() - 1));
+            List<Field> matches = tupleDescriptor.resolveFields(base);
+            if (matches.isEmpty()) {
+                throw createMissingAttributeException(node);
+            }
+            else if (matches.size() > 1) {
+                throw new SemanticException(AMBIGUOUS_ATTRIBUTE, node, "Column '%s' is ambiguous", node.getName());
+            }
+
+            Field field = Iterables.getOnlyElement(matches);
+            if (field.getType() instanceof RowType) {
+                RowType rowType = checkType(field.getType(), RowType.class, "field.getType()");
+                Type rowFieldType = null;
+                for (RowField rowField : rowType.getFields()) {
+                    if (rowField.getName().equals(node.getName().getSuffix())) {
+                        rowFieldType = rowField.getType();
+                        break;
+                    }
+                }
+                if (rowFieldType == null) {
+                    throw createMissingAttributeException(node);
+                }
+                int fieldIndex = tupleDescriptor.indexOf(field);
+                resolvedNames.put(node.getName(), fieldIndex);
+                expressionTypes.put(node, rowFieldType);
+                rowFieldAccessors.put(node, true);
+
+                return rowFieldType;
+            }
+            throw createMissingAttributeException(node);
+        }
+
+        private SemanticException createMissingAttributeException(QualifiedNameReference node)
+        {
+            return new SemanticException(MISSING_ATTRIBUTE, node, "Column '%s' cannot be resolved", node.getName());
         }
 
         @Override
@@ -890,6 +942,7 @@ public class ExpressionAnalyzer
         analysis.addTypes(expressionTypes);
         analysis.addCoercions(expressionCoercions);
         analysis.addFunctionInfos(resolvedFunctions);
+        analysis.addRowFieldAccessors(analyzer.getRowFieldAccessors());
 
         for (Expression subExpression : expressionTypes.keySet()) {
             analysis.addResolvedNames(subExpression, analyzer.getResolvedNames());
