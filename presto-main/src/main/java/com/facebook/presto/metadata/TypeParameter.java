@@ -17,6 +17,8 @@ import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import javax.annotation.Nullable;
+
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -26,16 +28,19 @@ public final class TypeParameter
     private final String name;
     private final boolean comparableRequired;
     private final boolean orderableRequired;
+    private final String variadicBound;
 
     @JsonCreator
     public TypeParameter(
             @JsonProperty("name") String name,
             @JsonProperty("comparableRequired") boolean comparableRequired,
-            @JsonProperty("orderableRequired") boolean orderableRequired)
+            @JsonProperty("orderableRequired") boolean orderableRequired,
+            @JsonProperty("variadicBound") @Nullable String variadicBound)
     {
         this.name = checkNotNull(name, "name is null");
         this.comparableRequired = comparableRequired;
         this.orderableRequired = orderableRequired;
+        this.variadicBound = variadicBound;
     }
 
     @JsonProperty
@@ -56,9 +61,24 @@ public final class TypeParameter
         return orderableRequired;
     }
 
+    @JsonProperty
+    public String getVariadicBound()
+    {
+        return variadicBound;
+    }
+
     public boolean canBind(Type type)
     {
-        return (!comparableRequired || type.isComparable()) && (!orderableRequired || type.isOrderable());
+        if (comparableRequired && !type.isComparable()) {
+            return false;
+        }
+        if (orderableRequired && !type.isOrderable()) {
+            return false;
+        }
+        if (variadicBound != null && !type.getTypeSignature().getBase().equals(variadicBound)) {
+            return false;
+        }
+        return true;
     }
 
     @Override
@@ -70,6 +90,9 @@ public final class TypeParameter
         }
         if (orderableRequired) {
             value += ":orderable";
+        }
+        if (variadicBound != null) {
+            value += ":" + variadicBound + "<*>";
         }
         return value;
     }
@@ -88,12 +111,13 @@ public final class TypeParameter
 
         return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.comparableRequired, other.comparableRequired) &&
-                Objects.equals(this.orderableRequired, other.orderableRequired);
+                Objects.equals(this.orderableRequired, other.orderableRequired) &&
+                Objects.equals(this.variadicBound, other.variadicBound);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, comparableRequired, orderableRequired);
+        return Objects.hash(name, comparableRequired, orderableRequired, variadicBound);
     }
 }
