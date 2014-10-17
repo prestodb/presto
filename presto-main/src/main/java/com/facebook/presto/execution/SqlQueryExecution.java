@@ -75,6 +75,7 @@ public class SqlQueryExecution
     private final LocationFactory locationFactory;
     private final int scheduleSplitBatchSize;
     private final int initialHashPartitions;
+    private final int minSourceCandidates;
     private final boolean experimentalSyntaxEnabled;
     private final boolean distributedIndexJoinsEnabled;
     private final boolean distributedJoinsEnabled;
@@ -99,6 +100,7 @@ public class SqlQueryExecution
             int scheduleSplitBatchSize,
             int maxPendingSplitsPerNode,
             int initialHashPartitions,
+            int minSourceCandidates,
             boolean experimentalSyntaxEnabled,
             boolean distributedIndexJoinsEnabled,
             boolean distributedJoinsEnabled,
@@ -126,6 +128,9 @@ public class SqlQueryExecution
 
             checkArgument(initialHashPartitions > 0, "initialHashPartitions must be greater than 0");
             this.initialHashPartitions = initialHashPartitions;
+
+            checkArgument(minSourceCandidates > 0, "minSourceCandidates must be greater than 0");
+            this.minSourceCandidates = minSourceCandidates;
 
             checkNotNull(queryId, "queryId is null");
             checkNotNull(query, "query is null");
@@ -244,6 +249,7 @@ public class SqlQueryExecution
                 stateMachine.getSession(),
                 scheduleSplitBatchSize,
                 initialHashPartitions,
+                minSourceCandidates,
                 queryExecutor,
                 nodeTaskMap,
                 ROOT_OUTPUT_BUFFERS);
@@ -392,6 +398,7 @@ public class SqlQueryExecution
         private final int maxPendingSplitsPerNode;
         private final int initialHashPartitions;
         private final Integer bigQueryInitialHashPartitions;
+        private final int minSourceCandidates;
         private final boolean experimentalSyntaxEnabled;
         private final boolean distributedIndexJoinsEnabled;
         private final boolean distributedJoinsEnabled;
@@ -425,6 +432,7 @@ public class SqlQueryExecution
             this.maxPendingSplitsPerNode = config.getMaxPendingSplitsPerNode();
             this.initialHashPartitions = config.getInitialHashPartitions();
             this.bigQueryInitialHashPartitions = config.getBigQueryInitialHashPartitions();
+            this.minSourceCandidates = config.getMinSourceCandidates();
             this.metadata = checkNotNull(metadata, "metadata is null");
             this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
@@ -471,6 +479,7 @@ public class SqlQueryExecution
                     scheduleSplitBatchSize,
                     maxPendingSplitsPerNode,
                     initialHashPartitions,
+                    minSourceCandidates,
                     experimentalSyntaxEnabled,
                     distributedIndexJoinsEnabled,
                     isBigQueryEnabled(session, distributedJoinsEnabled),

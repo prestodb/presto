@@ -40,12 +40,14 @@ public class NodeSchedulerConfig
         return this;
     }
 
+    @Deprecated
     @Min(1)
     public int getMinCandidates()
     {
         return minCandidates;
     }
 
+    @Deprecated
     @Config("node-scheduler.min-candidates")
     public NodeSchedulerConfig setMinCandidates(int candidates)
     {

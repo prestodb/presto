@@ -214,6 +214,7 @@ public class TestSqlStageExecution
                 TEST_SESSION,
                 splitBatchSize,
                 8,      // initialHashPartitions
+                10,     // minSourceCandidates
                 executor,
                 nodeTaskMap,
                 outputBuffers);
@@ -243,6 +244,7 @@ public class TestSqlStageExecution
                     TEST_SESSION,
                     1000,
                     8,
+                    10,
                     executor,
                     nodeTaskMap,
                     outputBuffers);

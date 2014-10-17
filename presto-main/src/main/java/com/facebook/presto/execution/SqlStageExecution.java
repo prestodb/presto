@@ -117,6 +117,7 @@ public class SqlStageExecution
     private final int splitBatchSize;
 
     private final int initialHashPartitions;
+    private final int minSourceCandidates;
 
     private final StateMachine<StageState> stageState;
 
@@ -151,6 +152,7 @@ public class SqlStageExecution
             Session session,
             int splitBatchSize,
             int initialHashPartitions,
+            int minSourceCandidates,
             ExecutorService executor,
             NodeTaskMap nodeTaskMap,
             OutputBuffers nextOutputBuffers)
@@ -165,6 +167,7 @@ public class SqlStageExecution
                 session,
                 splitBatchSize,
                 initialHashPartitions,
+                minSourceCandidates,
                 executor,
                 nodeTaskMap);
 
@@ -182,6 +185,7 @@ public class SqlStageExecution
             Session session,
             int splitBatchSize,
             int initialHashPartitions,
+            int minSourceCandidates,
             ExecutorService executor,
             NodeTaskMap nodeTaskMap)
     {
@@ -193,6 +197,7 @@ public class SqlStageExecution
         checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
         checkNotNull(session, "session is null");
         checkArgument(initialHashPartitions > 0, "initialHashPartitions must be greater than 0");
+        checkArgument(minSourceCandidates > 0, "minSourceCandidates must be greater than 0");
         checkNotNull(executor, "executor is null");
         checkNotNull(nodeTaskMap, "nodeTaskMap is null");
 
@@ -206,6 +211,7 @@ public class SqlStageExecution
             this.session = session;
             this.splitBatchSize = splitBatchSize;
             this.initialHashPartitions = initialHashPartitions;
+            this.minSourceCandidates = minSourceCandidates;
             this.executor = executor;
 
             ImmutableMap.Builder<PlanFragmentId, StageExecutionNode> subStages = ImmutableMap.builder();
@@ -221,6 +227,7 @@ public class SqlStageExecution
                         session,
                         splitBatchSize,
                         initialHashPartitions,
+                        minSourceCandidates,
                         executor,
                         nodeTaskMap);
 
@@ -645,7 +652,7 @@ public class SqlStageExecution
                 getSplitDistribution.add(System.nanoTime() - start);
 
                 while (!pendingSplits.isEmpty() && !getState().isDone()) {
-                    Multimap<Node, Split> splitAssignment = nodeSelector.computeAssignments(pendingSplits, tasks.values());
+                    Multimap<Node, Split> splitAssignment = nodeSelector.computeAssignments(pendingSplits, tasks.values(), minSourceCandidates);
                     pendingSplits = ImmutableSet.copyOf(Sets.difference(pendingSplits, ImmutableSet.copyOf(splitAssignment.values())));
 
                     assignSplits(nextTaskId, splitAssignment);
