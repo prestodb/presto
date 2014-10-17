@@ -132,6 +132,8 @@ import static com.facebook.presto.operator.scalar.IdentityCast.IDENTITY_CAST;
 import static com.facebook.presto.operator.scalar.MapCardinalityFunction.MAP_CARDINALITY;
 import static com.facebook.presto.operator.scalar.MapSubscriptOperator.MAP_SUBSCRIPT;
 import static com.facebook.presto.operator.scalar.MapToJsonCast.MAP_TO_JSON;
+import static com.facebook.presto.operator.scalar.MapKeys.MAP_KEYS;
+import static com.facebook.presto.operator.scalar.MapValues.MAP_VALUES;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -267,7 +269,9 @@ public class FunctionRegistry
                 .function(MAX_BY)
                 .function(COUNT_COLUMN)
                 .function(ARRAY_TO_JSON)
-                .function(MAP_TO_JSON);
+                .function(MAP_TO_JSON)
+                .function(MAP_KEYS)
+                .function(MAP_VALUES);
 
         if (experimentalSyntaxEnabled) {
             builder.aggregate(ApproximateAverageAggregations.class)
@@ -357,7 +361,7 @@ public class FunctionRegistry
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
             Type parameterType = typeManager.getType(parameterTypes.get(0));
-            checkNotNull(parameterType, "Type %s not foudn", parameterTypes.get(0));
+            checkNotNull(parameterType, "Type %s not found", parameterTypes.get(0));
             checkArgument(parameterType.getJavaType() == type.getJavaType(),
                     "Expected type %s to use Java type %s, but Java type is %s",
                     type,
