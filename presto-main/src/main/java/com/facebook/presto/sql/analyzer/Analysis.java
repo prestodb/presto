@@ -23,6 +23,7 @@ import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.SampledRelation;
@@ -66,6 +67,7 @@ public class Analysis
 
     private final IdentityHashMap<Table, TableHandle> tables = new IdentityHashMap<>();
 
+    private final IdentityHashMap<Expression, Boolean> rowFieldAccesors = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> types = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> coercions = new IdentityHashMap<>();
     private final IdentityHashMap<FunctionCall, FunctionInfo> functionInfo = new IdentityHashMap<>();
@@ -113,6 +115,11 @@ public class Analysis
     public IdentityHashMap<Expression, Type> getTypes()
     {
         return new IdentityHashMap<>(types);
+    }
+
+    public boolean isRowFieldAccessor(QualifiedNameReference qualifiedNameReference)
+    {
+        return rowFieldAccesors.containsKey(qualifiedNameReference);
     }
 
     public Type getType(Expression expression)
@@ -270,6 +277,11 @@ public class Analysis
     public void addTypes(IdentityHashMap<Expression, Type> types)
     {
         this.types.putAll(types);
+    }
+
+    public void addRowFieldAccessors(IdentityHashMap<Expression, Boolean> rowFieldAccesors)
+    {
+        this.rowFieldAccesors.putAll(rowFieldAccesors);
     }
 
     public void addCoercion(Expression expression, Type type)

@@ -73,6 +73,7 @@ import com.facebook.presto.operator.window.PercentRankFunction;
 import com.facebook.presto.operator.window.RankFunction;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -86,6 +87,8 @@ import com.facebook.presto.type.HyperLogLogOperators;
 import com.facebook.presto.type.IntervalDayTimeOperators;
 import com.facebook.presto.type.IntervalYearMonthOperators;
 import com.facebook.presto.type.LikeFunctions;
+import com.facebook.presto.type.RowParametricType;
+import com.facebook.presto.type.RowType;
 import com.facebook.presto.type.TimeOperators;
 import com.facebook.presto.type.TimeWithTimeZoneOperators;
 import com.facebook.presto.type.TimestampOperators;
@@ -164,6 +167,7 @@ public class FunctionRegistry
 {
     private static final String MAGIC_LITERAL_FUNCTION_PREFIX = "$literal$";
     private static final String OPERATOR_PREFIX = "$operator$";
+    private static final String FIELD_ACCESSOR_PREFIX = "$field_accessor$";
 
     // hack: java classes for types that can be used with magic literals
     private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class);
@@ -383,6 +387,28 @@ public class FunctionRegistry
                     ImmutableList.of(false));
         }
 
+        // TODO this should be made to work for any parametric type
+        for (TypeSignature typeSignature : parameterTypes) {
+            if (typeSignature.getBase().equals(StandardTypes.ROW)) {
+                RowType rowType = RowParametricType.ROW.createType(resolveTypes(typeSignature.getParameters(), typeManager), typeSignature.getLiteralParameters());
+                // search for exact match
+                for (ParametricFunction function : RowParametricType.ROW.createFunctions(rowType)) {
+                    if (!function.getSignature().getName().equals(name.toString())) {
+                        continue;
+                    }
+                    Map<String, Type> boundTypeParameters = function.getSignature().bindTypeParameters(resolvedTypes, false, typeManager);
+                    if (boundTypeParameters != null) {
+                        checkArgument(match == null, "Ambiguous call to %s with parameters %s", name, parameterTypes);
+                        match = function.specialize(boundTypeParameters, resolvedTypes.size(), typeManager);
+                    }
+                }
+
+                if (match != null) {
+                    return match;
+                }
+            }
+        }
+
         throw new PrestoException(FUNCTION_NOT_FOUND, message);
     }
 
@@ -588,6 +614,11 @@ public class FunctionRegistry
     public static String mangleOperatorName(String operatorName)
     {
         return OPERATOR_PREFIX + operatorName;
+    }
+
+    public static String mangleFieldAccessor(String fieldName)
+    {
+        return FIELD_ACCESSOR_PREFIX + fieldName;
     }
 
     @VisibleForTesting

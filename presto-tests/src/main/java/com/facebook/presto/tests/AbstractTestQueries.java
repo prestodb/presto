@@ -16,6 +16,7 @@ package com.facebook.presto.tests;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.operator.scalar.MapConstructor;
+import com.facebook.presto.operator.scalar.TestingRowConstructor;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
@@ -76,12 +77,23 @@ public abstract class AbstractTestQueries
             .window("custom_rank", BIGINT, ImmutableList.<Type>of(), CustomRank.class)
             .scalar(CustomAdd.class)
             .scalar(CreateHll.class)
+            .scalar(TestingRowConstructor.class)
             .function(new MapConstructor(2, new TypeRegistry()))
             .getFunctions();
 
     protected AbstractTestQueries(QueryRunner queryRunner)
     {
         super(queryRunner);
+    }
+
+    @Test
+    public void testRowFieldAccessor()
+            throws Exception
+    {
+        assertQuery("SELECT a.col0 FROM (VALUES (test_row(1, 2))) AS t (a)", "SELECT 1");
+        assertQuery("SELECT a.col0 FROM (VALUES (test_row(1.0, 2.0))) AS t (a)", "SELECT 1.0");
+        assertQuery("SELECT a.col0 FROM (VALUES (test_row(TRUE, FALSE))) AS t (a)", "SELECT TRUE");
+        assertQuery("SELECT a.col1 FROM (VALUES (test_row(1.0, 'kittens'))) AS t (a)", "SELECT 'kittens'");
     }
 
     @Test

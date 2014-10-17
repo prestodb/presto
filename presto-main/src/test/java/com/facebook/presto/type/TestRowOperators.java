@@ -21,6 +21,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.metadata.FunctionRegistry.mangleFieldAccessor;
 
 public class TestRowOperators
 {
@@ -48,5 +49,15 @@ public class TestRowOperators
         assertFunction("CAST(test_row(1.0, 'kittens') AS JSON)", "[1.0,\"kittens\"]");
         assertFunction("CAST(test_row(TRUE, FALSE) AS JSON)", "[true,false]");
         assertFunction("CAST(test_row(from_unixtime(1)) AS JSON)", "[\"" + new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()).toString() + "\"]");
+    }
+
+    @Test
+    public void testFieldAccessor()
+            throws Exception
+    {
+        String mangledName1 = mangleFieldAccessor("col0");
+        String mangledName2 = mangleFieldAccessor("col1");
+        assertFunction('"' + mangledName1 + "\"(test_row(1, 2))", 1);
+        assertFunction('"' + mangledName2 + "\"(test_row(1, 'kittens'))", "kittens");
     }
 }
