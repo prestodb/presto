@@ -50,8 +50,8 @@ public final class CassandraQueryRunner
 
         try (Cluster cluster = CassandraTestingUtils.getCluster();
              com.datastax.driver.core.Session session = cluster.connect()) {
-            createOrReplaceKeyspace(session, "tpch");
-            createOrReplaceKeyspace(session, "tpch_sampled");
+            CassandraTestingUtils.createOrReplaceKeyspace(session, "tpch");
+            CassandraTestingUtils.createOrReplaceKeyspace(session, "tpch_sampled");
         }
 
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession(), 4);

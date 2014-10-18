@@ -15,8 +15,6 @@ package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.Session;
-import com.datastax.driver.mapping.Mapper;
-import com.datastax.driver.mapping.MappingManager;
 import com.datastax.driver.mapping.annotations.PartitionKey;
 import com.datastax.driver.mapping.annotations.Table;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -41,16 +39,13 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Ints;
 import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -77,9 +72,6 @@ public class TestCassandraConnector
     public static final String tableName = "Presto_Test";
     protected static final String INVALID_DATABASE = "totally_invalid_database";
     private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
-    private static final String CLUSTER_NAME = "TestCluster";
-    private static final String HOSTNAME = "localhost";
-    private static final int PORT = 9142;
     private static final Date date = new Date();
     private static final String tableDefinition =
             "CREATE TABLE presto_test (" +
@@ -151,64 +143,23 @@ public class TestCassandraConnector
         return index.build();
     }
 
-    public static Cluster getCluster()
-    {
-        return Cluster.builder()
-                .withClusterName(CLUSTER_NAME)
-                .addContactPointsWithPorts(Arrays.asList(new InetSocketAddress(HOSTNAME, PORT)))
-                .build();
-    }
-
-    public static void createOrReplaceKeyspace(Session session, String keyspaceName)
-    {
-        session.execute("DROP KEYSPACE IF EXISTS " + keyspaceName);
-        session.execute("CREATE KEYSPACE " + keyspaceName +
-                " WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor':1}");
-    }
-
-    public static void createOrReplaceTable(Session session, String tableName, String createStatement)
-    {
-        session.execute("DROP TABLE IF EXISTS " + tableName);
-        session.execute(createStatement);
-    }
-
     public static void createTestData(Date date)
     {
-        Cluster cluster = getCluster();
+        Cluster cluster = CassandraTestingUtils.getCluster();
 
         Session session = cluster.connect();
 
-        createOrReplaceKeyspace(session, keyspaceName);
+        CassandraTestingUtils.createOrReplaceKeyspace(session, keyspaceName);
 
         session.close();
 
         session = cluster.connect(keyspaceName);
 
-        createOrReplaceTable(session, tableName, tableDefinition);
+        CassandraTestingUtils.createOrReplaceTable(session, tableName, tableDefinition);
 
-        createTestData(session, date);
+        CassandraTestingUtils.createTestData(session, date);
 
         session.close();
-    }
-
-    public static void createTestData(Session session, Date date)
-    {
-        Mapper<TableRow> mapper = new MappingManager(session).mapper(TableRow.class);
-
-        for (Integer rowNumber = 1; rowNumber < 10; rowNumber++) {
-            TableRow tableRow = new TableRow(
-                    "key " + rowNumber.toString(),
-                    UUID.fromString(String.format("00000000-0000-0000-0000-%012d" , rowNumber)),
-                    rowNumber,
-                    rowNumber.longValue() + 1000,
-                    ByteBuffer.wrap(Ints.toByteArray(rowNumber)).asReadOnlyBuffer(),
-                    date
-            );
-            mapper.save(tableRow);
-            assertEquals(mapper.get(tableRow.getKey()).toString(), tableRow.toString());
-        }
-
-        assertEquals(session.execute("SELECT COUNT(*) FROM presto_test").all().get(0).getLong(0), 9);
     }
 
     @BeforeClass
@@ -225,8 +176,8 @@ public class TestCassandraConnector
                 ImmutableMap.<String, String>of());
 
         Connector connector = connectorFactory.create(connectorId, ImmutableMap.of(
-                "cassandra.contact-points" , HOSTNAME ,
-                "cassandra.native-protocol-port" , "" + PORT));
+                "cassandra.contact-points" , CassandraTestingUtils.HOSTNAME ,
+                "cassandra.native-protocol-port" , "" + CassandraTestingUtils.PORT));
 
         metadata = connector.getMetadata();
         assertInstanceOf(metadata, CassandraMetadata.class);
