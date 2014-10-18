@@ -15,12 +15,12 @@ package com.facebook.presto.cassandra;
 
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import org.testng.annotations.Test;
+import java.util.Date;
 
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraSession;
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createSampledSession;
-import static com.facebook.presto.cassandra.CassandraTestingUtils.createOrReplaceKeyspace;
-import static com.facebook.presto.cassandra.CassandraTestingUtils.createTestData;
+import static com.facebook.presto.cassandra.CassandraTestingUtils.initializeTestData;
 import static io.airlift.tpch.TpchTable.ORDERS;
 
 @Test(singleThreaded = true)
@@ -36,8 +36,11 @@ public class TestCassandraIntegrationSmokeTest
     @Test
     public void testStringPartitionKey()
     {
-        createOrReplaceKeyspace("example");
-        createTestData("example", "test_key_text");
-        queryRunner.execute(createCassandraSession("example"), "select * from example.test_key_text where key='key 0001'");
+        initializeTestData(new Date());
+
+        queryRunner.execute(createCassandraSession("presto_database"), "select * from presto_database.presto_test where key='key 1'");
+        queryRunner.execute(createCassandraSession("presto_database"), "select * from presto_database.presto_test where key='key 2'");
+        queryRunner.execute(createCassandraSession("presto_database"), "select * from presto_database.presto_test where key='key 3'");
+
     }
 }

@@ -137,9 +137,9 @@ public class MockCassandraSession
     {
         CassandraTableHandle tableHandle = table.getTableHandle();
         if (tableHandle.getSchemaName().equals(TEST_SCHEMA) && tableHandle.getTableName().equals(TEST_TABLE)) {
-            return ImmutableList.of(
-                    createSingleStringRow(TEST_PARTITION_KEY1),
-                    createSingleStringRow(TEST_PARTITION_KEY2));
+          return ImmutableList.of(
+              createSingleStringRow(TEST_PARTITION_KEY1, 2),
+              createSingleStringRow(TEST_PARTITION_KEY2, 2));
         }
         throw new IllegalStateException();
     }
