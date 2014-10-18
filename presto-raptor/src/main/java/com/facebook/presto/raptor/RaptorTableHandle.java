@@ -43,7 +43,7 @@ public final class RaptorTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableId") long tableId,
             @JsonProperty("countColumnHandle") RaptorColumnHandle countColumnHandle,
-            @JsonProperty("sampleWeightColumnHandle") RaptorColumnHandle sampleWeightColumnHandle)
+            @JsonProperty("sampleWeightColumnHandle") @Nullable RaptorColumnHandle sampleWeightColumnHandle)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null");
         this.schemaName = checkSchemaName(schemaName);
@@ -86,6 +86,7 @@ public final class RaptorTableHandle
         return countColumnHandle;
     }
 
+    @Nullable
     @JsonProperty
     public RaptorColumnHandle getSampleWeightColumnHandle()
     {
