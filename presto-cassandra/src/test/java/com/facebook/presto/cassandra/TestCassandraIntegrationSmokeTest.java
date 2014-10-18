@@ -19,8 +19,6 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraSession;
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createSampledSession;
-import static com.facebook.presto.cassandra.CassandraTestingUtils.createOrReplaceKeyspace;
-import static com.facebook.presto.cassandra.CassandraTestingUtils.createTestData;
 import static io.airlift.tpch.TpchTable.ORDERS;
 
 @Test(singleThreaded = true)
@@ -36,8 +34,9 @@ public class TestCassandraIntegrationSmokeTest
     @Test
     public void testStringPartitionKey()
     {
-        createOrReplaceKeyspace("example");
-        createTestData("example", "test_key_text");
+        TestCassandraConnector.createOrReplaceKeyspace("example");
+        TestCassandraConnector.createTestData("example", "test_key_text");
         queryRunner.execute(createCassandraSession("example"), "select * from example.test_key_text where key='key 0001'");
+
     }
 }
