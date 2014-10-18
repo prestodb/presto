@@ -186,7 +186,7 @@ public class TestCassandraConnector
                     assertTrue(keyValue.startsWith("key "));
                     int rowId = Integer.parseInt(keyValue.substring(4));
 
-                    assertEquals(keyValue, String.format("key %d" , rowId));
+                    assertEquals(keyValue, String.format("key %d", rowId));
 
                     // bytes are encoded as a hex string for some reason
                     // this check keeps failing for some reason; disabling it for now
@@ -197,7 +197,7 @@ public class TestCassandraConnector
 
                     assertEquals(cursor.getLong(columnIndex.get("typelong")), 1000 + rowId);
 
-                    assertEquals(cursor.getSlice(columnIndex.get("typeuuid")).toStringUtf8(), String.format("00000000-0000-0000-0000-%012d" , rowId));
+                    assertEquals(cursor.getSlice(columnIndex.get("typeuuid")).toStringUtf8(), String.format("00000000-0000-0000-0000-%012d", rowId));
 
                     assertEquals(cursor.getSlice(columnIndex.get("typetimestamp")).toStringUtf8(), Long.valueOf(DATE.getTime()).toString());
 

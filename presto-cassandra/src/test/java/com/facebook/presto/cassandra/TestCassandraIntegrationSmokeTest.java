@@ -15,6 +15,7 @@ package com.facebook.presto.cassandra;
 
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import org.testng.annotations.Test;
+
 import java.util.Date;
 
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
@@ -41,6 +42,5 @@ public class TestCassandraIntegrationSmokeTest
         queryRunner.execute(createCassandraSession("presto_database"), "select * from presto_database.presto_test where key='key 1'");
         queryRunner.execute(createCassandraSession("presto_database"), "select * from presto_database.presto_test where key='key 2'");
         queryRunner.execute(createCassandraSession("presto_database"), "select * from presto_database.presto_test where key='key 3'");
-
     }
 }
