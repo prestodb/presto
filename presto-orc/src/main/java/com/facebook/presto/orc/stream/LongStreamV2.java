@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
+import com.facebook.presto.orc.checkpoint.LongStreamV2Checkpoint;
 import com.google.common.primitives.Ints;
 
 import java.io.IOException;
@@ -35,25 +37,28 @@ public class LongStreamV2
         SHORT_REPEAT, DIRECT, PATCHED_BASE, DELTA
     }
 
-    private final InputStream input;
+    private final OrcInputStream input;
     private final boolean signed;
     private final long[] literals = new long[MAX_LITERAL_SIZE];
     private int numLiterals;
     private int used;
     private final boolean skipCorrupt;
+    private long lastReadInputCheckpoint;
 
-    public LongStreamV2(InputStream input, boolean signed, boolean skipCorrupt)
-            throws IOException
+    public LongStreamV2(OrcInputStream input, boolean signed, boolean skipCorrupt)
     {
         this.input = input;
         this.signed = signed;
         this.skipCorrupt = skipCorrupt;
+        lastReadInputCheckpoint = input.getCheckpoint();
     }
 
     // This comes from the Apache Hive ORC code
     private void readValues()
             throws IOException
     {
+        lastReadInputCheckpoint = input.getCheckpoint();
+
         // read the first 2 bits and determine the encoding type
         int firstByte = input.read();
         verifyFormat(firstByte >= 0, "Read past end of RLE integer from %s", input);
@@ -351,6 +356,31 @@ public class LongStreamV2
             readValues();
         }
         return literals[used++];
+    }
+
+    @Override
+    public Class<LongStreamV2Checkpoint> getCheckpointType()
+    {
+        return LongStreamV2Checkpoint.class;
+    }
+
+    @Override
+    public void seekToCheckpoint(LongStreamCheckpoint checkpoint)
+            throws IOException
+    {
+        LongStreamV2Checkpoint v2Checkpoint = OrcStreamUtils.checkType(checkpoint, LongStreamV2Checkpoint.class, "Checkpoint");
+
+        // if the checkpoint is within the current buffer, just adjust the pointer
+        if (lastReadInputCheckpoint == v2Checkpoint.getInputStreamCheckpoint() && v2Checkpoint.getOffset() <= numLiterals) {
+            used = v2Checkpoint.getOffset();
+        }
+        else {
+            // otherwise, discard the buffer and start over
+            input.seekToCheckpoint(v2Checkpoint.getInputStreamCheckpoint());
+            numLiterals = 0;
+            used = 0;
+            skip(v2Checkpoint.getOffset());
+        }
     }
 
     @Override

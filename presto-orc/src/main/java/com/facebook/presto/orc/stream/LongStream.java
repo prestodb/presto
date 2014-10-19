@@ -13,9 +13,12 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
+
 import java.io.IOException;
 
 public interface LongStream
+        extends ValueStream<LongStreamCheckpoint>
 {
     long next()
             throws IOException;
@@ -30,9 +33,6 @@ public interface LongStream
             throws IOException;
 
     void nextLongVector(int items, long[] vector, boolean[] isNull)
-            throws IOException;
-
-    void skip(int items)
             throws IOException;
 
     long sum(int items)

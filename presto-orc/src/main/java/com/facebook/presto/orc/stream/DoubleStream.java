@@ -14,11 +14,11 @@
 package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.Vector;
+import com.facebook.presto.orc.checkpoint.DoubleStreamCheckpoint;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
-import java.io.InputStream;
 
 import static com.facebook.presto.orc.stream.OrcStreamUtils.readFully;
 import static com.facebook.presto.orc.stream.OrcStreamUtils.skipFully;
@@ -26,18 +26,32 @@ import static com.google.common.base.Preconditions.checkPositionIndex;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 
 public class DoubleStream
+        implements ValueStream<DoubleStreamCheckpoint>
 {
-    private final InputStream input;
+    private final OrcInputStream input;
     private final byte[] buffer = new byte[Vector.MAX_VECTOR_LENGTH * SIZE_OF_DOUBLE];
     private final Slice slice = Slices.wrappedBuffer(buffer);
 
-    public DoubleStream(InputStream input)
-            throws IOException
+    public DoubleStream(OrcInputStream input)
     {
         this.input = input;
     }
 
-    public void skip(long items)
+    @Override
+    public Class<DoubleStreamCheckpoint> getCheckpointType()
+    {
+       return DoubleStreamCheckpoint.class;
+    }
+
+    @Override
+    public void seekToCheckpoint(DoubleStreamCheckpoint checkpoint)
+            throws IOException
+    {
+        input.seekToCheckpoint(checkpoint.getInputStreamCheckpoint());
+    }
+
+    @Override
+    public void skip(int items)
             throws IOException
     {
         long length = items * SIZE_OF_DOUBLE;

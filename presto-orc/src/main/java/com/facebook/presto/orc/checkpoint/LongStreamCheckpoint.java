@@ -11,17 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.stream;
+package com.facebook.presto.orc.checkpoint;
 
-import javax.annotation.Nullable;
-
-import java.io.IOException;
-
-public interface StreamSource<S extends ValueStream<?>>
+public interface LongStreamCheckpoint
+        extends StreamCheckpoint
 {
-    Class<S> getStreamType();
-
-    @Nullable
-    S openStream()
-            throws IOException;
 }

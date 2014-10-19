@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.checkpoint.ByteStreamCheckpoint;
+
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Arrays;
 
 import static com.facebook.presto.orc.OrcCorruptionException.verifyFormat;
@@ -22,22 +23,26 @@ import static com.facebook.presto.orc.stream.OrcStreamUtils.MIN_REPEAT_SIZE;
 import static com.facebook.presto.orc.stream.OrcStreamUtils.readFully;
 
 public class ByteStream
+        implements ValueStream<ByteStreamCheckpoint>
 {
-    private final InputStream input;
+    private final OrcInputStream input;
     private final byte[] buffer = new byte[MIN_REPEAT_SIZE + 127];
     private int length;
     private int offset;
+    private long lastReadInputCheckpoint;
 
-    public ByteStream(InputStream input)
-            throws IOException
+    public ByteStream(OrcInputStream input)
     {
         this.input = input;
+        lastReadInputCheckpoint = input.getCheckpoint();
     }
 
     // This is based on the Apache Hive ORC code
     private void readNextBlock()
             throws IOException
     {
+        lastReadInputCheckpoint = input.getCheckpoint();
+
         int control = input.read();
         verifyFormat(control != -1, "Read past end of buffer RLE byte from %s", input);
 
@@ -63,7 +68,31 @@ public class ByteStream
         }
     }
 
-    public void skip(long items)
+    @Override
+    public Class<ByteStreamCheckpoint> getCheckpointType()
+    {
+        return ByteStreamCheckpoint.class;
+    }
+
+    @Override
+    public void seekToCheckpoint(ByteStreamCheckpoint checkpoint)
+            throws IOException
+    {
+        // if the checkpoint is within the current buffer, just adjust the pointer
+        if (lastReadInputCheckpoint == checkpoint.getInputStreamCheckpoint() && checkpoint.getOffset() <= length) {
+            offset = checkpoint.getOffset();
+        }
+        else {
+            // otherwise, discard the buffer and start over
+            input.seekToCheckpoint(checkpoint.getInputStreamCheckpoint());
+            length = 0;
+            offset = 0;
+            skip(checkpoint.getOffset());
+        }
+    }
+
+    @Override
+    public void skip(int items)
             throws IOException
     {
         while (items > 0) {

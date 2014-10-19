@@ -32,6 +32,7 @@ import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
 public class DwrfMetadataReader
         implements MetadataReader
@@ -155,7 +156,17 @@ public class DwrfMetadataReader
 
     private static RowGroupIndex toRowGroupIndex(OrcProto.RowIndexEntry rowIndexEntry)
     {
-        return new RowGroupIndex(rowIndexEntry.getPositionsList(), toColumnStatistics(rowIndexEntry.getStatistics()));
+        List<Long> positionsList = rowIndexEntry.getPositionsList();
+        ImmutableList.Builder<Integer> positions = ImmutableList.builder();
+        for (int index = 0; index < positionsList.size(); index++) {
+            long longPosition = positionsList.get(index);
+            int intPosition = (int) longPosition;
+
+            checkState(intPosition == longPosition, "Expected checkpoint position %s, to be an integer", index);
+
+            positions.add(intPosition);
+        }
+        return new RowGroupIndex(positions.build(), toColumnStatistics(rowIndexEntry.getStatistics()));
     }
 
     private static List<ColumnStatistics> toColumnStatistics(List<OrcProto.ColumnStatistics> columnStatistics)

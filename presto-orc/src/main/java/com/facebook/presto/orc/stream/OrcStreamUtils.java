@@ -17,8 +17,10 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import static com.facebook.presto.orc.OrcCorruptionException.verifyFormat;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
-public final class OrcStreamUtils
+final class OrcStreamUtils
 {
     public static final int MIN_REPEAT_SIZE = 3;
 
@@ -44,5 +46,16 @@ public final class OrcStreamUtils
             verifyFormat(result >= 0, "Unexpected end of stream");
             offset += result;
         }
+    }
+
+    static <A, B extends A> B checkType(A value, Class<B> target, String name)
+    {
+        checkNotNull(value, "%s is null", name);
+        checkArgument(target.isInstance(value),
+                "%s must be of type %s, not %s",
+                name,
+                target.getName(),
+                value.getClass().getName());
+        return target.cast(value);
     }
 }

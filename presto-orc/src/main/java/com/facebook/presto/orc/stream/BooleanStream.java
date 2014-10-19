@@ -13,20 +13,21 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
+
 import java.io.IOException;
-import java.io.InputStream;
 
 import static com.google.common.base.Preconditions.checkState;
 
 public class BooleanStream
+        implements ValueStream<BooleanStreamCheckpoint>
 {
     private static final int HIGH_BIT_MASK = 0b1000_0000;
     private final ByteStream byteStream;
     private byte data;
     private int bitsInData;
 
-    public BooleanStream(InputStream byteStream)
-            throws IOException
+    public BooleanStream(OrcInputStream byteStream)
     {
         this.byteStream = new ByteStream(byteStream);
     }
@@ -57,6 +58,22 @@ public class BooleanStream
         return result;
     }
 
+    @Override
+    public Class<BooleanStreamCheckpoint> getCheckpointType()
+    {
+        return BooleanStreamCheckpoint.class;
+    }
+
+    @Override
+    public void seekToCheckpoint(BooleanStreamCheckpoint checkpoint)
+            throws IOException
+    {
+        byteStream.seekToCheckpoint(checkpoint.getByteStreamCheckpoint());
+        bitsInData = 0;
+        skip(checkpoint.getOffset());
+    }
+
+    @Override
     public void skip(int items)
             throws IOException
     {
@@ -66,6 +83,7 @@ public class BooleanStream
         }
         else {
             items -= bitsInData;
+            bitsInData = 0;
 
             byteStream.skip(items >>> 3);
             items = items & 0b111;
