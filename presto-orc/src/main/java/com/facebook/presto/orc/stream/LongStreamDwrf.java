@@ -14,11 +14,12 @@
 package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.Vector;
+import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
+import com.facebook.presto.orc.checkpoint.LongStreamDwrfCheckpoint;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.google.common.primitives.Ints;
 
 import java.io.IOException;
-import java.io.InputStream;
 
 import static com.facebook.presto.orc.stream.LongDecode.readDwrfLong;
 import static com.google.common.base.Preconditions.checkPositionIndex;
@@ -26,18 +27,31 @@ import static com.google.common.base.Preconditions.checkPositionIndex;
 public class LongStreamDwrf
         implements LongStream
 {
-    private final InputStream input;
+    private final OrcInputStream input;
     private final OrcTypeKind orcTypeKind;
     private final boolean signed;
     private final boolean usesVInt;
 
-    public LongStreamDwrf(InputStream input, OrcTypeKind type, boolean signed, boolean usesVInt)
-            throws IOException
+    public LongStreamDwrf(OrcInputStream input, OrcTypeKind type, boolean signed, boolean usesVInt)
     {
         this.input = input;
         this.orcTypeKind = type;
         this.signed = signed;
         this.usesVInt = usesVInt;
+    }
+
+    @Override
+    public Class<LongStreamDwrfCheckpoint> getCheckpointType()
+    {
+        return LongStreamDwrfCheckpoint.class;
+    }
+
+    @Override
+    public void seekToCheckpoint(LongStreamCheckpoint checkpoint)
+            throws IOException
+    {
+        LongStreamDwrfCheckpoint dwrfCheckpoint = OrcStreamUtils.checkType(checkpoint, LongStreamDwrfCheckpoint.class, "Checkpoint");
+        input.seekToCheckpoint(dwrfCheckpoint.getInputStreamCheckpoint());
     }
 
     @Override

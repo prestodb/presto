@@ -140,7 +140,7 @@ public class SliceDirectJsonReader
         verifyFormat(dataStream != null, "Length is not zero but data stream is not present");
 
         // skip data bytes
-        dataStream.skip(dataSkipSize);
+        dataStream.skip(Ints.checkedCast(dataSkipSize));
     }
 
     @Override

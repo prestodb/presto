@@ -22,6 +22,7 @@ import com.facebook.presto.orc.stream.ByteArrayStream;
 import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSource;
 import com.facebook.presto.orc.stream.StreamSources;
+import com.google.common.primitives.Ints;
 import io.airlift.slice.Slices;
 
 import javax.annotation.Nonnull;
@@ -97,7 +98,7 @@ public class SliceDirectStreamReader
                 long dataSkipSize = lengthStream.sum(readOffset);
                 if (dataSkipSize > 0) {
                     verifyFormat(dataStream != null, "Value is not null but data stream is not present");
-                    dataStream.skip(dataSkipSize);
+                    dataStream.skip(Ints.checkedCast(dataSkipSize));
                 }
             }
         }

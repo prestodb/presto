@@ -13,36 +13,32 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.ColumnStatistics;
 import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.orc.metadata.DwrfMetadataReader;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
-import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.stream.OrcInputStream;
 import com.facebook.presto.orc.stream.StreamSource;
 import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.orc.stream.ValueStream;
+import com.facebook.presto.orc.stream.ValueStreams;
 import com.google.common.base.Function;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.common.collect.SetMultimap;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -53,39 +49,19 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import static com.facebook.presto.orc.checkpoint.Checkpoints.getDictionaryStreamCheckpoint;
+import static com.facebook.presto.orc.checkpoint.Checkpoints.getStreamCheckpoints;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
-import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
-import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
-import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
-import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
-import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_COUNT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_INDEX;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
-import static com.facebook.presto.orc.stream.OrcInputStream.BLOCK_HEADER_SIZE;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.orc.stream.CheckpointStreamSource.createCheckpointStreamSource;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class StripeReader
 {
-    private static final int BYTE_STREAM_POSITIONS = 1;
-    private static final int INT_POSITIONS = BYTE_STREAM_POSITIONS + 1;
-    private static final int ROW_GROUP_DICTIONARY_LENGTH_POSITIONS = INT_POSITIONS + 1;
-    private static final int RUN_LENGTH_BYTE_POSITIONS = BYTE_STREAM_POSITIONS + 1;
-    private static final int BITFIELD_POSITIONS = RUN_LENGTH_BYTE_POSITIONS + 1;
-
-    // for uncompressed streams, what is the most overlap with the following set
-    // of rows (long vint literal group).
-    private static final int WORST_UNCOMPRESSED_SLOP = 2 + 8 * 512;
-
     private final OrcDataSource orcDataSource;
     private final CompressionKind compressionKind;
     private final List<OrcType> types;
@@ -119,6 +95,7 @@ public class StripeReader
     {
         // read the stripe footer
         StripeFooter stripeFooter = readStripeFooter(stripe);
+        List<ColumnEncoding> columnEncodings = stripeFooter.getColumnEncodings();
 
         // get streams for selected columns
         Map<StreamId, Stream> streams = new HashMap<>();
@@ -146,43 +123,22 @@ public class StripeReader
             return null;
         }
 
-        // determine the dictionary stream locations
-        List<StreamLayout> dictionaryStreamLayouts = getDictionaryStreams(streams, diskRanges, stripeFooter.getColumnEncodings());
-
-        // determine the locations of the row groups
-        List<RowGroupLayout> rowGroupLayouts = getRowGroupRanges(
-                stripe.getNumberOfRows(),
-                streams,
-                diskRanges,
-                columnIndexes,
-                selectedRowGroups,
-                stripeFooter.getColumnEncodings());
-
-        // merge row groups (dwrf doesn't support this due to the row group dictionaries)
-        if (!(metadataReader instanceof DwrfMetadataReader)) {
-            rowGroupLayouts = RowGroupLayout.mergeAdjacentRowGroups(rowGroupLayouts);
-        }
+        // value streams
+        Map<StreamId, ValueStream<?>> valueStreams = createValueStreams(streams, streamsData, columnEncodings);
 
         // build the dictionary streams
-        ImmutableMap.Builder<StreamId, StreamSource<?>> dictionaryStreamBuilder = ImmutableMap.builder();
-        for (StreamLayout dictionaryStreamLayout : dictionaryStreamLayouts) {
-            StreamId streamId = dictionaryStreamLayout.getStreamId();
-
-            OrcInputStream inputStream = streamsData.get(streamId);
-            checkArgument(inputStream != null, "No data for stream %s", streamId);
-
-            StreamSource<?> streamSource = dictionaryStreamLayout.createStreamSource(inputStream);
-            dictionaryStreamBuilder.put(streamId, streamSource);
-        }
-        StreamSources dictionaryStreamSources = new StreamSources(dictionaryStreamBuilder.build());
+        StreamSources dictionaryStreamSources = createDictionaryStreamSources(streams, valueStreams, columnEncodings);
 
         // build the row groups
-        ImmutableList.Builder<RowGroup> rowGroupBuilder = ImmutableList.builder();
-        for (RowGroupLayout rowGroupLayout : rowGroupLayouts) {
-            rowGroupBuilder.add(rowGroupLayout.createRowGroup(streamsData));
-        }
+        List<RowGroup> rowGroups = createRowGroups(
+                stripe.getNumberOfRows(),
+                streams,
+                valueStreams,
+                columnIndexes,
+                selectedRowGroups,
+                columnEncodings);
 
-        return new Stripe(stripe.getNumberOfRows(), stripeFooter.getColumnEncodings(), rowGroupBuilder.build(), dictionaryStreamSources);
+        return new Stripe(stripe.getNumberOfRows(), columnEncodings, rowGroups, dictionaryStreamSources);
     }
 
     public Map<StreamId, OrcInputStream> readDiskRanges(final long stripeOffset, Map<StreamId, DiskRange> diskRanges)
@@ -207,6 +163,94 @@ public class StripeReader
                 return new OrcInputStream(orcDataSource.toString(), input.getInput(), compressionKind, bufferSize);
             }
         }));
+    }
+
+    private Map<StreamId, ValueStream<?>> createValueStreams(Map<StreamId, Stream> streams, Map<StreamId, OrcInputStream> streamsData, List<ColumnEncoding> columnEncodings)
+    {
+        ImmutableMap.Builder<StreamId, ValueStream<?>> valueStreams = ImmutableMap.builder();
+        for (Entry<StreamId, Stream> entry : streams.entrySet()) {
+            StreamId streamId = entry.getKey();
+            Stream stream = entry.getValue();
+            ColumnEncodingKind columnEncoding = columnEncodings.get(stream.getColumn()).getColumnEncodingKind();
+
+            // skip index and empty streams
+            if (isIndexStream(stream) || stream.getLength() == 0) {
+                continue;
+            }
+
+            OrcInputStream inputStream = streamsData.get(streamId);
+            OrcTypeKind columnType = types.get(stream.getColumn()).getOrcTypeKind();
+
+            valueStreams.put(streamId, ValueStreams.createValueStreams(streamId, inputStream, columnType, columnEncoding, stream.isUseVInts()));
+        }
+        return valueStreams.build();
+    }
+
+    public StreamSources createDictionaryStreamSources(Map<StreamId, Stream> streams, Map<StreamId, ValueStream<?>> valueStreams, List<ColumnEncoding> columnEncodings)
+    {
+        ImmutableMap.Builder<StreamId, StreamSource<?>> dictionaryStreamBuilder = ImmutableMap.builder();
+        for (Entry<StreamId, Stream> entry : streams.entrySet()) {
+            StreamId streamId = entry.getKey();
+            Stream stream = entry.getValue();
+            int column = stream.getColumn();
+
+            // only process dictionary streams
+            ColumnEncodingKind columnEncoding = columnEncodings.get(column).getColumnEncodingKind();
+            if (!isDictionary(stream, columnEncoding)) {
+                continue;
+            }
+
+            // skip streams without data
+            ValueStream<?> valueStream = valueStreams.get(streamId);
+            if (valueStream == null) {
+                continue;
+            }
+
+            OrcTypeKind columnType = types.get(stream.getColumn()).getOrcTypeKind();
+            StreamCheckpoint streamCheckpoint = getDictionaryStreamCheckpoint(streamId, columnType, columnEncoding);
+
+            StreamSource<?> streamSource = createCheckpointStreamSource(valueStream, streamCheckpoint);
+            dictionaryStreamBuilder.put(streamId, streamSource);
+        }
+        return new StreamSources(dictionaryStreamBuilder.build());
+    }
+
+    private List<RowGroup> createRowGroups(
+            int rowsInStripe,
+            Map<StreamId, Stream> streams,
+            Map<StreamId, ValueStream<?>> valueStreams,
+            Map<Integer, List<RowGroupIndex>> columnIndexes,
+            Set<Integer> selectedRowGroups,
+            List<ColumnEncoding> encodings)
+    {
+        ImmutableList.Builder<RowGroup> rowGroupBuilder = ImmutableList.builder();
+
+        for (int rowGroupId : selectedRowGroups) {
+            Map<StreamId, StreamCheckpoint> checkpoints = getStreamCheckpoints(includedOrcColumns, types, compressionKind, rowGroupId, encodings, streams, columnIndexes);
+            int rowsInGroup = Math.min(rowsInStripe - (rowGroupId * rowsInRowGroup), rowsInRowGroup);
+            rowGroupBuilder.add(createRowGroup(rowGroupId, rowsInGroup, valueStreams, checkpoints));
+        }
+
+        return rowGroupBuilder.build();
+    }
+
+    public static RowGroup createRowGroup(int groupId, int rowCount, Map<StreamId, ValueStream<?>> valueStreams, Map<StreamId, StreamCheckpoint> checkpoints)
+    {
+        ImmutableMap.Builder<StreamId, StreamSource<?>> builder = ImmutableMap.builder();
+        for (Entry<StreamId, StreamCheckpoint> entry : checkpoints.entrySet()) {
+            StreamId streamId = entry.getKey();
+            StreamCheckpoint checkpoint = entry.getValue();
+
+            // skip streams without data
+            ValueStream<?> valueStream = valueStreams.get(streamId);
+            if (valueStream == null) {
+                continue;
+            }
+
+            builder.put(streamId, createCheckpointStreamSource(valueStream, checkpoint));
+        }
+        StreamSources rowGroupStreams = new StreamSources(builder.build());
+        return new RowGroup(groupId, rowCount, rowGroupStreams);
     }
 
     public StripeFooter readStripeFooter(StripeInformation stripe)
@@ -264,311 +308,14 @@ public class StripeReader
         return statisticsBuilder.build();
     }
 
-    private List<StreamLayout> getDictionaryStreams(Map<StreamId, Stream> streams, Map<StreamId, DiskRange> diskRanges, List<ColumnEncoding> encodings)
-    {
-        // Determine stream ranges for dictionary data
-        ImmutableList.Builder<StreamLayout> streamLayouts = ImmutableList.builder();
-        for (Entry<StreamId, Stream> entry : streams.entrySet()) {
-            StreamId streamId = entry.getKey();
-            Stream stream = entry.getValue();
-            int column = stream.getColumn();
-
-            // only process dictionary streams
-            ColumnEncoding encoding = encodings.get(column);
-            if (isIndexStream(stream) || !isDictionary(stream, encoding)) {
-                continue;
-            }
-
-            StreamLayout streamLayout = new StreamLayout(
-                    streamId,
-                    0, // dictionary streams don't have a row group
-                    types.get(column).getOrcTypeKind(),
-                    encoding.getColumnEncodingKind(),
-                    stream.isUseVInts(),
-                    compressionKind,
-                    diskRanges.get(streamId),
-                    ImmutableList.<Integer>of());
-
-            streamLayouts.add(streamLayout);
-        }
-
-        return streamLayouts.build();
-    }
-
-    private List<RowGroupLayout> getRowGroupRanges(
-            int rowsInStripe,
-            Map<StreamId, Stream> streams,
-            Map<StreamId, DiskRange> diskRanges,
-            Map<Integer, List<RowGroupIndex>> columnIndexes,
-            Set<Integer> selectedRowGroups,
-            List<ColumnEncoding> encodings)
-    {
-        ImmutableSetMultimap.Builder<Integer, StreamKind> streamKindsBuilder = ImmutableSetMultimap.builder();
-        for (Stream stream : streams.values()) {
-            if (stream.getLength() > 0) {
-                streamKindsBuilder.put(stream.getColumn(), stream.getStreamKind());
-            }
-        }
-        SetMultimap<Integer, StreamKind> streamKinds = streamKindsBuilder.build();
-
-        // Determine stream ranges for selected row groups
-        ImmutableList.Builder<RowGroupLayout> rowGroupLayouts = ImmutableList.builder();
-
-        for (Integer rowGroupId : selectedRowGroups) {
-            ImmutableList.Builder<StreamLayout> streamLayouts = ImmutableList.builder();
-            for (Entry<StreamId, Stream> entry : streams.entrySet()) {
-                StreamId streamId = entry.getKey();
-                Stream stream = entry.getValue();
-                int column = stream.getColumn();
-                ColumnEncoding encoding = encodings.get(column);
-
-                // only process streams in the data area, that are not dictionaries
-                if (stream.getLength() == 0 || isIndexStream(stream) || isDictionary(stream, encoding)) {
-                    continue;
-                }
-                Set<StreamKind> availableStreams = streamKinds.get(column);
-
-                DiskRange diskRange = getRowGroupStreamDiskRange(
-                        columnIndexes.get(column),
-                        diskRanges.get(streamId),
-                        rowGroupId,
-                        streamId,
-                        encoding.getColumnEncodingKind(),
-                        availableStreams);
-
-                List<Long> offsetPositions = getOffsetPositions(
-                        streamId,
-                        encoding.getColumnEncodingKind(),
-                        availableStreams,
-                        columnIndexes.get(column).get(rowGroupId).getPositions());
-
-                StreamLayout streamLayout = new StreamLayout(
-                        streamId,
-                        rowGroupId,
-                        types.get(column).getOrcTypeKind(),
-                        encoding.getColumnEncodingKind(),
-                        stream.isUseVInts(),
-                        compressionKind,
-                        diskRange,
-                        checkedCastToInteger(offsetPositions));
-
-                streamLayouts.add(streamLayout);
-            }
-
-            int rowsInGroup = Math.min(rowsInStripe - (rowGroupId * rowsInRowGroup), rowsInRowGroup);
-            rowGroupLayouts.add(new RowGroupLayout(rowGroupId, rowsInGroup, streamLayouts.build()));
-        }
-
-        return rowGroupLayouts.build();
-    }
-
-    private DiskRange getRowGroupStreamDiskRange(
-            List<RowGroupIndex> indexes,
-            DiskRange streamDiskRange,
-            int groupId,
-            StreamId streamId,
-            ColumnEncodingKind encoding,
-            Set<StreamKind> availableStreams)
-    {
-        long start = streamDiskRange.getOffset() + getOffsetPositions(streamId, encoding, availableStreams, indexes.get(groupId).getPositions()).get(0);
-
-        long end;
-        if (groupId == indexes.size() - 1) {
-            end = streamDiskRange.getEnd();
-        }
-        else {
-            end = streamDiskRange.getOffset() + getOffsetPositions(streamId, encoding, availableStreams, indexes.get(groupId + 1).getPositions()).get(0);
-
-            // for an inner group, we need to add some "slop" to the length
-            // since the last value may be in a compressed block or encoded sequence
-            // shared with the next row group
-            if (compressionKind != UNCOMPRESSED) {
-                // add 2 buffers to safely accommodate the next compression block.
-                end += 2 * (BLOCK_HEADER_SIZE + bufferSize);
-            }
-            else {
-                // add worst case size of an encoded value sequence
-                end += WORST_UNCOMPRESSED_SLOP;
-            }
-
-            end = Math.min(streamDiskRange.getEnd(), end);
-        }
-
-        return new DiskRange(start, Ints.checkedCast(end - start));
-    }
-
-    private List<Long> getOffsetPositions(
-            StreamId streamId,
-            ColumnEncodingKind columnEncoding,
-            Set<StreamKind> availableStreams,
-            List<Long> positionsList)
-    {
-        OrcTypeKind type = types.get(streamId.getColumn()).getOrcTypeKind();
-        int compressionOffsets = compressionKind != UNCOMPRESSED ? 1 : 0;
-
-        // if this is the present stream the offset is in position 1
-        List<Long> offsetPositions = positionsList;
-        if (streamId.getStreamKind() == PRESENT) {
-            return offsetPositions.subList(0, BITFIELD_POSITIONS + compressionOffsets);
-        }
-
-        // If there is a present stream, remove offset used by the bit field stream
-        if (availableStreams.contains(PRESENT)) {
-            offsetPositions = offsetPositions.subList(BITFIELD_POSITIONS + compressionOffsets, offsetPositions.size());
-        }
-
-        if (streamId.getStreamKind() == DATA) {
-            switch (type) {
-                case BYTE:
-                case SHORT:
-                case INT:
-                case LONG: {
-                    // start after the in-dictionary stream if present
-                    int start;
-                    if (columnEncoding == DICTIONARY && availableStreams.contains(IN_DICTIONARY)) {
-                        start = BITFIELD_POSITIONS + compressionOffsets;
-                    }
-                    else {
-                        start = 0;
-                    }
-                    int end;
-                    if (columnEncoding == DWRF_DIRECT) {
-                        end = start + BYTE_STREAM_POSITIONS + compressionOffsets;
-                    }
-                    else {
-                        end = start + INT_POSITIONS + compressionOffsets;
-                    }
-                    return offsetPositions.subList(start, end);
-                }
-                case BOOLEAN:
-                case FLOAT:
-                case DOUBLE:
-                case DATE:
-                case STRUCT:
-                case MAP:
-                case LIST:
-                case UNION:
-                    // these types should not have any trailing offsets
-                    return offsetPositions;
-                case STRING:
-                case BINARY:
-                    if (columnEncoding == DIRECT || columnEncoding == DIRECT_V2 || columnEncoding == DWRF_DIRECT) {
-                        return offsetPositions.subList(0, BYTE_STREAM_POSITIONS + compressionOffsets);
-                    }
-                    else if (columnEncoding == DICTIONARY || columnEncoding == DICTIONARY_V2) {
-                        // if there is a row group dictionary, start after dictionary data and dictionary lengths
-                        int start;
-                        if (availableStreams.contains(ROW_GROUP_DICTIONARY)) {
-                            start = (BYTE_STREAM_POSITIONS + compressionOffsets) +
-                                    (ROW_GROUP_DICTIONARY_LENGTH_POSITIONS + compressionOffsets);
-                        }
-                        else {
-                            start = 0;
-                        }
-                        int end = start + INT_POSITIONS + compressionOffsets;
-                        return offsetPositions.subList(start, end);
-                    }
-                    else {
-                        throw new IllegalArgumentException("Unsupported encoding " + columnEncoding);
-                    }
-                case TIMESTAMP:
-                    return offsetPositions.subList(0, INT_POSITIONS + compressionOffsets);
-                default:
-                    throw new IllegalArgumentException("Unknown type " + type);
-            }
-        }
-
-        if (streamId.getStreamKind() == LENGTH) {
-            switch (type) {
-                case STRING:
-                case BINARY:
-                    if (columnEncoding == DIRECT || columnEncoding == DIRECT_V2 || columnEncoding == DWRF_DIRECT) {
-                        int start = BYTE_STREAM_POSITIONS + compressionOffsets;
-                        int end = start + INT_POSITIONS + compressionOffsets;
-                        return offsetPositions.subList(start, end);
-                    }
-                    else if (columnEncoding == DICTIONARY || columnEncoding == DICTIONARY_V2) {
-                        int start = 0;
-                        // if there is a data stream, then the we need to skip the byte stream positions consumed
-                        if (availableStreams.contains(DICTIONARY_DATA)) {
-                            start = BYTE_STREAM_POSITIONS + compressionOffsets;
-                        }
-                        int end = start + INT_POSITIONS + compressionOffsets;
-                        return offsetPositions.subList(start, end);
-                    }
-                    else {
-                        throw new IllegalArgumentException("Unsupported encoding " + columnEncoding);
-                    }
-                case MAP:
-                case LIST:
-                    return offsetPositions;
-            }
-        }
-
-        // length (nanos) of a timestamp column
-        if (streamId.getStreamKind() == SECONDARY && type == TIMESTAMP) {
-            int start = INT_POSITIONS + compressionOffsets;
-            int end = start + INT_POSITIONS + compressionOffsets;
-            return offsetPositions.subList(start, end);
-        }
-
-        if (streamId.getStreamKind() == ROW_GROUP_DICTIONARY) {
-            switch (type) {
-                case STRING:
-                case BINARY:
-                    // row group dictionary is first
-                    int start = 0;
-                    int end = start + BYTE_STREAM_POSITIONS + compressionOffsets;
-                    return offsetPositions.subList(start, end);
-            }
-        }
-
-        if (streamId.getStreamKind() == ROW_GROUP_DICTIONARY_LENGTH) {
-            switch (type) {
-                case STRING:
-                case BINARY:
-                    // start after row group dictionary
-                    int start = BYTE_STREAM_POSITIONS + compressionOffsets;
-                    int end = start + ROW_GROUP_DICTIONARY_LENGTH_POSITIONS + compressionOffsets;
-                    return offsetPositions.subList(start, end);
-            }
-        }
-
-        if (streamId.getStreamKind() == IN_DICTIONARY) {
-            switch (type) {
-                case BYTE:
-                case SHORT:
-                case INT:
-                case LONG: {
-                    // in dictionary is first for integer streams
-                    int start = 0;
-                    int end = start + BITFIELD_POSITIONS + compressionOffsets;
-                    return offsetPositions.subList(start, end);
-                }
-                case STRING:
-                case BINARY: {
-                    // start row group dictionary, row group dictionary lengths and dictionary keys (data)
-                    int start = (BYTE_STREAM_POSITIONS + compressionOffsets) +
-                            (ROW_GROUP_DICTIONARY_LENGTH_POSITIONS + compressionOffsets) +
-                            (INT_POSITIONS + compressionOffsets);
-                    int end = start + BITFIELD_POSITIONS + compressionOffsets;
-                    return offsetPositions.subList(start, end);
-                }
-            }
-        }
-
-        throw new IllegalArgumentException("Unsupported column type " + type + " for stream " + streamId);
-    }
-
     private static boolean isIndexStream(Stream stream)
     {
         return stream.getStreamKind() == ROW_INDEX || stream.getStreamKind() == DICTIONARY_COUNT;
     }
 
-    private static boolean isDictionary(Stream stream, ColumnEncoding encoding)
+    private static boolean isDictionary(Stream stream, ColumnEncodingKind columnEncoding)
     {
-        ColumnEncodingKind encodingColumnEncodingKind = encoding.getColumnEncodingKind();
-        return stream.getStreamKind() == DICTIONARY_DATA || (stream.getStreamKind() == LENGTH && (encodingColumnEncodingKind == DICTIONARY || encodingColumnEncodingKind == DICTIONARY_V2));
+        return stream.getStreamKind() == DICTIONARY_DATA || (stream.getStreamKind() == LENGTH && (columnEncoding == DICTIONARY || columnEncoding == DICTIONARY_V2));
     }
 
     private static Map<StreamId, DiskRange> getDiskRanges(List<Stream> streams)
@@ -611,18 +358,5 @@ public class StripeReader
     private static int ceil(int dividend, int divisor)
     {
         return ((dividend + divisor) - 1) / divisor;
-    }
-
-    private static List<Integer> checkedCastToInteger(List<Long> offsetPositions)
-    {
-        return ImmutableList.copyOf(Iterables.transform(offsetPositions, new Function<Long, Integer>()
-        {
-            @Nullable
-            @Override
-            public Integer apply(Long input)
-            {
-                return Ints.checkedCast(input);
-            }
-        }));
     }
 }
