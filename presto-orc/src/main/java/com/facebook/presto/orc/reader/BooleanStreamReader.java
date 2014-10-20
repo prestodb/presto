@@ -93,8 +93,8 @@ public class BooleanStreamReader
             dataStream.getSetBits(nextBatchSize, booleanVector.vector);
         }
         else {
-            int nonNullValues = presentStream.getUnsetBits(nextBatchSize, booleanVector.isNull);
-            if (nonNullValues != nextBatchSize) {
+            int nullValues = presentStream.getUnsetBits(nextBatchSize, booleanVector.isNull);
+            if (nullValues != nextBatchSize) {
                 verifyFormat(dataStream != null, "Value is not null but data stream is not present");
                 dataStream.getSetBits(nextBatchSize, booleanVector.vector, booleanVector.isNull);
             }

@@ -115,8 +115,8 @@ public class TimestampStreamReader
             nanosStream.nextLongVector(nextBatchSize, nanosVector);
         }
         else {
-            int nonNullValues = presentStream.getUnsetBits(nextBatchSize, longVector.isNull);
-            if (nonNullValues != nextBatchSize) {
+            int nullValues = presentStream.getUnsetBits(nextBatchSize, longVector.isNull);
+            if (nullValues != nextBatchSize) {
                 verifyFormat(secondsStream != null, "Value is not null but seconds stream is not present");
                 verifyFormat(nanosStream != null, "Value is not null but nanos stream is not present");
 
