@@ -19,6 +19,7 @@ import com.facebook.presto.hive.HiveUtil;
 import com.facebook.presto.orc.BooleanVector;
 import com.facebook.presto.orc.DoubleVector;
 import com.facebook.presto.orc.LongVector;
+import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -79,7 +80,7 @@ public class OrcPageSource
     private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
 
     private final OrcRecordReader recordReader;
-    private final HdfsOrcDataSource orcDataSource;
+    private final OrcDataSource orcDataSource;
 
     private final List<String> columnNames;
     private final List<Type> types;
@@ -95,7 +96,7 @@ public class OrcPageSource
 
     public OrcPageSource(
             OrcRecordReader recordReader,
-            HdfsOrcDataSource orcDataSource,
+            OrcDataSource orcDataSource,
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,

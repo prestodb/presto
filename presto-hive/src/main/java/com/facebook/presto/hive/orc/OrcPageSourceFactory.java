@@ -18,6 +18,7 @@ import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
 import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.hive.orc.TupleDomainOrcPredicate.ColumnReference;
+import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcRecordReader;
@@ -123,7 +124,7 @@ public class OrcPageSourceFactory
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager)
     {
-        HdfsOrcDataSource orcDataSource;
+        OrcDataSource orcDataSource;
         try {
             FileSystem fileSystem = path.getFileSystem(configuration);
             long size = fileSystem.getFileStatus(path).getLen();
