@@ -11,9 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.orc;
+package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.metadata.BucketStatistics;
 import com.facebook.presto.orc.metadata.ColumnStatistics;
 import com.facebook.presto.orc.metadata.RangeStatistics;
@@ -66,12 +65,12 @@ public class TupleDomainOrcPredicate<C>
     }
 
     @Override
-    public boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByHiveColumnIndex)
+    public boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByColumnIndex)
     {
         ImmutableMap.Builder<C, Domain> domains = ImmutableMap.builder();
 
         for (ColumnReference<C> columnReference : columnReferences) {
-            ColumnStatistics columnStatistics = statisticsByHiveColumnIndex.get(columnReference.getOrdinal());
+            ColumnStatistics columnStatistics = statisticsByColumnIndex.get(columnReference.getOrdinal());
             if (columnStatistics == null) {
                 // no stats for column
                 return true;
@@ -109,10 +108,10 @@ public class TupleDomainOrcPredicate<C>
             if (hasTrueValues && hasFalseValues) {
                 return Domain.all(Boolean.class);
             }
-            else if (hasTrueValues) {
+            if (hasTrueValues) {
                 return Domain.create(SortedRangeSet.singleValue(true), hasNullValue);
             }
-            else if (hasFalseValues) {
+            if (hasFalseValues) {
                 return Domain.create(SortedRangeSet.singleValue(false), hasNullValue);
             }
         }
@@ -126,9 +125,9 @@ public class TupleDomainOrcPredicate<C>
             return createDomain(boxedJavaType, hasNullValue, columnStatistics.getStringStatistics(), new Function<String, Slice>()
             {
                 @Override
-                public Slice apply(String string)
+                public Slice apply(String value)
                 {
-                    return utf8Slice(string);
+                    return utf8Slice(value);
                 }
             });
         }
@@ -158,10 +157,10 @@ public class TupleDomainOrcPredicate<C>
         if (min != null && max != null) {
             return Domain.create(SortedRangeSet.of(Range.range(function.apply(min), true, function.apply(max), true)), hasNullValue);
         }
-        else if (max != null) {
+        if (max != null) {
             return Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(function.apply(max))), hasNullValue);
         }
-        else if (min != null) {
+        if (min != null) {
             return Domain.create(SortedRangeSet.of(Range.greaterThanOrEqual(function.apply(min))), hasNullValue);
         }
         return Domain.create(SortedRangeSet.all(boxedJavaType), hasNullValue);

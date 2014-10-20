@@ -407,7 +407,7 @@ public class OrcTester
                 new OrcPredicate()
                 {
                     @Override
-                    public boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByHiveColumnIndex)
+                    public boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByColumnIndex)
                     {
                         return true;
                     }
