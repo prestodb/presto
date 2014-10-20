@@ -32,8 +32,8 @@ public class HdfsOrcDataSource
 {
     private final FSDataInputStream inputStream;
     private final String path;
+    private final long size;
     private long readTimeNanos;
-    private long size;
 
     public HdfsOrcDataSource(String path, FSDataInputStream inputStream, long size)
             throws IOException
@@ -50,6 +50,7 @@ public class HdfsOrcDataSource
         inputStream.close();
     }
 
+    @Override
     public long getReadTimeNanos()
     {
         return readTimeNanos;
