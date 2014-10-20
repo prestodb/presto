@@ -22,3 +22,6 @@ Array Functions
 
     Returns true iff the array ``x`` contains the element ``y``.
 
+.. function:: array_sort(x) -> array
+
+    Sorts and returns the array ``x``. The elements of ``x`` must be orderable.
