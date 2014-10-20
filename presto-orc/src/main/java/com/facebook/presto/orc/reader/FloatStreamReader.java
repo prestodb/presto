@@ -95,8 +95,8 @@ public class FloatStreamReader
             dataStream.nextVector(nextBatchSize, floatVector.vector);
         }
         else {
-            int nonNullValues = presentStream.getUnsetBits(nextBatchSize, floatVector.isNull);
-            if (nonNullValues != nextBatchSize) {
+            int nullValues = presentStream.getUnsetBits(nextBatchSize, floatVector.isNull);
+            if (nullValues != nextBatchSize) {
                 verifyFormat(dataStream != null, "Value is not null but data stream is not present");
                 dataStream.nextVector(nextBatchSize, floatVector.vector, floatVector.isNull);
             }

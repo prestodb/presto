@@ -108,8 +108,8 @@ public class SliceDirectStreamReader
             lengthStream.nextIntVector(nextBatchSize, lengthVector);
         }
         else {
-            int nonNullValues = presentStream.getUnsetBits(nextBatchSize, isNullVector);
-            if (nonNullValues != nextBatchSize) {
+            int nullValues = presentStream.getUnsetBits(nextBatchSize, isNullVector);
+            if (nullValues != nextBatchSize) {
                 verifyFormat(lengthStream != null, "Value is not null but length stream is not present");
                 lengthStream.nextIntVector(nextBatchSize, lengthVector, isNullVector);
             }

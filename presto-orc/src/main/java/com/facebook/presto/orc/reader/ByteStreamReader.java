@@ -94,8 +94,8 @@ public class ByteStreamReader
             dataStream.nextVector(nextBatchSize, byteVector.vector);
         }
         else {
-            int nonNullValues = presentStream.getUnsetBits(nextBatchSize, byteVector.isNull);
-            if (nonNullValues != nextBatchSize) {
+            int nullValues = presentStream.getUnsetBits(nextBatchSize, byteVector.isNull);
+            if (nullValues != nextBatchSize) {
                 verifyFormat(dataStream != null, "Value is not null but data stream is not present");
                 dataStream.nextVector(nextBatchSize, byteVector.vector, byteVector.isNull);
             }
