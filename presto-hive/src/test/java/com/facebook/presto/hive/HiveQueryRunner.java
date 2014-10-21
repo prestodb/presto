@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.hive.metastore.InMemoryHiveMetastore;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tests.TestFunctionsPlugin;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.facebook.presto.tpch.testing.SampledTpchPlugin;
 import com.google.common.collect.ImmutableList;
@@ -71,7 +70,6 @@ public final class HiveQueryRunner
             metastore.createDatabase(new Database("tpch_sampled", null, new File(baseDir, "tpch_sampled").toURI().toString(), null));
 
             queryRunner.installPlugin(new HivePlugin("hive", metastore));
-            queryRunner.installPlugin(new TestFunctionsPlugin());
             Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
                     .put("hive.metastore.uri", "thrift://localhost:8080")
                     .put("hive.allow-drop-table", "true")

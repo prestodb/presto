@@ -14,6 +14,12 @@ The ``[]`` operator is used to retrieve the value corresponding to a given key f
 Map Functions
 -------------
 
+.. function:: map(array<K>, array<V>) -> map<K,V>
+
+    Returns a map created using the given key/value arrays. ::
+
+        SELECT MAP(ARRAY[1,3], ARRAY[2,4]); => {1 -> 2, 3 -> 4}
+
 .. function:: cardinality(x) -> bigint
     :noindex:
 
