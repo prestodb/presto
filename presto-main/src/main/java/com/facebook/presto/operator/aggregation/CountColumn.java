@@ -25,7 +25,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.reflect.Method;
@@ -40,6 +39,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.util.Reflection.method;
 
 public class CountColumn
         extends ParametricAggregation
@@ -47,18 +47,8 @@ public class CountColumn
     public static final CountColumn COUNT_COLUMN = new CountColumn();
     private static final String NAME = "count";
     private static final Signature SIGNATURE = new Signature(NAME, ImmutableList.of(typeParameter("T")), StandardTypes.BIGINT, ImmutableList.of("T"), false, false);
-    private static final Method INPUT_FUNCTION;
-    private static final Method COMBINE_FUNCTION;
-
-    static {
-        try {
-            INPUT_FUNCTION = CountColumn.class.getMethod("input", LongState.class, Block.class, int.class);
-            COMBINE_FUNCTION = CountColumn.class.getMethod("combine", LongState.class, LongState.class);
-        }
-        catch (NoSuchMethodException e) {
-            throw Throwables.propagate(e);
-        }
-    }
+    private static final Method INPUT_FUNCTION = method(CountColumn.class, "input", LongState.class, Block.class, int.class);
+    private static final Method COMBINE_FUNCTION = method(CountColumn.class, "combine", LongState.class, LongState.class);
 
     @Override
     public Signature getSignature()

@@ -36,25 +36,16 @@ import java.util.Map;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.type.ArrayType.toStackRepresentation;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.invoke.MethodHandles.lookup;
 
 public class MapValues
         extends ParametricScalar
 {
     public static final MapValues MAP_VALUES = new MapValues();
     private static final Signature SIGNATURE = new Signature("map_values", ImmutableList.of(typeParameter("K"), typeParameter("V")), "array<V>", ImmutableList.of("map<K,V>"), false, false);
-    private static final MethodHandle METHOD_HANDLE;
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapValues.class, "getValues", Slice.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer()));
-
-    static {
-        try {
-            METHOD_HANDLE = lookup().unreflect(MapValues.class.getMethod("getValues", Slice.class));
-        }
-        catch (ReflectiveOperationException e) {
-            throw Throwables.propagate(e);
-        }
-    }
 
     @Override
     public Signature getSignature()
