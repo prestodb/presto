@@ -39,7 +39,8 @@ import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.invoke.MethodHandles.lookup;
 
-public class MapValues extends ParametricScalar
+public class MapValues
+        extends ParametricScalar
 {
     public static final MapValues MAP_VALUES = new MapValues();
     private static final Signature SIGNATURE = new Signature("map_values", ImmutableList.of(typeParameter("K"), typeParameter("V")), "array<V>", ImmutableList.of("map<K,V>"), false, false);
@@ -85,12 +86,15 @@ public class MapValues extends ParametricScalar
         checkArgument(arity == 1, "map_values expects only one argument");
         Type keyType = types.get("K");
         Type valueType = types.get("V");
-        return new FunctionInfo(new Signature("map_values", parameterizedTypeName("array", valueType.getTypeSignature()), parameterizedTypeName("map", keyType.getTypeSignature(), valueType.getTypeSignature())), getDescription(), isHidden(), METHOD_HANDLE, isDeterministic(), true, ImmutableList.of(false));
+        Signature signature = new Signature("map_values",
+                parameterizedTypeName("array", valueType.getTypeSignature()),
+                parameterizedTypeName("map", keyType.getTypeSignature(), valueType.getTypeSignature()));
+        return new FunctionInfo(signature, getDescription(), isHidden(), METHOD_HANDLE, isDeterministic(), true, ImmutableList.of(false));
     }
 
     public static Slice getValues(Slice map)
     {
-        List<Object> values = new ArrayList<>(); //allow nulls
+        List<Object> values = new ArrayList<>(); // allow nulls
         MapType type = OBJECT_MAPPER.getTypeFactory().constructMapType(Map.class, String.class, Object.class);
         Map<String, Object> jsonMap;
         try {
