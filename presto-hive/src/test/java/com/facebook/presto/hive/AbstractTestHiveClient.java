@@ -225,6 +225,7 @@ public abstract class AbstractTestHiveClient
 
         partitions = ImmutableSet.<ConnectorPartition>builder()
                 .add(new HivePartition(tablePartitionFormat,
+                        TupleDomain.<HiveColumnHandle>all(),
                         "ds=2012-12-29/file_format=textfile/dummy=1",
                         ImmutableMap.<ConnectorColumnHandle, SerializableNativeValue>builder()
                                 .put(dsColumn, new SerializableNativeValue(Slice.class, utf8Slice("2012-12-29")))
@@ -233,6 +234,7 @@ public abstract class AbstractTestHiveClient
                                 .build(),
                         Optional.<HiveBucket>absent()))
                 .add(new HivePartition(tablePartitionFormat,
+                        TupleDomain.<HiveColumnHandle>all(),
                         "ds=2012-12-29/file_format=sequencefile/dummy=2",
                         ImmutableMap.<ConnectorColumnHandle, SerializableNativeValue>builder()
                                 .put(dsColumn, new SerializableNativeValue(Slice.class, utf8Slice("2012-12-29")))
@@ -241,6 +243,7 @@ public abstract class AbstractTestHiveClient
                                 .build(),
                         Optional.<HiveBucket>absent()))
                 .add(new HivePartition(tablePartitionFormat,
+                        TupleDomain.<HiveColumnHandle>all(),
                         "ds=2012-12-29/file_format=rctext/dummy=3",
                         ImmutableMap.<ConnectorColumnHandle, SerializableNativeValue>builder()
                                 .put(dsColumn, new SerializableNativeValue(Slice.class, utf8Slice("2012-12-29")))
@@ -249,6 +252,7 @@ public abstract class AbstractTestHiveClient
                                 .build(),
                         Optional.<HiveBucket>absent()))
                 .add(new HivePartition(tablePartitionFormat,
+                        TupleDomain.<HiveColumnHandle>all(),
                         "ds=2012-12-29/file_format=rcbinary/dummy=4",
                         ImmutableMap.<ConnectorColumnHandle, SerializableNativeValue>builder()
                                 .put(dsColumn, new SerializableNativeValue(Slice.class, utf8Slice("2012-12-29")))
@@ -257,8 +261,8 @@ public abstract class AbstractTestHiveClient
                                 .build(),
                         Optional.<HiveBucket>absent()))
                 .build();
-        unpartitionedPartitions = ImmutableSet.<ConnectorPartition>of(new HivePartition(tableUnpartitioned));
-        invalidPartition = new HivePartition(invalidTable, "unknown", ImmutableMap.<ConnectorColumnHandle, SerializableNativeValue>of(), Optional.<HiveBucket>absent());
+        unpartitionedPartitions = ImmutableSet.<ConnectorPartition>of(new HivePartition(tableUnpartitioned, TupleDomain.<HiveColumnHandle>all()));
+        invalidPartition = new HivePartition(invalidTable, TupleDomain.<HiveColumnHandle>all(), "unknown", ImmutableMap.<ConnectorColumnHandle, SerializableNativeValue>of(), Optional.<HiveBucket>absent());
         timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(timeZoneId));
     }
 

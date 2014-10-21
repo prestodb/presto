@@ -43,7 +43,7 @@ public class HiveSplit
     private final String table;
     private final String partitionName;
     private final ConnectorSession session;
-    private final TupleDomain<HiveColumnHandle> tupleDomain;
+    private final TupleDomain<HiveColumnHandle> effectivePredicate;
     private final boolean forceLocalScheduling;
 
     @JsonCreator
@@ -60,7 +60,7 @@ public class HiveSplit
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
             @JsonProperty("session") ConnectorSession session,
-            @JsonProperty("tupleDomain") TupleDomain<HiveColumnHandle> tupleDomain)
+            @JsonProperty("effectivePredicate") TupleDomain<HiveColumnHandle> effectivePredicate)
     {
         checkNotNull(clientId, "clientId is null");
         checkArgument(start >= 0, "start must be positive");
@@ -72,7 +72,7 @@ public class HiveSplit
         checkNotNull(schema, "schema is null");
         checkNotNull(partitionKeys, "partitionKeys is null");
         checkNotNull(addresses, "addresses is null");
-        checkNotNull(tupleDomain, "tupleDomain is null");
+        checkNotNull(effectivePredicate, "tupleDomain is null");
 
         this.clientId = clientId;
         this.database = database;
@@ -86,7 +86,7 @@ public class HiveSplit
         this.addresses = ImmutableList.copyOf(addresses);
         this.forceLocalScheduling = forceLocalScheduling;
         this.session = session;
-        this.tupleDomain = tupleDomain;
+        this.effectivePredicate = effectivePredicate;
     }
 
     @JsonProperty
@@ -157,9 +157,9 @@ public class HiveSplit
     }
 
     @JsonProperty
-    public TupleDomain<HiveColumnHandle> getTupleDomain()
+    public TupleDomain<HiveColumnHandle> getEffectivePredicate()
     {
-        return tupleDomain;
+        return effectivePredicate;
     }
 
     @JsonProperty
@@ -186,7 +186,7 @@ public class HiveSplit
                 .put("table", table)
                 .put("forceLocalScheduling", forceLocalScheduling)
                 .put("partitionName", partitionName)
-                .put("tupleDomain", tupleDomain)
+                .put("effectivePredicate", effectivePredicate)
                 .build();
     }
 
@@ -197,7 +197,7 @@ public class HiveSplit
                 .addValue(path)
                 .addValue(start)
                 .addValue(length)
-                .addValue(tupleDomain)
+                .addValue(effectivePredicate)
                 .toString();
     }
 }

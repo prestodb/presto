@@ -928,10 +928,10 @@ public class HiveClient
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ConnectorColumnHandle> tupleDomain)
+    public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ConnectorColumnHandle> effectivePredicate)
     {
         checkNotNull(tableHandle, "tableHandle is null");
-        checkNotNull(tupleDomain, "tupleDomain is null");
+        checkNotNull(effectivePredicate, "effectivePredicate is null");
         SchemaTableName tableName = getTableName(tableHandle);
 
         List<FieldSchema> partitionKeys;
@@ -951,7 +951,7 @@ public class HiveClient
             }
 
             partitionKeys = table.getPartitionKeys();
-            bucket = getHiveBucket(table, tupleDomain.extractFixedValues());
+            bucket = getHiveBucket(table, effectivePredicate.extractFixedValues());
         }
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(tableName);
@@ -967,8 +967,8 @@ public class HiveClient
             partitionKeysByNameBuilder.put(field.getName(), columnHandle);
 
             // only add to prefix if all previous keys have a value
-            if (filterPrefix.size() == i && !tupleDomain.isNone()) {
-                Domain domain = tupleDomain.getDomains().get(columnHandle);
+            if (filterPrefix.size() == i && !effectivePredicate.isNone()) {
+                Domain domain = effectivePredicate.getDomains().get(columnHandle);
                 if (domain != null && domain.isNullableSingleValue()) {
                     Comparable<?> value = domain.getNullableSingleValue();
                     if (value == null) {
@@ -1008,15 +1008,15 @@ public class HiveClient
         // do a final pass to filter based on fields that could not be used to build the prefix
         Map<String, ConnectorColumnHandle> partitionKeysByName = partitionKeysByNameBuilder.build();
         List<ConnectorPartition> partitions = FluentIterable.from(partitionNames)
-                .transform(toPartition(tableName, partitionKeysByName, bucket, timeZone, typeManager))
-                .filter(partitionMatches(tupleDomain))
+                .transform(toPartition(tableName, partitionKeysByName, bucket, timeZone, toHiveTupleDomain(effectivePredicate)))
+                .filter(partitionMatches(effectivePredicate))
                 .filter(ConnectorPartition.class)
                 .toList();
 
         // All partition key domains will be fully evaluated, so we don't need to include those
         TupleDomain<ConnectorColumnHandle> remainingTupleDomain = TupleDomain.none();
-        if (!tupleDomain.isNone()) {
-            remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains(), not(in(partitionKeysByName.values()))));
+        if (!effectivePredicate.isNone()) {
+            remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains(), not(in(partitionKeysByName.values()))));
         }
 
         return new ConnectorPartitionResult(partitions, remainingTupleDomain);
@@ -1281,7 +1281,7 @@ public class HiveClient
             final Map<String, ConnectorColumnHandle> columnsByName,
             final Optional<HiveBucket> bucket,
             final DateTimeZone timeZone,
-            final TypeManager typeManager)
+            final TupleDomain<HiveColumnHandle> effectivePredicate)
     {
         return new Function<String, HivePartition>()
         {
@@ -1290,7 +1290,7 @@ public class HiveClient
             {
                 try {
                     if (partitionId.equals(UNPARTITIONED_ID)) {
-                        return new HivePartition(tableName);
+                        return new HivePartition(tableName, effectivePredicate);
                     }
 
                     ImmutableMap.Builder<ConnectorColumnHandle, SerializableNativeValue> builder = ImmutableMap.builder();
@@ -1301,7 +1301,7 @@ public class HiveClient
 
                         builder.put(columnHandle, parsePartitionValue(partitionId, entry.getValue(), columnHandle.getHiveType(), timeZone));
                     }
-                    return new HivePartition(tableName, partitionId, builder.build(), bucket);
+                    return new HivePartition(tableName, effectivePredicate, partitionId, builder.build(), bucket);
                 }
                 catch (MetaException e) {
                     // invalid partition id
@@ -1367,5 +1367,17 @@ public class HiveClient
                 };
             }
         };
+    }
+
+    public static TupleDomain<HiveColumnHandle> toHiveTupleDomain(TupleDomain<ConnectorColumnHandle> effectivePredicate)
+    {
+        return effectivePredicate.transform(new TupleDomain.Function<ConnectorColumnHandle, HiveColumnHandle>()
+        {
+            @Override
+            public HiveColumnHandle apply(ConnectorColumnHandle columnHandle)
+            {
+                return checkType(columnHandle, HiveColumnHandle.class, "ColumnHandle");
+            }
+        });
     }
 }

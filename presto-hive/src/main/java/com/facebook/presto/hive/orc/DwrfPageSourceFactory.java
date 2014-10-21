@@ -72,7 +72,7 @@ public class DwrfPageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             List<HivePartitionKey> partitionKeys,
-            TupleDomain<HiveColumnHandle> tupleDomain,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
         if (!isOptimizedReaderEnabled(session, enabled)) {
@@ -94,7 +94,7 @@ public class DwrfPageSourceFactory
                 length,
                 columns,
                 partitionKeys,
-                tupleDomain,
+                effectivePredicate,
                 hiveStorageTimeZone,
                 typeManager));
     }
