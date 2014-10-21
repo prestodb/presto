@@ -24,7 +24,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.reflect.Method;
@@ -38,27 +37,17 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
+import static com.facebook.presto.util.Reflection.method;
 
 public class MaxBy
         extends ParametricAggregation
 {
     public static final MaxBy MAX_BY = new MaxBy();
     private static final String NAME = "max_by";
-    private static final Method OUTPUT_FUNCTION;
-    private static final Method INPUT_FUNCTION;
-    private static final Method COMBINE_FUNCTION;
+    private static final Method OUTPUT_FUNCTION = method(MaxBy.class, "output", MaxByState.class, BlockBuilder.class);
+    private static final Method INPUT_FUNCTION = method(MaxBy.class, "input", MaxByState.class, Block.class, Block.class, int.class);
+    private static final Method COMBINE_FUNCTION = method(MaxBy.class, "combine", MaxByState.class, MaxByState.class);
     private static final Signature SIGNATURE = new Signature(NAME, ImmutableList.of(orderableTypeParameter("K"), typeParameter("V")), "V", ImmutableList.of("V", "K"), false, false);
-
-    static {
-        try {
-            OUTPUT_FUNCTION = MaxBy.class.getMethod("output", MaxByState.class, BlockBuilder.class);
-            INPUT_FUNCTION = MaxBy.class.getMethod("input", MaxByState.class, Block.class, Block.class, int.class);
-            COMBINE_FUNCTION = MaxBy.class.getMethod("combine", MaxByState.class, MaxByState.class);
-        }
-        catch (NoSuchMethodException e) {
-            throw Throwables.propagate(e);
-        }
-    }
 
     @Override
     public Signature getSignature()

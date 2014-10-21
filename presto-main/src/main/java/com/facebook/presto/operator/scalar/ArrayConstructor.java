@@ -57,6 +57,7 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.relational.Signatures.arrayConstructorSignature;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.invoke.MethodHandles.lookup;
 
@@ -65,18 +66,7 @@ public final class ArrayConstructor
 {
     public static final ArrayConstructor ARRAY_CONSTRUCTOR = new ArrayConstructor();
     private static final Signature SIGNATURE = new Signature("array_constructor", ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("E"), true, true);
-    private static final MethodHandle EMPTY_ARRAY_CONSTRUCTOR;
-
-    static {
-        MethodHandle methodHandle;
-        try {
-            methodHandle = lookup().unreflect(ArrayConstructor.class.getMethod("emptyArrayConstructor"));
-        }
-        catch (ReflectiveOperationException e) {
-            throw Throwables.propagate(e);
-        }
-        EMPTY_ARRAY_CONSTRUCTOR = methodHandle;
-    }
+    private static final MethodHandle EMPTY_ARRAY_CONSTRUCTOR = methodHandle(ArrayConstructor.class, "emptyArrayConstructor");
 
     @Override
     public Signature getSignature()

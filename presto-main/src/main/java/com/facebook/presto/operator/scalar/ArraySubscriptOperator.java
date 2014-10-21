@@ -22,7 +22,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
-import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -46,42 +45,36 @@ import static com.facebook.presto.operator.scalar.JsonExtract.generateExtractor;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
-import static java.lang.invoke.MethodHandles.lookup;
 
 public class ArraySubscriptOperator
         extends ParametricOperator
 {
     public static final ArraySubscriptOperator ARRAY_SUBSCRIPT = new ArraySubscriptOperator();
-    private static final Map<Class<?>, MethodHandle> METHOD_HANDLES;
-    private static final MethodHandle STRUCTURAL_METHOD_HANDLE;
-    private static final LoadingCache<CacheKey, JsonExtractor<?>> cache;
 
-    static {
-        ImmutableMap.Builder<Class<?>, MethodHandle> builder = ImmutableMap.builder();
-        try {
-            builder.put(boolean.class, lookup().unreflect(ArraySubscriptOperator.class.getMethod("booleanSubscript", Slice.class, long.class)));
-            builder.put(long.class, lookup().unreflect(ArraySubscriptOperator.class.getMethod("longSubscript", Slice.class, long.class)));
-            builder.put(double.class, lookup().unreflect(ArraySubscriptOperator.class.getMethod("doubleSubscript", Slice.class, long.class)));
-            builder.put(Slice.class, lookup().unreflect(ArraySubscriptOperator.class.getMethod("sliceSubscript", Slice.class, long.class)));
-            STRUCTURAL_METHOD_HANDLE = lookup().unreflect(ArraySubscriptOperator.class.getMethod("structuralSubscript", Slice.class, long.class));
-        }
-        catch (ReflectiveOperationException e) {
-            throw Throwables.propagate(e);
-        }
-        METHOD_HANDLES = builder.build();
+    private static final Map<Class<?>, MethodHandle> METHOD_HANDLES = ImmutableMap.<Class<?>, MethodHandle>builder()
+            .put(boolean.class, methodHandle(ArraySubscriptOperator.class, "booleanSubscript", Slice.class, long.class))
+            .put(long.class, methodHandle(ArraySubscriptOperator.class, "longSubscript", Slice.class, long.class))
+            .put(double.class, methodHandle(ArraySubscriptOperator.class, "doubleSubscript", Slice.class, long.class))
+            .put(Slice.class, methodHandle(ArraySubscriptOperator.class, "sliceSubscript", Slice.class, long.class))
+            .build();
+    private static final MethodHandle STRUCTURAL_METHOD_HANDLE = methodHandle(ArraySubscriptOperator.class, "structuralSubscript", Slice.class, long.class);
 
-        cache = CacheBuilder.newBuilder().expireAfterAccess(1, TimeUnit.MINUTES).maximumSize(1000).build(new CacheLoader<CacheKey, JsonExtractor<?>>() {
-            @Override
-            public JsonExtractor<?> load(CacheKey key)
-                    throws Exception
+    private static final LoadingCache<CacheKey, JsonExtractor<?>> CACHE = CacheBuilder.newBuilder()
+            .expireAfterAccess(1, TimeUnit.MINUTES)
+            .maximumSize(1000)
+            .build(new CacheLoader<CacheKey, JsonExtractor<?>>()
             {
-                return generateExtractor(format("$[%d]", key.getIndex() - 1), key.getType().getExtractor(), true);
-            }
-        });
-    }
+                @Override
+                public JsonExtractor<?> load(CacheKey key)
+                        throws Exception
+                {
+                    return generateExtractor(format("$[%d]", key.getIndex() - 1), key.getType().getExtractor(), true);
+                }
+            });
 
     protected ArraySubscriptOperator()
     {
@@ -130,12 +123,13 @@ public class ArraySubscriptOperator
         return subscript(array, index, ExtractorType.STRUCTURAL);
     }
 
+    @SuppressWarnings("unchecked")
     private static <T> T subscript(Slice array, long index, ExtractorType type)
     {
         if (index == 0) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Index out of bounds");
         }
-        JsonExtractor<?> extractor = cache.getUnchecked(new CacheKey(index, type));
+        JsonExtractor<?> extractor = CACHE.getUnchecked(new CacheKey(index, type));
         return (T) JsonExtract.extract(array, extractor);
     }
 

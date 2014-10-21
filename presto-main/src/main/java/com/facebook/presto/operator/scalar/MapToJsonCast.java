@@ -37,25 +37,15 @@ import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
+import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.invoke.MethodHandles.lookup;
 
 public class MapToJsonCast
         extends ParametricOperator
 {
     public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast();
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer()));
-    private static final MethodHandle METHOD_HANDLE;
-
-    static
-    {
-        try {
-            METHOD_HANDLE = lookup().unreflect(MapToJsonCast.class.getMethod("toJson", Type.class, ConnectorSession.class, Slice.class));
-        }
-        catch (ReflectiveOperationException e) {
-            throw Throwables.propagate(e);
-        }
-    }
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", Type.class, ConnectorSession.class, Slice.class);
 
     private MapToJsonCast()
     {
