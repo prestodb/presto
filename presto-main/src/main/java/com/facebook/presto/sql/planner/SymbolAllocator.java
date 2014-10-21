@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -32,6 +33,11 @@ public class SymbolAllocator
     public Symbol newSymbol(String nameHint, Type type)
     {
         return newSymbol(nameHint, type, null);
+    }
+
+    public Symbol newHashSymbol()
+    {
+        return newSymbol("$hashValue", BigintType.BIGINT);
     }
 
     public Symbol newSymbol(String nameHint, Type type, String suffix)

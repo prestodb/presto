@@ -19,7 +19,7 @@ import com.facebook.presto.spi.block.Block;
 public interface PagesHashStrategy
 {
     /**
-     * Gets the total of the columns held in in this PagesHashStrategy.  This includes both the hashed
+     * Gets the total of the columns held in in this PagesHashStrategy. This includes both the hashed
      * and non-hashed columns.
      */
     int getChannelCount();
@@ -30,15 +30,9 @@ public interface PagesHashStrategy
     void appendTo(int blockIndex, int position, PageBuilder pageBuilder, int outputChannelOffset);
 
     /**
-     * Calculates the hash code the hashed columns in this PagesHashStrategy at the specified position.
+     * Calculates the hash code of the hashed columns in this PagesHashStrategy at the specified position.
      */
     int hashPosition(int blockIndex, int position);
-
-    /**
-     * Calculates the hash code at {@code position} in {@code blocks}. Blocks must have the same number of
-     * entries as the hashed columns and each entry is expected to be the same type.
-     */
-    int hashRow(int position, Block... blocks);
 
     /**
      * Compares the hashed columns in this PagesHashStrategy to the values in the specified blocks.  The

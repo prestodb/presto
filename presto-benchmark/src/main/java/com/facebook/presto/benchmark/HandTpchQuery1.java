@@ -92,10 +92,12 @@ public class HandTpchQuery1
                 "shipdate");
 
         TpchQuery1OperatorFactory tpchQuery1Operator = new TpchQuery1OperatorFactory(1);
+        OperatorFactory hashProjectOperator = createHashProjectOperator(2, ImmutableList.<Type>of(VARCHAR, VARCHAR, BIGINT, DOUBLE, DOUBLE, DOUBLE, DOUBLE), ImmutableList.of(0, 1));
         HashAggregationOperatorFactory aggregationOperator = new HashAggregationOperatorFactory(
-                2,
-                ImmutableList.of(tpchQuery1Operator.getTypes().get(0), tpchQuery1Operator.getTypes().get(1)),
+                3,
+                ImmutableList.of(hashProjectOperator.getTypes().get(0), hashProjectOperator.getTypes().get(1)),
                 Ints.asList(0, 1),
+                2,
                 Step.SINGLE,
                 ImmutableList.of(
                         LONG_SUM.bind(ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
@@ -108,7 +110,7 @@ public class HandTpchQuery1
                         ),
                 10_000);
 
-        return ImmutableList.of(tableScanOperator, tpchQuery1Operator, aggregationOperator);
+        return ImmutableList.of(tableScanOperator, tpchQuery1Operator, hashProjectOperator, aggregationOperator);
     }
 
     public static class TpchQuery1Operator

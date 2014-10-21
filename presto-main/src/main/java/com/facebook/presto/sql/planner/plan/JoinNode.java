@@ -35,12 +35,16 @@ public class JoinNode
     private final PlanNode left;
     private final PlanNode right;
     private final List<EquiJoinClause> criteria;
+    private final Symbol leftHashSymbol;
+    private final Symbol rightHashSymbol;
 
     @JsonCreator
     public JoinNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("type") Type type,
             @JsonProperty("left") PlanNode left,
             @JsonProperty("right") PlanNode right,
+            @JsonProperty("leftHashSymbol") Symbol leftHashSymbol,
+            @JsonProperty("rightHashSymbol") Symbol rightHashSymbol,
             @JsonProperty("criteria") List<EquiJoinClause> criteria)
     {
         super(id);
@@ -49,11 +53,15 @@ public class JoinNode
         Preconditions.checkNotNull(left, "left is null");
         Preconditions.checkNotNull(right, "right is null");
         Preconditions.checkNotNull(criteria, "criteria is null");
+        Preconditions.checkNotNull(leftHashSymbol, "leftHashSymbol is null");
+        Preconditions.checkNotNull(rightHashSymbol, "rightHashSymbol is null");
 
         this.type = type;
         this.left = left;
         this.right = right;
         this.criteria = ImmutableList.copyOf(criteria);
+        this.leftHashSymbol = leftHashSymbol;
+        this.rightHashSymbol = rightHashSymbol;
     }
 
     public enum Type
@@ -116,6 +124,18 @@ public class JoinNode
     public List<EquiJoinClause> getCriteria()
     {
         return criteria;
+    }
+
+    @JsonProperty("leftHashSymbol")
+    public Symbol getLeftHashSymbol()
+    {
+        return leftHashSymbol;
+    }
+
+    @JsonProperty("rightHashSymbol")
+    public Symbol getRightHashSymbol()
+    {
+        return rightHashSymbol;
     }
 
     @Override

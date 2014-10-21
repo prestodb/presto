@@ -84,6 +84,8 @@ public class TestEffectivePredicateExtractor
     private static final Symbol D = new Symbol("d");
     private static final Symbol E = new Symbol("e");
     private static final Symbol F = new Symbol("f");
+    private static final Symbol HASH_SYMBOL = new Symbol("$hashsymbol");
+
     private static final Expression AE = symbolExpr(A);
     private static final Expression BE = symbolExpr(B);
     private static final Expression CE = symbolExpr(C);
@@ -150,7 +152,8 @@ public class TestEffectivePredicateExtractor
                 ImmutableMap.<Symbol, Symbol>of(),
                 AggregationNode.Step.FINAL,
                 Optional.<Symbol>absent(),
-                1.0);
+                1.0,
+                HASH_SYMBOL);
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
@@ -280,7 +283,8 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.of(A),
                 ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST),
                 ImmutableMap.<Symbol, FunctionCall>of(),
-                ImmutableMap.<Symbol, Signature>of());
+                ImmutableMap.<Symbol, Signature>of(),
+                HASH_SYMBOL);
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
@@ -488,6 +492,8 @@ public class TestEffectivePredicateExtractor
                         and(
                                 equals(DE, EE),
                                 lessThan(FE, number(100)))),
+                HASH_SYMBOL,
+                HASH_SYMBOL,
                 criteria);
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
@@ -541,6 +547,8 @@ public class TestEffectivePredicateExtractor
                         and(
                                 equals(DE, EE),
                                 lessThan(FE, number(100)))),
+                HASH_SYMBOL,
+                HASH_SYMBOL,
                 criteria);
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
@@ -594,6 +602,8 @@ public class TestEffectivePredicateExtractor
                         and(
                                 equals(DE, EE),
                                 lessThan(FE, number(100)))),
+                HASH_SYMBOL,
+                HASH_SYMBOL,
                 criteria);
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
@@ -615,8 +625,9 @@ public class TestEffectivePredicateExtractor
         PlanNode node = new SemiJoinNode(newId(),
                 filter(baseTableScan, and(greaterThan(AE, number(10)), lessThan(AE, number(100)))),
                 filter(baseTableScan, greaterThan(AE, number(5))),
-                A, B, C
-        );
+                HASH_SYMBOL,
+                HASH_SYMBOL,
+                A, B, C);
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 

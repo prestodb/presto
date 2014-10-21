@@ -28,6 +28,7 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
+import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -41,6 +42,7 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -73,14 +75,20 @@ public class TestJoinProbeCompiler
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
         JoinCompiler joinCompiler = new JoinCompiler();
-        ImmutableList<Type> types = ImmutableList.<Type>of(VARCHAR);
-        LookupSourceFactory lookupSourceFactoryFactory = joinCompiler.compileLookupSourceFactory(types, Ints.asList(0));
+        ImmutableList<Type> types = ImmutableList.<Type>of(VARCHAR, BIGINT);
+        LookupSourceFactory lookupSourceFactoryFactory = joinCompiler.compileLookupSourceFactory(types, Ints.asList(0), 1);
 
         // crate hash strategy with a single channel blocks -- make sure there is some overlap in values
         List<Block> channel = ImmutableList.of(
                 BlockAssertions.createStringSequenceBlock(10, 20),
                 BlockAssertions.createStringSequenceBlock(20, 30),
                 BlockAssertions.createStringSequenceBlock(15, 25));
+
+        List<Block> hashChannel = ImmutableList.of(
+                TypeUtils.getHashBlock(ImmutableList.<Type>of(VARCHAR), channel.get(0)),
+                TypeUtils.getHashBlock(ImmutableList.<Type>of(VARCHAR), channel.get(1)),
+                TypeUtils.getHashBlock(ImmutableList.<Type>of(VARCHAR), channel.get(2)));
+
         LongArrayList addresses = new LongArrayList();
         for (int blockIndex = 0; blockIndex < channel.size(); blockIndex++) {
             Block block = channel.get(blockIndex);
@@ -88,25 +96,27 @@ public class TestJoinProbeCompiler
                 addresses.add(encodeSyntheticAddress(blockIndex, positionIndex));
             }
         }
-        LookupSource lookupSource = lookupSourceFactoryFactory.createLookupSource(addresses, types, ImmutableList.of(channel), operatorContext);
+        LookupSource lookupSource = lookupSourceFactoryFactory.createLookupSource(addresses, types, ImmutableList.of(channel, hashChannel), 1, operatorContext);
 
         JoinProbeCompiler joinProbeCompiler = new JoinProbeCompiler();
-        JoinProbeFactory probeFactory = joinProbeCompiler.internalCompileJoinProbe(types, Ints.asList(0));
+        JoinProbeFactory probeFactory = joinProbeCompiler.internalCompileJoinProbe(types, Ints.asList(0), 1);
 
-        Page page = SequencePageBuilder.createSequencePage(types, 10, 10);
+        Page page = SequencePageBuilder.createSequencePageWithHash(Ints.asList(0), types, 10, 10);
         JoinProbe joinProbe = probeFactory.createJoinProbe(lookupSource, page);
 
         // verify channel count
-        assertEquals(joinProbe.getChannelCount(), 1);
+        assertEquals(joinProbe.getChannelCount(), 2);
 
         Block probeBlock = page.getBlock(0);
+        Block hashBlock = page.getBlock(1);
+
         PageBuilder pageBuilder = new PageBuilder(types);
         for (int position = 0; position < page.getPositionCount(); position++) {
             assertTrue(joinProbe.advanceNextPosition());
 
             joinProbe.appendTo(pageBuilder);
 
-            assertEquals(joinProbe.getCurrentJoinPosition(), lookupSource.getJoinPosition(position, probeBlock));
+            assertEquals(joinProbe.getCurrentJoinPosition(), lookupSource.getJoinPosition(position, hashBlock, probeBlock));
         }
         assertFalse(joinProbe.advanceNextPosition());
         assertPageEquals(types, pageBuilder.build(), page);

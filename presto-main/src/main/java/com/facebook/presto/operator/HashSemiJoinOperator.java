@@ -33,24 +33,27 @@ public class HashSemiJoinOperator
         implements Operator
 {
     private final OperatorContext operatorContext;
+    private final int probeHashChannel;
 
     public static class HashSemiJoinOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
         private final SetSupplier setSupplier;
+        private final int probeHashChannel;
         private final List<Type> probeTypes;
         private final int probeJoinChannel;
         private final List<Type> types;
         private boolean closed;
 
-        public HashSemiJoinOperatorFactory(int operatorId, SetSupplier setSupplier, List<? extends Type> probeTypes, int probeJoinChannel)
+        public HashSemiJoinOperatorFactory(int operatorId, SetSupplier setSupplier, List<? extends Type> probeTypes, int probeJoinChannel, int probeHashChannel)
         {
             this.operatorId = operatorId;
             this.setSupplier = setSupplier;
             this.probeTypes = ImmutableList.copyOf(probeTypes);
             checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
             this.probeJoinChannel = probeJoinChannel;
+            this.probeHashChannel = probeHashChannel;
 
             this.types = ImmutableList.<Type>builder()
                     .addAll(probeTypes)
@@ -69,7 +72,7 @@ public class HashSemiJoinOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, HashBuilderOperator.class.getSimpleName());
-            return new HashSemiJoinOperator(operatorContext, setSupplier, probeTypes, probeJoinChannel);
+            return new HashSemiJoinOperator(operatorContext, setSupplier, probeTypes, probeJoinChannel, probeJoinChannel, probeHashChannel);
         }
 
         @Override
@@ -87,7 +90,7 @@ public class HashSemiJoinOperator
     private Page outputPage;
     private boolean finishing;
 
-    public HashSemiJoinOperator(OperatorContext operatorContext, SetSupplier channelSetFuture, List<Type> probeTypes, int probeJoinChannel)
+    public HashSemiJoinOperator(OperatorContext operatorContext, SetSupplier channelSetFuture, List<Type> probeTypes, int joinChannel, int probeJoinChannel, int probeHashChannel)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 
@@ -98,6 +101,7 @@ public class HashSemiJoinOperator
 
         this.channelSetFuture = channelSetFuture.getChannelSet();
         this.probeJoinChannel = probeJoinChannel;
+        this.probeHashChannel = probeHashChannel;
 
         this.types = ImmutableList.<Type>builder()
                 .addAll(probeTypes)
@@ -161,6 +165,7 @@ public class HashSemiJoinOperator
         BlockBuilder blockBuilder = BOOLEAN.createFixedSizeBlockBuilder(page.getPositionCount());
 
         Block probeJoinBlock = page.getBlock(probeJoinChannel);
+        Block probeJoinHashBlock = page.getBlock(probeHashChannel);
 
         // update hashing strategy to use probe cursor
         for (int position = 0; position < page.getPositionCount(); position++) {
@@ -168,7 +173,7 @@ public class HashSemiJoinOperator
                 blockBuilder.appendNull();
             }
             else {
-                boolean contains = channelSet.contains(position, probeJoinBlock);
+                boolean contains = channelSet.contains(position, probeJoinHashBlock, probeJoinBlock);
                 if (!contains && channelSet.containsNull()) {
                     blockBuilder.appendNull();
                 }

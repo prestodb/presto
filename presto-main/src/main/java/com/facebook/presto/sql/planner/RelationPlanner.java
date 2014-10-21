@@ -230,11 +230,18 @@ class RelationPlanner
             }
         }
 
+        // Add HashProjectNode for left and right, one of these will get optimized
+        ImmutableList<JoinNode.EquiJoinClause> equiJoinClauses = clauses.build();
+        // Use a placeholder hash symbol here, this will be replaced in the optimizers for the join node
+        Symbol dummyHashSymbol = symbolAllocator.newHashSymbol();
         PlanNode root = new JoinNode(idAllocator.getNextId(),
                 JoinNode.Type.typeConvert(node.getType()),
                 leftPlanBuilder.getRoot(),
                 rightPlanBuilder.getRoot(),
-                clauses.build());
+                dummyHashSymbol,
+                dummyHashSymbol,
+                equiJoinClauses);
+
         Optional<Symbol> sampleWeight = Optional.absent();
         if (leftPlanBuilder.getSampleWeight().isPresent() || rightPlanBuilder.getSampleWeight().isPresent()) {
             Expression expression = new ArithmeticExpression(ArithmeticExpression.Type.MULTIPLY, oneIfNull(leftPlanBuilder.getSampleWeight()), oneIfNull(rightPlanBuilder.getSampleWeight()));
@@ -476,10 +483,12 @@ class RelationPlanner
         }
 
         PlanNode planNode = new UnionNode(idAllocator.getNextId(), sources.build(), symbolMapping.build());
+        List<Symbol> outputSymbols = planNode.getOutputSymbols();
+
         if (node.isDistinct()) {
             planNode = distinct(planNode);
         }
-        return new RelationPlan(planNode, analysis.getOutputDescriptor(node), planNode.getOutputSymbols(), outputSampleWeight);
+        return new RelationPlan(planNode, analysis.getOutputDescriptor(node), outputSymbols, outputSampleWeight);
     }
 
     private RelationPlan addConstantSampleWeight(RelationPlan subPlan)
@@ -560,16 +569,25 @@ class RelationPlanner
         SubqueryExpression subqueryExpression = (SubqueryExpression) inPredicate.getValueList();
         RelationPlanner relationPlanner = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
         RelationPlan valueListRelation = relationPlanner.process(subqueryExpression.getQuery(), null);
-        Symbol filteringSourceJoinSymbol = Iterables.getOnlyElement(valueListRelation.getRoot().getOutputSymbols());
+
+        PlanNode filteringSource = valueListRelation.getRoot();
+        Symbol filteringSourceJoinSymbol = Iterables.getOnlyElement(filteringSource.getOutputSymbols());
 
         Symbol semiJoinOutputSymbol = symbolAllocator.newSymbol("semijoinresult", BOOLEAN);
-
         translations.put(inPredicate, semiJoinOutputSymbol);
+
+        Symbol filteringSourceHashSymbol = symbolAllocator.newHashSymbol();
+        ProjectNode filteringSourceProjectNode = QueryPlanner.getHashProjectNode(idAllocator, filteringSource, filteringSourceHashSymbol, ImmutableList.of(filteringSourceJoinSymbol));
+
+        Symbol sourceHashSymbol = symbolAllocator.newHashSymbol();
+        ProjectNode sourceProjectNode = QueryPlanner.getHashProjectNode(idAllocator, subPlan.getRoot(), sourceHashSymbol, ImmutableList.of(sourceJoinSymbol));
 
         return new PlanBuilder(translations,
                 new SemiJoinNode(idAllocator.getNextId(),
-                        subPlan.getRoot(),
-                        valueListRelation.getRoot(),
+                        sourceProjectNode,
+                        filteringSourceProjectNode,
+                        sourceHashSymbol,
+                        filteringSourceHashSymbol,
                         sourceJoinSymbol,
                         filteringSourceJoinSymbol,
                         semiJoinOutputSymbol),
@@ -578,13 +596,17 @@ class RelationPlanner
 
     private PlanNode distinct(PlanNode node)
     {
+        Symbol hashSymbol = symbolAllocator.newHashSymbol();
+        ProjectNode projectNode = QueryPlanner.getHashProjectNode(idAllocator, node, hashSymbol, node.getOutputSymbols());
+
         return new AggregationNode(idAllocator.getNextId(),
-                node,
+                projectNode,
                 node.getOutputSymbols(),
                 ImmutableMap.<Symbol, FunctionCall>of(),
                 ImmutableMap.<Symbol, Signature>of(),
                 ImmutableMap.<Symbol, Symbol>of(),
                 Optional.<Symbol>absent(),
-                1.0);
+                1.0,
+                hashSymbol);
     }
 }

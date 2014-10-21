@@ -63,6 +63,7 @@ public class TwoChannelJoinProbe
     private final Block probeBlockA;
     private final Block probeBlockB;
     private final Block[] probeBlocks;
+    private final Block hashBlock;
     private int position = -1;
 
     public TwoChannelJoinProbe(List<Type> types, LookupSource lookupSource, Page page)
@@ -78,6 +79,7 @@ public class TwoChannelJoinProbe
         this.probeBlocks = new Block[2];
         probeBlocks[0] = probeBlockA;
         probeBlocks[1] = probeBlockB;
+        this.hashBlock = page.getBlock(3);
     }
 
     @Override
@@ -106,7 +108,7 @@ public class TwoChannelJoinProbe
         if (currentRowContainsNull()) {
             return -1;
         }
-        return lookupSource.getJoinPosition(position, probeBlocks);
+        return lookupSource.getJoinPosition(position, hashBlock, probeBlocks);
     }
 
     private boolean currentRowContainsNull()

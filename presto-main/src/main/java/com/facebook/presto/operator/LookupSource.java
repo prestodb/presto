@@ -23,7 +23,7 @@ public interface LookupSource
 {
     int getChannelCount();
 
-    long getJoinPosition(int position, Block... blocks);
+    long getJoinPosition(int position, Block hashBlock, Block... blocks);
 
     long getNextJoinPosition(long currentPosition);
 

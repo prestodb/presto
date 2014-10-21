@@ -18,6 +18,7 @@ import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.ResolvedIndex;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -72,7 +73,7 @@ public class IndexJoinOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, com.facebook.presto.spi.type.Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         checkNotNull(plan, "plan is null");
         checkNotNull(session, "session is null");
@@ -84,7 +85,7 @@ public class IndexJoinOptimizer
     }
 
     private static class Rewriter
-            extends PlanNodeRewriter<Void>
+            extends PlanNodeRewriter<Symbol>
     {
         private final IndexManager indexManager;
         private final SymbolAllocator symbolAllocator;
@@ -98,10 +99,10 @@ public class IndexJoinOptimizer
         }
 
         @Override
-        public PlanNode rewriteJoin(JoinNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode rewriteJoin(JoinNode node, Symbol context, PlanRewriter<Symbol> planRewriter)
         {
-            PlanNode leftRewritten = planRewriter.rewrite(node.getLeft(), context);
-            PlanNode rightRewritten = planRewriter.rewrite(node.getRight(), context);
+            PlanNode leftRewritten = planRewriter.rewrite(node.getLeft(), node.getLeftHashSymbol());
+            PlanNode rightRewritten = planRewriter.rewrite(node.getRight(), node.getRightHashSymbol());
 
             if (!node.getCriteria().isEmpty()) { // Index join only possible with JOIN criteria
                 List<Symbol> leftJoinSymbols = Lists.transform(node.getCriteria(), leftGetter());
@@ -135,22 +136,50 @@ public class IndexJoinOptimizer
                     case INNER:
                         // Prefer the right candidate over the left candidate
                         if (rightIndexCandidate.isPresent()) {
-                            return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols));
+                            return new IndexJoinNode(idAllocator.getNextId(),
+                                    IndexJoinNode.Type.INNER,
+                                    leftRewritten,
+                                    rightIndexCandidate.get(),
+                                    node.getLeftHashSymbol(),
+                                    node.getRightHashSymbol(),
+                                    createEquiJoinClause(leftJoinSymbols, rightJoinSymbols)
+                            );
                         }
                         else if (leftIndexCandidate.isPresent()) {
-                            return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols));
+                            return new IndexJoinNode(idAllocator.getNextId(),
+                                    IndexJoinNode.Type.INNER,
+                                    rightRewritten,
+                                    leftIndexCandidate.get(),
+                                    node.getRightHashSymbol(),
+                                    node.getLeftHashSymbol(),
+                                    createEquiJoinClause(rightJoinSymbols, leftJoinSymbols)
+                            );
                         }
                         break;
 
                     case LEFT:
                         if (rightIndexCandidate.isPresent()) {
-                            return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols));
+                            return new IndexJoinNode(idAllocator.getNextId(),
+                                    IndexJoinNode.Type.SOURCE_OUTER,
+                                    leftRewritten,
+                                    rightIndexCandidate.get(),
+                                    node.getLeftHashSymbol(),
+                                    node.getRightHashSymbol(),
+                                    createEquiJoinClause(leftJoinSymbols, rightJoinSymbols)
+                            );
                         }
                         break;
 
                     case RIGHT:
                         if (leftIndexCandidate.isPresent()) {
-                            return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols));
+                            return new IndexJoinNode(idAllocator.getNextId(),
+                                    IndexJoinNode.Type.SOURCE_OUTER,
+                                    rightRewritten,
+                                    leftIndexCandidate.get(),
+                                    node.getRightHashSymbol(),
+                                    node.getLeftHashSymbol(),
+                                    createEquiJoinClause(rightJoinSymbols, leftJoinSymbols)
+                            );
                         }
                         break;
 
@@ -160,7 +189,7 @@ public class IndexJoinOptimizer
             }
 
             if (leftRewritten != node.getLeft() || rightRewritten != node.getRight()) {
-                return new JoinNode(node.getId(), node.getType(), leftRewritten, rightRewritten, node.getCriteria());
+                return new JoinNode(node.getId(), node.getType(), leftRewritten, rightRewritten, node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getCriteria());
             }
             return node;
         }
@@ -324,7 +353,7 @@ public class IndexJoinOptimizer
 
             PlanNode source = node;
             if (rewrittenProbeSource != node.getProbeSource()) {
-                source = new IndexJoinNode(node.getId(), node.getType(), rewrittenProbeSource, node.getIndexSource(), node.getCriteria());
+                source = new IndexJoinNode(node.getId(), node.getType(), rewrittenProbeSource, node.getIndexSource(), node.getProbeHashSymbol(), node.getIndexHashSymbol(), node.getCriteria());
             }
 
             return source;

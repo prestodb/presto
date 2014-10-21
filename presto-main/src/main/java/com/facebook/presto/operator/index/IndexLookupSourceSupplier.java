@@ -33,11 +33,12 @@ public class IndexLookupSourceSupplier
             Set<Integer> lookupSourceInputChannels,
             List<Integer> keyOutputChannels,
             List<Type> outputTypes,
+            int keyHashChannel,
             IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider,
             DataSize maxIndexMemorySize,
             IndexJoinLookupStats stats)
     {
-        this.indexLoader = new IndexLoader(lookupSourceInputChannels, keyOutputChannels, outputTypes, indexBuildDriverFactoryProvider, 100_000, maxIndexMemorySize, stats);
+        this.indexLoader = new IndexLoader(lookupSourceInputChannels, keyOutputChannels, outputTypes, keyHashChannel, indexBuildDriverFactoryProvider, 100_000, maxIndexMemorySize, stats);
     }
 
     @Override

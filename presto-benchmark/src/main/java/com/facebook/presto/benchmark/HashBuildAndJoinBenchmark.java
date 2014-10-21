@@ -19,6 +19,7 @@ import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFacto
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.NullOutputOperator.NullOutputOperatorFactory;
 import com.google.common.collect.ImmutableList;
@@ -27,6 +28,8 @@ import com.google.common.primitives.Ints;
 import java.util.List;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class HashBuildAndJoinBenchmark
         extends AbstractOperatorBenchmark
@@ -45,15 +48,16 @@ public class HashBuildAndJoinBenchmark
     {
         // hash build
         OperatorFactory ordersTableScan = createTableScanOperator(0, "orders", "orderkey", "totalprice");
-        HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(1, ordersTableScan.getTypes(), Ints.asList(0), 1_500_000);
+        OperatorFactory hashProjectOperator = createHashProjectOperator(1, ImmutableList.<Type>of(VARCHAR, DOUBLE), ImmutableList.of(0));
+        HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(2, hashProjectOperator.getTypes(), Ints.asList(0), 2, 1_500_000);
 
-        DriverFactory hashBuildDriverFactory = new DriverFactory(true, false, ordersTableScan, hashBuilder);
+        DriverFactory hashBuildDriverFactory = new DriverFactory(true, false, ordersTableScan, hashProjectOperator, hashBuilder);
         Driver hashBuildDriver = hashBuildDriverFactory.createDriver(taskContext.addPipelineContext(true, false).addDriverContext());
 
         // join
         OperatorFactory lineItemTableScan = createTableScanOperator(0, "lineitem", "orderkey", "quantity");
 
-        OperatorFactory joinOperator = LookupJoinOperators.innerJoin(1, hashBuilder.getLookupSourceSupplier(), lineItemTableScan.getTypes(), Ints.asList(0));
+        OperatorFactory joinOperator = LookupJoinOperators.innerJoin(1, hashBuilder.getLookupSourceSupplier(), lineItemTableScan.getTypes(), Ints.asList(0), 1);
 
         NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, joinOperator.getTypes());
 

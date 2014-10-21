@@ -29,7 +29,7 @@ public interface IndexedData
      * Returns NO_MORE_POSITIONS if the key has been loaded, but has no values.
      * Returns a valid address if the key has been loaded and has values.
      */
-    long getJoinPosition(int position, Block... blocks);
+    long getJoinPosition(int position, Block hashBlock, Block... blocks);
 
     /**
      * Returns the next address to join.

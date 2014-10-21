@@ -17,6 +17,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 
 public class ChannelSet
@@ -50,9 +51,9 @@ public class ChannelSet
         return containsNull;
     }
 
-    public boolean contains(int position, Block block)
+    public boolean contains(int position, Block hashBlock, Block block)
     {
-        return hash.contains(position, block);
+        return hash.contains(position, hashBlock, block);
     }
 
     public static class ChannelSetBuilder
@@ -60,17 +61,20 @@ public class ChannelSet
         private final GroupByHash hash;
         private final OperatorContext operatorContext;
         private final Block nullBlock;
+        private final Block nullHashBlock;
 
-        public ChannelSetBuilder(Type type, int expectedPositions, OperatorContext operatorContext)
+        public ChannelSetBuilder(Type type, int setChannel, int hashChannel, int expectedPositions, OperatorContext operatorContext)
         {
-            this.hash = new GroupByHash(ImmutableList.of(type), new int[] {0}, expectedPositions);
+            this.hash = new GroupByHash(ImmutableList.of(type), new int[] {setChannel}, hashChannel, expectedPositions);
             this.operatorContext = operatorContext;
             this.nullBlock = type.createBlockBuilder(new BlockBuilderStatus()).appendNull().build();
+            this.nullHashBlock = TypeUtils.getHashBlock(ImmutableList.of(type), nullBlock);
         }
 
         public ChannelSet build()
         {
-            return new ChannelSet(hash, hash.contains(0, nullBlock));
+            boolean setContainsNull = hash.contains(0, nullHashBlock, nullBlock);
+            return new ChannelSet(hash, setContainsNull);
         }
 
         public long getEstimatedSize()
@@ -83,18 +87,18 @@ public class ChannelSet
             return hash.getGroupCount();
         }
 
-        public void addBlock(Block block)
+        public void addPage(Page page)
         {
-            hash.getGroupIds(new Page(block));
+            hash.getGroupIds(page);
 
             if (operatorContext != null) {
                 operatorContext.setMemoryReservation(hash.getEstimatedSize());
             }
         }
 
-        public void add(int position, Block block)
+        public void add(int position, Block hashBlock, Block block)
         {
-            hash.putIfAbsent(position, block);
+            hash.putIfAbsent(position, hashBlock, block);
         }
     }
 }

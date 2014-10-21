@@ -41,6 +41,7 @@ public class WindowNode
     private final Map<Symbol, SortOrder> orderings;
     private final Map<Symbol, FunctionCall> windowFunctions;
     private final Map<Symbol, Signature> functionHandles;
+    private final Symbol hashSymbol;
 
     @JsonCreator
     public WindowNode(
@@ -50,7 +51,8 @@ public class WindowNode
             @JsonProperty("orderBy") List<Symbol> orderBy,
             @JsonProperty("orderings") Map<Symbol, SortOrder> orderings,
             @JsonProperty("windowFunctions") Map<Symbol, FunctionCall> windowFunctions,
-            @JsonProperty("signatures") Map<Symbol, Signature> signatures)
+            @JsonProperty("signatures") Map<Symbol, Signature> signatures,
+            @JsonProperty("hashSymbol") Symbol hashSymbol)
     {
         super(id);
 
@@ -60,6 +62,7 @@ public class WindowNode
         checkArgument(orderings.size() == orderBy.size(), "orderBy and orderings sizes don't match");
         checkNotNull(windowFunctions, "windowFunctions is null");
         checkNotNull(signatures, "signatures is null");
+        checkNotNull(hashSymbol, "hashSymbol is null");
         checkArgument(windowFunctions.keySet().equals(signatures.keySet()), "windowFunctions does not match signatures");
 
         this.source = source;
@@ -68,6 +71,7 @@ public class WindowNode
         this.orderings = ImmutableMap.copyOf(orderings);
         this.windowFunctions = ImmutableMap.copyOf(windowFunctions);
         this.functionHandles = ImmutableMap.copyOf(signatures);
+        this.hashSymbol = hashSymbol;
     }
 
     @Override
@@ -116,6 +120,12 @@ public class WindowNode
     public Map<Symbol, Signature> getSignatures()
     {
         return functionHandles;
+    }
+
+    @JsonProperty
+    public Symbol getHashSymbol()
+    {
+        return hashSymbol;
     }
 
     @Override

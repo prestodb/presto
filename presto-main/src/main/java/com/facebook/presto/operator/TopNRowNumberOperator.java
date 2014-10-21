@@ -44,6 +44,7 @@ public class TopNRowNumberOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final int hashChannel;
 
         private final List<Type> sourceTypes;
         private final List<Integer> outputChannels;
@@ -69,6 +70,7 @@ public class TopNRowNumberOperator
                 List<SortOrder> sortOrder,
                 int maxRowCountPerPartition,
                 boolean partial,
+                int hashChannel,
                 int expectedPositions)
         {
             this.operatorId = operatorId;
@@ -78,8 +80,13 @@ public class TopNRowNumberOperator
             this.partitionTypes = ImmutableList.copyOf(checkNotNull(partitionTypes, "partitionTypes is null"));
             this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels));
             this.sortOrder = ImmutableList.copyOf(checkNotNull(sortOrder));
+
             checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
             this.maxRowCountPerPartition = maxRowCountPerPartition;
+
+            checkArgument(hashChannel >= 0, "invalid hashChannel");
+            this.hashChannel = hashChannel;
+
             checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
             this.generateRowNumber = !partial || !partitionChannels.isEmpty();
             this.expectedPositions = expectedPositions;
@@ -114,6 +121,7 @@ public class TopNRowNumberOperator
                     sortTypes,
                     maxRowCountPerPartition,
                     generateRowNumber,
+                    hashChannel,
                     expectedPositions);
         }
 
@@ -154,6 +162,7 @@ public class TopNRowNumberOperator
             List<Type> sortTypes,
             int maxRowCountPerPartition,
             boolean generateRowNumber,
+            int hashChannel,
             int expectedPositions)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
@@ -175,7 +184,7 @@ public class TopNRowNumberOperator
             this.groupByHash = Optional.absent();
         }
         else {
-            this.groupByHash = Optional.of(new GroupByHash(partitionTypes, Ints.toArray(partitionChannels), expectedPositions));
+            this.groupByHash = Optional.of(new GroupByHash(partitionTypes, Ints.toArray(partitionChannels), hashChannel, expectedPositions));
         }
         this.flushingPartition = Optional.absent();
         this.pageBuilder = new PageBuilder(types);

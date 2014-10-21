@@ -38,6 +38,7 @@ public class WindowOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final int hashChannel;
         private final List<Type> sourceTypes;
         private final List<Integer> outputChannels;
         private final List<WindowFunctionDefinition> windowFunctionDefinitions;
@@ -58,9 +59,11 @@ public class WindowOperator
                 List<Integer> partitionChannels,
                 List<Integer> sortChannels,
                 List<SortOrder> sortOrder,
+                int hashChannel,
                 int expectedPositions)
         {
             this.operatorId = operatorId;
+            this.hashChannel = hashChannel;
             this.sourceTypes = ImmutableList.copyOf(sourceTypes);
             this.outputChannels = ImmutableList.copyOf(checkNotNull(outputChannels, "outputChannels is null"));
             this.windowFunctionDefinitions = windowFunctionDefinitions;
@@ -104,6 +107,7 @@ public class WindowOperator
                     sortTypes,
                     sortChannels,
                     sortOrder,
+                    hashChannel,
                     expectedPositions);
         }
 
@@ -154,6 +158,7 @@ public class WindowOperator
             List<Type> partitionTypes, List<Integer> partitionChannels,
             List<Type> sortTypes, List<Integer> sortChannels,
             List<SortOrder> sortOrder,
+            int hashChannel,
             int expectedPositions)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");

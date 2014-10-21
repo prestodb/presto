@@ -31,17 +31,20 @@ public class MarkDistinctNode
     private final PlanNode source;
     private final Symbol markerSymbol;
     private final List<Symbol> distinctSymbols;
+    private final Symbol hashSymbol;
 
     @JsonCreator
     public MarkDistinctNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("markerSymbol") Symbol markerSymbol,
-            @JsonProperty("distinctSymbols") List<Symbol> distinctSymbols)
+            @JsonProperty("distinctSymbols") List<Symbol> distinctSymbols,
+            @JsonProperty("hashSymbol") Symbol hashSymbol)
     {
         super(id);
         this.source = source;
         this.markerSymbol = markerSymbol;
         this.distinctSymbols = ImmutableList.copyOf(checkNotNull(distinctSymbols, "distinctSymbols is null"));
+        this.hashSymbol = checkNotNull(hashSymbol, "hashSymbol is null");
     }
 
     @Override
@@ -75,6 +78,12 @@ public class MarkDistinctNode
     public List<Symbol> getDistinctSymbols()
     {
         return distinctSymbols;
+    }
+
+    @JsonProperty
+    public Symbol getHashSymbol()
+    {
+        return hashSymbol;
     }
 
     @Override

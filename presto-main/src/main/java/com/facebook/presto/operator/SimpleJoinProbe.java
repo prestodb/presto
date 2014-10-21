@@ -28,17 +28,19 @@ public class SimpleJoinProbe
     {
         private List<Type> types;
         private List<Integer> probeJoinChannels;
+        private final int hashChannel;
 
-        public SimpleJoinProbeFactory(List<Type> types, List<Integer> probeJoinChannels)
+        public SimpleJoinProbeFactory(List<Type> types, List<Integer> probeJoinChannels, int hashChannel)
         {
             this.types = types;
             this.probeJoinChannels = probeJoinChannels;
+            this.hashChannel = hashChannel;
         }
 
         @Override
         public JoinProbe createJoinProbe(LookupSource lookupSource, Page page)
         {
-            return new SimpleJoinProbe(types, lookupSource, page, probeJoinChannels);
+            return new SimpleJoinProbe(types, lookupSource, page, probeJoinChannels, hashChannel);
         }
     }
 
@@ -46,10 +48,11 @@ public class SimpleJoinProbe
     private final LookupSource lookupSource;
     private final int positionCount;
     private final Block[] blocks;
+    private final Block hashBlock;
     private final Block[] probeBlocks;
     private int position = -1;
 
-    private SimpleJoinProbe(List<Type> types, LookupSource lookupSource, Page page, List<Integer> probeJoinChannels)
+    private SimpleJoinProbe(List<Type> types, LookupSource lookupSource, Page page, List<Integer> probeJoinChannels, int hashChannel)
     {
         this.types = types;
         this.lookupSource = lookupSource;
@@ -64,6 +67,7 @@ public class SimpleJoinProbe
         for (int i = 0; i < probeJoinChannels.size(); i++) {
             probeBlocks[i] = blocks[probeJoinChannels.get(i)];
         }
+        this.hashBlock = blocks[hashChannel];
     }
 
     @Override
@@ -95,7 +99,7 @@ public class SimpleJoinProbe
         if (currentRowContainsNull()) {
             return -1;
         }
-        return lookupSource.getJoinPosition(position, probeBlocks);
+        return lookupSource.getJoinPosition(position, hashBlock, probeBlocks);
     }
 
     private boolean currentRowContainsNull()

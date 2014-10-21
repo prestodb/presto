@@ -15,6 +15,7 @@ package com.facebook.presto.benchmark;
 
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.base.Optional;
@@ -25,6 +26,9 @@ import java.util.List;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class HashAggregationBenchmark
         extends AbstractSimpleOperatorBenchmark
@@ -37,14 +41,17 @@ public class HashAggregationBenchmark
     @Override
     protected List<? extends OperatorFactory> createOperatorFactories()
     {
-        OperatorFactory tableScanOperator = createTableScanOperator(0, "orders", "orderstatus", "totalprice");
-        HashAggregationOperatorFactory aggregationOperator = new HashAggregationOperatorFactory(1,
-                ImmutableList.of(tableScanOperator.getTypes().get(0)),
+        OperatorFactory tableScanOperator = createTableScanOperator(0, "orders", "orderstatus", "totalprice", "orderkey");
+        OperatorFactory hashProjectOperator = createHashProjectOperator(1, ImmutableList.<Type>of(VARCHAR, DOUBLE, BIGINT), ImmutableList.of(0));
+        HashAggregationOperatorFactory aggregationOperator = new HashAggregationOperatorFactory(
+                2,
+                ImmutableList.of(hashProjectOperator.getTypes().get(0)),
                 Ints.asList(0),
+                3,
                 Step.SINGLE,
                 ImmutableList.of(DOUBLE_SUM.bind(ImmutableList.of(1), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)),
                 100_000);
-        return ImmutableList.of(tableScanOperator, aggregationOperator);
+        return ImmutableList.of(tableScanOperator, hashProjectOperator, aggregationOperator);
     }
 
     public static void main(String[] args)
