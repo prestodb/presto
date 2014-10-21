@@ -16,6 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.fasterxml.jackson.core.JsonFactory;
@@ -32,6 +33,8 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -45,7 +48,8 @@ import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.invoke.MethodHandles.lookup;
 
-public class MapKeys extends ParametricScalar
+public class MapKeys
+        extends ParametricScalar
 {
     public static final MapKeys MAP_KEYS = new MapKeys();
     private static final Signature SIGNATURE = new Signature("map_keys", ImmutableList.of(typeParameter("K"), typeParameter("V")), "array<K>", ImmutableList.of("map<K,V>"), false, false);
@@ -92,7 +96,10 @@ public class MapKeys extends ParametricScalar
         Type keyType = types.get("K");
         Type valueType = types.get("V");
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(keyType);
-        return new FunctionInfo(new Signature("map_keys", parameterizedTypeName("array", keyType.getTypeSignature()), parameterizedTypeName("map", keyType.getTypeSignature(), valueType.getTypeSignature())), getDescription(), isHidden(), methodHandle, isDeterministic(), true, ImmutableList.of(false));
+        Signature signature = new Signature("map_keys",
+                parameterizedTypeName("array", keyType.getTypeSignature()),
+                parameterizedTypeName("map", keyType.getTypeSignature(), valueType.getTypeSignature()));
+        return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), true, ImmutableList.of(false));
     }
 
     public static Slice getKeys(Type keyType, Slice map)
@@ -101,19 +108,15 @@ public class MapKeys extends ParametricScalar
         try (JsonParser parser = JSON_FACTORY.createJsonParser(map.getInput())) {
             JsonToken token = parser.nextToken();
             while (token != null) {
-                switch (token) {
-                    case FIELD_NAME:
-                        String fieldName = parser.getCurrentName();
-                        keys.add(parseMapKeyAsType(fieldName, keyType));
-                        break;
-                    default:
-                        break;
+                if (token == JsonToken.FIELD_NAME) {
+                    String fieldName = parser.getCurrentName();
+                    keys.add(parseMapKeyAsType(fieldName, keyType));
                 }
                 token = parser.nextToken();
             }
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
         }
         return toStackRepresentation(keys);
     }
@@ -136,6 +139,6 @@ public class MapKeys extends ParametricScalar
             return Boolean.valueOf(value);
         }
 
-        throw new IllegalArgumentException("Type " + t + " not supported as a map key");
+        throw new PrestoException(NOT_SUPPORTED, "Type " + t + " not supported as a map key");
     }
 }
