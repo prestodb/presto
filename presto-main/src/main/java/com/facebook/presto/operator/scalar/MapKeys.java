@@ -113,6 +113,7 @@ public class MapKeys
                     keys.add(parseMapKeyAsType(fieldName, keyType));
                 }
                 token = parser.nextToken();
+                parser.skipChildren();
             }
         }
         catch (IOException e) {

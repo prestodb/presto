@@ -137,6 +137,7 @@ public class TestMapOperators
         assertFunction("MAP_KEYS(MAP(from_unixtime(1), 1.0))", ImmutableList.of(new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey())));
         assertFunction("MAP_KEYS(MAP(CAST('puppies' as varbinary), 'kittens'))", ImmutableList.of(new SqlVarbinary("puppies".getBytes("utf-8"))));
         assertFunction("MAP_KEYS(MAP(1, ARRAY[1, 2], 2, ARRAY[3]))", ImmutableList.of(1L, 2L));
+        assertFunction("MAP_KEYS(MAP(1, MAP(2, 3), 4, MAP(5, 6)))",  ImmutableList.of(1L, 4L));
     }
 
     @Test
