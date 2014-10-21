@@ -222,7 +222,7 @@ class HiveSplitSourceProvider
                                 partitionKeys,
                                 false,
                                 session,
-                                tupleDomain));
+                                partition.getHivePartition().getEffectivePredicate()));
                     }
                     continue;
                 }
@@ -370,7 +370,7 @@ class HiveSplitSourceProvider
             List<HivePartitionKey> partitionKeys,
             boolean splittable,
             ConnectorSession session,
-            TupleDomain<HiveColumnHandle> tupleDomain)
+            TupleDomain<HiveColumnHandle> effectivePredicate)
             throws IOException
     {
         ImmutableList.Builder<HiveSplit> builder = ImmutableList.builder();
@@ -410,7 +410,7 @@ class HiveSplitSourceProvider
                             addresses,
                             forceLocalScheduling,
                             session,
-                            tupleDomain));
+                            effectivePredicate));
 
                     chunkOffset += chunkLength;
                     remainingInitialSplits--;
@@ -437,7 +437,7 @@ class HiveSplitSourceProvider
                     addresses,
                     forceLocalScheduling,
                     session,
-                    tupleDomain));
+                    effectivePredicate));
         }
         return builder.build();
     }

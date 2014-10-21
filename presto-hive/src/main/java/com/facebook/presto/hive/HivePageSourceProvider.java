@@ -81,7 +81,7 @@ public class HivePageSourceProvider
 
         Configuration configuration = hdfsEnvironment.getConfiguration(path);
 
-        TupleDomain<HiveColumnHandle> tupleDomain = hiveSplit.getTupleDomain();
+        TupleDomain<HiveColumnHandle> effectivePredicate = hiveSplit.getEffectivePredicate();
 
         Properties schema = hiveSplit.getSchema();
 
@@ -98,7 +98,7 @@ public class HivePageSourceProvider
                     schema,
                     hiveColumns,
                     partitionKeys,
-                    tupleDomain,
+                    effectivePredicate,
                     hiveStorageTimeZone
             );
             if (pageSource.isPresent()) {
@@ -106,7 +106,7 @@ public class HivePageSourceProvider
             }
         }
 
-        HiveRecordCursor recordCursor = getHiveRecordCursor(clientId, session, configuration, path, start, length, schema, tupleDomain, partitionKeys, hiveColumns);
+        HiveRecordCursor recordCursor = getHiveRecordCursor(clientId, session, configuration, path, start, length, schema, effectivePredicate, partitionKeys, hiveColumns);
         if (recordCursor != null) {
             List<Type> columnTypes = ImmutableList.copyOf(transform(hiveColumns, nativeTypeGetter(typeManager)));
             return new RecordPageSource(columnTypes, recordCursor);
@@ -123,7 +123,7 @@ public class HivePageSourceProvider
             long start,
             long length,
             Properties schema,
-            TupleDomain<HiveColumnHandle> tupleDomain,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> hiveColumns)
     {
@@ -138,7 +138,7 @@ public class HivePageSourceProvider
                     schema,
                     hiveColumns,
                     partitionKeys,
-                    tupleDomain,
+                    effectivePredicate,
                     hiveStorageTimeZone,
                     typeManager);
             if (cursor.isPresent()) {

@@ -86,7 +86,7 @@ public class OrcPageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             List<HivePartitionKey> partitionKeys,
-            TupleDomain<HiveColumnHandle> tupleDomain,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
         if (!isOptimizedReaderEnabled(session, enabled)) {
@@ -108,7 +108,7 @@ public class OrcPageSourceFactory
                 length,
                 columns,
                 partitionKeys,
-                tupleDomain,
+                effectivePredicate,
                 hiveStorageTimeZone,
                 typeManager));
     }
@@ -121,7 +121,7 @@ public class OrcPageSourceFactory
             long length,
             List<HiveColumnHandle> columns,
             List<HivePartitionKey> partitionKeys,
-            TupleDomain<HiveColumnHandle> tupleDomain,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager)
     {
@@ -146,7 +146,7 @@ public class OrcPageSourceFactory
             }
         }
 
-        OrcPredicate predicate = new TupleDomainOrcPredicate<>(tupleDomain, columnReferences.build());
+        OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build());
 
         try {
             OrcReader reader = new OrcReader(orcDataSource, metadataReader);
