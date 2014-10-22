@@ -19,6 +19,8 @@ import com.google.common.primitives.Ints;
 
 import javax.annotation.concurrent.Immutable;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 @Immutable
 public class CaseStatement
         implements Comparable<CaseStatement>
@@ -75,7 +77,7 @@ public class CaseStatement
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("key", key)
                 .add("label", label)
                 .toString();

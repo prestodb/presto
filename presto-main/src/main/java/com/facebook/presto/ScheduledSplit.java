@@ -16,9 +16,9 @@ package com.facebook.presto;
 import com.facebook.presto.metadata.Split;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 import com.google.common.primitives.Longs;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ScheduledSplit
@@ -67,7 +67,7 @@ public class ScheduledSplit
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("sequenceId", sequenceId)
                 .add("split", split)
                 .toString();

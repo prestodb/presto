@@ -18,6 +18,7 @@ import com.google.common.base.Optional;
 
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Query
@@ -83,7 +84,7 @@ public class Query
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("with", with.orNull())
                 .add("queryBody", queryBody)
                 .add("orderBy", orderBy)

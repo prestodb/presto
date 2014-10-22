@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Select
@@ -51,7 +51,7 @@ public class Select
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("distinct", distinct)
                 .add("selectItems", selectItems)
                 .omitNullValues()

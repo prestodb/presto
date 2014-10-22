@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.facebook.presto.type.TypeUtils.hashPosition;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 
 public final class HashPagePartitionFunction
@@ -150,7 +151,7 @@ public final class HashPagePartitionFunction
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("partition", partition)
                 .add("partitionCount", partitionCount)
                 .add("partitioningChannels", partitioningChannels)

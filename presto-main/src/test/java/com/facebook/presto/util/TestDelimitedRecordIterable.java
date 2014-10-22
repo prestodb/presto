@@ -16,11 +16,11 @@ package com.facebook.presto.util;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.Splitter;
+import com.google.common.io.CharSource;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.io.CharStreams.newReaderSupplier;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -32,7 +32,7 @@ public class TestDelimitedRecordIterable
             throws Exception
     {
         DelimitedRecordSet recordIterable = new DelimitedRecordSet(
-                newReaderSupplier("apple,fuu,123\nbanana,bar,456"),
+                CharSource.wrap("apple,fuu,123\nbanana,bar,456"),
                 Splitter.on(','),
                 new ColumnMetadata("fruit", VARCHAR, 0, false),
                 new ColumnMetadata("foo", VARCHAR, 1, false),

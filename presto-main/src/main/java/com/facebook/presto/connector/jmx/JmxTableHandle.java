@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.facebook.presto.connector.jmx.JmxColumnHandle.columnMetadataGetter;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Iterables.transform;
 
 public class JmxTableHandle
@@ -84,7 +85,7 @@ public class JmxTableHandle
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("connectorId", connectorId)
                 .add("objectName", objectName)
                 .add("columns", columns)

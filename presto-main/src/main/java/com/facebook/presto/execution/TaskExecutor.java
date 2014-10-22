@@ -16,7 +16,6 @@ package com.facebook.presto.execution;
 import com.facebook.presto.util.CpuTimer;
 import com.facebook.presto.util.SetThreadName;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Objects;
 import com.google.common.base.Ticker;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
@@ -56,6 +55,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -148,7 +148,7 @@ public class TaskExecutor
     @Override
     public synchronized String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("runnerThreads", runnerThreads)
                 .add("allSplits", allSplits.size())
                 .add("pendingSplits", pendingSplits.size())
@@ -364,7 +364,7 @@ public class TaskExecutor
         @Override
         public String toString()
         {
-            return Objects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("taskId", taskId)
                     .toString();
         }

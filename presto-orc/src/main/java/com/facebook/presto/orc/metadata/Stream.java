@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.orc.metadata;
 
-import com.google.common.base.Objects;
-
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Stream
@@ -69,7 +68,7 @@ public class Stream
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("column", column)
                 .add("streamKind", streamKind)
                 .add("length", length)

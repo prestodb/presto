@@ -14,10 +14,11 @@
 package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
-import com.google.common.base.Objects;
 import com.google.common.io.ByteSource;
 
 import java.io.IOException;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class RowGroupDictionaryLengthStreamSource
         implements StreamSource<RowGroupDictionaryLengthStream>
@@ -62,7 +63,7 @@ public class RowGroupDictionaryLengthStreamSource
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("byteSource", byteSource)
                 .add("encoding", encoding)
                 .add("signed", signed)

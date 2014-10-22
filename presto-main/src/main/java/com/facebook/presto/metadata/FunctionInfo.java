@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.operator.WindowFunctionDefinition.window;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -242,7 +243,7 @@ public final class FunctionInfo
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("signature", signature)
                 .add("isAggregate", isAggregate)
                 .add("isWindow", isWindow)

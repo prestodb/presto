@@ -17,7 +17,6 @@ import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.Variable;
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
@@ -27,6 +26,7 @@ import java.util.List;
 
 import static com.facebook.presto.byteCode.OpCode.ILOAD;
 import static com.facebook.presto.byteCode.OpCode.ISTORE;
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public abstract class VariableInstruction
         implements InstructionNode
@@ -78,7 +78,7 @@ public abstract class VariableInstruction
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("variable", variable)
                 .toString();
     }

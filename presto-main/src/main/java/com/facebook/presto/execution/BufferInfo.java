@@ -19,6 +19,8 @@ import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public class BufferInfo
 {
     private final TaskId bufferId;
@@ -90,7 +92,7 @@ public class BufferInfo
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("bufferId", bufferId)
                 .add("finished", finished)
                 .add("bufferedPages", bufferedPages)

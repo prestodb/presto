@@ -17,6 +17,7 @@ import com.google.common.base.Objects;
 
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class WithQuery
@@ -57,7 +58,7 @@ public class WithQuery
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("name", name)
                 .add("query", query)
                 .add("columnNames", columnNames)

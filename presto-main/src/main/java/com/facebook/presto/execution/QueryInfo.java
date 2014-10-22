@@ -19,7 +19,6 @@ import com.facebook.presto.spi.ErrorCode;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -30,6 +29,8 @@ import javax.annotation.concurrent.Immutable;
 import java.net.URI;
 import java.util.List;
 import java.util.Set;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 @Immutable
 public class QueryInfo
@@ -152,7 +153,7 @@ public class QueryInfo
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("queryId", queryId)
                 .add("state", state)
                 .add("fieldNames", fieldNames)

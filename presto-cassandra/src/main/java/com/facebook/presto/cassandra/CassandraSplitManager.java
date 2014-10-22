@@ -29,7 +29,6 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.TupleDomain;
-import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.FluentIterable;
@@ -54,6 +53,7 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.toCQLCompatibleString;
 import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.EXTERNAL;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
@@ -358,7 +358,7 @@ public class CassandraSplitManager
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("clientId", connectorId)
                 .toString();
     }

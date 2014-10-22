@@ -18,7 +18,6 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import org.joda.time.DateTime;
 
@@ -28,6 +27,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Set;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 @Immutable
@@ -150,7 +150,7 @@ public class TaskInfo
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("taskId", taskId)
                 .add("state", state)
                 .toString();

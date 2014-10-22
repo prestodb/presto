@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class Table
         extends QueryBody
@@ -39,7 +39,7 @@ public class Table
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .addValue(name)
                 .toString();
     }

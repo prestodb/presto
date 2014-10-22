@@ -15,6 +15,7 @@ package com.facebook.presto.orc;
 
 import com.google.common.primitives.Ints;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -63,7 +64,7 @@ public final class DiskRange
     @Override
     public String toString()
     {
-        return com.google.common.base.Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("offset", offset)
                 .add("length", length)
                 .toString();

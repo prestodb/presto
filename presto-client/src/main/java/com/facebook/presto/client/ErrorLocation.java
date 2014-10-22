@@ -15,10 +15,10 @@ package com.facebook.presto.client;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 
 import javax.annotation.concurrent.Immutable;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 
 @Immutable
@@ -54,7 +54,7 @@ public class ErrorLocation
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("lineNumber", lineNumber)
                 .add("columnNumber", columnNumber)
                 .toString();

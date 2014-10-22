@@ -38,7 +38,6 @@ import com.facebook.presto.util.SetThreadName;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
-import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.FluentIterable;
@@ -82,6 +81,7 @@ import static com.facebook.presto.execution.TaskInfo.taskStateGetter;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Failures.toFailures;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -983,7 +983,7 @@ public class SqlStageExecution
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("stageId", stageId)
                 .add("location", location)
                 .add("stageState", stageState.get())

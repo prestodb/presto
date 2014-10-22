@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -117,7 +118,7 @@ public class TpchSplit
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("tableHandle", tableHandle)
                 .add("partNumber", partNumber)
                 .add("totalParts", totalParts)

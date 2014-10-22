@@ -16,8 +16,8 @@ package com.facebook.presto.example;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.TupleDomain;
-import com.google.common.base.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ExamplePartition
@@ -57,7 +57,7 @@ public class ExamplePartition
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("schemaName", schemaName)
                 .add("tableName", tableName)
                 .toString();

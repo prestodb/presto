@@ -18,7 +18,7 @@ import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
-import com.google.common.io.OutputSupplier;
+import com.google.common.io.ByteSink;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.SliceOutput;
 
@@ -33,17 +33,17 @@ public class BlocksFileWriter
         implements Closeable
 {
     private final BlockEncodingSerde blockEncodingSerde;
-    private final OutputSupplier<? extends OutputStream> outputSupplier;
+    private final ByteSink byteSink;
     private final Type type;
     private Encoder encoder;
     private SliceOutput sliceOutput;
     private boolean closed;
 
-    public BlocksFileWriter(Type type, BlockEncodingSerde blockEncodingSerde, OutputSupplier<? extends OutputStream> outputSupplier)
+    public BlocksFileWriter(Type type, BlockEncodingSerde blockEncodingSerde, ByteSink byteSink)
     {
         this.type = checkNotNull(type, "type is null");
         this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingManager is null");
-        this.outputSupplier = checkNotNull(outputSupplier, "outputSupplier is null");
+        this.byteSink = checkNotNull(byteSink, "byteSink is null");
     }
 
     public BlocksFileWriter append(Block block)
@@ -59,7 +59,7 @@ public class BlocksFileWriter
     private void open()
     {
         try {
-            OutputStream outputStream = outputSupplier.getOutput();
+            OutputStream outputStream = byteSink.openBufferedStream();
             if (outputStream instanceof SliceOutput) {
                 sliceOutput = (SliceOutput) outputStream;
             }
@@ -112,7 +112,7 @@ public class BlocksFileWriter
     private void createEmptyFile()
     {
         try {
-            outputSupplier.getOutput().close();
+            byteSink.openStream().close();
         }
         catch (IOException e) {
             throw Throwables.propagate(e);

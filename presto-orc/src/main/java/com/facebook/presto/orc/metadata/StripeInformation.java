@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc.metadata;
 
-import com.google.common.base.Objects;
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class StripeInformation
 {
@@ -60,7 +60,7 @@ public class StripeInformation
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("numberOfRows", numberOfRows)
                 .add("offset", offset)
                 .add("indexLength", indexLength)

@@ -20,14 +20,10 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.google.common.base.Throwables;
-import com.google.common.io.OutputSupplier;
-import com.google.common.primitives.Ints;
-import io.airlift.units.DataSize;
+import com.google.common.io.Files;
 
-import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -36,13 +32,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.io.Files.newOutputStreamSupplier;
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
 
 public class ColumnFileHandle
 {
-    private static final DataSize OUTPUT_BUFFER_SIZE = new DataSize(64, KILOBYTE);
-
     private final UUID shardUuid;
     private final Map<ConnectorColumnHandle, File> files;
     private final Map<ConnectorColumnHandle, BlocksFileWriter> writers;
@@ -157,8 +149,7 @@ public class ColumnFileHandle
             writers.put(columnHandle, new BlocksFileWriter(
                     columnHandle.getColumnType(),
                     blockEncodingSerde,
-                    new BufferedOutputSupplier(newOutputStreamSupplier(targetFile),
-                    OUTPUT_BUFFER_SIZE)));
+                    Files.asByteSink(targetFile)));
 
             return this;
         }
@@ -195,26 +186,6 @@ public class ColumnFileHandle
         private Map<ConnectorColumnHandle, BlocksFileWriter> getWriters()
         {
             return writers;
-        }
-    }
-
-    private static class BufferedOutputSupplier
-            implements OutputSupplier<OutputStream>
-    {
-        private final OutputSupplier<? extends OutputStream> supplier;
-        private final long bufferSize;
-
-        private BufferedOutputSupplier(OutputSupplier<? extends OutputStream> supplier, DataSize bufferSize)
-        {
-            this.supplier = checkNotNull(supplier, "supplier is null");
-            this.bufferSize = checkNotNull(bufferSize, "bufferSize is null").toBytes();
-        }
-
-        @Override
-        public OutputStream getOutput()
-                throws IOException
-        {
-            return new BufferedOutputStream(supplier.getOutput(), Ints.saturatedCast(bufferSize));
         }
     }
 }

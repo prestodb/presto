@@ -15,6 +15,8 @@ package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public class ShowTables
         extends Statement
 {
@@ -66,7 +68,7 @@ public class ShowTables
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("schema", schema)
                 .add("likePattern", likePattern)
                 .toString();

@@ -14,8 +14,8 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.stream.StreamSources;
-import com.google.common.base.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class RowGroup
@@ -49,7 +49,7 @@ public class RowGroup
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("groupId", groupId)
                 .add("rowCount", rowCount)
                 .add("streamSources", streamSources)

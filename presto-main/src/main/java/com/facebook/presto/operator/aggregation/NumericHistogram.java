@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Objects;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
@@ -29,6 +28,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.PriorityQueue;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -406,7 +406,7 @@ public class NumericHistogram
         @Override
         public String toString()
         {
-            return Objects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("id", id)
                     .add("value", value)
                     .add("weight", weight)

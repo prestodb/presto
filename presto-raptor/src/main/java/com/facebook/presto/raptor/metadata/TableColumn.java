@@ -28,6 +28,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -99,7 +100,7 @@ public class TableColumn
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("table", table)
                 .add("columnName", columnName)
                 .add("ordinalPosition", ordinalPosition)

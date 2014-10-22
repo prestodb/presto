@@ -66,6 +66,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.HiveUtil.isPrestoView;
 import static com.facebook.presto.hive.RetryDriver.retry;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
@@ -757,7 +758,7 @@ public class CachingHiveMetastore
         @Override
         public String toString()
         {
-            return Objects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("databaseName", databaseName)
                     .add("tableName", tableName)
                     .toString();
@@ -814,7 +815,7 @@ public class CachingHiveMetastore
         @Override
         public String toString()
         {
-            return Objects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("hiveTableName", hiveTableName)
                     .add("partitionName", partitionName)
                     .toString();
@@ -871,7 +872,7 @@ public class CachingHiveMetastore
         @Override
         public String toString()
         {
-            return Objects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("hiveTableName", hiveTableName)
                     .add("parts", parts)
                     .toString();

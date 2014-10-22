@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.util;
 
-import com.google.common.base.Objects;
 import io.airlift.units.Duration;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class CpuTimer
@@ -155,7 +155,7 @@ public class CpuTimer
         @Override
         public String toString()
         {
-            return Objects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("wall", wall)
                     .add("cpu", cpu)
                     .add("user", user)

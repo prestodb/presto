@@ -19,11 +19,11 @@ import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.orc.reader.StreamSources;
 import com.facebook.presto.orc.stream.OrcInputStream;
 import com.facebook.presto.orc.stream.StreamSource;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -112,7 +112,7 @@ public class StreamLayout
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("streamId", streamId)
                 .add("groupId", groupId)
                 .add("type", type)

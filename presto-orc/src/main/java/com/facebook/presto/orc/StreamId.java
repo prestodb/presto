@@ -18,6 +18,8 @@ import com.facebook.presto.orc.metadata.Stream.StreamKind;
 
 import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public final class StreamId
 {
     private final int column;
@@ -67,7 +69,7 @@ public final class StreamId
     @Override
     public String toString()
     {
-        return com.google.common.base.Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("column", column)
                 .add("streamKind", streamKind)
                 .toString();

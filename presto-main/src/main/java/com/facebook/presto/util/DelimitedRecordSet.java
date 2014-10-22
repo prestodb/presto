@@ -17,11 +17,10 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.InputSupplier;
+import com.google.common.io.CharSource;
 import com.google.common.io.LineReader;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -31,28 +30,26 @@ import java.io.Reader;
 import java.util.List;
 
 import static com.facebook.presto.metadata.MetadataUtil.columnTypeGetter;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 
 public class DelimitedRecordSet
         implements RecordSet
 {
-    private final InputSupplier<? extends Reader> readerSupplier;
+    private final CharSource charSource;
     private final Splitter columnSplitter;
     private final List<ColumnMetadata> columns;
     private final List<Type> columnTypes;
 
-    public DelimitedRecordSet(InputSupplier<? extends Reader> readerSupplier, Splitter columnSplitter, ColumnMetadata... columns)
+    public DelimitedRecordSet(CharSource charSource, Splitter columnSplitter, ColumnMetadata... columns)
     {
-        this(readerSupplier, columnSplitter, ImmutableList.copyOf(columns));
+        this(charSource, columnSplitter, ImmutableList.copyOf(columns));
     }
 
-    public DelimitedRecordSet(InputSupplier<? extends Reader> readerSupplier, Splitter columnSplitter, Iterable<ColumnMetadata> columns)
+    public DelimitedRecordSet(CharSource charSource, Splitter columnSplitter, Iterable<ColumnMetadata> columns)
     {
-        Preconditions.checkNotNull(readerSupplier, "readerSupplier is null");
-        Preconditions.checkNotNull(columnSplitter, "columnSplitter is null");
-
-        this.readerSupplier = readerSupplier;
-        this.columnSplitter = columnSplitter;
+        this.charSource = checkNotNull(charSource, "charSource is null");
+        this.columnSplitter = checkNotNull(columnSplitter, "columnSplitter is null");
         this.columns = ImmutableList.copyOf(columns);
 
         this.columnTypes = ImmutableList.copyOf(transform(columns, columnTypeGetter()));
@@ -67,7 +64,7 @@ public class DelimitedRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new DelimitedRecordCursor(readerSupplier, columnSplitter, columns);
+        return new DelimitedRecordCursor(charSource, columnSplitter, columns);
     }
 
     private static class DelimitedRecordCursor
@@ -79,10 +76,10 @@ public class DelimitedRecordSet
         private final List<ColumnMetadata> columns;
         private List<String> row;
 
-        private DelimitedRecordCursor(InputSupplier<? extends Reader> readerSupplier, Splitter columnSplitter, List<ColumnMetadata> columns)
+        private DelimitedRecordCursor(CharSource charSource, Splitter columnSplitter, List<ColumnMetadata> columns)
         {
             try {
-                this.reader = readerSupplier.getInput();
+                this.reader = charSource.openStream();
                 this.lineReader = new LineReader(reader);
                 this.columnSplitter = columnSplitter;
                 this.columns = columns;

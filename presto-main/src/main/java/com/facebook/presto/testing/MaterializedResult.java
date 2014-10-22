@@ -35,6 +35,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -96,7 +97,7 @@ public class MaterializedResult
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("rows", rows)
                 .add("types", types)
                 .toString();

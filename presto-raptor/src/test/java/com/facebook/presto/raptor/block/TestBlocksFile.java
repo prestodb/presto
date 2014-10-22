@@ -18,11 +18,13 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.OutputSupplier;
+import com.google.common.io.ByteSink;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.List;
 
 import static com.facebook.presto.raptor.block.BlocksFileReader.readBlocks;
@@ -61,7 +63,7 @@ public class TestBlocksFile
     @Test
     public void testRoundTrip()
     {
-        DynamicSliceOutputSupplier sliceOutput = new DynamicSliceOutputSupplier(1024);
+        DynamicSliceByteSink sliceOutput = new DynamicSliceByteSink(1024);
         // write 3 copies the expected block
         BlocksFileWriter fileWriter = new BlocksFileWriter(VARCHAR, createTestingBlockEncodingManager(), sliceOutput);
         fileWriter.append(expectedBlock);
@@ -75,13 +77,13 @@ public class TestBlocksFile
         assertEquals(actualValues, expectedValues);
     }
 
-    private static class DynamicSliceOutputSupplier
-            implements OutputSupplier<DynamicSliceOutput>
+    private static class DynamicSliceByteSink
+            extends ByteSink
     {
         private final int estimatedSize;
         private DynamicSliceOutput lastOutput;
 
-        public DynamicSliceOutputSupplier(int estimatedSize)
+        public DynamicSliceByteSink(int estimatedSize)
         {
             this.estimatedSize = estimatedSize;
         }
@@ -92,7 +94,8 @@ public class TestBlocksFile
         }
 
         @Override
-        public DynamicSliceOutput getOutput()
+        public OutputStream openStream()
+                throws IOException
         {
             lastOutput = new DynamicSliceOutput(estimatedSize);
             return lastOutput;

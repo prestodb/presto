@@ -29,6 +29,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.compose;
 import static com.google.common.base.Predicates.equalTo;
@@ -85,7 +86,7 @@ public final class PartitionKey
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("partitionName", partitionName)
                 .add("name", name)
                 .add("type", type)

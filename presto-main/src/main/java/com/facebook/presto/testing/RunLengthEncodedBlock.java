@@ -15,9 +15,9 @@ package com.facebook.presto.testing;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.google.common.base.Objects;
 import io.airlift.slice.Slice;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
@@ -171,7 +171,7 @@ public class RunLengthEncodedBlock
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("value", value)
                 .add("positionCount", positionCount)
                 .toString();
