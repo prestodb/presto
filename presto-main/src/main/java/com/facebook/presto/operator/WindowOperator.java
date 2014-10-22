@@ -262,7 +262,7 @@ public class WindowOperator
 
                 // reset functions for new partition
                 for (WindowFunction function : windowFunctions) {
-                    function.reset(partitionEnd - currentPosition, pagesIndex);
+                    function.reset(currentPosition, partitionEnd - currentPosition, pagesIndex);
                 }
             }
 

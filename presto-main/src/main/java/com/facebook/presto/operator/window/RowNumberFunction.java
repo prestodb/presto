@@ -31,7 +31,7 @@ public class RowNumberFunction
     }
 
     @Override
-    public void reset(int partitionRowCount, PagesIndex pagesIndex)
+    public void reset(int partitionStartPosition, int partitionRowCount, PagesIndex pagesIndex)
     {
         rowNumber = 0;
     }

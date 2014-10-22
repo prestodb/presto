@@ -72,8 +72,8 @@ public class LeadFunction
     private final int defaultChannel;
 
     private int partitionStartPosition;
+    private int currentPosition;
     private int partitionRowCount;
-    private int currentPosition = -1;
     private PagesIndex pagesIndex;
 
     protected LeadFunction(Type type, List<Integer> argumentChannels)
@@ -101,21 +101,17 @@ public class LeadFunction
     }
 
     @Override
-    public void reset(int partitionRowCount, PagesIndex pagesIndex)
+    public void reset(int partitionStartPosition, int partitionRowCount, PagesIndex pagesIndex)
     {
-        this.pagesIndex = pagesIndex;
-        this.partitionStartPosition += this.partitionRowCount;
-        // start before the first row of the partition
-        this.currentPosition = partitionStartPosition - 1;
-
+        this.partitionStartPosition = partitionStartPosition;
+        this.currentPosition = partitionStartPosition;
         this.partitionRowCount = partitionRowCount;
+        this.pagesIndex = pagesIndex;
     }
 
     @Override
     public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
     {
-        currentPosition++;
-
         int offset = offsetChannel < 0 ? 1 : Ints.checkedCast(pagesIndex.getLong(offsetChannel, currentPosition));
         checkCondition(offset >= 0, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 0");
 
@@ -132,5 +128,7 @@ public class LeadFunction
                 pagesIndex.appendTo(defaultChannel, currentPosition, output);
             }
         }
+
+        currentPosition++;
     }
 }

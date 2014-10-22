@@ -71,8 +71,8 @@ public class NthValueFunction
     private final int offsetChannel;
 
     private int partitionStartPosition;
+    private int currentPosition;
     private int partitionRowCount;
-    private int currentPosition = -1;
     private PagesIndex pagesIndex;
 
     protected NthValueFunction(Type type, List<Integer> argumentChannels)
@@ -89,12 +89,10 @@ public class NthValueFunction
     }
 
     @Override
-    public void reset(int partitionRowCount, PagesIndex pagesIndex)
+    public void reset(int partitionStartPosition, int partitionRowCount, PagesIndex pagesIndex)
     {
-        this.partitionStartPosition += this.partitionRowCount;
-        // start before the first row of the partition
-        this.currentPosition = partitionStartPosition - 1;
-
+        this.partitionStartPosition = partitionStartPosition;
+        this.currentPosition = partitionStartPosition;
         this.partitionRowCount = partitionRowCount;
         this.pagesIndex = pagesIndex;
     }
@@ -102,8 +100,6 @@ public class NthValueFunction
     @Override
     public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
     {
-        currentPosition++;
-
         if (pagesIndex.isNull(offsetChannel, currentPosition)) {
             output.appendNull();
             return;
@@ -122,5 +118,7 @@ public class NthValueFunction
         }
 
         pagesIndex.appendTo(valueChannel, valuePosition, output);
+
+        currentPosition++;
     }
 }
