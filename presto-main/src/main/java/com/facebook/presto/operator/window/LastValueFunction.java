@@ -63,7 +63,6 @@ public class LastValueFunction
 
     private final Type type;
     private final int argumentChannel;
-    private int rowCount;
     private PagesIndex pagesIndex;
     private int valuePosition;
 
@@ -80,11 +79,10 @@ public class LastValueFunction
     }
 
     @Override
-    public void reset(int partitionRowCount, PagesIndex pagesIndex)
+    public void reset(int partitionStartPosition, int partitionRowCount, PagesIndex pagesIndex)
     {
         this.pagesIndex = pagesIndex;
-        rowCount += partitionRowCount;
-        valuePosition = rowCount - 1;
+        this.valuePosition = partitionStartPosition + partitionRowCount - 1;
     }
 
     @Override

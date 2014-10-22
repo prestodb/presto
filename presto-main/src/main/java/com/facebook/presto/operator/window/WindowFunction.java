@@ -24,10 +24,11 @@ public interface WindowFunction
     /**
      * Reset state for a new partition (including the first one).
      *
+     * @param partitionStartPosition position of the first row of the partition in the pagesIndex
      * @param partitionRowCount the total number of rows in the new partition
-     * @param pageIndex the pages index which contains sorted values
+     * @param pagesIndex the pages index which contains sorted values
      */
-    void reset(int partitionRowCount, PagesIndex pageIndex);
+    void reset(int partitionStartPosition, int partitionRowCount, PagesIndex pagesIndex);
 
     /**
      * Process a row by outputting the result of the window function.

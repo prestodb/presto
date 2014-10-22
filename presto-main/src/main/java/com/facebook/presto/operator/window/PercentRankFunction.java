@@ -33,7 +33,7 @@ public class PercentRankFunction
     }
 
     @Override
-    public void reset(int partitionRowCount, PagesIndex pagesIndex)
+    public void reset(int partitionStartPosition, int partitionRowCount, PagesIndex pagesIndex)
     {
         totalCount = partitionRowCount;
         rank = 0;

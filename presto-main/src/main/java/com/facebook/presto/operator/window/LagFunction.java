@@ -72,8 +72,7 @@ public class LagFunction
     private final int defaultChannel;
 
     private int partitionStartPosition;
-    private int partitionRowCount;
-    private int currentPosition = -1;
+    private int currentPosition;
     private PagesIndex pagesIndex;
 
     protected LagFunction(Type type, List<Integer> argumentChannels)
@@ -101,21 +100,16 @@ public class LagFunction
     }
 
     @Override
-    public void reset(int partitionRowCount, PagesIndex pagesIndex)
+    public void reset(int partitionStartPosition, int partitionRowCount, PagesIndex pagesIndex)
     {
+        this.partitionStartPosition = partitionStartPosition;
+        this.currentPosition = partitionStartPosition;
         this.pagesIndex = pagesIndex;
-        this.partitionStartPosition += this.partitionRowCount;
-        // start before the first row of the partition
-        this.currentPosition = partitionStartPosition - 1;
-
-        this.partitionRowCount = partitionRowCount;
     }
 
     @Override
     public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
     {
-        currentPosition++;
-
         int offset = offsetChannel < 0 ? 1 : Ints.checkedCast(pagesIndex.getLong(offsetChannel, currentPosition));
         checkCondition(offset >= 0, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 0");
 
@@ -132,5 +126,7 @@ public class LagFunction
                 pagesIndex.appendTo(defaultChannel, currentPosition, output);
             }
         }
+
+        currentPosition++;
     }
 }
