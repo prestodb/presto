@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public class Intersect
         extends SetOperation
 {
@@ -52,7 +54,7 @@ public class Intersect
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("relations", relations)
                 .add("distinct", distinct)
                 .toString();

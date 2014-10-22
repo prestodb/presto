@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.orc.stream;
 
-import com.google.common.base.Objects;
 import com.google.common.io.ByteSource;
 
 import java.io.IOException;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class FloatStreamSource
         implements StreamSource<FloatStream>
@@ -50,7 +51,7 @@ public class FloatStreamSource
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("byteSource", byteSource)
                 .add("valueSkipSize", valueSkipSize)
                 .toString();

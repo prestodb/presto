@@ -25,6 +25,7 @@ import io.airlift.slice.Slices;
 
 import java.util.Set;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -183,7 +184,7 @@ public class KafkaInternalFieldDescription
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("name", name)
                 .add("type", type)
                 .toString();

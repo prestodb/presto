@@ -22,7 +22,6 @@ import com.facebook.presto.orc.stream.ByteArrayStream;
 import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSource;
 import com.facebook.presto.orc.stream.StreamSources;
-import com.google.common.base.Objects;
 import io.airlift.slice.Slices;
 
 import javax.annotation.Nonnull;
@@ -37,6 +36,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SliceDirectStreamReader
@@ -197,7 +197,7 @@ public class SliceDirectStreamReader
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
     }

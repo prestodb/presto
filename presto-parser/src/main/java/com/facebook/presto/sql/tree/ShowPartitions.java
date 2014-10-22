@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ShowPartitions
@@ -88,7 +89,7 @@ public class ShowPartitions
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("table", table)
                 .add("where", where)
                 .add("orderBy", orderBy)

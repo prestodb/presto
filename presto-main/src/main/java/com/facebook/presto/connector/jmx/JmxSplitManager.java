@@ -24,7 +24,6 @@ import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.TupleDomain;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -33,6 +32,7 @@ import javax.inject.Inject;
 import java.util.List;
 
 import static com.facebook.presto.util.Types.checkType;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class JmxSplitManager
@@ -106,7 +106,7 @@ public class JmxSplitManager
         @Override
         public String toString()
         {
-            return Objects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("tableHandle", tableHandle)
                     .toString();
         }

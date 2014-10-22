@@ -31,6 +31,7 @@ import org.apache.hadoop.hive.metastore.api.Table;
 import java.util.Map;
 
 import static com.facebook.presto.hive.util.Types.checkType;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -141,7 +142,7 @@ public class HiveColumnHandle
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("clientId", clientId)
                 .add("name", name)
                 .add("ordinalPosition", ordinalPosition)

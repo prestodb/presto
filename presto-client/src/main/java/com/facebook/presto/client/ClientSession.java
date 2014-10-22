@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.client;
 
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
 
 import java.net.URI;
@@ -22,6 +21,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.US_ASCII;
@@ -136,7 +136,7 @@ public class ClientSession
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("server", server)
                 .add("user", user)
                 .add("catalog", catalog)

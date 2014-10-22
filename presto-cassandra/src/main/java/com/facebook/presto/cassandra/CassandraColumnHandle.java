@@ -20,8 +20,8 @@ import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
+import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.base.Objects;
-import com.google.common.base.Objects.ToStringHelper;
 import com.google.common.base.Predicate;
 
 import javax.annotation.Nullable;
@@ -29,6 +29,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 import static com.facebook.presto.cassandra.util.Types.checkType;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -182,7 +183,7 @@ public class CassandraColumnHandle
     @Override
     public String toString()
     {
-        ToStringHelper helper = Objects.toStringHelper(this)
+        ToStringHelper helper = toStringHelper(this)
                 .add("connectorId", connectorId)
                 .add("name", name)
                 .add("ordinalPosition", ordinalPosition)

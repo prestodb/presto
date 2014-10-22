@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class BufferResult
@@ -106,7 +107,7 @@ public class BufferResult
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("token", token)
                 .add("nextToken", nextToken)
                 .add("bufferClosed", bufferClosed)

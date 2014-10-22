@@ -14,11 +14,11 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class StreamDescriptor
@@ -73,7 +73,7 @@ public final class StreamDescriptor
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("streamName", streamName)
                 .add("streamId", streamId)
                 .add("streamType", streamType)

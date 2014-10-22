@@ -21,6 +21,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public class JmxColumnHandle
         implements ConnectorColumnHandle
 {
@@ -88,7 +90,7 @@ public class JmxColumnHandle
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("connectorId", connectorId)
                 .add("columnName", columnName)
                 .add("columnType", columnType)

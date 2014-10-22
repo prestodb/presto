@@ -21,7 +21,6 @@ import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSource;
 import com.facebook.presto.orc.stream.StreamSources;
-import com.google.common.base.Objects;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
@@ -37,6 +36,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TimestampStreamReader
@@ -182,7 +182,7 @@ public class TimestampStreamReader
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
     }

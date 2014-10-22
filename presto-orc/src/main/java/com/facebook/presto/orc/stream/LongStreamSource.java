@@ -15,7 +15,6 @@ package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
-import com.google.common.base.Objects;
 import com.google.common.io.ByteSource;
 
 import java.io.IOException;
@@ -25,6 +24,7 @@ import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class LongStreamSource
         implements StreamSource<LongStream>
@@ -78,7 +78,7 @@ public class LongStreamSource
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("byteSource", byteSource)
                 .add("encoding", encoding)
                 .add("orcTypeKind", orcTypeKind)

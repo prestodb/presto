@@ -22,6 +22,7 @@ import com.google.common.base.Objects;
 
 import javax.annotation.concurrent.Immutable;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -102,7 +103,7 @@ public final class SimpleMarker
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .addValue(inclusive)
                 .addValue(value)
                 .addValue(type)

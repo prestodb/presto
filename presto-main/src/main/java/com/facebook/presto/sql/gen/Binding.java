@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.google.common.base.Objects;
-
 import java.lang.invoke.MethodType;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public final class Binding
 {
@@ -41,7 +41,7 @@ public final class Binding
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("bindingId", bindingId)
                 .add("type", type)
                 .toString();

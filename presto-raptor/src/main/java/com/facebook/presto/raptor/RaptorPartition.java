@@ -16,7 +16,8 @@ package com.facebook.presto.raptor;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.TupleDomain;
-import com.google.common.base.Objects;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class RaptorPartition
         implements ConnectorPartition
@@ -43,7 +44,7 @@ public class RaptorPartition
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("tableId", tableId)
                 .toString();
     }

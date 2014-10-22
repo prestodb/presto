@@ -21,6 +21,7 @@ import com.google.common.base.Optional;
 
 import javax.annotation.concurrent.Immutable;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 @Immutable
@@ -83,7 +84,7 @@ public final class SimpleRange
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .addValue(low)
                 .addValue(high)
                 .toString();

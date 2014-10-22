@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.orc.stream;
 
-import com.google.common.base.Objects;
 import com.google.common.io.ByteSource;
 
 import java.io.IOException;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class OrcByteSource
@@ -45,7 +45,7 @@ public class OrcByteSource
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("inputStream", inputStream)
                 .add("rawOffset", compressedBlockOffset)
                 .add("decompressedOffset", decompressedOffset)

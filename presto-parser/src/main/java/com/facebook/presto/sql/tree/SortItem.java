@@ -14,7 +14,8 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Function;
-import com.google.common.base.Objects;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class SortItem
         extends Node
@@ -64,7 +65,7 @@ public class SortItem
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("sortKey", sortKey)
                 .add("ordering", ordering)
                 .add("nullOrdering", nullOrdering)

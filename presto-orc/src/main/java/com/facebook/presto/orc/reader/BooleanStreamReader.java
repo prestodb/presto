@@ -19,7 +19,6 @@ import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.StreamSource;
 import com.facebook.presto.orc.stream.StreamSources;
-import com.google.common.base.Objects;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -32,6 +31,7 @@ import static com.facebook.presto.orc.OrcCorruptionException.verifyFormat;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class BooleanStreamReader
@@ -147,7 +147,7 @@ public class BooleanStreamReader
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
     }

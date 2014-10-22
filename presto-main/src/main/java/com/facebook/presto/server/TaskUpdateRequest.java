@@ -19,11 +19,12 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class TaskUpdateRequest
 {
@@ -77,7 +78,7 @@ public class TaskUpdateRequest
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("session", session)
                 .add("fragment", fragment)
                 .add("sources", sources)

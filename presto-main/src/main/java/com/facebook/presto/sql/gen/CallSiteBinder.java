@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.HashMap;
 import java.util.Map;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public final class CallSiteBinder
 {
@@ -49,7 +50,7 @@ public final class CallSiteBinder
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("nextId", nextId)
                 .add("bindings", bindings)
                 .toString();

@@ -17,7 +17,6 @@ import com.facebook.presto.orc.stream.OrcInputStream;
 import com.facebook.presto.orc.stream.StreamSource;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.google.common.base.Function;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
@@ -25,6 +24,7 @@ import com.google.common.collect.Ordering;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -103,7 +103,7 @@ public final class RowGroupLayout
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("groupId", groupId)
                 .add("rowCount", rowCount)
                 .add("streams", streamLayouts)

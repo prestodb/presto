@@ -19,7 +19,6 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
@@ -27,6 +26,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -172,7 +172,7 @@ public class BasicQueryInfo
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("queryId", queryId)
                 .add("state", state)
                 .toString();

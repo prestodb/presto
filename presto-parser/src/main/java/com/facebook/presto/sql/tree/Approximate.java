@@ -15,6 +15,7 @@ package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class Approximate
@@ -60,7 +61,7 @@ public final class Approximate
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("confidence", confidence)
                 .toString();
     }
