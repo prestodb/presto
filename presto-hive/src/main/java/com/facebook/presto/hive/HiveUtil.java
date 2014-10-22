@@ -19,16 +19,13 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Function;
-import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.JavaUtils;
 import org.apache.hadoop.hive.metastore.api.Table;
-import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
@@ -55,22 +52,20 @@ import org.joda.time.format.DateTimePrinter;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.Callable;
 
-import static com.facebook.presto.hive.HiveClient.getType;
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnIndexGetter;
 import static com.facebook.presto.hive.HiveColumnHandle.isPartitionKeyPredicate;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
-import static com.facebook.presto.hive.HiveType.getSupportedHiveType;
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.transform;
 import static com.google.common.io.BaseEncoding.base64;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getTableMetadata;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -107,17 +102,10 @@ public final class HiveUtil
     {
         // determine which hive columns we will read
         List<HiveColumnHandle> readColumns = ImmutableList.copyOf(filter(columns, not(isPartitionKeyPredicate())));
-        if (readColumns.isEmpty()) {
-            // for count(*) queries we will have "no" columns we want to read, but since hive doesn't
-            // support no columns (it will read all columns instead), we must choose a single column
-            HiveColumnHandle primitiveColumn = getFirstPrimitiveColumn(clientId, schema, typeManager);
-            readColumns = ImmutableList.of(primitiveColumn);
-        }
-        ArrayList<Integer> readHiveColumnIndexes = new ArrayList<>(transform(readColumns, hiveColumnIndexGetter()));
+        List<Integer> readHiveColumnIndexes = ImmutableList.copyOf(transform(readColumns, hiveColumnIndexGetter()));
 
         // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
-        ColumnProjectionUtils.setReadColumnIDs(configuration, readHiveColumnIndexes);
-        configuration.set(IOConstants.COLUMNS, Joiner.on(',').join(Iterables.transform(readColumns, HiveColumnHandle.nameGetter())));
+        ColumnProjectionUtils.appendReadColumns(configuration, readHiveColumnIndexes);
 
         final InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, true);
         final JobConf jobConf = new JobConf(configuration);
@@ -142,7 +130,7 @@ public final class HiveUtil
             });
         }
         catch (Exception e) {
-            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, String.format("Error opening Hive split %s (offset=%s, length=%s) using %s: %s",
+            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, format("Error opening Hive split %s (offset=%s, length=%s) using %s: %s",
                     path,
                     start,
                     length,
@@ -150,29 +138,6 @@ public final class HiveUtil
                     e.getMessage()),
                     e);
         }
-    }
-
-    static HiveColumnHandle getFirstPrimitiveColumn(String clientId, Properties schema, TypeManager typeManager)
-    {
-        List<? extends StructField> allStructFieldRefs = getTableObjectInspector(schema).getAllStructFieldRefs();
-        checkArgument(!allStructFieldRefs.isEmpty(), "Table doesn't have any columns");
-
-        int index = 0;
-        for (StructField field : allStructFieldRefs) {
-            ObjectInspector inspector = field.getFieldObjectInspector();
-            if (inspector.getCategory() == ObjectInspector.Category.PRIMITIVE) {
-                return createHiveColumnHandle(clientId, index, field, inspector, typeManager);
-            }
-            index++;
-        }
-
-        StructField field = allStructFieldRefs.get(0);
-        return createHiveColumnHandle(clientId, index, field, field.getFieldObjectInspector(), typeManager);
-    }
-
-    private static HiveColumnHandle createHiveColumnHandle(String clientId, int index, StructField field, ObjectInspector inspector, TypeManager typeManager)
-    {
-        return new HiveColumnHandle(clientId, field.getFieldName(), index, getSupportedHiveType(inspector), getType(inspector, typeManager).getTypeSignature(), index, false);
     }
 
     static InputFormat<?, ?> getInputFormat(Configuration configuration, Properties schema, boolean symlinkTarget)
