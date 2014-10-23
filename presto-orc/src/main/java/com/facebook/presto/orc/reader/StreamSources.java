@@ -166,7 +166,7 @@ public final class StreamSources
             return new LongStreamSource(byteSource, encoding, type, false, usesVInt, getPosition(offsetPositions, 0));
         }
 
-        throw new IllegalArgumentException("Unsupported column type " + type + " for stream " + streamId);
+        throw new IllegalArgumentException(String.format("Unsupported column type %s for stream %s with encoding %s", type, streamId, encoding));
     }
 
     public static int getBooleanStreamStartOffset(List<Integer> offsetPositions)
