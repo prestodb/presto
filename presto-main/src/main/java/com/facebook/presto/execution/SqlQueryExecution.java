@@ -18,6 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
@@ -49,6 +50,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
+import static com.facebook.presto.SystemSessionProperties.isBigQueryEnabled;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -389,6 +391,7 @@ public class SqlQueryExecution
         private final int scheduleSplitBatchSize;
         private final int maxPendingSplitsPerNode;
         private final int initialHashPartitions;
+        private final Integer bigQueryInitialHashPartitions;
         private final boolean experimentalSyntaxEnabled;
         private final boolean distributedIndexJoinsEnabled;
         private final boolean distributedJoinsEnabled;
@@ -401,6 +404,7 @@ public class SqlQueryExecution
         private final LocationFactory locationFactory;
         private final ExecutorService executor;
         private final NodeTaskMap nodeTaskMap;
+        private final NodeManager nodeManager;
 
         @Inject
         SqlQueryExecutionFactory(QueryManagerConfig config,
@@ -410,6 +414,7 @@ public class SqlQueryExecution
                 LocationFactory locationFactory,
                 SplitManager splitManager,
                 NodeScheduler nodeScheduler,
+                NodeManager nodeManager,
                 List<PlanOptimizer> planOptimizers,
                 RemoteTaskFactory remoteTaskFactory,
                 @ForQueryExecution ExecutorService executor,
@@ -419,6 +424,7 @@ public class SqlQueryExecution
             this.scheduleSplitBatchSize = config.getScheduleSplitBatchSize();
             this.maxPendingSplitsPerNode = config.getMaxPendingSplitsPerNode();
             this.initialHashPartitions = config.getInitialHashPartitions();
+            this.bigQueryInitialHashPartitions = config.getBigQueryInitialHashPartitions();
             this.metadata = checkNotNull(metadata, "metadata is null");
             this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
@@ -432,11 +438,24 @@ public class SqlQueryExecution
             this.distributedJoinsEnabled = featuresConfig.isDistributedJoinsEnabled();
             this.executor = checkNotNull(executor, "executor is null");
             this.nodeTaskMap = checkNotNull(nodeTaskMap, "nodeTaskMap is null");
+            this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
         }
 
         @Override
         public SqlQueryExecution createQueryExecution(QueryId queryId, String query, Session session, Statement statement)
         {
+            int initialHashPartitions;
+            if (isBigQueryEnabled(session, false)) {
+                if (this.bigQueryInitialHashPartitions == null) {
+                    initialHashPartitions = nodeManager.getActiveNodes().size();
+                }
+                else {
+                    initialHashPartitions = this.bigQueryInitialHashPartitions;
+                }
+            }
+            else {
+                initialHashPartitions = this.initialHashPartitions;
+            }
             SqlQueryExecution queryExecution = new SqlQueryExecution(queryId,
                     query,
                     session,
@@ -454,7 +473,7 @@ public class SqlQueryExecution
                     initialHashPartitions,
                     experimentalSyntaxEnabled,
                     distributedIndexJoinsEnabled,
-                    distributedJoinsEnabled,
+                    isBigQueryEnabled(session, distributedJoinsEnabled),
                     executor,
                     nodeTaskMap);
 

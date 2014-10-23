@@ -29,6 +29,7 @@ public class TaskManagerConfig
     private boolean verboseStats;
     private boolean taskCpuTimerEnabled = true;
     private DataSize maxTaskMemoryUsage = new DataSize(256, Unit.MEGABYTE);
+    private DataSize bigQueryMaxTaskMemoryUsage;
     private DataSize maxPartialAggregationMemoryUsage = new DataSize(16, Unit.MEGABYTE);
     private DataSize operatorPreAllocatedMemory = new DataSize(16, Unit.MEGABYTE);
     private DataSize maxTaskIndexMemoryUsage = new DataSize(64, Unit.MEGABYTE);
@@ -73,6 +74,21 @@ public class TaskManagerConfig
     public TaskManagerConfig setMaxPartialAggregationMemoryUsage(DataSize maxPartialAggregationMemoryUsage)
     {
         this.maxPartialAggregationMemoryUsage = maxPartialAggregationMemoryUsage;
+        return this;
+    }
+
+    public DataSize getBigQueryMaxTaskMemoryUsage()
+    {
+        if (bigQueryMaxTaskMemoryUsage == null) {
+            return new DataSize(2 * maxTaskMemoryUsage.toBytes(), Unit.BYTE);
+        }
+        return bigQueryMaxTaskMemoryUsage;
+    }
+
+    @Config("experimental.big-query-max-task-memory")
+    public TaskManagerConfig setBigQueryMaxTaskMemoryUsage(DataSize bigQueryMaxTaskMemoryUsage)
+    {
+        this.bigQueryMaxTaskMemoryUsage = bigQueryMaxTaskMemoryUsage;
         return this;
     }
 

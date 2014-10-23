@@ -61,6 +61,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.SystemSessionProperties.isBigQueryEnabled;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
@@ -166,7 +167,7 @@ public class DistributedLogicalPlanner
                     }
                 }
             }
-            if (createSingleNodePlan || alreadyPartitioned || !current.isDistributed()) {
+            if (createSingleNodePlan || alreadyPartitioned || (!current.isDistributed() && !isBigQueryEnabled(session, false))) {
                 MarkDistinctNode markNode = new MarkDistinctNode(idAllocator.getNextId(), current.getRoot(), node.getMarkerSymbol(), node.getDistinctSymbols());
                 current.setRoot(markNode);
                 return current;

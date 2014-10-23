@@ -25,6 +25,7 @@ import io.airlift.units.DataSize;
 import java.util.List;
 import java.util.concurrent.Executor;
 
+import static com.facebook.presto.SystemSessionProperties.isBigQueryEnabled;
 import static com.facebook.presto.execution.SqlTaskExecution.createSqlTaskExecution;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -39,6 +40,7 @@ public class SqlTaskExecutionFactory
     private final LocalExecutionPlanner planner;
     private final QueryMonitor queryMonitor;
     private final DataSize maxTaskMemoryUsage;
+    private final DataSize bigQueryMaxTaskMemoryUsage;
     private final DataSize operatorPreAllocatedMemory;
     private final boolean verboseStats;
     private final boolean cpuTimerEnabled;
@@ -56,6 +58,7 @@ public class SqlTaskExecutionFactory
                 planner,
                 queryMonitor,
                 config.getMaxTaskMemoryUsage(),
+                config.getBigQueryMaxTaskMemoryUsage(),
                 config.getOperatorPreAllocatedMemory(),
                 config.isVerboseStats(),
                 config.isTaskCpuTimerEnabled());
@@ -67,6 +70,7 @@ public class SqlTaskExecutionFactory
             LocalExecutionPlanner planner,
             QueryMonitor queryMonitor,
             DataSize maxTaskMemoryUsage,
+            DataSize bigQueryMaxTaskMemoryUsage,
             DataSize operatorPreAllocatedMemory,
             boolean verboseStats,
             boolean cpuTimerEnabled)
@@ -76,6 +80,7 @@ public class SqlTaskExecutionFactory
         this.planner = checkNotNull(planner, "planner is null");
         this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
         this.maxTaskMemoryUsage = checkNotNull(maxTaskMemoryUsage, "maxTaskMemoryUsage is null");
+        this.bigQueryMaxTaskMemoryUsage = checkNotNull(bigQueryMaxTaskMemoryUsage, "bigQueryMaxTaskMemoryUsage is null");
         this.operatorPreAllocatedMemory = checkNotNull(operatorPreAllocatedMemory, "operatorPreAllocatedMemory is null");
         this.verboseStats = verboseStats;
         this.cpuTimerEnabled = cpuTimerEnabled;
@@ -88,7 +93,7 @@ public class SqlTaskExecutionFactory
                 taskStateMachine,
                 taskNotificationExecutor,
                 session,
-                checkNotNull(maxTaskMemoryUsage, "maxTaskMemoryUsage is null"),
+                isBigQueryEnabled(session, false) ? bigQueryMaxTaskMemoryUsage : maxTaskMemoryUsage,
                 checkNotNull(operatorPreAllocatedMemory, "operatorPreAllocatedMemory is null"),
                 verboseStats,
                 cpuTimerEnabled);

@@ -58,8 +58,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.presto.SystemSessionProperties.isBigQueryEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.compose;
 import static com.google.common.base.Predicates.isNull;
@@ -116,7 +116,7 @@ public class SqlQueryManager
         this.queryExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryExecutor);
 
         checkNotNull(config, "config is null");
-        this.queryStarter = new QueryStarter(queryExecutor, stats, config.getMaxConcurrentQueries(), config.getMaxQueuedQueries());
+        this.queryStarter = new QueryStarter(queryExecutor, stats, config);
 
         this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
         this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
@@ -278,7 +278,13 @@ public class SqlQueryManager
     @Managed
     public int getQueryQueueSize()
     {
-        return queryStarter.getQueueSize();
+        return queryStarter.getQueryQueueSize();
+    }
+
+    @Managed
+    public int getBigQueryQueueSize()
+    {
+        return queryStarter.getBigQueryQueueSize();
     }
 
     @Managed
@@ -399,23 +405,40 @@ public class SqlQueryManager
     private static class QueryStarter
     {
         private final int maxQueuedQueries;
-        private final AtomicInteger queueSize = new AtomicInteger();
-        private final AsyncSemaphore<QueryExecution> asyncSemaphore;
+        private final AtomicInteger queryQueueSize = new AtomicInteger();
+        private final AsyncSemaphore<QueryExecution> queryAsyncSemaphore;
 
-        public QueryStarter(Executor queryExecutor, SqlQueryManagerStats stats, int maxConcurrentQueries, int maxQueuedQueries)
+        private final int maxQueuedBigQueries;
+        private final AtomicInteger bigQueryQueueSize = new AtomicInteger();
+        private final AsyncSemaphore<QueryExecution> bigQueryAsyncSemaphore;
+
+        public QueryStarter(Executor queryExecutor, SqlQueryManagerStats stats, QueryManagerConfig config)
         {
             checkNotNull(queryExecutor, "queryExecutor is null");
             checkNotNull(stats, "stats is null");
-            checkArgument(maxConcurrentQueries > 0, "must allow at least one running query");
-            checkArgument(maxQueuedQueries > 0, "must allow at least one query in the queue");
 
-            this.maxQueuedQueries = maxQueuedQueries;
-            this.asyncSemaphore = new AsyncSemaphore<>(maxConcurrentQueries, queryExecutor, new QuerySubmitter(queryExecutor, stats));
+            this.maxQueuedQueries = config.getMaxQueuedQueries();
+            this.queryAsyncSemaphore = new AsyncSemaphore<>(config.getMaxConcurrentQueries(), queryExecutor, new QuerySubmitter(queryExecutor, stats, queryQueueSize));
+            this.maxQueuedBigQueries = config.getMaxQueuedBigQueries();
+            this.bigQueryAsyncSemaphore = new AsyncSemaphore<>(config.getMaxConcurrentBigQueries(), queryExecutor, new QuerySubmitter(queryExecutor, stats, bigQueryQueueSize));
         }
 
         public boolean submit(QueryExecution queryExecution)
         {
-            if (queueSize.incrementAndGet() > maxQueuedQueries) {
+            AtomicInteger queueSize;
+            int maxQueueSize;
+            AsyncSemaphore<QueryExecution> asyncSemaphore;
+            if (isBigQueryEnabled(queryExecution.getQueryInfo().getSession(), false)) {
+                queueSize = bigQueryQueueSize;
+                maxQueueSize = maxQueuedBigQueries;
+                asyncSemaphore = bigQueryAsyncSemaphore;
+            }
+            else {
+                queueSize = queryQueueSize;
+                maxQueueSize = maxQueuedQueries;
+                asyncSemaphore = queryAsyncSemaphore;
+            }
+            if (queueSize.incrementAndGet() > maxQueueSize) {
                 queueSize.decrementAndGet();
                 return false;
             }
@@ -423,21 +446,28 @@ public class SqlQueryManager
             return true;
         }
 
-        public int getQueueSize()
+        public int getQueryQueueSize()
         {
-            return queueSize.get();
+            return queryQueueSize.get();
         }
 
-        private class QuerySubmitter
+        public int getBigQueryQueueSize()
+        {
+            return bigQueryQueueSize.get();
+        }
+
+        private static class QuerySubmitter
                 implements Function<QueryExecution, ListenableFuture<?>>
         {
             private final Executor queryExecutor;
             private final SqlQueryManagerStats stats;
+            private final AtomicInteger queueSize;
 
-            public QuerySubmitter(Executor queryExecutor, SqlQueryManagerStats stats)
+            public QuerySubmitter(Executor queryExecutor, SqlQueryManagerStats stats, AtomicInteger queueSize)
             {
                 this.queryExecutor = checkNotNull(queryExecutor, "queryExecutor is null");
                 this.stats = checkNotNull(stats, "stats is null");
+                this.queueSize = checkNotNull(queueSize, "queueSize is null");
             }
 
             @Override
