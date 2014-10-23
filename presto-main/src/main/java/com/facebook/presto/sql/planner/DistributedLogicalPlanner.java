@@ -518,16 +518,16 @@ public class DistributedLogicalPlanner
             SubPlanBuilder right = node.getRight().accept(this, context);
 
             if (left.isDistributed() || right.isDistributed()) {
-                if (distributedJoins) {
-                    List<Symbol> leftSymbols = Lists.transform(node.getCriteria(), leftGetter());
-                    List<Symbol> rightSymbols = Lists.transform(node.getCriteria(), rightGetter());
-                    left = hashDistributeSubplan(left, leftSymbols);
-                    right = hashDistributeSubplan(right, rightSymbols);
-                }
+                List<Symbol> leftSymbols = Lists.transform(node.getCriteria(), leftGetter());
+                List<Symbol> rightSymbols = Lists.transform(node.getCriteria(), rightGetter());
                 switch (node.getType()) {
                     case INNER:
                     case LEFT:
                         right.setRoot(new SinkNode(idAllocator.getNextId(), right.getRoot(), right.getRoot().getOutputSymbols()));
+                        if (distributedJoins) {
+                            right.setHashOutputPartitioning(rightSymbols);
+                            left = hashDistributeSubplan(left, leftSymbols);
+                        }
                         left.setRoot(new JoinNode(node.getId(),
                                 node.getType(),
                                 left.getRoot(),
@@ -538,6 +538,10 @@ public class DistributedLogicalPlanner
                         return left;
                     case RIGHT:
                         left.setRoot(new SinkNode(idAllocator.getNextId(), left.getRoot(), left.getRoot().getOutputSymbols()));
+                        if (distributedJoins) {
+                            left.setHashOutputPartitioning(leftSymbols);
+                            right = hashDistributeSubplan(right, rightSymbols);
+                        }
                         right.setRoot(new JoinNode(node.getId(),
                                 node.getType(),
                                 new ExchangeNode(idAllocator.getNextId(), left.getId(), left.getRoot().getOutputSymbols()),
