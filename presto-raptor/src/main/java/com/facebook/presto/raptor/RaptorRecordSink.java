@@ -13,149 +13,151 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.raptor.storage.ColumnFileHandle;
+import com.facebook.presto.raptor.storage.RowSink;
+import com.facebook.presto.raptor.storage.OutputHandle;
 import com.facebook.presto.raptor.storage.StorageManager;
-import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSink;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
-import com.google.common.base.Throwables;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
-import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static com.facebook.presto.spi.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class RaptorRecordSink
         implements RecordSink
 {
+    private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
+
     private final String nodeId;
-    private final ColumnFileHandle fileHandle;
     private final StorageManager storageManager;
     private final List<Type> columnTypes;
-    private final PageBuilder pageBuilder;
-    private final int sampleWeightField;
+    private final OutputHandle outputHandle;
+    private final RowSink rowSink;
 
-    private int field = -1;
-
-    public RaptorRecordSink(String nodeId, ColumnFileHandle fileHandle, StorageManager storageManager, List<Type> columnTypes, RaptorColumnHandle sampleWeightColumnHandle)
+    public RaptorRecordSink(
+            String nodeId,
+            StorageManager storageManager,
+            List<Long> columnIds,
+            List<Type> columnTypes,
+            Optional<Long> sampleWeightColumnId)
     {
         this.nodeId = checkNotNull(nodeId, "nodeId is null");
-        this.fileHandle = checkNotNull(fileHandle, "fileHandle is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
-        this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
-
-        if (sampleWeightColumnHandle != null) {
-            checkArgument(sampleWeightColumnHandle.getColumnName().equals(RaptorColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME), "sample weight column handle has wrong name");
-            // sample weight is always stored last in the table
-            sampleWeightField = columnTypes.size() - 1;
-        }
-        else {
-            sampleWeightField = -1;
-        }
-        pageBuilder = new PageBuilder(toTypes(columnTypes));
+        this.columnTypes = ImmutableList.copyOf(columnTypes);
+        this.outputHandle = storageManager.createOutputHandle(columnIds, columnTypes, sampleWeightColumnId);
+        this.rowSink = outputHandle.getRowSink();
     }
 
     @Override
     public void beginRecord(long sampleWeight)
     {
-        checkState(field == -1, "already in record");
-        field = 0;
-        if (sampleWeightField >= 0) {
-            BIGINT.writeLong(pageBuilder.getBlockBuilder(sampleWeightField), sampleWeight);
-        }
-    }
-
-    private int lastField()
-    {
-        return fileHandle.getFieldCount() - (sampleWeightField != -1 ? 1 : 0);
+        rowSink.beginRecord(sampleWeight);
     }
 
     @Override
     public void finishRecord()
     {
-        checkState(field != -1, "not in record");
-        checkState(field == lastField(), "not all fields set");
-        field = -1;
-
-        if (pageBuilder.isFull()) {
-            fileHandle.append(pageBuilder.build());
-            pageBuilder.reset();
-        }
+        rowSink.finishRecord();
     }
 
     @Override
     public void appendNull()
     {
-        nextBlockBuilder().appendNull();
+        rowSink.appendNull();
     }
 
     @Override
     public void appendBoolean(boolean value)
     {
-        columnTypes.get(field).writeBoolean(nextBlockBuilder(), value);
+        Type type = currentType();
+        if (type.equals(BOOLEAN)) {
+            rowSink.appendBoolean(value);
+        }
+        else {
+            throw unsupportedType(type);
+        }
     }
 
     @Override
     public void appendLong(long value)
     {
-        columnTypes.get(field).writeLong(nextBlockBuilder(), value);
+        rowSink.appendLong(getLongValue(currentType(), value));
+    }
+
+    private static long getLongValue(Type type, long value)
+    {
+        if (type.equals(BIGINT) ||
+                type.equals(TIME) ||
+                type.equals(TIMESTAMP) ||
+                type.equals(INTERVAL_YEAR_MONTH) ||
+                type.equals(INTERVAL_DAY_TIME)) {
+            return value;
+        }
+        if (type.equals(DATE)) {
+            return value / MILLIS_IN_DAY;
+        }
+        throw unsupportedType(type);
     }
 
     @Override
     public void appendDouble(double value)
     {
-        columnTypes.get(field).writeDouble(nextBlockBuilder(), value);
+        Type type = currentType();
+        if (type.equals(DOUBLE)) {
+            rowSink.appendDouble(value);
+        }
+        else {
+            throw unsupportedType(type);
+        }
     }
 
     @Override
     public void appendString(byte[] value)
     {
-        Slice slice = Slices.wrappedBuffer(value);
-        columnTypes.get(field).writeSlice(nextBlockBuilder(), slice, 0, slice.length());
+        Type type = currentType();
+        if (type.equals(VARCHAR)) {
+            rowSink.appendString(new String(value, UTF_8));
+        }
+        else if (type.equals(VARBINARY)) {
+            rowSink.appendBytes(value);
+        }
+        else {
+            throw unsupportedType(type);
+        }
     }
 
     @Override
     public String commit()
     {
-        checkState(field == -1, "record not finished");
+        storageManager.commit(outputHandle);
 
-        if (!pageBuilder.isEmpty()) {
-            fileHandle.append(pageBuilder.build());
-        }
-
-        try {
-            storageManager.commit(fileHandle);
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
-
-        return Joiner.on(':').join(nodeId, fileHandle.getShardUuid());
+        return Joiner.on(':').join(nodeId, outputHandle.getShardUuid());
     }
 
-    private BlockBuilder nextBlockBuilder()
+    private Type currentType()
     {
-        checkState(field != -1, "not in record");
-        checkState(field < lastField(), "all fields already set");
-        BlockBuilder builder = pageBuilder.getBlockBuilder(field);
-        field++;
-        return builder;
+        return columnTypes.get(rowSink.currentField());
     }
 
-    private static List<Type> toTypes(List<Type> columnTypes)
+    private static PrestoException unsupportedType(Type type)
     {
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (Type columnType : columnTypes) {
-            types.add(columnType);
-        }
-        return types.build();
+        return new PrestoException(NOT_SUPPORTED, "Type is not supported for writing: " + type);
     }
 }

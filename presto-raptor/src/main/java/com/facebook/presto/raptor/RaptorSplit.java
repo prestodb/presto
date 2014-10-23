@@ -15,6 +15,7 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -30,20 +31,17 @@ public class RaptorSplit
 {
     private final UUID shardUuid;
     private final List<HostAddress> addresses;
-    private final RaptorColumnHandle countColumnHandle;
+    private final TupleDomain<RaptorColumnHandle> effectivePredicate;
 
     @JsonCreator
     public RaptorSplit(
             @JsonProperty("shardUuid") UUID shardUuid,
             @JsonProperty("addresses") List<HostAddress> addresses,
-            @JsonProperty("countColumnHandle") RaptorColumnHandle countColumnHandle)
+            @JsonProperty("effectivePredicate") TupleDomain<RaptorColumnHandle> effectivePredicate)
     {
         this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
-
-        checkNotNull(addresses, "addresses is null");
-        this.addresses = ImmutableList.copyOf(addresses);
-
-        this.countColumnHandle = checkNotNull(countColumnHandle, "countColumnHandle is null");
+        this.addresses = ImmutableList.copyOf(checkNotNull(addresses, "addresses is null"));
+        this.effectivePredicate = checkNotNull(effectivePredicate, "effectivePredicate is null");
     }
 
     @Override
@@ -67,9 +65,9 @@ public class RaptorSplit
     }
 
     @JsonProperty
-    public RaptorColumnHandle getCountColumnHandle()
+    public TupleDomain<RaptorColumnHandle> getEffectivePredicate()
     {
-        return countColumnHandle;
+        return effectivePredicate;
     }
 
     @Override
