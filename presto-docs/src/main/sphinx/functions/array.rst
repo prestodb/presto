@@ -22,3 +22,6 @@ Array Functions
 
     Returns true iff the array ``x`` contains the element ``y``.
 
+.. function:: array_sort(x) -> array
+
+    Sorts and returns the array ``x`` iff its elements are comparable.
