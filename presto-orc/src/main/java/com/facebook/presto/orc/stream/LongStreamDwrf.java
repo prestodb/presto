@@ -108,7 +108,7 @@ public class LongStreamDwrf
     {
         for (int i = 0; i < items; i++) {
             if (!isNull[i]) {
-                vector[i] = Ints.checkedCast(next());
+                vector[i] = next();
             }
         }
     }
