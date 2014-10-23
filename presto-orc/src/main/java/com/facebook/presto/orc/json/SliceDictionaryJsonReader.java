@@ -179,6 +179,7 @@ public class SliceDictionaryJsonReader
 
         presentStream = null;
         dataStream = null;
+        inDictionaryStream = null;
     }
 
     @Override
@@ -190,7 +191,10 @@ public class SliceDictionaryJsonReader
                 ROW_GROUP_DICTIONARY_LENGTH,
                 RowGroupDictionaryLengthStream.class).openStream();
 
-        if (lengthStream != null) {
+        if (lengthStream == null) {
+            inDictionaryStream = null;
+        }
+        else {
             inDictionaryStream = dataStreamSources.getStreamSource(streamDescriptor, IN_DICTIONARY, BooleanStream.class).openStream();
 
             int dictionaryEntryCount = lengthStream.getEntryCount();
