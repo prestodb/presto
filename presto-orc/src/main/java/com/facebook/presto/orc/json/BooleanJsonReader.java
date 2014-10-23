@@ -65,7 +65,7 @@ public class BooleanJsonReader
             throws IOException
     {
         if (presentStream != null && !presentStream.nextBit()) {
-            return "null";
+            return null;
         }
 
         verifyFormat(dataStream != null, "Value is not null but data stream is not present");

@@ -73,8 +73,13 @@ public class MapJsonReader
         generator.writeStartObject();
         for (int i = 0; i < length; i++) {
             String name = keyReader.nextValueAsMapKey();
-            generator.writeFieldName(name);
-            valueReader.readNextValueInto(generator);
+            if (name == null) {
+                valueReader.skip(1);
+            }
+            else {
+                generator.writeFieldName(name);
+                valueReader.readNextValueInto(generator);
+            }
         }
         generator.writeEndObject();
     }
