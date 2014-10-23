@@ -1561,14 +1561,14 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private ConnectorTableHandle getTableHandle(SchemaTableName tableName)
+    protected ConnectorTableHandle getTableHandle(SchemaTableName tableName)
     {
         ConnectorTableHandle handle = metadata.getTableHandle(SESSION, tableName);
         checkArgument(handle != null, "table not found: %s", tableName);
         return handle;
     }
 
-    private static int getSplitCount(ConnectorSplitSource splitSource)
+    protected static int getSplitCount(ConnectorSplitSource splitSource)
             throws InterruptedException
     {
         int splitCount = 0;
@@ -1579,7 +1579,7 @@ public abstract class AbstractTestHiveClient
         return splitCount;
     }
 
-    private static List<ConnectorSplit> getAllSplits(ConnectorSplitSource splitSource)
+    protected static List<ConnectorSplit> getAllSplits(ConnectorSplitSource splitSource)
             throws InterruptedException
     {
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
@@ -1590,7 +1590,7 @@ public abstract class AbstractTestHiveClient
         return splits.build();
     }
 
-    private static void assertPageSourceType(ConnectorPageSource pageSource, HiveStorageFormat hiveStorageFormat)
+    protected static void assertPageSourceType(ConnectorPageSource pageSource, HiveStorageFormat hiveStorageFormat)
     {
         if (pageSource instanceof RecordPageSource) {
             assertInstanceOf(((RecordPageSource) pageSource).getCursor(), recordCursorType(hiveStorageFormat), hiveStorageFormat.name());
@@ -1680,7 +1680,7 @@ public abstract class AbstractTestHiveClient
         assertEquals(column.isPartitionKey(), partitionKey, name);
     }
 
-    private static ImmutableMap<String, Integer> indexColumns(List<ConnectorColumnHandle> columnHandles)
+    protected static ImmutableMap<String, Integer> indexColumns(List<ConnectorColumnHandle> columnHandles)
     {
         ImmutableMap.Builder<String, Integer> index = ImmutableMap.builder();
         int i = 0;
@@ -1692,7 +1692,7 @@ public abstract class AbstractTestHiveClient
         return index.build();
     }
 
-    private static ImmutableMap<String, Integer> indexColumns(ConnectorTableMetadata tableMetadata)
+    protected static ImmutableMap<String, Integer> indexColumns(ConnectorTableMetadata tableMetadata)
     {
         ImmutableMap.Builder<String, Integer> index = ImmutableMap.builder();
         int i = 0;
