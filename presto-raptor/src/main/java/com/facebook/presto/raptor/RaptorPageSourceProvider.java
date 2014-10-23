@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
 import com.google.inject.Inject;
@@ -45,20 +46,45 @@ public class RaptorPageSourceProvider
         RaptorSplit raptorSplit = checkType(split, RaptorSplit.class, "split");
 
         UUID shardUuid = raptorSplit.getShardUuid();
-        long countColumnId = raptorSplit.getCountColumnHandle().getColumnId();
-        List<Long> columnIds = FluentIterable.from(columns).transform(raptorColumnId()).toList();
+        List<RaptorColumnHandle> columnHandles = FluentIterable.from(columns).transform(toRaptorColumnHandle()).toList();
+        List<Long> columnIds = FluentIterable.from(columnHandles).transform(raptorColumnId()).toList();
+        List<Type> columnTypes = FluentIterable.from(columnHandles).transform(raptorColumnType()).toList();
 
-        return storageManager.getPageSource(shardUuid, columnIds, countColumnId);
+        return storageManager.getPageSource(shardUuid, columnIds, columnTypes, raptorSplit.getEffectivePredicate());
     }
 
-    private static Function<ConnectorColumnHandle, Long> raptorColumnId()
+    private static Function<ConnectorColumnHandle, RaptorColumnHandle> toRaptorColumnHandle()
     {
-        return new Function<ConnectorColumnHandle, Long>()
+        return new Function<ConnectorColumnHandle, RaptorColumnHandle>()
         {
             @Override
-            public Long apply(ConnectorColumnHandle handle)
+            public RaptorColumnHandle apply(ConnectorColumnHandle handle)
             {
-                return checkType(handle, RaptorColumnHandle.class, "columnHandle").getColumnId();
+                return checkType(handle, RaptorColumnHandle.class, "columnHandle");
+            }
+        };
+    }
+
+    private static Function<RaptorColumnHandle, Long> raptorColumnId()
+    {
+        return new Function<RaptorColumnHandle, Long>()
+        {
+            @Override
+            public Long apply(RaptorColumnHandle handle)
+            {
+                return handle.getColumnId();
+            }
+        };
+    }
+
+    private static Function<RaptorColumnHandle, Type> raptorColumnType()
+    {
+        return new Function<RaptorColumnHandle, Type>()
+        {
+            @Override
+            public Type apply(RaptorColumnHandle handle)
+            {
+                return handle.getColumnType();
             }
         };
     }

@@ -13,20 +13,28 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.raptor.RaptorColumnHandle;
-import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.TupleDomain;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Optional;
-
-import java.util.List;
 import java.util.UUID;
 
-public interface StorageManager
+import static com.google.common.base.Preconditions.checkNotNull;
+
+public class OutputHandle
 {
-    ConnectorPageSource getPageSource(UUID shardUuid, List<Long> columnIds, List<Type> columnTypes, TupleDomain<RaptorColumnHandle> effectivePredicate);
+    private final UUID shardUuid;
+    private final RowSink rowSink;
 
-    OutputHandle createOutputHandle(List<Long> columnIds, List<Type> columnTypes, Optional<Long> sampleWeightColumnId);
+    public OutputHandle(UUID shardUuid, RowSink rowSink)
+    {
+        this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
+        this.rowSink = checkNotNull(rowSink, "rowSink is null");
+    }
 
-    void commit(OutputHandle outputHandle);
+    public UUID getShardUuid()
+    {
+        return shardUuid;
+    }
+
+    public RowSink getRowSink()
+    {
+        return rowSink;
+    }
 }

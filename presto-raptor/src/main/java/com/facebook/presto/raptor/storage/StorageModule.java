@@ -29,7 +29,6 @@ import java.io.File;
 
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class StorageModule
         implements Module
@@ -38,8 +37,7 @@ public class StorageModule
     public void configure(Binder binder)
     {
         bindConfig(binder).to(StorageManagerConfig.class);
-        binder.bind(StorageManager.class).to(DatabaseStorageManager.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(StorageManager.class).withGeneratedName();
+        binder.bind(StorageManager.class).to(OrcStorageManager.class).in(Scopes.SINGLETON);
     }
 
     @Provides

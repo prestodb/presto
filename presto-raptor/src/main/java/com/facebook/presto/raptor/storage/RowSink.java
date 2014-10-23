@@ -11,20 +11,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor.block;
+package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockEncoding;
+import java.io.Closeable;
 
-public interface Encoder
+public interface RowSink
+        extends Closeable
 {
-    /**
-     * Appends the specified block
-     */
-    Encoder append(Block block);
+    void beginRecord(long sampleWeight);
 
-    /**
-     * Must be called after all blocks have been appended to complete the serialization
-     */
-    BlockEncoding finish();
+    void finishRecord();
+
+    int currentField();
+
+    void appendNull();
+
+    void appendBoolean(boolean value);
+
+    void appendLong(long value);
+
+    void appendDouble(double value);
+
+    void appendString(String value);
+
+    void appendBytes(byte[] value);
+
+    @Override
+    void close();
 }

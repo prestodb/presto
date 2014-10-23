@@ -13,23 +13,22 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.raptor.storage.ColumnFileHandle;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.util.CurrentNodeId;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.RecordSink;
-import com.google.common.base.Throwables;
+import com.google.common.base.Function;
+import com.google.common.base.Optional;
+import com.google.common.collect.FluentIterable;
 
 import javax.inject.Inject;
 
-import java.io.IOException;
 import java.util.List;
 
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.util.UUID.randomUUID;
 
 public class RaptorRecordSinkProvider
         implements ConnectorRecordSinkProvider
@@ -53,29 +52,45 @@ public class RaptorRecordSinkProvider
     public RecordSink getRecordSink(ConnectorOutputTableHandle tableHandle)
     {
         RaptorOutputTableHandle handle = checkType(tableHandle, RaptorOutputTableHandle.class, "tableHandle");
-
-        ColumnFileHandle fileHandle = createStagingFileHandle(handle.getColumnHandles());
-
-        return new RaptorRecordSink(nodeId, fileHandle, storageManager, handle.getColumnTypes(), handle.getSampleWeightColumnHandle());
+        return new RaptorRecordSink(
+                nodeId,
+                storageManager,
+                toColumnIds(handle.getColumnHandles()),
+                handle.getColumnTypes(),
+                optionalColumnId(handle.getSampleWeightColumnHandle()));
     }
 
     @Override
     public RecordSink getRecordSink(ConnectorInsertTableHandle tableHandle)
     {
         RaptorInsertTableHandle handle = checkType(tableHandle, RaptorInsertTableHandle.class, "tableHandle");
-
-        ColumnFileHandle fileHandle = createStagingFileHandle(handle.getColumnHandles());
-
-        return new RaptorRecordSink(nodeId, fileHandle, storageManager, handle.getColumnTypes(), null);
+        return new RaptorRecordSink(
+                nodeId,
+                storageManager,
+                toColumnIds(handle.getColumnHandles()),
+                handle.getColumnTypes(),
+                Optional.<Long>absent());
     }
 
-    private ColumnFileHandle createStagingFileHandle(List<RaptorColumnHandle> columnHandles)
+    private static List<Long> toColumnIds(List<RaptorColumnHandle> columnHandles)
     {
-        try {
-            return storageManager.createStagingFileHandles(randomUUID(), columnHandles);
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
+        return FluentIterable.from(columnHandles).transform(columnIdGetter()).toList();
+    }
+
+    private static Optional<Long> optionalColumnId(RaptorColumnHandle handle)
+    {
+        return Optional.fromNullable(handle).transform(columnIdGetter());
+    }
+
+    private static Function<RaptorColumnHandle, Long> columnIdGetter()
+    {
+        return new Function<RaptorColumnHandle, Long>()
+        {
+            @Override
+            public Long apply(RaptorColumnHandle handle)
+            {
+                return handle.getColumnId();
+            }
+        };
     }
 }

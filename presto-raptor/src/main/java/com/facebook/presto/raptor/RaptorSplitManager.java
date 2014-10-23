@@ -45,6 +45,7 @@ import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.String.format;
 
@@ -67,7 +68,7 @@ public class RaptorSplitManager
     public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
         RaptorTableHandle handle = checkType(tableHandle, RaptorTableHandle.class, "table");
-        ConnectorPartition partition = new RaptorPartition(handle.getTableId());
+        ConnectorPartition partition = new RaptorPartition(handle.getTableId(), tupleDomain);
         return new ConnectorPartitionResult(ImmutableList.of(partition), tupleDomain);
     }
 
@@ -75,7 +76,10 @@ public class RaptorSplitManager
     public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle tableHandle, List<ConnectorPartition> partitions)
     {
         RaptorTableHandle raptorTableHandle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
+
         checkArgument(partitions.size() == 1, "expected exactly one partition");
+        RaptorPartition partition = checkType(getOnlyElement(partitions), RaptorPartition.class, "partition");
+        TupleDomain<RaptorColumnHandle> effectivePredicate = toRaptorTupleDomain(partition.getEffectivePredicate());
 
         Map<String, Node> nodesById = uniqueIndex(nodeManager.getActiveNodes(), nodeIdentifier());
 
@@ -92,7 +96,7 @@ public class RaptorSplitManager
             if (addresses.isEmpty()) {
                 throw new PrestoException(INTERNAL_ERROR, format("no host for shard %s found: %s", shardId, nodeId));
             }
-            splits.add(new RaptorSplit(shardId, addresses, raptorTableHandle.getCountColumnHandle()));
+            splits.add(new RaptorSplit(shardId, addresses, effectivePredicate));
         }
 
         // The query engine assumes that splits are returned in a somewhat random fashion. The Raptor split manager,
@@ -113,5 +117,18 @@ public class RaptorSplitManager
             }
         }
         return nodes.build();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static TupleDomain<RaptorColumnHandle> toRaptorTupleDomain(TupleDomain<ConnectorColumnHandle> tupleDomain)
+    {
+        return tupleDomain.transform(new TupleDomain.Function<ConnectorColumnHandle, RaptorColumnHandle>()
+        {
+            @Override
+            public RaptorColumnHandle apply(ConnectorColumnHandle handle)
+            {
+                return checkType(handle, RaptorColumnHandle.class, "columnHandle");
+            }
+        });
     }
 }
