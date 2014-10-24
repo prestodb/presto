@@ -31,6 +31,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
+import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
@@ -79,6 +80,7 @@ public final class GraphvizPrinter
         WINDOW,
         UNION,
         SORT,
+        SAMPLE,
         MARK_DISTINCT,
         MATERIALIZE_SAMPLE,
         INDEX_SOURCE,
@@ -104,6 +106,7 @@ public final class GraphvizPrinter
             .put(NodeType.MATERIALIZE_SAMPLE, "hotpink")
             .put(NodeType.INDEX_SOURCE, "dodgerblue3")
             .put(NodeType.UNNEST, "crimson")
+            .put(NodeType.SAMPLE, "goldenrod4")
             .build());
 
     static {
@@ -202,6 +205,13 @@ public final class GraphvizPrinter
         protected Void visitPlan(PlanNode node, Void context)
         {
             throw new UnsupportedOperationException(format("Node %s does not have a Graphviz visitor", node.getClass().getName()));
+        }
+
+        @Override
+        public Void visitSample(SampleNode node, Void context)
+        {
+            printNode(node, format("Sample[type=%s, ratio=%f, rescaled=%s]", node.getSampleType(), node.getSampleRatio(), node.isRescaled()), NODE_COLORS.get(NodeType.SAMPLE));
+            return node.getSource().accept(this, context);
         }
 
         @Override
