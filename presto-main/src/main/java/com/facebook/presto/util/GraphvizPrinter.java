@@ -37,6 +37,7 @@ import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
@@ -83,6 +84,7 @@ public final class GraphvizPrinter
         SORT,
         SAMPLE,
         MARK_DISTINCT,
+        TABLE_WRITER,
         TABLE_COMMIT,
         INDEX_SOURCE,
         UNNEST
@@ -104,6 +106,7 @@ public final class GraphvizPrinter
             .put(NodeType.WINDOW, "darkolivegreen4")
             .put(NodeType.UNION, "turquoise4")
             .put(NodeType.MARK_DISTINCT, "violet")
+            .put(NodeType.TABLE_WRITER, "cyan")
             .put(NodeType.TABLE_COMMIT, "hotpink")
             .put(NodeType.INDEX_SOURCE, "dodgerblue3")
             .put(NodeType.UNNEST, "crimson")
@@ -206,6 +209,17 @@ public final class GraphvizPrinter
         protected Void visitPlan(PlanNode node, Void context)
         {
             throw new UnsupportedOperationException(format("Node %s does not have a Graphviz visitor", node.getClass().getName()));
+        }
+
+        @Override
+        public Void visitTableWriter(TableWriterNode node, Void context)
+        {
+            List<String> columns = new ArrayList<>();
+            for (int i = 0; i < node.getColumnNames().size(); i++) {
+                columns.add(node.getColumnNames().get(i) + " := " + node.getColumns().get(i));
+            }
+            printNode(node, format("TableWriter[%s]", Joiner.on(", ").join(columns)), NODE_COLORS.get(NodeType.TABLE_WRITER));
+            return node.getSource().accept(this, context);
         }
 
         @Override
