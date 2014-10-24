@@ -253,6 +253,10 @@ public class SliceDictionaryStreamReader
         presentStreamSource = missingStreamSource(BooleanStream.class);
         dataStreamSource = missingStreamSource(LongStream.class);
 
+        inDictionaryStreamSource = missingStreamSource(BooleanStream.class);
+        rowGroupDictionaryLengthStreamSource = missingStreamSource(RowGroupDictionaryLengthStream.class);
+        rowGroupDictionaryDataStreamSource = missingStreamSource(ByteArrayStream.class);
+
         readOffset = 0;
         nextBatchSize = 0;
 
