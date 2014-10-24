@@ -25,6 +25,7 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -48,6 +49,7 @@ public class HashAggregationOperator
         private final int expectedGroups;
         private final List<Type> types;
         private boolean closed;
+        private final long maxPartialMemory;
 
         public HashAggregationOperatorFactory(
                 int operatorId,
@@ -55,7 +57,8 @@ public class HashAggregationOperator
                 List<Integer> groupByChannels,
                 Step step,
                 List<AccumulatorFactory> accumulatorFactories,
-                int expectedGroups)
+                int expectedGroups,
+                DataSize maxPartialMemory)
         {
             this.operatorId = operatorId;
             this.groupByTypes = ImmutableList.copyOf(groupByTypes);
@@ -63,6 +66,7 @@ public class HashAggregationOperator
             this.step = step;
             this.accumulatorFactories = ImmutableList.copyOf(accumulatorFactories);
             this.expectedGroups = expectedGroups;
+            this.maxPartialMemory = checkNotNull(maxPartialMemory, "maxPartialMemory is null").toBytes();
 
             this.types = toTypes(groupByTypes, step, accumulatorFactories);
         }
@@ -78,7 +82,13 @@ public class HashAggregationOperator
         {
             checkState(!closed, "Factory is already closed");
 
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, HashAggregationOperator.class.getSimpleName());
+            OperatorContext operatorContext;
+            if (step == Step.PARTIAL) {
+                operatorContext = driverContext.addOperatorContext(operatorId, HashAggregationOperator.class.getSimpleName(), maxPartialMemory);
+            }
+            else {
+                operatorContext = driverContext.addOperatorContext(operatorId, HashAggregationOperator.class.getSimpleName());
+            }
             return new HashAggregationOperator(
                     operatorContext,
                     groupByTypes,

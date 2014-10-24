@@ -93,13 +93,18 @@ public class DriverContext
 
     public OperatorContext addOperatorContext(int operatorId, String operatorType)
     {
+        return addOperatorContext(operatorId, operatorType, pipelineContext.getMaxMemorySize().toBytes());
+    }
+
+    public OperatorContext addOperatorContext(int operatorId, String operatorType, long maxMemoryReservation)
+    {
         checkArgument(operatorId >= 0, "operatorId is negative");
 
         for (OperatorContext operatorContext : operatorContexts) {
             checkArgument(operatorId != operatorContext.getOperatorId(), "A context already exists for operatorId %s", operatorId);
         }
 
-        OperatorContext operatorContext = new OperatorContext(operatorId, operatorType, this, executor);
+        OperatorContext operatorContext = new OperatorContext(operatorId, operatorType, this, executor, maxMemoryReservation);
         operatorContexts.add(operatorContext);
         return operatorContext;
     }
