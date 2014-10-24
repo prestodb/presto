@@ -98,6 +98,8 @@
         <dt>Message</dt>
         <dd id="failureMessage"></dd>
 
+        <dt>Session Properties</dt>
+        <dd id="sessionProperties"></dd>
     </dl>
 
     <h2>Stages</h2>
@@ -160,6 +162,27 @@ d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
 
     if (query.failureInfo) {
         d3.select('#failureMessage').text(query.failureInfo.type + ": " + query.failureInfo.message);
+    }
+    else {
+        d3.select('#failureMessage').html("&nbsp;");
+    }
+
+    var sessionPropertiesList = d3.select('#sessionProperties').append("ul");
+
+    for (property in query.session.systemProperties) {
+        if (query.session.systemProperties.hasOwnProperty(property)) {
+            sessionPropertiesList.append("li").text(property + "=" + query.session.systemProperties[property]);
+        }
+    }
+
+    for (catalog in query.session.catalogProperties) {
+        if (query.session.catalogProperties.hasOwnProperty(catalog)) {
+            for (property in query.session.catalogProperties[catalog]) {
+                if (query.session.catalogProperties[catalog].hasOwnProperty(property)) {
+                    sessionPropertiesList.append("li").text(catalog + "." + property + "=" + query.session.catalogProperties[catalog][property]);
+                }
+            }
+        }
     }
 
     var uri = "/v1/query/" + query.queryId + "?pretty"
