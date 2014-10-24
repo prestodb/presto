@@ -82,7 +82,6 @@ public final class GraphvizPrinter
         SORT,
         SAMPLE,
         MARK_DISTINCT,
-        MATERIALIZE_SAMPLE,
         INDEX_SOURCE,
         UNNEST
     }
@@ -103,7 +102,6 @@ public final class GraphvizPrinter
             .put(NodeType.WINDOW, "darkolivegreen4")
             .put(NodeType.UNION, "turquoise4")
             .put(NodeType.MARK_DISTINCT, "violet")
-            .put(NodeType.MATERIALIZE_SAMPLE, "hotpink")
             .put(NodeType.INDEX_SOURCE, "dodgerblue3")
             .put(NodeType.UNNEST, "crimson")
             .put(NodeType.SAMPLE, "goldenrod4")
