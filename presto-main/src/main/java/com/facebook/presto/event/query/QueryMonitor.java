@@ -24,6 +24,7 @@ import com.facebook.presto.operator.TaskStats;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.event.client.EventClient;
 import io.airlift.log.Logger;
@@ -34,6 +35,7 @@ import org.joda.time.DateTime;
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -82,6 +84,14 @@ public class QueryMonitor
             String failureType = failureInfo == null ? null : failureInfo.getType();
             String failureMessage = failureInfo == null ? null : failureInfo.getMessage();
 
+            ImmutableMap.Builder<String, String> mergedProperties = ImmutableMap.builder();
+            mergedProperties.putAll(queryInfo.getSession().getSystemProperties());
+            for (Map.Entry<String, Map<String, String>> catalogEntry : queryInfo.getSession().getCatalogProperties().entrySet()) {
+                for (Map.Entry<String, String> entry : catalogEntry.getValue().entrySet()) {
+                    mergedProperties.put(catalogEntry.getKey() + "." + entry.getKey(), entry.getValue());
+                }
+            }
+
             eventClient.post(
                     new QueryCompletionEvent(
                             queryInfo.getQueryId(),
@@ -112,7 +122,8 @@ public class QueryMonitor
                             failureMessage,
                             objectMapper.writeValueAsString(queryInfo.getOutputStage()),
                             objectMapper.writeValueAsString(queryInfo.getFailureInfo()),
-                            objectMapper.writeValueAsString(queryInfo.getInputs())
+                            objectMapper.writeValueAsString(queryInfo.getInputs()),
+                            objectMapper.writeValueAsString(mergedProperties.build())
                     )
             );
 
