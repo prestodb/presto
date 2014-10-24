@@ -31,6 +31,7 @@ import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 
 import java.util.List;
 
@@ -46,6 +47,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class HandTpchQuery1
         extends AbstractSimpleOperatorBenchmark
@@ -106,7 +108,8 @@ public class HandTpchQuery1
                         DOUBLE_AVERAGE.bind(ImmutableList.of(6), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
                         COUNT.bind(ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)
                         ),
-                10_000);
+                10_000,
+                new DataSize(16, MEGABYTE));
 
         return ImmutableList.of(tableScanOperator, tpchQuery1Operator, aggregationOperator);
     }

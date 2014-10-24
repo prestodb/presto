@@ -40,6 +40,7 @@ public class TestTaskManagerConfig
                 .setMaxTaskMemoryUsage(new DataSize(256, Unit.MEGABYTE))
                 .setMaxTaskIndexMemoryUsage(new DataSize(64, Unit.MEGABYTE))
                 .setOperatorPreAllocatedMemory(new DataSize(16, Unit.MEGABYTE))
+                .setMaxPartialAggregationMemoryUsage(new DataSize(16, Unit.MEGABYTE))
                 .setSinkMaxBufferSize(new DataSize(32, Unit.MEGABYTE)));
     }
 
@@ -52,6 +53,7 @@ public class TestTaskManagerConfig
                 .put("task.max-memory", "2GB")
                 .put("task.max-index-memory", "512MB")
                 .put("task.operator-pre-allocated-memory", "2MB")
+                .put("task.max-partial-aggregation-memory", "32MB")
                 .put("task.shard.max-threads", "3")
                 .put("task.info.max-age", "22m")
                 .put("task.client.timeout", "10s")
@@ -64,6 +66,7 @@ public class TestTaskManagerConfig
                 .setMaxTaskMemoryUsage(new DataSize(2, Unit.GIGABYTE))
                 .setMaxTaskIndexMemoryUsage(new DataSize(512, Unit.MEGABYTE))
                 .setOperatorPreAllocatedMemory(new DataSize(2, Unit.MEGABYTE))
+                .setMaxPartialAggregationMemoryUsage(new DataSize(32, Unit.MEGABYTE))
                 .setMaxShardProcessorThreads(3)
                 .setInfoMaxAge(new Duration(22, TimeUnit.MINUTES))
                 .setClientTimeout(new Duration(10, TimeUnit.SECONDS))

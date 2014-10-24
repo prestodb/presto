@@ -29,6 +29,7 @@ public class TaskManagerConfig
     private boolean verboseStats;
     private boolean taskCpuTimerEnabled = true;
     private DataSize maxTaskMemoryUsage = new DataSize(256, Unit.MEGABYTE);
+    private DataSize maxPartialAggregationMemoryUsage = new DataSize(16, Unit.MEGABYTE);
     private DataSize operatorPreAllocatedMemory = new DataSize(16, Unit.MEGABYTE);
     private DataSize maxTaskIndexMemoryUsage = new DataSize(64, Unit.MEGABYTE);
     private int maxShardProcessorThreads = Runtime.getRuntime().availableProcessors() * 4;
@@ -59,6 +60,19 @@ public class TaskManagerConfig
     public TaskManagerConfig setTaskCpuTimerEnabled(boolean taskCpuTimerEnabled)
     {
         this.taskCpuTimerEnabled = taskCpuTimerEnabled;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMaxPartialAggregationMemoryUsage()
+    {
+        return maxPartialAggregationMemoryUsage;
+    }
+
+    @Config("task.max-partial-aggregation-memory")
+    public TaskManagerConfig setMaxPartialAggregationMemoryUsage(DataSize maxPartialAggregationMemoryUsage)
+    {
+        this.maxPartialAggregationMemoryUsage = maxPartialAggregationMemoryUsage;
         return this;
     }
 

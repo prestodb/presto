@@ -184,6 +184,7 @@ public class LocalExecutionPlanner
     private final boolean interpreterEnabled;
     private final DataSize maxIndexMemorySize;
     private final IndexJoinLookupStats indexJoinLookupStats;
+    private final DataSize maxPartialAggregationMemorySize;
 
     @Inject
     public LocalExecutionPlanner(
@@ -208,6 +209,7 @@ public class LocalExecutionPlanner
         this.compiler = checkNotNull(compiler, "compiler is null");
         this.indexJoinLookupStats = checkNotNull(indexJoinLookupStats, "indexJoinLookupStats is null");
         this.maxIndexMemorySize = checkNotNull(taskManagerConfig, "taskManagerConfig is null").getMaxTaskIndexMemoryUsage();
+        this.maxPartialAggregationMemorySize = taskManagerConfig.getMaxPartialAggregationMemoryUsage();
 
         interpreterEnabled = compilerConfig.isInterpreterEnabled();
     }
@@ -1486,7 +1488,8 @@ public class LocalExecutionPlanner
                     groupByChannels,
                     node.getStep(),
                     accumulatorFactories,
-                    10_000);
+                    10_000,
+                    maxPartialAggregationMemorySize);
 
             return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
         }
