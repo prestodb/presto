@@ -61,6 +61,7 @@ public class BooleanStream
             throws IOException
     {
         if (bitsInData >= items) {
+            data <<= items;
             bitsInData -= items;
         }
         else {
@@ -69,9 +70,11 @@ public class BooleanStream
             byteStream.skip(items >>> 3);
             items = items & 0b111;
 
-            readByte();
-            data <<= items;
-            bitsInData -= items;
+            if (items != 0) {
+                readByte();
+                data <<= items;
+                bitsInData -= items;
+            }
         }
     }
 
