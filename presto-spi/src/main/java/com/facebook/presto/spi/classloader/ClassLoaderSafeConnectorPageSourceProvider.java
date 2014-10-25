@@ -11,17 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.spi.classloader;
 
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ClassLoaderSafeConnectorPageSourceProvider
         implements ConnectorPageSourceProvider
@@ -31,8 +30,8 @@ public class ClassLoaderSafeConnectorPageSourceProvider
 
     public ClassLoaderSafeConnectorPageSourceProvider(ConnectorPageSourceProvider delegate, ClassLoader classLoader)
     {
-        this.delegate = checkNotNull(delegate, "delegate is null");
-        this.classLoader = checkNotNull(classLoader, "classLoader is null");
+        this.delegate = requireNonNull(delegate, "delegate is null");
+        this.classLoader = requireNonNull(classLoader, "classLoader is null");
     }
 
     @Override

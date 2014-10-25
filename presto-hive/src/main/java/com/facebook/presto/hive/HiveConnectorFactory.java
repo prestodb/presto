@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorMetadata;
+import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorRecordSinkProvider;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorSplitManager;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
