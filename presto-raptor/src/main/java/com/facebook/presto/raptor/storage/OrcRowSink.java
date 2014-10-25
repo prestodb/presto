@@ -17,10 +17,12 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
+import org.apache.hadoop.hive.ql.io.orc.OrcFile;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -30,6 +32,7 @@ import org.apache.hadoop.mapred.JobConf;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Constructor;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -42,7 +45,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.FluentIterable.from;
 import static com.google.common.collect.Iterables.transform;
-import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.HIVE_ORC_DEFAULT_COMPRESS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
 import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.SNAPPY;
@@ -57,6 +59,7 @@ public class OrcRowSink
         implements RowSink
 {
     private static final JobConf JOB_CONF = new JobConf();
+    private static final Constructor<? extends RecordWriter> WRITER_CONSTRUCTOR = getOrcWriterConstructor();
 
     private final int fieldCount;
     private final OrcSerde serializer;
@@ -82,10 +85,9 @@ public class OrcRowSink
         Properties properties = new Properties();
         properties.setProperty(META_TABLE_COLUMNS, Joiner.on(',').join(columnNames));
         properties.setProperty(META_TABLE_COLUMN_TYPES, Joiner.on(':').join(hiveTypeNames));
-        properties.setProperty(HIVE_ORC_DEFAULT_COMPRESS.name(), SNAPPY.name());
 
         serializer = createSerializer(JOB_CONF, properties);
-        recordWriter = createRecordWriter(new Path(target.toURI()), JOB_CONF, properties);
+        recordWriter = createRecordWriter(new Path(target.toURI()), JOB_CONF);
 
         tableInspector = getStandardStructObjectInspector(columnNames, getJavaObjectInspectors(columnTypes));
         structFields = ImmutableList.copyOf(tableInspector.getAllStructFieldRefs());
@@ -192,13 +194,31 @@ public class OrcRowSink
         return serde;
     }
 
-    private static RecordWriter createRecordWriter(Path target, JobConf conf, Properties properties)
+    private static RecordWriter createRecordWriter(Path target, JobConf conf)
     {
         try {
-            return new OrcOutputFormat().getHiveRecordWriter(conf, target, null, false, properties, null);
+            OrcFile.WriterOptions options = OrcFile.writerOptions(conf)
+                    .fileSystem(target.getFileSystem(conf))
+                    .compress(SNAPPY);
+            return WRITER_CONSTRUCTOR.newInstance(target, options);
         }
-        catch (IOException e) {
+        catch (ReflectiveOperationException | IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to create writer", e);
+        }
+    }
+
+    private static Constructor<? extends RecordWriter> getOrcWriterConstructor()
+    {
+        try {
+            String writerClassName = OrcOutputFormat.class.getName() + "$OrcRecordWriter";
+            Constructor<? extends RecordWriter> constructor = OrcOutputFormat.class.getClassLoader()
+                    .loadClass(writerClassName).asSubclass(RecordWriter.class)
+                    .getDeclaredConstructor(Path.class, OrcFile.WriterOptions.class);
+            constructor.setAccessible(true);
+            return constructor;
+        }
+        catch (ReflectiveOperationException e) {
+            throw Throwables.propagate(e);
         }
     }
 
