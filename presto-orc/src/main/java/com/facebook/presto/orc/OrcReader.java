@@ -116,12 +116,12 @@ public class OrcReader
 
         // read metadata
         Slice metadataSlice = completeFooterSlice.slice(0, metadataSize);
-        InputStream metadataInputStream = new OrcInputStream(metadataSlice.getInput(), compressionKind, bufferSize);
+        InputStream metadataInputStream = new OrcInputStream(orcDataSource.toString(), metadataSlice.getInput(), compressionKind, bufferSize);
         this.metadata = metadataReader.readMetadata(metadataInputStream);
 
         // read footer
         Slice footerSlice = completeFooterSlice.slice(metadataSize, footerSize);
-        InputStream footerInputStream = new OrcInputStream(footerSlice.getInput(), compressionKind, bufferSize);
+        InputStream footerInputStream = new OrcInputStream(orcDataSource.toString(), footerSlice.getInput(), compressionKind, bufferSize);
         this.footer = metadataReader.readFooter(footerInputStream);
     }
 

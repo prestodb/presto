@@ -15,6 +15,7 @@ package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.google.common.base.Objects;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -39,6 +40,7 @@ public final class OrcInputStream
 {
     public static final int BLOCK_HEADER_SIZE = 3;
 
+    private final String source;
     private final BasicSliceInput compressedSliceInput;
     private final CompressionKind compressionKind;
     private final int bufferSize;
@@ -48,8 +50,10 @@ public final class OrcInputStream
 
     private Slice buffer;
 
-    public OrcInputStream(BasicSliceInput sliceInput, CompressionKind compressionKind, int bufferSize)
+    public OrcInputStream(String source, BasicSliceInput sliceInput, CompressionKind compressionKind, int bufferSize)
     {
+        this.source = checkNotNull(source, "source is null");
+
         checkNotNull(sliceInput, "sliceInput is null");
 
         this.compressionKind = checkNotNull(compressionKind, "compressionKind is null");
@@ -200,6 +204,17 @@ public final class OrcInputStream
 
             current = buffer.slice(0, uncompressedSize).getInput();
         }
+    }
+
+    @Override
+    public String toString()
+    {
+        return Objects.toStringHelper(this)
+                .add("source", source)
+                .add("compressedOffset", compressedSliceInput.position())
+                .add("uncompressedOffset", current == null ? null : current.position())
+                .add("compression", compressionKind)
+                .toString();
     }
 
     // This comes from the Apache Hive ORC code
