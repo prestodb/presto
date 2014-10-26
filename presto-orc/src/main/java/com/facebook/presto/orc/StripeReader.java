@@ -204,7 +204,7 @@ public class StripeReader
             @Override
             public OrcInputStream apply(Slice input)
             {
-                return new OrcInputStream(input.getInput(), compressionKind, bufferSize);
+                return new OrcInputStream(orcDataSource.toString(), input.getInput(), compressionKind, bufferSize);
             }
         }));
     }
@@ -218,7 +218,7 @@ public class StripeReader
         // read the footer
         byte[] tailBuffer = new byte[tailLength];
         orcDataSource.readFully(offset, tailBuffer);
-        InputStream inputStream = new OrcInputStream(Slices.wrappedBuffer(tailBuffer).getInput(), compressionKind, bufferSize);
+        InputStream inputStream = new OrcInputStream(orcDataSource.toString(), Slices.wrappedBuffer(tailBuffer).getInput(), compressionKind, bufferSize);
         return metadataReader.readStripeFooter(types, inputStream);
     }
 
