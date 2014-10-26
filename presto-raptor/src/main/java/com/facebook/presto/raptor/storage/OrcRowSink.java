@@ -14,12 +14,14 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile;
@@ -196,7 +198,7 @@ public class OrcRowSink
 
     private static RecordWriter createRecordWriter(Path target, JobConf conf)
     {
-        try {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader())) {
             OrcFile.WriterOptions options = OrcFile.writerOptions(conf)
                     .fileSystem(target.getFileSystem(conf))
                     .compress(SNAPPY);
