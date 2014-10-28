@@ -41,6 +41,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.airlift.testing.FileUtils.deleteRecursively;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 public class TestOrcRowSink
 {
@@ -145,6 +146,9 @@ public class TestOrcRowSink
 
             assertEquals(reader.nextBatch(), -1);
         }
+
+        File crcFile = new File(file.getParentFile(), "." + file.getName() + ".crc");
+        assertFalse(crcFile.exists());
     }
 
     @SuppressWarnings("EmptyTryBlock")
