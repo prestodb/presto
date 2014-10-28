@@ -198,14 +198,24 @@ public class OrcRowSink
 
     private static RecordWriter createRecordWriter(Path target, JobConf conf)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader())) {
+        try {
             OrcFile.WriterOptions options = OrcFile.writerOptions(conf)
-                    .fileSystem(target.getFileSystem(conf))
+                    .fileSystem(getFileSystem(target, conf))
                     .compress(SNAPPY);
             return WRITER_CONSTRUCTOR.newInstance(target, options);
         }
         catch (ReflectiveOperationException | IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to create writer", e);
+        }
+    }
+
+    private static FileSystem getFileSystem(Path path, Configuration conf)
+            throws IOException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader())) {
+            FileSystem fileSystem = path.getFileSystem(conf);
+            fileSystem.setWriteChecksum(false);
+            return fileSystem;
         }
     }
 
