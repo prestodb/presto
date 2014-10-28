@@ -11,26 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.SqlType;
 
-import java.io.Closeable;
-
-public interface LookupSource
-        extends Closeable
+public final class CombineHashFunction
 {
-    int getChannelCount();
+    private CombineHashFunction() {}
 
-    long getJoinPosition(int position, Page page, int rawHash);
-
-    long getJoinPosition(int position, Page page);
-
-    long getNextJoinPosition(long currentPosition);
-
-    void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset);
-
-    @Override
-    void close();
+    @ScalarFunction(value = "combine_hash", hidden = true)
+    @SqlType(StandardTypes.BIGINT)
+    public static long getHash(@SqlType(StandardTypes.BIGINT) long previousHashValue, @SqlType(StandardTypes.BIGINT) long value)
+    {
+        return 31 * previousHashValue + value;
+    }
 }

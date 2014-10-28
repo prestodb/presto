@@ -15,6 +15,7 @@ package com.facebook.presto.testing;
 
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.CatalogSystemTable;
@@ -23,7 +24,6 @@ import com.facebook.presto.connector.system.SystemRecordSetProvider;
 import com.facebook.presto.connector.system.SystemSplitManager;
 import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
-import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.index.IndexManager;
@@ -41,11 +41,16 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
+import com.facebook.presto.operator.FilterAndProjectOperator;
+import com.facebook.presto.operator.FilterFunctions;
+import com.facebook.presto.operator.GenericPageProcessor;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PageSourceOperator;
+import com.facebook.presto.operator.ProjectionFunction;
+import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
@@ -53,11 +58,15 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -80,6 +89,7 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.type.TypeUtils;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -95,6 +105,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -119,12 +130,14 @@ public class LocalQueryRunner
 
     private final ExpressionCompiler compiler;
     private final ConnectorManager connectorManager;
+    private final boolean hashEnabled;
 
     private boolean printPlan;
 
     public LocalQueryRunner(Session defaultSession)
     {
         this.defaultSession = checkNotNull(defaultSession, "defaultSession is null");
+        this.hashEnabled = SystemSessionProperties.isOptimizeHashGenerationEnabled(defaultSession, false);
         this.executor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-%s"));
 
         this.sqlParser = new SqlParser();
@@ -162,6 +175,19 @@ public class LocalQueryRunner
                 ImmutableMap.<String, ConnectorFactory>of(),
                 nodeManager
         );
+    }
+
+    public static LocalQueryRunner createHashEnabledQueryRunner(LocalQueryRunner localQueryRunner)
+    {
+        Session session = localQueryRunner.getDefaultSession();
+        Session.SessionBuilder builder = Session.builder()
+                .setUser(session.getUser())
+                .setSource(session.getSource())
+                .setCatalog(session.getCatalog())
+                .setTimeZoneKey(session.getTimeZoneKey())
+                .setLocale(session.getLocale())
+                .setSystemProperties(ImmutableMap.of("optimizer.optimize_hash_generation", "true"));
+        return new LocalQueryRunner(builder.build());
     }
 
     @Override
@@ -224,6 +250,11 @@ public class LocalQueryRunner
     {
         printPlan = true;
         return this;
+    }
+
+    public boolean isHashEnabled()
+    {
+        return hashEnabled;
     }
 
     private static class MaterializedOutputFactory
@@ -328,15 +359,16 @@ public class LocalQueryRunner
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         FeaturesConfig featuresConfig = new FeaturesConfig()
                 .setExperimentalSyntaxEnabled(true)
-                .setDistributedIndexJoinsEnabled(false);
+                .setDistributedIndexJoinsEnabled(false)
+                .setOptimizeHashGeneration(true);
         PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, sqlParser, splitManager, indexManager, featuresConfig);
 
         QueryExplainer queryExplainer = new QueryExplainer(session, planOptimizersFactory.get(), metadata, sqlParser, featuresConfig.isExperimentalSyntaxEnabled(), featuresConfig.isDistributedIndexJoinsEnabled(), featuresConfig.isDistributedJoinsEnabled());
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, Optional.of(queryExplainer), featuresConfig.isExperimentalSyntaxEnabled());
 
         Analysis analysis = analyzer.analyze(statement);
-
         Plan plan = new LogicalPlanner(session, planOptimizersFactory.get(), idAllocator, metadata).plan(analysis);
+
         if (printPlan) {
             System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata));
         }
@@ -482,6 +514,19 @@ public class LocalQueryRunner
         };
     }
 
+    public OperatorFactory createHashProjectOperator(int operatorId, List<Type> columnTypes, List<Integer> channelsToHash)
+    {
+        ImmutableList.Builder<ProjectionFunction> projectionFunctions = ImmutableList.builder();
+        for (int i = 0; i < columnTypes.size(); i++) {
+            projectionFunctions.add(ProjectionFunctions.singleColumn(columnTypes.get(i), i));
+        }
+        projectionFunctions.add(new HashProjectionFunction(columnTypes, channelsToHash));
+        return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+                operatorId,
+                new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, projectionFunctions.build()),
+                ImmutableList.copyOf(Iterables.concat(columnTypes, ImmutableList.of(BIGINT))));
+    }
+
     private Split getLocalQuerySplit(TableHandle tableHandle)
     {
         try {
@@ -496,6 +541,37 @@ public class LocalQueryRunner
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw Throwables.propagate(e);
+        }
+    }
+
+    private static class HashProjectionFunction
+            implements ProjectionFunction
+    {
+        private final List<Type> columnTypes;
+        private final List<Integer> hashChannels;
+
+        public HashProjectionFunction(List<Type> columnTypes, List<Integer> hashChannels)
+        {
+            this.columnTypes = columnTypes;
+            this.hashChannels = hashChannels;
+        }
+
+        @Override
+        public Type getType()
+        {
+            return BIGINT;
+        }
+
+        @Override
+        public void project(int position, Block[] blocks, BlockBuilder output)
+        {
+            BIGINT.writeLong(output, TypeUtils.getHashPosition(columnTypes, blocks, position));
+        }
+
+        @Override
+        public void project(RecordCursor cursor, BlockBuilder output)
+        {
+            throw new UnsupportedOperationException("Operation not supported");
         }
     }
 }

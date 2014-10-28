@@ -39,6 +39,7 @@ import com.facebook.presto.operator.aggregation.VarBinaryMinAggregation;
 import com.facebook.presto.operator.aggregation.VarianceAggregation;
 import com.facebook.presto.operator.scalar.ArrayFunctions;
 import com.facebook.presto.operator.scalar.ColorFunctions;
+import com.facebook.presto.operator.scalar.CombineHashFunction;
 import com.facebook.presto.operator.scalar.DateTimeFunctions;
 import com.facebook.presto.operator.scalar.HyperLogLogFunctions;
 import com.facebook.presto.operator.scalar.JsonFunctions;
@@ -266,6 +267,7 @@ public class FunctionRegistry
                 .scalar(HyperLogLogOperators.class)
                 .scalar(LikeFunctions.class)
                 .scalar(ArrayFunctions.class)
+                .scalar(CombineHashFunction.class)
                 .function(ARRAY_CONSTRUCTOR)
                 .function(ARRAY_SUBSCRIPT)
                 .function(ARRAY_CARDINALITY)

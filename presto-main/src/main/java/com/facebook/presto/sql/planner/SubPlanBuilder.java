@@ -18,6 +18,7 @@ import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -41,6 +42,7 @@ public class SubPlanBuilder
     private List<Symbol> partitionBy = ImmutableList.of();
     private List<SubPlan> children = new ArrayList<>();
     private OutputPartitioning outputPartitioning = OutputPartitioning.NONE;
+    private Optional<Integer> hashChannel = Optional.absent();
 
     public SubPlanBuilder(PlanFragmentId id, SymbolAllocator allocator, PlanDistribution distribution, PlanNode root, PlanNodeId partitionedSource)
     {
@@ -98,10 +100,16 @@ public class SubPlanBuilder
 
     public SubPlanBuilder setHashOutputPartitioning(List<Symbol> partitionBy)
     {
+        return setHashOutputPartitioning(partitionBy, Optional.<Integer>absent());
+    }
+
+    public SubPlanBuilder setHashOutputPartitioning(List<Symbol> partitionBy, Optional<Integer> hashChannel)
+    {
         this.outputPartitioning = OutputPartitioning.HASH;
         checkNotNull(partitionBy, "partitionBy is null");
         checkArgument(!partitionBy.isEmpty(), "partitionBy is empty");
         this.partitionBy = ImmutableList.copyOf(partitionBy);
+        this.hashChannel = hashChannel;
         return this;
     }
 
@@ -109,7 +117,7 @@ public class SubPlanBuilder
     {
         Set<Symbol> dependencies = SymbolExtractor.extract(root);
 
-        PlanFragment fragment = new PlanFragment(id, root, Maps.filterKeys(allocator.getTypes(), in(dependencies)), distribution, partitionedSource, outputPartitioning, partitionBy);
+        PlanFragment fragment = new PlanFragment(id, root, Maps.filterKeys(allocator.getTypes(), in(dependencies)), distribution, partitionedSource, outputPartitioning, partitionBy, hashChannel);
 
         return new SubPlan(fragment, children);
     }

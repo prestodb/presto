@@ -85,7 +85,9 @@ public class CountConstantOptimizer
                     functions,
                     node.getMasks(),
                     node.getStep(),
-                    node.getSampleWeight(), node.getConfidence());
+                    node.getSampleWeight(),
+                    node.getConfidence(),
+                    node.getHashSymbol());
         }
 
         public static boolean isCountConstant(ProjectNode projectNode, FunctionCall functionCall, Signature signature)

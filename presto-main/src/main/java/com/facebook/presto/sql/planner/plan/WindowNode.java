@@ -19,6 +19,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -42,6 +43,8 @@ public class WindowNode
     private final Map<Symbol, FunctionCall> windowFunctions;
     private final Map<Symbol, Signature> functionHandles;
 
+    private final Optional<Symbol> hashSymbol;
+
     @JsonCreator
     public WindowNode(
             @JsonProperty("id") PlanNodeId id,
@@ -50,7 +53,8 @@ public class WindowNode
             @JsonProperty("orderBy") List<Symbol> orderBy,
             @JsonProperty("orderings") Map<Symbol, SortOrder> orderings,
             @JsonProperty("windowFunctions") Map<Symbol, FunctionCall> windowFunctions,
-            @JsonProperty("signatures") Map<Symbol, Signature> signatures)
+            @JsonProperty("signatures") Map<Symbol, Signature> signatures,
+            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
     {
         super(id);
 
@@ -61,6 +65,7 @@ public class WindowNode
         checkNotNull(windowFunctions, "windowFunctions is null");
         checkNotNull(signatures, "signatures is null");
         checkArgument(windowFunctions.keySet().equals(signatures.keySet()), "windowFunctions does not match signatures");
+        checkNotNull(hashSymbol, "hashSymbol is null");
 
         this.source = source;
         this.partitionBy = ImmutableList.copyOf(partitionBy);
@@ -68,6 +73,7 @@ public class WindowNode
         this.orderings = ImmutableMap.copyOf(orderings);
         this.windowFunctions = ImmutableMap.copyOf(windowFunctions);
         this.functionHandles = ImmutableMap.copyOf(signatures);
+        this.hashSymbol = hashSymbol;
     }
 
     @Override
@@ -116,6 +122,12 @@ public class WindowNode
     public Map<Symbol, Signature> getSignatures()
     {
         return functionHandles;
+    }
+
+    @JsonProperty
+    public Optional<Symbol> getHashSymbol()
+    {
+        return hashSymbol;
     }
 
     @Override

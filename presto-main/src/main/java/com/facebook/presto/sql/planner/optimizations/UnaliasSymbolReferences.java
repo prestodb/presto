@@ -132,7 +132,7 @@ public class UnaliasSymbolReferences
             }
 
             List<Symbol> groupByKeys = ImmutableList.copyOf(ImmutableSet.copyOf(canonicalize(node.getGroupBy())));
-            return new AggregationNode(node.getId(), source, groupByKeys, functionCalls.build(), functionInfos.build(), masks.build(), canonicalize(node.getSampleWeight()), node.getConfidence());
+            return new AggregationNode(node.getId(), source, groupByKeys, functionCalls.build(), functionInfos.build(), masks.build(), canonicalize(node.getSampleWeight()), node.getConfidence(), node.getHashSymbol());
         }
 
         @Override
@@ -140,7 +140,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
             List<Symbol> symbols = ImmutableList.copyOf(ImmutableSet.copyOf(canonicalize(node.getDistinctSymbols())));
-            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerSymbol()), symbols);
+            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerSymbol()), symbols, node.getHashSymbol());
         }
 
         @Override
@@ -173,7 +173,7 @@ public class UnaliasSymbolReferences
                 orderings.put(canonicalize(entry.getKey()), entry.getValue());
             }
 
-            return new WindowNode(node.getId(), source, canonicalize(node.getPartitionBy()), canonicalize(node.getOrderBy()), orderings.build(), functionCalls.build(), functionInfos.build());
+            return new WindowNode(node.getId(), source, canonicalize(node.getPartitionBy()), canonicalize(node.getOrderBy()), orderings.build(), functionCalls.build(), functionInfos.build(), node.getHashSymbol());
         }
 
         @Override
@@ -289,7 +289,7 @@ public class UnaliasSymbolReferences
             PlanNode left = planRewriter.rewrite(node.getLeft(), context);
             PlanNode right = planRewriter.rewrite(node.getRight(), context);
 
-            return new JoinNode(node.getId(), node.getType(), left, right, canonicalizeJoinCriteria(node.getCriteria()));
+            return new JoinNode(node.getId(), node.getType(), left, right, canonicalizeJoinCriteria(node.getCriteria()), node.getLeftHashSymbol(), node.getRightHashSymbol());
         }
 
         @Override
@@ -298,7 +298,7 @@ public class UnaliasSymbolReferences
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
             PlanNode filteringSource = planRewriter.rewrite(node.getFilteringSource(), context);
 
-            return new SemiJoinNode(node.getId(), source, filteringSource, canonicalize(node.getSourceJoinSymbol()), canonicalize(node.getFilteringSourceJoinSymbol()), canonicalize(node.getSemiJoinOutput()));
+            return new SemiJoinNode(node.getId(), source, filteringSource, canonicalize(node.getSourceJoinSymbol()), canonicalize(node.getFilteringSourceJoinSymbol()), canonicalize(node.getSemiJoinOutput()), node.getSourceHashSymbol(), node.getFilteringSourceHashSymbol());
         }
 
         @Override
@@ -317,7 +317,7 @@ public class UnaliasSymbolReferences
             PlanNode probeSource = planRewriter.rewrite(node.getProbeSource(), context);
             PlanNode indexSource = planRewriter.rewrite(node.getIndexSource(), context);
 
-            return new IndexJoinNode(node.getId(), node.getType(), probeSource, indexSource, canonicalizeIndexJoinCriteria(node.getCriteria()));
+            return new IndexJoinNode(node.getId(), node.getType(), probeSource, indexSource, canonicalizeIndexJoinCriteria(node.getCriteria()), node.getProbeHashSymbol(), node.getIndexHashSymbol());
         }
 
         @Override

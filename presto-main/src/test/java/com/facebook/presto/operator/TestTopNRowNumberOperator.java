@@ -18,10 +18,12 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -58,11 +60,18 @@ public class TestTopNRowNumberOperator
         executor.shutdownNow();
     }
 
-    @Test
-    public void testTopNRowNumberPartitioned()
+    @DataProvider(name = "hashEnabledValues")
+    public static Object[][] hashEnabledValuesProvider()
+    {
+        return new Object[][] { { true }, { false } };
+    }
+
+    @Test(dataProvider = "hashEnabledValues")
+    public void testTopNRowNumberPartitioned(boolean hashEnabled)
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT, DOUBLE);
+        List<Page> input = rowPagesBuilder
                 .row(1, 0.3)
                 .row(2, 0.2)
                 .row(3, 0.1)
@@ -88,6 +97,7 @@ public class TestTopNRowNumberOperator
                 ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                 3,
                 false,
+                Optional.<Integer>absent(),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -136,6 +146,7 @@ public class TestTopNRowNumberOperator
                 ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                 3,
                 false,
+                Optional.<Integer>absent(),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);

@@ -17,6 +17,7 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -40,6 +41,7 @@ public final class TopNRowNumberNode
     private final Symbol rowNumberSymbol;
     private final int maxRowCountPerPartition;
     private final boolean partial;
+    private final Optional<Symbol> hashSymbol;
 
     @JsonCreator
     public TopNRowNumberNode(
@@ -50,7 +52,8 @@ public final class TopNRowNumberNode
             @JsonProperty("orderings") Map<Symbol, SortOrder> orderings,
             @JsonProperty("rowNumberSymbol") Symbol rowNumberSymbol,
             @JsonProperty("maxRowCountPerPartition") int maxRowCountPerPartition,
-            @JsonProperty("partial") boolean partial)
+            @JsonProperty("partial") boolean partial,
+            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
     {
         super(id);
 
@@ -61,6 +64,7 @@ public final class TopNRowNumberNode
         checkArgument(orderings.size() == orderBy.size(), "orderBy and orderings sizes don't match");
         checkNotNull(rowNumberSymbol, "rowNumberSymbol is null");
         checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
+        checkNotNull(hashSymbol, "hashSymbol is null");
 
         this.source = source;
         this.partitionBy = ImmutableList.copyOf(partitionBy);
@@ -69,6 +73,7 @@ public final class TopNRowNumberNode
         this.rowNumberSymbol = rowNumberSymbol;
         this.maxRowCountPerPartition = maxRowCountPerPartition;
         this.partial = partial;
+        this.hashSymbol = hashSymbol;
     }
 
     @Override
@@ -126,6 +131,12 @@ public final class TopNRowNumberNode
     public boolean isPartial()
     {
         return partial;
+    }
+
+    @JsonProperty
+    public Optional<Symbol> getHashSymbol()
+    {
+        return hashSymbol;
     }
 
     @Override

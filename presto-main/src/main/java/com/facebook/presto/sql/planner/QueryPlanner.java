@@ -357,7 +357,8 @@ class QueryPlanner
             MarkDistinctNode markDistinct = new MarkDistinctNode(idAllocator.getNextId(),
                     subPlan.getRoot(),
                     entry.getValue(),
-                    builder.build());
+                    builder.build(),
+                    Optional.<Symbol>absent());
             subPlan = new PlanBuilder(subPlan.getTranslations(), markDistinct, subPlan.getSampleWeight());
         }
 
@@ -366,7 +367,7 @@ class QueryPlanner
             confidence = Double.valueOf(analysis.getQuery().getApproximate().get().getConfidence()) / 100.0;
         }
 
-        AggregationNode aggregationNode = new AggregationNode(idAllocator.getNextId(), subPlan.getRoot(), ImmutableList.copyOf(groupBySymbols), aggregationAssignments.build(), functions.build(), new ImmutableMap.Builder<Symbol, Symbol>().putAll(masks).build(), subPlan.getSampleWeight(), confidence);
+        AggregationNode aggregationNode = new AggregationNode(idAllocator.getNextId(), subPlan.getRoot(), ImmutableList.copyOf(groupBySymbols), aggregationAssignments.build(), functions.build(), new ImmutableMap.Builder<Symbol, Symbol>().putAll(masks).build(), subPlan.getSampleWeight(), confidence, Optional.<Symbol>absent());
         subPlan = new PlanBuilder(translations, aggregationNode, Optional.<Symbol>absent());
 
         // 3. Post-projection
@@ -434,7 +435,7 @@ class QueryPlanner
 
             // create window node
             subPlan = new PlanBuilder(outputTranslations,
-                    new WindowNode(idAllocator.getNextId(), subPlan.getRoot(), partitionBySymbols.build(), orderBySymbols.build(), orderings, assignments.build(), signatures),
+                    new WindowNode(idAllocator.getNextId(), subPlan.getRoot(), partitionBySymbols.build(), orderBySymbols.build(), orderings, assignments.build(), signatures, Optional.<Symbol>absent()),
                     subPlan.getSampleWeight());
 
             if (needCoercion) {
@@ -517,7 +518,9 @@ class QueryPlanner
                         valueListRelation.getRoot(),
                         sourceJoinSymbol,
                         filteringSourceJoinSymbol,
-                        semiJoinOutputSymbol),
+                        semiJoinOutputSymbol,
+                        Optional.<Symbol>absent(),
+                        Optional.<Symbol>absent()),
                 subPlan.getSampleWeight());
     }
 
@@ -533,7 +536,8 @@ class QueryPlanner
                     ImmutableMap.<Symbol, Signature>of(),
                     ImmutableMap.<Symbol, Symbol>of(),
                     Optional.<Symbol>absent(),
-                    1.0);
+                    1.0,
+                    Optional.<Symbol>absent());
 
             return new PlanBuilder(subPlan.getTranslations(), aggregation, subPlan.getSampleWeight());
         }

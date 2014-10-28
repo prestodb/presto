@@ -297,12 +297,13 @@ public class TestSqlStageExecution
         // join build and probe
         PlanFragment joinPlan = new PlanFragment(
                 new PlanFragmentId(planId),
-                new JoinNode(new PlanNodeId(planId), JoinNode.Type.INNER, probeExchange, buildExchange, ImmutableList.<EquiJoinClause>of()),
+                new JoinNode(new PlanNodeId(planId), JoinNode.Type.INNER, probeExchange, buildExchange, ImmutableList.<EquiJoinClause>of(), Optional.<Symbol>absent(), Optional.<Symbol>absent()),
                 probe.getFragment().getSymbols(), // this is wrong, but it works
                 PlanDistribution.SOURCE,
                 new PlanNodeId(planId),
                 OutputPartitioning.NONE,
-                ImmutableList.<Symbol>of());
+                ImmutableList.<Symbol>of(),
+                Optional.<Integer>absent());
 
         return new StageExecutionPlan(joinPlan,
                 probe.getDataSource(),
@@ -329,7 +330,8 @@ public class TestSqlStageExecution
                 PlanDistribution.SOURCE,
                 tableScanNodeId,
                 OutputPartitioning.NONE,
-                ImmutableList.<Symbol>of());
+                ImmutableList.<Symbol>of(),
+                Optional.<Integer>absent());
 
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
 

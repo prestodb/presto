@@ -18,6 +18,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -41,16 +42,18 @@ public class HashSemiJoinOperator
         private final SetSupplier setSupplier;
         private final List<Type> probeTypes;
         private final int probeJoinChannel;
+        private final Optional<Integer> probeHashChannel;
         private final List<Type> types;
         private boolean closed;
 
-        public HashSemiJoinOperatorFactory(int operatorId, SetSupplier setSupplier, List<? extends Type> probeTypes, int probeJoinChannel)
+        public HashSemiJoinOperatorFactory(int operatorId, SetSupplier setSupplier, List<? extends Type> probeTypes, int probeJoinChannel, Optional<Integer> probeHashChannel)
         {
             this.operatorId = operatorId;
             this.setSupplier = setSupplier;
             this.probeTypes = ImmutableList.copyOf(probeTypes);
             checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
             this.probeJoinChannel = probeJoinChannel;
+            this.probeHashChannel = checkNotNull(probeHashChannel, "probeHashChannel is null");
 
             this.types = ImmutableList.<Type>builder()
                     .addAll(probeTypes)
@@ -69,7 +72,7 @@ public class HashSemiJoinOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, HashBuilderOperator.class.getSimpleName());
-            return new HashSemiJoinOperator(operatorContext, setSupplier, probeTypes, probeJoinChannel);
+            return new HashSemiJoinOperator(operatorContext, setSupplier, probeTypes, probeJoinChannel, probeHashChannel);
         }
 
         @Override
@@ -80,6 +83,7 @@ public class HashSemiJoinOperator
     }
 
     private final int probeJoinChannel;
+    private final Optional<Integer> probeHashChannel;
     private final List<Type> types;
     private final ListenableFuture<ChannelSet> channelSetFuture;
 
@@ -87,7 +91,7 @@ public class HashSemiJoinOperator
     private Page outputPage;
     private boolean finishing;
 
-    public HashSemiJoinOperator(OperatorContext operatorContext, SetSupplier channelSetFuture, List<Type> probeTypes, int probeJoinChannel)
+    public HashSemiJoinOperator(OperatorContext operatorContext, SetSupplier channelSetFuture, List<Type> probeTypes, int probeJoinChannel, Optional<Integer> probeHashChannel)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 
@@ -98,6 +102,7 @@ public class HashSemiJoinOperator
 
         this.channelSetFuture = channelSetFuture.getChannelSet();
         this.probeJoinChannel = probeJoinChannel;
+        this.probeHashChannel = probeHashChannel;
 
         this.types = ImmutableList.<Type>builder()
                 .addAll(probeTypes)
@@ -160,15 +165,21 @@ public class HashSemiJoinOperator
         // we know the exact size required for the block
         BlockBuilder blockBuilder = BOOLEAN.createFixedSizeBlockBuilder(page.getPositionCount());
 
-        Block probeJoinBlock = page.getBlock(probeJoinChannel);
+        Page probeJoinPage = new Page(page.getBlock(probeJoinChannel));
 
         // update hashing strategy to use probe cursor
         for (int position = 0; position < page.getPositionCount(); position++) {
-            if (probeJoinBlock.isNull(position)) {
+            if (probeJoinPage.getBlock(0).isNull(position)) {
                 blockBuilder.appendNull();
             }
             else {
-                boolean contains = channelSet.contains(position, probeJoinBlock);
+                boolean contains;
+                if (probeHashChannel.isPresent()) {
+                    contains = channelSet.contains(position, probeJoinPage,  page.getBlock(probeHashChannel.get()));
+                }
+                else {
+                    contains = channelSet.contains(position, probeJoinPage);
+                }
                 if (!contains && channelSet.containsNull()) {
                     blockBuilder.appendNull();
                 }

@@ -23,6 +23,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -40,9 +41,10 @@ public class IndexSnapshotBuilder
     private final List<Type> outputTypes;
     private final List<Type> missingKeysTypes;
     private final List<Integer> keyOutputChannels;
+    private final Optional<Integer> keyOutputHashChannel;
     private final List<Integer> missingKeysChannels;
-    private final long maxMemoryInBytes;
 
+    private final long maxMemoryInBytes;
     private final OperatorContext bogusOperatorContext;
     private PagesIndex outputPagesIndex;
     private PagesIndex missingKeysIndex;
@@ -53,12 +55,14 @@ public class IndexSnapshotBuilder
 
     public IndexSnapshotBuilder(List<Type> outputTypes,
             List<Integer> keyOutputChannels,
+            Optional<Integer> keyOutputHashChannel,
             DriverContext driverContext,
             DataSize maxMemoryInBytes,
             int expectedPositions)
     {
         checkNotNull(outputTypes, "outputTypes is null");
         checkNotNull(keyOutputChannels, "keyOutputChannels is null");
+        checkNotNull(keyOutputHashChannel, "keyOutputHashChannel is null");
         checkNotNull(driverContext, "driverContext is null");
         checkNotNull(maxMemoryInBytes, "maxMemoryInBytes is null");
         checkArgument(expectedPositions > 0, "expectedPositions must be greater than zero");
@@ -66,6 +70,7 @@ public class IndexSnapshotBuilder
         this.outputTypes = ImmutableList.copyOf(outputTypes);
         this.expectedPositions = expectedPositions;
         this.keyOutputChannels = ImmutableList.copyOf(keyOutputChannels);
+        this.keyOutputHashChannel = keyOutputHashChannel;
         this.maxMemoryInBytes = maxMemoryInBytes.toBytes();
 
         ImmutableList.Builder<Type> missingKeysTypes = ImmutableList.builder();
@@ -124,15 +129,16 @@ public class IndexSnapshotBuilder
         }
         pages.clear();
 
-        LookupSource lookupSource = outputPagesIndex.createLookupSource(keyOutputChannels);
+        LookupSource lookupSource = outputPagesIndex.createLookupSource(keyOutputChannels, keyOutputHashChannel);
 
         // Build a page containing the keys that produced no output rows, so in future requests can skip these keys
         PageBuilder missingKeysPageBuilder = new PageBuilder(missingKeysIndex.getTypes());
         UnloadedIndexKeyRecordCursor indexKeysRecordCursor = indexKeysRecordSet.cursor();
         while (indexKeysRecordCursor.advanceNextPosition()) {
             Block[] blocks = indexKeysRecordCursor.getBlocks();
+            Page page = indexKeysRecordCursor.getPage();
             int position = indexKeysRecordCursor.getPosition();
-            if (lookupSource.getJoinPosition(position, blocks) < 0) {
+            if (lookupSource.getJoinPosition(position, page) < 0) {
                 for (int i = 0; i < blocks.length; i++) {
                     Block block = blocks[i];
                     Type type = indexKeysRecordCursor.getType(i);

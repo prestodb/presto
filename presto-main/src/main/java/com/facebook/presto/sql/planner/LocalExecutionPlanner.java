@@ -422,6 +422,7 @@ public class LocalExecutionPlanner
             int channel = source.getTypes().size();
             outputMappings.put(node.getRowNumberSymbol(), channel);
 
+            Optional<Integer> hashChannel = node.getHashSymbol().transform(channelGetter(source));
             OperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
                     context.getNextOperatorId(),
                     source.getTypes(),
@@ -429,6 +430,7 @@ public class LocalExecutionPlanner
                     partitionChannels,
                     partitionTypes,
                     node.getMaxRowCountPerPartition(),
+                    hashChannel,
                     1_000_000);
             return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
         }
@@ -475,6 +477,7 @@ public class LocalExecutionPlanner
                 outputMappings.put(node.getRowNumberSymbol(), channel);
             }
 
+            Optional<Integer> hashChannel = node.getHashSymbol().transform(channelGetter(source));
             OperatorFactory operatorFactory = new TopNRowNumberOperator.TopNRowNumberOperatorFactory(
                     context.getNextOperatorId(),
                     source.getTypes(),
@@ -485,6 +488,7 @@ public class LocalExecutionPlanner
                     sortOrder,
                     node.getMaxRowCountPerPartition(),
                     node.isPartial(),
+                    hashChannel,
                     1_000_000);
 
             return new PhysicalOperation(operatorFactory, makeLayout(node), source);
@@ -625,10 +629,16 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitDistinctLimit(DistinctLimitNode node, LocalExecutionPlanContext context)
         {
             PhysicalOperation source = node.getSource().accept(this, context);
+
+            Optional<Integer> hashChannel = node.getHashSymbol().transform(channelGetter(source));
+            List<Integer> distinctChannels = getChannelsForSymbols(node.getDistinctSymbols(), source.getLayout());
+
             OperatorFactory operatorFactory = new DistinctLimitOperatorFactory(
                     context.getNextOperatorId(),
                     source.getTypes(),
-                    node.getLimit());
+                    distinctChannels,
+                    node.getLimit(),
+                    hashChannel);
             return new PhysicalOperation(operatorFactory, source.getLayout(), source);
         }
 
@@ -650,8 +660,8 @@ public class LocalExecutionPlanner
             PhysicalOperation source = node.getSource().accept(this, context);
 
             List<Integer> channels = getChannelsForSymbols(node.getDistinctSymbols(), source.getLayout());
-
-            MarkDistinctOperatorFactory operator = new MarkDistinctOperatorFactory(context.getNextOperatorId(), source.getTypes(), channels);
+            Optional<Integer> hashChannel = node.getHashSymbol().transform(channelGetter(source));
+            MarkDistinctOperatorFactory operator = new MarkDistinctOperatorFactory(context.getNextOperatorId(), source.getTypes(), channels, hashChannel);
             return new PhysicalOperation(operator, makeLayout(node), source);
         }
 
@@ -1061,6 +1071,7 @@ public class LocalExecutionPlanner
             // Plan probe side
             PhysicalOperation probeSource = node.getProbeSource().accept(this, context);
             List<Integer> probeChannels = getChannelsForSymbols(probeSymbols, probeSource.getLayout());
+            Optional<Integer> probeHashChannel = node.getProbeHashSymbol().transform(channelGetter(probeSource));
 
             // The probe key channels will be handed to the index according to probeSymbol order
             Map<Symbol, Integer> probeKeyLayout = new HashMap<>();
@@ -1074,6 +1085,7 @@ public class LocalExecutionPlanner
             LocalExecutionPlanContext indexContext = context.createIndexSourceSubContext(new IndexSourceContext(indexLookupToProbeInput));
             PhysicalOperation indexSource = node.getIndexSource().accept(this, indexContext);
             List<Integer> indexOutputChannels = getChannelsForSymbols(indexSymbols, indexSource.getLayout());
+            Optional<Integer> indexHashChannel = node.getIndexHashSymbol().transform(channelGetter(indexSource));
 
             // Identify just the join keys/channels needed for lookup by the index source (does not have to use all of them).
             Set<Symbol> indexSymbolsNeededBySource = IndexJoinOptimizer.IndexKeyTracer.trace(node.getIndexSource(), ImmutableSet.copyOf(indexSymbols)).keySet();
@@ -1110,6 +1122,7 @@ public class LocalExecutionPlanner
             IndexLookupSourceSupplier indexLookupSourceSupplier = new IndexLookupSourceSupplier(
                     lookupSourceInputChannels,
                     indexOutputChannels,
+                    indexHashChannel,
                     indexSource.getTypes(),
                     indexBuildDriverFactoryProvider,
                     maxIndexMemorySize,
@@ -1129,10 +1142,10 @@ public class LocalExecutionPlanner
             OperatorFactory lookupJoinOperatorFactory;
             switch (node.getType()) {
                 case INNER:
-                    lookupJoinOperatorFactory = LookupJoinOperators.innerJoin(context.getNextOperatorId(), indexLookupSourceSupplier, probeSource.getTypes(), probeChannels);
+                    lookupJoinOperatorFactory = LookupJoinOperators.innerJoin(context.getNextOperatorId(), indexLookupSourceSupplier, probeSource.getTypes(), probeChannels, probeHashChannel);
                     break;
                 case SOURCE_OUTER:
-                    lookupJoinOperatorFactory = LookupJoinOperators.outerJoin(context.getNextOperatorId(), indexLookupSourceSupplier, probeSource.getTypes(), probeChannels);
+                    lookupJoinOperatorFactory = LookupJoinOperators.outerJoin(context.getNextOperatorId(), indexLookupSourceSupplier, probeSource.getTypes(), probeChannels, probeHashChannel);
                     break;
                 default:
                     throw new AssertionError("Unknown type: " + node.getType());
@@ -1151,9 +1164,9 @@ public class LocalExecutionPlanner
             switch (node.getType()) {
                 case INNER:
                 case LEFT:
-                    return createJoinOperator(node, node.getLeft(), leftSymbols, node.getRight(), rightSymbols, context);
+                    return createJoinOperator(node, node.getLeft(), leftSymbols, node.getLeftHashSymbol(), node.getRight(), rightSymbols, node.getRightHashSymbol(), context);
                 case RIGHT:
-                    return createJoinOperator(node, node.getRight(), rightSymbols, node.getLeft(), leftSymbols, context);
+                    return createJoinOperator(node, node.getRight(), rightSymbols, node.getRightHashSymbol(), node.getLeft(), leftSymbols, node.getLeftHashSymbol(), context);
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
@@ -1162,23 +1175,28 @@ public class LocalExecutionPlanner
         private PhysicalOperation createJoinOperator(JoinNode node,
                 PlanNode probeNode,
                 List<Symbol> probeSymbols,
+                Optional<Symbol> probeHashSymbol,
                 PlanNode buildNode,
                 List<Symbol> buildSymbols,
+                Optional<Symbol> buildHashSymbol,
                 LocalExecutionPlanContext context)
         {
             // Plan probe and introduce a projection to put all fields from the probe side into a single channel if necessary
             PhysicalOperation probeSource = probeNode.accept(this, context);
             List<Integer> probeChannels = ImmutableList.copyOf(getChannelsForSymbols(probeSymbols, probeSource.getLayout()));
+            Optional<Integer> probeHashChannel = probeHashSymbol.transform(channelGetter(probeSource));
 
             // do the same on the build side
             LocalExecutionPlanContext buildContext = context.createSubContext();
             PhysicalOperation buildSource = buildNode.accept(this, buildContext);
             List<Integer> buildChannels = ImmutableList.copyOf(getChannelsForSymbols(buildSymbols, buildSource.getLayout()));
+            Optional<Integer> buildHashChannel = buildHashSymbol.transform(channelGetter(buildSource));
 
             HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
                     buildSource.getTypes(),
                     buildChannels,
+                    buildHashChannel,
                     100_000);
             LookupSourceSupplier lookupSourceSupplier = hashBuilderOperatorFactory.getLookupSourceSupplier();
             DriverFactory buildDriverFactory = new DriverFactory(
@@ -1201,7 +1219,7 @@ public class LocalExecutionPlanner
                 outputMappings.put(entry.getKey(), offset + input);
             }
 
-            OperatorFactory operator = createJoinOperator(node.getType(), lookupSourceSupplier, probeSource.getTypes(), probeChannels, context);
+            OperatorFactory operator = createJoinOperator(node.getType(), lookupSourceSupplier, probeSource.getTypes(), probeChannels, probeHashChannel, context);
             return new PhysicalOperation(operator, outputMappings.build(), probeSource);
         }
 
@@ -1210,14 +1228,15 @@ public class LocalExecutionPlanner
                 LookupSourceSupplier lookupSourceSupplier,
                 List<Type> probeTypes,
                 List<Integer> probeJoinChannels,
+                Optional<Integer> probeHashChannel,
                 LocalExecutionPlanContext context)
         {
             switch (type) {
                 case INNER:
-                    return LookupJoinOperators.innerJoin(context.getNextOperatorId(), lookupSourceSupplier, probeTypes, probeJoinChannels);
+                    return LookupJoinOperators.innerJoin(context.getNextOperatorId(), lookupSourceSupplier, probeTypes, probeJoinChannels, probeHashChannel);
                 case LEFT:
                 case RIGHT:
-                    return LookupJoinOperators.outerJoin(context.getNextOperatorId(), lookupSourceSupplier, probeTypes, probeJoinChannels);
+                    return LookupJoinOperators.outerJoin(context.getNextOperatorId(), lookupSourceSupplier, probeTypes, probeJoinChannels, probeHashChannel);
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + type);
             }
@@ -1236,7 +1255,10 @@ public class LocalExecutionPlanner
             int probeChannel = probeSource.getLayout().get(node.getSourceJoinSymbol());
             int buildChannel = buildSource.getLayout().get(node.getFilteringSourceJoinSymbol());
 
-            SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(buildContext.getNextOperatorId(), buildSource.getTypes(), buildChannel, 100_000);
+            Optional<Integer> probeHashChannel = node.getSourceHashSymbol().transform(channelGetter(probeSource));
+            Optional<Integer> buildHashChannel = node.getFilteringSourceHashSymbol().transform(channelGetter(buildSource));
+
+            SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(buildContext.getNextOperatorId(), buildSource.getTypes(), buildChannel, buildHashChannel, 100_000);
             SetSupplier setProvider = setBuilderOperatorFactory.getSetProvider();
             DriverFactory buildDriverFactory = new DriverFactory(
                     buildContext.isInputDriver(),
@@ -1253,7 +1275,7 @@ public class LocalExecutionPlanner
                     .put(node.getSemiJoinOutput(), probeSource.getLayout().size())
                     .build();
 
-            HashSemiJoinOperatorFactory operator = new HashSemiJoinOperatorFactory(context.getNextOperatorId(), setProvider, probeSource.getTypes(), probeChannel);
+            HashSemiJoinOperatorFactory operator = new HashSemiJoinOperatorFactory(context.getNextOperatorId(), setProvider, probeSource.getTypes(), probeChannel, probeHashChannel);
             return new PhysicalOperation(operator, outputMappings, probeSource);
         }
 
@@ -1468,6 +1490,11 @@ public class LocalExecutionPlanner
                 channel++;
             }
 
+            // hashChannel follows the group by channels
+            if (node.getHashSymbol().isPresent()) {
+                outputMappings.put(node.getHashSymbol().get(), channel++);
+            }
+
             // aggregations go in following channels
             for (Symbol symbol : aggregationOutputSymbols) {
                 outputMappings.put(symbol, channel);
@@ -1484,12 +1511,15 @@ public class LocalExecutionPlanner
                 }
             }));
 
+            Optional<Integer> hashChannel = node.getHashSymbol().transform(channelGetter(source));
+
             OperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                     context.getNextOperatorId(),
                     groupByTypes,
                     groupByChannels,
                     node.getStep(),
                     accumulatorFactories,
+                    hashChannel,
                     10_000,
                     maxPartialAggregationMemorySize);
 
@@ -1566,6 +1596,15 @@ public class LocalExecutionPlanner
         return builder.build();
     }
 
+    private List<Type> getTypesForChannels(List<Type> types, List<Integer> channels)
+    {
+        ImmutableList.Builder<Type> builder = ImmutableList.builder();
+        for (int channel : channels) {
+            builder.add(types.get(channel));
+        }
+        return builder.build();
+    }
+
     private static class IdentityProjectionInfo
     {
         private final Map<Symbol, Integer> layout;
@@ -1586,6 +1625,19 @@ public class LocalExecutionPlanner
         {
             return projections;
         }
+    }
+
+    private static Function<Symbol, Integer> channelGetter(final PhysicalOperation source)
+    {
+        return new Function<Symbol, Integer>()
+        {
+            @Override
+            public Integer apply(Symbol input)
+            {
+                checkArgument(source.getLayout().containsKey(input));
+                return source.getLayout().get(input);
+            }
+        };
     }
 
     /**

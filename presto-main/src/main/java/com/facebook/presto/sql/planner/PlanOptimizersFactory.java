@@ -20,6 +20,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
 import com.facebook.presto.sql.planner.optimizations.CountConstantOptimizer;
+import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.sql.planner.optimizations.ImplementSampleAsFilter;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.optimizations.LimitPushDown;
@@ -65,6 +66,8 @@ public class PlanOptimizersFactory
                 new IndexJoinOptimizer(indexManager), // Run this after projections and filters have been fully simplified and pushed down
                 new CountConstantOptimizer(),
                 new WindowFilterPushDown(), // This must run after PredicatePushDown so that it squashes any successive filter nodes
+                new HashGenerationOptimizer(featuresConfig.isOptimizeHashGeneration()), // This must run after all other optimizers have run to that all the PlanNodes are created
+                new MergeProjections(),
                 new PruneUnreferencedOutputs(), // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
                 new PruneRedundantProjections()); // This MUST run after PruneUnreferencedOutputs as it may introduce new redundant projections
 

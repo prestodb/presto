@@ -108,6 +108,7 @@ public class HandTpchQuery1
                         DOUBLE_AVERAGE.bind(ImmutableList.of(6), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
                         COUNT.bind(ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)
                         ),
+                Optional.<Integer>absent(),
                 10_000,
                 new DataSize(16, MEGABYTE));
 

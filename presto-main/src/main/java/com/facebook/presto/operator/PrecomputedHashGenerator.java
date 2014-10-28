@@ -14,23 +14,30 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.type.BigintType;
+import com.google.common.base.MoreObjects;
 
-import java.io.Closeable;
-
-public interface LookupSource
-        extends Closeable
+public class PrecomputedHashGenerator
+    implements HashGenerator
 {
-    int getChannelCount();
+    private final int hashChannel;
 
-    long getJoinPosition(int position, Page page, int rawHash);
-
-    long getJoinPosition(int position, Page page);
-
-    long getNextJoinPosition(long currentPosition);
-
-    void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset);
+    public PrecomputedHashGenerator(int hashChannel)
+    {
+        this.hashChannel = hashChannel;
+    }
 
     @Override
-    void close();
+    public int hashPosition(int position, Page page)
+    {
+        return (int) BigintType.BIGINT.getLong(page.getBlock(hashChannel), position);
+    }
+
+    @Override
+    public String toString()
+    {
+        return MoreObjects.toStringHelper(this)
+                .add("hashChannel", hashChannel)
+                .toString();
+    }
 }

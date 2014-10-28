@@ -16,6 +16,7 @@ package com.facebook.presto;
 public final class SystemSessionProperties
 {
     private static final String BIG_QUERY = "experimental_big_query";
+    private static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
 
     private SystemSessionProperties() {}
 
@@ -32,5 +33,10 @@ public final class SystemSessionProperties
         }
 
         return Boolean.valueOf(enabled);
+    }
+
+    public static boolean isOptimizeHashGenerationEnabled(Session session, boolean defaultValue)
+    {
+        return isEnabled(OPTIMIZE_HASH_GENERATION, session, defaultValue);
     }
 }
