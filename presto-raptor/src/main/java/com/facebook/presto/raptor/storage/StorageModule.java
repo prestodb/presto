@@ -15,20 +15,9 @@ package com.facebook.presto.raptor.storage;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import io.airlift.dbpool.H2EmbeddedDataSource;
-import io.airlift.dbpool.H2EmbeddedDataSourceConfig;
-import io.airlift.units.Duration;
-import org.skife.jdbi.v2.DBI;
-import org.skife.jdbi.v2.IDBI;
-
-import javax.inject.Singleton;
-
-import java.io.File;
 
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class StorageModule
         implements Module
@@ -38,17 +27,5 @@ public class StorageModule
     {
         bindConfig(binder).to(StorageManagerConfig.class);
         binder.bind(StorageManager.class).to(OrcStorageManager.class).in(Scopes.SINGLETON);
-    }
-
-    @Provides
-    @Singleton
-    @ForStorageManager
-    public IDBI createLocalStorageManagerDBI(StorageManagerConfig config)
-            throws Exception
-    {
-        return new DBI(new H2EmbeddedDataSource(new H2EmbeddedDataSourceConfig()
-                .setFilename(new File(config.getDataDirectory(), "db/StorageManager").getAbsolutePath())
-                .setMaxConnections(500)
-                .setMaxConnectionWait(new Duration(1, SECONDS))));
     }
 }
