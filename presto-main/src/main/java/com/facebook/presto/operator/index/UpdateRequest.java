@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -27,15 +28,23 @@ class UpdateRequest
 {
     private final Block[] blocks;
     private final AtomicReference<IndexSnapshot> indexSnapshotReference = new AtomicReference<>();
+    private final Page page;
 
     public UpdateRequest(Block... blocks)
     {
         this.blocks = checkNotNull(blocks, "blocks is null");
+        this.page = new Page(blocks);
     }
 
+    @Deprecated
     public Block[] getBlocks()
     {
         return blocks;
+    }
+
+    public Page getPage()
+    {
+        return page;
     }
 
     public void finished(IndexSnapshot indexSnapshot)

@@ -17,8 +17,11 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Optional;
 
 import java.util.List;
+
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class SimpleJoinProbe
         implements JoinProbe
@@ -28,17 +31,19 @@ public class SimpleJoinProbe
     {
         private List<Type> types;
         private List<Integer> probeJoinChannels;
+        private final Optional<Integer> probeHashChannel;
 
-        public SimpleJoinProbeFactory(List<Type> types, List<Integer> probeJoinChannels)
+        public SimpleJoinProbeFactory(List<Type> types, List<Integer> probeJoinChannels, Optional<Integer> probeHashChannel)
         {
             this.types = types;
             this.probeJoinChannels = probeJoinChannels;
+            this.probeHashChannel = probeHashChannel;
         }
 
         @Override
         public JoinProbe createJoinProbe(LookupSource lookupSource, Page page)
         {
-            return new SimpleJoinProbe(types, lookupSource, page, probeJoinChannels);
+            return new SimpleJoinProbe(types, lookupSource, page, probeJoinChannels, probeHashChannel);
         }
     }
 
@@ -47,9 +52,12 @@ public class SimpleJoinProbe
     private final int positionCount;
     private final Block[] blocks;
     private final Block[] probeBlocks;
+    private final Page probePage;
+    private final Optional<Block> probeHashBlock;
+
     private int position = -1;
 
-    private SimpleJoinProbe(List<Type> types, LookupSource lookupSource, Page page, List<Integer> probeJoinChannels)
+    private SimpleJoinProbe(List<Type> types, LookupSource lookupSource, Page page, List<Integer> probeJoinChannels, Optional<Integer> hashChannel)
     {
         this.types = types;
         this.lookupSource = lookupSource;
@@ -64,6 +72,8 @@ public class SimpleJoinProbe
         for (int i = 0; i < probeJoinChannels.size(); i++) {
             probeBlocks[i] = blocks[probeJoinChannels.get(i)];
         }
+        this.probePage = new Page(probeBlocks);
+        this.probeHashBlock = hashChannel.isPresent() ? Optional.of(page.getBlock(hashChannel.get())) : Optional.<Block>absent();
     }
 
     @Override
@@ -95,7 +105,11 @@ public class SimpleJoinProbe
         if (currentRowContainsNull()) {
             return -1;
         }
-        return lookupSource.getJoinPosition(position, probeBlocks);
+        if (probeHashBlock.isPresent()) {
+            int rawHash = (int) BIGINT.getLong(probeHashBlock.get(), position);
+            return lookupSource.getJoinPosition(position, probePage, rawHash);
+        }
+        return lookupSource.getJoinPosition(position, probePage);
     }
 
     private boolean currentRowContainsNull()

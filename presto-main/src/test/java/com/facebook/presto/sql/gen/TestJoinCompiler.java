@@ -14,15 +14,18 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.operator.PagesHashStrategy;
 import com.facebook.presto.operator.SimplePagesHashStrategy;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler.PagesHashStrategyFactory;
+import com.facebook.presto.type.TypeUtils;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -40,20 +43,41 @@ import static org.testng.Assert.assertTrue;
 
 public class TestJoinCompiler
 {
-    @Test
-    public void testSingleChannel()
+    private static final JoinCompiler joinCompiler = new JoinCompiler();
+
+    @DataProvider(name = "hashEnabledValues")
+    public static Object[][] hashEnabledValuesProvider()
+    {
+        return new Object[][] { { true }, { false } };
+    }
+
+    @Test(dataProvider = "hashEnabledValues")
+    public void testSingleChannel(boolean hashEnabled)
             throws Exception
     {
-        // compile a single channel hash strategy
-        JoinCompiler joinCompiler = new JoinCompiler();
-        PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(ImmutableList.<Type>of(VARCHAR), Ints.asList(0));
+        List<Type> joinTypes = ImmutableList.<Type>of(VARCHAR);
+        List<Integer> joinChannels = Ints.asList(0);
 
-        // crate hash strategy with a single channel blocks -- make sure there is some overlap in values
+        // compile a single channel hash strategy
+        PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(joinTypes, joinChannels);
+
+        // create hash strategy with a single channel blocks -- make sure there is some overlap in values
         List<Block> channel = ImmutableList.of(
                 BlockAssertions.createStringSequenceBlock(10, 20),
                 BlockAssertions.createStringSequenceBlock(20, 30),
                 BlockAssertions.createStringSequenceBlock(15, 25));
-        PagesHashStrategy hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(ImmutableList.of(channel));
+
+        Optional<Integer> hashChannel = Optional.absent();
+        List<List<Block>> channels = ImmutableList.of(channel);
+        if (hashEnabled) {
+            ImmutableList.Builder<Block> hashChannelBuilder = ImmutableList.builder();
+            for (Block block : channel) {
+                hashChannelBuilder.add(TypeUtils.getHashBlock(joinTypes, block));
+            }
+            hashChannel = Optional.of(1);
+            channels = ImmutableList.of(channel, hashChannelBuilder.build());
+        }
+        PagesHashStrategy hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
 
         // verify channel count
         assertEquals(hashStrategy.getChannelCount(), 1);
@@ -99,14 +123,15 @@ public class TestJoinCompiler
         }
     }
 
-    @Test
-    public void testMultiChannel()
+    @Test(dataProvider = "hashEnabledValues")
+    public void testMultiChannel(boolean hashEnabled)
             throws Exception
     {
         // compile a single channel hash strategy
         JoinCompiler joinCompiler = new JoinCompiler();
         List<Type> types = ImmutableList.<Type>of(VARCHAR, VARCHAR, BIGINT, DOUBLE, BOOLEAN);
-        PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(types, Ints.asList(1, 2, 3, 4));
+        List<Type> joinTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, DOUBLE, BOOLEAN);
+        List<Integer> joinChannels = Ints.asList(1, 2, 3, 4);
 
         // crate hash strategy with a single channel blocks -- make sure there is some overlap in values
         List<Block> extraChannel = ImmutableList.of(
@@ -129,13 +154,27 @@ public class TestJoinCompiler
                 BlockAssertions.createBooleanSequenceBlock(10, 20),
                 BlockAssertions.createBooleanSequenceBlock(20, 30),
                 BlockAssertions.createBooleanSequenceBlock(15, 25));
+
+        Optional<Integer> hashChannel = Optional.absent();
         ImmutableList<List<Block>> channels = ImmutableList.of(extraChannel, varcharChannel, longChannel, doubleChannel, booleanChannel);
-        PagesHashStrategy hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels);
+        List<Block> precomputedHash = ImmutableList.of();
+        if (hashEnabled) {
+            ImmutableList.Builder<Block> hashChannelBuilder = ImmutableList.builder();
+            for (int i = 0; i < 3; i++) {
+                hashChannelBuilder.add(TypeUtils.getHashBlock(joinTypes, varcharChannel.get(i), longChannel.get(i), doubleChannel.get(i), booleanChannel.get(i)));
+            }
+            hashChannel = Optional.of(5);
+            precomputedHash = hashChannelBuilder.build();
+            channels = ImmutableList.of(extraChannel, varcharChannel, longChannel, doubleChannel, booleanChannel, precomputedHash);
+            types = ImmutableList.<Type>of(VARCHAR, VARCHAR, BIGINT, DOUBLE, BOOLEAN, BIGINT);
+        }
+
+        PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(types, joinChannels);
+        PagesHashStrategy hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
+        PagesHashStrategy expectedHashStrategy = new SimplePagesHashStrategy(types, channels, joinChannels, hashChannel);
 
         // verify channel count
-        assertEquals(hashStrategy.getChannelCount(), 5);
-
-        PagesHashStrategy expectedHashStrategy = new SimplePagesHashStrategy(types, channels, Ints.asList(1, 2, 3, 4));
+        assertEquals(hashStrategy.getChannelCount(), types.size());
 
         // verify hashStrategy is consistent with equals and hash code from block
         for (int leftBlockIndex = 0; leftBlockIndex < varcharChannel.size(); leftBlockIndex++) {
@@ -183,12 +222,23 @@ public class TestJoinCompiler
 
             // verify output block matches
             Page page = pageBuilder.build();
-            assertPageEquals(types, page, new Page(
-                    extraChannel.get(leftBlockIndex),
-                    varcharChannel.get(leftBlockIndex),
-                    longChannel.get(leftBlockIndex),
-                    doubleChannel.get(leftBlockIndex),
-                    booleanChannel.get(leftBlockIndex)));
+            if (hashEnabled) {
+                assertPageEquals(types, page, new Page(
+                        extraChannel.get(leftBlockIndex),
+                        varcharChannel.get(leftBlockIndex),
+                        longChannel.get(leftBlockIndex),
+                        doubleChannel.get(leftBlockIndex),
+                        booleanChannel.get(leftBlockIndex),
+                        precomputedHash.get(leftBlockIndex)));
+            }
+            else {
+                assertPageEquals(types, page, new Page(
+                        extraChannel.get(leftBlockIndex),
+                        varcharChannel.get(leftBlockIndex),
+                        longChannel.get(leftBlockIndex),
+                        doubleChannel.get(leftBlockIndex),
+                        booleanChannel.get(leftBlockIndex)));
+            }
         }
     }
 }

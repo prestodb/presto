@@ -17,8 +17,10 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -41,7 +43,6 @@ public class TestDistinctLimitOperator
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-
         driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, TEST_SESSION)
                 .addPipelineContext(true, true)
                 .addDriverContext();
@@ -53,16 +54,23 @@ public class TestDistinctLimitOperator
         executor.shutdownNow();
     }
 
-    @Test
-    public void testDistinctLimit()
+    @DataProvider(name = "hashEnabledValues")
+    public static Object[][] hashEnabledValuesProvider()
+    {
+        return new Object[][] { { true }, { false } };
+    }
+
+    @Test(dataProvider = "hashEnabledValues")
+    public void testDistinctLimit(boolean hashEnabled)
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(BIGINT)
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
+        List<Page> input = rowPagesBuilder
                 .addSequencePage(3, 1)
                 .addSequencePage(5, 2)
                 .build();
 
-        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(BIGINT), 5);
+        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(BIGINT), Ints.asList(0), 5, rowPagesBuilder.getHashChannel());
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
@@ -76,16 +84,17 @@ public class TestDistinctLimitOperator
         OperatorAssertion.assertOperatorEquals(operator, input, expected);
     }
 
-    @Test
-    public void testDistinctLimitWithPageAlignment()
+    @Test(dataProvider = "hashEnabledValues")
+    public void testDistinctLimitWithPageAlignment(boolean hashEnabled)
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(BIGINT)
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
+        List<Page> input = rowPagesBuilder
                 .addSequencePage(3, 1)
                 .addSequencePage(3, 2)
                 .build();
 
-        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(BIGINT), 3);
+        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(BIGINT), Ints.asList(0), 3, rowPagesBuilder.getHashChannel());
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
@@ -97,16 +106,17 @@ public class TestDistinctLimitOperator
         OperatorAssertion.assertOperatorEquals(operator, input, expected);
     }
 
-    @Test
-    public void testDistinctLimitValuesLessThanLimit()
+    @Test(dataProvider = "hashEnabledValues")
+    public void testDistinctLimitValuesLessThanLimit(boolean hashEnabled)
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(BIGINT)
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
+        List<Page> input = rowPagesBuilder
                 .addSequencePage(3, 1)
                 .addSequencePage(3, 2)
                 .build();
 
-        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(BIGINT), 5);
+        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(BIGINT), Ints.asList(0), 5, rowPagesBuilder.getHashChannel());
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)

@@ -16,7 +16,10 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -31,17 +34,20 @@ public class DistinctLimitNode
 {
     private final PlanNode source;
     private final long limit;
+    private final Optional<Symbol> hashSymbol;
 
     @JsonCreator
     public DistinctLimitNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("limit") long limit)
+            @JsonProperty("limit") long limit,
+            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
     {
         super(id);
         this.source = checkNotNull(source, "source is null");
         checkArgument(limit >= 0, "limit must be greater than or equal to zero");
         this.limit = limit;
+        this.hashSymbol = checkNotNull(hashSymbol, "hashSymbol is null");
     }
 
     @Override
@@ -60,6 +66,27 @@ public class DistinctLimitNode
     public long getLimit()
     {
         return limit;
+    }
+
+    @JsonProperty("hashSymbol")
+    public Optional<Symbol> getHashSymbol()
+    {
+        return hashSymbol;
+    }
+
+    public List<Symbol> getDistinctSymbols()
+    {
+        if (hashSymbol.isPresent()) {
+            return ImmutableList.copyOf(Iterables.filter(getOutputSymbols(), new Predicate<Symbol>()
+            {
+                @Override
+                public boolean apply(Symbol input)
+                {
+                    return !(input.equals(hashSymbol.get()));
+                }
+            }));
+        }
+        return getOutputSymbols();
     }
 
     @Override

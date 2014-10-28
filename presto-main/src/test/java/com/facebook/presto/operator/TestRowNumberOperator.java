@@ -29,6 +29,7 @@ import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -65,6 +66,12 @@ public class TestRowNumberOperator
         executor.shutdownNow();
     }
 
+    @DataProvider(name = "hashEnabledValues")
+    public static Object[][] hashEnabledValuesProvider()
+    {
+        return new Object[][] { { true }, { false } };
+    }
+
     private DriverContext getDriverContext()
     {
         return new TaskContext(new TaskId("query", "stage", "task"), executor, TEST_SESSION)
@@ -99,6 +106,7 @@ public class TestRowNumberOperator
                 Ints.asList(),
                 ImmutableList.<Type>of(),
                 Optional.<Integer>absent(),
+                Optional.<Integer>absent(),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -125,12 +133,13 @@ public class TestRowNumberOperator
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expectedResult.getMaterializedRows());
     }
 
-    @Test
-    public void testRowNumberPartitioned()
+    @Test(dataProvider = "hashEnabledValues")
+    public void testRowNumberPartitioned(boolean hashEnabled)
             throws Exception
     {
         DriverContext driverContext = getDriverContext();
-        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT, DOUBLE);
+        List<Page> input = rowPagesBuilder
                 .row(1, 0.3)
                 .row(2, 0.2)
                 .row(3, 0.1)
@@ -152,6 +161,7 @@ public class TestRowNumberOperator
                 Ints.asList(0),
                 ImmutableList.of(BIGINT),
                 Optional.of(10),
+                rowPagesBuilder.getHashChannel(),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -190,12 +200,13 @@ public class TestRowNumberOperator
         assertEquals(Sets.intersection(expectedPartition3Set, actualSet).size(), 2);
     }
 
-    @Test
-    public void testRowNumberPartitionedLimit()
+    @Test(dataProvider = "hashEnabledValues")
+    public void testRowNumberPartitionedLimit(boolean hashEnabled)
             throws Exception
     {
         DriverContext driverContext = getDriverContext();
-        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT, DOUBLE);
+        List<Page> input = rowPagesBuilder
                 .row(1, 0.3)
                 .row(2, 0.2)
                 .row(3, 0.1)
@@ -217,6 +228,7 @@ public class TestRowNumberOperator
                 Ints.asList(0),
                 ImmutableList.of(BIGINT),
                 Optional.of(3),
+                Optional.<Integer>absent(),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -286,6 +298,7 @@ public class TestRowNumberOperator
                 Ints.asList(),
                 ImmutableList.<Type>of(),
                 Optional.of(3),
+                Optional.<Integer>absent(),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);

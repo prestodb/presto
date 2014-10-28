@@ -13,19 +13,23 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.operator.HashGenerator;
+import com.facebook.presto.operator.InterpretedHashGenerator;
+import com.facebook.presto.operator.PrecomputedHashGenerator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public final class HashPagePartitionFunction
@@ -35,17 +39,26 @@ public final class HashPagePartitionFunction
     private final int partitionCount;
     private final List<Integer> partitioningChannels;
     private final List<Type> types;
+    private final HashGenerator hashGenerator;
+    private final Optional<Integer> hashChannel;
 
     @JsonCreator
     public HashPagePartitionFunction(
             @JsonProperty("partition") int partition,
             @JsonProperty("partitionCount") int partitionCount,
             @JsonProperty("partitioningChannels") List<Integer> partitioningChannels,
+            @JsonProperty("hashChannel") Optional<Integer> hashChannel,
             @JsonProperty("types") List<Type> types)
     {
+        checkNotNull(partitioningChannels, "partitioningChannels is null");
+        checkArgument(!partitioningChannels.isEmpty(), "partitioningChannels is empty");
+        this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
+        checkArgument(!hashChannel. isPresent() || hashChannel.get() < types.size(), "invalid hashChannel");
+
         this.partition = partition;
         this.partitionCount = partitionCount;
         this.partitioningChannels = ImmutableList.copyOf(partitioningChannels);
+        this.hashGenerator = createHashGenerator(hashChannel, partitioningChannels, types);
         this.types = ImmutableList.copyOf(types);
     }
 
@@ -73,13 +86,18 @@ public final class HashPagePartitionFunction
         return types;
     }
 
+    @JsonProperty
+    public Optional<Integer> getHashChannel()
+    {
+        return hashChannel;
+    }
+
     @Override
     public List<Page> partition(List<Page> pages)
     {
         if (pages.isEmpty()) {
             return pages;
         }
-
         PageBuilder pageBuilder = new PageBuilder(types);
 
         ImmutableList.Builder<Page> partitionedPages = ImmutableList.builder();
@@ -112,17 +130,12 @@ public final class HashPagePartitionFunction
 
     private int getPartitionHashBucket(int position, Page page)
     {
-        long hashCode = 1;
-        for (int channel : partitioningChannels) {
-            hashCode *= 31;
-            Type type = types.get(channel);
-            Block block = page.getBlock(channel);
-            hashCode += hashPosition(type, block, position);
-        }
-        // clear the sign bit
-        hashCode &= 0x7fff_ffff_ffff_ffffL;
+        int rawHash = hashGenerator.hashPosition(position, page);
 
-        int bucket = (int) (hashCode % partitionCount);
+         // clear the sign bit
+        rawHash &= 0x7fff_ffffL;
+
+        int bucket = rawHash % partitionCount;
         checkState(bucket >= 0 && bucket < partitionCount);
         return bucket;
     }
@@ -130,7 +143,7 @@ public final class HashPagePartitionFunction
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(partition, partitionCount, partitioningChannels);
+        return Objects.hashCode(partition, partitionCount, partitioningChannels, hashGenerator);
     }
 
     @Override
@@ -142,10 +155,11 @@ public final class HashPagePartitionFunction
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final HashPagePartitionFunction other = (HashPagePartitionFunction) obj;
+        HashPagePartitionFunction other = (HashPagePartitionFunction) obj;
         return Objects.equal(this.partition, other.partition) &&
                 Objects.equal(this.partitionCount, other.partitionCount) &&
-                Objects.equal(this.partitioningChannels, other.partitioningChannels);
+                Objects.equal(this.partitioningChannels, other.partitioningChannels) &&
+                Objects.equal(hashChannel, other.hashChannel);
     }
 
     @Override
@@ -155,6 +169,22 @@ public final class HashPagePartitionFunction
                 .add("partition", partition)
                 .add("partitionCount", partitionCount)
                 .add("partitioningChannels", partitioningChannels)
+                .add("hashChannel", hashChannel)
                 .toString();
+    }
+
+    private static HashGenerator createHashGenerator(Optional<Integer> hashChannel, List<Integer> partitioningChannels, List<Type> types)
+    {
+        if (hashChannel.isPresent()) {
+            return new PrecomputedHashGenerator(hashChannel.get());
+        }
+        ImmutableList.Builder<Type> hashTypes = ImmutableList.builder();
+        int[] hashChannels = new int[partitioningChannels.size()];
+        for (int i = 0; i < partitioningChannels.size(); i++) {
+            int channel = partitioningChannels.get(i);
+            hashTypes.add(types.get(channel));
+            hashChannels[i] = channel;
+        }
+        return new InterpretedHashGenerator(hashTypes.build(), hashChannels);
     }
 }

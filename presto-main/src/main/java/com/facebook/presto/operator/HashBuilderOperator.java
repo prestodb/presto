@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -36,6 +37,8 @@ public class HashBuilderOperator
         private final int operatorId;
         private final SettableLookupSourceSupplier lookupSourceSupplier;
         private final List<Integer> hashChannels;
+        private final Optional<Integer> hashChannel;
+
         private final int expectedPositions;
         private boolean closed;
 
@@ -43,6 +46,7 @@ public class HashBuilderOperator
                 int operatorId,
                 List<Type> types,
                 List<Integer> hashChannels,
+                Optional<Integer> hashChannel,
                 int expectedPositions)
         {
             this.operatorId = operatorId;
@@ -50,6 +54,7 @@ public class HashBuilderOperator
 
             Preconditions.checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
             this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
+            this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
 
             this.expectedPositions = checkNotNull(expectedPositions, "expectedPositions is null");
         }
@@ -74,6 +79,7 @@ public class HashBuilderOperator
                     operatorContext,
                     lookupSourceSupplier,
                     hashChannels,
+                    hashChannel,
                     expectedPositions);
         }
 
@@ -87,6 +93,7 @@ public class HashBuilderOperator
     private final OperatorContext operatorContext;
     private final SettableLookupSourceSupplier lookupSourceSupplier;
     private final List<Integer> hashChannels;
+    private final Optional<Integer> hashChannel;
 
     private final PagesIndex pagesIndex;
 
@@ -96,6 +103,7 @@ public class HashBuilderOperator
             OperatorContext operatorContext,
             SettableLookupSourceSupplier lookupSourceSupplier,
             List<Integer> hashChannels,
+            Optional<Integer> hashChannel,
             int expectedPositions)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
@@ -104,6 +112,7 @@ public class HashBuilderOperator
 
         Preconditions.checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
         this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
+        this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
 
         this.pagesIndex = new PagesIndex(lookupSourceSupplier.getTypes(), expectedPositions, operatorContext);
     }
@@ -127,7 +136,7 @@ public class HashBuilderOperator
             return;
         }
 
-        LookupSource lookupSource = pagesIndex.createLookupSource(hashChannels);
+        LookupSource lookupSource = pagesIndex.createLookupSource(hashChannels, hashChannel);
         lookupSourceSupplier.setLookupSource(lookupSource);
         finished = true;
     }

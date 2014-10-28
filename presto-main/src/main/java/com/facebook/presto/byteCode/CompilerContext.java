@@ -73,7 +73,12 @@ public class CompilerContext
     public Variable getVariable(String name)
     {
         Variable variable = variables.get(name);
-        Preconditions.checkArgument(variable != null, "Variable %s not defined", name);
+        try {
+            Preconditions.checkArgument(variable != null, "Variable %s not defined", name);
+        }
+        catch (Exception e) {
+            System.out.println("hello");
+        }
         return variable;
     }
 

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
 
 import java.io.Closeable;
 
@@ -29,7 +29,7 @@ public interface IndexedData
      * Returns NO_MORE_POSITIONS if the key has been loaded, but has no values.
      * Returns a valid address if the key has been loaded and has values.
      */
-    long getJoinPosition(int position, Block... blocks);
+    long getJoinPosition(int position, Page page);
 
     /**
      * Returns the next address to join.

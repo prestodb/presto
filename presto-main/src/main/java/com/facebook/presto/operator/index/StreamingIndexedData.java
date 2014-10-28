@@ -55,10 +55,10 @@ public class StreamingIndexedData
     }
 
     @Override
-    public long getJoinPosition(int position, Block... blocks)
+    public long getJoinPosition(int position, Page page)
     {
-        checkArgument(blocks.length == indexKeyTypes.size(), "Number of blocks does not match the number of key columns");
-        if (started || !matchesExpectedKey(position, blocks)) {
+        checkArgument(page.getChannelCount() == indexKeyTypes.size(), "Number of blocks does not match the number of key columns");
+        if (started || !matchesExpectedKey(position, page)) {
             return IndexedData.UNLOADED_INDEX_KEY;
         }
         started = true;
@@ -69,10 +69,10 @@ public class StreamingIndexedData
     }
 
     // TODO: use the code generator here
-    private boolean matchesExpectedKey(int position, Block[] blocks)
+    private boolean matchesExpectedKey(int position, Page page)
     {
         for (int i = 0; i < indexKeyTypes.size(); i++) {
-            if (!indexKeyTypes.get(i).equalTo(blocks[i], position, indexKeyTuple.getBlock(i), 0)) {
+            if (!indexKeyTypes.get(i).equalTo(page.getBlock(i), position, indexKeyTuple.getBlock(i), 0)) {
                 return false;
             }
         }

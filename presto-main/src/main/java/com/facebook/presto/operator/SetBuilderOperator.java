@@ -17,6 +17,7 @@ import com.facebook.presto.operator.ChannelSet.ChannelSetBuilder;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -64,6 +65,7 @@ public class SetBuilderOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final Optional<Integer> hashChannel;
         private final SetSupplier setProvider;
         private final int setChannel;
         private final int expectedPositions;
@@ -73,12 +75,14 @@ public class SetBuilderOperator
                 int operatorId,
                 List<Type> types,
                 int setChannel,
+                Optional<Integer> hashChannel,
                 int expectedPositions)
         {
             this.operatorId = operatorId;
             Preconditions.checkArgument(setChannel >= 0, "setChannel is negative");
             this.setProvider = new SetSupplier(checkNotNull(types, "types is null").get(setChannel));
             this.setChannel = setChannel;
+            this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
             this.expectedPositions = checkNotNull(expectedPositions, "expectedPositions is null");
         }
 
@@ -98,7 +102,7 @@ public class SetBuilderOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, SetBuilderOperator.class.getSimpleName());
-            return new SetBuilderOperator(operatorContext, setProvider, setChannel, expectedPositions);
+            return new SetBuilderOperator(operatorContext, setProvider, setChannel, hashChannel, expectedPositions);
         }
 
         @Override
@@ -111,6 +115,7 @@ public class SetBuilderOperator
     private final OperatorContext operatorContext;
     private final SetSupplier setSupplier;
     private final int setChannel;
+    private final Optional<Integer> hashChannel;
 
     private final ChannelSetBuilder channelSetBuilder;
 
@@ -120,13 +125,19 @@ public class SetBuilderOperator
             OperatorContext operatorContext,
             SetSupplier setSupplier,
             int setChannel,
+            Optional<Integer> hashChannel,
             int expectedPositions)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.setSupplier = checkNotNull(setSupplier, "setProvider is null");
         this.setChannel = setChannel;
+
+        this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
+        // Set builder is has a single channel which goes in channel 0, if hash is present, add a hachBlock to channel 1
+        Optional<Integer> channelSetHashChannel = hashChannel.isPresent() ? Optional.of(1) : Optional.<Integer>absent();
         this.channelSetBuilder = new ChannelSetBuilder(
                 setSupplier.getType(),
+                channelSetHashChannel,
                 expectedPositions,
                 checkNotNull(operatorContext, "operatorContext is null"));
     }
@@ -181,7 +192,8 @@ public class SetBuilderOperator
         checkState(!isFinished(), "Operator is already finished");
 
         Block sourceBlock = page.getBlock(setChannel);
-        channelSetBuilder.addBlock(sourceBlock);
+        Page sourcePage = hashChannel.isPresent() ? new Page(sourceBlock, page.getBlock(hashChannel.get())) : new Page(sourceBlock);
+        channelSetBuilder.addPage(sourcePage);
     }
 
     @Override

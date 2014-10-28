@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -35,17 +36,18 @@ public class MarkDistinctOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final Optional<Integer> hashChannel;
         private final int[] markDistinctChannels;
         private final List<Type> types;
         private boolean closed;
 
-        public MarkDistinctOperatorFactory(int operatorId, List<? extends Type> sourceTypes, Collection<Integer> markDistinctChannels)
+        public MarkDistinctOperatorFactory(int operatorId, List<? extends Type> sourceTypes, Collection<Integer> markDistinctChannels, Optional<Integer> hashChannel)
         {
             this.operatorId = operatorId;
             checkNotNull(markDistinctChannels, "markDistinctChannels is null");
             checkArgument(!markDistinctChannels.isEmpty(), "markDistinctChannels is empty");
             this.markDistinctChannels = Ints.toArray(markDistinctChannels);
-
+            this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
             this.types = ImmutableList.<Type>builder()
                     .addAll(sourceTypes)
                     .add(BOOLEAN)
@@ -63,7 +65,7 @@ public class MarkDistinctOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, MarkDistinctOperator.class.getSimpleName());
-                return new MarkDistinctOperator(operatorContext, types, markDistinctChannels);
+            return new MarkDistinctOperator(operatorContext, types, markDistinctChannels, hashChannel);
         }
 
         @Override
@@ -80,20 +82,19 @@ public class MarkDistinctOperator
     private Page outputPage;
     private boolean finishing;
 
-    public MarkDistinctOperator(OperatorContext operatorContext, List<Type> types, int[] markDistinctChannels)
+    public MarkDistinctOperator(OperatorContext operatorContext, List<Type> types, int[] markDistinctChannels, Optional<Integer> hashChannel)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 
-        checkNotNull(types, "types is null");
+        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
         checkArgument(markDistinctChannels.length >= 0, "markDistinctChannels is empty");
+        checkNotNull(hashChannel, "hashChannel is null");
 
-        ImmutableList.Builder<Type> markDistinctTypes = ImmutableList.builder();
+        ImmutableList.Builder<Type> distinctTypes = ImmutableList.builder();
         for (int channel : markDistinctChannels) {
-            markDistinctTypes.add(types.get(channel));
+            distinctTypes.add(types.get(channel));
         }
-        this.markDistinctHash = new MarkDistinctHash(markDistinctTypes.build(), markDistinctChannels);
-
-        this.types = ImmutableList.copyOf(types);
+        this.markDistinctHash = new MarkDistinctHash(distinctTypes.build(), markDistinctChannels, hashChannel);
     }
 
     @Override

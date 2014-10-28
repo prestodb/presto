@@ -127,7 +127,7 @@ public class PlanPrinter
 
     public static String graphvizLogicalPlan(PlanNode plan, Map<Symbol, Type> types)
     {
-        PlanFragment fragment = new PlanFragment(new PlanFragmentId("graphviz_plan"), plan, types, PlanDistribution.NONE, plan.getId(), OutputPartitioning.NONE, ImmutableList.<Symbol>of());
+        PlanFragment fragment = new PlanFragment(new PlanFragmentId("graphviz_plan"), plan, types, PlanDistribution.NONE, plan.getId(), OutputPartitioning.NONE, ImmutableList.<Symbol>of(), Optional.<Integer>absent());
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
     }
 

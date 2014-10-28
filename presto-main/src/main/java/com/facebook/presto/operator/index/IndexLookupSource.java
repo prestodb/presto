@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.index;
 
 import com.facebook.presto.operator.LookupSource;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 
@@ -43,13 +44,21 @@ public class IndexLookupSource
     }
 
     @Override
-    public long getJoinPosition(int position, Block... blocks)
+    public long getJoinPosition(int position, Page page, int rawHash)
     {
-        long joinPosition = indexedData.getJoinPosition(position, blocks);
+        // TODO update to take advantage of precomputed hash
+        return getJoinPosition(position, page);
+    }
+
+    @Override
+    public long getJoinPosition(int position, Page page)
+    {
+        Block[] blocks = page.getBlocks();
+        long joinPosition = indexedData.getJoinPosition(position, page);
         if (joinPosition == UNLOADED_INDEX_KEY) {
             indexedData.close(); // Close out the old indexedData
             indexedData = indexLoader.getIndexedDataForKeys(position, blocks);
-            joinPosition = indexedData.getJoinPosition(position, blocks);
+            joinPosition = indexedData.getJoinPosition(position, page);
             checkState(joinPosition != UNLOADED_INDEX_KEY);
         }
         // INVARIANT: position is -1 or a valid position greater than or equal to zero

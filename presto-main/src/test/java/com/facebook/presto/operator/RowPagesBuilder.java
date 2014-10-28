@@ -15,8 +15,12 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.TypeUtils;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import java.util.List;
 
@@ -36,13 +40,32 @@ public class RowPagesBuilder
         return new RowPagesBuilder(types);
     }
 
+    public static RowPagesBuilder rowPagesBuilder(boolean hashEnabled, List<Integer> hashChannels, Type... types)
+    {
+        return rowPagesBuilder(hashEnabled, hashChannels, ImmutableList.copyOf(types));
+    }
+
+    public static RowPagesBuilder rowPagesBuilder(boolean hashEnabled, List<Integer> hashChannels, Iterable<Type> types)
+    {
+        return new RowPagesBuilder(hashEnabled, Optional.of(hashChannels), types);
+    }
+
     private final ImmutableList.Builder<Page> pages = ImmutableList.builder();
     private final List<Type> types;
     private RowPageBuilder builder;
+    private final boolean hashEnabled;
+    private final Optional<List<Integer>> hashChannels;
 
     RowPagesBuilder(Iterable<Type> types)
     {
+        this(false, Optional.<List<Integer>>absent(), types);
+    }
+
+    RowPagesBuilder(boolean hashEnabled, Optional<List<Integer>> hashChannels, Iterable<Type> types)
+    {
         this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        this.hashEnabled = hashEnabled;
+        this.hashChannels = hashChannels;
         builder = rowPageBuilder(types);
     }
 
@@ -82,6 +105,35 @@ public class RowPagesBuilder
     public List<Page> build()
     {
         pageBreak();
-        return pages.build();
+        List<Page> resultPages = pages.build();
+        if (hashEnabled) {
+            return pagesWithHash(resultPages);
+        }
+        return resultPages;
+    }
+
+    private List<Page> pagesWithHash(List<Page> pages)
+    {
+        ImmutableList.Builder<Page> resultPages = ImmutableList.builder();
+        for (Page page : pages) {
+            resultPages.add(TypeUtils.getHashPage(page, types, hashChannels.get()));
+        }
+        return resultPages.build();
+    }
+
+    public List<Type> getTypes()
+    {
+        if (hashEnabled) {
+            return ImmutableList.copyOf(Iterables.concat(types, ImmutableList.of(BigintType.BIGINT)));
+        }
+        return types;
+     }
+
+    public Optional<Integer> getHashChannel()
+    {
+        if (hashEnabled) {
+            return Optional.of(types.size());
+        }
+        return Optional.absent();
     }
 }

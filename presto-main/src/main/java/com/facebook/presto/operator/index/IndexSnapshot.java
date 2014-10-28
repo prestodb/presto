@@ -14,8 +14,8 @@
 package com.facebook.presto.operator.index;
 
 import com.facebook.presto.operator.LookupSource;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -35,11 +35,11 @@ public class IndexSnapshot
     }
 
     @Override
-    public long getJoinPosition(int position, Block... blocks)
+    public long getJoinPosition(int position, Page page)
     {
-        long joinPosition = values.getJoinPosition(position, blocks);
+        long joinPosition = values.getJoinPosition(position, page);
         if (joinPosition < 0) {
-            if (missingKeys.getJoinPosition(position, blocks) < 0) {
+            if (missingKeys.getJoinPosition(position, page) < 0) {
                 return UNLOADED_INDEX_KEY;
             }
             else {

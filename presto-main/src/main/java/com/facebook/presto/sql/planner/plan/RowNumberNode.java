@@ -34,6 +34,7 @@ public final class RowNumberNode
     private final List<Symbol> partitionBy;
     private final Optional<Integer> maxRowCountPerPartition;
     private final Symbol rowNumberSymbol;
+    private final Optional<Symbol> hashSymbol;
 
     @JsonCreator
     public RowNumberNode(
@@ -41,7 +42,8 @@ public final class RowNumberNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("partitionBy") List<Symbol> partitionBy,
             @JsonProperty("rowNumberSymbol") Symbol rowNumberSymbol,
-            @JsonProperty("maxRowCountPerPartition") Optional<Integer> maxRowCountPerPartition)
+            @JsonProperty("maxRowCountPerPartition") Optional<Integer> maxRowCountPerPartition,
+            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
     {
         super(id);
 
@@ -49,11 +51,13 @@ public final class RowNumberNode
         checkNotNull(partitionBy, "partitionBy is null");
         checkNotNull(rowNumberSymbol, "rowNumberSymbol is null");
         checkNotNull(maxRowCountPerPartition, "maxRowCountPerPartition is null");
+        checkNotNull(hashSymbol, "hashSymbol is null");
 
         this.source = source;
         this.partitionBy = ImmutableList.copyOf(partitionBy);
         this.rowNumberSymbol = rowNumberSymbol;
         this.maxRowCountPerPartition = maxRowCountPerPartition;
+        this.hashSymbol = hashSymbol;
     }
 
     @Override
@@ -90,6 +94,12 @@ public final class RowNumberNode
     public Optional<Integer> getMaxRowCountPerPartition()
     {
         return maxRowCountPerPartition;
+    }
+
+    @JsonProperty
+    public Optional<Symbol> getHashSymbol()
+    {
+        return hashSymbol;
     }
 
     @Override

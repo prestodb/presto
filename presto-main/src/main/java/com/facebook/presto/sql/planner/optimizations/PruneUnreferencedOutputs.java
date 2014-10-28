@@ -106,57 +106,80 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode rewriteJoin(JoinNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
-            Set<Symbol> leftInputs = ImmutableSet.<Symbol>builder()
-                    .addAll(expectedOutputs)
-                    .addAll(Iterables.transform(node.getCriteria(), leftGetter()))
-                    .build();
+            ImmutableSet.Builder<Symbol> leftInputsBuilder = ImmutableSet.builder();
+            leftInputsBuilder.addAll(expectedOutputs).addAll(Iterables.transform(node.getCriteria(), leftGetter()));
+            if (node.getLeftHashSymbol().isPresent()) {
+                leftInputsBuilder.add(node.getLeftHashSymbol().get());
+            }
+            Set<Symbol> leftInputs = leftInputsBuilder.build();
 
-            Set<Symbol> rightInputs = ImmutableSet.<Symbol>builder()
-                    .addAll(expectedOutputs)
-                    .addAll(Iterables.transform(node.getCriteria(), rightGetter()))
-                    .build();
+            ImmutableSet.Builder<Symbol> rightInputsBuilder = ImmutableSet.builder();
+            rightInputsBuilder.addAll(expectedOutputs).addAll(Iterables.transform(node.getCriteria(), rightGetter()));
+            if (node.getRightHashSymbol().isPresent()) {
+                rightInputsBuilder.add(node.getRightHashSymbol().get());
+            }
+
+            Set<Symbol> rightInputs = rightInputsBuilder.build();
 
             PlanNode left = planRewriter.rewrite(node.getLeft(), leftInputs);
             PlanNode right = planRewriter.rewrite(node.getRight(), rightInputs);
 
-            return new JoinNode(node.getId(), node.getType(), left, right, node.getCriteria());
+            return new JoinNode(node.getId(), node.getType(), left, right, node.getCriteria(), node.getLeftHashSymbol(), node.getRightHashSymbol());
         }
 
         @Override
         public PlanNode rewriteSemiJoin(SemiJoinNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
-            Set<Symbol> sourceInputs = ImmutableSet.<Symbol>builder()
-                    .addAll(expectedOutputs)
-                    .add(node.getSourceJoinSymbol())
-                    .build();
+            ImmutableSet.Builder<Symbol> sourceInputsBuilder = ImmutableSet.builder();
+            sourceInputsBuilder.addAll(expectedOutputs).add(node.getSourceJoinSymbol());
+            if (node.getSourceHashSymbol().isPresent()) {
+                sourceInputsBuilder.add(node.getSourceHashSymbol().get());
+            }
+            Set<Symbol> sourceInputs = sourceInputsBuilder.build();
 
-            Set<Symbol> filteringSourceInputs = ImmutableSet.<Symbol>builder()
-                    .add(node.getFilteringSourceJoinSymbol())
-                    .build();
+            ImmutableSet.Builder<Symbol> filteringSourceInputBuilder = ImmutableSet.builder();
+            filteringSourceInputBuilder.add(node.getFilteringSourceJoinSymbol());
+            if (node.getFilteringSourceHashSymbol().isPresent()) {
+                filteringSourceInputBuilder.add(node.getFilteringSourceHashSymbol().get());
+            }
+            Set<Symbol> filteringSourceInputs = filteringSourceInputBuilder.build();
 
             PlanNode source = planRewriter.rewrite(node.getSource(), sourceInputs);
             PlanNode filteringSource = planRewriter.rewrite(node.getFilteringSource(), filteringSourceInputs);
 
-            return new SemiJoinNode(node.getId(), source, filteringSource, node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput());
+            return new SemiJoinNode(node.getId(),
+                    source,
+                    filteringSource,
+                    node.getSourceJoinSymbol(),
+                    node.getFilteringSourceJoinSymbol(),
+                    node.getSemiJoinOutput(),
+                    node.getSourceHashSymbol(),
+                    node.getFilteringSourceHashSymbol());
         }
 
         @Override
         public PlanNode rewriteIndexJoin(IndexJoinNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
-            Set<Symbol> probeInputs = ImmutableSet.<Symbol>builder()
-                    .addAll(expectedOutputs)
-                    .addAll(Iterables.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause.probeGetter()))
-                    .build();
+            ImmutableSet.Builder<Symbol> probeInputsBuilder = ImmutableSet.builder();
+            probeInputsBuilder.addAll(expectedOutputs)
+                    .addAll(Iterables.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause.probeGetter()));
+            if (node.getProbeHashSymbol().isPresent()) {
+                probeInputsBuilder.add(node.getProbeHashSymbol().get());
+            }
+            Set<Symbol> probeInputs = probeInputsBuilder.build();
 
-            Set<Symbol> indexInputs = ImmutableSet.<Symbol>builder()
-                    .addAll(expectedOutputs)
-                    .addAll(Iterables.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause.indexGetter()))
-                    .build();
+            ImmutableSet.Builder<Symbol> indexInputBuilder = ImmutableSet.builder();
+            indexInputBuilder.addAll(expectedOutputs)
+                    .addAll(Iterables.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause.indexGetter()));
+            if (node.getIndexHashSymbol().isPresent()) {
+                indexInputBuilder.add(node.getIndexHashSymbol().get());
+            }
+            Set<Symbol> indexInputs = indexInputBuilder.build();
 
             PlanNode probeSource = planRewriter.rewrite(node.getProbeSource(), probeInputs);
             PlanNode indexSource = planRewriter.rewrite(node.getIndexSource(), indexInputs);
 
-            return new IndexJoinNode(node.getId(), node.getType(), probeSource, indexSource, node.getCriteria());
+            return new IndexJoinNode(node.getId(), node.getType(), probeSource, indexSource, node.getCriteria(), node.getProbeHashSymbol(), node.getIndexHashSymbol());
         }
 
         @Override
@@ -185,6 +208,9 @@ public class PruneUnreferencedOutputs
         {
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(node.getGroupBy());
+            if (node.getHashSymbol().isPresent()) {
+                expectedInputs.add(node.getHashSymbol().get());
+            }
 
             ImmutableMap.Builder<Symbol, Signature> functions = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
@@ -210,7 +236,15 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
 
-            return new AggregationNode(node.getId(), source, node.getGroupBy(), functionCalls.build(), functions.build(), masks.build(), node.getSampleWeight(), node.getConfidence());
+            return new AggregationNode(node.getId(),
+                    source,
+                    node.getGroupBy(),
+                    functionCalls.build(),
+                    functions.build(),
+                    masks.build(),
+                    node.getSampleWeight(),
+                    node.getConfidence(),
+                    node.getHashSymbol());
         }
 
         @Override
@@ -220,6 +254,10 @@ public class PruneUnreferencedOutputs
                     .addAll(expectedOutputs)
                     .addAll(node.getPartitionBy())
                     .addAll(node.getOrderBy());
+
+            if (node.getHashSymbol().isPresent()) {
+                expectedInputs.add(node.getHashSymbol().get());
+            }
 
             ImmutableMap.Builder<Symbol, Signature> functions = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
@@ -237,7 +275,7 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
 
-            return new WindowNode(node.getId(), source, node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), functionCalls.build(), functions.build());
+            return new WindowNode(node.getId(), source, node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), functionCalls.build(), functions.build(), node.getHashSymbol());
         }
 
         @Override
@@ -285,9 +323,12 @@ public class PruneUnreferencedOutputs
                     .addAll(node.getDistinctSymbols())
                     .addAll(expectedOutputs);
 
+            if (node.getHashSymbol().isPresent()) {
+                expectedInputs.add(node.getHashSymbol().get());
+            }
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
 
-            return new MarkDistinctNode(node.getId(), source, node.getMarkerSymbol(), node.getDistinctSymbols());
+            return new MarkDistinctNode(node.getId(), source, node.getMarkerSymbol(), node.getDistinctSymbols(), node.getHashSymbol());
         }
 
         @Override
@@ -355,8 +396,15 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode rewriteDistinctLimit(DistinctLimitNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
-            PlanNode source = planRewriter.rewrite(node.getSource(), ImmutableSet.copyOf(node.getOutputSymbols()));
-            return new DistinctLimitNode(node.getId(), source, node.getLimit());
+            Set<Symbol> expectedInputs;
+            if (node.getHashSymbol().isPresent()) {
+                expectedInputs = ImmutableSet.copyOf(concat(node.getOutputSymbols(), ImmutableList.of(node.getHashSymbol().get())));
+            }
+            else {
+                expectedInputs = ImmutableSet.copyOf(node.getOutputSymbols());
+            }
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
+            return new DistinctLimitNode(node.getId(), source, node.getLimit(), node.getHashSymbol());
         }
 
         @Override
@@ -374,13 +422,17 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode rewriteRowNumber(RowNumberNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
-            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+            ImmutableSet.Builder<Symbol> inputsBuilder = ImmutableSet.builder();
+            ImmutableSet.Builder<Symbol> expectedInputs = inputsBuilder
                     .addAll(expectedOutputs)
                     .addAll(node.getPartitionBy());
 
+            if (node.getHashSymbol().isPresent()) {
+                inputsBuilder.add(node.getHashSymbol().get());
+            }
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
 
-            return new RowNumberNode(node.getId(), source, node.getPartitionBy(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition());
+            return new RowNumberNode(node.getId(), source, node.getPartitionBy(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition(), node.getHashSymbol());
         }
 
         @Override
@@ -391,9 +443,20 @@ public class PruneUnreferencedOutputs
                     .addAll(node.getPartitionBy())
                     .addAll(node.getOrderBy());
 
+            if (node.getHashSymbol().isPresent()) {
+                expectedInputs.add(node.getHashSymbol().get());
+            }
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
 
-            return new TopNRowNumberNode(node.getId(), source, node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition(), node.isPartial());
+            return new TopNRowNumberNode(node.getId(),
+                    source,
+                    node.getPartitionBy(),
+                    node.getOrderBy(),
+                    node.getOrderings(),
+                    node.getRowNumberSymbol(),
+                    node.getMaxRowCountPerPartition(),
+                    node.isPartial(),
+                    node.getHashSymbol());
         }
 
         @Override

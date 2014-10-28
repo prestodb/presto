@@ -25,8 +25,9 @@ public class TestBenchmarks
     public void smokeTest()
             throws Exception
     {
-        try (LocalQueryRunner localQueryRunner = createLocalQueryRunner()) {
-            for (AbstractBenchmark benchmark : createBenchmarks(localQueryRunner)) {
+        try (LocalQueryRunner localQueryRunner = createLocalQueryRunner();
+             LocalQueryRunner hashEnabledLocalQueryRunner = createLocalQueryRunner()) {
+            for (AbstractBenchmark benchmark : createBenchmarks(localQueryRunner, hashEnabledLocalQueryRunner)) {
                 try {
                     benchmark.runOnce();
                 }

@@ -16,8 +16,12 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 
 public class ChannelSet
 {
@@ -50,27 +54,34 @@ public class ChannelSet
         return containsNull;
     }
 
-    public boolean contains(int position, Block block)
+    public boolean contains(int position, Page page, Block hashBlock)
     {
-        return hash.contains(position, block);
+        int rawHash = (int) BigintType.BIGINT.getLong(hashBlock, position);
+        return hash.contains(position, page, rawHash);
+    }
+
+    public boolean contains(int position, Page page)
+    {
+        return hash.contains(position, page);
     }
 
     public static class ChannelSetBuilder
     {
         private final GroupByHash hash;
         private final OperatorContext operatorContext;
-        private final Block nullBlock;
+        private final Page nullBlockPage;
 
-        public ChannelSetBuilder(Type type, int expectedPositions, OperatorContext operatorContext)
+        public ChannelSetBuilder(Type type, Optional<Integer> hashChannel, int expectedPositions, OperatorContext operatorContext)
         {
-            this.hash = new GroupByHash(ImmutableList.of(type), new int[] {0}, expectedPositions);
+            List<Type> types = ImmutableList.of(type);
+            this.hash = new GroupByHash(types, new int[] {0}, hashChannel, expectedPositions);
             this.operatorContext = operatorContext;
-            this.nullBlock = type.createBlockBuilder(new BlockBuilderStatus()).appendNull().build();
+            this.nullBlockPage = new Page(type.createBlockBuilder(new BlockBuilderStatus()).appendNull().build());
         }
 
         public ChannelSet build()
         {
-            return new ChannelSet(hash, hash.contains(0, nullBlock));
+            return new ChannelSet(hash, hash.contains(0, nullBlockPage));
         }
 
         public long getEstimatedSize()
@@ -83,18 +94,13 @@ public class ChannelSet
             return hash.getGroupCount();
         }
 
-        public void addBlock(Block block)
+        public void addPage(Page page)
         {
-            hash.getGroupIds(new Page(block));
+            hash.getGroupIds(page);
 
             if (operatorContext != null) {
                 operatorContext.setMemoryReservation(hash.getEstimatedSize());
             }
-        }
-
-        public void add(int position, Block block)
-        {
-            hash.putIfAbsent(position, block);
         }
     }
 }

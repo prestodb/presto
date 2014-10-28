@@ -17,10 +17,12 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeUtils;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -30,13 +32,20 @@ public class SimplePagesHashStrategy
     private final List<Type> types;
     private final List<List<Block>> channels;
     private final List<Integer> hashChannels;
+    private final List<Block> precomputedHashChannel;
 
-    public SimplePagesHashStrategy(List<Type> types, List<List<Block>> channels, List<Integer> hashChannels)
+    public SimplePagesHashStrategy(List<Type> types, List<List<Block>> channels, List<Integer> hashChannels, Optional<Integer> precomputedHashChannel)
     {
         this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
         this.channels = ImmutableList.copyOf(checkNotNull(channels, "channels is null"));
         checkArgument(types.size() == channels.size(), "Expected types and channels to be the same length");
         this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
+        if (precomputedHashChannel.isPresent()) {
+            this.precomputedHashChannel = channels.get(precomputedHashChannel.get());
+        }
+        else {
+            this.precomputedHashChannel = null;
+        }
     }
 
     @Override
@@ -60,6 +69,9 @@ public class SimplePagesHashStrategy
     @Override
     public int hashPosition(int blockIndex, int position)
     {
+        if (precomputedHashChannel != null) {
+            return (int) BIGINT.getLong(precomputedHashChannel.get(blockIndex), position);
+        }
         int result = 0;
         for (int hashChannel : hashChannels) {
             Type type = types.get(hashChannel);

@@ -234,7 +234,9 @@ class RelationPlanner
                 JoinNode.Type.typeConvert(node.getType()),
                 leftPlanBuilder.getRoot(),
                 rightPlanBuilder.getRoot(),
-                clauses.build());
+                clauses.build(),
+                Optional.<Symbol>absent(),
+                Optional.<Symbol>absent());
         Optional<Symbol> sampleWeight = Optional.absent();
         if (leftPlanBuilder.getSampleWeight().isPresent() || rightPlanBuilder.getSampleWeight().isPresent()) {
             Expression expression = new ArithmeticExpression(ArithmeticExpression.Type.MULTIPLY, oneIfNull(leftPlanBuilder.getSampleWeight()), oneIfNull(rightPlanBuilder.getSampleWeight()));
@@ -572,7 +574,9 @@ class RelationPlanner
                         valueListRelation.getRoot(),
                         sourceJoinSymbol,
                         filteringSourceJoinSymbol,
-                        semiJoinOutputSymbol),
+                        semiJoinOutputSymbol,
+                        Optional.<Symbol>absent(),
+                        Optional.<Symbol>absent()),
                 subPlan.getSampleWeight());
     }
 
@@ -585,6 +589,7 @@ class RelationPlanner
                 ImmutableMap.<Symbol, Signature>of(),
                 ImmutableMap.<Symbol, Symbol>of(),
                 Optional.<Symbol>absent(),
-                1.0);
+                1.0,
+                Optional.<Symbol>absent());
     }
 }

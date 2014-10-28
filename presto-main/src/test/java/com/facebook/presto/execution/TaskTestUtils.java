@@ -77,7 +77,8 @@ public final class TaskTestUtils
             PlanDistribution.SOURCE,
             TABLE_SCAN_NODE_ID,
             OutputPartitioning.NONE,
-            ImmutableList.<Symbol>of());
+            ImmutableList.<Symbol>of(),
+            Optional.<Integer>absent());
 
     public static LocalExecutionPlanner createTestingPlanner()
     {

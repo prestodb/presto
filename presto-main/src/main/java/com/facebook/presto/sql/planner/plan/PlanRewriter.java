@@ -104,7 +104,7 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new AggregationNode(node.getId(), source, node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), node.getStep(), node.getSampleWeight(), node.getConfidence());
+                return new AggregationNode(node.getId(), source, node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), node.getStep(), node.getSampleWeight(), node.getConfidence(), node.getHashSymbol());
             }
 
             return node;
@@ -123,7 +123,7 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new MarkDistinctNode(node.getId(), source, node.getMarkerSymbol(), node.getDistinctSymbols());
+                return new MarkDistinctNode(node.getId(), source, node.getMarkerSymbol(), node.getDistinctSymbols(), node.getHashSymbol());
             }
 
             return node;
@@ -142,7 +142,7 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new WindowNode(node.getId(), source, node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getWindowFunctions(), node.getSignatures());
+                return new WindowNode(node.getId(), source, node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getWindowFunctions(), node.getSignatures(), node.getHashSymbol());
             }
 
             return node;
@@ -161,7 +161,7 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new RowNumberNode(node.getId(), source, node.getPartitionBy(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition());
+                return new RowNumberNode(node.getId(), source, node.getPartitionBy(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition(), node.getHashSymbol());
             }
 
             return node;
@@ -186,7 +186,9 @@ public final class PlanRewriter<C>
                         node.getOrderBy(),
                         node.getOrderings(),
                         node.getRowNumberSymbol(),
-                        node.getMaxRowCountPerPartition(), false);
+                        node.getMaxRowCountPerPartition(),
+                        false,
+                        node.getHashSymbol());
             }
             return node;
         }
@@ -318,7 +320,7 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new DistinctLimitNode(node.getId(), source, node.getLimit());
+                return new DistinctLimitNode(node.getId(), source, node.getLimit(), node.getHashSymbol());
             }
 
             return node;
@@ -434,7 +436,7 @@ public final class PlanRewriter<C>
             PlanNode right = rewrite(node.getRight(), context.get());
 
             if (left != node.getLeft() || right != node.getRight()) {
-                return new JoinNode(node.getId(), node.getType(), left, right, node.getCriteria());
+                return new JoinNode(node.getId(), node.getType(), left, right, node.getCriteria(), node.getLeftHashSymbol(), node.getRightHashSymbol());
             }
 
             return node;
@@ -454,7 +456,7 @@ public final class PlanRewriter<C>
             PlanNode filteringSource = rewrite(node.getFilteringSource(), context.get());
 
             if (source != node.getSource() || filteringSource != node.getFilteringSource()) {
-                return new SemiJoinNode(node.getId(), source, filteringSource, node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput());
+                return new SemiJoinNode(node.getId(), source, filteringSource, node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput(), node.getSourceHashSymbol(), node.getFilteringSourceHashSymbol());
             }
 
             return node;
@@ -474,7 +476,7 @@ public final class PlanRewriter<C>
             PlanNode indexSource = rewrite(node.getIndexSource(), context.get());
 
             if (probeSource != node.getProbeSource() || indexSource != node.getIndexSource()) {
-                return new IndexJoinNode(node.getId(), node.getType(), probeSource, indexSource, node.getCriteria());
+                return new IndexJoinNode(node.getId(), node.getType(), probeSource, indexSource, node.getCriteria(), node.getProbeHashSymbol(), node.getIndexHashSymbol());
             }
 
             return node;

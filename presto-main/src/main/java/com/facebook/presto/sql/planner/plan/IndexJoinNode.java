@@ -17,6 +17,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
@@ -33,6 +34,8 @@ public class IndexJoinNode
     private final PlanNode probeSource;
     private final PlanNode indexSource;
     private final List<EquiJoinClause> criteria;
+    private final Optional<Symbol> probeHashSymbol;
+    private final Optional<Symbol> indexHashSymbol;
 
     @JsonCreator
     public IndexJoinNode(
@@ -40,14 +43,17 @@ public class IndexJoinNode
             @JsonProperty("type") Type type,
             @JsonProperty("probeSource") PlanNode probeSource,
             @JsonProperty("indexSource") PlanNode indexSource,
-            @JsonProperty("criteria") List<EquiJoinClause> criteria)
+            @JsonProperty("criteria") List<EquiJoinClause> criteria,
+            @JsonProperty("probeHashSymbol") Optional<Symbol> probeHashSymbol,
+            @JsonProperty("indexHashSymbol") Optional<Symbol> indexHashSymbol)
     {
         super(id);
-
         this.type = checkNotNull(type, "type is null");
         this.probeSource = checkNotNull(probeSource, "probeSource is null");
         this.indexSource = checkNotNull(indexSource, "indexSource is null");
         this.criteria = ImmutableList.copyOf(checkNotNull(criteria, "criteria is null"));
+        this.probeHashSymbol = checkNotNull(probeHashSymbol, "probeHashSymbol is null");
+        this.indexHashSymbol = checkNotNull(indexHashSymbol, "indexHashSymbol is null");
     }
 
     public enum Type
@@ -90,6 +96,18 @@ public class IndexJoinNode
     public List<EquiJoinClause> getCriteria()
     {
         return criteria;
+    }
+
+    @JsonProperty("probeHashSymbol")
+    public Optional<Symbol> getProbeHashSymbol()
+    {
+        return probeHashSymbol;
+    }
+
+    @JsonProperty("indexHashSymbol")
+    public Optional<Symbol> getIndexHashSymbol()
+    {
+        return indexHashSymbol;
     }
 
     @Override

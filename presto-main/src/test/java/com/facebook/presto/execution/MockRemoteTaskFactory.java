@@ -84,7 +84,8 @@ public class MockRemoteTaskFactory
                 PlanFragment.PlanDistribution.SOURCE,
                 tableScanNodeId,
                 PlanFragment.OutputPartitioning.NONE,
-                ImmutableList.<Symbol>of()
+                ImmutableList.<Symbol>of(),
+                Optional.<Integer>absent()
         );
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();

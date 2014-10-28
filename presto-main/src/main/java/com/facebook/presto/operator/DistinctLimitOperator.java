@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -33,16 +34,21 @@ public class DistinctLimitOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final List<Integer> distinctChannels;
         private final List<Type> types;
         private final long limit;
+        private final Optional<Integer> hashChannel;
         private boolean closed;
 
-        public DistinctLimitOperatorFactory(int operatorId, List<? extends Type> types, long limit)
+        public DistinctLimitOperatorFactory(int operatorId, List<? extends Type> types, List<Integer> distinctChannels, long limit, Optional<Integer> hashChannel)
         {
             this.operatorId = operatorId;
             this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+            this.distinctChannels = checkNotNull(distinctChannels, "distinctChannels is null");
+
             checkArgument(limit >= 0, "limit must be at least zero");
             this.limit = limit;
+            this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
         }
 
         @Override
@@ -56,7 +62,7 @@ public class DistinctLimitOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, DistinctLimitOperator.class.getSimpleName());
-            return new DistinctLimitOperator(operatorContext, types, limit);
+            return new DistinctLimitOperator(operatorContext, types, distinctChannels, limit, hashChannel);
         }
 
         @Override
@@ -78,21 +84,19 @@ public class DistinctLimitOperator
     private final GroupByHash groupByHash;
     private long nextDistinctId;
 
-    public DistinctLimitOperator(OperatorContext operatorContext, List<Type> types, long limit)
+    public DistinctLimitOperator(OperatorContext operatorContext, List<Type> types, List<Integer> distinctChannels, long limit, Optional<Integer> hashChannel)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        checkNotNull(distinctChannels, "distinctChannels is null");
         checkArgument(limit >= 0, "limit must be at least zero");
+        checkNotNull(hashChannel, "hashChannel is null");
 
         ImmutableList.Builder<Type> distinctTypes = ImmutableList.builder();
-        ImmutableList.Builder<Integer> distinctChannels = ImmutableList.builder();
-        for (int i = 0; i < types.size(); i++) {
-            distinctTypes.add(types.get(i));
-            distinctChannels.add(i);
+        for (int channel : distinctChannels) {
+            distinctTypes.add(types.get(channel));
         }
-
-        this.groupByHash = new GroupByHash(distinctTypes.build(), Ints.toArray(distinctChannels.build()), Math.min((int) limit, 10_000));
-
+        this.groupByHash = new GroupByHash(distinctTypes.build(), Ints.toArray(distinctChannels), hashChannel, Math.min((int) limit, 10_000));
         this.pageBuilder = new PageBuilder(types);
         remainingLimit = limit;
     }

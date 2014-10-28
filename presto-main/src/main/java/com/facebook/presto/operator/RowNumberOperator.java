@@ -44,6 +44,7 @@ public class RowNumberOperator
         private final List<Integer> outputChannels;
         private final List<Integer> partitionChannels;
         private final List<Type> partitionTypes;
+        private final Optional<Integer> hashChannel;
         private final int expectedPositions;
         private final List<Type> types;
         private boolean closed;
@@ -55,6 +56,7 @@ public class RowNumberOperator
                 List<Integer> partitionChannels,
                 List<? extends Type> partitionTypes,
                 Optional<Integer> maxRowsPerPartition,
+                Optional<Integer> hashChannel,
                 int expectedPositions)
         {
             this.operatorId = operatorId;
@@ -64,6 +66,7 @@ public class RowNumberOperator
             this.partitionTypes = ImmutableList.copyOf(checkNotNull(partitionTypes, "partitionTypes is null"));
             this.maxRowsPerPartition = checkNotNull(maxRowsPerPartition, "maxRowsPerPartition is null");
 
+            this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
             checkArgument(expectedPositions > 0, "expectedPositions < 0");
             this.expectedPositions = expectedPositions;
             this.types = toTypes(sourceTypes, outputChannels);
@@ -88,6 +91,7 @@ public class RowNumberOperator
                     partitionChannels,
                     partitionTypes,
                     maxRowsPerPartition,
+                    hashChannel,
                     expectedPositions);
         }
 
@@ -118,18 +122,20 @@ public class RowNumberOperator
             List<Integer> partitionChannels,
             List<Type> partitionTypes,
             Optional<Integer> maxRowsPerPartition,
+            Optional<Integer> hashChannel,
             int expectedPositions)
     {
-        this.maxRowsPerPartition = maxRowsPerPartition;
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.outputChannels = Ints.toArray(outputChannels);
+        this.maxRowsPerPartition = maxRowsPerPartition;
 
         this.partitionRowCount = new LongBigArray(0);
         if (partitionChannels.isEmpty()) {
             this.groupByHash = Optional.absent();
         }
         else {
-            this.groupByHash = Optional.of(new GroupByHash(partitionTypes, Ints.toArray(partitionChannels), expectedPositions));
+            int[] channels = Ints.toArray(partitionChannels);
+            this.groupByHash = Optional.of(new GroupByHash(partitionTypes, channels, hashChannel, expectedPositions));
         }
         this.types = toTypes(sourceTypes, outputChannels);
     }

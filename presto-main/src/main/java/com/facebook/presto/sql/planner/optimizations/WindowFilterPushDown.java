@@ -85,7 +85,8 @@ public class WindowFilterPushDown
                             rewrittenSource,
                             node.getPartitionBy(),
                             getOnlyElement(node.getWindowFunctions().keySet()),
-                            limit);
+                            limit,
+                            Optional.<Symbol>absent());
                 }
                 if (limit.isPresent()) {
                     return new TopNRowNumberNode(idAllocator.getNextId(),
@@ -95,7 +96,8 @@ public class WindowFilterPushDown
                             node.getOrderings(),
                             getOnlyElement(node.getWindowFunctions().keySet()),
                             limit.get(),
-                            false);
+                            false,
+                            Optional.<Symbol>absent());
                 }
             }
             return planRewriter.defaultRewrite(node, null);

@@ -26,6 +26,7 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -64,6 +65,7 @@ public class IndexLoader
     private final AtomicReference<TaskContext> taskContextReference = new AtomicReference<>();
     private final Set<Integer> lookupSourceInputChannels;
     private final List<Integer> keyOutputChannels;
+    private final Optional<Integer> keyOutputHashChannel;
     private final List<Type> keyTypes;
 
     @GuardedBy("this")
@@ -78,6 +80,7 @@ public class IndexLoader
     public IndexLoader(
             Set<Integer> lookupSourceInputChannels,
             List<Integer> keyOutputChannels,
+            Optional<Integer> keyOutputHashChannel,
             List<Type> outputTypes,
             IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider,
             int expectedPositions,
@@ -88,6 +91,7 @@ public class IndexLoader
         checkArgument(!lookupSourceInputChannels.isEmpty(), "lookupSourceInputChannels must not be empty");
         checkNotNull(keyOutputChannels, "keyOutputChannels is null");
         checkArgument(!keyOutputChannels.isEmpty(), "keyOutputChannels must not be empty");
+        checkNotNull(keyOutputHashChannel, "keyOutputHashChannel is null");
         checkArgument(lookupSourceInputChannels.size() <= keyOutputChannels.size(), "Lookup channels must supply a subset of the actual index columns");
         checkNotNull(outputTypes, "outputTypes is null");
         checkNotNull(indexBuildDriverFactoryProvider, "indexBuildDriverFactoryProvider is null");
@@ -97,6 +101,7 @@ public class IndexLoader
 
         this.lookupSourceInputChannels = ImmutableSet.copyOf(lookupSourceInputChannels);
         this.keyOutputChannels = ImmutableList.copyOf(keyOutputChannels);
+        this.keyOutputHashChannel = keyOutputHashChannel;
         this.outputTypes = ImmutableList.copyOf(outputTypes);
         this.indexBuildDriverFactoryProvider = indexBuildDriverFactoryProvider;
         this.expectedPositions = expectedPositions;
@@ -242,6 +247,7 @@ public class IndexLoader
                     lookupSourceInputChannels,
                     keyTypes,
                     keyOutputChannels,
+                    keyOutputHashChannel,
                     expectedPositions,
                     maxIndexMemorySize);
         }
@@ -266,6 +272,7 @@ public class IndexLoader
                 Set<Integer> lookupSourceInputChannels,
                 List<Type> indexTypes,
                 List<Integer> keyOutputChannels,
+                Optional<Integer> keyOutputHashChannel,
                 int expectedPositions,
                 DataSize maxIndexMemorySize)
         {
@@ -278,6 +285,7 @@ public class IndexLoader
             this.indexSnapshotBuilder = new IndexSnapshotBuilder(
                     outputTypes,
                     keyOutputChannels,
+                    keyOutputHashChannel,
                     pipelineContext.addDriverContext(),
                     maxIndexMemorySize,
                     expectedPositions);
@@ -358,7 +366,13 @@ public class IndexLoader
         }
 
         @Override
-        public long getJoinPosition(int position, Block... blocks)
+        public long getJoinPosition(int position, Page page, int rawHash)
+        {
+            return IndexSnapshot.UNLOADED_INDEX_KEY;
+        }
+
+        @Override
+        public long getJoinPosition(int position, Page page)
         {
             return IndexSnapshot.UNLOADED_INDEX_KEY;
         }

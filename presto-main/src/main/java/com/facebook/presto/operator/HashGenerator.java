@@ -14,23 +14,8 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 
-import java.io.Closeable;
-
-public interface LookupSource
-        extends Closeable
+public interface HashGenerator
 {
-    int getChannelCount();
-
-    long getJoinPosition(int position, Page page, int rawHash);
-
-    long getJoinPosition(int position, Page page);
-
-    long getNextJoinPosition(long currentPosition);
-
-    void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset);
-
-    @Override
-    void close();
+    int hashPosition(int position, Page page);
 }

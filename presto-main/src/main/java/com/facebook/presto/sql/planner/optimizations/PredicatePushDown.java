@@ -325,7 +325,7 @@ public class PredicatePushDown
                     rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
                     criteria = builder.build();
                 }
-                output = new JoinNode(node.getId(), node.getType(), leftSource, rightSource, criteria);
+                output = new JoinNode(node.getId(), node.getType(), leftSource, rightSource, criteria, node.getLeftHashSymbol(), node.getRightHashSymbol());
             }
             if (!postJoinPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
                 output = new FilterNode(idAllocator.getNextId(), output, postJoinPredicate);
@@ -576,7 +576,7 @@ public class PredicatePushDown
             Preconditions.checkArgument(EnumSet.of(INNER, RIGHT, LEFT, CROSS).contains(node.getType()), "Unsupported join type: %s", node.getType());
 
             if (node.getType() == JoinNode.Type.CROSS) {
-                return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getCriteria());
+                return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getLeftHashSymbol(), node.getRightHashSymbol());
             }
 
             if (node.getType() == JoinNode.Type.INNER ||
@@ -584,7 +584,7 @@ public class PredicatePushDown
                     node.getType() == JoinNode.Type.RIGHT && !canConvertOuterToInner(node.getLeft().getOutputSymbols(), inheritedPredicate)) {
                 return node;
             }
-            return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getCriteria());
+            return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getLeftHashSymbol(), node.getRightHashSymbol());
         }
 
         private boolean canConvertOuterToInner(List<Symbol> innerSymbolsForOuterJoin, Expression inheritedPredicate)
@@ -709,7 +709,7 @@ public class PredicatePushDown
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource() || rewrittenFilteringSource != node.getFilteringSource()) {
-                output = new SemiJoinNode(node.getId(), rewrittenSource, rewrittenFilteringSource, node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput());
+                output = new SemiJoinNode(node.getId(), rewrittenSource, rewrittenFilteringSource, node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput(), node.getSourceHashSymbol(), node.getFilteringSourceHashSymbol());
             }
             if (!postJoinConjuncts.isEmpty()) {
                 output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(postJoinConjuncts));
@@ -750,7 +750,16 @@ public class PredicatePushDown
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource()) {
-                output = new AggregationNode(node.getId(), rewrittenSource, node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), node.getStep(), node.getSampleWeight(), node.getConfidence());
+                output = new AggregationNode(node.getId(),
+                        rewrittenSource,
+                        node.getGroupBy(),
+                        node.getAggregations(),
+                        node.getFunctions(),
+                        node.getMasks(),
+                        node.getStep(),
+                        node.getSampleWeight(),
+                        node.getConfidence(),
+                        node.getHashSymbol());
             }
             if (!postAggregationConjuncts.isEmpty()) {
                 output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(postAggregationConjuncts));
