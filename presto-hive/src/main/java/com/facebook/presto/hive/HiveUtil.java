@@ -62,6 +62,7 @@ import java.util.concurrent.Callable;
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnIndexGetter;
 import static com.facebook.presto.hive.HiveColumnHandle.isPartitionKeyPredicate;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
+import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.HiveType.HIVE_BOOLEAN;
 import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
 import static com.facebook.presto.hive.HiveType.HIVE_DATE;
@@ -321,7 +322,7 @@ public final class HiveUtil
 
     public static SerializableNativeValue parsePartitionValue(String partitionName, String value, HiveType hiveType, DateTimeZone timeZone)
     {
-        boolean isNull = isHiveNull(value.getBytes(UTF_8));
+        boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value);
 
         if (HIVE_BOOLEAN.equals(hiveType)) {
             if (isNull) {
