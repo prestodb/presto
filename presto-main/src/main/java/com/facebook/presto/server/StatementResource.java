@@ -35,9 +35,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -84,8 +82,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.execution.QueryInfo.queryIdGetter;
-import static com.facebook.presto.execution.StageInfo.getAllStages;
-import static com.facebook.presto.execution.StageInfo.stageStateGetter;
 import static com.facebook.presto.server.ResourceUtil.assertRequest;
 import static com.facebook.presto.server.ResourceUtil.createSessionForRequest;
 import static com.facebook.presto.util.Failures.toFailure;
@@ -424,7 +420,7 @@ public class StatementResource
 
             return StatementStats.builder()
                     .setState(queryInfo.getState().toString())
-                    .setScheduled(isScheduled(queryInfo))
+                    .setScheduled(queryInfo.isScheduled())
                     .setNodes(globalUniqueNodes(queryInfo.getOutputStage()).size())
                     .setTotalSplits(queryStats.getTotalDrivers())
                     .setQueuedSplits(queryStats.getQueuedDrivers())
@@ -493,29 +489,6 @@ public class StatementResource
                 nodes.addAll(globalUniqueNodes(subStage));
             }
             return nodes.build();
-        }
-
-        private static boolean isScheduled(QueryInfo queryInfo)
-        {
-            StageInfo stage = queryInfo.getOutputStage();
-            if (stage == null) {
-                return false;
-            }
-            return IterableTransformer.on(getAllStages(stage))
-                    .transform(stageStateGetter())
-                    .all(isStageRunningOrDone());
-        }
-
-        private static Predicate<StageState> isStageRunningOrDone()
-        {
-            return new Predicate<StageState>()
-            {
-                @Override
-                public boolean apply(StageState state)
-                {
-                    return (state == StageState.RUNNING) || state.isDone();
-                }
-            };
         }
 
         private static URI findCancelableLeafStage(QueryInfo queryInfo)
