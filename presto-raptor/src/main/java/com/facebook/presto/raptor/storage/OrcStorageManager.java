@@ -38,6 +38,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -70,6 +73,22 @@ public class OrcStorageManager
         File baseDataDir = checkNotNull(dataDirectory, "dataDirectory is null");
         this.baseStorageDir = new File(baseDataDir, "storage");
         this.baseStagingDir = new File(baseDataDir, "staging");
+    }
+
+    @PostConstruct
+    public void start()
+            throws IOException
+    {
+        deleteDirectory(baseStagingDir);
+        createParents(baseStagingDir);
+        createParents(baseStorageDir);
+    }
+
+    @PreDestroy
+    public void stop()
+            throws IOException
+    {
+        deleteDirectory(baseStagingDir);
     }
 
     @Override
@@ -265,5 +284,21 @@ public class OrcStorageManager
             }
         }
         throw new PrestoException(NOT_SUPPORTED, "No storage type for type: " + type);
+    }
+
+    private static void deleteDirectory(File dir)
+            throws IOException
+    {
+        if (!dir.exists()) {
+            return;
+        }
+        File[] files = dir.listFiles();
+        if (files == null) {
+            throw new IOException("Failed to list directory: " + dir);
+        }
+        for (File file : files) {
+            Files.delete(file.toPath());
+        }
+        Files.delete(dir.toPath());
     }
 }
