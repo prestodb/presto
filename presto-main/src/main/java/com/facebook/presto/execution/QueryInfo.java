@@ -38,6 +38,7 @@ public class QueryInfo
     private final QueryId queryId;
     private final Session session;
     private final QueryState state;
+    private final boolean scheduled;
     private final URI self;
     private final List<String> fieldNames;
     private final String query;
@@ -52,6 +53,7 @@ public class QueryInfo
             @JsonProperty("queryId") QueryId queryId,
             @JsonProperty("session") Session session,
             @JsonProperty("state") QueryState state,
+            @JsonProperty("scheduled") boolean scheduled,
             @JsonProperty("self") URI self,
             @JsonProperty("fieldNames") List<String> fieldNames,
             @JsonProperty("query") String query,
@@ -73,6 +75,7 @@ public class QueryInfo
         this.queryId = queryId;
         this.session = session;
         this.state = state;
+        this.scheduled = scheduled;
         this.self = self;
         this.fieldNames = ImmutableList.copyOf(fieldNames);
         this.query = query;
@@ -105,6 +108,12 @@ public class QueryInfo
     public QueryState getState()
     {
         return state;
+    }
+
+    @JsonProperty
+    public boolean isScheduled()
+    {
+        return scheduled;
     }
 
     @JsonProperty

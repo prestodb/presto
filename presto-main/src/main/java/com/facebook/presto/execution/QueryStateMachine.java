@@ -20,7 +20,9 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
@@ -42,6 +44,7 @@ import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.inDoneState;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
+import static com.facebook.presto.execution.StageInfo.stageStateGetter;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -237,6 +240,7 @@ public class QueryStateMachine
         return new QueryInfo(queryId,
                 session,
                 state,
+                isScheduled(rootStage),
                 self,
                 outputFieldNames,
                 query,
@@ -376,5 +380,27 @@ public class QueryStateMachine
     public synchronized void recordDistributedPlanningTime(long distributedPlanningStart)
     {
         distributedPlanningTime = Duration.nanosSince(distributedPlanningStart).convertToMostSuccinctTimeUnit();
+    }
+
+    private static boolean isScheduled(StageInfo rootStage)
+    {
+        if (rootStage == null) {
+            return false;
+        }
+        return FluentIterable.from(getAllStages(rootStage))
+                .transform(stageStateGetter())
+                .allMatch(isStageRunningOrDone());
+    }
+
+    private static Predicate<StageState> isStageRunningOrDone()
+    {
+        return new Predicate<StageState>()
+        {
+            @Override
+            public boolean apply(StageState state)
+            {
+                return (state == StageState.RUNNING) || state.isDone();
+            }
+        };
     }
 }
