@@ -113,6 +113,10 @@
                     <groupId>ch.qos.logback</groupId>
                     <artifactId>logback-core</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>com.boundary</groupId>
+                    <artifactId>high-scale-lib</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
