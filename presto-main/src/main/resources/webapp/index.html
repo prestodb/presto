@@ -173,6 +173,11 @@ function renderRunningQueries(queries)
                           query = query.substring(0, 200) + "...";
                       }
 
+                      var progress = "N/A";
+                      if (queryInfo.scheduled) {
+                          progress = d3.format("%")(splits == 0 ? 0 : completedSplits / splits);
+                      }
+
                       return [
                           queryInfo.queryId,
                           queryInfo.elapsedTime,
@@ -180,7 +185,7 @@ function renderRunningQueries(queries)
                           queryInfo.session.source,
                           queryInfo.session.user,
                           queryInfo.state,
-                          d3.format("%")(splits == 0 ? 0 : completedSplits / splits),
+                          progress,
                           queuedSplits,
                           runningSplits,
                           completedSplits
