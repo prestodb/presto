@@ -337,12 +337,17 @@ public class PipelineContext
             outputPositions += driverStats.getOutputPositions();
         }
 
-        // merge the operator stats into the operator summary
-        TreeMap<Integer, OperatorStats> operatorSummaries = new TreeMap<>();
-        for (Entry<Integer, OperatorStats> entry : this.operatorSummaries.entrySet()) {
-            OperatorStats operator = entry.getValue();
-            operator.add(runningOperators.get(entry.getKey()));
-            operatorSummaries.put(entry.getKey(), operator);
+        // merge the running operator stats into the operator summary
+        TreeMap<Integer, OperatorStats> operatorSummaries = new TreeMap<>(this.operatorSummaries);
+        for (Entry<Integer, OperatorStats> entry : runningOperators.entries()) {
+            OperatorStats current = operatorSummaries.get(entry.getKey());
+            if (current == null) {
+                current = entry.getValue();
+            }
+            else {
+                current = current.add(entry.getValue());
+            }
+            operatorSummaries.put(entry.getKey(), current);
         }
 
         return new PipelineStats(
