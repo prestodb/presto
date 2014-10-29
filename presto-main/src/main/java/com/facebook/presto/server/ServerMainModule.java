@@ -266,6 +266,9 @@ public class ServerMainModule
 
         // thread visualizer
         jaxrsBinder(binder).bind(ThreadResource.class);
+
+        // thread execution visualizer
+        jaxrsBinder(binder).bind(QueryExecutionResource.class);
     }
 
     @Provides

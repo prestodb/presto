@@ -92,6 +92,9 @@
         <dt>Raw</dt>
         <dd><a id="rawJson"></a></dd>
 
+        <dt>Execution</dt>
+        <dd><a id="executionLink"></a></dd>
+
         <dt>Kill</dt>
         <dd id="killQuery"></dd>
 
@@ -188,6 +191,10 @@ d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
     var uri = "/v1/query/" + query.queryId + "?pretty"
     d3.select('#rawJson').text(uri);
     d3.select('#rawJson').attr("href", uri);
+
+    var executionLink = "/ui/query-execution?" + query.queryId;
+    d3.select('#executionLink').text(executionLink);
+    d3.select('#executionLink').attr("href", executionLink);
 
     hljs.initHighlighting();
 
