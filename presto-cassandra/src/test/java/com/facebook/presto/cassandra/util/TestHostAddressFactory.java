@@ -17,9 +17,11 @@ import com.datastax.driver.core.Host;
 import com.datastax.driver.core.TestHost;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableSet;
+
 import org.testng.annotations.Test;
 
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Set;
 
@@ -32,8 +34,8 @@ public class TestHostAddressFactory
             throws Exception
     {
         Set<Host> hosts = ImmutableSet.<Host>of(
-                new TestHost(InetAddress.getByAddress(new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16})),
-                new TestHost(InetAddress.getByAddress(new byte[] {1, 2, 3, 4})));
+                new TestHost(new InetSocketAddress(InetAddress.getByAddress(new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}), 0)),
+                new TestHost(new InetSocketAddress(InetAddress.getByAddress(new byte[] {1, 2, 3, 4}), 0)));
 
         HostAddressFactory hostAddressFactory = new HostAddressFactory();
         List<HostAddress> list = hostAddressFactory.toHostAddressList(hosts);

@@ -29,6 +29,6 @@ public final class RowUtil
     public static Row createSingleStringRow(String value)
     {
         ColumnDefinitions definitions = new ColumnDefinitions(new Definition[] {new Definition("keyspace", "table", "column", DataType.ascii())});
-        return Row.fromData(definitions, ImmutableList.of(ByteBuffer.wrap(value.getBytes(Charsets.UTF_8))));
+        return ArrayBackedRow.fromData(definitions, ProtocolVersion.V3, ImmutableList.of(ByteBuffer.wrap(value.getBytes(Charsets.UTF_8))));
     }
 }

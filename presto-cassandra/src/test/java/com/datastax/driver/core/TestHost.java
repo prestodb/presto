@@ -13,12 +13,12 @@
  */
 package com.datastax.driver.core;
 
-import java.net.InetAddress;
+import java.net.InetSocketAddress;
 
 public class TestHost
         extends Host
 {
-    public TestHost(InetAddress address)
+    public TestHost(InetSocketAddress address)
     {
         super(address, new ConvictionPolicy.Simple.Factory());
     }
