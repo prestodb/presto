@@ -132,16 +132,21 @@ public class MockCassandraSession
         return super.getPartitions(table, filterPrefix);
     }
 
+    private List<Row> queryPartitionKeysVersion2(CassandraTable table)
+    {
+      CassandraTableHandle tableHandle = table.getTableHandle();
+      if (tableHandle.getSchemaName().equals(TEST_SCHEMA) && tableHandle.getTableName().equals(TEST_TABLE)) {
+        return ImmutableList.of(
+            createSingleStringRow(TEST_PARTITION_KEY1, 2),
+            createSingleStringRow(TEST_PARTITION_KEY2, 2));
+      }
+      throw new IllegalStateException();
+    }
+
     @Override
     protected List<Row> queryPartitionKeys(CassandraTable table, List<Comparable<?>> filterPrefix)
     {
-        CassandraTableHandle tableHandle = table.getTableHandle();
-        if (tableHandle.getSchemaName().equals(TEST_SCHEMA) && tableHandle.getTableName().equals(TEST_TABLE)) {
-            return ImmutableList.of(
-                    createSingleStringRow(TEST_PARTITION_KEY1),
-                    createSingleStringRow(TEST_PARTITION_KEY2));
-        }
-        throw new IllegalStateException();
+        return queryPartitionKeysVersion2(table);
     }
 
     @Override
