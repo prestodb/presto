@@ -21,7 +21,7 @@ To configure the JMX connector, create a catalog properties file
 Querying JMX
 ------------
 
-The JMX connector provides a single schema ``jmx`` that contains all of
+The JMX connector provides a single schema ``jmx`` that contains
 every Managed Bean (MBean) from every node in the Presto cluster.
 You can see all of the available MBeans by running ``SHOW TABLES``::
 
