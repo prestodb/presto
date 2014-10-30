@@ -60,7 +60,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 public class OrcRowSink
         implements RowSink
 {
-    private static final JobConf JOB_CONF = new JobConf();
+    private static final JobConf JOB_CONF = createJobConf();
     private static final Constructor<? extends RecordWriter> WRITER_CONSTRUCTOR = getOrcWriterConstructor();
 
     private final int fieldCount;
@@ -198,24 +198,16 @@ public class OrcRowSink
 
     private static RecordWriter createRecordWriter(Path target, JobConf conf)
     {
-        try {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader())) {
+            FileSystem fileSystem = target.getFileSystem(conf);
+            fileSystem.setWriteChecksum(false);
             OrcFile.WriterOptions options = OrcFile.writerOptions(conf)
-                    .fileSystem(getFileSystem(target, conf))
+                    .fileSystem(fileSystem)
                     .compress(SNAPPY);
             return WRITER_CONSTRUCTOR.newInstance(target, options);
         }
         catch (ReflectiveOperationException | IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to create writer", e);
-        }
-    }
-
-    private static FileSystem getFileSystem(Path path, Configuration conf)
-            throws IOException
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader())) {
-            FileSystem fileSystem = path.getFileSystem(conf);
-            fileSystem.setWriteChecksum(false);
-            return fileSystem;
         }
     }
 
@@ -232,6 +224,13 @@ public class OrcRowSink
         catch (ReflectiveOperationException e) {
             throw Throwables.propagate(e);
         }
+    }
+
+    private static JobConf createJobConf()
+    {
+        JobConf jobConf = new JobConf();
+        jobConf.setClassLoader(JobConf.class.getClassLoader());
+        return new JobConf();
     }
 
     private static List<ObjectInspector> getJavaObjectInspectors(List<StorageType> types)

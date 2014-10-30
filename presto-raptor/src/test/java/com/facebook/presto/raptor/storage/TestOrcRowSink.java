@@ -19,6 +19,7 @@ import com.facebook.presto.orc.FileOrcDataSource;
 import com.facebook.presto.orc.LongVector;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.SliceVector;
+import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
@@ -73,7 +74,8 @@ public class TestOrcRowSink
         byte[] bytes1 = octets(0x00, 0xFE, 0xFF);
         byte[] bytes3 = octets(0x01, 0x02, 0x19, 0x80);
 
-        try (RowSink sink = new OrcRowSink(columnIds, columnTypes, sampleWeightColumnId, file)) {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(new EmptyClassLoader());
+                RowSink sink = new OrcRowSink(columnIds, columnTypes, sampleWeightColumnId, file)) {
             sink.beginRecord(1);
             sink.appendLong(123);
             sink.appendString("hello");
@@ -172,6 +174,16 @@ public class TestOrcRowSink
             assertEquals(reader.getPosition(), 0);
 
             assertEquals(reader.nextBatch(), -1);
+        }
+    }
+
+    @SuppressWarnings("EmptyClass")
+    private static class EmptyClassLoader
+            extends ClassLoader
+    {
+        protected EmptyClassLoader()
+        {
+            super(null);
         }
     }
 }
