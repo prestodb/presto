@@ -24,6 +24,17 @@ Cassandra Changes
 * Update Cassandra driver to 2.1.0.
 * Map Cassandra ``TIMESTAMP`` type to Presto ``TIMESTAMP`` type.
 
+"Big Query" Support
+-------------------
+
+We've added experimental support for "big" queries. This provides a separate queue
+controlled by ``experimental.max-concurrent-big-queries`` and
+``experimental.max-queued-big-queries``, and separate configuration options
+(``experimental.big-query-initial-hash-partitions``  and
+``experimental.big-query-max-task-memory``) for queries that are submitted with the
+``experimental_big_query`` session property. Queries submitted with this property will
+use hash distribution for all joins.
+
 General Changes
 ---------------
 
@@ -67,3 +78,6 @@ General Changes
 * Add :func:`array_sort` function.
 * Add :func:`map_keys` and :func:`map_values` functions.
 * Make :func:`row_number` completely streaming.
+* Add property ``task.max-partial-aggregation-memory`` to configure the memory limit
+  for the partial step of aggregations.
+* Fix exception when processing queries with an UNNEST operation where the output was not used.
