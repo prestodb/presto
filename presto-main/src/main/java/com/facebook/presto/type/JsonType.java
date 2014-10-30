@@ -25,6 +25,9 @@ import io.airlift.slice.Slices;
 
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 
+/**
+ * The stack representation for JSON objects must have the keys in natural sorted order.
+ */
 public class JsonType
         extends AbstractVariableWidthType
 {
@@ -33,6 +36,20 @@ public class JsonType
     public JsonType()
     {
         super(parameterizedTypeName(StandardTypes.JSON), Slice.class);
+    }
+
+    @Override
+    public boolean isComparable()
+    {
+        return true;
+    }
+
+    @Override
+    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        int leftLength = leftBlock.getLength(leftPosition);
+        int rightLength = rightBlock.getLength(rightPosition);
+        return leftBlock.compareTo(leftPosition, 0, leftLength, rightBlock, rightPosition, 0, rightLength);
     }
 
     @Override
