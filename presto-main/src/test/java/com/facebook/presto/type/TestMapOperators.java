@@ -102,6 +102,7 @@ public class TestMapOperators
     public void testMapToJson()
             throws Exception
     {
+        assertFunction("CAST(MAP(7, 8, 5, 6, 3, 4, 1, 2) AS JSON)", "{\"1\":2,\"3\":4,\"5\":6,\"7\":8}");
         assertFunction("CAST(MAP(1, 2, 3, 4, 5, 6, 7, 8) AS JSON)", "{\"1\":2,\"3\":4,\"5\":6,\"7\":8}");
         assertFunction("CAST(MAP(1, 2, 3, NULL) AS JSON)", "{\"1\":2,\"3\":null}");
         assertFunction("CAST(MAP(1, 2.0, 3, 4.0) AS JSON)", "{\"1\":2.0,\"3\":4.0}");
