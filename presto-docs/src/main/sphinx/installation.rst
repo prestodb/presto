@@ -9,3 +9,4 @@ Installation
     installation/cli
     installation/jdbc
     installation/verifier
+    installation/benchmark-driver

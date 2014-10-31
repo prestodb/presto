@@ -193,6 +193,8 @@ public class Query
                 return new TsvPrinter(fieldNames, writer, false);
             case TSV_HEADER:
                 return new TsvPrinter(fieldNames, writer, true);
+            case NULL:
+                return new NullPrinter();
         }
         throw new RuntimeException(format + " not supported");
     }

@@ -48,6 +48,11 @@ public class QueryRunner
         return session.get();
     }
 
+    public HttpClient getHttpClient()
+    {
+        return httpClient;
+    }
+
     public void setSession(ClientSession session)
     {
         this.session.set(checkNotNull(session, "session is null"));

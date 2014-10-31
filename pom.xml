@@ -78,6 +78,7 @@
         <module>presto-tests</module>
         <module>presto-jdbc</module>
         <module>presto-cli</module>
+        <module>presto-benchmark-driver</module>
         <module>presto-server</module>
         <module>presto-docs</module>
         <module>presto-verifier</module>
@@ -145,6 +146,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-raptor</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-cli</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

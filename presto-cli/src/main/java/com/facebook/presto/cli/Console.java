@@ -258,7 +258,7 @@ public class Console
         return history;
     }
 
-    private static void initializeLogging(boolean debug)
+    public static void initializeLogging(boolean debug)
     {
         // unhook out and err while initializing logging or logger will print to them
         PrintStream out = System.out;
@@ -287,7 +287,7 @@ public class Console
         }
     }
 
-    private static PrintStream nullPrintStream()
+    public static PrintStream nullPrintStream()
     {
         return new PrintStream(nullOutputStream());
     }

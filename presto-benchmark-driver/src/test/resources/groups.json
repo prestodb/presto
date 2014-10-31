@@ -1,0 +1,16 @@
+{
+    "legacy_readers": {
+        "schema": [ "(?<scale>tiny)", "sf(?<scale>.)" ],
+        "session": {
+            "enable_optimized_readers": "false"
+        },
+        "query": ["sum_quantity.*", "sum_discount.*"]
+    },
+    "optimized_readers": {
+        "schema": [ "(?<scale>tiny)", "sf(?<scale>.)" ],
+        "session": {
+            "enable_optimized_readers": "true"
+        },
+        "query": ["sum_quantity.*", "sum_discount.*"]
+    }
+}
