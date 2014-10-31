@@ -84,7 +84,7 @@ public class HiveClientConfig
 
     private List<String> resourceConfigFiles;
 
-    private boolean optimizedReaderEnabled;
+    private boolean optimizedReaderEnabled = true;
 
     public int getMaxInitialSplits()
     {
