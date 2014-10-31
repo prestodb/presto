@@ -85,7 +85,8 @@ public class RcFilePageSourceFactory
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
-        if (!isOptimizedReaderEnabled(session, enabled)) {
+        // todo remove this when GC issues are resolved
+        if (false || !isOptimizedReaderEnabled(session, enabled)) {
             return Optional.absent();
         }
 
