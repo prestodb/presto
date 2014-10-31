@@ -74,6 +74,25 @@ Approximate Aggregate Functions
     the value ``x`` in the percentile set. The value of ``p`` must be between
     zero and one and must be constant for all input rows.
 
+.. function:: numeric_histogram(buckets, value, weight) -> map<double, double>
+
+    Computes an approximate histogram with up to ``buckets`` number of buckets
+    for all ``value``\ s with a per-item weight of ``weight``. The algorithm
+    is based loosely on:
+
+    .. code-block:: none
+
+        Yael Ben-Haim and Elad Tom-Tov, "A streaming parallel decision tree algorithm",
+        J. Machine Learning Research 11 (2010), pp. 849--872.
+
+    ``buckets`` must be a ``bigint``. ``value`` and ``weight`` must be numeric.
+
+.. function:: numeric_histogram(buckets, value) -> map<double, double>
+
+    Computes an approximate histogram with up to ``buckets`` number of buckets
+    for all ``value``\ s. This function is equivalent to the variant of
+    :func:`numeric_histogram` that takes a ``weight``, with a per-item weight of ``1``.
+
 Statistical Aggregate Functions
 -------------------------------
 
