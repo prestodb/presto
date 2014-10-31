@@ -96,6 +96,13 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testScalarSubQueryException()
+            throws Exception
+    {
+        assertFails(NOT_SUPPORTED, "SELECT 'a', (VALUES (1)) GROUP BY 1");
+    }
+
+    @Test
     public void testHavingReferencesOutputAlias()
             throws Exception
     {
