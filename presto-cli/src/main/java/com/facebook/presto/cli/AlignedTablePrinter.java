@@ -25,6 +25,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.repeat;
+import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 
@@ -32,6 +33,10 @@ public class AlignedTablePrinter
         implements OutputPrinter
 {
     private static final Splitter LINE_SPLITTER = Splitter.on('\n');
+
+    //for hex output
+    private static final char BYTE_SEPARATOR = ' ';
+    private static final int BYTES_PER_LINE = 16;
 
     private final List<String> fieldNames;
     private final Writer writer;
@@ -126,7 +131,35 @@ public class AlignedTablePrinter
 
     static String formatValue(Object o)
     {
-        return (o == null) ? "NULL" : o.toString();
+        if (o == null) {
+            return "NULL";
+        }
+
+        if (o instanceof byte[]) {
+            return formatHexDump((byte[]) o, BYTE_SEPARATOR, BYTES_PER_LINE);
+        }
+
+        return o.toString();
+    }
+
+    private static String formatHexDump(byte [] bytes, char byteSeparator, int bytesPerLine)
+    {
+        String hexDump = base16().lowerCase().encode(bytes);
+        StringBuilder buffer = new StringBuilder();
+        int count = 0;
+        Iterable<String> bytePairs = Splitter.fixedLength(2).split(hexDump);
+        for (String bytePair : bytePairs) {
+            buffer.append(bytePair);
+            buffer.append(byteSeparator);
+            if (count == bytesPerLine - 1) {
+                buffer.append('\n');
+                count = 0;
+            }
+            else {
+                count++;
+            }
+        }
+        return buffer.toString();
     }
 
     private static String center(String s, int maxWidth, int padding)
