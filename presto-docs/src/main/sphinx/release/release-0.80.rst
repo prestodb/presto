@@ -4,9 +4,24 @@ Release 0.80
 
 Hive Changes
 ------------
+We have added a new ORC reader implementation. The new reader supports vectorized
+reads, lazy loading, and predicate push down, all of which make the reader more
+efficient and typically reduces wall clock time for a query. Although the new
+reader has been heavily tested, it is an extensive rewrite of the Apache Hive
+ORC reader, and may have some latent issues. If you are seeing issues, you can
+disable the new reader on a per-query basis setting the
+`<hive-catalog>.optimized_reader_enabled` session property, or you can disable
+the reader by default using setting the Hive catalog property
+`hive.optimized-reader.enabled`.
 
 * The maximum retry time for the Hive S3 file system can be configured
-  by setting ``hive.s3.max-retry-time``.
+  by setting ``hive.s3.max-retry-time=false``.
+* Fix Hive partition pruning for null (i.e., `__HIVE_DEFAULT_PARTITION__`) keys.
+
+Cassandra Changes
+-----------------
+
+* Update Cassandra driver to 2.1.0.
 
 General Changes
 ---------------
@@ -48,3 +63,6 @@ General Changes
         the storage backend allows partitions to contain no data.
 
 * Add approximate numeric histogram function :func:`numeric_histogram`
+* Add :func:`array_sort` function.
+* Add :func:`map_keys` and :func:`map_values` functions.
+* Make :func:`row_number` completely streaming.
