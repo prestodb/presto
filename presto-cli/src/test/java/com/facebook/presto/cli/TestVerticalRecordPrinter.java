@@ -19,7 +19,8 @@ import org.testng.annotations.Test;
 import java.io.StringWriter;
 import java.util.List;
 
-import static java.util.Arrays.asList;
+import static com.facebook.presto.cli.TestAlignedTablePrinter.row;
+import static com.facebook.presto.cli.TestAlignedTablePrinter.rows;
 import static org.testng.Assert.assertEquals;
 
 public class TestVerticalRecordPrinter
@@ -131,15 +132,5 @@ public class TestVerticalRecordPrinter
         printer.finish();
 
         assertEquals(writer.getBuffer().toString(), "(no rows)\n");
-    }
-
-    private static List<?> row(Object... values)
-    {
-        return asList(values);
-    }
-
-    private static List<List<?>> rows(List<?>... rows)
-    {
-        return asList(rows);
     }
 }
