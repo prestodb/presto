@@ -59,6 +59,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SAMPLE_PERCENTA
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.fail;
@@ -737,5 +738,11 @@ public class TestAnalyzer
                 fail(format("Expected error %s, but found %s: %s", error, e.getCode(), e.getMessage()), e);
             }
         }
+    }
+
+    @Test
+    public void testWindowFunctionWithoutOverClause()
+    {
+        assertFails(WINDOW_REQUIRES_OVER, "SELECT row_number()");
     }
 }
