@@ -11,10 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.cli;
+package com.facebook.presto.benchmark.driver;
 
 import com.facebook.presto.client.ClientSession;
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
@@ -27,7 +28,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.TimeZone;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -35,7 +35,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Locale.ENGLISH;
 
-public class ClientOptions
+public class BenchmarkDriverOptions
 {
     @Option(name = "--server", title = "server", description = "Presto server location (default: localhost:8080)")
     public String server = "localhost:8080";
@@ -43,56 +43,57 @@ public class ClientOptions
     @Option(name = "--user", title = "user", description = "Username")
     public String user = System.getProperty("user.name");
 
-    @Option(name = "--source", title = "source", description = "Name of source making query")
-    public String source = "presto-cli";
-
-    @Option(name = "--catalog", title = "catalog", description = "Default catalog")
+    @Option(name = "--catalog", title = "catalog", description = "Default catalog (default: default)")
     public String catalog = "default";
 
-    @Option(name = "--schema", title = "schema", description = "Default schema")
+    @Option(name = "--schema", title = "schema", description = "Default schema (default: default)")
     public String schema = "default";
 
-    @Option(name = {"-f", "--file"}, title = "file", description = "Execute statements from file and exit")
-    public String file;
+    @Option(name = "--suite", title = "suite", description = "Suite to execute")
+    public List<String> suites = new ArrayList<>();
 
-    @Option(name = "--debug", title = "debug", description = "Enable debug information")
+    @Option(name = "--suite-config", title = "suite-config", description = "Suites configuration file (default: suite.json)")
+    public String suiteConfigFile = "suite.json";
+
+    @Option(name = "--sql", title = "sql", description = "Directory containing sql files (default: sql)")
+    public String sqlTemplateDir = "sql";
+
+    @Option(name = "--query", title = "query", description = "Queries to execute")
+    public List<String> queries = new ArrayList<>();
+
+    @Option(name = "--debug", title = "debug", description = "Enable debug information (default: false)")
     public boolean debug;
-
-    @Option(name = "--execute", title = "execute", description = "Execute specified statements and exit")
-    public String execute;
-
-    @Option(name = "--output-format", title = "output-format", description = "Output format for batch mode (default: CSV)")
-    public OutputFormat outputFormat = OutputFormat.CSV;
 
     @Option(name = "--session", title = "session", description = "Session property (property can be used multiple times; format is key=value)")
     public final List<ClientSessionProperty> sessionProperties = new ArrayList<>();
 
-    public enum OutputFormat
-    {
-        ALIGNED,
-        VERTICAL,
-        CSV,
-        TSV,
-        CSV_HEADER,
-        TSV_HEADER,
-        NULL
-    }
+    @Option(name = "--runs", title = "runs", description = "Number of times to run each query (default: 3)")
+    public int runs = 3;
 
-    public ClientSession toClientSession()
+    @Option(name = "--warm", title = "warm", description = "Number of times to run each query for a warm-up (default: 1)")
+    public int warm = 1;
+
+    @Option(name = "--max-failures", title = "max failures", description = "Max number of consecutive failures before benchmark fails")
+    public int maxFailures = 10;
+
+    @Option(name = "--socks", title = "socks", description = "Socks proxy to use")
+    public HostAndPort socksProxy;
+
+    public ClientSession getClientSession()
     {
         return new ClientSession(
                 parseServer(server),
                 user,
-                source,
+                "presto-benchmark",
                 catalog,
                 schema,
                 TimeZone.getDefault().getID(),
                 Locale.getDefault(),
-                toProperties(sessionProperties),
+                toProperties(this.sessionProperties),
                 debug);
     }
 
-    public static URI parseServer(String server)
+    private static URI parseServer(String server)
     {
         server = server.toLowerCase(ENGLISH);
         if (server.startsWith("http://") || server.startsWith("https://")) {
@@ -108,7 +109,7 @@ public class ClientOptions
         }
     }
 
-    public static Map<String, String> toProperties(List<ClientSessionProperty> sessionProperties)
+    private static Map<String, String> toProperties(List<ClientSessionProperty> sessionProperties)
     {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         for (ClientSessionProperty sessionProperty : sessionProperties) {
@@ -137,7 +138,7 @@ public class ClientOptions
             List<String> nameParts = NAME_SPLITTER.splitToList(nameValue.get(0));
             checkArgument(nameParts.size() == 1 || nameParts.size() == 2, "Invalid session property: %s", property);
             if (nameParts.size() == 1) {
-                catalog = Optional.empty();
+                catalog = Optional.absent();
                 name = nameParts.get(0);
             }
             else {
@@ -164,8 +165,8 @@ public class ClientOptions
             checkArgument(!name.isEmpty(), "Session property name is empty");
 
             CharsetEncoder charsetEncoder = US_ASCII.newEncoder();
-            checkArgument(catalog.orElse("").indexOf('=') < 0, "Session property catalog must not contain '=': %s", name);
-            checkArgument(charsetEncoder.canEncode(catalog.orElse("")), "Session property catalog is not US_ASCII: %s", name);
+            checkArgument(catalog.or("").indexOf('=') < 0, "Session property catalog must not contain '=': %s", name);
+            checkArgument(charsetEncoder.canEncode(catalog.or("")), "Session property catalog is not US_ASCII: %s", name);
             checkArgument(name.indexOf('=') < 0, "Session property name must not contain '=': %s", name);
             checkArgument(charsetEncoder.canEncode(name), "Session property name is not US_ASCII: %s", name);
             checkArgument(charsetEncoder.canEncode(value), "Session property value is not US_ASCII: %s", value);
