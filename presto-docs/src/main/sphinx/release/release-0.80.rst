@@ -81,3 +81,4 @@ General Changes
 * Add property ``task.max-partial-aggregation-memory`` to configure the memory limit
   for the partial step of aggregations.
 * Fix exception when processing queries with an UNNEST operation where the output was not used.
+* Add query execution visualization to the coordinator UI. It can be accessed via the query details page.
