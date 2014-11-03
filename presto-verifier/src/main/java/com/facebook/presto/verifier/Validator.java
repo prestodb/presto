@@ -110,10 +110,6 @@ public class Validator
 
     public boolean isSkipped()
     {
-        if (!checkCorrectness) {
-            return false;
-        }
-
         if (queryPair.getControl().getQuery().isEmpty() || queryPair.getTest().getQuery().isEmpty()) {
             return true;
         }
@@ -181,13 +177,6 @@ public class Validator
 
     private boolean validate()
     {
-        if (!checkCorrectness) {
-            testResult = executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), testTimeout);
-            controlResult = testResult;
-
-            return testResult.getState() == State.SUCCESS;
-        }
-
         controlResult = executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), controlTimeout);
 
         // query has too many rows. Consider blacklisting.
@@ -205,6 +194,10 @@ public class Validator
 
         if ((controlResult.getState() != State.SUCCESS) || (testResult.getState() != State.SUCCESS)) {
             return false;
+        }
+
+        if (!checkCorrectness) {
+            return true;
         }
 
         if (resultsMatch(controlResult, testResult)) {
