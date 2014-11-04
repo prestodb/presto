@@ -107,11 +107,11 @@ public class OrcRecordReader
 
         long totalRowCount = 0;
         ImmutableList.Builder<StripeInformation> stripes = ImmutableList.builder();
-        if (predicate.matches(numberOfRows, indexByOrdinal(fileStats))) {
+        if (predicate.matches(numberOfRows, getStatisticsByColumnOrdinal(root, fileStats))) {
             // select stripes that start within the specified split
             for (int stripeIndex = 0; stripeIndex < fileStripes.size(); stripeIndex++) {
                 StripeInformation stripe = fileStripes.get(stripeIndex);
-                if (splitContainsStripe(splitOffset, splitLength, stripe) && isStripeIncluded(stripe, stripeStats, predicate, stripeIndex)) {
+                if (splitContainsStripe(splitOffset, splitLength, stripe) && isStripeIncluded(root, stripe, stripeStats, predicate, stripeIndex)) {
                     stripes.add(stripe);
                     totalRowCount += stripe.getNumberOfRows();
                 }
@@ -140,6 +140,7 @@ public class OrcRecordReader
     }
 
     private static boolean isStripeIncluded(
+            OrcType rootStructType,
             StripeInformation stripe,
             List<StripeStatistics> stripeStats,
             OrcPredicate predicate,
@@ -150,19 +151,7 @@ public class OrcRecordReader
             return true;
         }
 
-        return predicate.matches(stripe.getNumberOfRows(), indexByOrdinal(stripeStats.get(stripeIndex).getColumnStatistics()));
-    }
-
-    private static <T> Map<Integer, T> indexByOrdinal(List<T> elements)
-    {
-        ImmutableMap.Builder<Integer, T> statistics = ImmutableMap.builder();
-        for (int ordinal = 0; ordinal < elements.size(); ordinal++) {
-            T element = elements.get(ordinal);
-            if (element != null) {
-                statistics.put(ordinal, element);
-            }
-        }
-        return statistics.build();
+        return predicate.matches(stripe.getNumberOfRows(), getStatisticsByColumnOrdinal(rootStructType, stripeStats.get(stripeIndex).getColumnStatistics()));
     }
 
     public long getPosition()
@@ -321,5 +310,21 @@ public class OrcRecordReader
             nestedStreams.add(createStreamDescriptor(parentStreamName, "value", type.getFieldTypeIndex(1), types, dataSource));
         }
         return new StreamDescriptor(parentStreamName, typeId, fieldName, type.getOrcTypeKind(), dataSource, nestedStreams.build());
+    }
+
+    private static Map<Integer, ColumnStatistics> getStatisticsByColumnOrdinal(OrcType rootStructType, List<ColumnStatistics> fileStats)
+    {
+        checkNotNull(rootStructType, "rootStructType is null");
+        checkArgument(rootStructType.getOrcTypeKind() == OrcTypeKind.STRUCT);
+        checkNotNull(fileStats, "fileStats is null");
+
+        ImmutableMap.Builder<Integer, ColumnStatistics> statistics = ImmutableMap.builder();
+        for (int ordinal = 0; ordinal < rootStructType.getFieldCount(); ordinal++) {
+            ColumnStatistics element = fileStats.get(rootStructType.getFieldTypeIndex(ordinal));
+            if (element != null) {
+                statistics.put(ordinal, element);
+            }
+        }
+        return statistics.build();
     }
 }
