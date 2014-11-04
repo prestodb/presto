@@ -202,8 +202,8 @@ public class TestOrcStorageManager
 
         // tuple domain within the column range
         tupleDomain = TupleDomain.withFixedValues(ImmutableMap.<RaptorColumnHandle, Comparable<?>>builder()
-                        .put(new RaptorColumnHandle("test", "c1", 2, BIGINT), 124L)
-                        .build());
+                .put(new RaptorColumnHandle("test", "c1", 2, BIGINT), 124L)
+                .build());
 
         try (ConnectorPageSource pageSource = manager.getPageSource(handle.getShardUuid(), columnIds, columnTypes, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
@@ -212,8 +212,8 @@ public class TestOrcStorageManager
 
         // tuple domain outside the column range
         tupleDomain = TupleDomain.withFixedValues(ImmutableMap.<RaptorColumnHandle, Comparable<?>>builder()
-                        .put(new RaptorColumnHandle("test", "c1", 2, BIGINT), 122L)
-                        .build());
+                .put(new RaptorColumnHandle("test", "c1", 2, BIGINT), 122L)
+                .build());
 
         try (ConnectorPageSource pageSource = manager.getPageSource(handle.getShardUuid(), columnIds, columnTypes, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
@@ -221,7 +221,7 @@ public class TestOrcStorageManager
         }
     }
 
-    public SqlVarbinary sqlBinary(byte[] bytes)
+    private static SqlVarbinary sqlBinary(byte[] bytes)
     {
         return new SqlVarbinary(bytes);
     }
