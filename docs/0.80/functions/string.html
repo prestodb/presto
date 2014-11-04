@@ -1,0 +1,188 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>4.6. String Functions and Operators &mdash; Presto 0.80 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.80',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.80 Documentation" href="../index.html" />
+    <link rel="up" title="4. Functions and Operators" href="../functions.html" />
+    <link rel="next" title="4.7. Binary Functions" href="binary.html" />
+    <link rel="prev" title="4.5. Mathematical Functions and Operators" href="math.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.80 Documentation</span></a></h1>
+    <h2 class="heading"><span>4.6. String Functions and Operators</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="math.html">4.5. Mathematical Functions and Operators</a>
+    </span>
+    <span class="right">
+        <a href="binary.html">4.7. Binary Functions</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="string-functions-and-operators">
+<h1>4.6. String Functions and Operators</h1>
+<div class="section" id="string-operators">
+<h2>String Operators</h2>
+<p>The <tt class="docutils literal"><span class="pre">||</span></tt> operator performs concatenation.</p>
+</div>
+<div class="section" id="string-functions">
+<h2>String Functions</h2>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">Currently, all of the string functions work incorrectly for Unicode (non-ASCII)
+strings. They operate as if strings are a sequence of UTF-8  bytes rather
+than a sequence of Unicode characters. For example, <a class="reference internal" href="#length" title="length"><tt class="xref py py-func docutils literal"><span class="pre">length()</span></tt></a> returns
+the number of bytes in the UTF-8 representation of the string rather than
+the number of unicode characters.</p>
+</div>
+<dl class="function">
+<dt id="chr">
+<tt class="descname">chr</tt><big>(</big><em>n</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Returns the Unicode code point <tt class="docutils literal"><span class="pre">n</span></tt> as a single character string.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="concat">
+<tt class="descname">concat</tt><big>(</big><em>string1</em>, <em>string2</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Returns the concatenation of <tt class="docutils literal"><span class="pre">string1</span></tt> and <tt class="docutils literal"><span class="pre">string2</span></tt>.
+This function provides the same functionality as the
+SQL-standard concatenation operator (<tt class="docutils literal"><span class="pre">||</span></tt>).</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="length">
+<tt class="descname">length</tt><big>(</big><em>string</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the length of <tt class="docutils literal"><span class="pre">string</span></tt> in characters.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="lower">
+<tt class="descname">lower</tt><big>(</big><em>string</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Converts <tt class="docutils literal"><span class="pre">string</span></tt> to lowercase.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="ltrim">
+<tt class="descname">ltrim</tt><big>(</big><em>string</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Removes leading spaces from <tt class="docutils literal"><span class="pre">string</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="replace">
+<tt class="descname">replace</tt><big>(</big><em>string</em>, <em>search</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Removes all instances of <tt class="docutils literal"><span class="pre">search</span></tt> from <tt class="docutils literal"><span class="pre">string</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<tt class="descname">replace</tt><big>(</big><em>string</em>, <em>search</em>, <em>replace</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Replaces all instances of <tt class="docutils literal"><span class="pre">search</span></tt> with <tt class="docutils literal"><span class="pre">replace</span></tt> in <tt class="docutils literal"><span class="pre">string</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="reverse">
+<tt class="descname">reverse</tt><big>(</big><em>string</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Returns <tt class="docutils literal"><span class="pre">string</span></tt> with the characters in reverse order.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="rtrim">
+<tt class="descname">rtrim</tt><big>(</big><em>string</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Removes trailing spaces from <tt class="docutils literal"><span class="pre">string</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="split_part">
+<tt class="descname">split_part</tt><big>(</big><em>string</em>, <em>delimiter</em>, <em>index</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Splits <tt class="docutils literal"><span class="pre">string</span></tt> on <tt class="docutils literal"><span class="pre">delimiter</span></tt> and returns the field <tt class="docutils literal"><span class="pre">index</span></tt>.
+Field indexes start with <tt class="docutils literal"><span class="pre">1</span></tt>. If the index is larger than than
+the number of fields, then null is returned.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="strpos">
+<tt class="descname">strpos</tt><big>(</big><em>string</em>, <em>substring</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the starting position of the first instance of <tt class="docutils literal"><span class="pre">substring</span></tt> in
+<tt class="docutils literal"><span class="pre">string</span></tt>. Positions start with <tt class="docutils literal"><span class="pre">1</span></tt>. If not found, <tt class="docutils literal"><span class="pre">0</span></tt> is returned.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="substr">
+<tt class="descname">substr</tt><big>(</big><em>string</em>, <em>start</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Returns the rest of <tt class="docutils literal"><span class="pre">string</span></tt> from the starting position <tt class="docutils literal"><span class="pre">start</span></tt>.
+Positions start with <tt class="docutils literal"><span class="pre">1</span></tt>. A negative starting position is interpreted
+as being relative to the end of the string.</p>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<tt class="descname">substr</tt><big>(</big><em>string</em>, <em>start</em>, <em>length</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Returns a substring from <tt class="docutils literal"><span class="pre">string</span></tt> of length <tt class="docutils literal"><span class="pre">length</span></tt> from the starting
+position <tt class="docutils literal"><span class="pre">start</span></tt>. Positions start with <tt class="docutils literal"><span class="pre">1</span></tt>. A negative starting
+position is interpreted as being relative to the end of the string.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="trim">
+<tt class="descname">trim</tt><big>(</big><em>string</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Removes leading and trailing spaces from <tt class="docutils literal"><span class="pre">string</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="upper">
+<tt class="descname">upper</tt><big>(</big><em>string</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Converts <tt class="docutils literal"><span class="pre">string</span></tt> to uppercase.</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="math.html">4.5. Mathematical Functions and Operators</a>
+    </span>
+    <span class="right">
+        <a href="binary.html">4.7. Binary Functions</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
