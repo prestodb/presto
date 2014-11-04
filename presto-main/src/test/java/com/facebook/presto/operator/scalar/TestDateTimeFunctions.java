@@ -145,6 +145,7 @@ public class TestDateTimeFunctions
         assertFunction("minute(" + TIMESTAMP_LITERAL + ")", TIMESTAMP.getMinuteOfHour());
         assertFunction("hour(" + WEIRD_TIMESTAMP_LITERAL + ")", WEIRD_TIMESTAMP.getHourOfDay());
         assertFunction("minute(" + WEIRD_TIMESTAMP_LITERAL + ")", WEIRD_TIMESTAMP.getMinuteOfHour());
+        assertFunction("current_timezone()", TIME_ZONE_KEY.getId());
     }
 
     @Test
