@@ -222,8 +222,7 @@ public class OrcStorageManager
         for (RaptorColumnHandle column : effectivePredicate.getDomains().keySet()) {
             Integer index = indexMap.get(column.getColumnId());
             if (index != null) {
-                // TODO: remove the +1 when the ORC code is fixed
-                columns.add(new ColumnReference<>(column, index + 1, column.getColumnType()));
+                columns.add(new ColumnReference<>(column, index, column.getColumnType()));
             }
         }
         return new TupleDomainOrcPredicate<>(effectivePredicate, columns.build());

@@ -58,6 +58,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_INDEX;
 import static com.facebook.presto.orc.stream.CheckpointStreamSource.createCheckpointStreamSource;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class StripeReader
@@ -290,7 +291,7 @@ public class StripeReader
         int remainingRows = rowsInStripe;
         for (int rowGroup = 0; rowGroup < groupsInStripe; ++rowGroup) {
             int rows = Math.min(remainingRows, rowsInRowGroup);
-            Map<Integer, ColumnStatistics> statistics = getRowGroupStatistics(columnIndexes, rowGroup);
+            Map<Integer, ColumnStatistics> statistics = getRowGroupStatistics(types.get(0), columnIndexes, rowGroup);
             if (predicate.matches(rows, statistics)) {
                 selectedRowGroups.add(rowGroup);
             }
@@ -299,13 +300,21 @@ public class StripeReader
         return selectedRowGroups.build();
     }
 
-    private static Map<Integer, ColumnStatistics> getRowGroupStatistics(Map<Integer, List<RowGroupIndex>> columnIndexes, int rowGroup)
+    private static Map<Integer, ColumnStatistics> getRowGroupStatistics(OrcType rootStructType, Map<Integer, List<RowGroupIndex>> columnIndexes, int rowGroup)
     {
-        ImmutableMap.Builder<Integer, ColumnStatistics> statisticsBuilder = ImmutableMap.builder();
-        for (Entry<Integer, List<RowGroupIndex>> entry : columnIndexes.entrySet()) {
-            statisticsBuilder.put(entry.getKey(), entry.getValue().get(rowGroup).getColumnStatistics());
+        checkNotNull(rootStructType, "rootStructType is null");
+        checkArgument(rootStructType.getOrcTypeKind() == OrcTypeKind.STRUCT);
+        checkNotNull(columnIndexes, "columnIndexes is null");
+        checkArgument(rowGroup >= 0, "rowGroup is negative");
+
+        ImmutableMap.Builder<Integer, ColumnStatistics> statistics = ImmutableMap.builder();
+        for (int ordinal = 0; ordinal < rootStructType.getFieldCount(); ordinal++) {
+            List<RowGroupIndex> rowGroupIndexes = columnIndexes.get(rootStructType.getFieldTypeIndex(ordinal));
+            if (rowGroupIndexes != null) {
+                statistics.put(ordinal, rowGroupIndexes.get(rowGroup).getColumnStatistics());
+            }
         }
-        return statisticsBuilder.build();
+        return statistics.build();
     }
 
     private static boolean isIndexStream(Stream stream)
