@@ -196,7 +196,7 @@ class HiveSplitSourceProvider
                 final String partitionName = partition.getHivePartition().getPartitionId();
                 final Properties schema = getPartitionSchema(table, partition.getPartition());
                 final List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition());
-                final TupleDomain<HiveColumnHandle> tupleDomain = (TupleDomain<HiveColumnHandle>) (Object) partition.getHivePartition().getTupleDomain();
+                final TupleDomain<HiveColumnHandle> effectivePredicate = partition.getHivePartition().getEffectivePredicate();
 
                 Path path = new Path(getPartitionLocation(table, partition.getPartition()));
                 Configuration configuration = hdfsEnvironment.getConfiguration(path);
@@ -222,7 +222,7 @@ class HiveSplitSourceProvider
                                 partitionKeys,
                                 false,
                                 session,
-                                partition.getHivePartition().getEffectivePredicate()));
+                                effectivePredicate));
                     }
                     continue;
                 }
@@ -236,7 +236,18 @@ class HiveSplitSourceProvider
                         BlockLocation[] blockLocations = fs.getFileBlockLocations(file, 0, file.getLen());
                         boolean splittable = isSplittable(inputFormat, fs, file.getPath());
 
-                        hiveSplitSource.addToQueue(createHiveSplits(partitionName, file, blockLocations, 0, file.getLen(), schema, partitionKeys, splittable, session, tupleDomain));
+                        hiveSplitSource.addToQueue(createHiveSplits(
+                                partitionName,
+                                file,
+                                blockLocations,
+                                0,
+                                file.getLen(),
+                                schema,
+                                partitionKeys,
+                                splittable,
+                                session,
+                                effectivePredicate));
+
                         continue;
                     }
                 }
@@ -270,7 +281,7 @@ class HiveSplitSourceProvider
                                     partitionKeys,
                                     splittable,
                                     session,
-                                    tupleDomain));
+                                    effectivePredicate));
                         }
                         catch (IOException e) {
                             hiveSplitSource.fail(e);
