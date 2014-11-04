@@ -105,6 +105,14 @@ public final class DateTimeFunctions
         return getChronology(session.getTimeZoneKey()).millisOfDay().get(session.getStartTime());
     }
 
+    @Description("current time zone")
+    @ScalarFunction("current_timezone")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice currentTimeZone(ConnectorSession session)
+    {
+        return Slices.copiedBuffer(session.getTimeZoneKey().getId(), Charsets.UTF_8);
+    }
+
     @Description("current timestamp with time zone")
     @ScalarFunction(value = "current_timestamp", alias = "now")
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
