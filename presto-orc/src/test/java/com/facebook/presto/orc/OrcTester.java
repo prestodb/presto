@@ -14,7 +14,6 @@
 package com.facebook.presto.orc;
 
 import com.facebook.hive.orc.OrcConf;
-import com.facebook.presto.orc.metadata.ColumnStatistics;
 import com.facebook.presto.orc.metadata.DwrfMetadataReader;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
@@ -71,6 +70,7 @@ import static com.facebook.presto.orc.OrcTester.Compression.NONE;
 import static com.facebook.presto.orc.OrcTester.Compression.ZLIB;
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
+import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
 import static com.google.common.base.Functions.constant;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Iterators.advance;
@@ -331,7 +331,7 @@ public class OrcTester
             MetadataReader metadataReader)
             throws IOException
     {
-        OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, metadataReader);
+        OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, metadataReader, createOrcPredicate(objectInspector, expectedValues));
 
         Vector vector = createResultsVector(objectInspector);
 
@@ -394,7 +394,7 @@ public class OrcTester
         }
     }
 
-    private static OrcRecordReader createCustomOrcRecordReader(TempFile tempFile, MetadataReader metadataReader)
+    private static OrcRecordReader createCustomOrcRecordReader(TempFile tempFile, MetadataReader metadataReader, OrcPredicate predicate)
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile());
@@ -404,14 +404,7 @@ public class OrcTester
 
         return orcReader.createRecordReader(
                 ImmutableSet.of(0),
-                new OrcPredicate()
-                {
-                    @Override
-                    public boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByColumnIndex)
-                    {
-                        return true;
-                    }
-                },
+                predicate,
                 0,
                 tempFile.getFile().length(),
                 HIVE_STORAGE_TIME_ZONE,
