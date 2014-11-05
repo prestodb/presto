@@ -57,11 +57,11 @@ public class PruneRedundantProjections
 
             if (node.getOutputSymbols().size() != source.getOutputSymbols().size()) {
                 // Can't get rid of this projection. It constrains the output tuple from the underlying operator
-                return new ProjectNode(node.getId(), source, node.getOutputMap());
+                return new ProjectNode(node.getId(), source, node.getAssignments());
             }
 
             boolean canElide = true;
-            for (Map.Entry<Symbol, Expression> entry : node.getOutputMap().entrySet()) {
+            for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
                 Expression expression = entry.getValue();
                 Symbol symbol = entry.getKey();
                 if (!(expression instanceof QualifiedNameReference && ((QualifiedNameReference) expression).getName().equals(symbol.toQualifiedName()))) {
@@ -74,7 +74,7 @@ public class PruneRedundantProjections
                 return source;
             }
 
-            return new ProjectNode(node.getId(), source, node.getOutputMap());
+            return new ProjectNode(node.getId(), source, node.getAssignments());
         }
     }
 }

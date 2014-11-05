@@ -346,7 +346,7 @@ public class DistributedLogicalPlanner
         public SubPlanBuilder visitProject(ProjectNode node, Void context)
         {
             SubPlanBuilder current = node.getSource().accept(this, context);
-            current.setRoot(new ProjectNode(node.getId(), current.getRoot(), node.getOutputMap()));
+            current.setRoot(new ProjectNode(node.getId(), current.getRoot(), node.getAssignments()));
             return current;
         }
 

@@ -284,7 +284,7 @@ public class IndexJoinOptimizer
         {
             // Rewrite the lookup symbols in terms of only the pre-projected symbols that have direct translations
             Set<Symbol> newLookupSymbols = FluentIterable.from(context.getLookupSymbols())
-                    .transform(Functions.forMap(node.getOutputMap()))
+                    .transform(Functions.forMap(node.getAssignments()))
                     .filter(instanceOfQualifiedNameReference())
                     .transform(symbolFromReferenceGetter())
                     .toSet();
@@ -407,7 +407,7 @@ public class IndexJoinOptimizer
             public Map<Symbol, Symbol> visitProject(ProjectNode node, Set<Symbol> lookupSymbols)
             {
                 // Map from output Symbols to source Symbols
-                Map<Symbol, Symbol> directSymbolTranslationOutputMap = Maps.transformValues(Maps.filterValues(node.getOutputMap(), instanceOfQualifiedNameReference()), symbolFromReferenceGetter());
+                Map<Symbol, Symbol> directSymbolTranslationOutputMap = Maps.transformValues(Maps.filterValues(node.getAssignments(), instanceOfQualifiedNameReference()), symbolFromReferenceGetter());
                 Map<Symbol, Symbol> outputToSourceMap = FluentIterable.from(lookupSymbols)
                         .filter(in(directSymbolTranslationOutputMap.keySet()))
                         .toMap(Functions.forMap(directSymbolTranslationOutputMap));

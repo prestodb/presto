@@ -74,7 +74,7 @@ public class CanonicalizeExpressions
         public PlanNode rewriteProject(ProjectNode node, Void context, PlanRewriter<Void> planRewriter)
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
-            Map<Symbol, Expression> assignments = ImmutableMap.copyOf(Maps.transformValues(node.getOutputMap(), canonicalizeExpressionFunction()));
+            Map<Symbol, Expression> assignments = ImmutableMap.copyOf(Maps.transformValues(node.getAssignments(), canonicalizeExpressionFunction()));
             return new ProjectNode(node.getId(), source, assignments);
         }
 
