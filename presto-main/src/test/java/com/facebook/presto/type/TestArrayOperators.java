@@ -31,6 +31,9 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.type.ArrayType.rawSlicesToStackRepresentation;
 import static com.facebook.presto.type.ArrayType.toStackRepresentation;
+import static java.lang.Double.NEGATIVE_INFINITY;
+import static java.lang.Double.NaN;
+import static java.lang.Double.POSITIVE_INFINITY;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -90,9 +93,9 @@ public class TestArrayOperators
         assertFunction("ARRAY [from_unixtime(1), from_unixtime(100)]", ImmutableList.of(
                 new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()),
                 new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey())));
-        assertFunction("ARRAY [sqrt(-1)]", ImmutableList.of(Double.NaN));
-        assertFunction("ARRAY [pow(infinity(), 2)]", ImmutableList.of(Double.POSITIVE_INFINITY));
-        assertFunction("ARRAY [pow(-infinity(), 1)]", ImmutableList.of(Double.NEGATIVE_INFINITY));
+        assertFunction("ARRAY [sqrt(-1)]", ImmutableList.of(NaN));
+        assertFunction("ARRAY [pow(infinity(), 2)]", ImmutableList.of(POSITIVE_INFINITY));
+        assertFunction("ARRAY [pow(-infinity(), 1)]", ImmutableList.of(NEGATIVE_INFINITY));
     }
 
     @Test
@@ -225,6 +228,9 @@ public class TestArrayOperators
         assertFunction("ARRAY ['puppies', 'kittens', NULL][3]", null);
         assertFunction("ARRAY [TRUE, FALSE][2]", false);
         assertFunction("ARRAY [from_unixtime(1), from_unixtime(100)][1]", new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()));
+        assertFunction("ARRAY [infinity()][1]", POSITIVE_INFINITY);
+        assertFunction("ARRAY [-infinity()][1]", NEGATIVE_INFINITY);
+        assertFunction("ARRAY [sqrt(-1)][1]", NaN);
     }
 
     @Test

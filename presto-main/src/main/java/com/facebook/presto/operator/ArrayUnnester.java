@@ -31,6 +31,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 
+import static com.facebook.presto.type.TypeJsonUtils.getDoubleValue;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ArrayUnnester
@@ -63,7 +64,7 @@ public class ArrayUnnester
                 elementType.writeLong(blockBuilder, jsonParser.getLongValue());
             }
             else if (elementType.getJavaType() == double.class) {
-                elementType.writeDouble(blockBuilder, jsonParser.getDoubleValue());
+                elementType.writeDouble(blockBuilder, getDoubleValue(jsonParser));
             }
             else if (elementType.getJavaType() == boolean.class) {
                 elementType.writeBoolean(blockBuilder, jsonParser.getBooleanValue());

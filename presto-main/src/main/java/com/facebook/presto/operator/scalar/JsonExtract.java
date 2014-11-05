@@ -29,6 +29,7 @@ import io.airlift.slice.Slices;
 import java.io.IOException;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.type.TypeJsonUtils.getDoubleValue;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
@@ -290,7 +291,7 @@ public final class JsonExtract
             if (!token.isScalarValue() || token == VALUE_NULL) {
                 return null;
             }
-            return jsonParser.getDoubleValue();
+            return getDoubleValue(jsonParser);
         }
     }
 
