@@ -34,3 +34,4 @@ MySQL and PostgreSQL Changes
 ----------------------------
 
 * Enable streaming results instead of buffering everything in memory.
+* Fix handling of pattern characters when matching table or column names.

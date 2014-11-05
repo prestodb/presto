@@ -65,6 +65,9 @@ final class TestingDatabase
         connection.createStatement().execute("CREATE TABLE tpch.orders(orderkey bigint primary key, custkey bigint)");
         connection.createStatement().execute("CREATE TABLE tpch.lineitem(orderkey bigint primary key, partkey bigint)");
 
+        connection.createStatement().execute("CREATE SCHEMA exa_ple");
+        connection.createStatement().execute("CREATE TABLE exa_ple.num_ers(te_t varchar primary key, \"VA%UE\" bigint)");
+
         connection.commit();
     }
 
