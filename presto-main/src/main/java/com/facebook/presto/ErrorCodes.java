@@ -21,7 +21,7 @@ import com.facebook.presto.sql.parser.ParsingException;
 
 import javax.annotation.Nullable;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL;
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 
 public final class ErrorCodes
@@ -49,6 +49,6 @@ public final class ErrorCodes
         if (throwable.getCause() != null) {
             return toErrorCode(throwable.getCause());
         }
-        return INTERNAL.toErrorCode();
+        return INTERNAL_ERROR.toErrorCode();
     }
 }

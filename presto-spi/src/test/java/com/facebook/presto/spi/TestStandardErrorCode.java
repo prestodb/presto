@@ -21,7 +21,7 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.EXTERNAL;
 import static com.facebook.presto.spi.StandardErrorCode.INSUFFICIENT_RESOURCES;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL;
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertLessThanOrEqual;
@@ -62,7 +62,7 @@ public class TestStandardErrorCode
             StandardErrorCode code = iterator.next();
             int current = code(code);
             assertGreaterThan(current, previous, "Code is out of order: " + code);
-            if ((code != INTERNAL) && (code != INSUFFICIENT_RESOURCES) && (code != EXTERNAL)) {
+            if ((code != INTERNAL_ERROR) && (code != INSUFFICIENT_RESOURCES) && (code != EXTERNAL)) {
                 assertEquals(current, previous + 1, "Code is not sequential: " + code);
             }
             previous = current;
@@ -75,8 +75,8 @@ public class TestStandardErrorCode
             throws Exception
     {
         assertEquals(code(USER_ERROR), 0);
-        assertGreaterThan(code(INTERNAL), code(USER_ERROR));
-        assertGreaterThan(code(INSUFFICIENT_RESOURCES), code(INTERNAL));
+        assertGreaterThan(code(INTERNAL_ERROR), code(USER_ERROR));
+        assertGreaterThan(code(INSUFFICIENT_RESOURCES), code(INTERNAL_ERROR));
         assertGreaterThan(code(EXTERNAL), code(INSUFFICIENT_RESOURCES));
     }
 

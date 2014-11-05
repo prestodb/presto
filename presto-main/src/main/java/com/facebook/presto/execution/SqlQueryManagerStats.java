@@ -51,7 +51,7 @@ public class SqlQueryManagerStats
                 case USER_ERROR:
                     userErrorFailures.update(1);
                     break;
-                case INTERNAL:
+                case INTERNAL_ERROR:
                     internalFailures.update(1);
                     break;
                 case INSUFFICIENT_RESOURCES:
