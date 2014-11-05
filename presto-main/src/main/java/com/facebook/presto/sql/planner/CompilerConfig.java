@@ -19,7 +19,6 @@ import io.airlift.configuration.Config;
 public class CompilerConfig
 {
     private boolean interpreterEnabled = true;
-    private boolean useNewByteCodeGenerator = true;
 
     public boolean isInterpreterEnabled()
     {
