@@ -121,7 +121,7 @@ public class TestRaptorSplitManager
         List<ConnectorPartition> partitions = partitionResult.getPartitions();
         ConnectorPartition partition = Iterables.getOnlyElement(partitions);
         TupleDomain<ConnectorColumnHandle> columnUnionedTupleDomain = TupleDomain.columnWiseUnion(partition.getTupleDomain(), partition.getTupleDomain());
-        assertEquals(columnUnionedTupleDomain, TupleDomain.all());
+        assertEquals(columnUnionedTupleDomain, TupleDomain.<ConnectorColumnHandle>all());
 
         ConnectorSplitSource splitSource = raptorSplitManager.getPartitionSplits(tableHandle, partitions);
         int splitCount = 0;
