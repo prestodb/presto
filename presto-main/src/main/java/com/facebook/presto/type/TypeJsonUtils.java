@@ -18,6 +18,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.google.common.base.Throwables;
@@ -109,7 +110,15 @@ public final class TypeJsonUtils
             type.writeLong(blockBuilder, parser.getLongValue());
         }
         else if (type.getJavaType() == double.class) {
-            type.writeDouble(blockBuilder, parser.getDoubleValue());
+            double value;
+            try {
+                value = parser.getDoubleValue();
+            }
+            catch (JsonParseException e) {
+                //handle non-numeric numbers (inf/nan)
+                value = Double.parseDouble(parser.getValueAsString());
+            }
+            type.writeDouble(blockBuilder, value);
         }
         else if (type.getJavaType() == Slice.class) {
             type.writeSlice(blockBuilder, Slices.utf8Slice(parser.getValueAsString()));
