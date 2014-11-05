@@ -15,17 +15,20 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
+import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 
 import javax.inject.Inject;
 
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import java.io.IOException;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class TypeDeserializer
-        extends FromStringDeserializer<Type>
+        extends StdDeserializer<Type>
 {
     private final TypeManager typeManager;
 
@@ -37,10 +40,12 @@ public final class TypeDeserializer
     }
 
     @Override
-    protected Type _deserialize(String value, DeserializationContext context)
+    public Type deserialize(JsonParser jsonParser, DeserializationContext context)
+            throws IOException
     {
-        Type type = typeManager.getType(parseTypeSignature(value));
-        checkArgument(type != null, "Unknown type %s", value);
+        TypeSignature typeSignature = jsonParser.readValueAs(TypeSignature.class);
+        Type type = typeManager.getType(typeSignature);
+        checkArgument(type != null, "Unknown type %s", typeSignature);
         return type;
     }
 }

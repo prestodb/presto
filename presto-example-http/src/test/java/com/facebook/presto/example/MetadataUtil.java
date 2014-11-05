@@ -15,14 +15,17 @@ package com.facebook.presto.example;
 
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
+import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -31,7 +34,6 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.json.JsonCodec.listJsonCodec;
-import static java.util.Locale.ENGLISH;
 
 public final class MetadataUtil
 {
@@ -53,7 +55,7 @@ public final class MetadataUtil
     }
 
     public static final class TestingTypeDeserializer
-            extends FromStringDeserializer<Type>
+            extends StdDeserializer<Type>
     {
         private final Map<String, Type> types = ImmutableMap.<String, Type>of(
                 StandardTypes.BOOLEAN, BOOLEAN,
@@ -67,11 +69,13 @@ public final class MetadataUtil
         }
 
         @Override
-        protected Type _deserialize(String value, DeserializationContext context)
+        public Type deserialize(JsonParser jsonParser, DeserializationContext context)
+                throws IOException
         {
-            Type type = types.get(value.toLowerCase(ENGLISH));
+            TypeSignature typeSignature = jsonParser.readValueAs(TypeSignature.class);
+            Type type = types.get(typeSignature.toString());
             if (type == null) {
-                throw new IllegalArgumentException(String.valueOf("Unknown type " + value));
+                throw new IllegalArgumentException(String.valueOf("Unknown type " + typeSignature));
             }
             return type;
         }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hadoop.shaded.com.google.common.collect.ImmutableList;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -53,7 +54,7 @@ public class TestJsonHiveHandles
             .put("name", "column")
             .put("ordinalPosition", 42)
             .put("hiveType", "float")
-            .put("typeSignature", "double")
+            .put("typeSignature", ImmutableMap.of("rawType", "double", "typeArguments", ImmutableList.of(), "literalArguments", ImmutableList.of()))
             .put("hiveColumnIndex", -1)
             .put("partitionKey", true)
             .build();

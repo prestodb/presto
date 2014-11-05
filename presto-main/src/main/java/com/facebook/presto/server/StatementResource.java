@@ -34,7 +34,9 @@ import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.AbstractIterator;
@@ -84,6 +86,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.presto.execution.QueryInfo.queryIdGetter;
 import static com.facebook.presto.server.ResourceUtil.assertRequest;
 import static com.facebook.presto.server.ResourceUtil.createSessionForRequest;
+import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -279,7 +282,7 @@ public class StatementResource
                     // so statements without results produce an error in the client otherwise.
                     //
                     // TODO: add support to the API for non-query statements.
-                    columns = ImmutableList.of(new Column("result", "boolean"));
+                    columns = ImmutableList.of(new Column("result", "boolean", parameterizedTypeName(StandardTypes.BOOLEAN)));
                     data = ImmutableSet.<List<Object>>of(ImmutableList.<Object>of(true));
                 }
             }
@@ -408,8 +411,9 @@ public class StatementResource
             ImmutableList.Builder<Column> list = ImmutableList.builder();
             for (int i = 0; i < names.size(); i++) {
                 String name = names.get(i);
-                String type = types.get(i).getTypeSignature().toString();
-                list.add(new Column(name, type));
+                TypeSignature typeSignature = types.get(i).getTypeSignature();
+                String type = typeSignature.toString();
+                list.add(new Column(name, type, typeSignature));
             }
             return list.build();
         }
