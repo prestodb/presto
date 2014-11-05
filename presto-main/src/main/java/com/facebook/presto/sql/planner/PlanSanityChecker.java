@@ -43,15 +43,16 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer.IndexKeyTracer;
+import static com.google.common.base.Preconditions.checkArgument;
 
 /**
  * Ensures that all dependencies (i.e., symbols in expressions) for a plan node are provided by its source nodes
@@ -84,15 +85,16 @@ public final class PlanSanityChecker
 
             verifyUniqueId(node);
 
-            Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getGroupBy()), "Invalid node. Group by symbols (%s) not in source plan output (%s)", node.getGroupBy(), node.getSource().getOutputSymbols());
+            Set<Symbol> inputs = ImmutableSet.copyOf(source.getOutputSymbols());
+            checkDependencies(inputs, node.getGroupBy(), "Invalid node. Group by symbols (%s) not in source plan output (%s)", node.getGroupBy(), node.getSource().getOutputSymbols());
 
             if (node.getSampleWeight().isPresent()) {
-                Preconditions.checkArgument(source.getOutputSymbols().contains(node.getSampleWeight().get()), "Invalid node. Sample weight symbol (%s) is not in source plan output (%s)", node.getSampleWeight().get(), node.getSource().getOutputSymbols());
+                checkArgument(inputs.contains(node.getSampleWeight().get()), "Invalid node. Sample weight symbol (%s) is not in source plan output (%s)", node.getSampleWeight().get(), node.getSource().getOutputSymbols());
             }
 
             for (FunctionCall call : node.getAggregations().values()) {
                 Set<Symbol> dependencies = DependencyExtractor.extractUnique(call);
-                Preconditions.checkArgument(source.getOutputSymbols().containsAll(dependencies), "Invalid node. Aggregation dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
+                checkDependencies(inputs, dependencies, "Invalid node. Aggregation dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
             }
 
             return null;
@@ -106,7 +108,7 @@ public final class PlanSanityChecker
 
             verifyUniqueId(node);
 
-            Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getDistinctSymbols()), "Invalid node. Mark distinct symbols (%s) not in source plan output (%s)", node.getDistinctSymbols(), source.getOutputSymbols());
+            checkDependencies(source.getOutputSymbols(), node.getDistinctSymbols(), "Invalid node. Mark distinct symbols (%s) not in source plan output (%s)", node.getDistinctSymbols(), source.getOutputSymbols());
 
             return null;
         }
@@ -119,12 +121,14 @@ public final class PlanSanityChecker
 
             verifyUniqueId(node);
 
-            Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getPartitionBy()), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().getOutputSymbols());
-            Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOrderBy()), "Invalid node. Order by symbols (%s) not in source plan output (%s)", node.getOrderBy(), node.getSource().getOutputSymbols());
+            Set<Symbol> inputs = ImmutableSet.copyOf(source.getOutputSymbols());
+
+            checkDependencies(inputs, node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().getOutputSymbols());
+            checkDependencies(inputs, node.getOrderBy(), "Invalid node. Order by symbols (%s) not in source plan output (%s)", node.getOrderBy(), node.getSource().getOutputSymbols());
 
             for (FunctionCall call : node.getWindowFunctions().values()) {
                 Set<Symbol> dependencies = DependencyExtractor.extractUnique(call);
-                Preconditions.checkArgument(source.getOutputSymbols().containsAll(dependencies), "Invalid node. Window function dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
+                checkDependencies(inputs, dependencies, "Invalid node. Window function dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
             }
 
             return null;
@@ -138,8 +142,9 @@ public final class PlanSanityChecker
 
             verifyUniqueId(node);
 
-            Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getPartitionBy()), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().getOutputSymbols());
-            Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOrderBy()), "Invalid node. Order by symbols (%s) not in source plan output (%s)", node.getOrderBy(), node.getSource().getOutputSymbols());
+            Set<Symbol> inputs = ImmutableSet.copyOf(source.getOutputSymbols());
+            checkDependencies(inputs, node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().getOutputSymbols());
+            checkDependencies(inputs, node.getOrderBy(), "Invalid node. Order by symbols (%s) not in source plan output (%s)", node.getOrderBy(), node.getSource().getOutputSymbols());
 
             return null;
         }
@@ -152,7 +157,7 @@ public final class PlanSanityChecker
 
             verifyUniqueId(node);
 
-            Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getPartitionBy()), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().getOutputSymbols());
+            checkDependencies(source.getOutputSymbols(), node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().getOutputSymbols());
 
             return null;
         }
@@ -165,11 +170,11 @@ public final class PlanSanityChecker
 
             verifyUniqueId(node);
 
-            Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOutputSymbols()), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
+            Set<Symbol> inputs = ImmutableSet.copyOf(source.getOutputSymbols());
+            checkDependencies(inputs, node.getOutputSymbols(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
 
             Set<Symbol> dependencies = DependencyExtractor.extractUnique(node.getPredicate());
-
-            Preconditions.checkArgument(source.getOutputSymbols().containsAll(dependencies), "Invalid node. Predicate dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
+            checkDependencies(inputs, dependencies, "Invalid node. Predicate dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
 
             return null;
         }
@@ -193,9 +198,10 @@ public final class PlanSanityChecker
 
             verifyUniqueId(node);
 
+            Set<Symbol> inputs = ImmutableSet.copyOf(source.getOutputSymbols());
             for (Expression expression : node.getExpressions()) {
                 Set<Symbol> dependencies = DependencyExtractor.extractUnique(expression);
-                Preconditions.checkArgument(source.getOutputSymbols().containsAll(dependencies), "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
+                checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
             }
 
             return null;
@@ -209,8 +215,9 @@ public final class PlanSanityChecker
 
             verifyUniqueId(node);
 
-            Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOutputSymbols()), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
-            Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOrderBy()),
+            Set<Symbol> inputs = ImmutableSet.copyOf(source.getOutputSymbols());
+            checkDependencies(inputs, node.getOutputSymbols(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
+            checkDependencies(inputs, node.getOrderBy(),
                     "Invalid node. Order by dependencies (%s) not in source plan output (%s)",
                     node.getOrderBy(),
                     node.getSource().getOutputSymbols());
@@ -226,8 +233,9 @@ public final class PlanSanityChecker
 
             verifyUniqueId(node);
 
-            Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOutputSymbols()), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
-            Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOrderBy()), "Invalid node. Order by dependencies (%s) not in source plan output (%s)", node.getOrderBy(), node.getSource().getOutputSymbols());
+            Set<Symbol> inputs = ImmutableSet.copyOf(source.getOutputSymbols());
+            checkDependencies(inputs, node.getOutputSymbols(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
+            checkDependencies(inputs, node.getOrderBy(), "Invalid node. Order by dependencies (%s) not in source plan output (%s)", node.getOrderBy(), node.getSource().getOutputSymbols());
 
             return null;
         }
@@ -240,7 +248,7 @@ public final class PlanSanityChecker
 
             verifyUniqueId(node);
 
-            Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOutputSymbols()), "Invalid node. Output column dependencies (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
+            checkDependencies(source.getOutputSymbols(), node.getOutputSymbols(), "Invalid node. Output column dependencies (%s) not in source plan output (%s)", node.getOutputSymbols(), source.getOutputSymbols());
 
             return null;
         }
@@ -274,9 +282,12 @@ public final class PlanSanityChecker
 
             verifyUniqueId(node);
 
+            Set<Symbol> leftInputs = ImmutableSet.copyOf(node.getLeft().getOutputSymbols());
+            Set<Symbol> rightInputs = ImmutableSet.copyOf(node.getRight().getOutputSymbols());
+
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
-                Preconditions.checkArgument(node.getLeft().getOutputSymbols().contains(clause.getLeft()), "Symbol from join clause (%s) not in left source (%s)", clause.getLeft(), node.getLeft().getOutputSymbols());
-                Preconditions.checkArgument(node.getRight().getOutputSymbols().contains(clause.getRight()), "Symbol from join clause (%s) not in right source (%s)", clause.getRight(), node.getRight().getOutputSymbols());
+                checkArgument(leftInputs.contains(clause.getLeft()), "Symbol from join clause (%s) not in left source (%s)", clause.getLeft(), node.getLeft().getOutputSymbols());
+                checkArgument(rightInputs.contains(clause.getRight()), "Symbol from join clause (%s) not in right source (%s)", clause.getRight(), node.getRight().getOutputSymbols());
             }
 
             return null;
@@ -290,10 +301,12 @@ public final class PlanSanityChecker
 
             verifyUniqueId(node);
 
-            Preconditions.checkArgument(node.getSource().getOutputSymbols().contains(node.getSourceJoinSymbol()), "Symbol from semi join clause (%s) not in source (%s)", node.getSourceJoinSymbol(), node.getSource().getOutputSymbols());
-            Preconditions.checkArgument(node.getFilteringSource().getOutputSymbols().contains(node.getFilteringSourceJoinSymbol()), "Symbol from semi join clause (%s) not in filtering source (%s)", node.getSourceJoinSymbol(), node.getFilteringSource().getOutputSymbols());
-            Preconditions.checkArgument(node.getOutputSymbols().containsAll(node.getSource().getOutputSymbols()), "Semi join output symbols (%s) must contain all of the source symbols (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
-            Preconditions.checkArgument(node.getOutputSymbols().contains(node.getSemiJoinOutput()),
+            checkArgument(node.getSource().getOutputSymbols().contains(node.getSourceJoinSymbol()), "Symbol from semi join clause (%s) not in source (%s)", node.getSourceJoinSymbol(), node.getSource().getOutputSymbols());
+            checkArgument(node.getFilteringSource().getOutputSymbols().contains(node.getFilteringSourceJoinSymbol()), "Symbol from semi join clause (%s) not in filtering source (%s)", node.getSourceJoinSymbol(), node.getFilteringSource().getOutputSymbols());
+
+            Set<Symbol> outputs = ImmutableSet.copyOf(node.getOutputSymbols());
+            checkArgument(outputs.containsAll(node.getSource().getOutputSymbols()), "Semi join output symbols (%s) must contain all of the source symbols (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
+            checkArgument(outputs.contains(node.getSemiJoinOutput()),
                     "Semi join output symbols (%s) must contain join result (%s)",
                     node.getOutputSymbols(),
                     node.getSemiJoinOutput());
@@ -309,16 +322,18 @@ public final class PlanSanityChecker
 
             verifyUniqueId(node);
 
+            Set<Symbol> probeInputs = ImmutableSet.copyOf(node.getProbeSource().getOutputSymbols());
+            Set<Symbol> indexSourceInputs = ImmutableSet.copyOf(node.getIndexSource().getOutputSymbols());
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
-                Preconditions.checkArgument(node.getProbeSource().getOutputSymbols().contains(clause.getProbe()), "Probe symbol from index join clause (%s) not in probe source (%s)", clause.getProbe(), node.getProbeSource().getOutputSymbols());
-                Preconditions.checkArgument(node.getIndexSource().getOutputSymbols().contains(clause.getIndex()), "Index symbol from index join clause (%s) not in index source (%s)", clause.getIndex(), node.getIndexSource().getOutputSymbols());
+                checkArgument(probeInputs.contains(clause.getProbe()), "Probe symbol from index join clause (%s) not in probe source (%s)", clause.getProbe(), node.getProbeSource().getOutputSymbols());
+                checkArgument(indexSourceInputs.contains(clause.getIndex()), "Index symbol from index join clause (%s) not in index source (%s)", clause.getIndex(), node.getIndexSource().getOutputSymbols());
             }
 
             Set<Symbol> lookupSymbols = FluentIterable.from(node.getCriteria())
                     .transform(IndexJoinNode.EquiJoinClause.indexGetter())
                     .toSet();
             Map<Symbol, Symbol> trace = IndexKeyTracer.trace(node.getIndexSource(), lookupSymbols);
-            Preconditions.checkArgument(!trace.isEmpty() && lookupSymbols.containsAll(trace.keySet()),
+            checkArgument(!trace.isEmpty() && lookupSymbols.containsAll(trace.keySet()),
                     "Index lookup symbols are not traceable to index source: %s",
                     lookupSymbols);
 
@@ -330,8 +345,8 @@ public final class PlanSanityChecker
         {
             verifyUniqueId(node);
 
-            Preconditions.checkArgument(node.getOutputSymbols().containsAll(node.getLookupSymbols()), "Lookup symbols must be part of output symbols");
-            Preconditions.checkArgument(node.getAssignments().keySet().containsAll(node.getOutputSymbols()), "Assignments must contain mappings for output symbols");
+            checkDependencies(node.getOutputSymbols(), node.getLookupSymbols(), "Lookup symbols must be part of output symbols");
+            checkDependencies(node.getAssignments().keySet(), node.getOutputSymbols(), "Assignments must contain mappings for output symbols");
 
             return null;
         }
@@ -341,7 +356,7 @@ public final class PlanSanityChecker
         {
             verifyUniqueId(node);
 
-            Preconditions.checkArgument(node.getAssignments().keySet().containsAll(node.getOutputSymbols()), "Assignments must contain mappings for output symbols");
+            checkArgument(node.getAssignments().keySet().containsAll(node.getOutputSymbols()), "Assignments must contain mappings for output symbols");
 
             return null;
         }
@@ -350,9 +365,6 @@ public final class PlanSanityChecker
         public Void visitValues(ValuesNode node, Void context)
         {
             verifyUniqueId(node);
-
-            Preconditions.checkArgument(node.getOutputSymbols().containsAll(node.getOutputSymbols()), "Assignments must contain mappings for output symbols");
-
             return null;
         }
 
@@ -364,8 +376,12 @@ public final class PlanSanityChecker
 
             verifyUniqueId(node);
 
-            Set<Object> inputSymbols = ImmutableSet.builder().addAll(node.getReplicateSymbols()).addAll(node.getUnnestSymbols().keySet()).build();
-            Preconditions.checkArgument(source.getOutputSymbols().containsAll(inputSymbols));
+            Set<Symbol> required = ImmutableSet.<Symbol>builder()
+                    .addAll(node.getReplicateSymbols())
+                    .addAll(node.getUnnestSymbols().keySet())
+                    .build();
+
+            checkDependencies(source.getOutputSymbols(), required, "Invalid node. Dependencies (%s) not in source plan output (%s)", required, source.getOutputSymbols());
 
             return null;
         }
@@ -398,7 +414,7 @@ public final class PlanSanityChecker
             verifyUniqueId(node);
 
             if (node.getSampleWeightSymbol().isPresent()) {
-                Preconditions.checkArgument(source.getOutputSymbols().contains(node.getSampleWeightSymbol().get()), "Invalid node. Sample weight symbol (%s) is not in source plan output (%s)", node.getSampleWeightSymbol().get(), node.getSource().getOutputSymbols());
+                checkArgument(source.getOutputSymbols().contains(node.getSampleWeightSymbol().get()), "Invalid node. Sample weight symbol (%s) is not in source plan output (%s)", node.getSampleWeightSymbol().get(), node.getSource().getOutputSymbols());
             }
 
             return null;
@@ -408,7 +424,7 @@ public final class PlanSanityChecker
         public Void visitTableCommit(TableCommitNode node, Void context)
         {
             PlanNode source = node.getSource();
-            Preconditions.checkArgument(source instanceof TableWriterNode, "Invalid node. TableCommit source must be a TableWriter not %s", source.getClass().getSimpleName());
+            checkArgument(source instanceof TableWriterNode, "Invalid node. TableCommit source must be a TableWriter not %s", source.getClass().getSimpleName());
             source.accept(this, context); // visit child
 
             verifyUniqueId(node);
@@ -421,7 +437,7 @@ public final class PlanSanityChecker
         {
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanNode subplan = node.getSources().get(i);
-                Preconditions.checkArgument(subplan.getOutputSymbols().containsAll(node.sourceOutputLayout(i)), "UNION subplan must provide all of the necessary symbols");
+                checkDependencies(subplan.getOutputSymbols(), node.sourceOutputLayout(i), "UNION subplan must provide all of the necessary symbols");
                 subplan.accept(this, context); // visit child
             }
 
@@ -433,9 +449,14 @@ public final class PlanSanityChecker
         private void verifyUniqueId(PlanNode node)
         {
             PlanNodeId id = node.getId();
-            Preconditions.checkArgument(!nodesById.containsKey(id), "Duplicate node id found %s between %s and %s", node.getId(), node, nodesById.get(id));
+            checkArgument(!nodesById.containsKey(id), "Duplicate node id found %s between %s and %s", node.getId(), node, nodesById.get(id));
 
             nodesById.put(id, node);
         }
+    }
+
+    private static void checkDependencies(Collection<Symbol> inputs, Collection<Symbol> required, String message, Object... parameters)
+    {
+        checkArgument(ImmutableSet.copyOf(inputs).containsAll(required), message, parameters);
     }
 }

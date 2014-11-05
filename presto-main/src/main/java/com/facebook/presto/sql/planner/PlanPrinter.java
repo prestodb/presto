@@ -66,6 +66,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -75,6 +76,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.DomainUtils.simplifyDomain;
@@ -344,8 +346,10 @@ public class PlanPrinter
         {
             TupleDomain<ColumnHandle> partitionsDomainSummary = node.getPartitionsDomainSummary();
             print(indent, "- TableScan[%s, original constraint=%s] => [%s]", node.getTable(), node.getOriginalConstraint(), formatOutputs(node.getOutputSymbols()));
+
+            Set<Symbol> outputs = ImmutableSet.copyOf(node.getOutputSymbols());
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
-                boolean isOutputSymbol = node.getOutputSymbols().contains(entry.getKey());
+                boolean isOutputSymbol = outputs.contains(entry.getKey());
                 boolean isInOriginalConstraint = node.getOriginalConstraint() == null ? false : DependencyExtractor.extractUnique(node.getOriginalConstraint()).contains(entry.getKey());
                 boolean isInDomainSummary = !partitionsDomainSummary.isNone() && partitionsDomainSummary.getDomains().keySet().contains(entry.getValue());
 

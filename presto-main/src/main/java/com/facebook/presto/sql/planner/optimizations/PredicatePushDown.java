@@ -25,7 +25,6 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.DomainTranslator;
-import com.facebook.presto.sql.planner.DomainUtils;
 import com.facebook.presto.sql.planner.EffectivePredicateExtractor;
 import com.facebook.presto.sql.planner.EqualityInference;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
@@ -69,7 +68,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import io.airlift.log.Logger;
 
 import java.util.ArrayList;
@@ -856,20 +854,31 @@ public class PredicatePushDown
 
         private Predicate<Partition> shouldPrunePartition(final Expression predicate, final Map<Symbol, ColumnHandle> symbolToColumn)
         {
+            final Map<ColumnHandle, Symbol> columnToSymbol = ImmutableBiMap.copyOf(symbolToColumn).inverse();
+            final List<Expression> conjuncts = extractConjuncts(predicate);
+            final IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), predicate);
+
             return new Predicate<Partition>()
             {
                 @Override
                 public boolean apply(Partition partition)
                 {
                     Map<ColumnHandle, Comparable<?>> columnFixedValueAssignments = partition.getTupleDomain().extractFixedValues();
-                    Map<ColumnHandle, Comparable<?>> translatableAssignments = Maps.filterKeys(columnFixedValueAssignments, in(symbolToColumn.values()));
-                    Map<Symbol, Comparable<?>> symbolFixedValueAssignments = DomainUtils.columnHandleToSymbol(translatableAssignments, symbolToColumn);
 
-                    LookupSymbolResolver inputs = new LookupSymbolResolver(ImmutableMap.<Symbol, Object>copyOf(symbolFixedValueAssignments));
+                    checkArgument(columnToSymbol.keySet().containsAll(columnFixedValueAssignments.keySet()), "assignments does not contain all required column handles");
+
+                    ImmutableMap.Builder<Symbol, Object> builder = ImmutableMap.builder();
+                    for (Map.Entry<ColumnHandle, Comparable<?>> entry : columnFixedValueAssignments.entrySet()) {
+                        Symbol translated = columnToSymbol.get(entry.getKey());
+                        if (translated != null) {
+                            builder.put(translated, entry.getValue());
+                        }
+                    }
+
+                    LookupSymbolResolver inputs = new LookupSymbolResolver(builder.build());
 
                     // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
-                    for (Expression expression : extractConjuncts(predicate)) {
-                        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), expression);
+                    for (Expression expression : conjuncts) {
                         ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
                         Object optimized = optimizer.optimize(inputs);
                         if (Boolean.FALSE.equals(optimized) || optimized == null || optimized instanceof NullLiteral) {
