@@ -31,6 +31,7 @@ public class ProjectNode
 {
     private final PlanNode source;
     private final Map<Symbol, Expression> assignments;
+    private final List<Symbol> outputs;
 
     // TODO: pass in the "assignments" and the "outputs" separately (i.e., get rid if the symbol := symbol idiom)
     @JsonCreator
@@ -42,6 +43,7 @@ public class ProjectNode
 
         this.source = source;
         this.assignments = ImmutableMap.copyOf(assignments);
+        this.outputs = ImmutableList.copyOf(assignments.keySet());
     }
 
     public List<Expression> getExpressions()
@@ -52,7 +54,7 @@ public class ProjectNode
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.copyOf(assignments.keySet());
+        return outputs;
     }
 
     @JsonProperty
