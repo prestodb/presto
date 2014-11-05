@@ -33,6 +33,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.type.TypeJsonUtils.getDoubleValue;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class MapUnnester
@@ -99,7 +100,7 @@ public class MapUnnester
                 valueType.writeLong(valueBlockBuilder, jsonParser.getLongValue());
             }
             else if (valueType.getJavaType() == double.class) {
-                valueType.writeDouble(valueBlockBuilder, jsonParser.getDoubleValue());
+                valueType.writeDouble(valueBlockBuilder, getDoubleValue(jsonParser));
             }
             else if (valueType.getJavaType() == boolean.class) {
                 valueType.writeBoolean(valueBlockBuilder, jsonParser.getBooleanValue());
