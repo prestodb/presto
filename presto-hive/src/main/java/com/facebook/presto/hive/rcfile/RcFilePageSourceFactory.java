@@ -86,7 +86,7 @@ public class RcFilePageSourceFactory
             DateTimeZone hiveStorageTimeZone)
     {
         // todo remove this when GC issues are resolved
-        if (false || !isOptimizedReaderEnabled(session, enabled)) {
+        if (true || !isOptimizedReaderEnabled(session, enabled)) {
             return Optional.absent();
         }
 
