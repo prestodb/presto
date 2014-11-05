@@ -86,6 +86,9 @@ public class TestArrayOperators
         assertFunction("ARRAY [from_unixtime(1), from_unixtime(100)]", ImmutableList.of(
                 new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()),
                 new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey())));
+        assertFunction("ARRAY [sqrt(-1)]", ImmutableList.of(Double.NaN));
+        assertFunction("ARRAY [pow(infinity(), 2)]", ImmutableList.of(Double.POSITIVE_INFINITY));
+        assertFunction("ARRAY [pow(-infinity(), 1)]", ImmutableList.of(Double.NEGATIVE_INFINITY));
     }
 
     @Test
