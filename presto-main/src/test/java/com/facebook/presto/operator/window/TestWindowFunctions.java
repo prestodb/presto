@@ -721,4 +721,65 @@ public class TestWindowFunctions
                         .row(null, null, -1)
                         .build(), queryRunner);
     }
+
+    @Test
+    public void testNthValue()
+    {
+        // Test the function with a constant offset
+        assertWindowQuery("nth_value(orderkey, 2) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
+                        .row(3, "F", 5)
+                        .row(5, "F", 5)
+                        .row(6, "F", 5)
+                        .row(33, "F", 5)
+                        .row(1, "O", 2)
+                        .row(2, "O", 2)
+                        .row(4, "O", 2)
+                        .row(7, "O", 2)
+                        .row(32, "O", 2)
+                        .row(34, "O", 2)
+                        .build(), queryRunner);
+        assertWindowQueryWithNulls("nth_value(orderkey, 2) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
+                        .row(3, "F", 5)
+                        .row(5, "F", 5)
+                        .row(null, "F", 5)
+                        .row(null, "F", 5)
+                        .row(34, "O", null)
+                        .row(null, "O", null)
+                        .row(1, null, 7)
+                        .row(7, null, 7)
+                        .row(null, null, 7)
+                        .row(null, null, 7)
+                        .build(), queryRunner);
+
+        // Test the function with a variable offset
+        assertWindowQuery("nth_value(orderkey, orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
+                        .row(3, "F", 6)
+                        .row(5, "F", null)
+                        .row(6, "F", null)
+                        .row(33, "F", null)
+                        .row(1, "O", 1)
+                        .row(2, "O", 2)
+                        .row(4, "O", 7)
+                        .row(7, "O", null)
+                        .row(32, "O", null)
+                        .row(34, "O", null)
+                        .build(), queryRunner);
+        assertWindowQueryWithNulls(
+                "nth_value(orderkey, orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey DESC NULLS FIRST)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
+                        .row(3, "F", 5)
+                        .row(5, "F", null)
+                        .row(null, "F", null)
+                        .row(null, "F", null)
+                        .row(34, "O", null)
+                        .row(null, "O", null)
+                        .row(1, null, null)
+                        .row(7, null, null)
+                        .row(null, null, null)
+                        .row(null, null, null)
+                        .build(), queryRunner);
+    }
 }
