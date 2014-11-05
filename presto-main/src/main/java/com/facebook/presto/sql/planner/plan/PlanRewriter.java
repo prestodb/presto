@@ -242,7 +242,7 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new ProjectNode(node.getId(), source, node.getOutputMap());
+                return new ProjectNode(node.getId(), source, node.getAssignments());
             }
 
             return node;

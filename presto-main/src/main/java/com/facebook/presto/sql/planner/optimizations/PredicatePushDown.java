@@ -176,7 +176,7 @@ public class PredicatePushDown
         @Override
         public PlanNode rewriteProject(ProjectNode node, Expression inheritedPredicate, PlanRewriter<Expression> planRewriter)
         {
-            Expression inlinedPredicate = ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(node.getOutputMap()), inheritedPredicate);
+            Expression inlinedPredicate = ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(node.getAssignments()), inheritedPredicate);
             return planRewriter.defaultRewrite(node, inlinedPredicate);
         }
 

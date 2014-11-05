@@ -59,15 +59,15 @@ public class MergeProjections
 
             if (source instanceof ProjectNode) {
                 ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
-                for (Map.Entry<Symbol, Expression> projection : node.getOutputMap().entrySet()) {
-                    Expression inlined = ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(((ProjectNode) source).getOutputMap()), projection.getValue());
+                for (Map.Entry<Symbol, Expression> projection : node.getAssignments().entrySet()) {
+                    Expression inlined = ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(((ProjectNode) source).getAssignments()), projection.getValue());
                     projections.put(projection.getKey(), inlined);
                 }
 
                 return new ProjectNode(node.getId(), ((ProjectNode) source).getSource(), projections.build());
             }
 
-            return new ProjectNode(node.getId(), source, node.getOutputMap());
+            return new ProjectNode(node.getId(), source, node.getAssignments());
         }
     }
 }
