@@ -32,14 +32,13 @@ public enum StandardErrorCode
     NOT_SUPPORTED(0x0000_000D),
     INVALID_SESSION_PROPERTY(0x0000_000E),
 
-    INTERNAL(0x0001_0000),
+    INTERNAL_ERROR(0x0001_0000),
     TOO_MANY_REQUESTS_FAILED(0x0001_0001),
     PAGE_TOO_LARGE(0x0001_0002),
     PAGE_TRANSPORT_ERROR(0x0001_0003),
     PAGE_TRANSPORT_TIMEOUT(0x0001_0004),
     NO_NODES_AVAILABLE(0x0001_0005),
     REMOTE_TASK_ERROR(0x0001_0006),
-    INTERNAL_ERROR(0x0001_0007),
 
     INSUFFICIENT_RESOURCES(0x0002_0000),
     EXCEEDED_MEMORY_LIMIT(0x0002_0001),
@@ -63,11 +62,11 @@ public enum StandardErrorCode
 
     public static ErrorType toErrorType(int code)
     {
-        if (code < INTERNAL.toErrorCode().getCode()) {
+        if (code < INTERNAL_ERROR.toErrorCode().getCode()) {
             return ErrorType.USER_ERROR;
         }
         if (code < INSUFFICIENT_RESOURCES.toErrorCode().getCode()) {
-            return ErrorType.INTERNAL;
+            return ErrorType.INTERNAL_ERROR;
         }
         if (code < EXTERNAL.toErrorCode().getCode()) {
             return ErrorType.INSUFFICIENT_RESOURCES;
@@ -78,7 +77,7 @@ public enum StandardErrorCode
     public enum ErrorType
     {
         USER_ERROR,
-        INTERNAL,
+        INTERNAL_ERROR,
         INSUFFICIENT_RESOURCES,
         EXTERNAL
     }

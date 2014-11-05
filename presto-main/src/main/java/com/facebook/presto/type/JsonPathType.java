@@ -21,7 +21,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.AbstractType;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL;
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 
 public class JsonPathType
         extends AbstractType
@@ -49,6 +49,6 @@ public class JsonPathType
     @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
     {
-        throw new PrestoException(INTERNAL, "JsonPath type cannot be serialized");
+        throw new PrestoException(INTERNAL_ERROR, "JsonPath type cannot be serialized");
     }
 }
