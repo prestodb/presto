@@ -23,6 +23,7 @@ import com.google.common.base.Optional;
 
 import javax.validation.constraints.NotNull;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -134,6 +135,11 @@ public interface Metadata
     void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments);
 
     /**
+     * Release table creation resources
+     */
+    void closeCreateTable(OutputTableHandle tableHandle) throws IOException;
+
+    /**
      * Begin insert query
      */
     InsertTableHandle beginInsert(Session session, TableHandle tableHandle);
@@ -142,6 +148,11 @@ public interface Metadata
      * Commit insert query
      */
     void commitInsert(InsertTableHandle tableHandle, Collection<String> fragments);
+
+    /**
+     * Release insert resources
+     */
+    void closeInsert(InsertTableHandle tableHandle) throws IOException;
 
     /**
      * Gets all the loaded catalogs

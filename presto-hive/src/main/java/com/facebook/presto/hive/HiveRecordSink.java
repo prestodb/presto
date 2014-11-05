@@ -196,14 +196,14 @@ public class HiveRecordSink
     {
         checkState(field == -1, "record not finished");
 
-        try {
-            recordWriter.close(false);
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
-
         return ""; // the committer can list the directory
+    }
+
+    @Override
+    public void close()
+                throws IOException
+    {
+        recordWriter.close(false);
     }
 
     private void append(Object value)

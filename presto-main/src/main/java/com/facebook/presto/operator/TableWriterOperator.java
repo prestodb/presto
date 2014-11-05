@@ -20,12 +20,14 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.io.IOException;
 import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -132,6 +134,12 @@ public class TableWriterOperator
     {
         if (state == State.RUNNING) {
             state = State.FINISHING;
+        }
+        try {
+            recordSink.close();
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
         }
     }
 

@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -153,6 +154,12 @@ public class JdbcMetadata
     }
 
     @Override
+    public void closeCreateTable(ConnectorOutputTableHandle tableHandle)
+            throws IOException
+    {
+    }
+
+    @Override
     public void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
         throw new UnsupportedOperationException();
@@ -166,6 +173,13 @@ public class JdbcMetadata
 
     @Override
     public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void closeInsert(ConnectorInsertTableHandle insertHandle)
+            throws IOException
     {
         throw new UnsupportedOperationException();
     }

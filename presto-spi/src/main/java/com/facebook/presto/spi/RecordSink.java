@@ -13,7 +13,11 @@
  */
 package com.facebook.presto.spi;
 
+import java.io.Closeable;
+import java.io.IOException;
+
 public interface RecordSink
+        extends Closeable
 {
     /**
      *
@@ -34,4 +38,11 @@ public interface RecordSink
     void appendString(byte[] value);
 
     String commit();
+
+    /**
+     * Cleanup resources. Presto will always call this method.
+     */
+    @Override
+    void close()
+            throws IOException;
 }

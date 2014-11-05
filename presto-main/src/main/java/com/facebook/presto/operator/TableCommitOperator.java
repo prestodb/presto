@@ -17,9 +17,12 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 
@@ -103,6 +106,13 @@ public class TableCommitOperator
         if (state == State.RUNNING) {
             state = State.FINISHING;
         }
+
+        try {
+            tableCommitter.close();
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     @Override
@@ -153,7 +163,12 @@ public class TableCommitOperator
     }
 
     public interface TableCommitter
+            extends Closeable
     {
         void commitTable(Collection<String> fragments);
+
+        @Override
+        void close()
+                throws IOException;
     }
 }

@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -301,6 +302,12 @@ public class CassandraMetadata
     }
 
     @Override
+    public void closeCreateTable(ConnectorOutputTableHandle tableHandle)
+            throws IOException
+    {
+    }
+
+    @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         throw new UnsupportedOperationException();
@@ -308,6 +315,13 @@ public class CassandraMetadata
 
     @Override
     public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void closeInsert(ConnectorInsertTableHandle insertHandle)
+            throws IOException
     {
         throw new UnsupportedOperationException();
     }
