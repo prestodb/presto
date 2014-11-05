@@ -119,15 +119,7 @@ public final class TypeJsonUtils
             type.writeLong(blockBuilder, parser.getLongValue());
         }
         else if (type.getJavaType() == double.class) {
-            double value;
-            try {
-                value = parser.getDoubleValue();
-            }
-            catch (JsonParseException e) {
-                //handle non-numeric numbers (inf/nan)
-                value = Double.parseDouble(parser.getValueAsString());
-            }
-            type.writeDouble(blockBuilder, value);
+            type.writeDouble(blockBuilder, getDoubleValue(parser));
         }
         else if (type.getJavaType() == Slice.class) {
             type.writeSlice(blockBuilder, Slices.utf8Slice(parser.getValueAsString()));
@@ -210,5 +202,18 @@ public final class TypeJsonUtils
         else {
             throw new IllegalArgumentException("Unsupported type: " + type.getJavaType().getSimpleName());
         }
+    }
+
+    public static double getDoubleValue(JsonParser parser) throws IOException
+    {
+        double value;
+        try {
+            value = parser.getDoubleValue();
+        }
+        catch (JsonParseException e) {
+            //handle non-numeric numbers (inf/nan)
+            value = Double.parseDouble(parser.getValueAsString());
+        }
+        return value;
     }
 }

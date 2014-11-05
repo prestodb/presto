@@ -22,6 +22,7 @@ import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.google.common.base.Throwables;
@@ -102,7 +103,7 @@ public final class TypeJsonUtils
             type.writeLong(blockBuilder, parser.getLongValue());
         }
         else if (type.getJavaType() == double.class) {
-            type.writeDouble(blockBuilder, parser.getDoubleValue());
+            type.writeDouble(blockBuilder, getDoubleValue(parser));
         }
         else if (type.getJavaType() == Slice.class) {
             type.writeSlice(blockBuilder, Slices.utf8Slice(parser.getValueAsString()));
@@ -151,5 +152,18 @@ public final class TypeJsonUtils
         int days = value.getDays();
         // todo should this be adjusted to midnight in JVM timezone?
         return new Date(TimeUnit.DAYS.toMillis(days));
+    }
+
+    public static double getDoubleValue(JsonParser parser) throws IOException
+    {
+        double value;
+        try {
+            value = parser.getDoubleValue();
+        }
+        catch (JsonParseException e) {
+            //handle non-numeric numbers (inf/nan)
+            value = Double.parseDouble(parser.getValueAsString());
+        }
+        return value;
     }
 }
