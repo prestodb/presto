@@ -27,6 +27,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 
 import javax.annotation.Nullable;
@@ -98,7 +99,7 @@ public class TableScanNode
         this.originalConstraint = originalConstraint;
         this.summarizedPartition = summarizedPartition;
         this.partitionsDroppedBySerialization = partitionsDroppedBySerialization;
-        checkArgument(summarizedPartition.getPartitionDomainSummary().isNone() || assignments.values().containsAll(summarizedPartition.getPartitionDomainSummary().getDomains().keySet()), "Assignments do not include all of the ColumnHandles specified by the Partitions");
+        checkArgument(summarizedPartition.getPartitionDomainSummary().isNone() || ImmutableSet.copyOf(assignments.values()).containsAll(summarizedPartition.getPartitionDomainSummary().getDomains().keySet()), "Assignments do not include all of the ColumnHandles specified by the Partitions");
     }
 
     @JsonProperty("table")

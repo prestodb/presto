@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 
@@ -40,7 +41,7 @@ public class SinkNode
         this.source = source;
         this.outputSymbols = ImmutableList.copyOf(outputSymbols);
 
-        Preconditions.checkArgument(source.getOutputSymbols().containsAll(this.outputSymbols), "Source output needs to be able to produce all of the required outputSymbols");
+        Preconditions.checkArgument(ImmutableSet.copyOf(source.getOutputSymbols()).containsAll(this.outputSymbols), "Source output needs to be able to produce all of the required outputSymbols");
     }
 
     @JsonProperty("source")

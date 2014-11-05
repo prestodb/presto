@@ -244,7 +244,7 @@ public class PruneUnreferencedOutputs
         public PlanNode rewriteTableScan(TableScanNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
             Set<Symbol> requiredTableScanOutputs = FluentIterable.from(expectedOutputs)
-                    .filter(in(node.getOutputSymbols()))
+                    .filter(in(ImmutableSet.copyOf(node.getOutputSymbols())))
                     .toSet();
 
             List<Symbol> newOutputSymbols = FluentIterable.from(node.getOutputSymbols())

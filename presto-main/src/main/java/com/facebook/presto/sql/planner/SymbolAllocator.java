@@ -29,6 +29,7 @@ import static java.util.Locale.ENGLISH;
 public class SymbolAllocator
 {
     private final Map<Symbol, Type> symbols = new HashMap<>();
+    private int nextId;
 
     public Symbol newSymbol(String nameHint, Type type)
     {
@@ -59,10 +60,8 @@ public class SymbolAllocator
             unique = unique + "$" + suffix;
         }
 
-        int id = 1;
-        while (symbols.containsKey(new Symbol(unique))) {
-            unique = nameHint + "_" + id;
-            id++;
+        if (symbols.containsKey(new Symbol(unique))) {
+            unique += "_" + nextId();
         }
 
         Symbol symbol = new Symbol(unique);
@@ -97,5 +96,10 @@ public class SymbolAllocator
     public Map<Symbol, Type> getTypes()
     {
         return symbols;
+    }
+
+    private int nextId()
+    {
+        return nextId++;
     }
 }
