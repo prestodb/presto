@@ -72,4 +72,16 @@ public class TestJdbcClient
                 new JdbcColumnHandle(CONNECTOR_ID, "TEXT", VARCHAR),
                 new JdbcColumnHandle(CONNECTOR_ID, "VALUE", BIGINT)));
     }
+
+    @Test
+    public void testMetadataWithSchemaPattern()
+            throws Exception
+    {
+        SchemaTableName schemaTableName = new SchemaTableName("exa_ple", "num_ers");
+        JdbcTableHandle table = jdbcClient.getTableHandle(schemaTableName);
+        assertNotNull(table, "table is null");
+        assertEquals(jdbcClient.getColumns(table), ImmutableList.of(
+                new JdbcColumnHandle(CONNECTOR_ID, "TE_T", VARCHAR),
+                new JdbcColumnHandle(CONNECTOR_ID, "VA%UE", BIGINT)));
+    }
 }

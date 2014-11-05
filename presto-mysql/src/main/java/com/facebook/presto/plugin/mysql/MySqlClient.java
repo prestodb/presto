@@ -25,6 +25,7 @@ import com.mysql.jdbc.Driver;
 import javax.inject.Inject;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -87,7 +88,13 @@ public class MySqlClient
             throws SQLException
     {
         // MySQL maps their "database" to SQL catalogs and does not have schemas
-        return connection.getMetaData().getTables(schemaName, null, tableName, new String[] {"TABLE"});
+        DatabaseMetaData metadata = connection.getMetaData();
+        String escape = metadata.getSearchStringEscape();
+        return metadata.getTables(
+                escapeNamePattern(schemaName, escape),
+                null,
+                escapeNamePattern(tableName, escape),
+                new String[] {"TABLE"});
     }
 
     @Override

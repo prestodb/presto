@@ -62,6 +62,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.fromProperties;
@@ -192,8 +193,7 @@ public class BaseJdbcClient
     public List<JdbcColumnHandle> getColumns(JdbcTableHandle tableHandle)
     {
         try (Connection connection = driver.connect(connectionUrl, connectionProperties)) {
-            DatabaseMetaData metadata = connection.getMetaData();
-            try (ResultSet resultSet = metadata.getColumns(tableHandle.getCatalogName(), tableHandle.getSchemaName(), tableHandle.getTableName(), null)) {
+            try (ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
                 List<JdbcColumnHandle> columns = new ArrayList<>();
                 boolean found = false;
                 while (resultSet.next()) {
@@ -391,7 +391,13 @@ public class BaseJdbcClient
     protected ResultSet getTables(Connection connection, String schemaName, String tableName)
             throws SQLException
     {
-        return connection.getMetaData().getTables(connection.getCatalog(), schemaName, tableName, new String[] {"TABLE"});
+        DatabaseMetaData metadata = connection.getMetaData();
+        String escape = metadata.getSearchStringEscape();
+        return metadata.getTables(
+                connection.getCatalog(),
+                escapeNamePattern(schemaName, escape),
+                escapeNamePattern(tableName, escape),
+                new String[] {"TABLE"});
     }
 
     protected SchemaTableName getSchemaTableName(ResultSet resultSet)
@@ -475,6 +481,30 @@ public class BaseJdbcClient
         }
         sb.append(quoted(table));
         return sb.toString();
+    }
+
+    protected static String escapeNamePattern(String name, String escape)
+    {
+        if ((name == null) || (escape == null)) {
+            return name;
+        }
+        checkArgument(!escape.equals("_"), "Escape string must not be '_'");
+        checkArgument(!escape.equals("%"), "Escape string must not be '%'");
+        name = name.replace(escape, escape + escape);
+        name = name.replace("_", escape + "_");
+        name = name.replace("%", escape + "%");
+        return name;
+    }
+
+    private static ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
+            throws SQLException
+    {
+        String escape = metadata.getSearchStringEscape();
+        return metadata.getColumns(
+                tableHandle.getCatalogName(),
+                escapeNamePattern(tableHandle.getSchemaName(), escape),
+                escapeNamePattern(tableHandle.getTableName(), escape),
+                null);
     }
 
     private static Properties toProperties(Map<String, String> map)
