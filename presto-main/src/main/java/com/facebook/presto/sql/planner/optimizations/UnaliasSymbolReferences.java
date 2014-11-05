@@ -207,7 +207,7 @@ public class UnaliasSymbolReferences
             Map<Expression, Symbol> computedExpressions = new HashMap<>();
 
             Map<Symbol, Expression> assignments = new LinkedHashMap<>();
-            for (Map.Entry<Symbol, Expression> entry : node.getOutputMap().entrySet()) {
+            for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
                 Expression expression = canonicalize(entry.getValue());
 
                 if (entry.getValue() instanceof QualifiedNameReference) {

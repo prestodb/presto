@@ -105,7 +105,7 @@ public class CountConstantOptimizer
                 QualifiedNameReference qualifiedNameReference = (QualifiedNameReference) argument;
                 QualifiedName qualifiedName = qualifiedNameReference.getName();
                 Symbol argumentSymbol = Symbol.fromQualifiedName(qualifiedName);
-                Expression argumentExpression = projectNode.getOutputMap().get(argumentSymbol);
+                Expression argumentExpression = projectNode.getAssignments().get(argumentSymbol);
                 return (argumentExpression instanceof Literal) && (!(argumentExpression instanceof NullLiteral));
             }
 

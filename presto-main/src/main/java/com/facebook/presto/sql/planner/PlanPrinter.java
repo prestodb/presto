@@ -383,7 +383,7 @@ public class PlanPrinter
         public Void visitProject(ProjectNode node, Integer indent)
         {
             print(indent, "- Project => [%s]", formatOutputs(node.getOutputSymbols()));
-            for (Map.Entry<Symbol, Expression> entry : node.getOutputMap().entrySet()) {
+            for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
                 if (entry.getValue() instanceof QualifiedNameReference && ((QualifiedNameReference) entry.getValue()).getName().equals(entry.getKey().toQualifiedName())) {
                     // skip identity assignments
                     continue;
