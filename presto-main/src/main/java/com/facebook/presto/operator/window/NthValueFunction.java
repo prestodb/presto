@@ -102,7 +102,8 @@ public class NthValueFunction
     {
         if (pagesIndex.isNull(offsetChannel, currentPosition)) {
             output.appendNull();
-        } else {
+        }
+        else {
           int offset = Ints.checkedCast(pagesIndex.getLong(offsetChannel, currentPosition));
           checkCondition(offset >= 1, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 1");
 
@@ -112,7 +113,8 @@ public class NthValueFunction
           // if the value is out of range, result is null
           if (valuePosition >= partitionStartPosition + partitionRowCount) {
             output.appendNull();
-          } else {
+          }
+          else {
             pagesIndex.appendTo(valueChannel, valuePosition, output);
           }
         }
