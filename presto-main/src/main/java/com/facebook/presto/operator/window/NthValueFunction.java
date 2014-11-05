@@ -102,22 +102,22 @@ public class NthValueFunction
     {
         if (pagesIndex.isNull(offsetChannel, currentPosition)) {
             output.appendNull();
-            return;
         }
+        else {
+            int offset = Ints.checkedCast(pagesIndex.getLong(offsetChannel, currentPosition));
+            checkCondition(offset >= 1, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 1");
 
-        int offset = Ints.checkedCast(pagesIndex.getLong(offsetChannel, currentPosition));
-        checkCondition(offset >= 1, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 1");
+            // offset is base 1
+            int valuePosition = partitionStartPosition + offset - 1;
 
-        // offset is base 1
-        int valuePosition = partitionStartPosition + offset - 1;
-
-        // if the value is out of range, result is null
-        if (valuePosition >= partitionStartPosition + partitionRowCount) {
-            output.appendNull();
-            return;
+            // if the value is out of range, result is null
+            if (valuePosition >= partitionStartPosition + partitionRowCount) {
+                output.appendNull();
+            }
+            else {
+                pagesIndex.appendTo(valueChannel, valuePosition, output);
+            }
         }
-
-        pagesIndex.appendTo(valueChannel, valuePosition, output);
 
         currentPosition++;
     }
