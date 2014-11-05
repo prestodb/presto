@@ -105,7 +105,7 @@ public class TestHiveFileFormats
         }
     }
 
-    @Test
+    @Test(enabled = false)
     public void testRcTextPageSource()
             throws Exception
     {
@@ -145,6 +145,7 @@ public class TestHiveFileFormats
         }
     }
 
+    @Test(enabled = false)
     public void testRcBinaryPageSource()
             throws Exception
     {
