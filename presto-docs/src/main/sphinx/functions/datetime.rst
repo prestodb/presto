@@ -48,6 +48,11 @@ Date and Time Functions
 
     Returns the current timestamp as of the start of the query.
 
+.. function:: current_timezone() -> time zone
+
+    Returns the current time zone in the form ``Area/Location``
+    (e.g., ``America/Los_Angeles``).
+
 .. function:: from_unixtime(unixtime) -> timestamp
 
     Returns the UNIX timestamp ``unixtime`` as a timestamp.
