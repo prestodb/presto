@@ -30,6 +30,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+
 import io.airlift.log.Logger;
 
 import javax.annotation.Nullable;
@@ -48,6 +49,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -193,7 +196,10 @@ public class BaseJdbcClient
     {
         try (Connection connection = driver.connect(connectionUrl, connectionProperties)) {
             DatabaseMetaData metadata = connection.getMetaData();
-            try (ResultSet resultSet = metadata.getColumns(tableHandle.getCatalogName(), tableHandle.getSchemaName(), tableHandle.getTableName(), null)) {
+            String escape = metadata.getSearchStringEscape();
+            try (ResultSet resultSet = metadata.getColumns(tableHandle.getCatalogName(),
+                        escapeNamePattern(tableHandle.getSchemaName(), escape),
+                        escapeNamePattern(tableHandle.getTableName(), escape), null)) {
                 List<JdbcColumnHandle> columns = new ArrayList<>();
                 boolean found = false;
                 int ordinalPosition = 0;
@@ -371,7 +377,10 @@ public class BaseJdbcClient
     protected ResultSet getTables(Connection connection, String schemaName, String tableName)
             throws SQLException
     {
-        return connection.getMetaData().getTables(connection.getCatalog(), schemaName, tableName, new String[] {"TABLE"});
+        DatabaseMetaData metadata = connection.getMetaData();
+        String escape = metadata.getSearchStringEscape();
+        return metadata.getTables(connection.getCatalog(), escapeNamePattern(schemaName, escape),
+                escapeNamePattern(tableName, escape), new String[] {"TABLE"});
     }
 
     protected SchemaTableName getSchemaTableName(ResultSet resultSet)
@@ -465,5 +474,24 @@ public class BaseJdbcClient
             properties.setProperty(entry.getKey(), entry.getValue());
         }
         return properties;
+    }
+
+    private static final String[] NAME_PATTERN_SPECIAL_CHARS = new String[] { "_", "%" };
+
+    private static String escapeNamePattern(String namePattern, String escapeString)
+    {
+        if (namePattern != null && escapeString != null) {
+            // First of all, escape escapeString '\' itself: '\' -> '\\'
+            namePattern = namePattern.replaceAll(Pattern.quote(escapeString),
+                    Matcher.quoteReplacement(escapeString + escapeString));
+            for (String specialChar : NAME_PATTERN_SPECIAL_CHARS) {
+                if (specialChar.equals(escapeString)) {
+                    throw new IllegalArgumentException("Special char " + specialChar + " cannot be an escape char");
+                }
+                namePattern = namePattern.replaceAll(Pattern.quote(specialChar),
+                        Matcher.quoteReplacement(escapeString + specialChar));
+            }
+        }
+        return namePattern;
     }
 }
