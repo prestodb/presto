@@ -62,6 +62,7 @@ import java.util.concurrent.Callable;
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnIndexGetter;
 import static com.facebook.presto.hive.HiveColumnHandle.isPartitionKeyPredicate;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.HiveType.HIVE_BOOLEAN;
 import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
@@ -330,58 +331,67 @@ public final class HiveUtil
 
     public static SerializableNativeValue parsePartitionValue(String partitionName, String value, HiveType hiveType, DateTimeZone timeZone)
     {
-        boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value);
+        try {
+            boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value);
 
-        if (HIVE_BOOLEAN.equals(hiveType)) {
-            if (isNull) {
-                return new SerializableNativeValue(Boolean.class, null);
+            if (HIVE_BOOLEAN.equals(hiveType)) {
+                if (isNull) {
+                    return new SerializableNativeValue(Boolean.class, null);
+                }
+                if (value.isEmpty()) {
+                    return new SerializableNativeValue(Boolean.class, false);
+                }
+                return new SerializableNativeValue(Boolean.class, parseBoolean(value));
             }
-            if (value.isEmpty()) {
-                return new SerializableNativeValue(Boolean.class, false);
+
+            if (HIVE_BYTE.equals(hiveType) || HIVE_SHORT.equals(hiveType) || HIVE_INT.equals(hiveType) || HIVE_LONG.equals(hiveType)) {
+                if (isNull) {
+                    return new SerializableNativeValue(Long.class, null);
+                }
+                if (value.isEmpty()) {
+                    return new SerializableNativeValue(Long.class, 0L);
+                }
+                return new SerializableNativeValue(Long.class, parseLong(value));
             }
-            return new SerializableNativeValue(Boolean.class, parseBoolean(value));
+
+            if (HIVE_DATE.equals(hiveType)) {
+                if (isNull) {
+                    return new SerializableNativeValue(Long.class, null);
+                }
+                long dateInMillis = ISODateTimeFormat.date().withZone(DateTimeZone.UTC).parseMillis(value);
+                return new SerializableNativeValue(Long.class, dateInMillis);
+            }
+
+            if (HIVE_TIMESTAMP.equals(hiveType)) {
+                if (isNull) {
+                    return new SerializableNativeValue(Long.class, null);
+                }
+                return new SerializableNativeValue(Long.class, parseHiveTimestamp(value, timeZone));
+            }
+
+            if (HIVE_FLOAT.equals(hiveType) || HIVE_DOUBLE.equals(hiveType)) {
+                if (isNull) {
+                    return new SerializableNativeValue(Double.class, null);
+                }
+                if (value.isEmpty()) {
+                    return new SerializableNativeValue(Double.class, 0.0);
+                }
+                return new SerializableNativeValue(Double.class, parseDouble(value));
+            }
+
+            if (HIVE_STRING.equals(hiveType)) {
+                if (isNull) {
+                    return new SerializableNativeValue(Slice.class, null);
+                }
+                return new SerializableNativeValue(Slice.class, utf8Slice(value));
+            }
         }
-
-        if (HIVE_BYTE.equals(hiveType) || HIVE_SHORT.equals(hiveType) || HIVE_INT.equals(hiveType) || HIVE_LONG.equals(hiveType)) {
-            if (isNull) {
-                return new SerializableNativeValue(Long.class, null);
-            }
-            if (value.isEmpty()) {
-                return new SerializableNativeValue(Long.class, 0L);
-            }
-            return new SerializableNativeValue(Long.class, parseLong(value));
-        }
-
-        if (HIVE_DATE.equals(hiveType)) {
-            if (isNull) {
-                return new SerializableNativeValue(Long.class, null);
-            }
-            long dateInMillis = ISODateTimeFormat.date().withZone(DateTimeZone.UTC).parseMillis(value);
-            return new SerializableNativeValue(Long.class, dateInMillis);
-        }
-
-        if (HIVE_TIMESTAMP.equals(hiveType)) {
-            if (isNull) {
-                return new SerializableNativeValue(Long.class, null);
-            }
-            return new SerializableNativeValue(Long.class, parseHiveTimestamp(value, timeZone));
-        }
-
-        if (HIVE_FLOAT.equals(hiveType) || HIVE_DOUBLE.equals(hiveType)) {
-            if (isNull) {
-                return new SerializableNativeValue(Double.class, null);
-            }
-            if (value.isEmpty()) {
-                return new SerializableNativeValue(Double.class, 0.0);
-            }
-            return new SerializableNativeValue(Double.class, parseDouble(value));
-        }
-
-        if (HIVE_STRING.equals(hiveType)) {
-            if (isNull) {
-                return new SerializableNativeValue(Slice.class, null);
-            }
-            return new SerializableNativeValue(Slice.class, utf8Slice(value));
+        catch (RuntimeException e) {
+            throw new PrestoException(HIVE_BAD_DATA, format(
+                    "Cannot parse value %s with declared hive type [%s] for partition: %s",
+                    value,
+                    hiveType,
+                    partitionName));
         }
 
         throw new PrestoException(NOT_SUPPORTED, format("Unsupported partition type [%s] for partition: %s", hiveType, partitionName));
