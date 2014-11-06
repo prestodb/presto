@@ -20,6 +20,7 @@ import com.facebook.presto.type.SqlType;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.MappingJsonFactory;
 import com.google.common.base.Charsets;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
@@ -34,6 +35,7 @@ import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_
 import static com.fasterxml.jackson.core.JsonParser.NumberType;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
+import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_FALSE;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_FLOAT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_INT;
@@ -45,6 +47,9 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public final class JsonFunctions
 {
     private static final JsonFactory JSON_FACTORY = new JsonFactory()
+            .disable(CANONICALIZE_FIELD_NAMES);
+
+    private static final JsonFactory MAPPING_JSON_FACTORY = new MappingJsonFactory()
             .disable(CANONICALIZE_FIELD_NAMES);
 
     private JsonFunctions() {}
@@ -283,7 +288,7 @@ public final class JsonFunctions
     @SqlType(StandardTypes.JSON)
     public static Slice jsonArrayGet(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.BIGINT) long index)
     {
-        try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
+        try (JsonParser parser = MAPPING_JSON_FACTORY.createJsonParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;
             }
@@ -306,17 +311,21 @@ public final class JsonFunctions
 
                     return null;
                 }
-                parser.skipChildren();
+
+                String arrayElement;
+                if (token == START_OBJECT || token == START_ARRAY) {
+                    arrayElement = parser.readValueAsTree().toString();
+                }
+                else {
+                    arrayElement = parser.getValueAsString();
+                }
 
                 if (count == index) {
-                    if (parser.getValueAsString() == null) {
-                        return null;
-                    }
-                    return utf8Slice(parser.getValueAsString());
+                    return arrayElement == null ? null : utf8Slice(arrayElement);
                 }
 
                 if (tokens != null) {
-                    tokens.add(parser.getValueAsString());
+                    tokens.add(arrayElement);
 
                     if (count >= index * -1) {
                         tokens.remove(0);
