@@ -608,6 +608,49 @@ public class TestWindowFunctions
                         .row(null, null, 1)
                         .row(null, null, 7)
                         .build(), queryRunner);
+
+        assertWindowQuery("lag(orderkey, 8 * 1000 * 1000 * 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(3, "F", null)
+                        .row(5, "F", null)
+                        .row(6, "F", null)
+                        .row(33, "F", null)
+                        .row(1, "O", null)
+                        .row(2, "O", null)
+                        .row(4, "O", null)
+                        .row(7, "O", null)
+                        .row(32, "O", null)
+                        .row(34, "O", null)
+                        .build(), queryRunner);
+
+        assertWindowQuery("lag(orderkey, null, -1) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(3, "F", null)
+                        .row(5, "F", null)
+                        .row(6, "F", null)
+                        .row(33, "F", null)
+                        .row(1, "O", null)
+                        .row(2, "O", null)
+                        .row(4, "O", null)
+                        .row(7, "O", null)
+                        .row(32, "O", null)
+                        .row(34, "O", null)
+                        .build(), queryRunner);
+
+
+        assertWindowQuery("lag(orderkey, 0) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(3, "F", 3)
+                        .row(5, "F", 5)
+                        .row(6, "F", 6)
+                        .row(33, "F", 33)
+                        .row(1, "O", 1)
+                        .row(2, "O", 2)
+                        .row(4, "O", 4)
+                        .row(7, "O", 7)
+                        .row(32, "O", 32)
+                        .row(34, "O", 34)
+                        .build(), queryRunner);
     }
 
     @Test
@@ -720,12 +763,54 @@ public class TestWindowFunctions
                         .row(null, null, -1)
                         .row(null, null, -1)
                         .build(), queryRunner);
+
+        assertWindowQuery("lead(orderkey, 8 * 1000 * 1000 * 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(3, "F", null)
+                        .row(5, "F", null)
+                        .row(6, "F", null)
+                        .row(33, "F", null)
+                        .row(1, "O", null)
+                        .row(2, "O", null)
+                        .row(4, "O", null)
+                        .row(7, "O", null)
+                        .row(32, "O", null)
+                        .row(34, "O", null)
+                        .build(), queryRunner);
+
+        assertWindowQuery("lead(orderkey, null, -1) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(3, "F", null)
+                        .row(5, "F", null)
+                        .row(6, "F", null)
+                        .row(33, "F", null)
+                        .row(1, "O", null)
+                        .row(2, "O", null)
+                        .row(4, "O", null)
+                        .row(7, "O", null)
+                        .row(32, "O", null)
+                        .row(34, "O", null)
+                        .build(), queryRunner);
+
+        assertWindowQuery("lead(orderkey, 0) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(3, "F", 3)
+                        .row(5, "F", 5)
+                        .row(6, "F", 6)
+                        .row(33, "F", 33)
+                        .row(1, "O", 1)
+                        .row(2, "O", 2)
+                        .row(4, "O", 4)
+                        .row(7, "O", 7)
+                        .row(32, "O", 32)
+                        .row(34, "O", 34)
+                        .build(), queryRunner);
     }
 
     @Test
     public void testNthValue()
     {
-        // Test the function with a constant offset
+        // constant offset
         assertWindowQuery("nth_value(orderkey, 2) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
                         .row(3, "F", 5)
@@ -753,7 +838,7 @@ public class TestWindowFunctions
                         .row(null, null, 7)
                         .build(), queryRunner);
 
-        // Test the function with a variable offset
+        // variable offset
         assertWindowQuery("nth_value(orderkey, orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
                         .row(3, "F", 6)
@@ -780,6 +865,36 @@ public class TestWindowFunctions
                         .row(7, null, null)
                         .row(null, null, null)
                         .row(null, null, null)
+                        .build(), queryRunner);
+
+        // null offset
+        assertWindowQuery("nth_value(orderkey, null) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
+                        .row(3, "F", null)
+                        .row(5, "F", null)
+                        .row(6, "F", null)
+                        .row(33, "F", null)
+                        .row(1, "O", null)
+                        .row(2, "O", null)
+                        .row(4, "O", null)
+                        .row(7, "O", null)
+                        .row(32, "O", null)
+                        .row(34, "O", null)
+                        .build(), queryRunner);
+
+        // huge offset (larger than an int)
+        assertWindowQuery("nth_value(orderkey, 8 * 1000 * 1000 * 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
+                        .row(3, "F", null)
+                        .row(5, "F", null)
+                        .row(6, "F", null)
+                        .row(33, "F", null)
+                        .row(1, "O", null)
+                        .row(2, "O", null)
+                        .row(4, "O", null)
+                        .row(7, "O", null)
+                        .row(32, "O", null)
+                        .row(34, "O", null)
                         .build(), queryRunner);
     }
 }

@@ -11,4 +11,5 @@ Hive Changes
 General Changes
 ---------------
 
-* Fix :func:`nth_value` function.
+* Fix handling of null and out-of-range offsets for
+  :func:`lead`, :func:`lag` and :func:`nth_value` functions.
