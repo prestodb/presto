@@ -48,10 +48,10 @@ Date and Time Functions
 
     Returns the current timestamp as of the start of the query.
 
-.. function:: current_timezone() -> time zone
+.. function:: current_timezone() -> varchar
 
-    Returns the current time zone in the form ``Area/Location``
-    (e.g., ``America/Los_Angeles``).
+    Returns the current time zone in the format defined by IANA
+    (e.g., ``America/Los_angeles``) or as fixed offset from UTC (e.g., ``+08:35``)
 
 .. function:: from_unixtime(unixtime) -> timestamp
 
