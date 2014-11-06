@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.client.ClientTypeSignature;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.QueryError;
@@ -86,7 +87,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.presto.execution.QueryInfo.queryIdGetter;
 import static com.facebook.presto.server.ResourceUtil.assertRequest;
 import static com.facebook.presto.server.ResourceUtil.createSessionForRequest;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -282,7 +282,7 @@ public class StatementResource
                     // so statements without results produce an error in the client otherwise.
                     //
                     // TODO: add support to the API for non-query statements.
-                    columns = ImmutableList.of(new Column("result", "boolean", parameterizedTypeName(StandardTypes.BOOLEAN)));
+                    columns = ImmutableList.of(new Column("result", "boolean", new ClientTypeSignature(StandardTypes.BOOLEAN, ImmutableList.<ClientTypeSignature>of(), ImmutableList.<Object>of())));
                     data = ImmutableSet.<List<Object>>of(ImmutableList.<Object>of(true));
                 }
             }
@@ -413,7 +413,7 @@ public class StatementResource
                 String name = names.get(i);
                 TypeSignature typeSignature = types.get(i).getTypeSignature();
                 String type = typeSignature.toString();
-                list.add(new Column(name, type, typeSignature));
+                list.add(new Column(name, type, new ClientTypeSignature(typeSignature)));
             }
             return list.build();
         }

@@ -14,7 +14,7 @@
 package com.facebook.presto.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,11 +31,7 @@ public class TypeSignature
     private final List<TypeSignature> parameters;
     private final List<Object> literalParameters;
 
-    @JsonCreator
-    public TypeSignature(
-            @JsonProperty("rawType") String base,
-            @JsonProperty("typeArguments") List<TypeSignature> parameters,
-            @JsonProperty("literalArguments") List<Object> literalParameters)
+    public TypeSignature(String base, List<TypeSignature> parameters, List<Object> literalParameters)
     {
         checkArgument(base != null, "base is null");
         this.base = base;
@@ -51,6 +47,7 @@ public class TypeSignature
     }
 
     @Override
+    @JsonValue
     public String toString()
     {
         StringBuilder typeName = new StringBuilder(base);
@@ -87,24 +84,22 @@ public class TypeSignature
         return typeName.toString();
     }
 
-    @JsonProperty("rawType")
     public String getBase()
     {
         return base;
     }
 
-    @JsonProperty("typeArguments")
     public List<TypeSignature> getParameters()
     {
         return parameters;
     }
 
-    @JsonProperty("literalArguments")
     public List<Object> getLiteralParameters()
     {
         return literalParameters;
     }
 
+    @JsonCreator
     public static TypeSignature parseTypeSignature(String signature)
     {
         if (!signature.contains("<") && !signature.contains("(")) {
