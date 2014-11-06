@@ -246,7 +246,7 @@ public class OrcMetadataReader
 
     private static StringStatistics toStringStatistics(OrcProto.StringStatistics stringStatistics, boolean isRowGroup)
     {
-        // TODO remove this when date statistics in ORC are fixed https://issues.apache.org/jira/browse/HIVE-8732
+        // TODO remove this when string statistics in ORC are fixed https://issues.apache.org/jira/browse/HIVE-8732
         if (!isRowGroup) {
             return null;
         }

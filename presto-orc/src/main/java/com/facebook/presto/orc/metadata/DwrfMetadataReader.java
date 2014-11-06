@@ -70,7 +70,7 @@ public class DwrfMetadataReader
                 footer.getRowIndexStride(),
                 toStripeInformation(footer.getStripesList()),
                 toType(footer.getTypesList()),
-                toColumnStatistics(footer.getStatisticsList()));
+                toColumnStatistics(footer.getStatisticsList(), false));
     }
 
     private static List<StripeInformation> toStripeInformation(List<OrcProto.StripeInformation> types)
@@ -166,10 +166,10 @@ public class DwrfMetadataReader
 
             positions.add(intPosition);
         }
-        return new RowGroupIndex(positions.build(), toColumnStatistics(rowIndexEntry.getStatistics()));
+        return new RowGroupIndex(positions.build(), toColumnStatistics(rowIndexEntry.getStatistics(), true));
     }
 
-    private static List<ColumnStatistics> toColumnStatistics(List<OrcProto.ColumnStatistics> columnStatistics)
+    private static List<ColumnStatistics> toColumnStatistics(List<OrcProto.ColumnStatistics> columnStatistics, final boolean isRowGroup)
     {
         if (columnStatistics == null) {
             return ImmutableList.of();
@@ -179,19 +179,19 @@ public class DwrfMetadataReader
             @Override
             public ColumnStatistics apply(OrcProto.ColumnStatistics columnStatistics)
             {
-                return toColumnStatistics(columnStatistics);
+                return toColumnStatistics(columnStatistics, isRowGroup);
             }
         }));
     }
 
-    private static ColumnStatistics toColumnStatistics(OrcProto.ColumnStatistics statistics)
+    private static ColumnStatistics toColumnStatistics(OrcProto.ColumnStatistics statistics, boolean isRowGroup)
     {
         return new ColumnStatistics(
                 statistics.getNumberOfValues(),
                 toBooleanStatistics(statistics.getBucketStatistics()),
                 toIntegerStatistics(statistics.getIntStatistics()),
                 toDoubleStatistics(statistics.getDoubleStatistics()),
-                toStringStatistics(statistics.getStringStatistics()),
+                toStringStatistics(statistics.getStringStatistics(), isRowGroup),
                 null);
     }
 
@@ -226,8 +226,13 @@ public class DwrfMetadataReader
                 doubleStatistics.hasMaximum() ? doubleStatistics.getMaximum() : null);
     }
 
-    private static StringStatistics toStringStatistics(OrcProto.StringStatistics stringStatistics)
+    private static StringStatistics toStringStatistics(OrcProto.StringStatistics stringStatistics, boolean isRowGroup)
     {
+        // TODO remove this when string statistics in ORC are fixed https://issues.apache.org/jira/browse/HIVE-8732
+        if (!isRowGroup) {
+            return null;
+        }
+
         if (!stringStatistics.hasMinimum() && !stringStatistics.hasMaximum()) {
             return null;
         }
