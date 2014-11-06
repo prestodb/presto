@@ -48,13 +48,14 @@ public final class TypeJsonUtils
 
     private TypeJsonUtils() {}
 
-    public static Object stackRepresentationToObject(ConnectorSession session, Slice value, Type type)
+    public static Object stackRepresentationToObject(ConnectorSession session, String value, Type type)
     {
         if (value == null) {
             return null;
         }
 
-        try (JsonParser jsonParser = JSON_FACTORY.createJsonParser(value.getInput())) {
+        Slice slice = Slices.utf8Slice(value);
+        try (JsonParser jsonParser = JSON_FACTORY.createJsonParser(slice.getInput())) {
             jsonParser.nextToken();
             return stackRepresentationToObjectHelper(session, jsonParser, type);
         }

@@ -40,7 +40,6 @@ import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slices;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
@@ -214,7 +213,7 @@ public class HiveRecordSink
         Type type = columnTypes.get(field);
         if (isMapType(type) || isArrayType(type)) {
             // Hive expects a List<>/Map<> to write, so decode the value
-            value = TypeJsonUtils.stackRepresentationToObject(connectorSession, Slices.utf8Slice((String) value), type);
+            value = TypeJsonUtils.stackRepresentationToObject(connectorSession, (String) value, type);
         }
         tableInspector.setStructFieldData(row, structFields.get(field), value);
         field++;
