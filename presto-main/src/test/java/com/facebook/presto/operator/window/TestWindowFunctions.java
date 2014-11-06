@@ -637,7 +637,6 @@ public class TestWindowFunctions
                         .row(34, "O", null)
                         .build(), queryRunner);
 
-
         assertWindowQuery("lag(orderkey, 0) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
                         .row(3, "F", 3)
