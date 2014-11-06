@@ -1,0 +1,254 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>4.2. Comparison Functions and Operators &mdash; Presto 0.81 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.81',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.81 Documentation" href="../index.html" />
+    <link rel="up" title="4. Functions and Operators" href="../functions.html" />
+    <link rel="next" title="4.3. Conditional Expressions" href="conditional.html" />
+    <link rel="prev" title="4.1. Logical Operators" href="logical.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.81 Documentation</span></a></h1>
+    <h2 class="heading"><span>4.2. Comparison Functions and Operators</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="logical.html">4.1. Logical Operators</a>
+    </span>
+    <span class="right">
+        <a href="conditional.html">4.3. Conditional Expressions</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="comparison-functions-and-operators">
+<h1>4.2. Comparison Functions and Operators</h1>
+<div class="section" id="comparison-operators">
+<h2>Comparison Operators</h2>
+<table border="1" class="docutils">
+<colgroup>
+<col width="16%" />
+<col width="84%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Operator</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">&lt;</span></tt></td>
+<td>Less than</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">&gt;</span></tt></td>
+<td>Greater than</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">&lt;=</span></tt></td>
+<td>Less than or equal to</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">&gt;=</span></tt></td>
+<td>Greater than or equal to</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">=</span></tt></td>
+<td>Equal</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">&lt;&gt;</span></tt></td>
+<td>Not equal</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">!=</span></tt></td>
+<td>Not equal (non-standard but popular syntax)</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="range-operator-between">
+<h2>Range Operator: BETWEEN</h2>
+<p>The <tt class="docutils literal"><span class="pre">BETWEEN</span></tt> operator tests if a value is within a specified range.
+It uses the syntax <tt class="docutils literal"><span class="pre">value</span> <span class="pre">BETWEEN</span> <span class="pre">min</span> <span class="pre">AND</span> <span class="pre">max</span></tt>:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="mi">3</span> <span class="k">BETWEEN</span> <span class="mi">2</span> <span class="k">AND</span> <span class="mi">6</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>The statement shown above is equivalent to the following statement:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="mi">3</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="k">AND</span> <span class="mi">3</span> <span class="o">&lt;=</span> <span class="mi">6</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>To test if a value does not fall within the specified range
+use <tt class="docutils literal"><span class="pre">NOT</span> <span class="pre">BETWEEN</span></tt>:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="mi">3</span> <span class="k">NOT</span> <span class="k">BETWEEN</span> <span class="mi">2</span> <span class="k">AND</span> <span class="mi">6</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>The statement shown above is equivalent to the following statement:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="mi">3</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="k">OR</span> <span class="mi">3</span> <span class="o">&gt;</span> <span class="mi">6</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>The presence of NULL in a <tt class="docutils literal"><span class="pre">BETWEEN</span></tt> or <tt class="docutils literal"><span class="pre">NOT</span> <span class="pre">BETWEEN</span></tt> statement
+will result in the statement evaluating to NULL:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="k">NULL</span> <span class="k">BETWEEN</span> <span class="mi">2</span> <span class="k">AND</span> <span class="mi">4</span><span class="p">;</span> <span class="o">=&gt;</span> <span class="k">null</span>
+
+<span class="k">SELECT</span> <span class="mi">2</span> <span class="k">BETWEEN</span> <span class="k">NULL</span> <span class="k">AND</span> <span class="mi">6</span><span class="p">;</span> <span class="o">=&gt;</span> <span class="k">null</span>
+</pre></div>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">BETWEEN</span></tt> and <tt class="docutils literal"><span class="pre">NOT</span> <span class="pre">BETWEEN</span></tt> operators can also be used to
+evaluate string arguments:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="s1">&#39;Paul&#39;</span> <span class="k">BETWEEN</span> <span class="s1">&#39;John&#39;</span> <span class="k">AND</span> <span class="s1">&#39;Ringo&#39;</span><span class="p">;</span> <span class="o">=&gt;</span> <span class="k">true</span>
+</pre></div>
+</div>
+<p>Not that the value, min, and max parameters to <tt class="docutils literal"><span class="pre">BETWEEN</span></tt> and <tt class="docutils literal"><span class="pre">NOT</span>
+<span class="pre">BETWEEN</span></tt> must be the same type.  For example, Presto will produce an
+error if you ask it if John is between 2.3 and 35.2.</p>
+</div>
+<div class="section" id="is-null-and-is-not-null">
+<h2>IS NULL and IS NOT NULL</h2>
+<p>The <tt class="docutils literal"><span class="pre">IS</span> <span class="pre">NULL</span></tt> and <tt class="docutils literal"><span class="pre">IS</span> <span class="pre">NOT</span> <span class="pre">NULL</span></tt> operators test whether a value
+is null (undefined).  Both operators work for all data types.</p>
+<p>Using <tt class="docutils literal"><span class="pre">NULL</span></tt> with <tt class="docutils literal"><span class="pre">IS</span> <span class="pre">NULL</span></tt> evaluates to true:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">select</span> <span class="k">NULL</span> <span class="k">IS</span> <span class="k">NULL</span><span class="p">;</span> <span class="o">=&gt;</span> <span class="k">true</span>
+</pre></div>
+</div>
+<p>But any other constant does not:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="mi">3</span><span class="p">.</span><span class="mi">0</span> <span class="k">IS</span> <span class="k">NULL</span><span class="p">;</span> <span class="o">=&gt;</span> <span class="k">false</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="is-distinct-from-and-is-not-distinct-from">
+<h2>IS DISTINCT FROM and IS NOT DISTINCT FROM</h2>
+<p>In SQL a <tt class="docutils literal"><span class="pre">NULL</span></tt> value signifies an unknown value, so any comparison
+involving a <tt class="docutils literal"><span class="pre">NULL</span></tt> will produce <tt class="docutils literal"><span class="pre">NULL</span></tt>.  The  <tt class="docutils literal"><span class="pre">IS</span> <span class="pre">DISTINCT</span> <span class="pre">FROM</span></tt>
+and <tt class="docutils literal"><span class="pre">IS</span> <span class="pre">NOT</span> <span class="pre">DISTINCT</span> <span class="pre">FROM</span></tt> operators treat <tt class="docutils literal"><span class="pre">NULL</span></tt> as a known value
+and both operators guarantee either a true or false outcome even in
+the presence of <tt class="docutils literal"><span class="pre">NULL</span></tt> input:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="k">NULL</span> <span class="k">IS</span> <span class="k">DISTINCT</span> <span class="k">FROM</span> <span class="k">NULL</span><span class="p">;</span> <span class="o">=&gt;</span> <span class="k">false</span>
+
+<span class="k">SELECT</span> <span class="k">NULL</span> <span class="k">IS</span> <span class="k">NOT</span> <span class="k">DISTINCT</span> <span class="k">FROM</span> <span class="k">NULL</span><span class="p">;</span> <span class="o">=&gt;</span> <span class="k">true</span>
+</pre></div>
+</div>
+<p>In the example shown above, a <tt class="docutils literal"><span class="pre">NULL</span></tt> value is not considered
+distinct from <tt class="docutils literal"><span class="pre">NULL</span></tt>.  When you are comparing values which may
+include <tt class="docutils literal"><span class="pre">NULL</span></tt> use these operators to guarantee either a <tt class="docutils literal"><span class="pre">TRUE</span></tt> or
+<tt class="docutils literal"><span class="pre">FALSE</span></tt> result.</p>
+<p>The following truth table demonstrate the handling of <tt class="docutils literal"><span class="pre">NULL</span></tt> in
+<tt class="docutils literal"><span class="pre">IS</span> <span class="pre">DISTINCT</span> <span class="pre">FROM</span></tt> and <tt class="docutils literal"><span class="pre">IS</span> <span class="pre">NOT</span> <span class="pre">DISTINCT</span> <span class="pre">FROM</span></tt>:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="13%" />
+<col width="13%" />
+<col width="15%" />
+<col width="15%" />
+<col width="19%" />
+<col width="26%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">a</th>
+<th class="head">b</th>
+<th class="head">a = a</th>
+<th class="head">a &lt;&gt; b</th>
+<th class="head">a DISTINCT b</th>
+<th class="head">a NOT DISTINCT b</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">1</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">1</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">TRUE</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">FALSE</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">FALSE</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">TRUE</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">1</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">2</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">FALSE</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">TRUE</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">TRUE</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">FALSE</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">1</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">NULL</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">NULL</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">NULL</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">TRUE</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">FALSE</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">NULL</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">NULL</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">NULL</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">NULL</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">FALSE</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">TRUE</span></tt></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="greatest-and-least">
+<h2>GREATEST and LEAST</h2>
+<p>These functions are not in the SQL standard, but are a common extension.
+Like most other functions in Presto, they return null if any argument is
+null. Note that in some other databases, such as PostgreSQL, they only
+return null if all arguments are null.</p>
+<p>The following types are supported:
+<tt class="docutils literal"><span class="pre">DOUBLE</span></tt>,
+<tt class="docutils literal"><span class="pre">BIGINT</span></tt>,
+<tt class="docutils literal"><span class="pre">VARCHAR</span></tt>,
+<tt class="docutils literal"><span class="pre">TIMESTAMP</span></tt>,
+<tt class="docutils literal"><span class="pre">TIMESTAMP</span> <span class="pre">WITH</span> <span class="pre">TIME</span> <span class="pre">ZONE</span></tt>,
+<tt class="docutils literal"><span class="pre">DATE</span></tt></p>
+<dl class="function">
+<dt id="greatest">
+<tt class="descname">greatest</tt><big>(</big><em>value1</em>, <em>value2</em><big>)</big> &rarr; [same as input]</dt>
+<dd><p>Returns the largest of the provided values.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="least">
+<tt class="descname">least</tt><big>(</big><em>value1</em>, <em>value2</em><big>)</big> &rarr; [same as input]</dt>
+<dd><p>Returns the smallest of the provided values.</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="logical.html">4.1. Logical Operators</a>
+    </span>
+    <span class="right">
+        <a href="conditional.html">4.3. Conditional Expressions</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

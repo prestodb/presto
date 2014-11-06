@@ -1,0 +1,94 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>6.2. CREATE TABLE &mdash; Presto 0.81 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.81',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.81 Documentation" href="../index.html" />
+    <link rel="up" title="6. SQL Statement Syntax" href="../sql.html" />
+    <link rel="next" title="6.3. CREATE VIEW" href="create-view.html" />
+    <link rel="prev" title="6.1. ALTER TABLE" href="alter-table.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.81 Documentation</span></a></h1>
+    <h2 class="heading"><span>6.2. CREATE TABLE</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="alter-table.html">6.1. ALTER TABLE</a>
+    </span>
+    <span class="right">
+        <a href="create-view.html">6.3. CREATE VIEW</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="create-table">
+<h1>6.2. CREATE TABLE</h1>
+<div class="section" id="synopsis">
+<h2>Synopsis</h2>
+<div class="highlight-none"><div class="highlight"><pre>CREATE TABLE table_name AS query
+</pre></div>
+</div>
+</div>
+<div class="section" id="description">
+<h2>Description</h2>
+<p>Create a new table containing the result of a <a class="reference internal" href="select.html"><em>SELECT</em></a> query.</p>
+</div>
+<div class="section" id="examples">
+<h2>Examples</h2>
+<p>Create a new table <tt class="docutils literal"><span class="pre">orders_by_date</span></tt> that summarizes <tt class="docutils literal"><span class="pre">orders</span></tt>:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">orders_by_date</span> <span class="k">AS</span>
+<span class="k">SELECT</span> <span class="n">orderdate</span><span class="p">,</span> <span class="k">sum</span><span class="p">(</span><span class="n">totalprice</span><span class="p">)</span> <span class="k">AS</span> <span class="n">price</span>
+<span class="k">FROM</span> <span class="n">orders</span>
+<span class="k">GROUP</span> <span class="k">BY</span> <span class="n">orderdate</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="alter-table.html">6.1. ALTER TABLE</a>
+    </span>
+    <span class="right">
+        <a href="create-view.html">6.3. CREATE VIEW</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

@@ -1,0 +1,118 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>3.6. MySQL Connector &mdash; Presto 0.81 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.81',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.81 Documentation" href="../index.html" />
+    <link rel="up" title="3. Connectors" href="../connector.html" />
+    <link rel="next" title="3.7. PostgreSQL Connector" href="postgresql.html" />
+    <link rel="prev" title="3.5. Kafka Connector Tutorial" href="kafka-tutorial.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.81 Documentation</span></a></h1>
+    <h2 class="heading"><span>3.6. MySQL Connector</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="kafka-tutorial.html">3.5. Kafka Connector Tutorial</a>
+    </span>
+    <span class="right">
+        <a href="postgresql.html">3.7. PostgreSQL Connector</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="mysql-connector">
+<h1>3.6. MySQL Connector</h1>
+<p>The MySQL connector allows querying and creating tables in an external
+MySQL database. This can be used to join data between different
+systems like MySQL and Hive, or between two different MySQL instances.</p>
+<div class="section" id="configuration">
+<h2>Configuration</h2>
+<p>To configure the MySQL connector, create a catalog properties file
+in <tt class="docutils literal"><span class="pre">etc/catalog</span></tt> named, for example, <tt class="docutils literal"><span class="pre">mysql.properties</span></tt>, to
+mount the MySQL connector as the <tt class="docutils literal"><span class="pre">mysql</span></tt> catalog.
+Create the file with the following contents, replacing the
+connection properties as appropriate for your setup:</p>
+<div class="highlight-none"><div class="highlight"><pre>connector.name=mysql
+connection-url=jdbc:mysql://example.net:3306
+connection-user=root
+connection-password=secret
+</pre></div>
+</div>
+<div class="section" id="multiple-mysql-servers">
+<h3>Multiple MySQL Servers</h3>
+<p>You can have as many catalogs as you need, so if you have additional
+MySQL servers, simply add another properties file to <tt class="docutils literal"><span class="pre">etc/catalog</span></tt>
+with a different name (making sure it ends in <tt class="docutils literal"><span class="pre">.properties</span></tt>). For
+example, if you name the property file <tt class="docutils literal"><span class="pre">sales.properties</span></tt>, Presto
+will create a catalog named <tt class="docutils literal"><span class="pre">sales</span></tt> using the configured connector.</p>
+</div>
+</div>
+<div class="section" id="querying-mysql">
+<h2>Querying MySQL</h2>
+<p>The MySQL connector provides a schema for every MySQL <em>database</em>.
+You can see the available MySQL databases by running <tt class="docutils literal"><span class="pre">SHOW</span> <span class="pre">SCHEMAS</span></tt>:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SHOW</span> <span class="n">SCHEMAS</span> <span class="k">FROM</span> <span class="n">mysql</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>If you have a MySQL database named <tt class="docutils literal"><span class="pre">web</span></tt>, you can view the tables
+in this database by running <tt class="docutils literal"><span class="pre">SHOW</span> <span class="pre">TABLES</span></tt>:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SHOW</span> <span class="n">TABLES</span> <span class="k">FROM</span> <span class="n">mysql</span><span class="p">.</span><span class="n">web</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>Finally, you can access the <tt class="docutils literal"><span class="pre">clicks</span></tt> table in the <tt class="docutils literal"><span class="pre">web</span></tt> database:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">mysql</span><span class="p">.</span><span class="n">web</span><span class="p">.</span><span class="n">clicks</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>If you used a different name for your catalog properties file, use
+that catalog name instead of <tt class="docutils literal"><span class="pre">mysql</span></tt> in the above examples.</p>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="kafka-tutorial.html">3.5. Kafka Connector Tutorial</a>
+    </span>
+    <span class="right">
+        <a href="postgresql.html">3.7. PostgreSQL Connector</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
