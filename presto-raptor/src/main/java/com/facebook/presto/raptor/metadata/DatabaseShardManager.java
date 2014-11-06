@@ -15,6 +15,10 @@ package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.SetMultimap;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionStatus;
@@ -24,6 +28,8 @@ import javax.inject.Inject;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
 import static com.facebook.presto.raptor.metadata.ShardManagerDaoUtils.createShardTablesWithRetry;
@@ -85,9 +91,22 @@ public class DatabaseShardManager
     }
 
     @Override
-    public Iterable<ShardNode> getShardNodes(long tableId)
+    public Iterable<ShardNodes> getShardNodes(long tableId)
     {
-        return dao.getShardNodes(tableId);
+        // TODO: do this in a single query using LEFT JOIN with ORDER BY
+
+        ImmutableSetMultimap.Builder<UUID, String> builder = ImmutableSetMultimap.builder();
+        for (ShardNode shardNode : dao.getShardNodes(tableId)) {
+            builder.put(shardNode.getShardUuid(), shardNode.getNodeIdentifier());
+        }
+        SetMultimap<UUID, String> map = builder.build();
+
+        ImmutableList.Builder<ShardNodes> list = ImmutableList.builder();
+        for (UUID shard : dao.getShards(tableId)) {
+            Set<String> nodes = Optional.of(map.get(shard)).or(ImmutableSet.<String>of());
+            list.add(new ShardNodes(shard, nodes));
+        }
+        return list.build();
     }
 
     @Override

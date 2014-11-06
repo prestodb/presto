@@ -27,13 +27,13 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -73,10 +73,14 @@ public class TestDatabaseShardManager
 
         shardManager.commitTable(tableId, shards, Optional.<String>absent());
 
-        Set<ShardNode> actual = ImmutableSet.copyOf(shardManager.getShardNodes(tableId));
+        Set<ShardNodes> actual = ImmutableSet.copyOf(shardManager.getShardNodes(tableId));
+
+        Set<ShardNodes> expected = new HashSet<>();
         for (ShardNode shard : shards) {
-            assertTrue(actual.contains(shard));
+            expected.add(new ShardNodes(shard.getShardUuid(), ImmutableSet.of(shard.getNodeIdentifier())));
         }
+
+        assertEquals(actual, expected);
     }
 
     @Test

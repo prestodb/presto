@@ -28,6 +28,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.type.TypeRegistry;
@@ -129,5 +130,16 @@ public class TestRaptorSplitManager
             splitCount += splitSource.getNextBatch(1000).size();
         }
         assertEquals(splitCount, 4);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "no host for shard .* found: \\[\\]")
+    public void testNoHostForShard()
+            throws InterruptedException
+    {
+        dummyHandle.execute("DELETE FROM shard_nodes");
+
+        ConnectorPartitionResult result = raptorSplitManager.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
+
+        raptorSplitManager.getPartitionSplits(tableHandle, result.getPartitions());
     }
 }

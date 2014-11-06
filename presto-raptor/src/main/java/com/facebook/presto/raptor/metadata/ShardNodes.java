@@ -13,27 +13,24 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
+import com.google.common.collect.ImmutableSet;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
-import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class ShardNode
+public class ShardNodes
 {
     private final UUID shardUuid;
-    private final String nodeIdentifier;
+    private final Set<String> nodeIdentifiers;
 
-    public ShardNode(UUID shardUuid, String nodeIdentifier)
+    public ShardNodes(UUID shardUuid, Set<String> nodeIdentifiers)
     {
         this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
-        this.nodeIdentifier = checkNotNull(nodeIdentifier, "nodeIdentifier is null");
+        this.nodeIdentifiers = ImmutableSet.copyOf(checkNotNull(nodeIdentifiers, "nodeIdentifiers is null"));
     }
 
     public UUID getShardUuid()
@@ -41,9 +38,9 @@ public class ShardNode
         return shardUuid;
     }
 
-    public String getNodeIdentifier()
+    public Set<String> getNodeIdentifiers()
     {
-        return nodeIdentifier;
+        return nodeIdentifiers;
     }
 
     @Override
@@ -52,18 +49,18 @@ public class ShardNode
         if (this == obj) {
             return true;
         }
-        if ((obj == null) || (getClass() != obj.getClass())) {
+        if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        ShardNode other = (ShardNode) obj;
+        ShardNodes other = (ShardNodes) obj;
         return Objects.equals(this.shardUuid, other.shardUuid) &&
-                Objects.equals(this.nodeIdentifier, other.nodeIdentifier);
+                Objects.equals(this.nodeIdentifiers, other.nodeIdentifiers);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(shardUuid, nodeIdentifier);
+        return Objects.hash(shardUuid, nodeIdentifiers);
     }
 
     @Override
@@ -71,20 +68,7 @@ public class ShardNode
     {
         return toStringHelper(this)
                 .add("shardUuid", shardUuid)
-                .add("nodeIdentifier", nodeIdentifier)
+                .add("nodeIdentifiers", nodeIdentifiers)
                 .toString();
-    }
-
-    public static class Mapper
-            implements ResultSetMapper<ShardNode>
-    {
-        @Override
-        public ShardNode map(int index, ResultSet r, StatementContext ctx)
-                throws SQLException
-        {
-            return new ShardNode(
-                    uuidFromBytes(r.getBytes("shard_uuid")),
-                    r.getString("node_identifier"));
-        }
     }
 }

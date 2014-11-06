@@ -13,20 +13,24 @@
  */
 package com.facebook.presto.raptor.util;
 
+import org.skife.jdbi.v2.ResultSetMapperFactory;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.Argument;
 import org.skife.jdbi.v2.tweak.ArgumentFactory;
+import org.skife.jdbi.v2.tweak.ResultSetMapper;
+import org.skife.jdbi.v2.util.TypedMapper;
 
 import java.nio.ByteBuffer;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.UUID;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public final class UuidArguments
+public final class UuidUtil
 {
-    private UuidArguments() {}
+    private UuidUtil() {}
 
     public static final class UuidArgumentFactory
             implements ArgumentFactory<UUID>
@@ -59,6 +63,41 @@ public final class UuidArguments
                 throws SQLException
         {
             statement.setBytes(position, value);
+        }
+    }
+
+    @SuppressWarnings("rawtypes")
+    public static class UuidMapperFactory
+            implements ResultSetMapperFactory
+    {
+        @Override
+        public boolean accepts(Class type, StatementContext ctx)
+        {
+            return type == UUID.class;
+        }
+
+        @Override
+        public ResultSetMapper mapperFor(Class type, StatementContext ctx)
+        {
+            return new UuidMapper();
+        }
+    }
+
+    public static final class UuidMapper
+            extends TypedMapper<UUID>
+    {
+        @Override
+        protected UUID extractByName(ResultSet r, String name)
+                throws SQLException
+        {
+            return uuidFromBytes(r.getBytes(name));
+        }
+
+        @Override
+        protected UUID extractByIndex(ResultSet r, int index)
+                throws SQLException
+        {
+            return uuidFromBytes(r.getBytes(index));
         }
     }
 

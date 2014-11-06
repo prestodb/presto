@@ -25,7 +25,7 @@ public interface ShardManager
     /**
      * Return the shard nodes a given table.
      */
-    Iterable<ShardNode> getShardNodes(long tableId);
+    Iterable<ShardNodes> getShardNodes(long tableId);
 
     /**
      * Drop all shards in a given table.

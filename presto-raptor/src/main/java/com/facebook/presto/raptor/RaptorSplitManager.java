@@ -14,7 +14,7 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.metadata.ShardManager;
-import com.facebook.presto.raptor.metadata.ShardNode;
+import com.facebook.presto.raptor.metadata.ShardNodes;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
@@ -29,7 +29,6 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMultimap;
 
 import javax.inject.Inject;
 
@@ -83,18 +82,13 @@ public class RaptorSplitManager
 
         Map<String, Node> nodesById = uniqueIndex(nodeManager.getActiveNodes(), nodeIdentifier());
 
-        ImmutableMultimap.Builder<UUID, String> shardNodes = ImmutableMultimap.builder();
-        for (ShardNode shardNode : shardManager.getShardNodes(raptorTableHandle.getTableId())) {
-            shardNodes.put(shardNode.getShardUuid(), shardNode.getNodeIdentifier());
-        }
-
         List<ConnectorSplit> splits = new ArrayList<>();
-        for (Map.Entry<UUID, Collection<String>> entry : shardNodes.build().asMap().entrySet()) {
-            UUID shardId = entry.getKey();
-            Collection<String> nodeId = entry.getValue();
-            List<HostAddress> addresses = getAddressesForNodes(nodesById, nodeId);
+        for (ShardNodes shardNode : shardManager.getShardNodes(raptorTableHandle.getTableId())) {
+            UUID shardId = shardNode.getShardUuid();
+            Collection<String> nodeIds = shardNode.getNodeIdentifiers();
+            List<HostAddress> addresses = getAddressesForNodes(nodesById, nodeIds);
             if (addresses.isEmpty()) {
-                throw new PrestoException(INTERNAL_ERROR, format("no host for shard %s found: %s", shardId, nodeId));
+                throw new PrestoException(INTERNAL_ERROR, format("no host for shard %s found: %s", shardId, nodeIds));
             }
             splits.add(new RaptorSplit(shardId, addresses, effectivePredicate));
         }
