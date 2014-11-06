@@ -5,11 +5,11 @@
             "columns": [
                 {
                     "name": "text",
-                    "type": {"rawType": "varchar", "typeArguments": [], "literalArguments": []}
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "value",
-                    "type": {"rawType": "bigint", "typeArguments": [], "literalArguments": []}
+                    "type": "BIGINT"
                 }
             ],
             "sources": [ "numbers-1.csv", "numbers-2.csv" ]
@@ -21,39 +21,39 @@
             "columns": [
                 {
                     "name": "orderkey",
-                    "type": {"rawType": "bigint", "typeArguments": [], "literalArguments": []}
+                    "type": "BIGINT"
                 },
                 {
                     "name": "custkey",
-                    "type": {"rawType": "bigint", "typeArguments": [], "literalArguments": []}
+                    "type": "BIGINT"
                 },
                 {
                     "name": "orderstatus",
-                    "type": {"rawType": "varchar", "typeArguments": [], "literalArguments": []}
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "totalprice",
-                    "type": {"rawType": "double", "typeArguments": [], "literalArguments": []}
+                    "type": "DOUBLE"
                 },
                 {
                     "name": "orderdate",
-                    "type": {"rawType": "varchar", "typeArguments": [], "literalArguments": []}
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "orderpriority",
-                    "type": {"rawType": "varchar", "typeArguments": [], "literalArguments": []}
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "clerk",
-                    "type": {"rawType": "varchar", "typeArguments": [], "literalArguments": []}
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "shippriority",
-                    "type": {"rawType": "bigint", "typeArguments": [], "literalArguments": []}
+                    "type": "BIGINT"
                 },
                 {
                     "name": "comment",
-                    "type": {"rawType": "varchar", "typeArguments": [], "literalArguments": []}
+                    "type": "VARCHAR"
                 }
             ],
             "sources": [ "orders-1.csv", "orders-2.csv" ]
@@ -63,63 +63,63 @@
             "columns": [
                 {
                     "name": "orderkey",
-                    "type": {"rawType": "bigint", "typeArguments": [], "literalArguments": []}
+                    "type": "BIGINT"
                 },
                 {
                     "name": "partkey",
-                    "type": {"rawType": "bigint", "typeArguments": [], "literalArguments": []}
+                    "type": "BIGINT"
                 },
                 {
                     "name": "suppkey",
-                    "type": {"rawType": "bigint", "typeArguments": [], "literalArguments": []}
+                    "type": "BIGINT"
                 },
                 {
                     "name": "linenumber",
-                    "type": {"rawType": "bigint", "typeArguments": [], "literalArguments": []}
+                    "type": "BIGINT"
                 },
                 {
                     "name": "quantity",
-                    "type": {"rawType": "double", "typeArguments": [], "literalArguments": []}
+                    "type": "DOUBLE"
                 },
                 {
                     "name": "discount",
-                    "type": {"rawType": "double", "typeArguments": [], "literalArguments": []}
+                    "type": "DOUBLE"
                 },
                 {
                     "name": "tax",
-                    "type": {"rawType": "double", "typeArguments": [], "literalArguments": []}
+                    "type": "DOUBLE"
                 },
                 {
                     "name": "returnflag",
-                    "type": {"rawType": "varchar", "typeArguments": [], "literalArguments": []}
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "linestatus",
-                    "type": {"rawType": "varchar", "typeArguments": [], "literalArguments": []}
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "shipdate",
-                    "type": {"rawType": "varchar", "typeArguments": [], "literalArguments": []}
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "commitdate",
-                    "type": {"rawType": "varchar", "typeArguments": [], "literalArguments": []}
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "receiptdate",
-                    "type": {"rawType": "varchar", "typeArguments": [], "literalArguments": []}
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "shipinstruct",
-                    "type": {"rawType": "varchar", "typeArguments": [], "literalArguments": []}
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "shipmode",
-                    "type": {"rawType": "varchar", "typeArguments": [], "literalArguments": []}
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "comment",
-                    "type": {"rawType": "varchar", "typeArguments": [], "literalArguments": []}
+                    "type": "VARCHAR"
                 }
             ],
             "sources": [ "lineitem-1.csv", "lineitem-2.csv" ]

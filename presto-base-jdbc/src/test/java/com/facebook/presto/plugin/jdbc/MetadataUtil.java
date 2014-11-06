@@ -15,22 +15,20 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
+import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 
-import java.io.IOException;
 import java.util.Map;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 
 final class MetadataUtil
@@ -51,7 +49,7 @@ final class MetadataUtil
     }
 
     public static final class TestingTypeDeserializer
-            extends StdDeserializer<Type>
+            extends FromStringDeserializer<Type>
     {
         private final Map<String, Type> types = ImmutableMap.<String, Type>of(
                 StandardTypes.BIGINT, BIGINT,
@@ -63,12 +61,10 @@ final class MetadataUtil
         }
 
         @Override
-        public Type deserialize(JsonParser jsonParser, DeserializationContext context)
-                throws IOException
+        protected Type _deserialize(String value, DeserializationContext context)
         {
-            TypeSignature typeSignature = jsonParser.readValueAs(TypeSignature.class);
-            Type type = types.get(typeSignature.toString());
-            checkArgument(type != null, "Unknown type %s", typeSignature);
+            Type type = types.get(value.toLowerCase(ENGLISH));
+            checkArgument(type != null, "Unknown type %s", value);
             return type;
         }
     }
