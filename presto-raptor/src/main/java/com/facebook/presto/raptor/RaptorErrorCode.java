@@ -20,7 +20,8 @@ public enum RaptorErrorCode
         implements ErrorCodeSupplier
 {
     RAPTOR_ERROR(0x0300_0000),
-    RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS(0x0300_0001);
+    RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS(0x0300_0001),
+    RAPTOR_NO_HOST_FOR_SHARD(0x0300_0002);
 
     private final ErrorCode errorCode;
 
