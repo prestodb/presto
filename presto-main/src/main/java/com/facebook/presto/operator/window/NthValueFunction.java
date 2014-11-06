@@ -104,18 +104,17 @@ public class NthValueFunction
             output.appendNull();
         }
         else {
-            int offset = Ints.checkedCast(pagesIndex.getLong(offsetChannel, currentPosition));
+            long offset = pagesIndex.getLong(offsetChannel, currentPosition);
             checkCondition(offset >= 1, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 1");
 
             // offset is base 1
-            int valuePosition = partitionStartPosition + offset - 1;
+            long valuePosition = (partitionStartPosition + offset) - 1;
 
-            // if the value is out of range, result is null
-            if (valuePosition >= partitionStartPosition + partitionRowCount) {
-                output.appendNull();
+            if ((valuePosition >= 0) && (valuePosition < (partitionStartPosition + partitionRowCount))) {
+                pagesIndex.appendTo(valueChannel, Ints.checkedCast(valuePosition), output);
             }
             else {
-                pagesIndex.appendTo(valueChannel, valuePosition, output);
+                output.appendNull();
             }
         }
 
