@@ -103,10 +103,10 @@ public final class LiteralInterpreter
             if (value.isNaN()) {
                 return new FunctionCall(new QualifiedName("nan"), ImmutableList.<Expression>of());
             }
-            else if (value == Double.NEGATIVE_INFINITY) {
+            else if (value.equals(Double.NEGATIVE_INFINITY)) {
                 return new NegativeExpression(new FunctionCall(new QualifiedName("infinity"), ImmutableList.<Expression>of()));
             }
-            else if (value == Double.POSITIVE_INFINITY) {
+            else if (value.equals(Double.POSITIVE_INFINITY)) {
                 return new FunctionCall(new QualifiedName("infinity"), ImmutableList.<Expression>of());
             }
             else {
