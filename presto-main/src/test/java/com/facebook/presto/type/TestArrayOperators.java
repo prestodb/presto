@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
+import com.facebook.presto.operator.scalar.TestingRowConstructor;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
@@ -40,6 +42,7 @@ public class TestArrayOperators
     public void setUp()
     {
         functionAssertions = new FunctionAssertions();
+        functionAssertions.getMetadata().getFunctionRegistry().addFunctions(new FunctionListBuilder(functionAssertions.getMetadata().getTypeManager()).scalar(TestingRowConstructor.class).getFunctions());
     }
 
     private void assertFunction(String projection, Object expected)
@@ -89,6 +92,63 @@ public class TestArrayOperators
         assertFunction("ARRAY [sqrt(-1)]", ImmutableList.of(Double.NaN));
         assertFunction("ARRAY [pow(infinity(), 2)]", ImmutableList.of(Double.POSITIVE_INFINITY));
         assertFunction("ARRAY [pow(-infinity(), 1)]", ImmutableList.of(Double.NEGATIVE_INFINITY));
+    }
+
+    @Test
+    public void testArrayToArrayConcat()
+            throws Exception
+    {
+        assertFunction("ARRAY [1, NULL] || ARRAY [3]", Lists.newArrayList(1L, null, 3L));
+        assertFunction("ARRAY [1, 2] || ARRAY[3, 4]", ImmutableList.of(1L, 2L, 3L, 4L));
+        assertFunction("ARRAY [NULL] || ARRAY[NULL]", Lists.newArrayList(null, null));
+        assertFunction("ARRAY ['puppies'] || ARRAY ['kittens']", ImmutableList.of("puppies", "kittens"));
+        assertFunction("ARRAY [TRUE] || ARRAY [FALSE]", ImmutableList.of(true, false));
+        assertFunction("concat(ARRAY [1] , ARRAY[2,3])", ImmutableList.of(1L, 2L, 3L));
+        assertFunction("ARRAY [from_unixtime(1)] || ARRAY[from_unixtime(100)]", ImmutableList.of(
+                new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()),
+                new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey())));
+        assertFunction("ARRAY [ARRAY[ARRAY[1]]] || ARRAY [ARRAY[ARRAY[2]]]", ImmutableList.of(ImmutableList.of(ImmutableList.of(1L)), ImmutableList.of(ImmutableList.of(2L))));
+        assertFunction("ARRAY [] || ARRAY []", ImmutableList.of());
+        assertFunction("ARRAY [TRUE] || ARRAY [FALSE] || ARRAY [TRUE]", ImmutableList.of(true, false, true));
+        assertFunction("ARRAY [1] || ARRAY [2] || ARRAY [3] || ARRAY [4]", ImmutableList.of(1L, 2L, 3L, 4L));
+
+        try {
+            assertFunction("ARRAY [ARRAY[1]] || ARRAY[ARRAY[true], ARRAY[false]]", null);
+            fail("arrays must be of the same type");
+        }
+        catch (RuntimeException e) {
+            // Expected
+        }
+
+        try {
+            assertFunction("ARRAY [ARRAY[1]] || ARRAY[NULL]", null);
+            fail("arrays must be of the same type");
+        }
+        catch (RuntimeException e) {
+            // Expected
+        }
+    }
+
+    @Test
+    public void testElementArrayConcat()
+            throws Exception
+    {
+        assertFunction("CAST (ARRAY [DATE '2001-08-22'] || DATE '2001-08-23' AS JSON)", "[\"2001-08-22\",\"2001-08-23\"]");
+        assertFunction("CAST (DATE '2001-08-23' || ARRAY [DATE '2001-08-22'] AS JSON)", "[\"2001-08-23\",\"2001-08-22\"]");
+        assertFunction("1 || ARRAY [2]", Lists.newArrayList(1L, 2L));
+        assertFunction("ARRAY [2] || 1", Lists.newArrayList(2L, 1L));
+        assertFunction("TRUE || ARRAY [FALSE]", Lists.newArrayList(true, false));
+        assertFunction("ARRAY [FALSE] || TRUE", Lists.newArrayList(false, true));
+        assertFunction("1.0 || ARRAY [2.0]", Lists.newArrayList(1.0, 2.0));
+        assertFunction("ARRAY [2.0] || 1.0", Lists.newArrayList(2.0, 1.0));
+        assertFunction("'puppies' || ARRAY ['kittens']", Lists.newArrayList("puppies", "kittens"));
+        assertFunction("ARRAY ['kittens'] || 'puppies'", Lists.newArrayList("kittens", "puppies"));
+        assertFunction("ARRAY [from_unixtime(1)] || from_unixtime(100)", ImmutableList.of(
+                new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()),
+                new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey())));
+        assertFunction("from_unixtime(100) || ARRAY [from_unixtime(1)]", ImmutableList.of(
+                new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey()),
+                new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey())));
     }
 
     @Test
