@@ -239,6 +239,13 @@ public class OrcMetadataReader
             return null;
         }
 
+        // TODO remove this when double statistics are changed to correctly deal with NaNs
+        // if either min or max is NaN, ignore the stat
+        if ((doubleStatistics.hasMinimum() && Double.isNaN(doubleStatistics.getMinimum())) ||
+                (doubleStatistics.hasMaximum() && Double.isNaN(doubleStatistics.getMaximum()))) {
+            return null;
+        }
+
         return new DoubleStatistics(
                 doubleStatistics.hasMinimum() ? doubleStatistics.getMinimum() : null,
                 doubleStatistics.hasMaximum() ? doubleStatistics.getMaximum() : null);
