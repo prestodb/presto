@@ -39,9 +39,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_NO_HOST_FOR_SHARD;
 import static com.facebook.presto.raptor.util.Nodes.nodeIdentifier;
 import static com.facebook.presto.raptor.util.Types.checkType;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -88,7 +88,7 @@ public class RaptorSplitManager
             Collection<String> nodeIds = shardNode.getNodeIdentifiers();
             List<HostAddress> addresses = getAddressesForNodes(nodesById, nodeIds);
             if (addresses.isEmpty()) {
-                throw new PrestoException(INTERNAL_ERROR, format("no host for shard %s found: %s", shardId, nodeIds));
+                throw new PrestoException(RAPTOR_NO_HOST_FOR_SHARD, format("no host for shard %s found: %s", shardId, nodeIds));
             }
             splits.add(new RaptorSplit(shardId, addresses, effectivePredicate));
         }
