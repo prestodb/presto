@@ -195,6 +195,17 @@ public class TestJsonFunctions
     }
 
     @Test
+    public void testJsonArrayGetNonScalar()
+    {
+        assertFunction("JSON_ARRAY_GET('[{\"hello\":\"world\"}]', 0)", utf8Slice(String.valueOf("{\"hello\":\"world\"}")));
+        assertFunction("JSON_ARRAY_GET('[{\"hello\":\"world\"}, [1,2,3]]', 1)", utf8Slice(String.valueOf("[1,2,3]")));
+        assertFunction("JSON_ARRAY_GET('[{\"hello\":\"world\"}, [1,2, {\"x\" : 2} ]]', 1)", utf8Slice(String.valueOf("[1,2,{\"x\":2}]")));
+        assertFunction("JSON_ARRAY_GET('[{\"hello\":\"world\"}, {\"a\":[{\"x\":99}]}]', 1)", utf8Slice(String.valueOf("{\"a\":[{\"x\":99}]}")));
+        assertFunction("JSON_ARRAY_GET('[{\"hello\":\"world\"}, {\"a\":[{\"x\":99}]}]', -1)", utf8Slice(String.valueOf("{\"a\":[{\"x\":99}]}")));
+        assertFunction("JSON_ARRAY_GET('[{\"hello\": null}]', 0)", utf8Slice(String.valueOf("{\"hello\":null}")));
+    }
+
+    @Test
     public void testJsonArrayContainsInvalid()
     {
         for (String value : new String[] {"'x'", "2.5", "8", "true", "cast(null as varchar)"}) {
