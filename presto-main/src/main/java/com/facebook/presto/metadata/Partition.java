@@ -24,11 +24,13 @@ public class Partition
 {
     private final String connectorId;
     private final ConnectorPartition connectorPartition;
+    private final TupleDomain<ColumnHandle> columnHandleTupleDomain;
 
     public Partition(String connectorId, ConnectorPartition connectorPartition)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null");
         this.connectorPartition = checkNotNull(connectorPartition, "partition is null");
+        this.columnHandleTupleDomain = fromConnectorDomain(connectorId, connectorPartition.getTupleDomain());
     }
 
     public ConnectorPartition getConnectorPartition()
@@ -38,7 +40,7 @@ public class Partition
 
     public TupleDomain<ColumnHandle> getTupleDomain()
     {
-        return fromConnectorDomain(connectorId, connectorPartition.getTupleDomain());
+        return columnHandleTupleDomain;
     }
 
     @Override
