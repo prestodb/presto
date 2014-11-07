@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.regex.Pattern;
 
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
@@ -36,7 +35,7 @@ public class TypeSignature
         checkArgument(base != null, "base is null");
         this.base = base;
         checkArgument(!base.isEmpty(), "base is empty");
-        checkArgument(!Pattern.matches(".*[<>,].*", base), "Bad characters in base type: %s", base);
+        checkArgument(validateName(base), "Bad characters in base type: %s", base);
         checkArgument(parameters != null, "parameters is null");
         checkArgument(literalParameters != null, "literalParameters is null");
         for (Object literal : literalParameters) {
@@ -44,6 +43,17 @@ public class TypeSignature
         }
         this.parameters = unmodifiableList(new ArrayList<>(parameters));
         this.literalParameters = unmodifiableList(new ArrayList<>(literalParameters));
+    }
+
+    private static boolean validateName(String name)
+    {
+        for (int i = 0; i < name.length(); i++) {
+            char c = name.charAt(i);
+            if (c == '<' || c == '>' || c == ',') {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
