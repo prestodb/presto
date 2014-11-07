@@ -34,11 +34,13 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SerializableNativeValue;
+import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.ViewNotFoundException;
@@ -1021,7 +1023,7 @@ public class HiveClient
         // do a final pass to filter based on fields that could not be used to build the prefix
         Map<String, ConnectorColumnHandle> partitionKeysByName = partitionKeysByNameBuilder.build();
         List<ConnectorPartition> partitions = FluentIterable.from(partitionNames)
-                .transform(toPartition(tableName, partitionKeysByName, bucket, timeZone, toHiveTupleDomain(effectivePredicate)))
+                .transform(toPartition(tableName, partitionKeysByName, bucket, timeZone, toCompactTupleDomain(effectivePredicate)))
                 .filter(partitionMatches(effectivePredicate))
                 .filter(ConnectorPartition.class)
                 .toList();
@@ -1382,15 +1384,14 @@ public class HiveClient
         };
     }
 
-    public static TupleDomain<HiveColumnHandle> toHiveTupleDomain(TupleDomain<ConnectorColumnHandle> effectivePredicate)
+    public static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<ConnectorColumnHandle> effectivePredicate)
     {
-        return effectivePredicate.transform(new TupleDomain.Function<ConnectorColumnHandle, HiveColumnHandle>()
-        {
-            @Override
-            public HiveColumnHandle apply(ConnectorColumnHandle columnHandle)
-            {
-                return checkType(columnHandle, HiveColumnHandle.class, "ColumnHandle");
-            }
-        });
+        ImmutableMap.Builder<HiveColumnHandle, Domain> builder = ImmutableMap.builder();
+        for (Entry<ConnectorColumnHandle, Domain> entry : effectivePredicate.getDomains().entrySet()) {
+            HiveColumnHandle hiveColumnHandle = checkType(entry.getKey(), HiveColumnHandle.class, "ColumnHandle");
+            Range span = entry.getValue().getRanges().getSpan();
+            builder.put(hiveColumnHandle, new Domain(SortedRangeSet.of(span), entry.getValue().isNullAllowed()));
+        }
+        return TupleDomain.withColumnDomains(builder.build());
     }
 }
