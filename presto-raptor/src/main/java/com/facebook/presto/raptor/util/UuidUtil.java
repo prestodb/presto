@@ -24,9 +24,8 @@ import java.nio.ByteBuffer;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.UUID;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class UuidUtil
 {
@@ -51,18 +50,29 @@ public final class UuidUtil
     public static final class UuidArgument
             implements Argument
     {
-        private final byte[] value;
+        private final UUID uuid;
 
-        public UuidArgument(UUID value)
+        public UuidArgument(UUID uuid)
         {
-            this.value = uuidToBytes(checkNotNull(value, "value is null"));
+            this.uuid = uuid;
         }
 
         @Override
         public void apply(int position, PreparedStatement statement, StatementContext ctx)
                 throws SQLException
         {
-            statement.setBytes(position, value);
+            if (uuid == null) {
+                statement.setNull(position, Types.VARBINARY);
+            }
+            else {
+                statement.setBytes(position, uuidToBytes(uuid));
+            }
+        }
+
+        @Override
+        public String toString()
+        {
+            return String.valueOf(uuid);
         }
     }
 
