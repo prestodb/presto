@@ -34,7 +34,6 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -1389,8 +1388,14 @@ public class HiveClient
         ImmutableMap.Builder<HiveColumnHandle, Domain> builder = ImmutableMap.builder();
         for (Entry<ConnectorColumnHandle, Domain> entry : effectivePredicate.getDomains().entrySet()) {
             HiveColumnHandle hiveColumnHandle = checkType(entry.getKey(), HiveColumnHandle.class, "ColumnHandle");
-            Range span = entry.getValue().getRanges().getSpan();
-            builder.put(hiveColumnHandle, new Domain(SortedRangeSet.of(span), entry.getValue().isNullAllowed()));
+
+            SortedRangeSet ranges = entry.getValue().getRanges();
+            if (!ranges.isNone()) {
+                // compact the range to a single span
+                ranges = SortedRangeSet.of(entry.getValue().getRanges().getSpan());
+            }
+
+            builder.put(hiveColumnHandle, new Domain(ranges, entry.getValue().isNullAllowed()));
         }
         return TupleDomain.withColumnDomains(builder.build());
     }
