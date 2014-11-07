@@ -29,6 +29,7 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -178,6 +179,13 @@ public class TestingMetadata
     }
 
     @Override
+    public void closeCreateTable(ConnectorOutputTableHandle tableHandle)
+            throws IOException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         throw new UnsupportedOperationException();
@@ -185,6 +193,13 @@ public class TestingMetadata
 
     @Override
     public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void closeInsert(ConnectorInsertTableHandle insertHandle)
+            throws IOException
     {
         throw new UnsupportedOperationException();
     }

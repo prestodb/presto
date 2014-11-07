@@ -746,6 +746,12 @@ public class HiveClient
     }
 
     @Override
+    public void closeCreateTable(ConnectorOutputTableHandle tableHandle)
+            throws IOException
+    {
+    }
+
+    @Override
     public RecordSink getRecordSink(ConnectorOutputTableHandle tableHandle)
     {
         HiveOutputTableHandle handle = checkType(tableHandle, HiveOutputTableHandle.class, "tableHandle");
@@ -938,6 +944,12 @@ public class HiveClient
 
     @Override
     public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void closeInsert(ConnectorInsertTableHandle insertHandle)
     {
         throw new UnsupportedOperationException();
     }

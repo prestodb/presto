@@ -53,6 +53,7 @@ import org.skife.jdbi.v2.exceptions.UnableToExecuteStatementException;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -339,6 +340,12 @@ public class RaptorMetadata
     }
 
     @Override
+    public void closeCreateTable(ConnectorOutputTableHandle outputTableHandle)
+            throws IOException
+    {
+    }
+
+    @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
@@ -363,6 +370,12 @@ public class RaptorMetadata
         Optional<String> externalBatchId = Optional.fromNullable(handle.getExternalBatchId());
 
         shardManager.commitTable(tableId, parseFragments(fragments), externalBatchId);
+    }
+
+    @Override
+    public void closeInsert(ConnectorInsertTableHandle insertHandle)
+            throws IOException
+    {
     }
 
     @Override

@@ -138,6 +138,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.validation.constraints.NotNull;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -1531,6 +1532,21 @@ public class LocalExecutionPlanner
                 }
                 else if (target instanceof InsertHandle) {
                     metadata.commitInsert(((InsertHandle) target).getHandle(), fragments);
+                }
+                else {
+                    throw new AssertionError("Unhandled target type: " + target.getClass().getName());
+                }
+            }
+
+            @Override
+            public void close()
+                    throws IOException
+            {
+                if (target instanceof CreateHandle) {
+                    metadata.closeCreateTable(((CreateHandle) target).getHandle());
+                }
+                else if (target instanceof InsertHandle) {
+                    metadata.closeInsert(((InsertHandle) target).getHandle());
                 }
                 else {
                     throw new AssertionError("Unhandled target type: " + target.getClass().getName());

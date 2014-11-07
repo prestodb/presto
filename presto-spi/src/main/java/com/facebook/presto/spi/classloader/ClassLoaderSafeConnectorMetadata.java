@@ -24,6 +24,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -155,6 +156,15 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void closeCreateTable(ConnectorOutputTableHandle tableHandle)
+            throws IOException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.closeCreateTable(tableHandle);
+        }
+    }
+
+    @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -167,6 +177,15 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             delegate.commitInsert(insertHandle, fragments);
+        }
+    }
+
+    @Override
+    public void closeInsert(ConnectorInsertTableHandle insertHandle)
+            throws IOException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.closeInsert(insertHandle);
         }
     }
 

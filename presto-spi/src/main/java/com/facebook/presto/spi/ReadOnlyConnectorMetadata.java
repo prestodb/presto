@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +61,13 @@ public abstract class ReadOnlyConnectorMetadata
     }
 
     @Override
+    public final void closeCreateTable(ConnectorOutputTableHandle tableHandle)
+            throws IOException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public final ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         throw new UnsupportedOperationException();
@@ -67,6 +75,13 @@ public abstract class ReadOnlyConnectorMetadata
 
     @Override
     public final void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public final void closeInsert(ConnectorInsertTableHandle insertHandles)
+            throws IOException
     {
         throw new UnsupportedOperationException();
     }

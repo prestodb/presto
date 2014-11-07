@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -100,6 +101,11 @@ public interface ConnectorMetadata
     void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<String> fragments);
 
     /**
+     * Release table creation resources
+     */
+    void closeCreateTable(ConnectorOutputTableHandle tableHandle) throws IOException;
+
+    /**
      * Begin insert query
      */
     ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle);
@@ -108,6 +114,11 @@ public interface ConnectorMetadata
      * Commit insert query
      */
     void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments);
+
+    /**
+     * Release insert resources
+     */
+    void closeInsert(ConnectorInsertTableHandle insertHandle) throws IOException;
 
     /**
      * Create the specified view. The data for the view is opaque to the connector.

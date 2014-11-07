@@ -23,6 +23,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -149,6 +150,12 @@ public class RaptorRecordSink
         storageManager.commit(outputHandle);
 
         return Joiner.on(':').join(nodeId, outputHandle.getShardUuid());
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
     }
 
     private Type currentType()

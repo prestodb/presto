@@ -48,6 +48,7 @@ import io.airlift.json.ObjectMapperProvider;
 
 import javax.inject.Inject;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -357,6 +358,13 @@ public class MetadataManager
     }
 
     @Override
+    public void closeCreateTable(OutputTableHandle tableHandle)
+            throws IOException
+    {
+        lookupConnectorFor(tableHandle).closeCreateTable(tableHandle.getConnectorHandle());
+    }
+
+    @Override
     public InsertTableHandle beginInsert(Session session, TableHandle tableHandle)
     {
         // assume connectorId and catalog are the same
@@ -369,6 +377,13 @@ public class MetadataManager
     public void commitInsert(InsertTableHandle tableHandle, Collection<String> fragments)
     {
         lookupConnectorFor(tableHandle).commitInsert(tableHandle.getConnectorHandle(), fragments);
+    }
+
+    @Override
+    public void closeInsert(InsertTableHandle tableHandle)
+            throws IOException
+    {
+        lookupConnectorFor(tableHandle).closeInsert(tableHandle.getConnectorHandle());
     }
 
     @Override

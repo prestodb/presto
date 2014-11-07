@@ -16,6 +16,7 @@ package com.facebook.presto.plugin.jdbc;
 import com.facebook.presto.spi.RecordSink;
 import com.google.common.base.Throwables;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -141,17 +142,34 @@ public class JdbcRecordSink
     @Override
     public String commit()
     {
-        // commit and close
-        try (Connection connection = this.connection) {
+        // commit
+        try {
             if (batchSize > 0) {
                 statement.executeBatch();
                 connection.commit();
+                batchSize = 0;
             }
         }
         catch (SQLException e) {
             throw Throwables.propagate(e);
         }
         return ""; // the committer does not need any additional info
+    }
+
+    @Override
+    public void close()
+                throws IOException
+    {
+        // close
+        try {
+            if (batchSize > 0) {
+                // TODO: Rollback. Some batches might have been committed. So is rollback really required or meaningful?
+            }
+            connection.close();
+        }
+        catch (SQLException e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     private int next()

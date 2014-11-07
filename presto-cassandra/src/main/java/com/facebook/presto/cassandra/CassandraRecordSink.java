@@ -17,6 +17,7 @@ import com.facebook.presto.spi.RecordSink;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
@@ -130,6 +131,12 @@ public class CassandraRecordSink implements RecordSink
     {
         checkState(field == -1, "record not finished");
         return "";
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
     }
 
     private void append(Object value)
