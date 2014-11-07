@@ -36,7 +36,7 @@ public class Column
     {
         this.name = checkNotNull(name, "name is null");
         this.type = checkNotNull(type, "type is null");
-        this.typeSignature = checkNotNull(typeSignature, "typeSignature is null");
+        this.typeSignature = typeSignature;
     }
 
     @JsonProperty
