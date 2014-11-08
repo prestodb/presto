@@ -1,0 +1,193 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>4.13. Window Functions &mdash; Presto 0.82 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.82',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.82 Documentation" href="../index.html" />
+    <link rel="up" title="4. Functions and Operators" href="../functions.html" />
+    <link rel="next" title="4.14. Color Functions" href="color.html" />
+    <link rel="prev" title="4.12. Aggregate Functions" href="aggregate.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.82 Documentation</span></a></h1>
+    <h2 class="heading"><span>4.13. Window Functions</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="aggregate.html">4.12. Aggregate Functions</a>
+    </span>
+    <span class="right">
+        <a href="color.html">4.14. Color Functions</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="window-functions">
+<h1>4.13. Window Functions</h1>
+<p>Window functions perform calculations across rows of the query result.
+They run after the <tt class="docutils literal"><span class="pre">HAVING</span></tt> clause but before the <tt class="docutils literal"><span class="pre">ORDER</span> <span class="pre">BY</span></tt> clause.
+Invoking a window function requires special syntax using the <tt class="docutils literal"><span class="pre">OVER</span></tt>
+clause to specify the window. A window has three components:</p>
+<ul class="simple">
+<li>The partition specification, which separates the input rows into different
+partitions. This is analogous to how the <tt class="docutils literal"><span class="pre">GROUP</span> <span class="pre">BY</span></tt> clause separates rows
+into different groups for aggregate functions.</li>
+<li>The ordering specification, which determines the order in which input rows
+will be processed by the window function.</li>
+<li>The window frame, which specifies a sliding window of rows to be processed
+by the function for a given row.</li>
+</ul>
+<p>For example, the following query ranks orders for each clerk by price:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">orderid</span><span class="p">,</span> <span class="n">clerk</span><span class="p">,</span> <span class="n">totalprice</span><span class="p">,</span>
+       <span class="n">RANK</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">clerk</span>
+                    <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">totalprice</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rnk</span>
+<span class="k">FROM</span> <span class="n">orders</span>
+<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">clerk</span><span class="p">,</span> <span class="n">rnk</span>
+</pre></div>
+</div>
+<div class="section" id="ranking-functions">
+<h2>Ranking Functions</h2>
+<dl class="function">
+<dt id="cume_dist">
+<tt class="descname">cume_dist</tt><big>(</big><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the cumulative distribution of a value in a group of values.
+The result is the number of rows preceding or peer with the row in the
+window ordering of the window partition divided by the total number of
+rows in the window partition. Thus, any tie values in the ordering will
+evaluate to the same distribution value.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="dense_rank">
+<tt class="descname">dense_rank</tt><big>(</big><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the rank of a value in a group of values. This is similar to
+<a class="reference internal" href="#rank" title="rank"><tt class="xref py py-func docutils literal"><span class="pre">rank()</span></tt></a>, except that tie values do not produce gaps in the sequence.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="percent_rank">
+<tt class="descname">percent_rank</tt><big>(</big><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the percentage ranking of a value in group of values. The result
+is <tt class="docutils literal"><span class="pre">(r</span> <span class="pre">-</span> <span class="pre">1)</span> <span class="pre">/</span> <span class="pre">(n</span> <span class="pre">-</span> <span class="pre">1)</span></tt> where <tt class="docutils literal"><span class="pre">r</span></tt> is the <a class="reference internal" href="#rank" title="rank"><tt class="xref py py-func docutils literal"><span class="pre">rank()</span></tt></a> of the row and
+<tt class="docutils literal"><span class="pre">n</span></tt> is the total number of rows in the window partition.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="rank">
+<tt class="descname">rank</tt><big>(</big><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the rank of a value in a group of values. The rank is one plus
+the number of rows preceding the row that are not peer with the row.
+Thus, tie values in the ordering will produce gaps in the sequence.
+The ranking is performed for each window partition.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="row_number">
+<tt class="descname">row_number</tt><big>(</big><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns a unique, sequential number for each row, starting with one,
+according to the ordering of rows within the window partition.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="value-functions">
+<h2>Value Functions</h2>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">These functions do not respect the window frame (default or specified) and
+instead operate on the entire partition.  This is equivalent to <tt class="docutils literal"><span class="pre">RANGE</span>
+<span class="pre">BETWEEN</span> <span class="pre">UNBOUNDED</span> <span class="pre">PRECEDING</span> <span class="pre">AND</span> <span class="pre">UNBOUNDED</span> <span class="pre">FOLLOWING</span></tt>.  In a future
+release, these functions will be changed to respect the window frame and to
+use the standard default window frame <tt class="docutils literal"><span class="pre">RANGE</span> <span class="pre">BETWEEN</span> <span class="pre">UNBOUNDED</span> <span class="pre">PRECEDING</span>
+<span class="pre">AND</span> <span class="pre">CURRENT</span> <span class="pre">ROW</span></tt>.</p>
+</div>
+<dl class="function">
+<dt id="first_value">
+<tt class="descname">first_value</tt><big>(</big><em>x</em><big>)</big> &rarr; [same as input]</dt>
+<dd><p>Returns the first value of the window (see warning above).</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="last_value">
+<tt class="descname">last_value</tt><big>(</big><em>x</em><big>)</big> &rarr; [same as input]</dt>
+<dd><p>Returns the last value of the window (see warning above).</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="nth_value">
+<tt class="descname">nth_value</tt><big>(</big><em>x</em>, <em>offset</em><big>)</big> &rarr; [same as input]</dt>
+<dd><p>Returns the value at the specified offset from beginning the window  (see
+warning above).  Offsets start at <tt class="docutils literal"><span class="pre">1</span></tt>. The offset can be any scalar
+expression.  If the offset is null or greater than the number of values in
+the window, null is returned.  It is an error for the offset to be zero or
+negative.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="lead">
+<tt class="descname">lead</tt><big>(</big><em>x</em><span class="optional">[</span>, <em>offset</em><span class="optional">[</span>, <em>default_value</em><span class="optional">]</span><span class="optional">]</span><big>)</big> &rarr; [same as input]</dt>
+<dd><p>Returns the value at <tt class="docutils literal"><span class="pre">offset</span></tt> rows after the current row in the window
+(see warning above).  Offsets start at <tt class="docutils literal"><span class="pre">0</span></tt>, which is the current row.  The
+offset can be any scalar expression.  The default <tt class="docutils literal"><span class="pre">offset</span></tt> is <tt class="docutils literal"><span class="pre">1</span></tt>. If the
+offset is null or larger than the window, the <tt class="docutils literal"><span class="pre">default_value</span></tt> is returned,
+or if it is not specified <tt class="docutils literal"><span class="pre">null</span></tt> is returned.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="lag">
+<tt class="descname">lag</tt><big>(</big><em>x</em><span class="optional">[</span>, <em>offset</em><span class="optional">[</span>, <em>default_value</em><span class="optional">]</span><span class="optional">]</span><big>)</big> &rarr; [same as input]</dt>
+<dd><p>Returns the value at <tt class="docutils literal"><span class="pre">offset</span></tt> rows before the current row in the window
+(see warning above).  Offsets start at <tt class="docutils literal"><span class="pre">0</span></tt>, which is the current row.  The
+offset can be any scalar expression.  The default <tt class="docutils literal"><span class="pre">offset</span></tt> is <tt class="docutils literal"><span class="pre">1</span></tt>. If the
+offset is null or larger than the window, the <tt class="docutils literal"><span class="pre">default_value</span></tt> is returned,
+or if it is not specified <tt class="docutils literal"><span class="pre">null</span></tt> is returned.</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="aggregate.html">4.12. Aggregate Functions</a>
+    </span>
+    <span class="right">
+        <a href="color.html">4.14. Color Functions</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
