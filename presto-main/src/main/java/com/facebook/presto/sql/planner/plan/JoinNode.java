@@ -19,7 +19,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
@@ -49,12 +48,12 @@ public class JoinNode
             @JsonProperty("rightHashSymbol") Optional<Symbol> rightHashSymbol)
     {
         super(id);
-        Preconditions.checkNotNull(type, "type is null");
-        Preconditions.checkNotNull(left, "left is null");
-        Preconditions.checkNotNull(right, "right is null");
-        Preconditions.checkNotNull(criteria, "criteria is null");
-        Preconditions.checkNotNull(leftHashSymbol, "leftHashSymbol is null");
-        Preconditions.checkNotNull(rightHashSymbol, "rightHashSymbol is null");
+        checkNotNull(type, "type is null");
+        checkNotNull(left, "left is null");
+        checkNotNull(right, "right is null");
+        checkNotNull(criteria, "criteria is null");
+        checkNotNull(leftHashSymbol, "leftHashSymbol is null");
+        checkNotNull(rightHashSymbol, "rightHashSymbol is null");
 
         this.type = type;
         this.left = left;
@@ -73,7 +72,7 @@ public class JoinNode
 
         private final String joinLabel;
 
-        private Type(String joinLabel)
+        Type(String joinLabel)
         {
             this.joinLabel = joinLabel;
         }
