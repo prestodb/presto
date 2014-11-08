@@ -17,6 +17,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import io.airlift.testing.FileUtils;
 import org.skife.jdbi.v2.DBI;
@@ -81,6 +82,24 @@ public class TestDatabaseShardManager
         }
 
         assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testAssignShard()
+    {
+        long tableId = 1;
+        UUID shard = UUID.randomUUID();
+        List<ShardNode> shardNodes = ImmutableList.of(new ShardNode(shard, "node1"));
+
+        shardManager.commitTable(tableId, shardNodes, Optional.<String>absent());
+
+        ShardNodes actual = Iterables.getOnlyElement(shardManager.getShardNodes(tableId));
+        assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node1")));
+
+        shardManager.assignShard(shard, "node2");
+
+        actual = Iterables.getOnlyElement(shardManager.getShardNodes(tableId));
+        assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node1", "node2")));
     }
 
     @Test

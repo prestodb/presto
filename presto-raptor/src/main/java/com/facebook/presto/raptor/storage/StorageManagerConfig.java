@@ -16,6 +16,7 @@ package com.facebook.presto.raptor.storage;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 
+import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
 
 import java.io.File;
@@ -23,6 +24,7 @@ import java.io.File;
 public class StorageManagerConfig
 {
     private File dataDirectory = new File("var/data");
+    private File backupDirectory;
 
     @NotNull
     public File getDataDirectory()
@@ -35,6 +37,20 @@ public class StorageManagerConfig
     public StorageManagerConfig setDataDirectory(File dataDirectory)
     {
         this.dataDirectory = dataDirectory;
+        return this;
+    }
+
+    @Nullable
+    public File getBackupDirectory()
+    {
+        return backupDirectory;
+    }
+
+    @Config("storage.backup-directory")
+    @ConfigDescription("Base directory to use for the backup copy of shard data")
+    public StorageManagerConfig setBackupDirectory(File backupDirectory)
+    {
+        this.backupDirectory = backupDirectory;
         return this;
     }
 }

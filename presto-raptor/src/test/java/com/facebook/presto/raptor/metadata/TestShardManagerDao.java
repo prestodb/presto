@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.type.TypeRegistry;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.dbpool.H2EmbeddedDataSource;
 import io.airlift.dbpool.H2EmbeddedDataSourceConfig;
@@ -102,6 +103,24 @@ public class TestShardManagerDao
         dao.insertNode(nodeName);
 
         assertEquals(dao.getAllNodesInUse(), ImmutableSet.of(nodeName));
+    }
+
+    @Test
+    public void testInsertShardNodeUsingShardUuid()
+            throws Exception
+    {
+        dao.insertNode("node");
+        long nodeId = dao.getNodeId("node");
+
+        UUID shard = UUID.randomUUID();
+        long shardId = dao.insertShard(shard);
+
+        long tableId = 1;
+        dao.insertTableShard(tableId, shardId);
+
+        dao.insertShardNode(shard, nodeId);
+
+        assertEquals(dao.getShardNodes(tableId), ImmutableList.of(new ShardNode(shard, "node")));
     }
 
     @Test

@@ -32,7 +32,8 @@ public class TestDatabaseStorageManagerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(StorageManagerConfig.class)
-                .setDataDirectory(new File("var/data")));
+                .setDataDirectory(new File("var/data"))
+                .setBackupDirectory(null));
     }
 
     @Test
@@ -40,10 +41,12 @@ public class TestDatabaseStorageManagerConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("storage.data-directory", "/data")
+                .put("storage.backup-directory", "/backup")
                 .build();
 
         StorageManagerConfig expected = new StorageManagerConfig()
-                .setDataDirectory(new File("/data"));
+                .setDataDirectory(new File("/data"))
+                .setBackupDirectory(new File("/backup"));
 
         assertFullMapping(properties, expected);
     }
