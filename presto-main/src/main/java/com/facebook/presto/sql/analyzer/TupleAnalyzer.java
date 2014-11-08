@@ -80,6 +80,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.IdentityHashMap;
@@ -113,6 +114,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_PARSE_ERRO
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Type.EQUAL;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -121,7 +123,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.elementsEqual;
 import static com.google.common.collect.Iterables.transform;
 
-class TupleAnalyzer
+public class TupleAnalyzer
         extends DefaultTraversalVisitor<TupleDescriptor, AnalysisContext>
 {
     private final Analysis analysis;
@@ -424,7 +426,7 @@ class TupleAnalyzer
             // TODO: implement proper "using" semantics with respect to output columns
             List<String> columns = ((JoinUsing) criteria).getColumns();
 
-            ImmutableList.Builder<EquiJoinClause> builder = ImmutableList.builder();
+            List<Expression> expressions = new ArrayList<>();
             for (String column : columns) {
                 Expression leftExpression = new QualifiedNameReference(QualifiedName.of(column));
                 Expression rightExpression = new QualifiedNameReference(QualifiedName.of(column));
@@ -448,10 +450,10 @@ class TupleAnalyzer
                 checkState(leftExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
                 checkState(rightExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
 
-                builder.add(new EquiJoinClause(leftExpression, rightExpression));
+                expressions.add(new ComparisonExpression(EQUAL, leftExpression, rightExpression));
             }
 
-            analysis.setEquijoinCriteria(node, builder.build());
+            analysis.setJoinCriteria(node, ExpressionUtils.and(expressions));
         }
         else if (criteria instanceof JoinOn) {
             Expression expression = ((JoinOn) criteria).getExpression();
@@ -472,10 +474,10 @@ class TupleAnalyzer
             if (!(optimizedExpression instanceof Expression) && optimizedExpression instanceof Boolean) {
                 // If the JoinOn clause evaluates to a boolean expression, simulate a cross join by adding the relevant redundant expression
                 if (optimizedExpression.equals(Boolean.TRUE)) {
-                    optimizedExpression = new ComparisonExpression(ComparisonExpression.Type.EQUAL, new LongLiteral("0"), new LongLiteral("0"));
+                    optimizedExpression = new ComparisonExpression(EQUAL, new LongLiteral("0"), new LongLiteral("0"));
                 }
                 else {
-                    optimizedExpression = new ComparisonExpression(ComparisonExpression.Type.EQUAL, new LongLiteral("0"), new LongLiteral("1"));
+                    optimizedExpression = new ComparisonExpression(EQUAL, new LongLiteral("0"), new LongLiteral("1"));
                 }
             }
 
@@ -483,17 +485,12 @@ class TupleAnalyzer
                 throw new SemanticException(TYPE_MISMATCH, node, "Join clause must be a boolean expression");
             }
 
-            ImmutableList.Builder<EquiJoinClause> clauses = ImmutableList.builder();
             for (Expression conjunct : ExpressionUtils.extractConjuncts((Expression) optimizedExpression)) {
                 if (!(conjunct instanceof ComparisonExpression)) {
                     throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins not supported: %s", conjunct);
                 }
 
                 ComparisonExpression comparison = (ComparisonExpression) conjunct;
-                if (comparison.getType() != ComparisonExpression.Type.EQUAL) {
-                    throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins not supported: %s", conjunct);
-                }
-
                 Set<QualifiedName> firstDependencies = DependencyExtractor.extract(comparison.getLeft());
                 Set<QualifiedName> secondDependencies = DependencyExtractor.extract(comparison.getRight());
 
@@ -530,11 +527,9 @@ class TupleAnalyzer
                         context,
                         rightExpression);
                 analysis.addJoinInPredicates(node, new Analysis.JoinInPredicates(leftExpressionAnalysis.getSubqueryInPredicates(), rightExpressionAnalysis.getSubqueryInPredicates()));
-
-                clauses.add(new EquiJoinClause(leftExpression, rightExpression));
             }
 
-            analysis.setEquijoinCriteria(node, clauses.build());
+            analysis.setJoinCriteria(node, (Expression) optimizedExpression);
         }
         else {
             throw new UnsupportedOperationException("unsupported join criteria: " + criteria.getClass().getName());

@@ -61,7 +61,7 @@ public class Analysis
     private final IdentityHashMap<Node, List<FieldOrExpression>> outputExpressions = new IdentityHashMap<>();
     private final IdentityHashMap<QuerySpecification, List<FunctionCall>> windowFunctions = new IdentityHashMap<>();
 
-    private final IdentityHashMap<Join, List<EquiJoinClause>> joins = new IdentityHashMap<>();
+    private final IdentityHashMap<Join, Expression> joins = new IdentityHashMap<>();
     private final SetMultimap<Node, InPredicate> inPredicates = HashMultimap.create();
     private final IdentityHashMap<Join, JoinInPredicates> joinInPredicates = new IdentityHashMap<>();
 
@@ -178,12 +178,12 @@ public class Analysis
         having.put(node, expression);
     }
 
-    public void setEquijoinCriteria(Join node, List<EquiJoinClause> clauses)
+    public void setJoinCriteria(Join node, Expression criteria)
     {
-        joins.put(node, clauses);
+        joins.put(node, criteria);
     }
 
-    public List<EquiJoinClause> getJoinCriteria(Join join)
+    public Expression getJoinCriteria(Join join)
     {
         return joins.get(join);
     }
