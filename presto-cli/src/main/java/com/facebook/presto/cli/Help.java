@@ -22,7 +22,9 @@ public final class Help
         return "" +
                 "Supported commands:\n" +
                 "QUIT\n" +
-                "EXPLAIN [FORMAT {TEXT | GRAPHVIZ}] <query>\n" +
+                "EXPLAIN [ ( option [, ...] ) ] <query>\n" +
+                "    options: FORMAT { TEXT | GRAPHVIZ }\n" +
+                "             TYPE { LOGICAL | DISTRIBUTED }\n" +
                 "DESCRIBE <table>\n" +
                 "SHOW COLUMNS FROM <table>\n" +
                 "SHOW FUNCTIONS\n" +
