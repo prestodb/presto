@@ -21,6 +21,8 @@ import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.RaptorMetadata;
 import com.facebook.presto.raptor.RaptorSplitManager;
 import com.facebook.presto.raptor.RaptorTableHandle;
+import com.facebook.presto.raptor.storage.OrcStorageManager;
+import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
@@ -81,6 +83,7 @@ public class TestRaptorSplitManager
         dataDir = Files.createTempDir();
         ShardManager shardManager = new DatabaseShardManager(dbi);
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        StorageManager storageManager = new OrcStorageManager(dataDir, Optional.<File>absent());
 
         String nodeName = UUID.randomUUID().toString();
         nodeManager.addNode("raptor", new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN));
@@ -101,7 +104,7 @@ public class TestRaptorSplitManager
 
         shardManager.commitTable(tableId, shardNodes, Optional.<String>absent());
 
-        raptorSplitManager = new RaptorSplitManager(connectorId, nodeManager, shardManager);
+        raptorSplitManager = new RaptorSplitManager(connectorId, nodeManager, shardManager, storageManager);
     }
 
     @AfterMethod

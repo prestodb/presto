@@ -115,6 +115,12 @@ public class DatabaseShardManager
         dao.dropTableShards(tableId);
     }
 
+    @Override
+    public void assignShard(UUID shardUuid, String nodeIdentifier)
+    {
+        dao.insertShardNode(shardUuid, getOrCreateNodeId(nodeIdentifier));
+    }
+
     private long getOrCreateNodeId(final String nodeIdentifier)
     {
         Long id = dao.getNodeId(nodeIdentifier);

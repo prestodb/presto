@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.orc.FileOrcDataSource;
 import com.facebook.presto.orc.LongVector;
+import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.raptor.RaptorColumnHandle;
@@ -56,6 +56,9 @@ import static io.airlift.testing.FileUtils.deleteRecursively;
 import static java.util.Locale.ENGLISH;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
+import static org.testng.FileAssert.assertFile;
 
 public class TestOrcStorageManager
 {
@@ -63,25 +66,29 @@ public class TestOrcStorageManager
     private static final DateTime EPOCH = new DateTime(0, UTC_CHRONOLOGY);
     private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
 
+    private File temporary;
     private File directory;
+    private File backupDirectory;
 
     @BeforeClass
     public void setup()
     {
-        directory = createTempDir();
+        temporary = createTempDir();
+        directory = new File(temporary, "data");
+        backupDirectory = new File(temporary, "backup");
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {
-        deleteRecursively(directory);
+        deleteRecursively(temporary);
     }
 
     @Test
     public void testShardFiles()
     {
-        OrcStorageManager manager = new OrcStorageManager(new File("/tmp/data"));
+        OrcStorageManager manager = new OrcStorageManager(new File("/tmp/data"), Optional.of(new File("/tmp/backup")));
 
         UUID uuid = UUID.fromString("701e1a79-74f7-4f56-b438-b41e8e7d019d");
 
@@ -92,13 +99,17 @@ public class TestOrcStorageManager
         assertEquals(
                 new File("/tmp/data/staging/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc"),
                 manager.getStagingFile(uuid));
+
+        assertEquals(
+                new File("/tmp/backup/701/e1a/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc"),
+                manager.getBackupFile(uuid));
     }
 
     @Test
     public void testWriter()
             throws Exception
     {
-        OrcStorageManager manager = new OrcStorageManager(directory);
+        OrcStorageManager manager = new OrcStorageManager(directory, Optional.of(backupDirectory));
 
         List<Long> columnIds = ImmutableList.of(3L, 7L);
         List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR);
@@ -119,9 +130,20 @@ public class TestOrcStorageManager
 
         manager.commit(handle);
 
-        File file = manager.getStorageFile(handle.getShardUuid());
+        UUID shardUuid = handle.getShardUuid();
+        File file = manager.getStorageFile(shardUuid);
+        File backupFile = manager.getBackupFile(shardUuid);
 
-        try (FileOrcDataSource dataSource = new FileOrcDataSource(file)) {
+        // verify primary and backup shard exist
+        assertFile(file, "primary shard");
+        assertFile(backupFile, "backup shard");
+
+        // remove primary shard to force recovery from backup
+        assertTrue(file.delete());
+        assertTrue(file.getParentFile().delete());
+        assertFalse(file.exists());
+
+        try (OrcDataSource dataSource = manager.openShard(shardUuid)) {
             OrcRecordReader reader = createReader(dataSource, columnIds);
 
             assertEquals(reader.nextBatch(), 2);
@@ -146,7 +168,7 @@ public class TestOrcStorageManager
     public void testReader()
             throws Exception
     {
-        OrcStorageManager manager = new OrcStorageManager(directory);
+        OrcStorageManager manager = new OrcStorageManager(directory, Optional.<File>absent());
 
         List<Long> columnIds = ImmutableList.of(2L, 4L, 6L, 7L, 8L, 9L);
         List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR, VARBINARY, DATE, BOOLEAN, DOUBLE);

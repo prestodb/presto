@@ -29,4 +29,6 @@ public interface StorageManager
     OutputHandle createOutputHandle(List<Long> columnIds, List<Type> columnTypes, Optional<Long> sampleWeightColumnId);
 
     void commit(OutputHandle outputHandle);
+
+    boolean isBackupAvailable();
 }

@@ -83,6 +83,10 @@ public interface ShardManagerDao
             "VALUES (:shardId, :nodeId)\n")
     void insertShardNode(@Bind("shardId") long shardId, @Bind("nodeId") long nodeId);
 
+    @SqlUpdate("INSERT INTO shard_nodes (shard_id, node_id)\n" +
+            "VALUES ((SELECT shard_id FROM shards WHERE shard_uuid = :shardUuid), :nodeId)")
+    void insertShardNode(@Bind("shardUuid") UUID shardUuid, @Bind("nodeId") long nodeId);
+
     @SqlUpdate("INSERT INTO table_shards (table_id, shard_id)\n" +
             "VALUES (:tableId, :shardId)\n")
     void insertTableShard(@Bind("tableId") long tableId, @Bind("shardId") long shardId);

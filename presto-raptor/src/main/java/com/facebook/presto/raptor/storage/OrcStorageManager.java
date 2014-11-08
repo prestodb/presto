@@ -36,13 +36,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
@@ -51,28 +55,36 @@ import java.util.UUID;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.Duration.nanosSince;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.joda.time.DateTimeZone.UTC;
 
 public class OrcStorageManager
         implements StorageManager
 {
+    private static final Logger log = Logger.get(OrcStorageManager.class);
+
     private final File baseStorageDir;
     private final File baseStagingDir;
+    private final Optional<File> baseBackupDir;
 
     @Inject
     public OrcStorageManager(StorageManagerConfig config)
     {
-        this(config.getDataDirectory());
+        this(config.getDataDirectory(), Optional.fromNullable(config.getBackupDirectory()));
     }
 
-    public OrcStorageManager(File dataDirectory)
+    public OrcStorageManager(File dataDirectory, Optional<File> backupDirectory)
     {
         File baseDataDir = checkNotNull(dataDirectory, "dataDirectory is null");
         this.baseStorageDir = new File(baseDataDir, "storage");
         this.baseStagingDir = new File(baseDataDir, "staging");
+        this.baseBackupDir = checkNotNull(backupDirectory, "backupDirectory is null");
     }
 
     @PostConstruct
@@ -82,6 +94,10 @@ public class OrcStorageManager
         deleteDirectory(baseStagingDir);
         createParents(baseStagingDir);
         createParents(baseStorageDir);
+
+        if (baseBackupDir.isPresent()) {
+            createParents(baseBackupDir.get());
+        }
     }
 
     @PreDestroy
@@ -166,52 +182,96 @@ public class OrcStorageManager
         catch (IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to move shard file", e);
         }
+
+        if (baseBackupDir.isPresent()) {
+            File backupFile = getBackupFile(outputHandle.getShardUuid());
+            createParents(backupFile);
+            try {
+                Files.copy(storageFile.toPath(), backupFile.toPath());
+            }
+            catch (IOException e) {
+                throw new PrestoException(RAPTOR_ERROR, "Failed to create backup shard file", e);
+            }
+        }
     }
 
-    /**
-     * Generate a file system path for a shard UUID.
-     * <p/>
-     * This creates a three level deep directory structure where the first
-     * two levels each contain three hex digits (lowercase) of the UUID
-     * and the final level contains the full UUID.
-     * Example:
-     * <p/>
-     * <pre>
-     * UUID: 701e1a79-74f7-4f56-b438-b41e8e7d019d
-     * Path: 701/e1a/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc
-     * </pre>
-     * <p/>
-     * This ensures that files are spread out evenly through the tree
-     * while a path can still be easily navigated by a human being.
-     */
+    @Override
+    public boolean isBackupAvailable()
+    {
+        return baseBackupDir.isPresent();
+    }
+
     @VisibleForTesting
     File getStorageFile(UUID shardUuid)
     {
-        String uuid = shardUuid.toString().toLowerCase(ENGLISH);
-        return baseStorageDir.toPath()
-                .resolve(uuid.substring(0, 3))
-                .resolve(uuid.substring(3, 6))
-                .resolve(uuid + ".orc")
-                .toFile();
+        return getFileSystemPath(baseStorageDir, shardUuid);
     }
 
     @VisibleForTesting
     File getStagingFile(UUID shardUuid)
     {
-        String uuid = shardUuid.toString().toLowerCase(ENGLISH);
-        return baseStagingDir.toPath()
-                .resolve(uuid + ".orc")
-                .toFile();
+        String name = getFileSystemPath(new File("/"), shardUuid).getName();
+        return new File(baseStagingDir, name);
     }
 
-    private OrcDataSource openShard(UUID shardUuid)
+    @VisibleForTesting
+    File getBackupFile(UUID shardUuid)
+    {
+        checkState(baseBackupDir.isPresent(), "backup directory not set");
+        return getFileSystemPath(baseBackupDir.get(), shardUuid);
+    }
+
+    @VisibleForTesting
+    OrcDataSource openShard(UUID shardUuid)
     {
         File file = getStorageFile(shardUuid).getAbsoluteFile();
+
+        if (!file.exists() && baseBackupDir.isPresent()) {
+            restoreFromBackup(shardUuid, file);
+        }
+
         try {
             return new FileOrcDataSource(file);
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to open shard file: " + file, e);
+        }
+    }
+
+    private void restoreFromBackup(UUID shardUuid, File file)
+    {
+        File backupFile = getBackupFile(shardUuid);
+
+        // create a temporary file in the staging directory
+        File stagingFile = temporarySuffix(getStagingFile(shardUuid));
+        createParents(stagingFile);
+
+        // copy to temporary file
+        log.info("Copying shard %s from backup...", shardUuid);
+        long start = System.nanoTime();
+
+        try {
+            Files.copy(backupFile.toPath(), stagingFile.toPath());
+        }
+        catch (IOException e) {
+            throw new PrestoException(RAPTOR_ERROR, "Failed to copy backup shard file: " + backupFile, e);
+        }
+
+        Duration duration = nanosSince(start);
+        DataSize size = new DataSize(stagingFile.length(), BYTE);
+        DataSize rate = dataRate(size, duration);
+        log.info("Copied shard %s from backup in %s (%s at %s/s)", shardUuid, duration, size, rate);
+
+        // move to final location
+        createParents(file);
+        try {
+            Files.move(stagingFile.toPath(), file.toPath(), ATOMIC_MOVE);
+        }
+        catch (FileAlreadyExistsException e) {
+            // someone else already created it (should not happen, but safe to ignore)
+        }
+        catch (IOException e) {
+            throw new PrestoException(RAPTOR_ERROR, "Failed to move shard file", e);
         }
     }
 
@@ -234,6 +294,11 @@ public class OrcStorageManager
             map.put(Long.valueOf(columnNames.get(i)), i);
         }
         return map.build();
+    }
+
+    private static File temporarySuffix(File file)
+    {
+        return new File(file.getPath() + ".tmp-" + UUID.randomUUID());
     }
 
     private static void createParents(File file)
@@ -284,6 +349,32 @@ public class OrcStorageManager
         throw new PrestoException(NOT_SUPPORTED, "No storage type for type: " + type);
     }
 
+    /**
+     * Generate a file system path for a shard UUID.
+     * <p/>
+     * This creates a three level deep directory structure where the first
+     * two levels each contain three hex digits (lowercase) of the UUID
+     * and the final level contains the full UUID.
+     * Example:
+     * <p/>
+     * <pre>
+     * UUID: 701e1a79-74f7-4f56-b438-b41e8e7d019d
+     * Path: /base/701/e1a/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc
+     * </pre>
+     * <p/>
+     * This ensures that files are spread out evenly through the tree
+     * while a path can still be easily navigated by a human being.
+     */
+    private static File getFileSystemPath(File base, UUID shardUuid)
+    {
+        String uuid = shardUuid.toString().toLowerCase(ENGLISH);
+        return base.toPath()
+                .resolve(uuid.substring(0, 3))
+                .resolve(uuid.substring(3, 6))
+                .resolve(uuid + ".orc")
+                .toFile();
+    }
+
     private static void deleteDirectory(File dir)
             throws IOException
     {
@@ -298,5 +389,14 @@ public class OrcStorageManager
             Files.delete(file.toPath());
         }
         Files.delete(dir.toPath());
+    }
+
+    private static DataSize dataRate(DataSize size, Duration duration)
+    {
+        double rate = size.toBytes() / duration.getValue(SECONDS);
+        if (Double.isNaN(rate) || Double.isInfinite(rate)) {
+            rate = 0;
+        }
+        return new DataSize(rate, BYTE).convertToMostSuccinctDataSize();
     }
 }
