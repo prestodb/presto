@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 
+import java.util.Arrays;
 import javax.inject.Inject;
 import javax.management.Attribute;
 import javax.management.JMException;
@@ -116,7 +117,39 @@ public class JmxRecordSetProvider
                             }
                         }
                         else if (javaType == Slice.class) {
-                            row.add(value.toString());
+                            if (value.getClass().isArray()) {
+                                // return a string representation of the array
+                                if (value.getClass().getComponentType() == String.class) {
+                                    row.add(Arrays.toString((String[]) value));
+                                }
+                                else if (value.getClass().getComponentType() == boolean.class) {
+                                    row.add(Arrays.toString((boolean[]) value));
+                                }
+                                else if (value.getClass().getComponentType() == byte.class) {
+                                    row.add(Arrays.toString((byte[]) value));
+                                }
+                                else if (value.getClass().getComponentType() == char.class) {
+                                    row.add(Arrays.toString((char[]) value));
+                                }
+                                else if (value.getClass().getComponentType() == double.class) {
+                                    row.add(Arrays.toString((double[]) value));
+                                }
+                                else if (value.getClass().getComponentType() == float.class) {
+                                    row.add(Arrays.toString((float[]) value));
+                                }
+                                else if (value.getClass().getComponentType() == int.class) {
+                                    row.add(Arrays.toString((int[]) value));
+                                }
+                                else if (value.getClass().getComponentType() == long.class) {
+                                    row.add(Arrays.toString((long[]) value));
+                                }
+                                else if (value.getClass().getComponentType() == short.class) {
+                                    row.add(Arrays.toString((short[]) value));
+                                }
+                            }
+                            else {
+                                row.add(value.toString());
+                            }
                         }
                     }
                 }
