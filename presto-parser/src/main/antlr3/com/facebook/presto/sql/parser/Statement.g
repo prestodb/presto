@@ -430,8 +430,8 @@ exprWithTimeZone
     : (subscriptExpression -> subscriptExpression)
       (
         // todo this should have a full tree node to preserve the syntax
-        AT TIME ZONE STRING             -> ^(FUNCTION_CALL ^(QNAME IDENT["at_time_zone"]) $exprWithTimeZone STRING)
-      | AT TIME ZONE intervalLiteral    -> ^(FUNCTION_CALL ^(QNAME IDENT["at_time_zone"]) $exprWithTimeZone intervalLiteral)
+        AT TIME ZONE STRING             -> ^(FUNCTION_CALL ^(QNAME IDENT["at_timezone"]) $exprWithTimeZone STRING)
+      | AT TIME ZONE intervalLiteral    -> ^(FUNCTION_CALL ^(QNAME IDENT["at_timezone"]) $exprWithTimeZone intervalLiteral)
       )?
     ;
 
