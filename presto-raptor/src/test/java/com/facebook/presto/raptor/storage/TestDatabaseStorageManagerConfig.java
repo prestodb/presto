@@ -34,7 +34,7 @@ public class TestDatabaseStorageManagerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(StorageManagerConfig.class)
-                .setDataDirectory(new File("var/data"))
+                .setDataDirectory(new File("var/data/storage"))
                 .setBackupDirectory(null)
                 .setOrcMaxMergeDistance(new DataSize(1, Unit.MEGABYTE)));
     }
