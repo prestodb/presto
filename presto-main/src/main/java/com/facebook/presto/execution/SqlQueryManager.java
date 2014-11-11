@@ -375,6 +375,7 @@ public class SqlQueryManager
         queryMonitor.createdEvent(execution.getQueryInfo());
         queryMonitor.completionEvent(execution.getQueryInfo());
         stats.queryFinished(execution.getQueryInfo());
+        expirationQueue.add(execution);
 
         return execution.getQueryInfo();
     }
