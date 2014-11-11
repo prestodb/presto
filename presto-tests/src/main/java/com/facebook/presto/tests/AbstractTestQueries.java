@@ -2434,6 +2434,14 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testCountOnInternalTables()
+            throws Exception
+    {
+        List<MaterializedRow> rows = computeActual("SELECT count(*) FROM sys.node").getMaterializedRows();
+        assertEquals(((Long) rows.get(0).getField(0)).longValue(), getNodeCount());
+    }
+
+    @Test
     public void testDefaultExplainTextFormat()
     {
         String query = "SELECT 123";
