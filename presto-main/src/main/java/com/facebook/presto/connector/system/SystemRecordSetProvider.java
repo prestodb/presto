@@ -52,7 +52,6 @@ public class SystemRecordSetProvider
         SchemaTableName tableName = checkType(split, SystemSplit.class, "split").getTableHandle().getSchemaTableName();
 
         checkNotNull(columns, "columns is null");
-        checkArgument(!columns.isEmpty(), "must provide at least one column");
 
         SystemTable systemTable = tables.get(tableName);
         checkArgument(systemTable != null, "Table %s does not exist", tableName);
