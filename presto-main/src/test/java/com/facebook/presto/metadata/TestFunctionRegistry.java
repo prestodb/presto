@@ -131,7 +131,7 @@ public class TestFunctionRegistry
         assertTrue(names.contains("length"), "Expected function names " + names + " to contain 'length'");
         assertTrue(names.contains("stddev"), "Expected function names " + names + " to contain 'stddev'");
         assertTrue(names.contains("rank"), "Expected function names " + names + " to contain 'rank'");
-        assertFalse(names.contains("at_time_zone"), "Expected function names " + names + " not to contain 'at_time_zone'");
+        assertFalse(names.contains("like"), "Expected function names " + names + " not to contain 'like'");
     }
 
     public static final class ScalarSum

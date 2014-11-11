@@ -2649,7 +2649,7 @@ public abstract class AbstractTestQueries
         assertEquals(functions.get("split_part").asList().get(0).getField(2), "varchar, varchar, bigint");
         assertEquals(functions.get("split_part").asList().get(0).getField(3), "scalar");
 
-        assertFalse(functions.containsKey("at_time_zone"), "Expected function names " + functions + " not to contain 'at_time_zone'");
+        assertFalse(functions.containsKey("like"), "Expected function names " + functions + " not to contain 'like'");
     }
 
     @Test
