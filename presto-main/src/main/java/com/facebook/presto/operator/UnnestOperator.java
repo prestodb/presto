@@ -173,7 +173,10 @@ public class UnnestOperator
         for (int i = 0; i < unnestTypes.size(); i++) {
             Type type = unnestTypes.get(i);
             int channel = unnestChannels.get(i);
-            Slice slice = type.getSlice(currentPage.getBlock(channel), currentPosition);
+            Slice slice = null;
+            if (!currentPage.getBlock(channel).isNull(currentPosition)) {
+                slice = type.getSlice(currentPage.getBlock(channel), currentPosition);
+            }
             if (type instanceof ArrayType) {
                 unnesters.add(new ArrayUnnester((ArrayType) type, slice));
             }

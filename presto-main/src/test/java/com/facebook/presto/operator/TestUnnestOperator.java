@@ -67,6 +67,8 @@ public class TestUnnestOperator
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
                 .row(1, "[2, 3]", "{\"4\": 5}")
+                .row(2, "[99]", null)
+                .row(3, null, null)
                 .pageBreak()
                 .row(6, "[7, 8]", "{\"9\": 10, \"11\": 12}")
                 .build();
@@ -77,6 +79,7 @@ public class TestUnnestOperator
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, BIGINT, BIGINT)
                 .row(1, 2, 4, 5)
                 .row(1, 3, null, null)
+                .row(2, 99, null, null)
                 .row(6, 7, 9, 10)
                 .row(6, 8, 11, 12)
                 .build();
