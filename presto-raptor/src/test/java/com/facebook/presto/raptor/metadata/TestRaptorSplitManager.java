@@ -23,6 +23,7 @@ import com.facebook.presto.raptor.RaptorSplitManager;
 import com.facebook.presto.raptor.RaptorTableHandle;
 import com.facebook.presto.raptor.storage.FileStorageService;
 import com.facebook.presto.raptor.storage.OrcStorageManager;
+import com.facebook.presto.raptor.storage.ShardRecoveryManager;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.storage.StorageService;
 import com.facebook.presto.spi.ConnectorColumnHandle;
@@ -42,6 +43,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import io.airlift.testing.FileUtils;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.testng.annotations.AfterMethod;
@@ -52,6 +54,7 @@ import java.io.File;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
@@ -88,7 +91,8 @@ public class TestRaptorSplitManager
         ShardManager shardManager = new DatabaseShardManager(dbi);
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
         StorageService storageService = new FileStorageService(dataDir, Optional.<File>absent());
-        StorageManager storageManager = new OrcStorageManager(storageService, new DataSize(1, MEGABYTE));
+        ShardRecoveryManager recoveryManager = new ShardRecoveryManager(storageService, new InMemoryNodeManager(), shardManager, new Duration(5, TimeUnit.MINUTES), 10);
+        StorageManager storageManager = new OrcStorageManager(storageService, new DataSize(1, MEGABYTE), recoveryManager, new Duration(30, TimeUnit.SECONDS));
 
         String nodeName = UUID.randomUUID().toString();
         nodeManager.addNode("raptor", new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN));
