@@ -100,6 +100,13 @@ public interface ShardManagerDao
             "WHERE ts.table_id = :tableId")
     List<UUID> getShards(@Bind("tableId") long tableId);
 
+    @SqlQuery("SELECT s.shard_uuid\n" +
+            "FROM shards s\n" +
+            "JOIN shard_nodes sn ON (s.shard_id = sn.shard_id)\n" +
+            "JOIN nodes n ON (sn.node_id = n.node_id)\n" +
+            "WHERE n.node_identifier = :nodeIdentifier")
+    Set<UUID> getNodeShards(@Bind("nodeIdentifier") String nodeIdentifier);
+
     @SqlQuery("SELECT s.shard_uuid, n.node_identifier\n" +
             "FROM table_shards ts\n" +
             "JOIN shard_nodes sn ON (ts.shard_id = sn.shard_id)\n" +
