@@ -15,7 +15,7 @@ package com.facebook.presto.raptor.storage;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import javax.validation.constraints.NotNull;
@@ -27,6 +27,10 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestStorageManagerConfig
 {
@@ -36,7 +40,10 @@ public class TestStorageManagerConfig
         assertRecordedDefaults(recordDefaults(StorageManagerConfig.class)
                 .setDataDirectory(null)
                 .setBackupDirectory(null)
-                .setOrcMaxMergeDistance(new DataSize(1, Unit.MEGABYTE)));
+                .setOrcMaxMergeDistance(new DataSize(1, MEGABYTE))
+                .setShardRecoveryTimeout(new Duration(30, SECONDS))
+                .setMissingShardDiscoveryInterval(new Duration(5, MINUTES))
+                .setRecoveryThreads(10));
     }
 
     @Test
@@ -46,12 +53,18 @@ public class TestStorageManagerConfig
                 .put("storage.data-directory", "/data")
                 .put("storage.backup-directory", "/backup")
                 .put("storage.orc.max-merge-distance", "16kB")
+                .put("storage.shard-recovery-timeout", "1m")
+                .put("storage.missing-shard-discovery-interval", "4m")
+                .put("storage.max-recovery-threads", "12")
                 .build();
 
         StorageManagerConfig expected = new StorageManagerConfig()
                 .setDataDirectory(new File("/data"))
                 .setBackupDirectory(new File("/backup"))
-                .setOrcMaxMergeDistance(new DataSize(16, Unit.KILOBYTE));
+                .setOrcMaxMergeDistance(new DataSize(16, KILOBYTE))
+                .setShardRecoveryTimeout(new Duration(1, MINUTES))
+                .setMissingShardDiscoveryInterval(new Duration(4, MINUTES))
+                .setRecoveryThreads(12);
 
         assertFullMapping(properties, expected);
     }

@@ -110,6 +110,12 @@ public class DatabaseShardManager
     }
 
     @Override
+    public Set<UUID> getNodeShards(String nodeIdentifier)
+    {
+        return dao.getNodeShards(nodeIdentifier);
+    }
+
+    @Override
     public void dropTableShards(long tableId)
     {
         dao.dropTableShards(tableId);
