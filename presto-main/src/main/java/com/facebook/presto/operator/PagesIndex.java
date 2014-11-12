@@ -20,8 +20,8 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
-import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
 import com.facebook.presto.sql.gen.OrderingCompiler;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -38,6 +38,7 @@ import java.util.List;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
+import static com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.sizeOf;
 
@@ -245,6 +246,11 @@ public class PagesIndex
 
     public LookupSource createLookupSource(List<Integer> joinChannels)
     {
+        return createLookupSource(joinChannels, Optional.<Integer>absent());
+    }
+
+    public LookupSource createLookupSource(List<Integer> joinChannels, Optional<Integer> hashChannel)
+    {
         try {
             LookupSourceFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels);
 
@@ -256,6 +262,7 @@ public class PagesIndex
                     valueAddresses,
                     joinChannelTypes.build(),
                     ImmutableList.<List<Block>>copyOf(channels),
+                    hashChannel,
                     operatorContext);
 
             return lookupSource;
@@ -264,10 +271,12 @@ public class PagesIndex
             log.error(e, "Lookup source compile failed for types=%s error=%s", types, e);
         }
 
+        // if compilation fails
         PagesHashStrategy hashStrategy = new SimplePagesHashStrategy(
                 types,
                 ImmutableList.<List<Block>>copyOf(channels),
-                joinChannels);
+                joinChannels,
+                hashChannel);
 
         ImmutableList.Builder<Type> hashTypes = ImmutableList.builder();
         for (Integer channel : joinChannels) {

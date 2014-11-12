@@ -180,6 +180,7 @@ public class MockQueryManager
             return new QueryInfo(outputTaskId.getQueryId(),
                     TEST_SESSION,
                     state,
+                    true,
                     self,
                     ImmutableList.of("out"),
                     "query",

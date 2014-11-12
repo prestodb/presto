@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Preconditions;
+import com.google.common.primitives.Ints;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -28,10 +30,16 @@ import static java.util.Locale.ENGLISH;
 public class SymbolAllocator
 {
     private final Map<Symbol, Type> symbols = new HashMap<>();
+    private int nextId;
 
     public Symbol newSymbol(String nameHint, Type type)
     {
         return newSymbol(nameHint, type, null);
+    }
+
+    public Symbol newHashSymbol()
+    {
+        return newSymbol("$hashValue", BigintType.BIGINT);
     }
 
     public Symbol newSymbol(String nameHint, Type type, String suffix)
@@ -41,8 +49,15 @@ public class SymbolAllocator
         // TODO: workaround for the fact that QualifiedName lowercases parts
         nameHint = nameHint.toLowerCase(ENGLISH);
 
-        if (nameHint.contains("_")) {
-            nameHint = nameHint.substring(0, nameHint.indexOf("_"));
+        // don't strip the tail if the only _ is the first character
+        int index = nameHint.lastIndexOf("_");
+        if (index > 0) {
+            String tail = nameHint.substring(index + 1);
+
+            // only strip if tail is numeric or _ is the last character
+            if (Ints.tryParse(tail) != null || index == nameHint.length() - 1) {
+                nameHint = nameHint.substring(0, index);
+            }
         }
 
         String unique = nameHint;
@@ -51,10 +66,8 @@ public class SymbolAllocator
             unique = unique + "$" + suffix;
         }
 
-        int id = 1;
-        while (symbols.containsKey(new Symbol(unique))) {
-            unique = nameHint + "_" + id;
-            id++;
+        if (symbols.containsKey(new Symbol(unique))) {
+            unique += "_" + nextId();
         }
 
         Symbol symbol = new Symbol(unique);
@@ -89,5 +102,10 @@ public class SymbolAllocator
     public Map<Symbol, Type> getTypes()
     {
         return symbols;
+    }
+
+    private int nextId()
+    {
+        return nextId++;
     }
 }

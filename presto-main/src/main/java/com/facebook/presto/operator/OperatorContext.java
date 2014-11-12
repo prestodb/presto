@@ -73,14 +73,16 @@ public class OperatorContext
     private final AtomicLong finishUserNanos = new AtomicLong();
 
     private final AtomicLong memoryReservation = new AtomicLong();
+    private final long maxMemoryReservation;
 
     private final AtomicReference<Supplier<Object>> infoSupplier = new AtomicReference<>();
     private final boolean collectTimings;
 
-    public OperatorContext(int operatorId, String operatorType, DriverContext driverContext, Executor executor)
+    public OperatorContext(int operatorId, String operatorType, DriverContext driverContext, Executor executor, long maxMemoryReservation)
     {
         checkArgument(operatorId >= 0, "operatorId is negative");
         this.operatorId = operatorId;
+        this.maxMemoryReservation = maxMemoryReservation;
         this.operatorType = checkNotNull(operatorType, "operatorType is null");
         this.driverContext = checkNotNull(driverContext, "driverContext is null");
         this.executor = checkNotNull(executor, "executor is null");
@@ -204,9 +206,14 @@ public class OperatorContext
 
     public boolean reserveMemory(long bytes)
     {
+        long newReservation = memoryReservation.getAndAdd(bytes);
+        if (newReservation > maxMemoryReservation) {
+            memoryReservation.getAndAdd(-bytes);
+            return false;
+        }
         boolean result = driverContext.reserveMemory(bytes);
-        if (result) {
-            memoryReservation.getAndAdd(bytes);
+        if (!result) {
+            memoryReservation.getAndAdd(-bytes);
         }
         return result;
     }

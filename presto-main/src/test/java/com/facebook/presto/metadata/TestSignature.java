@@ -28,6 +28,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.withVariadicBound;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
@@ -107,6 +108,18 @@ public class TestSignature
         Signature signature = new Signature("get", ImmutableList.of(typeParameter("K"), typeParameter("V")), "V", ImmutableList.of("map<K,V>", "K"), false, true);
         assertNotNull(signature.bindTypeParameters(ImmutableList.of(typeManager.getType(parseTypeSignature("map<bigint,varchar>")), BIGINT), true, typeManager));
         assertNull(signature.bindTypeParameters(ImmutableList.of(typeManager.getType(parseTypeSignature("map<bigint,varchar>")), VARCHAR), true, typeManager));
+    }
+
+    @Test
+    public void testVariadic()
+            throws Exception
+    {
+        TypeManager typeManager = new TypeRegistry();
+        Type mapType = typeManager.getType(parseTypeSignature("map<bigint,bigint>"));
+        Type arrayType = typeManager.getType(parseTypeSignature("array<bigint>"));
+        Signature signature = new Signature("foo", ImmutableList.of(withVariadicBound("T", "map")), "bigint", ImmutableList.of("T"), true, true);
+        assertNotNull(signature.bindTypeParameters(ImmutableList.of(mapType), true, typeManager));
+        assertNull(signature.bindTypeParameters(ImmutableList.of(arrayType), true, typeManager));
     }
 
     @Test

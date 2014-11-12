@@ -15,11 +15,12 @@ package com.facebook.presto.client;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import javax.validation.constraints.NotNull;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 @Immutable
 public class QueryError
@@ -82,7 +83,7 @@ public class QueryError
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("message", message)
                 .add("sqlState", sqlState)
                 .add("errorCode", errorCode)

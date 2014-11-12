@@ -20,7 +20,6 @@ import com.facebook.presto.orc.stream.ByteArrayStream;
 import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.google.common.base.Objects;
 import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Ints;
 
@@ -34,6 +33,7 @@ import static com.facebook.presto.orc.OrcCorruptionException.verifyFormat;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -140,7 +140,7 @@ public class SliceDirectJsonReader
         verifyFormat(dataStream != null, "Length is not zero but data stream is not present");
 
         // skip data bytes
-        dataStream.skip(dataSkipSize);
+        dataStream.skip(Ints.checkedCast(dataSkipSize));
     }
 
     @Override
@@ -164,7 +164,7 @@ public class SliceDirectJsonReader
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
     }

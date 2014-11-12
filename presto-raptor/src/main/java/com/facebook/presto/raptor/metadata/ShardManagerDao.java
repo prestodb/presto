@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.presto.raptor.util.UuidUtil.UuidArgumentFactory;
+import com.facebook.presto.raptor.util.UuidUtil.UuidMapperFactory;
 import com.google.common.annotations.VisibleForTesting;
 import org.skife.jdbi.v2.sqlobject.Bind;
 import org.skife.jdbi.v2.sqlobject.GetGeneratedKeys;
@@ -20,14 +22,14 @@ import org.skife.jdbi.v2.sqlobject.SqlQuery;
 import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
 import org.skife.jdbi.v2.sqlobject.customizers.RegisterArgumentFactory;
+import org.skife.jdbi.v2.sqlobject.customizers.RegisterMapperFactory;
 
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.facebook.presto.raptor.util.UuidArguments.UuidArgumentFactory;
-
 @RegisterArgumentFactory(UuidArgumentFactory.class)
+@RegisterMapperFactory(UuidMapperFactory.class)
 public interface ShardManagerDao
 {
     @SqlUpdate("CREATE TABLE IF NOT EXISTS nodes (\n" +
@@ -81,12 +83,22 @@ public interface ShardManagerDao
             "VALUES (:shardId, :nodeId)\n")
     void insertShardNode(@Bind("shardId") long shardId, @Bind("nodeId") long nodeId);
 
+    @SqlUpdate("INSERT INTO shard_nodes (shard_id, node_id)\n" +
+            "VALUES ((SELECT shard_id FROM shards WHERE shard_uuid = :shardUuid), :nodeId)")
+    void insertShardNode(@Bind("shardUuid") UUID shardUuid, @Bind("nodeId") long nodeId);
+
     @SqlUpdate("INSERT INTO table_shards (table_id, shard_id)\n" +
             "VALUES (:tableId, :shardId)\n")
     void insertTableShard(@Bind("tableId") long tableId, @Bind("shardId") long shardId);
 
     @SqlQuery("SELECT node_id FROM nodes WHERE node_identifier = :nodeIdentifier")
     Long getNodeId(@Bind("nodeIdentifier") String nodeIdentifier);
+
+    @SqlQuery("SELECT s.shard_uuid\n" +
+            "FROM table_shards ts\n" +
+            "JOIN shards s ON (ts.shard_id = s.shard_id)\n" +
+            "WHERE ts.table_id = :tableId")
+    List<UUID> getShards(@Bind("tableId") long tableId);
 
     @SqlQuery("SELECT s.shard_uuid, n.node_identifier\n" +
             "FROM table_shards ts\n" +

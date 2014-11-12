@@ -14,7 +14,6 @@
 package com.facebook.presto.orc;
 
 import com.facebook.hive.orc.OrcConf;
-import com.facebook.presto.orc.metadata.ColumnStatistics;
 import com.facebook.presto.orc.metadata.DwrfMetadataReader;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
@@ -60,7 +59,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -71,6 +69,7 @@ import static com.facebook.presto.orc.OrcTester.Compression.NONE;
 import static com.facebook.presto.orc.OrcTester.Compression.ZLIB;
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
+import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
 import static com.google.common.base.Functions.constant;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Iterators.advance;
@@ -158,21 +157,20 @@ public class OrcTester
     {
         Iterable<R> readValues = transform(writeValues, readTransform);
         Iterable<J> readJsonJsonValues = transform(writeValues, readJsonTransform);
-        testRoundTrip(columnObjectInspector, writeValues, readValues, readValues, readJsonJsonValues);
+        testRoundTrip(columnObjectInspector, writeValues, readValues, readValues);
     }
 
     public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues)
             throws Exception
     {
-        testRoundTrip(objectInspector, writeValues, readValues, readValues, readValues);
+        testRoundTrip(objectInspector, writeValues, readValues, readValues);
     }
 
     public void testRoundTrip(
             ObjectInspector objectInspector,
             Iterable<?> writeValues,
             Iterable<?> readValues,
-            Iterable<?> readJsonStackValues,
-            Iterable<?> readJsonJsonValues)
+            Iterable<?> readJsonStackValues)
             throws Exception
     {
         // just the values
@@ -183,12 +181,12 @@ public class OrcTester
 
         // values wrapped in struct
         if (structTestsEnabled) {
-            testStructRoundTrip(objectInspector, writeValues, readJsonJsonValues);
+            testStructRoundTrip(objectInspector, writeValues, readJsonStackValues);
         }
 
         // values wrapped in a struct wrapped in a struct
         if (complexStructuralTestsEnabled) {
-            testStructRoundTrip(createHiveStructInspector(objectInspector), transform(writeValues, toHiveStruct()), transform(readJsonJsonValues, toObjectStruct()));
+            testStructRoundTrip(createHiveStructInspector(objectInspector), transform(writeValues, toHiveStruct()), transform(readJsonStackValues, toObjectStruct()));
         }
 
         // values wrapped in map
@@ -331,7 +329,7 @@ public class OrcTester
             MetadataReader metadataReader)
             throws IOException
     {
-        OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, metadataReader);
+        OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, metadataReader, createOrcPredicate(objectInspector, expectedValues));
 
         Vector vector = createResultsVector(objectInspector);
 
@@ -394,24 +392,19 @@ public class OrcTester
         }
     }
 
-    private static OrcRecordReader createCustomOrcRecordReader(TempFile tempFile, MetadataReader metadataReader)
+    private static OrcRecordReader createCustomOrcRecordReader(TempFile tempFile, MetadataReader metadataReader, OrcPredicate predicate)
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile());
         OrcReader orcReader = new OrcReader(orcDataSource, metadataReader);
+
+        assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
+
         return orcReader.createRecordReader(
                 ImmutableSet.of(0),
-                new OrcPredicate()
-                {
-                    @Override
-                    public boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByHiveColumnIndex)
-                    {
-                        return true;
-                    }
-                },
+                predicate,
                 0,
                 tempFile.getFile().length(),
-                HIVE_STORAGE_TIME_ZONE,
                 HIVE_STORAGE_TIME_ZONE);
     }
 
@@ -609,9 +602,9 @@ public class OrcTester
                 if (input instanceof Float) {
                     input = ((Float) input).doubleValue();
                 }
-                Map<Object, Object> data = new LinkedHashMap<>();
-                data.put("a", input);
-                data.put("b", input);
+                List<Object> data = new ArrayList<>();
+                data.add(input);
+                data.add(input);
                 return OBJECT_JSON_CODEC.toJson(data);
             }
         };
@@ -628,9 +621,9 @@ public class OrcTester
                 if (input instanceof Float) {
                     input = ((Float) input).doubleValue();
                 }
-                Map<Object, Object> data = new LinkedHashMap<>();
-                data.put("a", input);
-                data.put("b", input);
+                List<Object> data = new ArrayList<>();
+                data.add(input);
+                data.add(input);
                 return data;
             }
         };

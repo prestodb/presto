@@ -33,21 +33,28 @@ public class HivePartition
     public static final String UNPARTITIONED_ID = "<UNPARTITIONED>";
 
     private final SchemaTableName tableName;
+    private final TupleDomain<HiveColumnHandle> effectivePredicate;
     private final String partitionId;
     private final Map<ConnectorColumnHandle, SerializableNativeValue> keys;
     private final Optional<HiveBucket> bucket;
 
-    public HivePartition(SchemaTableName tableName)
+    public HivePartition(SchemaTableName tableName, TupleDomain<HiveColumnHandle> effectivePredicate)
     {
         this.tableName = checkNotNull(tableName, "tableName is null");
+        this.effectivePredicate = checkNotNull(effectivePredicate, "effectivePredicate is null");
         this.partitionId = UNPARTITIONED_ID;
         this.keys = ImmutableMap.of();
         this.bucket = Optional.absent();
     }
 
-    public HivePartition(SchemaTableName tableName, String partitionId, Map<ConnectorColumnHandle, SerializableNativeValue> keys, Optional<HiveBucket> bucket)
+    public HivePartition(SchemaTableName tableName,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            String partitionId,
+            Map<ConnectorColumnHandle, SerializableNativeValue> keys,
+            Optional<HiveBucket> bucket)
     {
         this.tableName = checkNotNull(tableName, "tableName is null");
+        this.effectivePredicate = checkNotNull(effectivePredicate, "effectivePredicate is null");
         this.partitionId = checkNotNull(partitionId, "partitionId is null");
         this.keys = ImmutableMap.copyOf(checkNotNull(keys, "keys is null"));
         this.bucket = checkNotNull(bucket, "bucket number is null");
@@ -56,6 +63,11 @@ public class HivePartition
     public SchemaTableName getTableName()
     {
         return tableName;
+    }
+
+    public TupleDomain<HiveColumnHandle> getEffectivePredicate()
+    {
+        return effectivePredicate;
     }
 
     @Override

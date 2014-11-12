@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.80-SNAPSHOT</version>
+        <version>0.83-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-orc</artifactId>
@@ -69,6 +69,12 @@
         <dependency>
             <groupId>org.iq80.snappy</groupId>
             <artifactId>snappy</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spi</artifactId>
+            <optional>true</optional>
         </dependency>
 
         <dependency>

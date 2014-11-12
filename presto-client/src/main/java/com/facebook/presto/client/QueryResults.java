@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 
@@ -27,11 +27,13 @@ import javax.validation.constraints.NotNull;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.unmodifiableIterable;
@@ -142,7 +144,7 @@ public class QueryResults
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("id", id)
                 .add("infoUri", infoUri)
                 .add("partialCancelUri", partialCancelUri)
@@ -194,6 +196,16 @@ public class QueryResults
             Map<Object, Object> fixedValue = new HashMap<>();
             for (Map.Entry<?, ?> entry : (Set<Map.Entry<?, ?>>) Map.class.cast(value).entrySet()) {
                 fixedValue.put(fixValue(keyType, entry.getKey()), fixValue(valueType, entry.getValue()));
+            }
+            return fixedValue;
+        }
+        if (signature.getBase().equals(StandardTypes.ROW)) {
+            Map<String, Object> fixedValue = new LinkedHashMap<>();
+            List<Object> listValue = List.class.cast(value);
+            checkArgument(listValue.size() == signature.getLiteralParameters().size(), "Mismatched data values and row type");
+            for (int i = 0; i < listValue.size(); i++) {
+                String key = (String) signature.getLiteralParameters().get(i);
+                fixedValue.put(key, fixValue(signature.getParameters().get(i).toString(), listValue.get(i)));
             }
             return fixedValue;
         }

@@ -16,8 +16,10 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.operator.scalar.MapConstructor;
 import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.SqlVarbinary;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
@@ -100,6 +102,7 @@ public class TestMapOperators
     public void testMapToJson()
             throws Exception
     {
+        assertFunction("CAST(MAP(7, 8, 5, 6, 3, 4, 1, 2) AS JSON)", "{\"1\":2,\"3\":4,\"5\":6,\"7\":8}");
         assertFunction("CAST(MAP(1, 2, 3, 4, 5, 6, 7, 8) AS JSON)", "{\"1\":2,\"3\":4,\"5\":6,\"7\":8}");
         assertFunction("CAST(MAP(1, 2, 3, NULL) AS JSON)", "{\"1\":2,\"3\":null}");
         assertFunction("CAST(MAP(1, 2.0, 3, 4.0) AS JSON)", "{\"1\":2.0,\"3\":4.0}");
@@ -122,5 +125,35 @@ public class TestMapOperators
         assertFunction("MAP(TRUE, 2, FALSE, 4)[TRUE]", 2L);
         assertFunction("MAP('1', from_unixtime(1), '100', from_unixtime(100))['1']", new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()));
         assertFunction("MAP(from_unixtime(1), 1.0, from_unixtime(100), 100.0)[from_unixtime(1)]", 1.0);
+    }
+
+    @Test
+    public void testMapKeys()
+            throws Exception
+    {
+        assertFunction("MAP_KEYS(MAP('1', '2', '3', '4'))",  ImmutableList.of("1", "3"));
+        assertFunction("MAP_KEYS(MAP(1.0, ARRAY[1, 2], 2.0, ARRAY[3]))", ImmutableList.of(1.0, 2.0));
+        assertFunction("MAP_KEYS(MAP('puppies', 'kittens'))", ImmutableList.of("puppies"));
+        assertFunction("MAP_KEYS(MAP(TRUE, 2))", ImmutableList.of(true));
+        assertFunction("MAP_KEYS(MAP(from_unixtime(1), 1.0))", ImmutableList.of(new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey())));
+        assertFunction("MAP_KEYS(MAP(CAST('puppies' as varbinary), 'kittens'))", ImmutableList.of(new SqlVarbinary("puppies".getBytes("utf-8"))));
+        assertFunction("MAP_KEYS(MAP(1, ARRAY[1, 2], 2, ARRAY[3]))", ImmutableList.of(1L, 2L));
+        assertFunction("MAP_KEYS(MAP(1, MAP(2, 3), 4, MAP(5, 6)))",  ImmutableList.of(1L, 4L));
+    }
+
+    @Test
+    public void testMapValues()
+            throws Exception
+    {
+        assertFunction("MAP_VALUES(MAP('1', ARRAY[TRUE, FALSE, NULL]))", ImmutableList.of(Lists.newArrayList(true, false, null)));
+        assertFunction("MAP_VALUES(MAP('1', ARRAY[ARRAY[1, 2]]))", ImmutableList.of(ImmutableList.of(ImmutableList.of(1L, 2L))));
+        assertFunction("MAP_VALUES(MAP('1', '2', '3', '4'))", ImmutableList.of("2", "4"));
+        assertFunction("MAP_VALUES(MAP(1.0, ARRAY[1, 2], 2.0, ARRAY[3]))", ImmutableList.of(ImmutableList.of(1L, 2L), ImmutableList.of(3L)));
+        assertFunction("MAP_VALUES(MAP('puppies', 'kittens'))", ImmutableList.of("kittens"));
+        assertFunction("MAP_VALUES(MAP(TRUE, 2))", ImmutableList.of(2L));
+        assertFunction("MAP_VALUES(MAP('1', NULL))", Lists.newArrayList((Object) null));
+        assertFunction("MAP_VALUES(MAP('1', TRUE))", ImmutableList.of(true));
+        assertFunction("MAP_VALUES(MAP('1', 1.0))", ImmutableList.of(1.0));
+        assertFunction("MAP_VALUES(MAP('1', ARRAY[1.0, 2.0], '2', ARRAY[3.0, 4.0]))", ImmutableList.of(ImmutableList.of(1.0, 2.0), ImmutableList.of(3.0, 4.0)));
     }
 }

@@ -18,6 +18,7 @@ import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
@@ -25,6 +26,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.Field.isVisiblePredicate;
@@ -40,6 +42,8 @@ public class TupleDescriptor
     private final List<Field> visibleFields;
     private final List<Field> allFields;
 
+    private final Map<Field, Integer> fieldIndexes;
+
     public TupleDescriptor(Field... fields)
     {
         this(ImmutableList.copyOf(fields));
@@ -50,6 +54,13 @@ public class TupleDescriptor
         checkNotNull(fields, "fields is null");
         this.allFields = ImmutableList.copyOf(fields);
         this.visibleFields = ImmutableList.copyOf(Iterables.filter(fields, isVisiblePredicate()));
+
+        int index = 0;
+        ImmutableMap.Builder<Field, Integer> builder = ImmutableMap.builder();
+        for (Field field : fields) {
+            builder.put(field, index++);
+        }
+        fieldIndexes = builder.build();
     }
 
     /**
@@ -57,7 +68,7 @@ public class TupleDescriptor
      */
     public int indexOf(Field field)
     {
-        return allFields.indexOf(field);
+        return fieldIndexes.get(field);
     }
 
     /**

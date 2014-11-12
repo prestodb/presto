@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public final class SharedBufferInfo
 {
     private final BufferState state;
@@ -90,7 +92,7 @@ public final class SharedBufferInfo
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("state", state)
                 .add("pagesAdded", pagesAdded)
                 .add("buffers", buffers)

@@ -14,13 +14,13 @@
 package com.facebook.presto.cassandra;
 
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.List;
 
 import static com.facebook.presto.cassandra.CassandraColumnHandle.partitionKeyPredicate;
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class CassandraTable
 {
@@ -86,7 +86,7 @@ public class CassandraTable
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("tableHandle", tableHandle)
                 .toString();
     }

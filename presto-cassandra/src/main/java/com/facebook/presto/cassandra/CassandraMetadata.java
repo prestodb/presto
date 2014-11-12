@@ -28,7 +28,6 @@ import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
@@ -44,6 +43,7 @@ import static com.facebook.presto.cassandra.CassandraType.BIGINT;
 import static com.facebook.presto.cassandra.CassandraType.toCassandraType;
 import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -200,7 +200,7 @@ public class CassandraMetadata
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("connectorId", connectorId)
                 .toString();
     }

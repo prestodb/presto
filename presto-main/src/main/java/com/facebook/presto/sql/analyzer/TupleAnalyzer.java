@@ -111,6 +111,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_ANALYSIS_E
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_PARSE_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.Types.checkType;
@@ -593,6 +594,14 @@ class TupleAnalyzer
         for (FieldOrExpression fieldOrExpression : Iterables.concat(outputExpressions, orderByExpressions)) {
             if (fieldOrExpression.isExpression()) {
                 extractor.process(fieldOrExpression.getExpression(), null);
+                if (fieldOrExpression.getExpression() instanceof FunctionCall) {
+                    FunctionCall functionCall = (FunctionCall) fieldOrExpression.getExpression();
+                    FunctionInfo functionInfo = analysis.getFunctionInfo(functionCall);
+                    checkState(functionInfo != null, "functionInfo is null");
+                    if (functionInfo.isWindow() && !functionCall.getWindow().isPresent()) {
+                        throw new SemanticException(WINDOW_REQUIRES_OVER, node, "Window function %s requires an OVER clause", functionInfo.getName());
+                    }
+                }
             }
         }
 

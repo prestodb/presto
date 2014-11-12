@@ -37,25 +37,15 @@ import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
+import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.invoke.MethodHandles.lookup;
 
 public class ArrayToJsonCast
         extends ParametricOperator
 {
     public static final ArrayToJsonCast ARRAY_TO_JSON = new ArrayToJsonCast();
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer()));
-    private static final MethodHandle METHOD_HANDLE;
-
-    static
-    {
-        try {
-            METHOD_HANDLE = lookup().unreflect(ArrayToJsonCast.class.getMethod("toJson", Type.class, ConnectorSession.class, Slice.class));
-        }
-        catch (ReflectiveOperationException e) {
-            throw Throwables.propagate(e);
-        }
-    }
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayToJsonCast.class, "toJson", Type.class, ConnectorSession.class, Slice.class);
 
     private ArrayToJsonCast()
     {
@@ -73,7 +63,7 @@ public class ArrayToJsonCast
     {
         checkArgument(arity == 1, "Expected arity to be 1");
         Type type = types.get("T");
-        Type arrayType = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(type.getTypeSignature()));
+        Type arrayType = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(type.getTypeSignature()), ImmutableList.of());
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(arrayType);
         return operatorInfo(OperatorType.CAST, parseTypeSignature(StandardTypes.JSON), ImmutableList.of(arrayType.getTypeSignature()), methodHandle, false, ImmutableList.of(false));
     }

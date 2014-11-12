@@ -316,18 +316,26 @@ public final class Signature
         }
     }
 
+    /*
+     * similar to T extends MyClass<?...>, if Java supported varargs wildcards
+     */
+    public static TypeParameter withVariadicBound(String name, String variadicBound)
+    {
+        return new TypeParameter(name, false, false, variadicBound);
+    }
+
     public static TypeParameter typeParameter(String name)
     {
-        return new TypeParameter(name, false, false);
+        return new TypeParameter(name, false, false, null);
     }
 
     public static TypeParameter comparableTypeParameter(String name)
     {
-        return new TypeParameter(name, true, false);
+        return new TypeParameter(name, true, false, null);
     }
 
     public static TypeParameter orderableTypeParameter(String name)
     {
-        return new TypeParameter(name, false, true);
+        return new TypeParameter(name, false, true, null);
     }
 }

@@ -22,6 +22,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+
 public class VarcharType
         extends AbstractVariableWidthType
 {
@@ -30,7 +32,7 @@ public class VarcharType
     @JsonCreator
     public VarcharType()
     {
-        super(StandardTypes.VARCHAR, Slice.class);
+        super(parseTypeSignature(StandardTypes.VARCHAR), Slice.class);
     }
 
     @Override

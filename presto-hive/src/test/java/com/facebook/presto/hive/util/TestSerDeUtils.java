@@ -14,12 +14,9 @@
 package com.facebook.presto.hive.util;
 
 import com.fasterxml.jackson.core.Base64Variants;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.UnionObject;
-import org.apache.hadoop.hive.serde2.objectinspector.UnionObjectInspector;
 import org.apache.hadoop.io.BytesWritable;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -38,8 +35,6 @@ import static com.facebook.presto.hive.util.SerDeUtils.getJsonBytes;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.ObjectInspectorOptions;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getReflectionObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardUnionObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.StandardUnionObjectInspector.StandardUnion;
 import static org.testng.Assert.assertEquals;
 
 @SuppressWarnings("PackageVisibleField")
@@ -152,9 +147,7 @@ public class TestSerDeUtils
         listHolder.array = mArray;
 
         String actual = toJsonString(listHolder, getInspector(ListHolder.class));
-        String expected = "{\"array\":[" +
-                "{\"intval\":8,\"longval\":9}," +
-                "{\"intval\":10,\"longval\":11}]}";
+        String expected = "[[[8,9],[10,11]]]";
         assertEquals(actual, expected);
     }
 
@@ -171,9 +164,9 @@ public class TestSerDeUtils
         holder.map.put("twelve", new InnerStruct(13, 14L));
         holder.map.put("fifteen", new InnerStruct(16, 17L));
         String actual = toJsonString(holder, getInspector(MapHolder.class));
-        String expected = "{\"map\":{" +
-                "\"fifteen\":{\"intval\":16,\"longval\":17}," +
-                "\"twelve\":{\"intval\":13,\"longval\":14}}}";
+        String expected = "[{" +
+                "\"fifteen\":[16,17]," +
+                "\"twelve\":[13,14]}]";
         assertEquals(actual, expected);
     }
 
@@ -183,7 +176,7 @@ public class TestSerDeUtils
         // test simple structs
         InnerStruct innerStruct = new InnerStruct(13, 14L);
         String actual = toJsonString(innerStruct, getInspector(InnerStruct.class));
-        String expected = "{\"intval\":13,\"longval\":14}";
+        String expected = "[13,14]";
         assertEquals(actual, expected);
 
         // test complex structs
@@ -207,34 +200,7 @@ public class TestSerDeUtils
         outerStruct.innerStruct = new InnerStruct(18, 19L);
 
         actual = toJsonString(outerStruct, getInspector(OuterStruct.class));
-        expected = "{" +
-                "\"byteval\":1," +
-                "\"shortval\":2," +
-                "\"intval\":3," +
-                "\"longval\":4," +
-                "\"floatval\":5.01," +
-                "\"doubleval\":6.001," +
-                "\"stringval\":\"seven\"," +
-                "\"bytearray\":\"Mg==\"," +
-                "\"structarray\":[" +
-                "{\"intval\":2,\"longval\":-5}," +
-                "{\"intval\":-10,\"longval\":0}]," +
-                "\"map\":{" +
-                "\"fifteen\":{\"intval\":-5,\"longval\":-10}," +
-                "\"twelve\":{\"intval\":0,\"longval\":5}}," +
-                "\"innerstruct\":{\"intval\":18,\"longval\":19}}";
-
-        assertEquals(actual, expected);
-    }
-
-    @Test
-    public void testUnionJsonString()
-    {
-        UnionObjectInspector unionInspector = getStandardUnionObjectInspector(ImmutableList.of(getInspector(InnerStruct.class)));
-
-        UnionObject union = new StandardUnion((byte) 0, new InnerStruct(1, 2L));
-        String actual = toJsonString(union, unionInspector);
-        String expected = "{\"0\":{\"intval\":1,\"longval\":2}}";
+        expected = "[1,2,3,4,5.01,6.001,\"seven\",\"Mg==\",[[2,-5],[-10,0]],{\"fifteen\":[-5,-10],\"twelve\":[0,5]},[18,19]]";
         assertEquals(actual, expected);
     }
 

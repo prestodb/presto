@@ -33,6 +33,7 @@ import java.util.Set;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static org.testng.Assert.assertNotNull;
 
@@ -153,7 +154,7 @@ public class TestMaxByAggregation
 
         private CustomDoubleType()
         {
-            super(NAME, double.class, SIZE_OF_DOUBLE);
+            super(parseTypeSignature(NAME), double.class, SIZE_OF_DOUBLE);
         }
 
         @Override

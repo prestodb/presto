@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.orc.metadata;
 
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class PostScript
@@ -65,7 +65,7 @@ public class PostScript
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("version", version)
                 .add("footerLength", footerLength)
                 .add("metadataLength", metadataLength)

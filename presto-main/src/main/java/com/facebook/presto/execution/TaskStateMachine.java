@@ -14,7 +14,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -27,6 +26,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -133,7 +133,7 @@ public class TaskStateMachine
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("taskId", taskId)
                 .add("taskState", taskState)
                 .add("failureCauses", failureCauses)

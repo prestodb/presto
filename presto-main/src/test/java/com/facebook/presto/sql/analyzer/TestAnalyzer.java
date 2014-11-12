@@ -59,6 +59,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SAMPLE_PERCENTA
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.fail;
@@ -93,6 +94,13 @@ public class TestAnalyzer
             throws Exception
     {
         assertFails(TYPE_MISMATCH, "SELECT * FROM (SELECT ARRAY[1,2]) GROUP BY 1");
+    }
+
+    @Test
+    public void testScalarSubQueryException()
+            throws Exception
+    {
+        assertFails(NOT_SUPPORTED, "SELECT 'a', (VALUES (1)) GROUP BY 1");
     }
 
     @Test
@@ -171,6 +179,7 @@ public class TestAnalyzer
     public void testNonAggregate()
             throws Exception
     {
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT 'a', array[b][1] FROM t1 GROUP BY 1");
         assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT a, sum(b) FROM t1");
         assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT sum(b) / a FROM t1");
         assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT sum(b) / a FROM t1 GROUP BY c");
@@ -729,5 +738,11 @@ public class TestAnalyzer
                 fail(format("Expected error %s, but found %s: %s", error, e.getCode(), e.getMessage()), e);
             }
         }
+    }
+
+    @Test
+    public void testWindowFunctionWithoutOverClause()
+    {
+        assertFails(WINDOW_REQUIRES_OVER, "SELECT row_number()");
     }
 }

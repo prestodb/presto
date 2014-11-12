@@ -23,7 +23,6 @@ import com.facebook.presto.orc.stream.StreamSource;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.google.common.base.Objects;
 import io.airlift.slice.DynamicSliceOutput;
 import org.joda.time.DateTimeZone;
 
@@ -35,9 +34,9 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.orc.json.JsonReaders.createJsonReader;
-import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.STRUCT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class JsonStreamReader
@@ -66,12 +65,10 @@ public class JsonStreamReader
 
     private List<ColumnEncoding> encoding;
 
-    public JsonStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, DateTimeZone sessionTimeZone)
+    public JsonStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
-
-        boolean writeStackType = streamDescriptor.getStreamType() != STRUCT;
-        this.jsonReader = createJsonReader(streamDescriptor, false, writeStackType, hiveStorageTimeZone, sessionTimeZone);
+        this.jsonReader = createJsonReader(streamDescriptor, false, hiveStorageTimeZone);
     }
 
     @Override
@@ -178,7 +175,7 @@ public class JsonStreamReader
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
     }

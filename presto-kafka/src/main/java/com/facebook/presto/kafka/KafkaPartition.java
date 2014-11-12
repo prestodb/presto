@@ -17,11 +17,11 @@ import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.TupleDomain;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
@@ -81,7 +81,7 @@ public class KafkaPartition
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("topicName", topicName)
                 .add("partitionId", partitionId)
                 .add("partitionLeader", partitionLeader)

@@ -22,6 +22,7 @@ public class FeaturesConfig
     private boolean distributedIndexJoinsEnabled;
     private boolean distributedJoinsEnabled;
     private boolean optimizeMetadataQueries;
+    private boolean optimizeHashGeneration;
 
     @LegacyConfig("analyzer.experimental-syntax-enabled")
     @Config("experimental-syntax-enabled")
@@ -69,6 +70,18 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeMetadataQueries(boolean optimizeMetadataQueries)
     {
         this.optimizeMetadataQueries = optimizeMetadataQueries;
+        return this;
+    }
+
+    public boolean isOptimizeHashGeneration()
+    {
+        return optimizeHashGeneration;
+    }
+
+    @Config("optimizer.optimize-hash-generation")
+    public FeaturesConfig setOptimizeHashGeneration(boolean optimizeHashGeneration)
+    {
+        this.optimizeHashGeneration = optimizeHashGeneration;
         return this;
     }
 }

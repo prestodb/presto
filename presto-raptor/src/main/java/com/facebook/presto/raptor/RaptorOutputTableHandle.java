@@ -43,7 +43,7 @@ public class RaptorOutputTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnHandles") List<RaptorColumnHandle> columnHandles,
             @JsonProperty("columnTypes") List<Type> columnTypes,
-            @JsonProperty("sampleWeightColumnHandle") RaptorColumnHandle sampleWeightColumnHandle)
+            @JsonProperty("sampleWeightColumnHandle") @Nullable RaptorColumnHandle sampleWeightColumnHandle)
     {
         this.schemaName = checkSchemaName(schemaName);
         this.tableName = checkTableName(tableName);
@@ -76,6 +76,7 @@ public class RaptorOutputTableHandle
         return columnTypes;
     }
 
+    @Nullable
     @JsonProperty
     public RaptorColumnHandle getSampleWeightColumnHandle()
     {

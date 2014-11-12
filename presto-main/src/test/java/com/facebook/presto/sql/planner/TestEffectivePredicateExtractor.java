@@ -150,7 +150,8 @@ public class TestEffectivePredicateExtractor
                 ImmutableMap.<Symbol, Symbol>of(),
                 AggregationNode.Step.FINAL,
                 Optional.<Symbol>absent(),
-                1.0);
+                1.0,
+                Optional.<Symbol>absent());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
@@ -280,7 +281,8 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.of(A),
                 ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST),
                 ImmutableMap.<Symbol, FunctionCall>of(),
-                ImmutableMap.<Symbol, Signature>of());
+                ImmutableMap.<Symbol, Signature>of(),
+                Optional.<Symbol>absent());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
@@ -488,7 +490,9 @@ public class TestEffectivePredicateExtractor
                         and(
                                 equals(DE, EE),
                                 lessThan(FE, number(100)))),
-                criteria);
+                criteria,
+                Optional.<Symbol>absent(),
+                Optional.<Symbol>absent());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
@@ -541,7 +545,9 @@ public class TestEffectivePredicateExtractor
                         and(
                                 equals(DE, EE),
                                 lessThan(FE, number(100)))),
-                criteria);
+                criteria,
+                Optional.<Symbol>absent(),
+                Optional.<Symbol>absent());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
@@ -594,7 +600,9 @@ public class TestEffectivePredicateExtractor
                         and(
                                 equals(DE, EE),
                                 lessThan(FE, number(100)))),
-                criteria);
+                criteria,
+                Optional.<Symbol>absent(),
+                Optional.<Symbol>absent());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
@@ -615,8 +623,8 @@ public class TestEffectivePredicateExtractor
         PlanNode node = new SemiJoinNode(newId(),
                 filter(baseTableScan, and(greaterThan(AE, number(10)), lessThan(AE, number(100)))),
                 filter(baseTableScan, greaterThan(AE, number(5))),
-                A, B, C
-        );
+                A, B, C,
+                Optional.<Symbol>absent(), Optional.<Symbol>absent());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 

@@ -72,7 +72,7 @@ public class DwrfPageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             List<HivePartitionKey> partitionKeys,
-            TupleDomain<HiveColumnHandle> tupleDomain,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
         if (!isOptimizedReaderEnabled(session, enabled)) {
@@ -88,13 +88,12 @@ public class DwrfPageSourceFactory
         return Optional.of(createOrcPageSource(
                 new DwrfMetadataReader(),
                 configuration,
-                session,
                 path,
                 start,
                 length,
                 columns,
                 partitionKeys,
-                tupleDomain,
+                effectivePredicate,
                 hiveStorageTimeZone,
                 typeManager));
     }

@@ -21,8 +21,11 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -30,32 +33,24 @@ import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
+import java.util.TreeMap;
 
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
+import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.invoke.MethodHandles.lookup;
 
 public class MapToJsonCast
         extends ParametricOperator
 {
     public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast();
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer()));
-    private static final MethodHandle METHOD_HANDLE;
-
-    static
-    {
-        try {
-            METHOD_HANDLE = lookup().unreflect(MapToJsonCast.class.getMethod("toJson", Type.class, ConnectorSession.class, Slice.class));
-        }
-        catch (ReflectiveOperationException e) {
-            throw Throwables.propagate(e);
-        }
-    }
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer()).addSerializer(Map.class, new MapSerializer()));
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", Type.class, ConnectorSession.class, Slice.class);
 
     private MapToJsonCast()
     {
@@ -74,19 +69,39 @@ public class MapToJsonCast
         checkArgument(arity == 1, "Expected arity to be 1");
         Type keyType = types.get("K");
         Type valueType = types.get("V");
-        Type mapType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(keyType.getTypeSignature(), valueType.getTypeSignature()));
+        Type mapType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(keyType.getTypeSignature(), valueType.getTypeSignature()), ImmutableList.of());
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(mapType);
         return operatorInfo(OperatorType.CAST, parseTypeSignature(StandardTypes.JSON), ImmutableList.of(mapType.getTypeSignature()), methodHandle, false, ImmutableList.of(false));
     }
 
-    public static Slice toJson(Type arrayType, ConnectorSession session, Slice array)
+    public static Slice toJson(Type mapType, ConnectorSession session, Slice slice)
     {
-        Object object = stackRepresentationToObject(session, array, arrayType);
+        Object object = stackRepresentationToObject(session, slice, mapType);
         try {
             return Slices.utf8Slice(OBJECT_MAPPER.writeValueAsString(object));
         }
         catch (JsonProcessingException e) {
             throw Throwables.propagate(e);
+        }
+    }
+
+    // Unfortunately this has to be a raw Map, since Map<?, ?> doesn't seem to work in Jackson
+    private static class MapSerializer
+            extends JsonSerializer<Map>
+    {
+        @Override
+        public void serialize(Map map, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
+                throws IOException
+        {
+            Map<String, Object> orderedMap = new TreeMap<>();
+            for (Map.Entry<?, ?> entry : ((Map<?, ?>) map).entrySet()) {
+                orderedMap.put(entry.getKey().toString(), entry.getValue());
+            }
+            jsonGenerator.writeStartObject();
+            for (Map.Entry<String, Object> entry : orderedMap.entrySet()) {
+                jsonGenerator.writeObjectField(entry.getKey(), entry.getValue());
+            }
+            jsonGenerator.writeEndObject();
         }
     }
 }

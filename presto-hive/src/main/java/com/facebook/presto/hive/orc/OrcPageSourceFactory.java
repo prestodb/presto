@@ -17,7 +17,9 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
 import com.facebook.presto.hive.HivePartitionKey;
-import com.facebook.presto.hive.orc.TupleDomainOrcPredicate.ColumnReference;
+import com.facebook.presto.orc.TupleDomainOrcPredicate;
+import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
+import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcRecordReader;
@@ -84,7 +86,7 @@ public class OrcPageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             List<HivePartitionKey> partitionKeys,
-            TupleDomain<HiveColumnHandle> tupleDomain,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
         if (!isOptimizedReaderEnabled(session, enabled)) {
@@ -100,30 +102,28 @@ public class OrcPageSourceFactory
         return Optional.of(createOrcPageSource(
                 new OrcMetadataReader(),
                 configuration,
-                session,
                 path,
                 start,
                 length,
                 columns,
                 partitionKeys,
-                tupleDomain,
+                effectivePredicate,
                 hiveStorageTimeZone,
                 typeManager));
     }
 
     public static OrcPageSource createOrcPageSource(MetadataReader metadataReader,
             Configuration configuration,
-            ConnectorSession session,
             Path path,
             long start,
             long length,
             List<HiveColumnHandle> columns,
             List<HivePartitionKey> partitionKeys,
-            TupleDomain<HiveColumnHandle> tupleDomain,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager)
     {
-        HdfsOrcDataSource orcDataSource;
+        OrcDataSource orcDataSource;
         try {
             FileSystem fileSystem = path.getFileSystem(configuration);
             long size = fileSystem.getFileStatus(path).getLen();
@@ -144,7 +144,7 @@ public class OrcPageSourceFactory
             }
         }
 
-        OrcPredicate predicate = new TupleDomainOrcPredicate<>(tupleDomain, columnReferences.build());
+        OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build());
 
         try {
             OrcReader reader = new OrcReader(orcDataSource, metadataReader);
@@ -153,8 +153,7 @@ public class OrcPageSourceFactory
                     predicate,
                     start,
                     length,
-                    hiveStorageTimeZone,
-                    DateTimeZone.forID(session.getTimeZoneKey().getId()));
+                    hiveStorageTimeZone);
 
             return new OrcPageSource(
                     recordReader,

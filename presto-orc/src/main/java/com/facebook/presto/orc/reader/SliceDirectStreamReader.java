@@ -22,7 +22,7 @@ import com.facebook.presto.orc.stream.ByteArrayStream;
 import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSource;
 import com.facebook.presto.orc.stream.StreamSources;
-import com.google.common.base.Objects;
+import com.google.common.primitives.Ints;
 import io.airlift.slice.Slices;
 
 import javax.annotation.Nonnull;
@@ -37,6 +37,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SliceDirectStreamReader
@@ -97,7 +98,7 @@ public class SliceDirectStreamReader
                 long dataSkipSize = lengthStream.sum(readOffset);
                 if (dataSkipSize > 0) {
                     verifyFormat(dataStream != null, "Value is not null but data stream is not present");
-                    dataStream.skip(dataSkipSize);
+                    dataStream.skip(Ints.checkedCast(dataSkipSize));
                 }
             }
         }
@@ -108,8 +109,8 @@ public class SliceDirectStreamReader
             lengthStream.nextIntVector(nextBatchSize, lengthVector);
         }
         else {
-            int nonNullValues = presentStream.getUnsetBits(nextBatchSize, isNullVector);
-            if (nonNullValues != nextBatchSize) {
+            int nullValues = presentStream.getUnsetBits(nextBatchSize, isNullVector);
+            if (nullValues != nextBatchSize) {
                 verifyFormat(lengthStream != null, "Value is not null but length stream is not present");
                 lengthStream.nextIntVector(nextBatchSize, lengthVector, isNullVector);
             }
@@ -197,7 +198,7 @@ public class SliceDirectStreamReader
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
     }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
@@ -93,12 +94,18 @@ public final class InMemoryJoinHash
     }
 
     @Override
-    public long getJoinPosition(int position, Block... blocks)
+    public long getJoinPosition(int position, Page page)
     {
-        int pos = ((int) Murmur3.hash64(pagesHashStrategy.hashRow(position, blocks))) & mask;
+        return getJoinPosition(position, page, pagesHashStrategy.hashRow(position, page.getBlocks()));
+    }
+
+    @Override
+    public long getJoinPosition(int position, Page page, int rawHash)
+    {
+        int pos = ((int) Murmur3.hash64(rawHash)) & mask;
 
         while (key[pos] != -1) {
-            if (positionEqualsCurrentRow(key[pos], position, blocks)) {
+            if (positionEqualsCurrentRow(key[pos], position, page.getBlocks())) {
                 return key[pos];
             }
             // increment position and mask to handler wrap around

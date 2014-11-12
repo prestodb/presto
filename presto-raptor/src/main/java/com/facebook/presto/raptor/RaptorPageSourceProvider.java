@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.raptor.storage.LocalStorageManager;
+import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.FluentIterable;
 import com.google.inject.Inject;
 
 import java.util.List;
+import java.util.UUID;
 
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -32,10 +32,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class RaptorPageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private final LocalStorageManager storageManager;
+    private final StorageManager storageManager;
 
     @Inject
-    public RaptorPageSourceProvider(LocalStorageManager storageManager)
+    public RaptorPageSourceProvider(StorageManager storageManager)
     {
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
     }
@@ -44,34 +44,48 @@ public class RaptorPageSourceProvider
     public ConnectorPageSource createPageSource(ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
         RaptorSplit raptorSplit = checkType(split, RaptorSplit.class, "split");
-        checkNotNull(columns, "columns is null");
 
-        if (columns.isEmpty()) {
-            return createNoColumnsOperator(raptorSplit);
-        }
-        return createAlignmentOperator(columns, raptorSplit);
+        UUID shardUuid = raptorSplit.getShardUuid();
+        List<RaptorColumnHandle> columnHandles = FluentIterable.from(columns).transform(toRaptorColumnHandle()).toList();
+        List<Long> columnIds = FluentIterable.from(columnHandles).transform(raptorColumnId()).toList();
+        List<Type> columnTypes = FluentIterable.from(columnHandles).transform(raptorColumnType()).toList();
+
+        return storageManager.getPageSource(shardUuid, columnIds, columnTypes, raptorSplit.getEffectivePredicate());
     }
 
-    public ConnectorPageSource createNoColumnsOperator(RaptorSplit raptorSplit)
+    private static Function<ConnectorColumnHandle, RaptorColumnHandle> toRaptorColumnHandle()
     {
-        RaptorColumnHandle countColumnHandle = raptorSplit.getCountColumnHandle();
-        Iterable<Block> blocks = storageManager.getBlocks(raptorSplit.getShardUuid(), countColumnHandle);
-        return new NoColumnsPageSource(Iterables.transform(blocks, new Function<Block, Integer>()
+        return new Function<ConnectorColumnHandle, RaptorColumnHandle>()
         {
             @Override
-            public Integer apply(Block input)
+            public RaptorColumnHandle apply(ConnectorColumnHandle handle)
             {
-                return input.getPositionCount();
+                return checkType(handle, RaptorColumnHandle.class, "columnHandle");
             }
-        }));
+        };
     }
 
-    public ConnectorPageSource createAlignmentOperator(List<ConnectorColumnHandle> columns, RaptorSplit raptorSplit)
+    private static Function<RaptorColumnHandle, Long> raptorColumnId()
     {
-        ImmutableList.Builder<Iterable<Block>> channels = ImmutableList.builder();
-        for (ConnectorColumnHandle column : columns) {
-            channels.add(storageManager.getBlocks(raptorSplit.getShardUuid(), column));
-        }
-        return new RaptorPageSource(channels.build());
+        return new Function<RaptorColumnHandle, Long>()
+        {
+            @Override
+            public Long apply(RaptorColumnHandle handle)
+            {
+                return handle.getColumnId();
+            }
+        };
+    }
+
+    private static Function<RaptorColumnHandle, Type> raptorColumnType()
+    {
+        return new Function<RaptorColumnHandle, Type>()
+        {
+            @Override
+            public Type apply(RaptorColumnHandle handle)
+            {
+                return handle.getColumnType();
+            }
+        };
     }
 }

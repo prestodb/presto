@@ -30,7 +30,6 @@ import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Charsets;
-import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -63,6 +62,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -76,6 +76,7 @@ public class RcFilePageSource
     private final RCFile.Reader recordReader;
     private final RcFileBlockLoader blockLoader;
     private final long startFilePosition;
+    private final long endFilePosition;
 
     private final List<String> columnNames;
     private final List<Type> types;
@@ -100,6 +101,8 @@ public class RcFilePageSource
 
     public RcFilePageSource(
             Reader recordReader,
+            long offset,
+            long length,
             RcFileBlockLoader blockLoader,
             Properties splitSchema,
             List<HivePartitionKey> partitionKeys,
@@ -115,12 +118,19 @@ public class RcFilePageSource
         checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         checkNotNull(typeManager, "typeManager is null");
 
+        // seek to start
         try {
+            if (offset > recordReader.getPosition()) {
+                recordReader.sync(offset);
+            }
+
             this.startFilePosition = recordReader.getPosition();
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
         }
+
+        this.endFilePosition = offset + length;
 
         Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey.nameGetter());
 
@@ -275,7 +285,7 @@ public class RcFilePageSource
             // if the batch has been consumed, read the next batch
             if (positionInBatch >= currentBatchSize) {
                 //noinspection deprecation
-                if (!recordReader.nextColumnsBatch()) {
+                if (!recordReader.nextColumnsBatch() || recordReader.lastSeenSyncPos() >= endFilePosition) {
                     close();
                     return null;
                 }
@@ -335,7 +345,7 @@ public class RcFilePageSource
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("columnNames", columnNames)
                 .add("types", types)
                 .toString();
@@ -382,7 +392,7 @@ public class RcFilePageSource
         @Override
         public String toString()
         {
-            return Objects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("expectedBatchId", expectedBatchId)
                     .add("positionInBatch", positionInBatch)
                     .toString();

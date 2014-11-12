@@ -18,6 +18,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
 public final class TimeWithTimeZoneType
@@ -27,7 +28,7 @@ public final class TimeWithTimeZoneType
 
     private TimeWithTimeZoneType()
     {
-        super(StandardTypes.TIME_WITH_TIME_ZONE, long.class, SIZE_OF_LONG);
+        super(parseTypeSignature(StandardTypes.TIME_WITH_TIME_ZONE), long.class, SIZE_OF_LONG);
     }
 
     @Override

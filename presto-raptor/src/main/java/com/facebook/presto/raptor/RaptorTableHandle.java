@@ -32,7 +32,6 @@ public final class RaptorTableHandle
     private final String schemaName;
     private final String tableName;
     private final long tableId;
-    private final RaptorColumnHandle countColumnHandle;
     @Nullable
     private final RaptorColumnHandle sampleWeightColumnHandle;
 
@@ -42,8 +41,7 @@ public final class RaptorTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableId") long tableId,
-            @JsonProperty("countColumnHandle") RaptorColumnHandle countColumnHandle,
-            @JsonProperty("sampleWeightColumnHandle") RaptorColumnHandle sampleWeightColumnHandle)
+            @JsonProperty("sampleWeightColumnHandle") @Nullable RaptorColumnHandle sampleWeightColumnHandle)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null");
         this.schemaName = checkSchemaName(schemaName);
@@ -52,7 +50,6 @@ public final class RaptorTableHandle
         checkArgument(tableId > 0, "tableId must be greater than zero");
         this.tableId = tableId;
 
-        this.countColumnHandle = checkNotNull(countColumnHandle, "countColumnHandle is null");
         this.sampleWeightColumnHandle = sampleWeightColumnHandle;
     }
 
@@ -80,12 +77,7 @@ public final class RaptorTableHandle
         return tableId;
     }
 
-    @JsonProperty
-    public RaptorColumnHandle getCountColumnHandle()
-    {
-        return countColumnHandle;
-    }
-
+    @Nullable
     @JsonProperty
     public RaptorColumnHandle getSampleWeightColumnHandle()
     {

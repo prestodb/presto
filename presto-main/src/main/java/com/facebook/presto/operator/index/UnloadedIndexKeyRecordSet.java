@@ -14,10 +14,13 @@
 package com.facebook.presto.operator.index;
 
 import com.facebook.presto.operator.GroupByHash;
+import com.facebook.presto.operator.GroupByIdBlock;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
@@ -31,6 +34,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.operator.index.IndexSnapshot.UNLOADED_INDEX_KEY;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -55,11 +59,10 @@ public class UnloadedIndexKeyRecordSet
         }
 
         ImmutableList.Builder<PageAndPositions> builder = ImmutableList.builder();
-        long nextDistinctId = 0;
-        GroupByHash groupByHash = new GroupByHash(distinctChannelTypes, normalizedDistinctChannels, 10_000);
+        GroupByHash groupByHash = new GroupByHash(distinctChannelTypes, normalizedDistinctChannels, Optional.<Integer>absent(), 10_000);
         for (UpdateRequest request : requests) {
-            IntList positions = new IntArrayList();
-            Block[] blocks = request.getBlocks();
+            Page page = request.getPage();
+            Block[] blocks = page.getBlocks();
 
             Block[] distinctBlocks = new Block[distinctChannels.length];
             for (int i = 0; i < distinctBlocks.length; i++) {
@@ -67,15 +70,20 @@ public class UnloadedIndexKeyRecordSet
             }
 
             // Move through the positions while advancing the cursors in lockstep
+            GroupByIdBlock groupIds = groupByHash.getGroupIds(new Page(distinctBlocks));
             int positionCount = blocks[0].getPositionCount();
+            long nextDistinctId = -1;
+            checkArgument(groupIds.getGroupCount() <= Integer.MAX_VALUE);
+            IntList positions = new IntArrayList((int) groupIds.getGroupCount());
             for (int position = 0; position < positionCount; position++) {
                 // We are reading ahead in the cursors, so we need to filter any nulls since they can not join
                 if (!containsNullValue(position, blocks)) {
                     // Only include the key if it is not already in the index
-                    if (existingSnapshot.getJoinPosition(position, blocks) == UNLOADED_INDEX_KEY) {
+                    if (existingSnapshot.getJoinPosition(position, page) == UNLOADED_INDEX_KEY) {
                         // Only add the position if we have not seen this tuple before (based on the distinct channels)
-                        if (groupByHash.putIfAbsent(position, distinctBlocks) == nextDistinctId) {
-                            nextDistinctId++;
+                        long groupId = groupIds.getGroupId(position);
+                        if (nextDistinctId < groupId) {
+                            nextDistinctId = groupId;
                             positions.add(position);
                         }
                     }
@@ -118,6 +126,7 @@ public class UnloadedIndexKeyRecordSet
         private final List<Type> types;
         private final Iterator<PageAndPositions> pageAndPositionsIterator;
         private Block[] blocks;
+        private Page page;
         private IntListIterator positionIterator;
         private int position;
 
@@ -160,7 +169,8 @@ public class UnloadedIndexKeyRecordSet
                     return false;
                 }
                 PageAndPositions pageAndPositions = pageAndPositionsIterator.next();
-                blocks = pageAndPositions.getUpdateRequest().getBlocks();
+                page = pageAndPositions.getUpdateRequest().getPage();
+                blocks = page.getBlocks();
                 checkState(types.size() == blocks.length);
                 positionIterator = pageAndPositions.getPositions().iterator();
             }
@@ -173,6 +183,11 @@ public class UnloadedIndexKeyRecordSet
         public Block[] getBlocks()
         {
             return blocks;
+        }
+
+        public Page getPage()
+        {
+            return page;
         }
 
         public int getPosition()

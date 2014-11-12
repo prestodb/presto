@@ -15,6 +15,8 @@ package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public class DropView
         extends Statement
 {
@@ -58,7 +60,7 @@ public class DropView
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("name", name)
                 .toString();
     }

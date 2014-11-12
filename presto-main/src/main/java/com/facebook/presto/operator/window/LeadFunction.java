@@ -72,26 +72,16 @@ public class LeadFunction
     private final int defaultChannel;
 
     private int partitionStartPosition;
+    private int currentPosition;
     private int partitionRowCount;
-    private int currentPosition = -1;
     private PagesIndex pagesIndex;
 
     protected LeadFunction(Type type, List<Integer> argumentChannels)
     {
         this.type = type;
         this.valueChannel = argumentChannels.get(0);
-        if (argumentChannels.size() > 1) {
-            this.offsetChannel = argumentChannels.get(1);
-        }
-        else {
-            this.offsetChannel = -1;
-        }
-        if (argumentChannels.size() > 2) {
-            this.defaultChannel = argumentChannels.get(2);
-        }
-        else {
-            this.defaultChannel = -1;
-        }
+        this.offsetChannel = (argumentChannels.size() > 1) ? argumentChannels.get(1) : -1;
+        this.defaultChannel = (argumentChannels.size() > 2) ? argumentChannels.get(2) : -1;
     }
 
     @Override
@@ -101,36 +91,45 @@ public class LeadFunction
     }
 
     @Override
-    public void reset(int partitionRowCount, PagesIndex pagesIndex)
+    public void reset(int partitionStartPosition, int partitionRowCount, PagesIndex pagesIndex)
     {
-        this.pagesIndex = pagesIndex;
-        this.partitionStartPosition += this.partitionRowCount;
-        // start before the first row of the partition
-        this.currentPosition = partitionStartPosition - 1;
-
+        this.partitionStartPosition = partitionStartPosition;
+        this.currentPosition = partitionStartPosition;
         this.partitionRowCount = partitionRowCount;
+        this.pagesIndex = pagesIndex;
     }
 
+    @SuppressWarnings("NumericCastThatLosesPrecision")
     @Override
     public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
     {
-        currentPosition++;
-
-        int offset = offsetChannel < 0 ? 1 : Ints.checkedCast(pagesIndex.getLong(offsetChannel, currentPosition));
-        checkCondition(offset >= 0, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 0");
-
-        int valuePosition = currentPosition + offset;
-
-        if (valuePosition < partitionStartPosition + partitionRowCount) {
-            pagesIndex.appendTo(valueChannel, valuePosition, output);
+        if ((offsetChannel >= 0) && pagesIndex.isNull(offsetChannel, currentPosition)) {
+            output.appendNull();
         }
         else {
-            if (defaultChannel < 0) {
-                output.appendNull();
+            long offset = (offsetChannel < 0) ? 1 : pagesIndex.getLong(offsetChannel, currentPosition);
+            checkCondition(offset >= 0, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 0");
+
+            long valuePosition = currentPosition + offset;
+
+            if ((valuePosition >= 0) && (valuePosition < (partitionStartPosition + partitionRowCount))) {
+                pagesIndex.appendTo(valueChannel, Ints.checkedCast(valuePosition), output);
             }
             else {
-                pagesIndex.appendTo(defaultChannel, currentPosition, output);
+                appendDefault(output);
             }
+        }
+
+        currentPosition++;
+    }
+
+    private void appendDefault(BlockBuilder output)
+    {
+        if (defaultChannel < 0) {
+            output.appendNull();
+        }
+        else {
+            pagesIndex.appendTo(defaultChannel, currentPosition, output);
         }
     }
 }

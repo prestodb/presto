@@ -19,7 +19,6 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
@@ -27,6 +26,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -36,6 +36,7 @@ public class BasicQueryInfo
     private final QueryId queryId;
     private final Session session;
     private final QueryState state;
+    private final boolean scheduled;
     private final URI self;
     private final String query;
     private final Duration elapsedTime;
@@ -51,6 +52,7 @@ public class BasicQueryInfo
             @JsonProperty("queryId") QueryId queryId,
             @JsonProperty("session") Session session,
             @JsonProperty("state") QueryState state,
+            @JsonProperty("scheduled") boolean scheduled,
             @JsonProperty("self") URI self,
             @JsonProperty("query") String query,
             @JsonProperty("elapsedTime") Duration elapsedTime,
@@ -65,6 +67,7 @@ public class BasicQueryInfo
         this.queryId = checkNotNull(queryId, "queryId is null");
         this.session = checkNotNull(session, "session is null");
         this.state = checkNotNull(state, "state is null");
+        this.scheduled = scheduled;
         this.self = checkNotNull(self, "self is null");
         this.query = checkNotNull(query, "query is null");
         this.elapsedTime = elapsedTime;
@@ -86,6 +89,7 @@ public class BasicQueryInfo
         this(queryInfo.getQueryId(),
                 queryInfo.getSession(),
                 queryInfo.getState(),
+                queryInfo.isScheduled(),
                 queryInfo.getSelf(),
                 queryInfo.getQuery(),
                 queryInfo.getQueryStats().getElapsedTime(),
@@ -113,6 +117,12 @@ public class BasicQueryInfo
     public QueryState getState()
     {
         return state;
+    }
+
+    @JsonProperty
+    public boolean isScheduled()
+    {
+        return scheduled;
     }
 
     @JsonProperty
@@ -172,7 +182,7 @@ public class BasicQueryInfo
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("queryId", queryId)
                 .add("state", state)
                 .toString();

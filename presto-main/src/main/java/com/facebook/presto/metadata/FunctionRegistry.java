@@ -39,6 +39,7 @@ import com.facebook.presto.operator.aggregation.VarBinaryMinAggregation;
 import com.facebook.presto.operator.aggregation.VarianceAggregation;
 import com.facebook.presto.operator.scalar.ArrayFunctions;
 import com.facebook.presto.operator.scalar.ColorFunctions;
+import com.facebook.presto.operator.scalar.CombineHashFunction;
 import com.facebook.presto.operator.scalar.DateTimeFunctions;
 import com.facebook.presto.operator.scalar.HyperLogLogFunctions;
 import com.facebook.presto.operator.scalar.JsonFunctions;
@@ -73,6 +74,7 @@ import com.facebook.presto.operator.window.PercentRankFunction;
 import com.facebook.presto.operator.window.RankFunction;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -86,6 +88,8 @@ import com.facebook.presto.type.HyperLogLogOperators;
 import com.facebook.presto.type.IntervalDayTimeOperators;
 import com.facebook.presto.type.IntervalYearMonthOperators;
 import com.facebook.presto.type.LikeFunctions;
+import com.facebook.presto.type.RowParametricType;
+import com.facebook.presto.type.RowType;
 import com.facebook.presto.type.TimeOperators;
 import com.facebook.presto.type.TimeWithTimeZoneOperators;
 import com.facebook.presto.type.TimestampOperators;
@@ -126,12 +130,16 @@ import static com.facebook.presto.operator.aggregation.CountColumn.COUNT_COLUMN;
 import static com.facebook.presto.operator.aggregation.MaxBy.MAX_BY;
 import static com.facebook.presto.operator.scalar.ArrayCardinalityFunction.ARRAY_CARDINALITY;
 import static com.facebook.presto.operator.scalar.ArrayConstructor.ARRAY_CONSTRUCTOR;
+import static com.facebook.presto.operator.scalar.ArraySortFunction.ARRAY_SORT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArraySubscriptOperator.ARRAY_SUBSCRIPT;
 import static com.facebook.presto.operator.scalar.ArrayToJsonCast.ARRAY_TO_JSON;
 import static com.facebook.presto.operator.scalar.IdentityCast.IDENTITY_CAST;
 import static com.facebook.presto.operator.scalar.MapCardinalityFunction.MAP_CARDINALITY;
 import static com.facebook.presto.operator.scalar.MapSubscriptOperator.MAP_SUBSCRIPT;
 import static com.facebook.presto.operator.scalar.MapToJsonCast.MAP_TO_JSON;
+import static com.facebook.presto.operator.scalar.MapKeys.MAP_KEYS;
+import static com.facebook.presto.operator.scalar.MapValues.MAP_VALUES;
+import static com.facebook.presto.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -160,6 +168,7 @@ public class FunctionRegistry
 {
     private static final String MAGIC_LITERAL_FUNCTION_PREFIX = "$literal$";
     private static final String OPERATOR_PREFIX = "$operator$";
+    private static final String FIELD_ACCESSOR_PREFIX = "$field_accessor$";
 
     // hack: java classes for types that can be used with magic literals
     private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class);
@@ -258,16 +267,21 @@ public class FunctionRegistry
                 .scalar(HyperLogLogOperators.class)
                 .scalar(LikeFunctions.class)
                 .scalar(ArrayFunctions.class)
+                .scalar(CombineHashFunction.class)
                 .function(ARRAY_CONSTRUCTOR)
                 .function(ARRAY_SUBSCRIPT)
                 .function(ARRAY_CARDINALITY)
+                .function(ARRAY_SORT_FUNCTION)
                 .function(MAP_CARDINALITY)
                 .function(MAP_SUBSCRIPT)
                 .function(IDENTITY_CAST)
                 .function(MAX_BY)
                 .function(COUNT_COLUMN)
                 .function(ARRAY_TO_JSON)
-                .function(MAP_TO_JSON);
+                .function(MAP_TO_JSON)
+                .function(MAP_KEYS)
+                .function(MAP_VALUES)
+                .function(ROW_TO_JSON);
 
         if (experimentalSyntaxEnabled) {
             builder.aggregate(ApproximateAverageAggregations.class)
@@ -357,7 +371,7 @@ public class FunctionRegistry
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
             Type parameterType = typeManager.getType(parameterTypes.get(0));
-            checkNotNull(parameterType, "Type %s not foudn", parameterTypes.get(0));
+            checkNotNull(parameterType, "Type %s not found", parameterTypes.get(0));
             checkArgument(parameterType.getJavaType() == type.getJavaType(),
                     "Expected type %s to use Java type %s, but Java type is %s",
                     type,
@@ -373,6 +387,28 @@ public class FunctionRegistry
                     true,
                     false,
                     ImmutableList.of(false));
+        }
+
+        // TODO this should be made to work for any parametric type
+        for (TypeSignature typeSignature : parameterTypes) {
+            if (typeSignature.getBase().equals(StandardTypes.ROW)) {
+                RowType rowType = RowParametricType.ROW.createType(resolveTypes(typeSignature.getParameters(), typeManager), typeSignature.getLiteralParameters());
+                // search for exact match
+                for (ParametricFunction function : RowParametricType.ROW.createFunctions(rowType)) {
+                    if (!function.getSignature().getName().equals(name.toString())) {
+                        continue;
+                    }
+                    Map<String, Type> boundTypeParameters = function.getSignature().bindTypeParameters(resolvedTypes, false, typeManager);
+                    if (boundTypeParameters != null) {
+                        checkArgument(match == null, "Ambiguous call to %s with parameters %s", name, parameterTypes);
+                        match = function.specialize(boundTypeParameters, resolvedTypes.size(), typeManager);
+                    }
+                }
+
+                if (match != null) {
+                    return match;
+                }
+            }
         }
 
         throw new PrestoException(FUNCTION_NOT_FOUND, message);
@@ -580,6 +616,11 @@ public class FunctionRegistry
     public static String mangleOperatorName(String operatorName)
     {
         return OPERATOR_PREFIX + operatorName;
+    }
+
+    public static String mangleFieldAccessor(String fieldName)
+    {
+        return FIELD_ACCESSOR_PREFIX + fieldName;
     }
 
     @VisibleForTesting

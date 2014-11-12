@@ -26,7 +26,6 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SerializableNativeValue;
 import com.facebook.presto.spi.TupleDomain;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -38,6 +37,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import static com.facebook.presto.util.Types.checkType;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class InformationSchemaSplitManager
@@ -126,7 +126,7 @@ public class InformationSchemaSplitManager
         @Override
         public String toString()
         {
-            return Objects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("table", table)
                     .add("filters", filters)
                     .toString();

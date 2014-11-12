@@ -19,6 +19,7 @@ import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFacto
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.testing.LocalQueryRunner;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
@@ -31,14 +32,14 @@ public class HashBuildBenchmark
 {
     public HashBuildBenchmark(LocalQueryRunner localQueryRunner)
     {
-        super(localQueryRunner, "hash_build", 4, 5);
+        super(localQueryRunner, "hash_build" + localQueryRunner.isHashEnabled(), 4, 5);
     }
 
     @Override
     protected List<Driver> createDrivers(TaskContext taskContext)
     {
         OperatorFactory ordersTableScan = createTableScanOperator(0, "orders", "orderkey", "totalprice");
-        HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(1, ordersTableScan.getTypes(), Ints.asList(0), 1_500_000);
+        HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(1, ordersTableScan.getTypes(), Ints.asList(0), Optional.<Integer>absent(), 1_500_000);
 
         DriverFactory driverFactory = new DriverFactory(true, true, ordersTableScan, hashBuilder);
         Driver driver = driverFactory.createDriver(taskContext.addPipelineContext(true, true).addDriverContext());

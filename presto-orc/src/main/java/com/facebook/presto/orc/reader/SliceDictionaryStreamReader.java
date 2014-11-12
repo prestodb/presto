@@ -23,7 +23,6 @@ import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.RowGroupDictionaryLengthStream;
 import com.facebook.presto.orc.stream.StreamSource;
 import com.facebook.presto.orc.stream.StreamSources;
-import com.google.common.base.Objects;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -43,6 +42,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SliceDictionaryStreamReader
@@ -139,8 +139,8 @@ public class SliceDictionaryStreamReader
             dataStream.nextIntVector(nextBatchSize, dataVector);
         }
         else {
-            int nonNullValues = presentStream.getUnsetBits(nextBatchSize, isNullVector);
-            if (nonNullValues != nextBatchSize) {
+            int nullValues = presentStream.getUnsetBits(nextBatchSize, isNullVector);
+            if (nullValues != nextBatchSize) {
                 verifyFormat(dataStream != null, "Value is not null but data stream is not present");
                 dataStream.nextIntVector(nextBatchSize, dataVector, isNullVector);
             }
@@ -253,6 +253,10 @@ public class SliceDictionaryStreamReader
         presentStreamSource = missingStreamSource(BooleanStream.class);
         dataStreamSource = missingStreamSource(LongStream.class);
 
+        inDictionaryStreamSource = missingStreamSource(BooleanStream.class);
+        rowGroupDictionaryLengthStreamSource = missingStreamSource(RowGroupDictionaryLengthStream.class);
+        rowGroupDictionaryDataStreamSource = missingStreamSource(ByteArrayStream.class);
+
         readOffset = 0;
         nextBatchSize = 0;
 
@@ -288,7 +292,7 @@ public class SliceDictionaryStreamReader
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
     }

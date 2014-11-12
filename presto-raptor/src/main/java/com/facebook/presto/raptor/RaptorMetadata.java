@@ -124,9 +124,6 @@ public class RaptorMetadata
                 countColumnHandle = getRaptorColumnHandle(tableColumn);
             }
         }
-        if (countColumnHandle == null) {
-            countColumnHandle = getRaptorColumnHandle(tableColumns.get(0));
-        }
 
         if (sampleWeightColumnHandle != null) {
             sampleWeightColumnHandle = new RaptorColumnHandle(connectorId, SAMPLE_WEIGHT_COLUMN_NAME, sampleWeightColumnHandle.getColumnId(), BIGINT);
@@ -136,7 +133,6 @@ public class RaptorMetadata
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 table.getTableId(),
-                countColumnHandle,
                 sampleWeightColumnHandle);
     }
 
@@ -251,16 +247,11 @@ public class RaptorMetadata
             sampleWeightColumnHandle = new RaptorColumnHandle(connectorId, SAMPLE_WEIGHT_COLUMN_NAME, tableMetadata.getColumns().size() + 1, BIGINT);
         }
 
-        // this won't be used in a create table, but it is required by the API
-        ColumnMetadata columnMetadata = tableMetadata.getColumns().get(0);
-        RaptorColumnHandle countColumnHandle = new RaptorColumnHandle(connectorId, columnMetadata.getName(), columnMetadata.getOrdinalPosition() + 1, columnMetadata.getType());
-
         return new RaptorTableHandle(
                 connectorId,
                 tableMetadata.getTable().getSchemaName(),
                 tableMetadata.getTable().getTableName(),
                 tableId,
-                countColumnHandle,
                 sampleWeightColumnHandle);
     }
 

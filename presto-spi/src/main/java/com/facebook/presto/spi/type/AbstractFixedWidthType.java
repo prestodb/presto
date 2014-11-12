@@ -25,9 +25,9 @@ public abstract class AbstractFixedWidthType
 {
     private final int fixedSize;
 
-    protected AbstractFixedWidthType(String name, Class<?> javaType, int fixedSize)
+    protected AbstractFixedWidthType(TypeSignature signature, Class<?> javaType, int fixedSize)
     {
-        super(name, javaType);
+        super(signature, javaType);
         this.fixedSize = fixedSize;
     }
 

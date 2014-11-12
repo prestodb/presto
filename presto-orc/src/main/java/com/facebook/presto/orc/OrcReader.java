@@ -17,7 +17,6 @@ import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.Metadata;
 import com.facebook.presto.orc.metadata.MetadataReader;
-import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.PostScript;
 import com.facebook.presto.orc.stream.OrcInputStream;
 import com.google.common.base.Joiner;
@@ -117,18 +116,18 @@ public class OrcReader
 
         // read metadata
         Slice metadataSlice = completeFooterSlice.slice(0, metadataSize);
-        InputStream metadataInputStream = new OrcInputStream(metadataSlice.getInput(), compressionKind, bufferSize);
+        InputStream metadataInputStream = new OrcInputStream(orcDataSource.toString(), metadataSlice.getInput(), compressionKind, bufferSize);
         this.metadata = metadataReader.readMetadata(metadataInputStream);
 
         // read footer
         Slice footerSlice = completeFooterSlice.slice(metadataSize, footerSize);
-        InputStream footerInputStream = new OrcInputStream(footerSlice.getInput(), compressionKind, bufferSize);
+        InputStream footerInputStream = new OrcInputStream(orcDataSource.toString(), footerSlice.getInput(), compressionKind, bufferSize);
         this.footer = metadataReader.readFooter(footerInputStream);
     }
 
-    public List<OrcType> getTypes()
+    public List<String> getColumnNames()
     {
-        return footer.getTypes();
+        return footer.getTypes().get(0).getFieldNames();
     }
 
     public Footer getFooter()
@@ -156,8 +155,7 @@ public class OrcReader
             OrcPredicate predicate,
             long offset,
             long length,
-            DateTimeZone hiveStorageTimeZone,
-            DateTimeZone sessionTimeZone)
+            DateTimeZone hiveStorageTimeZone)
             throws IOException
     {
         return new OrcRecordReader(
@@ -175,7 +173,6 @@ public class OrcReader
                 bufferSize,
                 footer.getRowsInRowGroup(),
                 checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null"),
-                checkNotNull(sessionTimeZone, "sessionTimeZone is null"),
                 metadataReader);
     }
 

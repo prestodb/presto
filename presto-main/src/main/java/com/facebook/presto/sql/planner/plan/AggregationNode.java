@@ -29,7 +29,6 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Iterables.concat;
 
 @Immutable
 public class AggregationNode
@@ -44,6 +43,7 @@ public class AggregationNode
     private final Step step;
     private final Optional<Symbol> sampleWeight;
     private final double confidence;
+    private final Optional<Symbol> hashSymbol;
 
     public enum Step
     {
@@ -52,9 +52,9 @@ public class AggregationNode
         SINGLE
     }
 
-    public AggregationNode(PlanNodeId id, PlanNode source, List<Symbol> groupByKeys, Map<Symbol, FunctionCall> aggregations, Map<Symbol, Signature> functions, Map<Symbol, Symbol> masks, Optional<Symbol> sampleWeight, double confidence)
+    public AggregationNode(PlanNodeId id, PlanNode source, List<Symbol> groupByKeys, Map<Symbol, FunctionCall> aggregations, Map<Symbol, Signature> functions, Map<Symbol, Symbol> masks, Optional<Symbol> sampleWeight, double confidence, Optional<Symbol> hashSymbol)
     {
-        this(id, source, groupByKeys, aggregations, functions, masks, Step.SINGLE, sampleWeight, confidence);
+        this(id, source, groupByKeys, aggregations, functions, masks, Step.SINGLE, sampleWeight, confidence, hashSymbol);
     }
 
     @JsonCreator
@@ -66,7 +66,8 @@ public class AggregationNode
             @JsonProperty("masks") Map<Symbol, Symbol> masks,
             @JsonProperty("step") Step step,
             @JsonProperty("sampleWeight") Optional<Symbol> sampleWeight,
-            @JsonProperty("confidence") double confidence)
+            @JsonProperty("confidence") double confidence,
+            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
     {
         super(id);
 
@@ -82,6 +83,7 @@ public class AggregationNode
         this.sampleWeight = checkNotNull(sampleWeight, "sampleWeight is null");
         checkArgument(confidence >= 0 && confidence <= 1, "confidence must be in [0, 1]");
         this.confidence = confidence;
+        this.hashSymbol = hashSymbol;
     }
 
     @Override
@@ -93,7 +95,14 @@ public class AggregationNode
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.copyOf(concat(groupByKeys, aggregations.keySet()));
+        ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
+        symbols.addAll(groupByKeys);
+        // output hashSymbol if present
+        if (hashSymbol.isPresent()) {
+            symbols.add(hashSymbol.get());
+        }
+        symbols.addAll(aggregations.keySet());
+        return symbols.build();
     }
 
     @JsonProperty("confidence")
@@ -142,6 +151,12 @@ public class AggregationNode
     public Optional<Symbol> getSampleWeight()
     {
         return sampleWeight;
+    }
+
+    @JsonProperty("hashSymbol")
+    public Optional<Symbol> getHashSymbol()
+    {
+        return hashSymbol;
     }
 
     @Override

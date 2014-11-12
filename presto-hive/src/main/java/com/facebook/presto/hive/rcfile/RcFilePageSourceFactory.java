@@ -21,17 +21,13 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.hive.ql.io.RCFile;
-import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
 import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
@@ -39,7 +35,6 @@ import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
@@ -47,11 +42,11 @@ import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnIndexGetter;
 import static com.facebook.presto.hive.HiveColumnHandle.isPartitionKeyPredicate;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedReaderEnabled;
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
+import static com.facebook.presto.hive.HiveUtil.setReadColumns;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.transform;
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IO_FILE_BUFFER_SIZE_KEY;
 
 public class RcFilePageSourceFactory
         implements HivePageSourceFactory
@@ -87,10 +82,11 @@ public class RcFilePageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             List<HivePartitionKey> partitionKeys,
-            TupleDomain<HiveColumnHandle> tupleDomain,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
-        if (!isOptimizedReaderEnabled(session, enabled)) {
+        // todo remove this when GC issues are resolved
+        if (true || !isOptimizedReaderEnabled(session, enabled)) {
             return Optional.absent();
         }
 
@@ -110,11 +106,10 @@ public class RcFilePageSourceFactory
 
         // determine which hive columns we will read
         List<HiveColumnHandle> readColumns = ImmutableList.copyOf(filter(columns, not(isPartitionKeyPredicate())));
-        ArrayList<Integer> readHiveColumnIndexes = new ArrayList<>(transform(readColumns, hiveColumnIndexGetter()));
+        List<Integer> readHiveColumnIndexes = ImmutableList.copyOf(transform(readColumns, hiveColumnIndexGetter()));
 
         // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
-        ColumnProjectionUtils.appendReadColumns(configuration, readHiveColumnIndexes);
-        configuration.set(IOConstants.COLUMNS, Joiner.on(',').join(Iterables.transform(readColumns, HiveColumnHandle.nameGetter())));
+        setReadColumns(configuration, readHiveColumnIndexes);
 
         // propagate serialization configuration to getRecordReader
         for (String name : schema.stringPropertyNames()) {
@@ -126,8 +121,7 @@ public class RcFilePageSourceFactory
         RCFile.Reader recordReader;
         try {
             FileSystem fileSystem = path.getFileSystem(configuration);
-            int bufferSize = configuration.getInt(IO_FILE_BUFFER_SIZE_KEY, 4096);
-            recordReader = new RCFile.Reader(fileSystem, path, bufferSize, configuration, start, length);
+            recordReader = new RCFile.Reader(fileSystem, path, configuration);
         }
         catch (Exception e) {
             throw Throwables.propagate(e);
@@ -136,6 +130,8 @@ public class RcFilePageSourceFactory
         try {
             return Optional.of(new RcFilePageSource(
                     recordReader,
+                    start,
+                    length,
                     blockLoader,
                     schema,
                     partitionKeys,

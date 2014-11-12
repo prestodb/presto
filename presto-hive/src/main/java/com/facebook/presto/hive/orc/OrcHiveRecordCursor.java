@@ -65,7 +65,6 @@ import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
-import static com.facebook.presto.hive.HiveUtil.isArrayOrMap;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
@@ -484,7 +483,7 @@ public class OrcHiveRecordCursor
         else if (types[column].equals(DOUBLE)) {
             parseDoubleColumn(column);
         }
-        else if (types[column].equals(VARCHAR) || types[column].equals(VARBINARY) || isArrayOrMap(hiveTypes[column])) {
+        else if (types[column].equals(VARCHAR) || types[column].equals(VARBINARY) || isStructuralType(hiveTypes[column])) {
             parseStringColumn(column);
         }
         else if (types[column].equals(TIMESTAMP)) {

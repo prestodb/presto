@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.type.TypeRegistry;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.dbpool.H2EmbeddedDataSource;
 import io.airlift.dbpool.H2EmbeddedDataSourceConfig;
@@ -105,6 +106,24 @@ public class TestShardManagerDao
     }
 
     @Test
+    public void testInsertShardNodeUsingShardUuid()
+            throws Exception
+    {
+        dao.insertNode("node");
+        long nodeId = dao.getNodeId("node");
+
+        UUID shard = UUID.randomUUID();
+        long shardId = dao.insertShard(shard);
+
+        long tableId = 1;
+        dao.insertTableShard(tableId, shardId);
+
+        dao.insertShardNode(shard, nodeId);
+
+        assertEquals(dao.getShardNodes(tableId), ImmutableList.of(new ShardNode(shard, "node")));
+    }
+
+    @Test
     public void testShardSelection()
             throws Exception
     {
@@ -136,6 +155,21 @@ public class TestShardManagerDao
         long shardId3 = dao.insertShard(shardUuid3);
         long shardId4 = dao.insertShard(shardUuid4);
 
+        dao.insertTableShard(tableId, shardId1);
+        dao.insertTableShard(tableId, shardId2);
+        dao.insertTableShard(tableId, shardId3);
+        dao.insertTableShard(tableId, shardId4);
+
+        List<UUID> shards = dao.getShards(tableId);
+        assertEquals(shards.size(), 4);
+
+        assertTrue(shards.contains(shardUuid1));
+        assertTrue(shards.contains(shardUuid2));
+        assertTrue(shards.contains(shardUuid3));
+        assertTrue(shards.contains(shardUuid4));
+
+        assertEquals(dao.getShardNodes(tableId).size(), 0);
+
         dao.insertShardNode(shardId1, nodeId1);
         dao.insertShardNode(shardId1, nodeId2);
         dao.insertShardNode(shardId2, nodeId1);
@@ -143,10 +177,7 @@ public class TestShardManagerDao
         dao.insertShardNode(shardId4, nodeId1);
         dao.insertShardNode(shardId4, nodeId2);
 
-        dao.insertTableShard(tableId, shardId1);
-        dao.insertTableShard(tableId, shardId2);
-        dao.insertTableShard(tableId, shardId3);
-        dao.insertTableShard(tableId, shardId4);
+        assertEquals(dao.getShards(tableId), shards);
 
         List<ShardNode> shardNodes = dao.getShardNodes(tableId);
         assertEquals(shardNodes.size(), 6);

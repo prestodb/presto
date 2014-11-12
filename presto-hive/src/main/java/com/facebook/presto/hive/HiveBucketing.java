@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorColumnHandle;
-import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
@@ -36,6 +35,7 @@ import java.util.Set;
 
 import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
 import static com.facebook.presto.hive.util.Types.checkType;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Sets.immutableEnumSet;
@@ -217,7 +217,7 @@ final class HiveBucketing
         @Override
         public String toString()
         {
-            return Objects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("bucketNumber", bucketNumber)
                     .add("bucketCount", bucketCount)
                     .toString();

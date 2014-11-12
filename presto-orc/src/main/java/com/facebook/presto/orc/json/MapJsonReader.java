@@ -19,7 +19,6 @@ import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.google.common.base.Objects;
 import com.google.common.primitives.Ints;
 import org.joda.time.DateTimeZone;
 
@@ -33,6 +32,7 @@ import static com.facebook.presto.orc.json.JsonReaders.createJsonMapKeyReader;
 import static com.facebook.presto.orc.json.JsonReaders.createJsonReader;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class MapJsonReader
@@ -49,13 +49,13 @@ public class MapJsonReader
     @Nullable
     private LongStream lengthStream;
 
-    public MapJsonReader(StreamDescriptor streamDescriptor, boolean writeStackType, boolean checkForNulls, DateTimeZone hiveStorageTimeZone, DateTimeZone sessionTimeZone)
+    public MapJsonReader(StreamDescriptor streamDescriptor, boolean checkForNulls, DateTimeZone hiveStorageTimeZone)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
         this.checkForNulls = checkForNulls;
 
-        keyReader = createJsonMapKeyReader(streamDescriptor.getNestedStreams().get(0), writeStackType, hiveStorageTimeZone, sessionTimeZone);
-        valueReader = createJsonReader(streamDescriptor.getNestedStreams().get(1), true, writeStackType, hiveStorageTimeZone, sessionTimeZone);
+        keyReader = createJsonMapKeyReader(streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone);
+        valueReader = createJsonReader(streamDescriptor.getNestedStreams().get(1), true, hiveStorageTimeZone);
     }
 
     @Override
@@ -73,8 +73,13 @@ public class MapJsonReader
         generator.writeStartObject();
         for (int i = 0; i < length; i++) {
             String name = keyReader.nextValueAsMapKey();
-            generator.writeFieldName(name);
-            valueReader.readNextValueInto(generator);
+            if (name == null) {
+                valueReader.skip(1);
+            }
+            else {
+                generator.writeFieldName(name);
+                valueReader.readNextValueInto(generator);
+            }
         }
         generator.writeEndObject();
     }
@@ -127,7 +132,7 @@ public class MapJsonReader
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
     }

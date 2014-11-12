@@ -18,6 +18,7 @@ import com.google.common.base.Optional;
 
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class QuerySpecification
@@ -101,7 +102,7 @@ public class QuerySpecification
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("select", select)
                 .add("from", from)
                 .add("where", where.orNull())

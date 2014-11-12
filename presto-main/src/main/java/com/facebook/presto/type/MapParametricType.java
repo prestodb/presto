@@ -47,9 +47,10 @@ public final class MapParametricType
     }
 
     @Override
-    public MapType createType(List<Type> types)
+    public MapType createType(List<Type> types, List<Object> literals)
     {
         checkArgument(types.size() == 2, "Expected two types");
+        checkArgument(literals.isEmpty(), "Unexpected literals: %s", literals);
         checkArgument(SUPPORTED_KEY_TYPES.contains(types.get(0)), "Unsupported key type; %s", types.get(0));
         return new MapType(types.get(0), types.get(1));
     }

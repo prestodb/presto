@@ -18,10 +18,9 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.InputSupplier;
+import com.google.common.io.ByteSource;
 import com.google.common.io.Resources;
 
-import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.util.List;
 
@@ -32,7 +31,7 @@ public class ExampleRecordSet
 {
     private final List<ExampleColumnHandle> columnHandles;
     private final List<Type> columnTypes;
-    private final InputSupplier<InputStream> inputStreamSupplier;
+    private final ByteSource byteSource;
 
     public ExampleRecordSet(ExampleSplit split, List<ExampleColumnHandle> columnHandles)
     {
@@ -46,7 +45,7 @@ public class ExampleRecordSet
         this.columnTypes = types.build();
 
         try {
-            inputStreamSupplier = Resources.newInputStreamSupplier(split.getUri().toURL());
+            byteSource = Resources.asByteSource(split.getUri().toURL());
         }
         catch (MalformedURLException e) {
             throw Throwables.propagate(e);
@@ -62,6 +61,6 @@ public class ExampleRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new ExampleRecordCursor(columnHandles, inputStreamSupplier);
+        return new ExampleRecordCursor(columnHandles, byteSource);
     }
 }

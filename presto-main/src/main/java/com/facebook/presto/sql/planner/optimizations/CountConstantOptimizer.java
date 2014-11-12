@@ -85,7 +85,9 @@ public class CountConstantOptimizer
                     functions,
                     node.getMasks(),
                     node.getStep(),
-                    node.getSampleWeight(), node.getConfidence());
+                    node.getSampleWeight(),
+                    node.getConfidence(),
+                    node.getHashSymbol());
         }
 
         public static boolean isCountConstant(ProjectNode projectNode, FunctionCall functionCall, Signature signature)
@@ -105,7 +107,7 @@ public class CountConstantOptimizer
                 QualifiedNameReference qualifiedNameReference = (QualifiedNameReference) argument;
                 QualifiedName qualifiedName = qualifiedNameReference.getName();
                 Symbol argumentSymbol = Symbol.fromQualifiedName(qualifiedName);
-                Expression argumentExpression = projectNode.getOutputMap().get(argumentSymbol);
+                Expression argumentExpression = projectNode.getAssignments().get(argumentSymbol);
                 return (argumentExpression instanceof Literal) && (!(argumentExpression instanceof NullLiteral));
             }
 

@@ -71,8 +71,8 @@ public class NthValueFunction
     private final int offsetChannel;
 
     private int partitionStartPosition;
+    private int currentPosition;
     private int partitionRowCount;
-    private int currentPosition = -1;
     private PagesIndex pagesIndex;
 
     protected NthValueFunction(Type type, List<Integer> argumentChannels)
@@ -89,12 +89,10 @@ public class NthValueFunction
     }
 
     @Override
-    public void reset(int partitionRowCount, PagesIndex pagesIndex)
+    public void reset(int partitionStartPosition, int partitionRowCount, PagesIndex pagesIndex)
     {
-        this.partitionStartPosition += this.partitionRowCount;
-        // start before the first row of the partition
-        this.currentPosition = partitionStartPosition - 1;
-
+        this.partitionStartPosition = partitionStartPosition;
+        this.currentPosition = partitionStartPosition;
         this.partitionRowCount = partitionRowCount;
         this.pagesIndex = pagesIndex;
     }
@@ -102,25 +100,24 @@ public class NthValueFunction
     @Override
     public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
     {
-        currentPosition++;
-
         if (pagesIndex.isNull(offsetChannel, currentPosition)) {
             output.appendNull();
-            return;
+        }
+        else {
+            long offset = pagesIndex.getLong(offsetChannel, currentPosition);
+            checkCondition(offset >= 1, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 1");
+
+            // offset is base 1
+            long valuePosition = (partitionStartPosition + offset) - 1;
+
+            if ((valuePosition >= 0) && (valuePosition < (partitionStartPosition + partitionRowCount))) {
+                pagesIndex.appendTo(valueChannel, Ints.checkedCast(valuePosition), output);
+            }
+            else {
+                output.appendNull();
+            }
         }
 
-        int offset = Ints.checkedCast(pagesIndex.getLong(offsetChannel, currentPosition));
-        checkCondition(offset >= 1, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 1");
-
-        // offset is base 1
-        int valuePosition = partitionStartPosition + offset - 1;
-
-        // if the value is out of range, result is null
-        if (valuePosition >= partitionStartPosition + partitionRowCount) {
-            output.appendNull();
-            return;
-        }
-
-        pagesIndex.appendTo(valueChannel, valuePosition, output);
+        currentPosition++;
     }
 }

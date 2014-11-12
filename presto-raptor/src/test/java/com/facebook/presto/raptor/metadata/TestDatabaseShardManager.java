@@ -17,6 +17,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import io.airlift.testing.FileUtils;
 import org.skife.jdbi.v2.DBI;
@@ -27,13 +28,13 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -73,10 +74,32 @@ public class TestDatabaseShardManager
 
         shardManager.commitTable(tableId, shards, Optional.<String>absent());
 
-        Set<ShardNode> actual = ImmutableSet.copyOf(shardManager.getShardNodes(tableId));
+        Set<ShardNodes> actual = ImmutableSet.copyOf(shardManager.getShardNodes(tableId));
+
+        Set<ShardNodes> expected = new HashSet<>();
         for (ShardNode shard : shards) {
-            assertTrue(actual.contains(shard));
+            expected.add(new ShardNodes(shard.getShardUuid(), ImmutableSet.of(shard.getNodeIdentifier())));
         }
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testAssignShard()
+    {
+        long tableId = 1;
+        UUID shard = UUID.randomUUID();
+        List<ShardNode> shardNodes = ImmutableList.of(new ShardNode(shard, "node1"));
+
+        shardManager.commitTable(tableId, shardNodes, Optional.<String>absent());
+
+        ShardNodes actual = Iterables.getOnlyElement(shardManager.getShardNodes(tableId));
+        assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node1")));
+
+        shardManager.assignShard(shard, "node2");
+
+        actual = Iterables.getOnlyElement(shardManager.getShardNodes(tableId));
+        assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node1", "node2")));
     }
 
     @Test

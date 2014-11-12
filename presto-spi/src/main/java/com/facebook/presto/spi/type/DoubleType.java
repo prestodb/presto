@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 
 public final class DoubleType
@@ -26,7 +27,7 @@ public final class DoubleType
 
     private DoubleType()
     {
-        super(StandardTypes.DOUBLE, double.class, SIZE_OF_DOUBLE);
+        super(parseTypeSignature(StandardTypes.DOUBLE), double.class, SIZE_OF_DOUBLE);
     }
 
     @Override

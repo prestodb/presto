@@ -17,11 +17,11 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 
-public interface StreamSource<T>
+public interface StreamSource<S extends ValueStream<?>>
 {
-    Class<T> getStreamType();
+    Class<S> getStreamType();
 
     @Nullable
-    T openStream()
+    S openStream()
             throws IOException;
 }

@@ -100,13 +100,15 @@ public final class LiteralInterpreter
 
         if (type.equals(DOUBLE)) {
             Double value = (Double) object;
+            // WARNING: the ORC predicate code depends on NaN and infinity not appearing in a tuple domain, so
+            // if you remove this, you will need to update the TupleDomainOrcPredicate
             if (value.isNaN()) {
                 return new FunctionCall(new QualifiedName("nan"), ImmutableList.<Expression>of());
             }
-            else if (value == Double.NEGATIVE_INFINITY) {
+            else if (value.equals(Double.NEGATIVE_INFINITY)) {
                 return new NegativeExpression(new FunctionCall(new QualifiedName("infinity"), ImmutableList.<Expression>of()));
             }
-            else if (value == Double.POSITIVE_INFINITY) {
+            else if (value.equals(Double.POSITIVE_INFINITY)) {
                 return new FunctionCall(new QualifiedName("infinity"), ImmutableList.<Expression>of());
             }
             else {

@@ -31,10 +31,13 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
+import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
@@ -79,8 +82,10 @@ public final class GraphvizPrinter
         WINDOW,
         UNION,
         SORT,
+        SAMPLE,
         MARK_DISTINCT,
-        MATERIALIZE_SAMPLE,
+        TABLE_WRITER,
+        TABLE_COMMIT,
         INDEX_SOURCE,
         UNNEST
     }
@@ -101,9 +106,11 @@ public final class GraphvizPrinter
             .put(NodeType.WINDOW, "darkolivegreen4")
             .put(NodeType.UNION, "turquoise4")
             .put(NodeType.MARK_DISTINCT, "violet")
-            .put(NodeType.MATERIALIZE_SAMPLE, "hotpink")
+            .put(NodeType.TABLE_WRITER, "cyan")
+            .put(NodeType.TABLE_COMMIT, "hotpink")
             .put(NodeType.INDEX_SOURCE, "dodgerblue3")
             .put(NodeType.UNNEST, "crimson")
+            .put(NodeType.SAMPLE, "goldenrod4")
             .build());
 
     static {
@@ -205,6 +212,31 @@ public final class GraphvizPrinter
         }
 
         @Override
+        public Void visitTableWriter(TableWriterNode node, Void context)
+        {
+            List<String> columns = new ArrayList<>();
+            for (int i = 0; i < node.getColumnNames().size(); i++) {
+                columns.add(node.getColumnNames().get(i) + " := " + node.getColumns().get(i));
+            }
+            printNode(node, format("TableWriter[%s]", Joiner.on(", ").join(columns)), NODE_COLORS.get(NodeType.TABLE_WRITER));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitTableCommit(TableCommitNode node, Void context)
+        {
+            printNode(node, format("TableCommit[%s]", Joiner.on(", ").join(node.getOutputSymbols())), NODE_COLORS.get(NodeType.TABLE_COMMIT));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitSample(SampleNode node, Void context)
+        {
+            printNode(node, format("Sample[type=%s, ratio=%f, rescaled=%s]", node.getSampleType(), node.getSampleRatio(), node.isRescaled()), NODE_COLORS.get(NodeType.SAMPLE));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
         public Void visitSort(SortNode node, Void context)
         {
             printNode(node, format("Sort[%s]", Joiner.on(", ").join(node.getOrderBy())), NODE_COLORS.get(NodeType.SORT));
@@ -299,7 +331,7 @@ public final class GraphvizPrinter
         public Void visitProject(ProjectNode node, Void context)
         {
             StringBuilder builder = new StringBuilder();
-            for (Map.Entry<Symbol, Expression> entry : node.getOutputMap().entrySet()) {
+            for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
                 if ((entry.getValue() instanceof QualifiedNameReference) &&
                         ((QualifiedNameReference) entry.getValue()).getName().equals(entry.getKey().toQualifiedName())) {
                     // skip identity assignments

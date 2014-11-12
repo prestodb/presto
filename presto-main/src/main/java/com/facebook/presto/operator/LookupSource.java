@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
 
 import java.io.Closeable;
 
@@ -23,7 +23,9 @@ public interface LookupSource
 {
     int getChannelCount();
 
-    long getJoinPosition(int position, Block... blocks);
+    long getJoinPosition(int position, Page page, int rawHash);
+
+    long getJoinPosition(int position, Page page);
 
     long getNextJoinPosition(long currentPosition);
 

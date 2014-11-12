@@ -36,9 +36,10 @@ public final class ArrayParametricType
     }
 
     @Override
-    public ArrayType createType(List<Type> types)
+    public ArrayType createType(List<Type> types, List<Object> literals)
     {
         checkArgument(types.size() == 1, "Expected only one type, got %s", types);
+        checkArgument(literals.isEmpty(), "Unexpected literals: %s", literals);
         return new ArrayType(types.get(0));
     }
 }

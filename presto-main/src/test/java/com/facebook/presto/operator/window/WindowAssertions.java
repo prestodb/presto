@@ -22,14 +22,57 @@ import static java.lang.String.format;
 
 public final class WindowAssertions
 {
+    private static final String VALUES = "" +
+            "SELECT *\n" +
+            "FROM (\n" +
+            "  VALUES\n" +
+            "    ( 1, 'O', '1996-01-02'),\n" +
+            "    ( 2, 'O', '1996-12-01'),\n" +
+            "    ( 3, 'F', '1993-10-14'),\n" +
+            "    ( 4, 'O', '1995-10-11'),\n" +
+            "    ( 5, 'F', '1994-07-30'),\n" +
+            "    ( 6, 'F', '1992-02-21'),\n" +
+            "    ( 7, 'O', '1996-01-10'),\n" +
+            "    (32, 'O', '1995-07-16'),\n" +
+            "    (33, 'F', '1993-10-27'),\n" +
+            "    (34, 'O', '1998-07-21')\n" +
+            ") AS orders (orderkey, orderstatus, orderdate)";
+
+    private static final String VALUES_WITH_NULLS = "" +
+            "SELECT *\n" +
+            "FROM (\n" +
+            "  VALUES\n" +
+            "    ( 1,                   CAST(NULL AS VARCHAR), CAST(NULL AS VARCHAR)),\n" +
+            "    ( 3,                   'F',                   '1993-10-14'),\n" +
+            "    ( 5,                   'F',                   CAST(NULL AS VARCHAR)),\n" +
+            "    ( 7,                   CAST(NULL AS VARCHAR), '1996-01-10'),\n" +
+            "    (34,                   'O',                   '1998-07-21'),\n" +
+            "    (CAST(NULL AS BIGINT), 'F',                   '1992-02-21'),\n" +
+            "    (CAST(NULL AS BIGINT), 'F',                   '1993-10-27'),\n" +
+            "    (CAST(NULL AS BIGINT), 'O',                   '1996-12-01'),\n" +
+            "    (CAST(NULL AS BIGINT), CAST(NULL AS VARCHAR), CAST(NULL AS VARCHAR)),\n" +
+            "    (CAST(NULL AS BIGINT), CAST(NULL AS VARCHAR), '1995-07-16')\n" +
+            ") AS orders (orderkey, orderstatus, orderdate)";
+
     private WindowAssertions() {}
 
     public static void assertWindowQuery(@Language("SQL") String sql, MaterializedResult expected, LocalQueryRunner localQueryRunner)
     {
         @Language("SQL") String query = format("" +
                 "SELECT orderkey, orderstatus,\n%s\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
-                "ORDER BY orderkey", sql);
+                "FROM (%s) x\n" +
+                "ORDER BY orderkey", sql, VALUES);
+
+        MaterializedResult actual = localQueryRunner.execute(query);
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    public static void assertWindowQueryWithNulls(@Language("SQL") String sql, MaterializedResult expected, LocalQueryRunner localQueryRunner)
+    {
+        @Language("SQL") String query = format("" +
+                "SELECT orderkey, orderstatus,\n%s\n" +
+                "FROM (%s) x\n" +
+                "ORDER BY orderkey", sql, VALUES_WITH_NULLS);
 
         MaterializedResult actual = localQueryRunner.execute(query);
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());

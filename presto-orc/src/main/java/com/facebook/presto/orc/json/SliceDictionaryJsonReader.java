@@ -21,7 +21,6 @@ import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.RowGroupDictionaryLengthStream;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.google.common.base.Objects;
 import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Ints;
 
@@ -39,6 +38,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -179,6 +179,7 @@ public class SliceDictionaryJsonReader
 
         presentStream = null;
         dataStream = null;
+        inDictionaryStream = null;
     }
 
     @Override
@@ -190,7 +191,10 @@ public class SliceDictionaryJsonReader
                 ROW_GROUP_DICTIONARY_LENGTH,
                 RowGroupDictionaryLengthStream.class).openStream();
 
-        if (lengthStream != null) {
+        if (lengthStream == null) {
+            inDictionaryStream = null;
+        }
+        else {
             inDictionaryStream = dataStreamSources.getStreamSource(streamDescriptor, IN_DICTIONARY, BooleanStream.class).openStream();
 
             int dictionaryEntryCount = lengthStream.getEntryCount();
@@ -240,7 +244,7 @@ public class SliceDictionaryJsonReader
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
     }

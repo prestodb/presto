@@ -14,10 +14,11 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Function;
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
 import java.util.List;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class AliasedRelation
         extends Relation
@@ -60,7 +61,7 @@ public class AliasedRelation
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("relation", relation)
                 .add("alias", alias)
                 .add("columnNames", columnNames)

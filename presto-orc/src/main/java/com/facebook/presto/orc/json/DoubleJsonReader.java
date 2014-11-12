@@ -19,7 +19,6 @@ import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.DoubleStream;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.google.common.base.Objects;
 
 import javax.annotation.Nullable;
 
@@ -29,6 +28,7 @@ import java.util.List;
 import static com.facebook.presto.orc.OrcCorruptionException.verifyFormat;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class DoubleJsonReader
@@ -114,7 +114,7 @@ public class DoubleJsonReader
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
     }

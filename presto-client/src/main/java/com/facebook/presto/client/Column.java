@@ -26,12 +26,17 @@ public class Column
 {
     private final String name;
     private final String type;
+    private final ClientTypeSignature typeSignature;
 
     @JsonCreator
-    public Column(@JsonProperty("name") String name, @JsonProperty("type") String type)
+    public Column(
+            @JsonProperty("name") String name,
+            @JsonProperty("type") String type,
+            @JsonProperty("typeSignature") ClientTypeSignature typeSignature)
     {
         this.name = checkNotNull(name, "name is null");
         this.type = checkNotNull(type, "type is null");
+        this.typeSignature = typeSignature;
     }
 
     @JsonProperty
@@ -44,6 +49,12 @@ public class Column
     public String getType()
     {
         return type;
+    }
+
+    @JsonProperty
+    public ClientTypeSignature getTypeSignature()
+    {
+        return typeSignature;
     }
 
     public static Function<Column, String> nameGetter()

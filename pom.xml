@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>27</version>
+        <version>28</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.80-SNAPSHOT</version>
+    <version>0.83-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -44,7 +44,7 @@
 
         <dep.antlr.version>3.4</dep.antlr.version>
         <dep.slice.version>0.7</dep.slice.version>
-        <dep.airlift.version>0.96-SNAPSHOT</dep.airlift.version>
+        <dep.airlift.version>0.96</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
 
         <cli.skip-execute>true</cli.skip-execute>
@@ -435,7 +435,7 @@
             <dependency>
                 <groupId>org.openjdk.jol</groupId>
                 <artifactId>jol-core</artifactId>
-                <version>0.1</version>
+                <version>0.2</version>
             </dependency>
 
             <dependency>

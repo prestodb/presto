@@ -13,18 +13,20 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.checkpoint.ByteArrayStreamCheckpoint;
+
 import java.io.IOException;
-import java.io.InputStream;
 
 import static com.facebook.presto.orc.stream.OrcStreamUtils.readFully;
 import static com.facebook.presto.orc.stream.OrcStreamUtils.skipFully;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ByteArrayStream
+        implements ValueStream<ByteArrayStreamCheckpoint>
 {
-    private final InputStream inputStream;
+    private final OrcInputStream inputStream;
 
-    public ByteArrayStream(InputStream inputStream)
+    public ByteArrayStream(OrcInputStream inputStream)
     {
         this.inputStream = checkNotNull(inputStream, "inputStream is null");
     }
@@ -43,7 +45,21 @@ public class ByteArrayStream
         readFully(inputStream, data, 0, length);
     }
 
-    public void skip(long skipSize)
+    @Override
+    public Class<ByteArrayStreamCheckpoint> getCheckpointType()
+    {
+        return ByteArrayStreamCheckpoint.class;
+    }
+
+    @Override
+    public void seekToCheckpoint(ByteArrayStreamCheckpoint checkpoint)
+            throws IOException
+    {
+        inputStream.seekToCheckpoint(checkpoint.getInputStreamCheckpoint());
+    }
+
+    @Override
+    public void skip(int skipSize)
             throws IOException
     {
         skipFully(inputStream, skipSize);

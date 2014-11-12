@@ -31,6 +31,7 @@ import java.util.List;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
+import static com.google.common.base.Preconditions.checkState;
 
 public class OrcMetadataReader
         implements MetadataReader
@@ -73,7 +74,7 @@ public class OrcMetadataReader
 
     private static StripeStatistics toStripeStatistics(OrcProto.StripeStatistics stripeStatistics)
     {
-        return new StripeStatistics(toColumnStatistics(stripeStatistics.getColStatsList()));
+        return new StripeStatistics(toColumnStatistics(stripeStatistics.getColStatsList(), false));
     }
 
     @Override
@@ -87,7 +88,7 @@ public class OrcMetadataReader
                 footer.getRowIndexStride(),
                 toStripeInformation(footer.getStripesList()),
                 toType(footer.getTypesList()),
-                toColumnStatistics(footer.getStatisticsList()));
+                toColumnStatistics(footer.getStatisticsList(), false));
     }
 
     private static List<StripeInformation> toStripeInformation(List<OrcProto.StripeInformation> types)
@@ -173,21 +174,31 @@ public class OrcMetadataReader
 
     private static RowGroupIndex toRowGroupIndex(RowIndexEntry rowIndexEntry)
     {
-        return new RowGroupIndex(rowIndexEntry.getPositionsList(), toColumnStatistics(rowIndexEntry.getStatistics()));
+        List<Long> positionsList = rowIndexEntry.getPositionsList();
+        ImmutableList.Builder<Integer> positions = ImmutableList.builder();
+        for (int index = 0; index < positionsList.size(); index++) {
+            long longPosition = positionsList.get(index);
+            int intPosition = (int) longPosition;
+
+            checkState(intPosition == longPosition, "Expected checkpoint position %s, to be an integer", index);
+
+            positions.add(intPosition);
+        }
+        return new RowGroupIndex(positions.build(), toColumnStatistics(rowIndexEntry.getStatistics(), true));
     }
 
-    private static ColumnStatistics toColumnStatistics(OrcProto.ColumnStatistics statistics)
+    private static ColumnStatistics toColumnStatistics(OrcProto.ColumnStatistics statistics, boolean isRowGroup)
     {
         return new ColumnStatistics(
                 statistics.getNumberOfValues(),
-                toBucketStatistics(statistics.getBucketStatistics()),
+                toBooleanStatistics(statistics.getBucketStatistics()),
                 toIntegerStatistics(statistics.getIntStatistics()),
                 toDoubleStatistics(statistics.getDoubleStatistics()),
-                toStringStatistics(statistics.getStringStatistics()),
-                toDateStatistics(statistics.getDateStatistics()));
+                toStringStatistics(statistics.getStringStatistics(), isRowGroup),
+                toDateStatistics(statistics.getDateStatistics(), isRowGroup));
     }
 
-    private static List<ColumnStatistics> toColumnStatistics(List<OrcProto.ColumnStatistics> columnStatistics)
+    private static List<ColumnStatistics> toColumnStatistics(List<OrcProto.ColumnStatistics> columnStatistics, final boolean isRowGroup)
     {
         if (columnStatistics == null) {
             return ImmutableList.of();
@@ -197,18 +208,26 @@ public class OrcMetadataReader
             @Override
             public ColumnStatistics apply(OrcProto.ColumnStatistics columnStatistics)
             {
-                return toColumnStatistics(columnStatistics);
+                return toColumnStatistics(columnStatistics, isRowGroup);
             }
         }));
     }
 
-    private static BucketStatistics toBucketStatistics(OrcProto.BucketStatistics bucketStatistics)
+    private static BooleanStatistics toBooleanStatistics(OrcProto.BucketStatistics bucketStatistics)
     {
-        return new BucketStatistics(bucketStatistics.getCountList());
+        if (bucketStatistics.getCountCount() == 0) {
+            return null;
+        }
+
+        return new BooleanStatistics(bucketStatistics.getCount(0));
     }
 
     private static IntegerStatistics toIntegerStatistics(OrcProto.IntegerStatistics integerStatistics)
     {
+        if (!integerStatistics.hasMinimum() && !integerStatistics.hasMaximum()) {
+            return null;
+        }
+
         return new IntegerStatistics(
                 integerStatistics.hasMinimum() ? integerStatistics.getMinimum() : null,
                 integerStatistics.hasMaximum() ? integerStatistics.getMaximum() : null);
@@ -216,20 +235,49 @@ public class OrcMetadataReader
 
     private static DoubleStatistics toDoubleStatistics(OrcProto.DoubleStatistics doubleStatistics)
     {
+        if (!doubleStatistics.hasMinimum() && !doubleStatistics.hasMaximum()) {
+            return null;
+        }
+
+        // TODO remove this when double statistics are changed to correctly deal with NaNs
+        // if either min or max is NaN, ignore the stat
+        if ((doubleStatistics.hasMinimum() && Double.isNaN(doubleStatistics.getMinimum())) ||
+                (doubleStatistics.hasMaximum() && Double.isNaN(doubleStatistics.getMaximum()))) {
+            return null;
+        }
+
         return new DoubleStatistics(
                 doubleStatistics.hasMinimum() ? doubleStatistics.getMinimum() : null,
                 doubleStatistics.hasMaximum() ? doubleStatistics.getMaximum() : null);
     }
 
-    private static StringStatistics toStringStatistics(OrcProto.StringStatistics stringStatistics)
+    private static StringStatistics toStringStatistics(OrcProto.StringStatistics stringStatistics, boolean isRowGroup)
     {
+        // TODO remove this when string statistics in ORC are fixed https://issues.apache.org/jira/browse/HIVE-8732
+        if (!isRowGroup) {
+            return null;
+        }
+
+        if (!stringStatistics.hasMinimum() && !stringStatistics.hasMaximum()) {
+            return null;
+        }
+
         return new StringStatistics(
                 stringStatistics.hasMinimum() ? stringStatistics.getMinimum() : null,
                 stringStatistics.hasMaximum() ? stringStatistics.getMaximum() : null);
     }
 
-    private static DateStatistics toDateStatistics(OrcProto.DateStatistics dateStatistics)
+    private static DateStatistics toDateStatistics(OrcProto.DateStatistics dateStatistics, boolean isRowGroup)
     {
+        // TODO remove this when date statistics in ORC are fixed https://issues.apache.org/jira/browse/HIVE-8732
+        if (!isRowGroup) {
+            return null;
+        }
+
+        if (!dateStatistics.hasMinimum() && !dateStatistics.hasMaximum()) {
+            return null;
+        }
+
         return new DateStatistics(
                 dateStatistics.hasMinimum() ? dateStatistics.getMinimum() : null,
                 dateStatistics.hasMaximum() ? dateStatistics.getMaximum() : null);

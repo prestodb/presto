@@ -22,13 +22,11 @@ import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.util.AsyncSemaphore;
-import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.SetThreadName;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
@@ -48,22 +46,21 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.presto.SystemSessionProperties.isBigQueryEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Predicates.compose;
-import static com.google.common.base.Predicates.isNull;
-import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.concurrent.Threads.threadsNamed;
@@ -85,6 +82,7 @@ public class SqlQueryManager
     private final Duration maxQueryAge;
 
     private final ConcurrentMap<QueryId, QueryExecution> queries = new ConcurrentHashMap<>();
+    private final Queue<QueryExecution> expirationQueue = new LinkedBlockingQueue<>();
 
     private final Duration clientTimeout;
 
@@ -116,7 +114,7 @@ public class SqlQueryManager
         this.queryExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryExecutor);
 
         checkNotNull(config, "config is null");
-        this.queryStarter = new QueryStarter(queryExecutor, stats, config.getMaxConcurrentQueries(), config.getMaxQueuedQueries());
+        this.queryStarter = new QueryStarter(queryExecutor, stats, config);
 
         this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
         this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
@@ -134,19 +132,20 @@ public class SqlQueryManager
             public void run()
             {
                 try {
-                    removeExpiredQueries();
-                }
-                catch (Throwable e) {
-                    log.warn(e, "Error removing old queries");
-                }
-                try {
                     failAbandonedQueries();
                 }
                 catch (Throwable e) {
-                    log.warn(e, "Error removing old queries");
+                    log.warn(e, "Error cancelling abandoned queries");
+                }
+
+                try {
+                    removeExpiredQueries();
+                }
+                catch (Throwable e) {
+                    log.warn(e, "Error removing expired queries");
                 }
             }
-        }, 200, 200, TimeUnit.MILLISECONDS);
+        }, 1, 1, TimeUnit.SECONDS);
     }
 
     @PreDestroy
@@ -235,6 +234,7 @@ public class SqlQueryManager
 
                     stats.queryFinished(info);
                     queryMonitor.completionEvent(info);
+                    expirationQueue.add(queryExecution);
                 }
             }
         });
@@ -278,7 +278,13 @@ public class SqlQueryManager
     @Managed
     public int getQueryQueueSize()
     {
-        return queryStarter.getQueueSize();
+        return queryStarter.getQueryQueueSize();
+    }
+
+    @Managed
+    public int getBigQueryQueueSize()
+    {
+        return queryStarter.getBigQueryQueueSize();
     }
 
     @Managed
@@ -319,44 +325,34 @@ public class SqlQueryManager
      */
     public void removeExpiredQueries()
     {
-        List<QueryExecution> sortedQueries = IterableTransformer.on(queries.values())
-                .select(compose(not(isNull()), endTimeGetter()))
-                .orderBy(Ordering.natural().onResultOf(endTimeGetter()))
-                .list();
+        while (expirationQueue.size() > maxQueryHistory) {
+            QueryExecution query = expirationQueue.remove();
+            removeQuery(query.getQueryInfo().getQueryId());
+        }
 
-        int toRemove = Math.max(sortedQueries.size() - maxQueryHistory, 0);
         DateTime oldestAllowedQuery = DateTime.now().minus(maxQueryAge.toMillis());
+        while (expirationQueue.size() > 0) {
+            QueryExecution query = expirationQueue.peek();
+            if (query.getQueryInfo().getQueryStats().getEndTime().isAfter(oldestAllowedQuery)) {
+                return;
+            }
 
-        for (QueryExecution queryExecution : sortedQueries) {
-            try {
-                DateTime endTime = queryExecution.getQueryInfo().getQueryStats().getEndTime();
-                if ((endTime.isBefore(oldestAllowedQuery) || toRemove > 0) && isAbandoned(queryExecution)) {
-                    removeQuery(queryExecution.getQueryInfo().getQueryId());
-                    --toRemove;
-                }
-            }
-            catch (RuntimeException e) {
-                log.warn(e, "Error while inspecting age of query %s", queryExecution.getQueryInfo().getQueryId());
-            }
+            removeQuery(query.getQueryInfo().getQueryId());
+            expirationQueue.remove();
         }
     }
 
     public void failAbandonedQueries()
     {
         for (QueryExecution queryExecution : queries.values()) {
-            try {
-                QueryInfo queryInfo = queryExecution.getQueryInfo();
-                if (queryInfo.getState().isDone()) {
-                    continue;
-                }
-
-                if (isAbandoned(queryExecution)) {
-                    log.info("Failing abandoned query %s", queryExecution.getQueryInfo().getQueryId());
-                    queryExecution.fail(new AbandonedException("Query " + queryInfo.getQueryId(), queryInfo.getQueryStats().getLastHeartbeat(), DateTime.now()));
-                }
+            QueryInfo queryInfo = queryExecution.getQueryInfo();
+            if (queryInfo.getState().isDone()) {
+                continue;
             }
-            catch (RuntimeException e) {
-                log.warn(e, "Error while inspecting age of query %s", queryExecution.getQueryInfo().getQueryId());
+
+            if (isAbandoned(queryExecution)) {
+                log.info("Failing abandoned query %s", queryExecution.getQueryInfo().getQueryId());
+                queryExecution.fail(new AbandonedException("Query " + queryInfo.getQueryId(), queryInfo.getQueryStats().getLastHeartbeat(), DateTime.now()));
             }
         }
     }
@@ -379,6 +375,7 @@ public class SqlQueryManager
         queryMonitor.createdEvent(execution.getQueryInfo());
         queryMonitor.completionEvent(execution.getQueryInfo());
         stats.queryFinished(execution.getQueryInfo());
+        expirationQueue.add(execution);
 
         return execution.getQueryInfo();
     }
@@ -399,23 +396,40 @@ public class SqlQueryManager
     private static class QueryStarter
     {
         private final int maxQueuedQueries;
-        private final AtomicInteger queueSize = new AtomicInteger();
-        private final AsyncSemaphore<QueryExecution> asyncSemaphore;
+        private final AtomicInteger queryQueueSize = new AtomicInteger();
+        private final AsyncSemaphore<QueryExecution> queryAsyncSemaphore;
 
-        public QueryStarter(Executor queryExecutor, SqlQueryManagerStats stats, int maxConcurrentQueries, int maxQueuedQueries)
+        private final int maxQueuedBigQueries;
+        private final AtomicInteger bigQueryQueueSize = new AtomicInteger();
+        private final AsyncSemaphore<QueryExecution> bigQueryAsyncSemaphore;
+
+        public QueryStarter(Executor queryExecutor, SqlQueryManagerStats stats, QueryManagerConfig config)
         {
             checkNotNull(queryExecutor, "queryExecutor is null");
             checkNotNull(stats, "stats is null");
-            checkArgument(maxConcurrentQueries > 0, "must allow at least one running query");
-            checkArgument(maxQueuedQueries > 0, "must allow at least one query in the queue");
 
-            this.maxQueuedQueries = maxQueuedQueries;
-            this.asyncSemaphore = new AsyncSemaphore<>(maxConcurrentQueries, queryExecutor, new QuerySubmitter(queryExecutor, stats));
+            this.maxQueuedQueries = config.getMaxQueuedQueries();
+            this.queryAsyncSemaphore = new AsyncSemaphore<>(config.getMaxConcurrentQueries(), queryExecutor, new QuerySubmitter(queryExecutor, stats, queryQueueSize));
+            this.maxQueuedBigQueries = config.getMaxQueuedBigQueries();
+            this.bigQueryAsyncSemaphore = new AsyncSemaphore<>(config.getMaxConcurrentBigQueries(), queryExecutor, new QuerySubmitter(queryExecutor, stats, bigQueryQueueSize));
         }
 
         public boolean submit(QueryExecution queryExecution)
         {
-            if (queueSize.incrementAndGet() > maxQueuedQueries) {
+            AtomicInteger queueSize;
+            int maxQueueSize;
+            AsyncSemaphore<QueryExecution> asyncSemaphore;
+            if (isBigQueryEnabled(queryExecution.getQueryInfo().getSession(), false)) {
+                queueSize = bigQueryQueueSize;
+                maxQueueSize = maxQueuedBigQueries;
+                asyncSemaphore = bigQueryAsyncSemaphore;
+            }
+            else {
+                queueSize = queryQueueSize;
+                maxQueueSize = maxQueuedQueries;
+                asyncSemaphore = queryAsyncSemaphore;
+            }
+            if (queueSize.incrementAndGet() > maxQueueSize) {
                 queueSize.decrementAndGet();
                 return false;
             }
@@ -423,21 +437,28 @@ public class SqlQueryManager
             return true;
         }
 
-        public int getQueueSize()
+        public int getQueryQueueSize()
         {
-            return queueSize.get();
+            return queryQueueSize.get();
         }
 
-        private class QuerySubmitter
+        public int getBigQueryQueueSize()
+        {
+            return bigQueryQueueSize.get();
+        }
+
+        private static class QuerySubmitter
                 implements Function<QueryExecution, ListenableFuture<?>>
         {
             private final Executor queryExecutor;
             private final SqlQueryManagerStats stats;
+            private final AtomicInteger queueSize;
 
-            public QuerySubmitter(Executor queryExecutor, SqlQueryManagerStats stats)
+            public QuerySubmitter(Executor queryExecutor, SqlQueryManagerStats stats, AtomicInteger queueSize)
             {
                 this.queryExecutor = checkNotNull(queryExecutor, "queryExecutor is null");
                 this.stats = checkNotNull(stats, "stats is null");
+                this.queueSize = checkNotNull(queueSize, "queueSize is null");
             }
 
             @Override

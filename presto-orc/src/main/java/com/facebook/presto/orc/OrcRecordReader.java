@@ -73,7 +73,6 @@ public class OrcRecordReader
             int bufferSize,
             int rowsInRowGroup,
             DateTimeZone hiveStorageTimeZone,
-            DateTimeZone sessionTimeZone,
             MetadataReader metadataReader)
             throws IOException
     {
@@ -85,7 +84,6 @@ public class OrcRecordReader
         checkNotNull(types, "types is null");
         checkNotNull(compressionKind, "compressionKind is null");
         checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
-        checkNotNull(sessionTimeZone, "sessionTimeZone is null");
 
         // reduce the included columns to the set that is also present
         ImmutableSet.Builder<Integer> presentColumns = ImmutableSet.builder();
@@ -107,11 +105,11 @@ public class OrcRecordReader
 
         long totalRowCount = 0;
         ImmutableList.Builder<StripeInformation> stripes = ImmutableList.builder();
-        if (predicate.matches(numberOfRows, indexByOrdinal(fileStats))) {
+        if (predicate.matches(numberOfRows, getStatisticsByColumnOrdinal(root, fileStats))) {
             // select stripes that start within the specified split
             for (int stripeIndex = 0; stripeIndex < fileStripes.size(); stripeIndex++) {
                 StripeInformation stripe = fileStripes.get(stripeIndex);
-                if (splitContainsStripe(splitOffset, splitLength, stripe) && isStripeIncluded(stripe, stripeStats, predicate, stripeIndex)) {
+                if (splitContainsStripe(splitOffset, splitLength, stripe) && isStripeIncluded(root, stripe, stripeStats, predicate, stripeIndex)) {
                     stripes.add(stripe);
                     totalRowCount += stripe.getNumberOfRows();
                 }
@@ -130,7 +128,7 @@ public class OrcRecordReader
                 predicate,
                 metadataReader);
 
-        streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, sessionTimeZone, this.presentColumns);
+        streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, this.presentColumns);
     }
 
     private static boolean splitContainsStripe(long splitOffset, long splitLength, StripeInformation stripe)
@@ -140,6 +138,7 @@ public class OrcRecordReader
     }
 
     private static boolean isStripeIncluded(
+            OrcType rootStructType,
             StripeInformation stripe,
             List<StripeStatistics> stripeStats,
             OrcPredicate predicate,
@@ -150,19 +149,7 @@ public class OrcRecordReader
             return true;
         }
 
-        return predicate.matches(stripe.getNumberOfRows(), indexByOrdinal(stripeStats.get(stripeIndex).getColumnStatistics()));
-    }
-
-    private static <T> Map<Integer, T> indexByOrdinal(List<T> elements)
-    {
-        ImmutableMap.Builder<Integer, T> statistics = ImmutableMap.builder();
-        for (int ordinal = 0; ordinal < elements.size(); ordinal++) {
-            T element = elements.get(ordinal);
-            if (element != null) {
-                statistics.put(ordinal, element);
-            }
-        }
-        return statistics.build();
+        return predicate.matches(stripe.getNumberOfRows(), getStatisticsByColumnOrdinal(rootStructType, stripeStats.get(stripeIndex).getColumnStatistics()));
     }
 
     public long getPosition()
@@ -283,7 +270,6 @@ public class OrcRecordReader
     private static StreamReader[] createStreamReaders(OrcDataSource orcDataSource,
             List<OrcType> types,
             DateTimeZone hiveStorageTimeZone,
-            DateTimeZone sessionTimeZone,
             Set<Integer> includedColumns)
     {
         List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
@@ -293,7 +279,7 @@ public class OrcRecordReader
         for (int columnId = 0; columnId < rowType.getFieldCount(); columnId++) {
             if (includedColumns.contains(columnId)) {
                 StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
-                streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone, sessionTimeZone);
+                streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone);
             }
         }
         return streamReaders;
@@ -321,5 +307,21 @@ public class OrcRecordReader
             nestedStreams.add(createStreamDescriptor(parentStreamName, "value", type.getFieldTypeIndex(1), types, dataSource));
         }
         return new StreamDescriptor(parentStreamName, typeId, fieldName, type.getOrcTypeKind(), dataSource, nestedStreams.build());
+    }
+
+    private static Map<Integer, ColumnStatistics> getStatisticsByColumnOrdinal(OrcType rootStructType, List<ColumnStatistics> fileStats)
+    {
+        checkNotNull(rootStructType, "rootStructType is null");
+        checkArgument(rootStructType.getOrcTypeKind() == OrcTypeKind.STRUCT);
+        checkNotNull(fileStats, "fileStats is null");
+
+        ImmutableMap.Builder<Integer, ColumnStatistics> statistics = ImmutableMap.builder();
+        for (int ordinal = 0; ordinal < rootStructType.getFieldCount(); ordinal++) {
+            ColumnStatistics element = fileStats.get(rootStructType.getFieldTypeIndex(ordinal));
+            if (element != null) {
+                statistics.put(ordinal, element);
+            }
+        }
+        return statistics.build();
     }
 }

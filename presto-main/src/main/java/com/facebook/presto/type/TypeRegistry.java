@@ -47,6 +47,7 @@ import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.MapParametricType.MAP;
 import static com.facebook.presto.type.RegexpType.REGEXP;
+import static com.facebook.presto.type.RowParametricType.ROW;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -91,6 +92,7 @@ public final class TypeRegistry
         addType(JSON_PATH);
         addType(COLOR);
         addType(JSON);
+        addParametricType(ROW);
         addParametricType(ARRAY);
         addParametricType(MAP);
 
@@ -111,9 +113,9 @@ public final class TypeRegistry
     }
 
     @Override
-    public Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters)
+    public Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters, List<Object> literalParameters)
     {
-        return getType(new TypeSignature(baseTypeName, typeParameters));
+        return getType(new TypeSignature(baseTypeName, typeParameters, literalParameters));
     }
 
     private synchronized void instantiateParametricType(TypeSignature signature)
@@ -130,7 +132,7 @@ public final class TypeRegistry
         if (parametricType == null) {
             return;
         }
-        Type instantiatedType = parametricType.createType(parameterTypes.build());
+        Type instantiatedType = parametricType.createType(parameterTypes.build(), signature.getLiteralParameters());
         checkState(instantiatedType.getTypeSignature().equals(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
         addType(instantiatedType);
     }

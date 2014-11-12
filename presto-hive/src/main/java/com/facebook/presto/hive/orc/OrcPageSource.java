@@ -19,6 +19,7 @@ import com.facebook.presto.hive.HiveUtil;
 import com.facebook.presto.orc.BooleanVector;
 import com.facebook.presto.orc.DoubleVector;
 import com.facebook.presto.orc.LongVector;
+import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -34,7 +35,6 @@ import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Charsets;
-import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -60,9 +60,11 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
+import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -79,7 +81,7 @@ public class OrcPageSource
     private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
 
     private final OrcRecordReader recordReader;
-    private final HdfsOrcDataSource orcDataSource;
+    private final OrcDataSource orcDataSource;
 
     private final List<String> columnNames;
     private final List<Type> types;
@@ -95,7 +97,7 @@ public class OrcPageSource
 
     public OrcPageSource(
             OrcRecordReader recordReader,
-            HdfsOrcDataSource orcDataSource,
+            OrcDataSource orcDataSource,
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
@@ -125,7 +127,7 @@ public class OrcPageSource
             typesBuilder.add(type);
 
             String typeBase = column.getTypeSignature().getBase();
-            isStructuralType[columnIndex] = ARRAY.equals(typeBase) || MAP.equals(typeBase);
+            isStructuralType[columnIndex] = ARRAY.equals(typeBase) || MAP.equals(typeBase) || ROW.equals(typeBase);
 
             hiveColumnIndexes[columnIndex] = column.getHiveColumnIndex();
 
@@ -305,7 +307,7 @@ public class OrcPageSource
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("columnNames", columnNames)
                 .add("types", types)
                 .toString();

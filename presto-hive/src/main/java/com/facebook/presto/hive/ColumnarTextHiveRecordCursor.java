@@ -44,7 +44,6 @@ import static com.facebook.presto.hive.HiveBooleanParser.isFalse;
 import static com.facebook.presto.hive.HiveBooleanParser.isTrue;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
-import static com.facebook.presto.hive.HiveUtil.isArrayOrMap;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
@@ -541,7 +540,7 @@ class ColumnarTextHiveRecordCursor<K>
         else if (type.equals(DOUBLE)) {
             parseDoubleColumn(column);
         }
-        else if (VARCHAR.equals(type) || VARBINARY.equals(type) || isArrayOrMap(hiveTypes[column])) {
+        else if (VARCHAR.equals(type) || VARBINARY.equals(type) || isStructuralType(hiveTypes[column])) {
             parseStringColumn(column);
         }
         else if (type.equals(DATE)) {

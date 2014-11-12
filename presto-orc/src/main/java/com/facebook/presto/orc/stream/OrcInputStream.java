@@ -15,6 +15,7 @@ package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.google.common.base.MoreObjects;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -26,6 +27,9 @@ import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
 import static com.facebook.presto.orc.OrcCorruptionException.verifyFormat;
+import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
+import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.decodeCompressedBlockOffset;
+import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.decodeDecompressedOffset;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
@@ -39,17 +43,20 @@ public final class OrcInputStream
 {
     public static final int BLOCK_HEADER_SIZE = 3;
 
+    private final String source;
     private final BasicSliceInput compressedSliceInput;
     private final CompressionKind compressionKind;
     private final int bufferSize;
 
-    private int currentReadPosition;
+    private int currentCompressedBlockOffset;
     private BasicSliceInput current;
 
     private Slice buffer;
 
-    public OrcInputStream(BasicSliceInput sliceInput, CompressionKind compressionKind, int bufferSize)
+    public OrcInputStream(String source, BasicSliceInput sliceInput, CompressionKind compressionKind, int bufferSize)
     {
+        this.source = checkNotNull(source, "source is null");
+
         checkNotNull(sliceInput, "sliceInput is null");
 
         this.compressionKind = checkNotNull(compressionKind, "compressionKind is null");
@@ -124,13 +131,30 @@ public final class OrcInputStream
         return current.read(b, off, length);
     }
 
-    public void resetStream(int compressedBlockOffset, int decompressedOffset)
+    public long getCheckpoint()
+    {
+        // if the decompressed buffer is empty, return a checkpoint starting at the next block
+        if (current == null || (current.position() == 0 && current.available() == 0)) {
+            return createInputStreamCheckpoint(compressedSliceInput.position(), 0);
+        }
+        // otherwise return a checkpoint at the last compressed block read and the current position in the buffer
+        return createInputStreamCheckpoint(currentCompressedBlockOffset, current.position());
+    }
+
+    public boolean seekToCheckpoint(long checkpoint)
             throws IOException
     {
-        if (compressedBlockOffset != currentReadPosition) {
+        int compressedBlockOffset = decodeCompressedBlockOffset(checkpoint);
+        int decompressedOffset = decodeDecompressedOffset(checkpoint);
+        boolean discardedBuffer;
+        if (compressedBlockOffset != currentCompressedBlockOffset) {
             verifyFormat(compressionKind != UNCOMPRESSED, "Reset stream has a compressed block offset but stream is not compressed");
             compressedSliceInput.setPosition(compressedBlockOffset);
             current = EMPTY_SLICE.getInput();
+            discardedBuffer = true;
+        }
+        else {
+            discardedBuffer = false;
         }
 
         if (decompressedOffset != current.position()) {
@@ -141,6 +165,7 @@ public final class OrcInputStream
             }
             current.setPosition(decompressedOffset);
         }
+        return discardedBuffer;
     }
 
     @Override
@@ -172,7 +197,7 @@ public final class OrcInputStream
 
         // 3 byte header
         // NOTE: this must match BLOCK_HEADER_SIZE
-        currentReadPosition = compressedSliceInput.position();
+        currentCompressedBlockOffset = compressedSliceInput.position();
         int b0 = compressedSliceInput.readUnsignedByte();
         int b1 = compressedSliceInput.readUnsignedByte();
         int b2 = compressedSliceInput.readUnsignedByte();
@@ -200,6 +225,17 @@ public final class OrcInputStream
 
             current = buffer.slice(0, uncompressedSize).getInput();
         }
+    }
+
+    @Override
+    public String toString()
+    {
+        return MoreObjects.toStringHelper(this)
+                .add("source", source)
+                .add("compressedOffset", compressedSliceInput.position())
+                .add("uncompressedOffset", current == null ? null : current.position())
+                .add("compression", compressionKind)
+                .toString();
     }
 
     // This comes from the Apache Hive ORC code

@@ -105,6 +105,14 @@ public final class DateTimeFunctions
         return getChronology(session.getTimeZoneKey()).millisOfDay().get(session.getStartTime());
     }
 
+    @Description("current time zone")
+    @ScalarFunction("current_timezone")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice currentTimeZone(ConnectorSession session)
+    {
+        return Slices.copiedBuffer(session.getTimeZoneKey().getId(), Charsets.UTF_8);
+    }
+
     @Description("current timestamp with time zone")
     @ScalarFunction(value = "current_timestamp", alias = "now")
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
@@ -149,14 +157,14 @@ public final class DateTimeFunctions
         return unpackMillisUtc(timestampWithTimeZone) / 1000.0;
     }
 
-    @ScalarFunction(value = "at_time_zone", hidden = true)
+    @ScalarFunction(value = "at_timezone")
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
     public static long timeAtTimeZone(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long timeWithTimeZone, @SqlType(StandardTypes.VARCHAR) Slice zoneId)
     {
         return packDateTimeWithZone(unpackMillisUtc(timeWithTimeZone), zoneId.toStringUtf8());
     }
 
-    @ScalarFunction(value = "at_time_zone", hidden = true)
+    @ScalarFunction(value = "at_timezone")
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
     public static long timeAtTimeZone(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long timeWithTimeZone, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long zoneOffset)
     {
@@ -168,14 +176,14 @@ public final class DateTimeFunctions
         return packDateTimeWithZone(unpackMillisUtc(timeWithTimeZone), getTimeZoneKeyForOffset(zoneOffsetMinutes));
     }
 
-    @ScalarFunction(value = "at_time_zone", hidden = true)
+    @ScalarFunction(value = "at_timezone")
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long timestampAtTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone, @SqlType(StandardTypes.VARCHAR) Slice zoneId)
     {
         return packDateTimeWithZone(unpackMillisUtc(timestampWithTimeZone), zoneId.toStringUtf8());
     }
 
-    @ScalarFunction(value = "at_time_zone", hidden = true)
+    @ScalarFunction(value = "at_timezone")
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long timestampAtTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long zoneOffset)
     {

@@ -2,6 +2,8 @@
 <head>
     <meta charset="utf-8">
 
+    <link rel="shortcut icon" href="favicon.ico"/>
+
     <script src="vendor/d3/d3-3.3.4.js"></script>
 
     <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet" type="text/css">
@@ -171,6 +173,11 @@ function renderRunningQueries(queries)
                           query = query.substring(0, 200) + "...";
                       }
 
+                      var progress = "N/A";
+                      if (queryInfo.scheduled) {
+                          progress = d3.format("%")(splits == 0 ? 0 : completedSplits / splits);
+                      }
+
                       return [
                           queryInfo.queryId,
                           queryInfo.elapsedTime,
@@ -178,7 +185,7 @@ function renderRunningQueries(queries)
                           queryInfo.session.source,
                           queryInfo.session.user,
                           queryInfo.state,
-                          d3.format("%")(splits == 0 ? 0 : completedSplits / splits),
+                          progress,
                           queuedSplits,
                           runningSplits,
                           completedSplits
