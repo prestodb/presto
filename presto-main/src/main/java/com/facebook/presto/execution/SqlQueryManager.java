@@ -476,17 +476,22 @@ public class SqlQueryManager
                         }
                     }
                 });
-                queryExecutor.execute(new Runnable()
-                {
-                    @Override
-                    public void run()
+                if (queryExecution.getQueryInfo().getState().isDone()) {
+                    settableFuture.set(null);
+                }
+                else {
+                    queryExecutor.execute(new Runnable()
                     {
-                        try (SetThreadName setThreadName = new SetThreadName("Query-%s", queryExecution.getQueryInfo().getQueryId())) {
-                            stats.queryStarted();
-                            queryExecution.start();
+                        @Override
+                        public void run()
+                        {
+                            try (SetThreadName setThreadName = new SetThreadName("Query-%s", queryExecution.getQueryInfo().getQueryId())) {
+                                stats.queryStarted();
+                                queryExecution.start();
+                            }
                         }
-                    }
-                });
+                    });
+                }
                 return settableFuture;
             }
         }
