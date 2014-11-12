@@ -100,7 +100,7 @@ public class TestAnalyzer
     public void testNonComparableDistinct()
             throws Exception
     {
-        assertFails(TYPE_MISMATCH, "SELECT count(distinct b) FROM (VALUES(1, ARRAY[2]), (2, ARRAY[2])) x (a,b)");
+        assertFails(TYPE_MISMATCH, "SELECT count(DISTINCT x) FROM (SELECT approx_set(1) x)");
     }
 
     @Test
