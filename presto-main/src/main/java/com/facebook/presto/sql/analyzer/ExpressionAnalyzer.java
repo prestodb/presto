@@ -603,6 +603,9 @@ public class ExpressionAnalyzer
                 Expression expression = node.getArguments().get(i);
                 Type type = metadata.getType(function.getArgumentTypes().get(i));
                 checkNotNull(type, "Type %s not found", function.getArgumentTypes().get(i));
+                if (node.isDistinct() && !type.isComparable()) {
+                    throw new SemanticException(TYPE_MISMATCH, node, "DISTINCT can only be applied to comparable types (actual: %s)", type);
+                }
                 coerceType(context, expression, type, String.format("Function %s argument %d", function.getSignature(), i));
             }
             resolvedFunctions.put(node, function);
