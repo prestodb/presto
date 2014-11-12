@@ -97,6 +97,7 @@ public class BaseJdbcClient
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
         this.identifierQuote = checkNotNull(identifierQuote, "identifierQuote is null");
+        //test
         this.driver = checkNotNull(driver, "driver is null");
 
         checkNotNull(config, "config is null");
