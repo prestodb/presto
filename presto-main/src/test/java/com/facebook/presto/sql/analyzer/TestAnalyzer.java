@@ -97,6 +97,13 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testNonComparableDistinct()
+            throws Exception
+    {
+        assertFails(TYPE_MISMATCH, "SELECT count(distinct b) FROM (VALUES(1, ARRAY[2]), (2, ARRAY[2])) x (a,b)");
+    }
+
+    @Test
     public void testScalarSubQueryException()
             throws Exception
     {
