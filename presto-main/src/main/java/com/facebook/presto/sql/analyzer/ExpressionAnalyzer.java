@@ -102,6 +102,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBU
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SCALAR_SUBQUERY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DISTINCT_MUST_BE_COMPARABLE;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
@@ -595,6 +596,7 @@ public class ExpressionAnalyzer
                 Expression expression = node.getArguments().get(i);
                 Type type = metadata.getType(function.getArgumentTypes().get(i));
                 checkNotNull(type, "Type %s not found", function.getArgumentTypes().get(i));
+                checkDistinctComparable(type, node);
                 coerceType(context, expression, type, String.format("Function %s argument %d", function.getSignature(), i));
             }
             resolvedFunctions.put(node, function);
@@ -603,6 +605,14 @@ public class ExpressionAnalyzer
             expressionTypes.put(node, type);
 
             return type;
+        }
+
+        private void checkDistinctComparable(Type type, FunctionCall node)
+        {
+            if (!type.isComparable()) {
+                throw new SemanticException(DISTINCT_MUST_BE_COMPARABLE, node,
+                        "\"distinct\" applied on a non-comparable type %s", type);
+            }
         }
 
         @Override
