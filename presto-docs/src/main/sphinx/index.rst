@@ -13,5 +13,5 @@ Presto Documentation
     language
     sql
     migration
-    spi
+    develop
     release
