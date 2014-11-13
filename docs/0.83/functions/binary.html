@@ -1,0 +1,119 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>4.7. Binary Functions &mdash; Presto 0.83 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.83',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.83 Documentation" href="../index.html" />
+    <link rel="up" title="4. Functions and Operators" href="../functions.html" />
+    <link rel="next" title="4.8. Date and Time Functions and Operators" href="datetime.html" />
+    <link rel="prev" title="4.6. String Functions and Operators" href="string.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.83 Documentation</span></a></h1>
+    <h2 class="heading"><span>4.7. Binary Functions</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="string.html">4.6. String Functions and Operators</a>
+    </span>
+    <span class="right">
+        <a href="datetime.html">4.8. Date and Time Functions and Operators</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="binary-functions">
+<h1>4.7. Binary Functions</h1>
+<div class="section" id="id1">
+<h2>Binary Functions</h2>
+<dl class="function">
+<dt>
+<tt class="descname">length</tt><big>(</big><em>binary</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the length of <tt class="docutils literal"><span class="pre">binary</span></tt> in bytes.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="to_base64">
+<tt class="descname">to_base64</tt><big>(</big><em>binary</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Encodes <tt class="docutils literal"><span class="pre">binary</span></tt> into a base64 string representation.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="from_base64">
+<tt class="descname">from_base64</tt><big>(</big><em>string</em><big>)</big> &rarr; varbinary</dt>
+<dd><p>Decodes binary data from the base64 encoded <tt class="docutils literal"><span class="pre">string</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="to_base64url">
+<tt class="descname">to_base64url</tt><big>(</big><em>binary</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Encodes <tt class="docutils literal"><span class="pre">binary</span></tt> into a base64 string representation using the URL safe alphabet.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="from_base64url">
+<tt class="descname">from_base64url</tt><big>(</big><em>string</em><big>)</big> &rarr; varbinary</dt>
+<dd><p>Decodes binary data from the base64 encoded <tt class="docutils literal"><span class="pre">string</span></tt> using the URL safe alphabet.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="to_hex">
+<tt class="descname">to_hex</tt><big>(</big><em>binary</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Encodes <tt class="docutils literal"><span class="pre">binary</span></tt> into a hex string representation.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="from_hex">
+<tt class="descname">from_hex</tt><big>(</big><em>string</em><big>)</big> &rarr; varbinary</dt>
+<dd><p>Decodes binary data from the hex encoded <tt class="docutils literal"><span class="pre">string</span></tt>.</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="string.html">4.6. String Functions and Operators</a>
+    </span>
+    <span class="right">
+        <a href="datetime.html">4.8. Date and Time Functions and Operators</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
