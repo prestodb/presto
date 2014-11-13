@@ -1673,6 +1673,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testMinBy()
+            throws Exception
+    {
+        assertQuery("SELECT MIN_BY(orderkey, totalprice) FROM orders", "SELECT orderkey FROM orders ORDER BY totalprice ASC LIMIT 1");
+    }
+
+    @Test
     public void testGroupByBetween()
             throws Exception
     {

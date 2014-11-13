@@ -17,52 +17,52 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.array.BlockBigArray;
 
-public class MaxByStateFactory
-        implements AccumulatorStateFactory<MaxByState>
+public class MaxOrMinByStateFactory
+        implements AccumulatorStateFactory<MaxOrMinByState>
 {
     private final Type valueType;
     private final Type keyType;
 
-    public MaxByStateFactory(Type valueType, Type keyType)
+    public MaxOrMinByStateFactory(Type valueType, Type keyType)
     {
         this.valueType = valueType;
         this.keyType = keyType;
     }
 
     @Override
-    public MaxByState createSingleState()
+    public MaxOrMinByState createSingleState()
     {
-        return new SingleMaxByState(keyType, valueType);
+        return new SingleMaxOrMinByState(keyType, valueType);
     }
 
     @Override
-    public Class<? extends MaxByState> getSingleStateClass()
+    public Class<? extends MaxOrMinByState> getSingleStateClass()
     {
-        return SingleMaxByState.class;
+        return SingleMaxOrMinByState.class;
     }
 
     @Override
-    public MaxByState createGroupedState()
+    public MaxOrMinByState createGroupedState()
     {
-        return new GroupedMaxByState(keyType, valueType);
+        return new GroupedMaxOrMinByState(keyType, valueType);
     }
 
     @Override
-    public Class<? extends MaxByState> getGroupedStateClass()
+    public Class<? extends MaxOrMinByState> getGroupedStateClass()
     {
-        return GroupedMaxByState.class;
+        return GroupedMaxOrMinByState.class;
     }
 
-    public static class GroupedMaxByState
+    public static class GroupedMaxOrMinByState
             extends AbstractGroupedAccumulatorState
-            implements MaxByState
+            implements MaxOrMinByState
     {
         private final Type keyType;
         private final Type valueType;
         private final BlockBigArray keys = new BlockBigArray();
         private final BlockBigArray values = new BlockBigArray();
 
-        public GroupedMaxByState(Type keyType, Type valueType)
+        public GroupedMaxOrMinByState(Type keyType, Type valueType)
         {
             this.keyType = keyType;
             this.valueType = valueType;
@@ -118,15 +118,15 @@ public class MaxByStateFactory
         }
     }
 
-    public static class SingleMaxByState
-            implements MaxByState
+    public static class SingleMaxOrMinByState
+            implements MaxOrMinByState
     {
         private final Type keyType;
         private final Type valueType;
         private Block key;
         private Block value;
 
-        public SingleMaxByState(Type keyType, Type valueType)
+        public SingleMaxOrMinByState(Type keyType, Type valueType)
         {
             this.keyType = keyType;
             this.valueType = valueType;
