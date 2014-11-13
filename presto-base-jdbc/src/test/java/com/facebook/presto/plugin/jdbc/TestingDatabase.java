@@ -66,7 +66,6 @@ final class TestingDatabase
 
         connection.commit();
         //tete
-        
     }
 
     @Override
