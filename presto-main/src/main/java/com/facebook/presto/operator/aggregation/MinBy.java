@@ -39,14 +39,14 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.util.Reflection.method;
 
-public class MaxBy
+public class MinBy
         extends ParametricAggregation
 {
-    public static final MaxBy MAX_BY = new MaxBy();
-    private static final String NAME = "max_by";
-    private static final Method OUTPUT_FUNCTION = method(MaxBy.class, "output", MaxOrMinByState.class, BlockBuilder.class);
-    private static final Method INPUT_FUNCTION = method(MaxBy.class, "input", MaxOrMinByState.class, Block.class, Block.class, int.class);
-    private static final Method COMBINE_FUNCTION = method(MaxBy.class, "combine", MaxOrMinByState.class, MaxOrMinByState.class);
+    public static final MinBy MIN_BY = new MinBy();
+    private static final String NAME = "min_by";
+    private static final Method OUTPUT_FUNCTION = method(MinBy.class, "output", MaxOrMinByState.class, BlockBuilder.class);
+    private static final Method INPUT_FUNCTION = method(MinBy.class, "input", MaxOrMinByState.class, Block.class, Block.class, int.class);
+    private static final Method COMBINE_FUNCTION = method(MinBy.class, "combine", MaxOrMinByState.class, MaxOrMinByState.class);
     private static final Signature SIGNATURE = new Signature(NAME, ImmutableList.of(orderableTypeParameter("K"), typeParameter("V")), "V", ImmutableList.of("V", "K"), false, false);
 
     @Override
@@ -58,7 +58,7 @@ public class MaxBy
     @Override
     public String getDescription()
     {
-        return "Returns the value of the first argument, associated with the maximum value of the second argument";
+        return "Returns the value of the first argument, associated with the minimum value of the second argument";
     }
 
     @Override
@@ -73,7 +73,7 @@ public class MaxBy
 
     private static InternalAggregationFunction generateAggregation(Type valueType, Type keyType)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(MaxBy.class.getClassLoader());
+        DynamicClassLoader classLoader = new DynamicClassLoader(MinBy.class.getClassLoader());
 
         MaxOrMinByStateSerializer stateSerializer = new MaxOrMinByStateSerializer();
         Type intermediateType = stateSerializer.getSerializedType();
@@ -110,7 +110,7 @@ public class MaxBy
             state.setKey(key.getSingleValueBlock(position));
             state.setValue(value.getSingleValueBlock(position));
         }
-        else if (state.getKeyType().compareTo(key, position, state.getKey(), 0) > 0) {
+        else if (state.getKeyType().compareTo(key, position, state.getKey(), 0) < 0) {
             state.setKey(key.getSingleValueBlock(position));
             state.setValue(value.getSingleValueBlock(position));
         }
@@ -122,7 +122,7 @@ public class MaxBy
             state.setKey(otherState.getKey());
             state.setValue(otherState.getValue());
         }
-        else if (state.getKeyType().compareTo(otherState.getKey(), 0, state.getKey(), 0) > 0) {
+        else if (state.getKeyType().compareTo(otherState.getKey(), 0, state.getKey(), 0) < 0) {
             state.setKey(otherState.getKey());
             state.setValue(otherState.getValue());
         }

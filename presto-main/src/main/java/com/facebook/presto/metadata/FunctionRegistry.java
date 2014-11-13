@@ -128,6 +128,7 @@ import static com.facebook.presto.metadata.ParametricFunctionUtils.isAggregation
 import static com.facebook.presto.metadata.ParametricFunctionUtils.isHiddenPredicate;
 import static com.facebook.presto.operator.aggregation.CountColumn.COUNT_COLUMN;
 import static com.facebook.presto.operator.aggregation.MaxBy.MAX_BY;
+import static com.facebook.presto.operator.aggregation.MinBy.MIN_BY;
 import static com.facebook.presto.operator.scalar.ArrayCardinalityFunction.ARRAY_CARDINALITY;
 import static com.facebook.presto.operator.scalar.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static com.facebook.presto.operator.scalar.ArraySortFunction.ARRAY_SORT_FUNCTION;
@@ -276,6 +277,7 @@ public class FunctionRegistry
                 .function(MAP_SUBSCRIPT)
                 .function(IDENTITY_CAST)
                 .function(MAX_BY)
+                .function(MIN_BY)
                 .function(COUNT_COLUMN)
                 .function(ARRAY_TO_JSON)
                 .function(MAP_TO_JSON)
