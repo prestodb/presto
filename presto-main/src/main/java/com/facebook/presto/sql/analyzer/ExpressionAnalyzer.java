@@ -98,6 +98,7 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_WINDOWS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SCALAR_SUBQUERY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
@@ -578,10 +579,18 @@ public class ExpressionAnalyzer
             if (node.getWindow().isPresent()) {
                 for (Expression expression : node.getWindow().get().getPartitionBy()) {
                     process(expression, context);
+                    Type type = expressionTypes.get(expression);
+                    if (!type.isComparable()) {
+                        throw new SemanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in window PARTITION BY", type);
+                    }
                 }
 
                 for (SortItem sortItem : node.getWindow().get().getOrderBy()) {
                     process(sortItem.getSortKey(), context);
+                    Type type = expressionTypes.get(sortItem.getSortKey());
+                    if (!type.isComparable()) {
+                        throw new SemanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in window ORDER BY", type);
+                    }
                 }
             }
 
