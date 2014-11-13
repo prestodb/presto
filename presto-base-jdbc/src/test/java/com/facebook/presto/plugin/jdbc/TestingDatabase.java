@@ -65,7 +65,6 @@ final class TestingDatabase
         connection.createStatement().execute("CREATE TABLE tpch.lineitem(orderkey bigint primary key, partkey bigint)");
 
         connection.commit();
-        //tete
     }
 
     @Override
