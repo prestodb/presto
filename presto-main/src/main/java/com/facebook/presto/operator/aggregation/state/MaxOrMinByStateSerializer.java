@@ -24,8 +24,8 @@ import io.airlift.slice.SliceOutput;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
-public class MaxByStateSerializer
-        implements AccumulatorStateSerializer<MaxByState>
+public class MaxOrMinByStateSerializer
+        implements AccumulatorStateSerializer<MaxOrMinByState>
 {
     @Override
     public Type getSerializedType()
@@ -34,7 +34,7 @@ public class MaxByStateSerializer
     }
 
     @Override
-    public void serialize(MaxByState state, BlockBuilder out)
+    public void serialize(MaxOrMinByState state, BlockBuilder out)
     {
         SliceOutput sliceOutput = new DynamicSliceOutput((int) state.getEstimatedSize());
 
@@ -81,7 +81,7 @@ public class MaxByStateSerializer
     }
 
     @Override
-    public void deserialize(Block block, int index, MaxByState state)
+    public void deserialize(Block block, int index, MaxOrMinByState state)
     {
         SliceInput input = block.getSlice(index, 0, block.getLength(0)).getInput();
         int keyLength = input.readInt();

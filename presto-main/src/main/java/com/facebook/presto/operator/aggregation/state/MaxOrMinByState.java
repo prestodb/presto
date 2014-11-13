@@ -16,8 +16,8 @@ package com.facebook.presto.operator.aggregation.state;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 
-@AccumulatorStateMetadata(stateFactoryClass = MaxByStateFactory.class, stateSerializerClass = MaxByStateSerializer.class)
-public interface MaxByState
+@AccumulatorStateMetadata(stateFactoryClass = MaxOrMinByStateFactory.class, stateSerializerClass = MaxOrMinByStateSerializer.class)
+public interface MaxOrMinByState
     extends AccumulatorState
 {
     Type getKeyType();
