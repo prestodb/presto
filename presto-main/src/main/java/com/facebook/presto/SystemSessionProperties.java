@@ -17,12 +17,15 @@ public final class SystemSessionProperties
 {
     private static final String BIG_QUERY = "experimental_big_query";
     private static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
+    private static final String DISTRIBUTED_JOINS_ENABLED = "distributed_join_enabled";
+    private static final String DISTRIBUTED_INDEX_JOINS_ENABLED = "distributed_index_join_enabled";
 
     private SystemSessionProperties() {}
 
     public static boolean isBigQueryEnabled(Session session, boolean defaultValue)
     {
-        return isEnabled(BIG_QUERY, session, defaultValue);
+        boolean distributedJoinsEnabled = isEnabled(DISTRIBUTED_JOINS_ENABLED, session, defaultValue);
+        return isEnabled(BIG_QUERY, session, distributedJoinsEnabled);
     }
 
     private static boolean isEnabled(String propertyName, Session session, boolean defaultValue)
@@ -38,5 +41,15 @@ public final class SystemSessionProperties
     public static boolean isOptimizeHashGenerationEnabled(Session session, boolean defaultValue)
     {
         return isEnabled(OPTIMIZE_HASH_GENERATION, session, defaultValue);
+    }
+
+    public static boolean isDistributedJoinsEnabled(Session session, boolean defaultValue)
+    {
+        return isEnabled(DISTRIBUTED_JOINS_ENABLED, session, defaultValue);
+    }
+
+    public static boolean isDistributedIndexJoinsEnabled(Session session, boolean defaultValue)
+    {
+        return isEnabled(DISTRIBUTED_INDEX_JOINS_ENABLED, session, defaultValue);
     }
 }

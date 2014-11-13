@@ -30,6 +30,8 @@ import com.google.common.base.Optional;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.SystemSessionProperties.isDistributedJoinsEnabled;
+import static com.facebook.presto.SystemSessionProperties.isDistributedIndexJoinsEnabled;
 
 public class QueryExplainer
 {
@@ -55,8 +57,8 @@ public class QueryExplainer
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
         this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
-        this.distributedIndexJoinsEnabled = distributedIndexJoinsEnabled;
-        this.distributedJoinsEnabled = distributedJoinsEnabled;
+        this.distributedIndexJoinsEnabled = isDistributedIndexJoinsEnabled(session, distributedIndexJoinsEnabled);
+        this.distributedJoinsEnabled = isDistributedJoinsEnabled(session, distributedJoinsEnabled);
     }
 
     public String getPlan(Statement statement, ExplainType.Type planType)
