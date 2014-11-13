@@ -220,7 +220,7 @@ public class NodeScheduler
 
             for (Split split : splits) {
                 List<Node> candidateNodes;
-                if (locationAwareScheduling) {
+                if (locationAwareScheduling || !split.isRemotelyAccessible()) {
                     candidateNodes = selectCandidateNodes(nodeMap.get().get(), split);
                 }
                 else {
