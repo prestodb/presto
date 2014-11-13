@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import java.util.concurrent.TimeUnit;
+
 import io.airlift.configuration.Config;
+import io.airlift.units.Duration;
 
 import javax.validation.constraints.NotNull;
 
@@ -22,6 +25,12 @@ public class BaseJdbcConfig
     private String connectionUrl;
     private String connectionUser;
     private String connectionPassword;
+    public static final String DEFAULT_VALUE = "NA";
+    private Duration jdbcReloadSubtableInterval = new Duration(5, TimeUnit.MINUTES);
+    private String jdbcSubTableConnectionDB = DEFAULT_VALUE;
+    private String jdbcSubTableConnectionTable = DEFAULT_VALUE;
+    private boolean jdbcSubTableAllocator = false;
+    private boolean jdbcSubTableEnable = false;
 
     @NotNull
     public String getConnectionUrl()
@@ -57,6 +66,66 @@ public class BaseJdbcConfig
     public BaseJdbcConfig setConnectionPassword(String connectionPassword)
     {
         this.connectionPassword = connectionPassword;
+        return this;
+    }
+
+    public Duration getJdbcReloadSubtableInterval()
+    {
+        return jdbcReloadSubtableInterval;
+    }
+
+    @Config("jdbc-reload-subtable-interval")
+    public BaseJdbcConfig setJdbcReloadSubtableInterval(Duration jdbcReloadSubtableInterval)
+    {
+        this.jdbcReloadSubtableInterval = jdbcReloadSubtableInterval;
+        return this;
+    }
+
+    public String getJdbcSubTableConnectionDB()
+    {
+        return jdbcSubTableConnectionDB;
+    }
+
+    @Config("jdbc-sub-table-connection-db")
+    public BaseJdbcConfig setJdbcSubTableConnectionDB(String jdbcSubTableConnectionDB)
+    {
+        this.jdbcSubTableConnectionDB = jdbcSubTableConnectionDB;
+        return this;
+    }
+
+    public String getJdbcSubTableConnectionTable()
+    {
+        return jdbcSubTableConnectionTable;
+    }
+
+    @Config("jdbc-sub-table-connection-table")
+    public BaseJdbcConfig setJdbcSubTableConnectionTable(String jdbcSubTableConnectionTable)
+    {
+        this.jdbcSubTableConnectionTable = jdbcSubTableConnectionTable;
+        return this;
+    }
+
+    public boolean getJdbcSubTableAllocator()
+    {
+        return jdbcSubTableAllocator;
+    }
+
+    @Config("jdbc-sub-table-allocator-enable")
+    public BaseJdbcConfig setJdbcSubTableAllocator(boolean allocator)
+    {
+        this.jdbcSubTableAllocator = allocator;
+        return this;
+    }
+
+    public boolean getJdbcSubTableEnable()
+    {
+        return jdbcSubTableEnable;
+    }
+
+    @Config("jdbc-sub-table-enable")
+    public BaseJdbcConfig setJdbcSubTableEnable(boolean jdbcSubTableEnable)
+    {
+        this.jdbcSubTableEnable = jdbcSubTableEnable;
         return this;
     }
 }

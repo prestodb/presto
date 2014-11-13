@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.FixedSplitSource;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -30,7 +31,9 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 
@@ -48,6 +51,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -92,6 +97,13 @@ public class BaseJdbcClient
     protected final String connectionUrl;
     protected final Properties connectionProperties;
     protected final String identifierQuote;
+    protected final Duration jdbcReloadSubtableInterval;
+    protected final String jdbcSubTableConnectionDB;
+    protected final String jdbcSubTableConnectionTable;
+    protected final boolean jdbcSubTableAllocator;
+    protected final boolean jdbcSubTableEnable;
+    private final ConcurrentMap<String, ArrayList<MySqlSubTableConfig>> allSubTables = new ConcurrentHashMap<>();
+    private static final String SEPARATOR = "#";
 
     public BaseJdbcClient(JdbcConnectorId connectorId, BaseJdbcConfig config, String identifierQuote, Driver driver)
     {
@@ -108,6 +120,19 @@ public class BaseJdbcClient
         }
         if (config.getConnectionPassword() != null) {
             connectionProperties.setProperty("password", config.getConnectionPassword());
+        }
+        jdbcReloadSubtableInterval = config.getJdbcReloadSubtableInterval();
+        jdbcSubTableConnectionDB = config.getJdbcSubTableConnectionDB();
+        jdbcSubTableConnectionTable = config.getJdbcSubTableConnectionTable();
+        jdbcSubTableAllocator = config.getJdbcSubTableAllocator();
+        jdbcSubTableEnable = config.getJdbcSubTableEnable();
+        // only the allocator should start the reload thread
+        if (jdbcSubTableAllocator && jdbcSubTableEnable) {
+            Thread loadTableThread = new Thread(new LoadTableThread());
+            loadTableThread.setName("LoadTableThread");
+            loadTableThread.setDaemon(true);
+            loadTableThread.start();
+            loadSubTable();
         }
     }
 
@@ -233,7 +258,11 @@ public class BaseJdbcClient
     @Override
     public ConnectorSplitSource getPartitionSplits(JdbcPartition jdbcPartition)
     {
+        if (jdbcSubTableEnable) {
+            return getTableSplits(jdbcPartition);
+        }
         JdbcTableHandle jdbcTableHandle = jdbcPartition.getJdbcTableHandle();
+        List<HostAddress> of = ImmutableList.of();
         JdbcSplit jdbcSplit = new JdbcSplit(
                 connectorId,
                 jdbcTableHandle.getCatalogName(),
@@ -241,10 +270,135 @@ public class BaseJdbcClient
                 jdbcTableHandle.getTableName(),
                 connectionUrl,
                 fromProperties(connectionProperties),
-                jdbcPartition.getTupleDomain());
+                jdbcPartition.getTupleDomain(),
+                of,
+                true);
         return new FixedSplitSource(connectorId, ImmutableList.of(jdbcSplit));
     }
 
+    /**
+     * Get table splits
+     * @param jdbcPartition
+     * @return
+     */
+    public ConnectorSplitSource getTableSplits(JdbcPartition jdbcPartition)
+    {
+        JdbcTableHandle jdbcTableHandle = jdbcPartition.getJdbcTableHandle();
+        String key = connectorId + SEPARATOR + jdbcTableHandle.getCatalogName().toLowerCase(ENGLISH)
+                + SEPARATOR + jdbcTableHandle.getTableName().toLowerCase(ENGLISH);
+        ArrayList<MySqlSubTableConfig> subTableList = allSubTables.get(key);
+        ArrayList<JdbcSplit> jdbcSplitsList = new ArrayList<JdbcSplit>();
+        if (subTableList == null || subTableList.isEmpty()) {
+            if (subTableList == null) {
+                subTableList = new ArrayList<MySqlSubTableConfig>();
+            }
+            MySqlSubTableConfig config = new MySqlSubTableConfig();
+            config.setConnectionURL(connectionUrl);
+            config.setCatalogname(jdbcTableHandle.getSchemaName());
+            config.setSchemaname(jdbcTableHandle.getCatalogName());
+            config.setTablename(jdbcTableHandle.getTableName());
+            config.setRemotelyaccessible("Y");
+            subTableList.add(config);
+        }
+        for (MySqlSubTableConfig config : subTableList) {
+            constructJdbcSplits(jdbcPartition, jdbcSplitsList, config);
+        }
+        return new FixedSplitSource(connectorId, jdbcSplitsList);
+    }
+
+    /**
+     * construct jdbc split
+     * @param jdbcPartition
+     * @param builder
+     * @param config
+     */
+    private void constructJdbcSplits(JdbcPartition jdbcPartition,
+            ArrayList<JdbcSplit> builder, MySqlSubTableConfig config)
+    {
+        String host = config.getHost();
+        List<HostAddress> addresses;
+        if (isNullOrEmpty(host)) {
+            addresses = ImmutableList.of();
+        }
+        else {
+            HostAddress fromString = HostAddress.fromString(host);
+            addresses = ImmutableList.of(fromString);
+        }
+        builder.add(new JdbcSplit(
+                connectorId,
+                config.getSchemaname(),
+                "",
+                config.getTablename(),
+                config.getConnectionURL(),
+                fromProperties(connectionProperties),
+                jdbcPartition.getTupleDomain(),
+                addresses,
+                config.getRemotelyaccessible()
+                ));
+    }
+
+    /**
+     * load sub table data thread
+     *
+     */
+    private class LoadTableThread implements Runnable
+    {
+        public void run()
+        {
+            while (!BaseJdbcConfig.DEFAULT_VALUE.equals(jdbcSubTableConnectionDB)
+                    && !BaseJdbcConfig.DEFAULT_VALUE.equals(jdbcSubTableConnectionTable)) {
+                try {
+                    Thread.sleep(jdbcReloadSubtableInterval.toMillis());
+                    long nanoTime = System.nanoTime();
+                    loadSubTable();
+                    log.debug("Reloading sub-table info spend time : " + (System.nanoTime() - nanoTime) + "microsecond ");
+                }
+                catch (Exception e) {
+                    log.error("Error reloading sub-table infomation", e);
+                }
+            }
+        }
+    }
+
+    protected synchronized void loadSubTable()
+    {
+        try {
+            Connection connection = driver.connect(connectionUrl, connectionProperties);
+            String sql = new StringBuilder()
+            .append("SELECT ")
+            .append(MySqlSubTableConfig.COLUMN_NAME)
+            .append(" FROM ").append(jdbcSubTableConnectionDB).append(".").append(jdbcSubTableConnectionTable)
+            .toString();
+            Statement createStatement = connection.createStatement();
+            ResultSet rs = createStatement.executeQuery(sql);
+            allSubTables.clear();
+            //table columns : connectionurl,catalogname,schemaname,tablename,basecatalog,baseschema,basetable,host,remotelyaccessible,id
+            while (rs.next()) {
+                MySqlSubTableConfig info = new MySqlSubTableConfig();
+                info.setConnectionURL(rs.getString(1));
+                info.setCatalogname(rs.getString(2));
+                info.setSchemaname(rs.getString(3));
+                info.setTablename(rs.getString(4));
+                info.setBasecatalog(rs.getString(5).toLowerCase(ENGLISH));
+                info.setBaseschema(rs.getString(6).toLowerCase(ENGLISH));
+                info.setBasetable(rs.getString(7).toLowerCase(ENGLISH));
+                info.setHost(rs.getString(8));
+                info.setRemotelyaccessible(rs.getString(9));
+                info.setId(rs.getString(10));
+                String key = info.getBasecatalog() + SEPARATOR + info.getBaseschema() + SEPARATOR + info.getBasetable();
+                log.debug("allSubTables key : " + key);
+                ArrayList<MySqlSubTableConfig> arrayList = allSubTables.get(key);
+                if (arrayList == null || arrayList.isEmpty()) {
+                    arrayList = new ArrayList<MySqlSubTableConfig>();
+                }
+                arrayList.add(info);
+                allSubTables.put(key, arrayList);
+            }
+        }
+        catch (SQLException e) {
+            log.error("Error reloading sub-table infomation", e);
+        }
+    }
     @Override
     public Connection getConnection(JdbcSplit split)
             throws SQLException
