@@ -14,6 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -21,23 +22,33 @@ import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.AbstractVariableWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.type.CollectionType;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
+import static com.facebook.presto.type.TypeUtils.createBlock;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class RowType
         extends AbstractVariableWidthType
 {
     private final List<RowField> fields;
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final CollectionType COLLECTION_TYPE = OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, Object.class);
 
     public RowType(List<Type> fieldTypes, List<String> fieldNames)
     {
@@ -143,6 +154,66 @@ public class RowType
         public String getName()
         {
             return name;
+        }
+    }
+
+    @Override
+    public boolean isComparable()
+    {
+        return Iterables.all(fields, new Predicate<RowField>() {
+            @Override
+            public boolean apply(RowField field)
+            {
+                return field.type.isComparable();
+            }
+        });
+    }
+
+    @Override
+    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        return deepEquals(leftBlock, leftPosition, rightBlock, rightPosition);
+    }
+
+    private boolean deepEquals(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        final List<Object> leftRow = extractElements(leftBlock, leftPosition);
+        final List<Object> rightRow = extractElements(rightBlock, rightPosition);
+
+        int nFields = leftRow.size();
+        for (int i = 0; i < nFields; i++) {
+            Object leftElement = leftRow.get(i);
+            Object rightElement = rightRow.get(i);
+            Type fieldType = fields.get(i).getType();
+            if (!fieldType.equalTo(createBlock(fieldType, leftElement), 0, createBlock(fieldType, rightElement), 0)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public int hash(Block block, int position)
+    {
+        final List<Object> elements = extractElements(block, position);
+        int result = 1;
+        int nFields = elements.size();
+        for (int i = 0; i < nFields; i++) {
+            Object element = elements.get(i);
+            Type elementType = fields.get(i).getType();
+            result = 31 * result + elementType.hash(createBlock(elementType, element), 0);
+        }
+        return result;
+    }
+
+    private List<Object> extractElements(Block block, int position)
+    {
+        Slice value = block.getSlice(position, 0, block.getLength(position));
+        try {
+            return OBJECT_MAPPER.readValue(value.getBytes(), COLLECTION_TYPE);
+        }
+        catch (IOException e) {
+            throw new PrestoException(INTERNAL_ERROR, e);
         }
     }
 }

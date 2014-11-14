@@ -15,13 +15,16 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
+import com.facebook.presto.operator.scalar.MapConstructor;
 import com.facebook.presto.operator.scalar.TestingRowConstructor;
 import com.facebook.presto.spi.type.SqlTimestamp;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleFieldAccessor;
+import static org.testng.Assert.fail;
 
 public class TestRowOperators
 {
@@ -32,6 +35,7 @@ public class TestRowOperators
     {
         functionAssertions = new FunctionAssertions();
         functionAssertions.getMetadata().getFunctionRegistry().addFunctions(new FunctionListBuilder(functionAssertions.getMetadata().getTypeManager()).scalar(TestingRowConstructor.class).getFunctions());
+        functionAssertions.getMetadata().getFunctionRegistry().addFunctions(ImmutableList.of(new MapConstructor(2, new TypeRegistry())));
     }
     private void assertFunction(String projection, Object expected)
     {
@@ -59,5 +63,51 @@ public class TestRowOperators
         String mangledName2 = mangleFieldAccessor("col1");
         assertFunction('"' + mangledName1 + "\"(test_row(1, 2))", 1);
         assertFunction('"' + mangledName2 + "\"(test_row(1, 'kittens'))", "kittens");
+    }
+
+    @Test
+    public void testRowEquality()
+            throws Exception
+    {
+        assertFunction("test_row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:10') = " +
+                "test_row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:10')", true);
+        assertFunction("test_row(1.0, test_row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:10')) =" +
+                "test_row(1.0, test_row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:10'))", true);
+        assertFunction("test_row(1.0, 'kittens') = test_row(1.0, 'kittens')", true);
+        assertFunction("test_row(1, 2.0) = test_row(1, 2.0)", true);
+        assertFunction("test_row(TRUE, FALSE, TRUE, FALSE) = test_row(TRUE, FALSE, TRUE, FALSE)", true);
+        assertFunction("test_row(TRUE, FALSE, TRUE, FALSE) = test_row(TRUE, TRUE, TRUE, FALSE)", false);
+        assertFunction("test_row(1, 2.0, TRUE, 'kittens', from_unixtime(1)) = test_row(1, 2.0, TRUE, 'kittens', from_unixtime(1))", true);
+
+        assertFunction("test_row(1.0, test_row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:10')) !=" +
+                "test_row(1.0, test_row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:11'))", true);
+        assertFunction("test_row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:10') != " +
+                "test_row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:11')", true);
+        assertFunction("test_row(1.0, 'kittens') != test_row(1.0, 'kittens')", false);
+        assertFunction("test_row(1, 2.0) != test_row(1, 2.0)", false);
+        assertFunction("test_row(TRUE, FALSE, TRUE, FALSE) != test_row(TRUE, FALSE, TRUE, FALSE)", false);
+        assertFunction("test_row(TRUE, FALSE, TRUE, FALSE) != test_row(TRUE, TRUE, TRUE, FALSE)", true);
+        assertFunction("test_row(1, 2.0, TRUE, 'kittens', from_unixtime(1)) != test_row(1, 2.0, TRUE, 'puppies', from_unixtime(1))", true);
+
+        try {
+            assertFunction("test_row(cast(cast ('' as varbinary) as hyperloglog)) = test_row(cast(cast ('' as varbinary) as hyperloglog))", true);
+            fail("hyperloglog is not comparable");
+        }
+        catch (RuntimeException e) {
+            //Expected
+        }
+
+        //TODO uncomment these tests when ARRAY type is comparable
+//        assertFunction("test_row(TRUE, ARRAY [1]) = test_row(TRUE, ARRAY [1])", true);
+//        assertFunction("test_row(TRUE, ARRAY [1]) = test_row(TRUE, ARRAY [1,2])", false);
+//        assertFunction("test_row(TRUE, ARRAY [1], MAP(1, 2.0, 3, 4.0)) = test_row(TRUE, ARRAY [1,2], MAP(1, 2.0, 3, 4.0))", false);
+//        assertFunction("test_row(TRUE, ARRAY [1,2], MAP(1, 2.0, 3, 4.0)) = test_row(TRUE, ARRAY [1,2], MAP(1, 2.0, 3, 4.0))", true);
+//        assertFunction("test_row(1.0, ARRAY [1,2,3], test_row(2,2.0)) = test_row(1.0, ARRAY [1,2,3], test_row(2,2.0))", true);
+
+//        assertFunction("test_row(TRUE, ARRAY [1]) != test_row(TRUE, ARRAY [1])", false);
+//        assertFunction("test_row(TRUE, ARRAY [1]) != test_row(TRUE, ARRAY [1,2])", true);
+//        assertFunction("test_row(TRUE, ARRAY [1], MAP(1, 2.0, 3, 4.0)) != test_row(TRUE, ARRAY [1,2], MAP(1, 2.0, 3, 4.0))", true);
+//        assertFunction("test_row(TRUE, ARRAY [1,2], MAP(1, 2.0, 3, 4.0)) != test_row(TRUE, ARRAY [1,2], MAP(1, 2.0, 3, 4.0))", false);
+//        assertFunction("test_row(1.0, ARRAY [1,2,3], test_row(2,2.0)) != test_row(1.0, ARRAY [1,2,3], test_row(1,2.0))", true);
     }
 }

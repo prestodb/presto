@@ -16,8 +16,10 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.HashGenerator;
 import com.facebook.presto.operator.InterpretedHashGenerator;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -25,13 +27,17 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.util.Arrays;
 import java.util.List;
 
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
 
 public final class TypeUtils
 {
@@ -136,5 +142,31 @@ public final class TypeUtils
         }
         blocks[page.getChannelCount()] = getHashBlock(hashTypes.build(), hashBlocks);
         return new Page(blocks);
+    }
+
+    public static Block createBlock(Type type, Object element)
+    {
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+        Class<?> javaType = type.getJavaType();
+
+        if (element == null) {
+            blockBuilder.appendNull();
+        }
+        else  if (javaType == boolean.class) {
+            type.writeBoolean(blockBuilder, (Boolean) element);
+        }
+        else if (javaType == long.class) {
+            type.writeLong(blockBuilder, ((Number) element).longValue());
+        }
+        else if (javaType == double.class) {
+            type.writeDouble(blockBuilder, (Double) element);
+        }
+        else if (javaType == Slice.class) {
+            type.writeSlice(blockBuilder, Slices.utf8Slice(element.toString()));
+        }
+        else {
+            throw new PrestoException(INTERNAL_ERROR, format("Unexpected type %s", javaType.getName()));
+        }
+        return blockBuilder.build();
     }
 }
