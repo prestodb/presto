@@ -17,8 +17,8 @@ import com.amazonaws.AbortedException;
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
-import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressEventType;
 import com.amazonaws.event.ProgressListener;
@@ -144,7 +144,7 @@ public class PrestoS3FileSystem
         configuration.setSocketTimeout(Ints.checkedCast(socketTimeout.toMillis()));
         configuration.setMaxConnections(maxConnections);
 
-        this.s3 = new AmazonS3Client(getAwsCredentials(uri, conf), configuration);
+        this.s3 = createAmazonS3Client(uri, conf, configuration);
 
         transferConfig.setMultipartUploadThreshold(minFileSize);
         transferConfig.setMinimumUploadPartSize(minPartSize);
@@ -443,11 +443,19 @@ public class PrestoS3FileSystem
         return key;
     }
 
-    private static AWSCredentials getAwsCredentials(URI uri, Configuration conf)
+    private AmazonS3Client createAmazonS3Client(URI uri, Configuration hadoopConf, ClientConfiguration s3ClientConf)
     {
-        S3Credentials credentials = new S3Credentials();
-        credentials.initialize(uri, conf);
-        return new BasicAWSCredentials(credentials.getAccessKey(), credentials.getSecretAccessKey());
+        AmazonS3Client s3Client;
+        try {
+            S3Credentials credentials = new S3Credentials();
+            credentials.initialize(uri, hadoopConf);
+            s3Client = new AmazonS3Client(new BasicAWSCredentials(credentials.getAccessKey(), credentials.getSecretAccessKey()), s3ClientConf);
+        }
+        catch (IllegalArgumentException e) {
+            log.info("accessKey/secretAccessKey not found in configuration. Using credentials from the EC2 instance metadata service.");
+            s3Client = new AmazonS3Client(new InstanceProfileCredentialsProvider());
+        }
+        return s3Client;
     }
 
     private static class PrestoS3InputStream
