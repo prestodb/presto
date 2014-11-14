@@ -19,7 +19,6 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nullable;
@@ -39,16 +38,19 @@ public class JdbcSplit
     private final String connectionUrl;
     private final Map<String, String> connectionProperties;
     private final TupleDomain<ConnectorColumnHandle> tupleDomain;
+    private final List<HostAddress> addresses;
+    private final boolean remotelyAccessible;
 
     @JsonCreator
-    public JdbcSplit(
-            @JsonProperty("connectorId") String connectorId,
+    public JdbcSplit(@JsonProperty("connectorId") String connectorId,
             @JsonProperty("catalogName") @Nullable String catalogName,
             @JsonProperty("schemaName") @Nullable String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("connectionUrl") String connectionUrl,
             @JsonProperty("connectionProperties") Map<String, String> connectionProperties,
-            @JsonProperty("tupleDomain") TupleDomain<ConnectorColumnHandle> tupleDomain)
+            @JsonProperty("tupleDomain") TupleDomain<ConnectorColumnHandle> tupleDomain,
+            @JsonProperty("addresses") List<HostAddress> addresses,
+            @JsonProperty("remotelyAccessible") boolean remotelyAccessible)
     {
         this.connectorId = checkNotNull(connectorId, "connector id is null");
         this.catalogName = catalogName;
@@ -57,6 +59,8 @@ public class JdbcSplit
         this.connectionUrl = checkNotNull(connectionUrl, "connectionUrl is null");
         this.connectionProperties = ImmutableMap.copyOf(checkNotNull(connectionProperties, "connectionProperties is null"));
         this.tupleDomain = checkNotNull(tupleDomain, "tupleDomain is null");
+        this.remotelyAccessible = remotelyAccessible;
+        this.addresses = checkNotNull(addresses, "host addresses is null");
     }
 
     @JsonProperty
@@ -103,16 +107,18 @@ public class JdbcSplit
         return tupleDomain;
     }
 
+    @JsonProperty
     @Override
     public boolean isRemotelyAccessible()
     {
-        return true;
+        return remotelyAccessible;
     }
 
+    @JsonProperty
     @Override
     public List<HostAddress> getAddresses()
     {
-        return ImmutableList.of();
+        return addresses;
     }
 
     @Override
