@@ -31,6 +31,8 @@ import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_FIRST;
 import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_LAST;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.type.TypeUtils.hashPosition;
+import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.util.Collections.unmodifiableSortedMap;
@@ -111,7 +113,7 @@ public abstract class AbstractTestType
     {
         int hash = 0;
         if (type.isComparable()) {
-            hash = type.hash(block, position);
+            hash = hashPosition(type, block, position);
         }
         assertPositionValue(block, position, expectedStackValue, hash, expectedObjectValue);
         assertPositionValue(block.getSingleValueBlock(position), 0, expectedStackValue, hash, expectedObjectValue);
@@ -133,7 +135,7 @@ public abstract class AbstractTestType
         }
 
         if (type.isComparable()) {
-            assertEquals(type.hash(block, position), expectedHash);
+            assertEquals(hashPosition(type, block, position), expectedHash);
         }
         else {
             try {
@@ -146,9 +148,9 @@ public abstract class AbstractTestType
 
         Block expectedBlock = createBlock(type, expectedStackValue);
         if (type.isComparable()) {
-            assertTrue(type.equalTo(block, position, block, position));
-            assertTrue(type.equalTo(block, position, expectedBlock, 0));
-            assertTrue(type.equalTo(expectedBlock, 0, block, position));
+            assertTrue(positionEqualsPosition(type, block, position, block, position));
+            assertTrue(positionEqualsPosition(type, block, position, expectedBlock, 0));
+            assertTrue(positionEqualsPosition(type, expectedBlock, 0, block, position));
         }
 
         assertEquals(block.isNull(position), expectedStackValue == null);

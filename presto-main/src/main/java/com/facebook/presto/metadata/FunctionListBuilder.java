@@ -158,6 +158,14 @@ public class FunctionListBuilder
         return this;
     }
 
+    public FunctionListBuilder functions(ParametricFunction ... parametricFunctions)
+    {
+        for (ParametricFunction parametricFunction : parametricFunctions) {
+            function(parametricFunction);
+        }
+        return this;
+    }
+
     public FunctionListBuilder function(ParametricFunction parametricFunction)
     {
         checkNotNull(parametricFunction, "parametricFunction is null");

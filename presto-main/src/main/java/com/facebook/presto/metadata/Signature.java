@@ -336,6 +336,11 @@ public final class Signature
         return new TypeParameter(name, false, false, variadicBound);
     }
 
+    public static TypeParameter comparableWithVariadicBound(String name, String variadicBound)
+    {
+        return new TypeParameter(name, true, false, variadicBound);
+    }
+
     public static TypeParameter typeParameter(String name)
     {
         return new TypeParameter(name, false, false, null);

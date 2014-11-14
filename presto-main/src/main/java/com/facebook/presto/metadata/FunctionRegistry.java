@@ -153,6 +153,9 @@ import static com.facebook.presto.operator.scalar.MapKeys.MAP_KEYS;
 import static com.facebook.presto.operator.scalar.MapSubscriptOperator.MAP_SUBSCRIPT;
 import static com.facebook.presto.operator.scalar.MapToJsonCast.MAP_TO_JSON;
 import static com.facebook.presto.operator.scalar.MapValues.MAP_VALUES;
+import static com.facebook.presto.operator.scalar.RowEqualOperator.ROW_EQUAL;
+import static com.facebook.presto.operator.scalar.RowHashCodeOperator.ROW_HASH_CODE;
+import static com.facebook.presto.operator.scalar.RowNotEqualOperator.ROW_NOT_EQUAL;
 import static com.facebook.presto.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -283,34 +286,16 @@ public class FunctionRegistry
                 .scalar(ArrayFunctions.class)
                 .scalar(CombineHashFunction.class)
                 .scalar(JsonOperators.class)
-                .function(ARRAY_HASH_CODE)
-                .function(ARRAY_CONSTRUCTOR)
-                .function(ARRAY_EQUAL)
-                .function(ARRAY_GREATER_THAN)
-                .function(ARRAY_GREATER_THAN_OR_EQUAL)
-                .function(ARRAY_LESS_THAN)
-                .function(ARRAY_LESS_THAN_OR_EQUAL)
-                .function(ARRAY_NOT_EQUAL)
-                .function(ARRAY_SUBSCRIPT)
-                .function(ARRAY_CARDINALITY)
-                .function(ARRAY_CONCAT_FUNCTION)
-                .function(ARRAY_TO_ELEMENT_CONCAT_FUNCTION)
-                .function(ARBITRARY_AGGREGATION)
-                .function(ELEMENT_TO_ARRAY_CONCAT_FUNCTION)
-                .function(ARRAY_SORT_FUNCTION)
-                .function(MAP_CONSTRUCTOR)
-                .function(MAP_CARDINALITY)
-                .function(MAP_SUBSCRIPT)
+                .functions(ARRAY_HASH_CODE, ARRAY_EQUAL, ARRAY_NOT_EQUAL, ARRAY_LESS_THAN, ARRAY_LESS_THAN_OR_EQUAL, ARRAY_GREATER_THAN, ARRAY_GREATER_THAN_OR_EQUAL)
+                .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_CARDINALITY, ARRAY_CONCAT_FUNCTION, ARRAY_TO_ELEMENT_CONCAT_FUNCTION, ELEMENT_TO_ARRAY_CONCAT_FUNCTION, ARRAY_SORT_FUNCTION, ARRAY_TO_JSON)
+                .functions(MAP_CONSTRUCTOR, MAP_CARDINALITY, MAP_SUBSCRIPT, MAP_TO_JSON, MAP_KEYS, MAP_VALUES)
                 .function(IDENTITY_CAST)
+                .function(ARBITRARY_AGGREGATION)
                 .function(LEAST)
                 .function(MAX_BY)
                 .function(MIN_BY)
                 .function(COUNT_COLUMN)
-                .function(ARRAY_TO_JSON)
-                .function(MAP_TO_JSON)
-                .function(MAP_KEYS)
-                .function(MAP_VALUES)
-                .function(ROW_TO_JSON);
+                .functions(ROW_HASH_CODE, ROW_TO_JSON, ROW_EQUAL, ROW_NOT_EQUAL);
 
         if (experimentalSyntaxEnabled) {
             builder.aggregate(ApproximateAverageAggregations.class)

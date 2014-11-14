@@ -719,6 +719,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByRow()
+            throws Exception
+    {
+        assertQuery("SELECT col.col1, count FROM (SELECT test_row(custkey, custkey) col, COUNT(*) count FROM ORDERS GROUP BY 1)", "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
+    }
+
+    @Test
     public void testGroupByNoAggregations()
             throws Exception
     {

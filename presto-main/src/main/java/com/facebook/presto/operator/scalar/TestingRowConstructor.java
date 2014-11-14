@@ -49,6 +49,38 @@ public final class TestingRowConstructor
     }
 
     @ScalarFunction("test_row")
+    @SqlType("row<bigint,double,boolean,varchar,timestamp>('col0','col1','col2','col3','col4')")
+    public static Slice testRowBigintDoubleBooleanVarcharTimestamp(@Nullable @SqlType(StandardTypes.BIGINT) Long arg1, @Nullable @SqlType(StandardTypes.DOUBLE) Double arg2,
+                                                          @Nullable @SqlType(StandardTypes.BOOLEAN) Boolean arg3, @Nullable @SqlType(StandardTypes.VARCHAR) Slice arg4,
+                                                          @Nullable @SqlType(StandardTypes.TIMESTAMP) Long arg5)
+    {
+        return toStackRepresentation(arg1, arg2, arg3, arg4, arg5);
+    }
+
+    @ScalarFunction("test_row")
+    @SqlType("row<HyperLogLog>('col0')")
+    public static Slice testRowHyperLogLog(@Nullable @SqlType(StandardTypes.HYPER_LOG_LOG) Slice arg1)
+    {
+        return toStackRepresentation(arg1);
+    }
+
+    @ScalarFunction("test_row")
+    @SqlType("row<double,row<timestamp with time zone,timestamp with time zone>('col0','col1')>('col2','col3')")
+    public static Slice testNestedRowsWithTimestampsWithTimeZones(@Nullable @SqlType(StandardTypes.DOUBLE) Double arg1,
+                                                                  @Nullable @SqlType("row<timestamp with time zone,timestamp with time zone>('col0','col1')") Slice arg2)
+    {
+        return toStackRepresentation(arg1, arg2);
+    }
+
+    @ScalarFunction("test_row")
+    @SqlType("row<timestamp with time zone,timestamp with time zone>('col0','col1')")
+    public static Slice testRowTimestampsWithTimeZones(@Nullable @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) Long arg1,
+                                                                   @Nullable @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) Long arg2)
+    {
+        return toStackRepresentation(arg1, arg2);
+    }
+
+    @ScalarFunction("test_row")
     @SqlType("row<double,double>('col0','col1')")
     public static Slice testRowBigintBigint(@Nullable @SqlType(StandardTypes.DOUBLE) Double arg1, @Nullable @SqlType(StandardTypes.DOUBLE) Double arg2)
     {
@@ -67,6 +99,37 @@ public final class TestingRowConstructor
     public static Slice testRowBigintBigint(@Nullable @SqlType(StandardTypes.BOOLEAN) Boolean arg1, @Nullable @SqlType(StandardTypes.BOOLEAN) Boolean arg2)
     {
         return toStackRepresentation(arg1, arg2);
+    }
+
+    @ScalarFunction("test_row")
+    @SqlType("row<boolean,boolean,boolean,boolean>('col0','col1','col2','col3')")
+    public static Slice testRowFourBooleans(@Nullable @SqlType(StandardTypes.BOOLEAN) Boolean arg1, @Nullable @SqlType(StandardTypes.BOOLEAN) Boolean arg2,
+                                              @Nullable @SqlType(StandardTypes.BOOLEAN) Boolean arg3, @Nullable @SqlType(StandardTypes.BOOLEAN) Boolean arg4)
+    {
+        return toStackRepresentation(arg1, arg2, arg3, arg4);
+    }
+
+    @ScalarFunction("test_row")
+    @SqlType("row<boolean,array<bigint>>('col0','col1')")
+    public static Slice testRowBooleanArray(@Nullable @SqlType(StandardTypes.BOOLEAN) Boolean arg1, @Nullable @SqlType("array<bigint>") Slice arg2)
+    {
+        return toStackRepresentation(arg1, arg2);
+    }
+
+    @ScalarFunction("test_row")
+    @SqlType("row<boolean,array<bigint>,map<bigint,double>>('col0','col1','col2')")
+    public static Slice testRowBooleanArrayMap(@Nullable @SqlType(StandardTypes.BOOLEAN) Boolean arg1, @Nullable @SqlType("array<bigint>") Slice arg2,
+                                               @Nullable @SqlType("map<bigint,double>") Slice arg3)
+    {
+        return toStackRepresentation(arg1, arg2, arg3);
+    }
+
+    @ScalarFunction("test_row")
+    @SqlType("row<double,array<bigint>,row<bigint,double>('col0','col1')>('col0','col1','col2')")
+    public static Slice testNestedRow(@Nullable @SqlType(StandardTypes.DOUBLE) Double arg1, @Nullable @SqlType("array<bigint>") Slice arg2,
+                                               @Nullable @SqlType("row<bigint,double>('col0','col1')") Slice arg3)
+    {
+        return toStackRepresentation(arg1, arg2, arg3);
     }
 
     @ScalarFunction("test_row")
