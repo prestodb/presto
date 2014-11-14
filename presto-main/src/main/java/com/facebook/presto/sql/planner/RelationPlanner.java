@@ -241,7 +241,12 @@ class RelationPlanner
         if (leftPlanBuilder.getSampleWeight().isPresent() || rightPlanBuilder.getSampleWeight().isPresent()) {
             Expression expression = new ArithmeticExpression(ArithmeticExpression.Type.MULTIPLY, oneIfNull(leftPlanBuilder.getSampleWeight()), oneIfNull(rightPlanBuilder.getSampleWeight()));
             sampleWeight = Optional.of(symbolAllocator.newSymbol(expression, BIGINT));
-            root = new ProjectNode(idAllocator.getNextId(), root, ImmutableMap.of(sampleWeight.get(), expression));
+            ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
+            projections.put(sampleWeight.get(), expression);
+            for (Symbol symbol : root.getOutputSymbols()) {
+                projections.put(symbol, new QualifiedNameReference(symbol.toQualifiedName()));
+            }
+            root = new ProjectNode(idAllocator.getNextId(), root, projections.build());
         }
 
         return new RelationPlan(root, outputDescriptor, outputSymbols, sampleWeight);
