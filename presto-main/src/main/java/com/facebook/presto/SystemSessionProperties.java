@@ -17,8 +17,8 @@ public final class SystemSessionProperties
 {
     private static final String BIG_QUERY = "experimental_big_query";
     private static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
-    private static final String DISTRIBUTED_JOINS_ENABLED = "distributed_join_enabled";
-    private static final String DISTRIBUTED_INDEX_JOINS_ENABLED = "distributed_index_join_enabled";
+    private static final String DISTRIBUTED_JOINS_ENABLED = "distributed_joins_enabled";
+    private static final String DISTRIBUTED_INDEX_JOINS_ENABLED = "distributed_index_joins_enabled";
 
     private SystemSessionProperties() {}
 
