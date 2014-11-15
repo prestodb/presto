@@ -42,6 +42,7 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.base.Optional;
 
 import java.util.Set;
 
@@ -207,6 +208,11 @@ public final class SymbolExtractor
         public Void visitSample(SampleNode node, Void context)
         {
             node.getSource().accept(this, context);
+
+            Optional<Symbol> sampleWeightSymbol = node.getSampleWeightSymbol();
+            if (sampleWeightSymbol.isPresent()) {
+                builder.add(sampleWeightSymbol.get());
+            }
 
             return null;
         }

@@ -280,6 +280,17 @@ public abstract class AbstractTestDistributedQueries
         assertEquals(emptySample.getMaterializedRows().size(), 0);
     }
 
+    @Test
+    public void testTableSamplePoissonizedRescaled()
+            throws Exception
+    {
+        MaterializedResult sample = computeActual("SELECT * FROM orders TABLESAMPLE POISSONIZED (10) RESCALED");
+        MaterializedResult all = computeExpected("SELECT * FROM orders", sample.getTypes());
+
+        assertTrue(sample.getMaterializedRows().size() > 0);
+        assertTrue(all.getMaterializedRows().containsAll(sample.getMaterializedRows()));
+    }
+
     private static void assertContains(MaterializedResult actual, MaterializedResult expected)
     {
         for (MaterializedRow row : expected.getMaterializedRows()) {
