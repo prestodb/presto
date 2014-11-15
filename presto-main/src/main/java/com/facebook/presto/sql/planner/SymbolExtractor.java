@@ -208,6 +208,8 @@ public final class SymbolExtractor
         {
             node.getSource().accept(this, context);
 
+            builder.addAll(node.getOutputSymbols());
+
             return null;
         }
 
