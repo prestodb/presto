@@ -126,7 +126,11 @@ public class TaskResource
         checkNotNull(taskId, "taskId is null");
 
         if (currentState == null || maxWait == null) {
-            asyncResponse.resume(taskManager.getTaskInfo(taskId));
+            TaskInfo taskInfo = taskManager.getTaskInfo(taskId);
+            if (shouldSummarize(uriInfo)) {
+                taskInfo = taskInfo.summarize();
+            }
+            asyncResponse.resume(taskInfo);
             return;
         }
 
