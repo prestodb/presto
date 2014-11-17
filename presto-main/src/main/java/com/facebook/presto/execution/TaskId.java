@@ -20,58 +20,61 @@ import com.google.common.base.Objects;
 import java.util.List;
 
 import static com.facebook.presto.execution.QueryId.validateId;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TaskId
 {
     @JsonCreator
     public static TaskId valueOf(String taskId)
     {
-        List<String> ids = QueryId.parseDottedId(taskId, 3, "taskId");
-        return new TaskId(new StageId(new QueryId(ids.get(0)), ids.get(1)), ids.get(2));
+        return new TaskId(taskId);
     }
 
-    private final StageId stageId;
-    private final String id;
+    private final String fullId;
 
     public TaskId(String queryId, String stageId, String id)
     {
-        this.stageId = new StageId(queryId, stageId);
-        this.id = validateId(id);
+        validateId(id);
+        this.fullId = queryId + "." + stageId + "." + id;
     }
 
     public TaskId(StageId stageId, String id)
     {
-        this.stageId = checkNotNull(stageId, "stageId is null");
-        this.id = validateId(id);
+        validateId(id);
+        this.fullId = stageId.getQueryId().getId() + "." + stageId.getId() + "." + id;
+    }
+
+    public TaskId(String fullId)
+    {
+        this.fullId = fullId;
     }
 
     public QueryId getQueryId()
     {
-        return stageId.getQueryId();
+        return new QueryId(QueryId.parseDottedId(fullId, 3, "taskId").get(0));
     }
 
     public StageId getStageId()
     {
-        return stageId;
+        List<String> ids = QueryId.parseDottedId(fullId, 3, "taskId");
+        return new StageId(new QueryId(ids.get(0)), ids.get(1));
     }
 
     public String getId()
     {
-        return id;
+        return QueryId.parseDottedId(fullId, 3, "taskId").get(2);
     }
 
     @Override
     @JsonValue
     public String toString()
     {
-        return stageId + "." + id;
+        return fullId;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(stageId, id);
+        return Objects.hashCode(fullId);
     }
 
     @Override
@@ -84,7 +87,6 @@ public class TaskId
             return false;
         }
         final TaskId other = (TaskId) obj;
-        return Objects.equal(this.stageId, other.stageId) &&
-                Objects.equal(this.id, other.id);
+        return Objects.equal(this.fullId, other.fullId);
     }
 }
