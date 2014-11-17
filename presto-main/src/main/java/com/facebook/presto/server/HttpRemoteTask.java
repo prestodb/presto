@@ -571,6 +571,8 @@ public class HttpRemoteTask
         {
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 try {
+                    currentRequest = null;
+
                     requestSucceeded(value, sources);
                 }
                 finally {
@@ -584,6 +586,8 @@ public class HttpRemoteTask
         {
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 try {
+                    currentRequest = null;
+
                     // on failure assume we need to update again
                     needsUpdate.set(true);
 
@@ -758,7 +762,7 @@ public class HttpRemoteTask
             }
             catch (Throwable t) {
                 // this should never happen
-                callback.failed(t);
+                callback.fatal(t);
             }
         }
 
