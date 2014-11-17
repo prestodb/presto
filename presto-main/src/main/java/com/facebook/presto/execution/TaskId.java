@@ -86,7 +86,7 @@ public class TaskId
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final TaskId other = (TaskId) obj;
+        TaskId other = (TaskId) obj;
         return Objects.equal(this.fullId, other.fullId);
     }
 }
