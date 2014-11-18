@@ -112,6 +112,11 @@ public final class Signatures
         return internalFunction(ARRAY_CONSTRUCTOR, returnType, argumentTypes);
     }
 
+    public static Signature leastSignature(TypeSignature returnType, List<TypeSignature> argumentTypes)
+    {
+        return internalFunction("LEAST", returnType, argumentTypes);
+    }
+
     public static Signature comparisonExpressionSignature(ComparisonExpression.Type expressionType, Type leftType, Type rightType)
     {
         for (OperatorType operatorType : OperatorType.values()) {

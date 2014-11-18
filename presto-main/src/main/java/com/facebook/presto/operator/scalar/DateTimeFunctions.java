@@ -838,14 +838,6 @@ public final class DateTimeFunctions
         return value1 > value2 ? value1 : value2;
     }
 
-    @Description("get the smallest of the given values")
-    @ScalarFunction("least")
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long leastTimestamp(@SqlType(StandardTypes.TIMESTAMP) long value1, @SqlType(StandardTypes.TIMESTAMP) long value2)
-    {
-        return value1 < value2 ? value1 : value2;
-    }
-
     @Description("get the largest of the given values")
     @ScalarFunction("greatest")
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
@@ -854,28 +846,12 @@ public final class DateTimeFunctions
         return unpackMillisUtc(value1) > unpackMillisUtc(value2) ? value1 : value2;
     }
 
-    @Description("get the smallest of the given values")
-    @ScalarFunction("least")
-    @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
-    public static long leastTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value1, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value2)
-    {
-        return unpackMillisUtc(value1) < unpackMillisUtc(value2) ? value1 : value2;
-    }
-
     @Description("get the largest of the given values")
     @ScalarFunction("greatest")
     @SqlType(StandardTypes.DATE)
     public static long greatestDate(@SqlType(StandardTypes.DATE) long value1, @SqlType(StandardTypes.DATE) long value2)
     {
         return value1 > value2 ? value1 : value2;
-    }
-
-    @Description("get the smallest of the given values")
-    @ScalarFunction("least")
-    @SqlType(StandardTypes.DATE)
-    public static long leastDate(@SqlType(StandardTypes.DATE) long value1, @SqlType(StandardTypes.DATE) long value2)
-    {
-        return value1 < value2 ? value1 : value2;
     }
 
     @SuppressWarnings("fallthrough")

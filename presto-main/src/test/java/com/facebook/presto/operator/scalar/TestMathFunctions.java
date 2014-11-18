@@ -380,11 +380,14 @@ public class TestMathFunctions
         // bigint
         assertFunction("least(1, 2)", 1);
         assertFunction("least(-1, -2)", -2);
+        assertFunction("least(5, 4, 3, 2, 1, 2, 3, 4, 1, 5)", 1);
+        assertFunction("least(-1)", -1);
 
         // double
         assertFunction("least(1.5, 2.3)", 1.5);
         assertFunction("least(-1.5, -2.3)", -2.3);
-        assertFunction("least(1.5, -1.0 / 0.0)", Double.NEGATIVE_INFINITY);
+        assertFunction("least(-1.5, -2.3, -5/3)", -2.3);
+        assertFunction("least(1.5, -1.0 / 0.0, 1.0 / 0.0)", Double.NEGATIVE_INFINITY);
 
         // mixed
         assertFunction("least(1, 2.0)", 1.0);
