@@ -45,11 +45,17 @@ public class JsonType
     }
 
     @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        int leftLength = leftBlock.getLength(leftPosition);
-        int rightLength = rightBlock.getLength(rightPosition);
-        return leftBlock.compareTo(leftPosition, 0, leftLength, rightBlock, rightPosition, 0, rightLength);
+        Slice leftValue = leftBlock.getSlice(leftPosition, 0, leftBlock.getLength(leftPosition));
+        Slice rightValue = rightBlock.getSlice(rightPosition, 0, rightBlock.getLength(rightPosition));
+        return leftValue.equals(rightValue);
+    }
+
+    @Override
+    public int hash(Block block, int position)
+    {
+        return block.getSlice(position, 0, block.getLength(position)).hashCode();
     }
 
     @Override
