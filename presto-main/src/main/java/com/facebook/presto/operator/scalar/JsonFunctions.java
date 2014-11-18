@@ -62,13 +62,6 @@ public final class JsonFunctions
     }
 
     @ScalarOperator(OperatorType.CAST)
-    @SqlType(StandardTypes.JSON)
-    public static Slice castToJson(@SqlType(StandardTypes.VARCHAR) Slice slice)
-    {
-        return slice;
-    }
-
-    @ScalarOperator(OperatorType.CAST)
     @SqlType(StandardTypes.VARCHAR)
     public static Slice castToVarchar(@SqlType(StandardTypes.JSON) Slice slice)
     {
