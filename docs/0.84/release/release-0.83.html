@@ -1,0 +1,94 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>9.2. Release 0.83 &mdash; Presto 0.84 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.84',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.84 Documentation" href="../index.html" />
+    <link rel="up" title="9. Release Notes" href="../release.html" />
+    <link rel="next" title="9.3. Release 0.82" href="release-0.82.html" />
+    <link rel="prev" title="9.1. Release 0.84" href="release-0.84.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.84 Documentation</span></a></h1>
+    <h2 class="heading"><span>9.2. Release 0.83</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.84.html">9.1. Release 0.84</a>
+    </span>
+    <span class="right">
+        <a href="release-0.82.html">9.3. Release 0.82</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-83">
+<h1>9.2. Release 0.83</h1>
+<div class="section" id="raptor-changes">
+<h2>Raptor Changes</h2>
+<ul class="simple">
+<li>Raptor now enables specifying the backup storage location. This feature is highly experimental.</li>
+<li>Fix the handling of shards not assigned to any node.</li>
+</ul>
+</div>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Fix resource leak in query queues.</li>
+<li>Fix NPE when writing null <tt class="docutils literal"><span class="pre">ARRAY/MAP</span></tt> to Hive.</li>
+<li>Fix <a class="reference internal" href="../functions/json.html#json_array_get" title="json_array_get"><tt class="xref py py-func docutils literal"><span class="pre">json_array_get()</span></tt></a> to handle nested structures.</li>
+<li>Fix <tt class="docutils literal"><span class="pre">UNNEST</span></tt> on null collections.</li>
+<li>Fix a regression where queries that fail during parsing or analysis do not expire.</li>
+<li>Make <tt class="docutils literal"><span class="pre">JSON</span></tt> type comparable.</li>
+<li>Added an optimization for hash aggregations. This optimization is turned off by default.
+To turn it on, add <tt class="docutils literal"><span class="pre">optimizer.optimize-hash-generation=true</span></tt> to the coordinator config properties.</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.84.html">9.1. Release 0.84</a>
+    </span>
+    <span class="right">
+        <a href="release-0.82.html">9.3. Release 0.82</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
