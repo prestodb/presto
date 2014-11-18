@@ -28,6 +28,8 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import org.joda.time.DateTime;
 import org.joda.time.Days;
 import org.joda.time.chrono.ISOChronology;
@@ -88,7 +90,7 @@ public class TestOrcStorageManager
     @Test
     public void testShardFiles()
     {
-        OrcStorageManager manager = new OrcStorageManager(new File("/tmp/data"), Optional.of(new File("/tmp/backup")));
+        OrcStorageManager manager = new OrcStorageManager(new File("/tmp/data"), Optional.of(new File("/tmp/backup")), new DataSize(1, Unit.MEGABYTE));
 
         UUID uuid = UUID.fromString("701e1a79-74f7-4f56-b438-b41e8e7d019d");
 
@@ -109,7 +111,7 @@ public class TestOrcStorageManager
     public void testWriter()
             throws Exception
     {
-        OrcStorageManager manager = new OrcStorageManager(directory, Optional.of(backupDirectory));
+        OrcStorageManager manager = new OrcStorageManager(directory, Optional.of(backupDirectory), new DataSize(1, Unit.MEGABYTE));
 
         List<Long> columnIds = ImmutableList.of(3L, 7L);
         List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR);
@@ -168,7 +170,7 @@ public class TestOrcStorageManager
     public void testReader()
             throws Exception
     {
-        OrcStorageManager manager = new OrcStorageManager(directory, Optional.<File>absent());
+        OrcStorageManager manager = new OrcStorageManager(directory, Optional.<File>absent(), new DataSize(1, Unit.MEGABYTE));
 
         List<Long> columnIds = ImmutableList.of(2L, 4L, 6L, 7L, 8L, 9L);
         List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR, VARBINARY, DATE, BOOLEAN, DOUBLE);

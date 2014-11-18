@@ -14,6 +14,8 @@
 package com.facebook.presto.raptor.storage;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import org.testng.annotations.Test;
 
 import javax.validation.constraints.NotNull;
@@ -33,7 +35,8 @@ public class TestDatabaseStorageManagerConfig
     {
         assertRecordedDefaults(recordDefaults(StorageManagerConfig.class)
                 .setDataDirectory(new File("var/data"))
-                .setBackupDirectory(null));
+                .setBackupDirectory(null)
+                .setOrcMaxMergeDistance(new DataSize(1, Unit.MEGABYTE)));
     }
 
     @Test
@@ -42,11 +45,13 @@ public class TestDatabaseStorageManagerConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("storage.data-directory", "/data")
                 .put("storage.backup-directory", "/backup")
+                .put("storage.orc.max-merge-distance", "16kB")
                 .build();
 
         StorageManagerConfig expected = new StorageManagerConfig()
                 .setDataDirectory(new File("/data"))
-                .setBackupDirectory(new File("/backup"));
+                .setBackupDirectory(new File("/backup"))
+                .setOrcMaxMergeDistance(new DataSize(16, Unit.KILOBYTE));
 
         assertFullMapping(properties, expected);
     }

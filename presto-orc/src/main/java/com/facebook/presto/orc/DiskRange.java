@@ -48,6 +48,11 @@ public final class DiskRange
         return offset + length;
     }
 
+    public boolean contains(DiskRange diskRange)
+    {
+        return offset <= diskRange.getOffset() && diskRange.getEnd() <= getEnd();
+    }
+
     /**
      * Returns the minimal DiskRange that encloses both this DiskRange
      * and otherDiskRange. If there was a gap between the ranges the

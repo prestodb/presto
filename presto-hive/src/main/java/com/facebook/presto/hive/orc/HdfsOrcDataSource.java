@@ -16,15 +16,18 @@ package com.facebook.presto.hive.orc;
 import com.facebook.presto.orc.DiskRange;
 import com.facebook.presto.orc.OrcDataSource;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import static com.facebook.presto.orc.OrcDataSourceUtils.getDiskRangeSlice;
+import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class HdfsOrcDataSource
@@ -33,14 +36,17 @@ public class HdfsOrcDataSource
     private final FSDataInputStream inputStream;
     private final String path;
     private final long size;
+    private final DataSize maxMergeDistance;
     private long readTimeNanos;
 
-    public HdfsOrcDataSource(String path, FSDataInputStream inputStream, long size)
-            throws IOException
+    public HdfsOrcDataSource(String path, FSDataInputStream inputStream, long size, DataSize maxMergeDistance)
     {
         this.path = checkNotNull(path, "path is null");
         this.inputStream = checkNotNull(inputStream, "inputStream is null");
         this.size = size;
+        checkArgument(size >= 0, "size is negative");
+
+        this.maxMergeDistance = checkNotNull(maxMergeDistance, "maxMergeDistance is null");
     }
 
     @Override
@@ -90,21 +96,20 @@ public class HdfsOrcDataSource
             return ImmutableMap.of();
         }
 
-        // merge ranges
-        DiskRange fullRange = diskRanges.values().iterator().next();
-        for (DiskRange diskRange : diskRanges.values()) {
-            fullRange = fullRange.span(diskRange);
-        }
+        Iterable<DiskRange> mergedRanges = mergeAdjacentDiskRanges(diskRanges.values(), maxMergeDistance);
 
-        // read full range in one request
-        byte[] buffer = new byte[fullRange.getLength()];
-        readFully(fullRange.getOffset(), buffer);
+        // read ranges
+        Map<DiskRange, byte[]> buffers = new LinkedHashMap<>();
+        for (DiskRange mergedRange : mergedRanges) {
+            // read full range in one request
+            byte[] buffer = new byte[mergedRange.getLength()];
+            readFully(mergedRange.getOffset(), buffer);
+            buffers.put(mergedRange, buffer);
+        }
 
         ImmutableMap.Builder<K, Slice> slices = ImmutableMap.builder();
         for (Entry<K, DiskRange> entry : diskRanges.entrySet()) {
-            DiskRange diskRange = entry.getValue();
-            int offset = Ints.checkedCast(diskRange.getOffset() - fullRange.getOffset());
-            slices.put(entry.getKey(), Slices.wrappedBuffer(buffer, offset, diskRange.getLength()));
+            slices.put(entry.getKey(), getDiskRangeSlice(entry.getValue(), buffers));
         }
         return slices.build();
     }

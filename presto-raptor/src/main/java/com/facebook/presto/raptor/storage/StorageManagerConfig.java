@@ -15,16 +15,21 @@ package com.facebook.presto.raptor.storage;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.units.DataSize;
 
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
 
 import java.io.File;
 
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+
 public class StorageManagerConfig
 {
     private File dataDirectory = new File("var/data");
     private File backupDirectory;
+
+    private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
 
     @NotNull
     public File getDataDirectory()
@@ -51,6 +56,19 @@ public class StorageManagerConfig
     public StorageManagerConfig setBackupDirectory(File backupDirectory)
     {
         this.backupDirectory = backupDirectory;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getOrcMaxMergeDistance()
+    {
+        return orcMaxMergeDistance;
+    }
+
+    @Config("storage.orc.max-merge-distance")
+    public StorageManagerConfig setOrcMaxMergeDistance(DataSize orcMaxMergeDistance)
+    {
+        this.orcMaxMergeDistance = orcMaxMergeDistance;
         return this;
     }
 }
