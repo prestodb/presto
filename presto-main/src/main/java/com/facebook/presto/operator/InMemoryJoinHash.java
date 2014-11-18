@@ -19,7 +19,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import io.airlift.slice.Murmur3;
+import io.airlift.slice.XxHash64;
 import it.unimi.dsi.fastutil.HashCommon;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
@@ -66,7 +66,7 @@ public final class InMemoryJoinHash
 
         // index pages
         for (int position = 0; position < addresses.size(); position++) {
-            int pos = ((int) Murmur3.hash64(hashPosition(position))) & mask;
+            int pos = getHashPosition(hashPosition(position), mask);
 
             // look for an empty slot or a slot containing this key
             while (key[pos] != -1) {
@@ -102,7 +102,7 @@ public final class InMemoryJoinHash
     @Override
     public long getJoinPosition(int position, Page page, int rawHash)
     {
-        int pos = ((int) Murmur3.hash64(rawHash)) & mask;
+        int pos = getHashPosition(rawHash, mask);
 
         while (key[pos] != -1) {
             if (positionEqualsCurrentRow(key[pos], position, page.getBlocks())) {
@@ -164,5 +164,10 @@ public final class InMemoryJoinHash
         int rightBlockPosition = decodePosition(rightPageAddress);
 
         return pagesHashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition);
+    }
+
+    private static int getHashPosition(int rawHash, int mask)
+    {
+        return ((int) XxHash64.hash(rawHash)) & mask;
     }
 }
