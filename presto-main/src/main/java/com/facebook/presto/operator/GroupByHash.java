@@ -23,7 +23,7 @@ import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import io.airlift.slice.Murmur3;
+import io.airlift.slice.XxHash64;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.Arrays;
@@ -173,7 +173,7 @@ public class GroupByHash
 
     public boolean contains(int position, Page page, int rawHash)
     {
-        int hashPosition = ((int) Murmur3.hash64(rawHash)) & mask;
+        int hashPosition = getHashPosition(rawHash, mask);
 
         // look for a slot containing this key
         while (key[hashPosition] != -1) {
@@ -192,7 +192,7 @@ public class GroupByHash
     private int putIfAbsent(int position, Page page, Block[] hashBlocks)
     {
         int rawHash = hashGenerator.hashPosition(position, page);
-        int hashPosition = ((int) Murmur3.hash64(rawHash)) & mask;
+        int hashPosition = getHashPosition(rawHash, mask);
 
         // look for an empty slot or a slot containing this key
         int groupId = -1;
@@ -283,7 +283,7 @@ public class GroupByHash
             long address = key[oldIndex];
 
             // find an empty slot for the address
-            int pos = ((int) Murmur3.hash64(hashPosition(address))) & newMask;
+            int pos = getHashPosition(hashPosition(address), newMask);
             while (newKey[pos] != -1) {
                 pos = (pos + 1) & newMask;
             }
@@ -319,5 +319,10 @@ public class GroupByHash
     private boolean positionEqualsCurrentRow(int sliceIndex, int slicePosition, int position, Block[] blocks)
     {
         return hashStrategy.positionEqualsRow(sliceIndex, slicePosition, position, blocks);
+    }
+
+    private static int getHashPosition(int rawHash, int mask)
+    {
+        return ((int) XxHash64.hash(rawHash)) & mask;
     }
 }
