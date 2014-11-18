@@ -179,5 +179,6 @@ public class TestDate
             throws Exception
     {
         assertFunction("least(DATE '2013-03-30', DATE '2012-05-23')", new SqlDate(new LocalDate(2012, 5, 23).toDateMidnight(getDateTimeZone(TIME_ZONE_KEY)).getMillis(), TIME_ZONE_KEY));
+        assertFunction("least(DATE '2013-03-30', DATE '2012-05-23', DATE '2012-06-01')", new SqlDate(new LocalDate(2012, 5, 23).toDateMidnight(getDateTimeZone(TIME_ZONE_KEY)).getMillis(), TIME_ZONE_KEY));
     }
 }
