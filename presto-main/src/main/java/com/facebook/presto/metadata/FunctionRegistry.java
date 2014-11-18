@@ -43,6 +43,7 @@ import com.facebook.presto.operator.scalar.CombineHashFunction;
 import com.facebook.presto.operator.scalar.DateTimeFunctions;
 import com.facebook.presto.operator.scalar.HyperLogLogFunctions;
 import com.facebook.presto.operator.scalar.JsonFunctions;
+import com.facebook.presto.operator.scalar.JsonOperators;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.RegexpFunctions;
 import com.facebook.presto.operator.scalar.StringFunctions;
@@ -273,6 +274,7 @@ public class FunctionRegistry
                 .scalar(LikeFunctions.class)
                 .scalar(ArrayFunctions.class)
                 .scalar(CombineHashFunction.class)
+                .scalar(JsonOperators.class)
                 .function(ARRAY_CONSTRUCTOR)
                 .function(ARRAY_SUBSCRIPT)
                 .function(ARRAY_CARDINALITY)
