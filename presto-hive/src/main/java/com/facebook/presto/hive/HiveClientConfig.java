@@ -86,6 +86,8 @@ public class HiveClientConfig
 
     private boolean optimizedReaderEnabled = true;
 
+    private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -608,6 +610,19 @@ public class HiveClientConfig
     public HiveClientConfig setOptimizedReaderEnabled(boolean optimizedReaderEnabled)
     {
         this.optimizedReaderEnabled = optimizedReaderEnabled;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getOrcMaxMergeDistance()
+    {
+        return orcMaxMergeDistance;
+    }
+
+    @Config("hive.orc.max-merge-distance")
+    public HiveClientConfig setOrcMaxMergeDistance(DataSize orcMaxMergeDistance)
+    {
+        this.orcMaxMergeDistance = orcMaxMergeDistance;
         return this;
     }
 }

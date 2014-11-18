@@ -39,6 +39,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import io.airlift.testing.FileUtils;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.testng.annotations.AfterMethod;
@@ -83,7 +85,7 @@ public class TestRaptorSplitManager
         dataDir = Files.createTempDir();
         ShardManager shardManager = new DatabaseShardManager(dbi);
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        StorageManager storageManager = new OrcStorageManager(dataDir, Optional.<File>absent());
+        StorageManager storageManager = new OrcStorageManager(dataDir, Optional.<File>absent(), new DataSize(1, Unit.MEGABYTE));
 
         String nodeName = UUID.randomUUID().toString();
         nodeManager.addNode("raptor", new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN));

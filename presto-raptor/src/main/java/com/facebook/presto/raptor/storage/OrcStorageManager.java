@@ -72,19 +72,21 @@ public class OrcStorageManager
     private final File baseStorageDir;
     private final File baseStagingDir;
     private final Optional<File> baseBackupDir;
+    private final DataSize orcMaxMergeDistance;
 
     @Inject
     public OrcStorageManager(StorageManagerConfig config)
     {
-        this(config.getDataDirectory(), Optional.fromNullable(config.getBackupDirectory()));
+        this(config.getDataDirectory(), Optional.fromNullable(config.getBackupDirectory()), config.getOrcMaxMergeDistance());
     }
 
-    public OrcStorageManager(File dataDirectory, Optional<File> backupDirectory)
+    public OrcStorageManager(File dataDirectory, Optional<File> backupDirectory, DataSize orcMaxMergeDistance)
     {
         File baseDataDir = checkNotNull(dataDirectory, "dataDirectory is null");
         this.baseStorageDir = new File(baseDataDir, "storage");
         this.baseStagingDir = new File(baseDataDir, "staging");
         this.baseBackupDir = checkNotNull(backupDirectory, "backupDirectory is null");
+        this.orcMaxMergeDistance = checkNotNull(orcMaxMergeDistance, "orcMaxMergeDistance is null");
     }
 
     @PostConstruct
@@ -231,7 +233,7 @@ public class OrcStorageManager
         }
 
         try {
-            return new FileOrcDataSource(file);
+            return new FileOrcDataSource(file, orcMaxMergeDistance);
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to open shard file: " + file, e);

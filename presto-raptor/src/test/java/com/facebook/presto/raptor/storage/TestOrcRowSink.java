@@ -22,6 +22,8 @@ import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -101,7 +103,7 @@ public class TestOrcRowSink
             sink.finishRecord();
         }
 
-        try (FileOrcDataSource dataSource = new FileOrcDataSource(file)) {
+        try (FileOrcDataSource dataSource = new FileOrcDataSource(file, new DataSize(1, Unit.MEGABYTE))) {
             OrcRecordReader reader = createReader(dataSource, columnIds);
             assertEquals(reader.getTotalRowCount(), 3);
             assertEquals(reader.getPosition(), 0);
@@ -168,7 +170,7 @@ public class TestOrcRowSink
             // no rows
         }
 
-        try (FileOrcDataSource dataSource = new FileOrcDataSource(file)) {
+        try (FileOrcDataSource dataSource = new FileOrcDataSource(file, new DataSize(1, Unit.MEGABYTE))) {
             OrcRecordReader reader = createReaderNoRows(dataSource);
             assertEquals(reader.getTotalRowCount(), 0);
             assertEquals(reader.getPosition(), 0);

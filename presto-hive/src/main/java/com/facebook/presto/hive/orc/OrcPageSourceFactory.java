@@ -34,6 +34,8 @@ import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -48,6 +50,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedReaderEnabled;
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -57,23 +60,25 @@ public class OrcPageSourceFactory
 {
     private final TypeManager typeManager;
     private final boolean enabled;
+    private final DataSize orcMaxMergeDistance;
 
     @Inject
     public OrcPageSourceFactory(TypeManager typeManager, HiveClientConfig config)
     {
         //noinspection deprecation
-        this(typeManager, config.isOptimizedReaderEnabled());
+        this(typeManager, config.isOptimizedReaderEnabled(), config.getOrcMaxMergeDistance());
     }
 
     public OrcPageSourceFactory(TypeManager typeManager)
     {
-        this(typeManager, true);
+        this(typeManager, true, new DataSize(1, Unit.MEGABYTE));
     }
 
-    public OrcPageSourceFactory(TypeManager typeManager, boolean enabled)
+    public OrcPageSourceFactory(TypeManager typeManager, boolean enabled, DataSize orcMaxMergeDistance)
     {
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
         this.enabled = enabled;
+        this.orcMaxMergeDistance = checkNotNull(orcMaxMergeDistance, "orcMaxMergeDistance is null");
     }
 
     @Override
@@ -109,7 +114,8 @@ public class OrcPageSourceFactory
                 partitionKeys,
                 effectivePredicate,
                 hiveStorageTimeZone,
-                typeManager));
+                typeManager,
+                getOrcMaxMergeDistance(session, orcMaxMergeDistance)));
     }
 
     public static OrcPageSource createOrcPageSource(MetadataReader metadataReader,
@@ -121,14 +127,15 @@ public class OrcPageSourceFactory
             List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            DataSize maxMergeDistance)
     {
         OrcDataSource orcDataSource;
         try {
             FileSystem fileSystem = path.getFileSystem(configuration);
             long size = fileSystem.getFileStatus(path).getLen();
             FSDataInputStream inputStream = fileSystem.open(path);
-            orcDataSource = new HdfsOrcDataSource(path.toString(), inputStream, size);
+            orcDataSource = new HdfsOrcDataSource(path.toString(), inputStream, size, maxMergeDistance);
         }
         catch (Exception e) {
             throw Throwables.propagate(e);

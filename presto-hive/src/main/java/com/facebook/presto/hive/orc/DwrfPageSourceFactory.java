@@ -24,6 +24,8 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Optional;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.Deserializer;
@@ -34,6 +36,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedReaderEnabled;
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 import static com.facebook.presto.hive.orc.OrcPageSourceFactory.createOrcPageSource;
@@ -44,23 +47,25 @@ public class DwrfPageSourceFactory
 {
     private final TypeManager typeManager;
     private final boolean enabled;
+    private final DataSize orcMaxMergeDistance;
 
     @Inject
     public DwrfPageSourceFactory(TypeManager typeManager, HiveClientConfig config)
     {
         //noinspection deprecation
-        this(typeManager, config.isOptimizedReaderEnabled());
+        this(typeManager, config.isOptimizedReaderEnabled(), config.getOrcMaxMergeDistance());
     }
 
     public DwrfPageSourceFactory(TypeManager typeManager)
     {
-        this(typeManager, true);
+        this(typeManager, true, new DataSize(1, Unit.MEGABYTE));
     }
 
-    public DwrfPageSourceFactory(TypeManager typeManager, boolean enabled)
+    public DwrfPageSourceFactory(TypeManager typeManager, boolean enabled, DataSize orcMaxMergeDistance)
     {
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
         this.enabled = enabled;
+        this.orcMaxMergeDistance = checkNotNull(orcMaxMergeDistance, "orcMaxMergeDistance is null");
     }
 
     @Override
@@ -95,6 +100,7 @@ public class DwrfPageSourceFactory
                 partitionKeys,
                 effectivePredicate,
                 hiveStorageTimeZone,
-                typeManager));
+                typeManager,
+                getOrcMaxMergeDistance(session, orcMaxMergeDistance)));
     }
 }
