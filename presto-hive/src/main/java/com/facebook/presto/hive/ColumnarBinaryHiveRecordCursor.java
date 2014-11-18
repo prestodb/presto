@@ -399,7 +399,7 @@ class ColumnarBinaryHiveRecordCursor<K>
         else if (hiveTypes[column].equals(HIVE_TIMESTAMP)) {
             checkState(length >= 1, "Timestamp should be at least 1 byte");
             long seconds = TimestampWritable.getSeconds(bytes, start);
-            long nanos = TimestampWritable.getNanos(bytes, start + SIZE_OF_INT);
+            long nanos = (bytes[start] >> 7) != 0 ? TimestampWritable.getNanos(bytes, start + SIZE_OF_INT) : 0;
             longs[column] = (seconds * 1000) + (nanos / 1_000_000);
         }
         else if (hiveTypes[column].equals(HIVE_BYTE)) {
