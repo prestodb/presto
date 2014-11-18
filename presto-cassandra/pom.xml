@@ -109,7 +109,14 @@
                 </exclusion>
             </exclusions>
         </dependency>
-
+        
+        <dependency>
+            <groupId>com.github.stephenc.high-scale-lib</groupId>
+            <artifactId>high-scale-lib</artifactId>
+            <version>1.1.2</version>
+            <scope>runtime</scope>
+        </dependency>
+        
         <dependency>
             <groupId>org.weakref</groupId>
             <artifactId>jmxutils</artifactId>
