@@ -1,4 +1,4 @@
 language: java
 env:
   global:
-    - MAVEN_OPTS="-XX:MaxPermSize=512m -Xmx2g"
+    - MAVEN_OPTS="-Xmx2g"

@@ -81,31 +81,15 @@ The following provides a good starting point for creating ``etc/jvm.config``:
     -XX:+AggressiveOpts
     -XX:+HeapDumpOnOutOfMemoryError
     -XX:OnOutOfMemoryError=kill -9 %p
-    -XX:PermSize=150M
-    -XX:MaxPermSize=150M
     -XX:ReservedCodeCacheSize=150M
-    -Xbootclasspath/p:/var/presto/installation/lib/floatingdecimal-0.2.jar
 
 Because an ``OutOfMemoryError`` will typically leave the JVM in an
 inconsistent state, we write a heap dump (for debugging) and forcibly
 terminate the process when this occurs.
 
 Presto compiles queries to bytecode at runtime and thus produces many classes,
-so we increase the permanent generation size (the garbage collector region
-where classes are stored) and enable class unloading.
+so we enable class unloading.
 
-The last option in the above configuration loads the
-`floatingdecimal <https://github.com/airlift/floatingdecimal>`_
-patch for the JDK that substantially improves performance when parsing
-floating point numbers. This is important because many Hive file formats
-store floating point values as text. Change the path
-``/var/presto/installation`` to match the Presto installation directory.
-
-.. note::
-
-    When using Java 8, remove the ``-XX:PermSize``, ``-XX:MaxPermSize`` and
-    ``-Xbootclasspath`` options. The ``PermSize`` options are not supported
-    and the floatingdecimal patch is only for Java 7.
 
 .. _config_properties:
 

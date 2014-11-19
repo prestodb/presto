@@ -34,6 +34,7 @@
     </scm>
 
     <properties>
+        <project.build.targetJdk>1.8</project.build.targetJdk>
         <air.main.basedir>${project.basedir}</air.main.basedir>
 
         <air.check.skip-extended>true</air.check.skip-extended>
@@ -629,13 +630,21 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <configuration combine.children="append">
-                        <argLine>${argLine} -Duser.timezone=${test.timezone} -Xmx2g -Xms2g -XX:MaxPermSize=512m</argLine>
+                        <argLine>${argLine} -Duser.timezone=${test.timezone} -Xmx2g -Xms2g</argLine>
                         <parallel>methods</parallel>
                         <threadCount>8</threadCount>
                         <systemPropertyVariables>
                             <user.timezone>${test.timezone}</user.timezone>
                             <java.util.logging.SimpleFormatter.format>%1$tY-%1$tm-%1$td %1$tH:%1$tM:%1$tS %4$s %5$s%6$s%n</java.util.logging.SimpleFormatter.format>
                         </systemPropertyVariables>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <configuration combine.children="append">
+                        <additionalparam>-Xdoclint:none</additionalparam>
                     </configuration>
                 </plugin>
 
