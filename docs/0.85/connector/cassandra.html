@@ -1,0 +1,269 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>3.1. Cassandra Connector &mdash; Presto 0.85 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.85',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.85 Documentation" href="../index.html" />
+    <link rel="up" title="3. Connectors" href="../connector.html" />
+    <link rel="next" title="3.2. Hive Connector" href="hive.html" />
+    <link rel="prev" title="3. Connectors" href="../connector.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.85 Documentation</span></a></h1>
+    <h2 class="heading"><span>3.1. Cassandra Connector</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../connector.html">3. Connectors</a>
+    </span>
+    <span class="right">
+        <a href="hive.html">3.2. Hive Connector</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="cassandra-connector">
+<h1>3.1. Cassandra Connector</h1>
+<p>The Cassandra connector allows querying data stored in Cassandra.</p>
+<div class="section" id="configuration">
+<h2>Configuration</h2>
+<p>To configure the Cassandra connector, create a catalog properties file
+<tt class="docutils literal"><span class="pre">etc/catalog/cassandra.properties</span></tt> with the following contents,
+replacing <tt class="docutils literal"><span class="pre">host1,host2</span></tt> with a comma-separated list of the Cassandra
+nodes used to discovery the cluster topology:</p>
+<div class="highlight-none"><div class="highlight"><pre>connector.name=cassandra
+cassandra.contact-points=host1,host2
+</pre></div>
+</div>
+<p>You will also need to set <tt class="docutils literal"><span class="pre">cassandra.native-protocol-port</span></tt> if your
+Cassandra nodes are not using the default port (9042).</p>
+<div class="section" id="multiple-cassandra-clusters">
+<h3>Multiple Cassandra Clusters</h3>
+<p>You can have as many catalogs as you need, so if you have additional
+Cassandra clusters, simply add another properties file to <tt class="docutils literal"><span class="pre">etc/catalog</span></tt>
+with a different name (making sure it ends in <tt class="docutils literal"><span class="pre">.properties</span></tt>). For
+example, if you name the property file <tt class="docutils literal"><span class="pre">sales.properties</span></tt>, Presto
+will create a catalog named <tt class="docutils literal"><span class="pre">sales</span></tt> using the configured connector.</p>
+</div>
+</div>
+<div class="section" id="configuration-properties">
+<h2>Configuration Properties</h2>
+<p>The following configuration properties are available:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="42%" />
+<col width="58%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Property Name</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">cassandra.contact-points</span></tt></td>
+<td>Comma-separated list of hosts in a Cassandra cluster. The Cassandra
+driver will use these contact points to discover cluster topology.
+At least one Cassandra host is required.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">cassandra.native-protocol-port</span></tt></td>
+<td>The Cassandra server port running the native client protocol
+(defaults to <tt class="docutils literal"><span class="pre">9042</span></tt>).</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">cassandra.thrift-port</span></tt></td>
+<td>The Cassandra server port running the Thrift client protocol
+(defaults to <tt class="docutils literal"><span class="pre">9160</span></tt>).</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">cassandra.limit-for-partition-key-select</span></tt></td>
+<td>Limit of rows to read for finding all partition keys. If a
+Cassandra table has more rows than this value, splits based on
+token ranges are used instead. Note that for larger values you
+may need to adjust read timeout for Cassandra.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">cassandra.max-schema-refresh-threads</span></tt></td>
+<td>Maximum number of schema cache refresh threads. This property
+corresponds to the maximum number of parallel requests.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">cassandra.schema-cache-ttl</span></tt></td>
+<td>Maximum time that information about a schema will be cached
+(defaults to <tt class="docutils literal"><span class="pre">1h</span></tt>).</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">cassandra.schema-refresh-interval</span></tt></td>
+<td>The schema information cache will be refreshed in the background
+when accessed if the cached data is at least this old
+(defaults to <tt class="docutils literal"><span class="pre">2m</span></tt>).</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">cassandra.consistency-level</span></tt></td>
+<td>Consistency levels in Cassandra refer to the level of consistency
+to be used for both read and write operations.  More information
+about consistency levels can be found in the
+<a class="reference external" href="http://www.datastax.com/documentation/cassandra/2.0/cassandra/dml/dml_config_consistency_c.html">Cassandra consistency</a> documentation. This property defaults to
+a consistency level of <tt class="docutils literal"><span class="pre">ONE</span></tt>. Possible values include <tt class="docutils literal"><span class="pre">ALL</span></tt>,
+<tt class="docutils literal"><span class="pre">EACH_QUORUM</span></tt>, <tt class="docutils literal"><span class="pre">QUORUM</span></tt>, <tt class="docutils literal"><span class="pre">LOCAL_QUORUM</span></tt>, <tt class="docutils literal"><span class="pre">ONE</span></tt>, <tt class="docutils literal"><span class="pre">TWO</span></tt>,
+<tt class="docutils literal"><span class="pre">THREE</span></tt>, <tt class="docutils literal"><span class="pre">LOCAL_ONE</span></tt>, <tt class="docutils literal"><span class="pre">ANY</span></tt>, <tt class="docutils literal"><span class="pre">SERIAL</span></tt>, <tt class="docutils literal"><span class="pre">LOCAL_SERIAL</span></tt>.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">cassandra.allow-drop-table</span></tt></td>
+<td>Set to <tt class="docutils literal"><span class="pre">true</span></tt> to allow dropping Cassandra tables from Presto
+via <a class="reference internal" href="../sql/drop-table.html"><em>DROP TABLE</em></a> (defaults to <tt class="docutils literal"><span class="pre">false</span></tt>).</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">cassandra.username</span></tt></td>
+<td>Username used for authentication to the Cassandra cluster.
+This is a global setting used for all connections, regardless
+of the user who is connected to Presto.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">cassandra.password</span></tt></td>
+<td>Password used for authentication to the Cassandra cluster.
+This is a global setting used for all connections, regardless
+of the user who is connected to Presto.</td>
+</tr>
+</tbody>
+</table>
+<p>The following advanced configuration properties are available:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="42%" />
+<col width="58%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Property Name</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">cassandra.fetch-size</span></tt></td>
+<td>Number of rows fetched at a time in a Cassandra query.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">cassandra.fetch-size-for-partition-key-select</span></tt></td>
+<td>Number of rows fetched at a time in a Cassandra query that
+selects partition keys.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">cassandra.partition-size-for-batch-select</span></tt></td>
+<td>Number of partitions batched together into a single select for a
+single partion key column table.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">cassandra.split-size</span></tt></td>
+<td>Number of keys per split when querying Cassandra.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">cassandra.partitioner</span></tt></td>
+<td>Partitioner to use for hashing and data distribution. This
+property defaults to <tt class="docutils literal"><span class="pre">Murmur3Partitioner</span></tt>. The other supported
+values are <tt class="docutils literal"><span class="pre">RandomPartitioner</span></tt> and <tt class="docutils literal"><span class="pre">ByteOrderedPartitioner</span></tt>.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">cassandra.thrift-connection-factory-class</span></tt></td>
+<td>Allows for the specification of a custom implementation of
+<tt class="docutils literal"><span class="pre">org.apache.cassandra.thrift.ITransportFactory</span></tt> to be used to
+connect to Cassandra using the Thrift protocol.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">cassandra.transport-factory-options</span></tt></td>
+<td>Allows for the specification of arbitrary options to be passed to
+the Thrift connection factory.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">cassandra.client.read-timeout</span></tt></td>
+<td>Maximum time the Cassandra driver will wait for an
+answer to a query from one Cassandra node. Note that the underlying
+Cassandra driver may retry a query against more than one node in
+the event of a read timeout. Increasing this may help with queries
+that use an index.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">cassandra.client.connect-timeout</span></tt></td>
+<td>Maximum time the Cassandra driver will wait to establish
+a connection to a Cassandra node. Increasing this may help with
+heavily loaded Cassandra clusters.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">cassandra.client.so-linger</span></tt></td>
+<td>Number of seconds to linger on close if unsent data is queued.
+If set to zero, the socket will be closed immediately.
+When this option is non-zero, a socket will linger that many
+seconds for an acknowledgement that all data was written to a
+peer. This option can be used to avoid consuming sockets on a
+Cassandra server by immediately closing connections when they
+are no longer needed.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">cassandra.retry-policy</span></tt></td>
+<td>Policy used to retry failed requests to Cassandra. This property
+defaults to <tt class="docutils literal"><span class="pre">DEFAULT</span></tt>. Using <tt class="docutils literal"><span class="pre">BACKOFF</span></tt> may help when
+queries fail with <em>&#8220;not enough replicas&#8221;</em>. The other possible
+values are <tt class="docutils literal"><span class="pre">DOWNGRADING_CONSISTENCY</span></tt> and <tt class="docutils literal"><span class="pre">FALLTHROUGH</span></tt>.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="querying-cassandra-tables">
+<h2>Querying Cassandra Tables</h2>
+<p>The <tt class="docutils literal"><span class="pre">users</span></tt> table is an example Cassandra table from the Cassandra
+<a class="reference external" href="https://wiki.apache.org/cassandra/GettingStarted">Getting Started</a> guide. It can be created along with the <tt class="docutils literal"><span class="pre">mykeyspace</span></tt>
+keyspace using Cassandra&#8217;s cqlsh (CQL interactive terminal):</p>
+<div class="highlight-none"><div class="highlight"><pre>cqlsh&gt; CREATE KEYSPACE mykeyspace
+   ... WITH REPLICATION = { &#39;class&#39; : &#39;SimpleStrategy&#39;, &#39;replication_factor&#39; : 1 };
+cqlsh&gt; USE mykeyspace;
+cqlsh:mykeyspace&gt; CREATE TABLE users (
+              ...   user_id int PRIMARY KEY,
+              ...   fname text,
+              ...   lname text
+              ... );
+</pre></div>
+</div>
+<p>This table can be described in Presto:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">DESCRIBE</span> <span class="n">cassandra</span><span class="p">.</span><span class="n">mykeyspace</span><span class="p">.</span><span class="n">users</span><span class="p">;</span>
+</pre></div>
+</div>
+<div class="highlight-none"><div class="highlight"><pre> Column  |  Type   | Null | Partition Key | Comment
+---------+---------+------+---------------+---------
+ user_id | bigint  | true | true          |
+ fname   | varchar | true | false         |
+ lname   | varchar | true | false         |
+(3 rows)
+</pre></div>
+</div>
+<p>This table can then be queried in Presto:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">cassandra</span><span class="p">.</span><span class="n">mykeyspace</span><span class="p">.</span><span class="n">users</span><span class="p">;</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../connector.html">3. Connectors</a>
+    </span>
+    <span class="right">
+        <a href="hive.html">3.2. Hive Connector</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

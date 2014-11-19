@@ -1,0 +1,308 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>6.9. SELECT &mdash; Presto 0.85 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.85',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.85 Documentation" href="../index.html" />
+    <link rel="up" title="6. SQL Statement Syntax" href="../sql.html" />
+    <link rel="next" title="6.10. SHOW CATALOGS" href="show-catalogs.html" />
+    <link rel="prev" title="6.8. INSERT" href="insert.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.85 Documentation</span></a></h1>
+    <h2 class="heading"><span>6.9. SELECT</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="insert.html">6.8. INSERT</a>
+    </span>
+    <span class="right">
+        <a href="show-catalogs.html">6.10. SHOW CATALOGS</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="select">
+<h1>6.9. SELECT</h1>
+<div class="section" id="synopsis">
+<h2>Synopsis</h2>
+<div class="highlight-none"><div class="highlight"><pre>[ WITH with_query [, ...] ]
+SELECT [ ALL | DISTINCT ] select_expr [, ...]
+[ FROM from_item [, ...] ]
+[ WHERE condition ]
+[ GROUP BY expression [, ...] ]
+[ HAVING condition]
+[ UNION [ ALL | DISTINCT ] select ]
+[ ORDER BY expression [ ASC | DESC ] [, ...] ]
+[ LIMIT count ]
+</pre></div>
+</div>
+<p>where <tt class="docutils literal"><span class="pre">from_item</span></tt> is one of</p>
+<div class="highlight-none"><div class="highlight"><pre>table_name [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+</pre></div>
+</div>
+<div class="highlight-none"><div class="highlight"><pre>from_item join_type from_item [ ON join_condition | USING ( join_column [, ...] ) ]
+</pre></div>
+</div>
+</div>
+<div class="section" id="description">
+<h2>Description</h2>
+<p>Retrieve rows from zero or more tables.</p>
+</div>
+<div class="section" id="group-by-clause">
+<h2>GROUP BY Clause</h2>
+<p>The <tt class="docutils literal"><span class="pre">GROUP</span> <span class="pre">BY</span></tt> clause divides the output of a <tt class="docutils literal"><span class="pre">SELECT</span></tt> statement into
+groups of rows containing matching values. A <tt class="docutils literal"><span class="pre">GROUP</span> <span class="pre">BY</span></tt> clause may
+contain any expression composed of input columns or it may be an ordinal
+number selecting an output column by position (starting at one).</p>
+<p>The following queries are equivalent. They both group the output by
+the <tt class="docutils literal"><span class="pre">nationkey</span></tt> input column with the first query using the ordinal
+position of the output column and the second query using the input
+column name:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="k">count</span><span class="p">(</span><span class="o">*</span><span class="p">),</span> <span class="n">nationkey</span> <span class="k">FROM</span> <span class="n">customer</span> <span class="k">GROUP</span> <span class="k">BY</span> <span class="mi">2</span><span class="p">;</span>
+
+<span class="k">SELECT</span> <span class="k">count</span><span class="p">(</span><span class="o">*</span><span class="p">),</span> <span class="n">nationkey</span> <span class="k">FROM</span> <span class="n">customer</span> <span class="k">GROUP</span> <span class="k">BY</span> <span class="n">nationkey</span><span class="p">;</span>
+</pre></div>
+</div>
+<p><tt class="docutils literal"><span class="pre">GROUP</span> <span class="pre">BY</span></tt> clauses can group output by input column names not appearing in
+the output of a select statement. For example, the following query generates
+row counts for the <tt class="docutils literal"><span class="pre">customer</span></tt> table using the input column <tt class="docutils literal"><span class="pre">mktsegment</span></tt>:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="k">count</span><span class="p">(</span><span class="o">*</span><span class="p">)</span> <span class="k">FROM</span> <span class="n">customer</span> <span class="k">GROUP</span> <span class="k">BY</span> <span class="n">mktsegment</span><span class="p">;</span>
+</pre></div>
+</div>
+<div class="highlight-none"><div class="highlight"><pre> _col0
+-------
+ 29968
+ 30142
+ 30189
+ 29949
+ 29752
+(5 rows)
+</pre></div>
+</div>
+<p>When a <tt class="docutils literal"><span class="pre">GROUP</span> <span class="pre">BY</span></tt> clause is used in a <tt class="docutils literal"><span class="pre">SELECT</span></tt> statement all output
+expression must be either aggregate functions or columns present in
+the <tt class="docutils literal"><span class="pre">GROUP</span> <span class="pre">BY</span></tt> clause.</p>
+</div>
+<div class="section" id="having-clause">
+<h2>HAVING Clause</h2>
+<p>The <tt class="docutils literal"><span class="pre">HAVING</span></tt> clause is used in conjunction with aggregate functions and
+the <tt class="docutils literal"><span class="pre">GROUP</span> <span class="pre">BY</span></tt> clause to control which groups are selected. A <tt class="docutils literal"><span class="pre">HAVING</span></tt>
+clause eliminates groups that do not satisfy the given conditions.
+<tt class="docutils literal"><span class="pre">HAVING</span></tt> filters groups after groups and aggregates are computed.</p>
+<p>The following example queries the <tt class="docutils literal"><span class="pre">customer</span></tt> table and selects groups
+with an account balance greater than the specified value:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="k">count</span><span class="p">(</span><span class="o">*</span><span class="p">),</span> <span class="n">mktsegment</span><span class="p">,</span> <span class="n">nationkey</span><span class="p">,</span>
+       <span class="k">CAST</span><span class="p">(</span><span class="k">sum</span><span class="p">(</span><span class="n">acctbal</span><span class="p">)</span> <span class="k">AS</span> <span class="nb">bigint</span><span class="p">)</span> <span class="k">AS</span> <span class="n">totalbal</span>
+<span class="k">FROM</span> <span class="n">customer</span>
+<span class="k">GROUP</span> <span class="k">BY</span> <span class="n">mktsegment</span><span class="p">,</span> <span class="n">nationkey</span>
+<span class="k">HAVING</span> <span class="k">sum</span><span class="p">(</span><span class="n">acctbal</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">5700000</span>
+<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">totalbal</span> <span class="k">DESC</span><span class="p">;</span>
+</pre></div>
+</div>
+<div class="highlight-none"><div class="highlight"><pre> _col0 | mktsegment | nationkey | totalbal
+-------+------------+-----------+----------
+  1272 | AUTOMOBILE |        19 |  5856939
+  1253 | FURNITURE  |        14 |  5794887
+  1248 | FURNITURE  |         9 |  5784628
+  1243 | FURNITURE  |        12 |  5757371
+  1231 | HOUSEHOLD  |         3 |  5753216
+  1251 | MACHINERY  |         2 |  5719140
+  1247 | FURNITURE  |         8 |  5701952
+(7 rows)
+</pre></div>
+</div>
+</div>
+<div class="section" id="union-clause">
+<h2>UNION Clause</h2>
+<p>The <tt class="docutils literal"><span class="pre">UNION</span></tt> clause is used to combine the results of more than one
+select statement into a single result set:</p>
+<div class="highlight-none"><div class="highlight"><pre>query UNION [ALL | DISTINCT] query
+</pre></div>
+</div>
+<p>The argument <tt class="docutils literal"><span class="pre">ALL</span></tt> or <tt class="docutils literal"><span class="pre">DISTINCT</span></tt> controls which rows are included in
+the final result set. If the argument <tt class="docutils literal"><span class="pre">ALL</span></tt> is specified all rows are
+included even if the rows are identical.  If the argument <tt class="docutils literal"><span class="pre">DISTINCT</span></tt>
+is specified only unique rows are included in the combined result set.
+If neither is specified, the behavior defaults to <tt class="docutils literal"><span class="pre">DISTINCT</span></tt>.</p>
+<p>The following is an example of one of the simplest possible <tt class="docutils literal"><span class="pre">UNION</span></tt>
+clauses. The following query selects the value <tt class="docutils literal"><span class="pre">13</span></tt> and combines
+this result set with a second query which selects the value <tt class="docutils literal"><span class="pre">42</span></tt>:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="mi">13</span>
+<span class="k">UNION</span>
+<span class="k">SELECT</span> <span class="mi">42</span><span class="p">;</span>
+</pre></div>
+</div>
+<div class="highlight-none"><div class="highlight"><pre> _col0
+-------
+    13
+    42
+(2 rows)
+</pre></div>
+</div>
+<p>Multiple unions are processed left to right, unless the order is explicitly
+specified via parentheses.</p>
+</div>
+<div class="section" id="order-by-clause">
+<h2>ORDER BY Clause</h2>
+<p>The <tt class="docutils literal"><span class="pre">ORDER</span> <span class="pre">BY</span></tt> clause is used to sort a result set by one or more
+output expressions:</p>
+<div class="highlight-none"><div class="highlight"><pre>ORDER BY expression [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [, ...]
+</pre></div>
+</div>
+<p>Each expression may be composed of output columns or it may be an ordinal
+number selecting an output column by position (starting at one). The
+<tt class="docutils literal"><span class="pre">ORDER</span> <span class="pre">BY</span></tt> clause is evaluated as the last step of a query after any
+<tt class="docutils literal"><span class="pre">GROUP</span> <span class="pre">BY</span></tt> or <tt class="docutils literal"><span class="pre">HAVING</span></tt> clause.</p>
+</div>
+<div class="section" id="limit-clause">
+<h2>LIMIT Clause</h2>
+<p>The <tt class="docutils literal"><span class="pre">LIMIT</span></tt> clause restricts the number of rows in the result set.
+The following example queries a large table, but the limit clause restricts
+the output to only have five rows (because the query lacks an <tt class="docutils literal"><span class="pre">ORDER</span> <span class="pre">BY</span></tt>,
+exactly which rows are returned is arbitrary):</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">orderdate</span> <span class="k">FROM</span> <span class="n">orders</span> <span class="k">LIMIT</span> <span class="mi">5</span><span class="p">;</span>
+</pre></div>
+</div>
+<div class="highlight-none"><div class="highlight"><pre> o_orderdate
+-------------
+ 1996-04-14
+ 1992-01-15
+ 1995-02-01
+ 1995-11-12
+ 1992-04-26
+(5 rows)
+</pre></div>
+</div>
+</div>
+<div class="section" id="tablesample">
+<h2>TABLESAMPLE</h2>
+<p>There are multiple sample methods:</p>
+<dl class="docutils">
+<dt><tt class="docutils literal"><span class="pre">BERNOULLI</span></tt></dt>
+<dd><p class="first">Each row is selected to be in the table sample with a probability of
+the sample percentage. When a table is sampled using the Bernoulli
+method, all physical blocks of the table are scanned and certain
+rows are skipped (based on a comparison between the sample percentage
+and a random value calculated at runtime).</p>
+<p class="last">The probability of a row being included in the result is independent
+from any other row. This does not reduce the time required to read
+the sampled table from disk. It may have an impact on the total
+query time if the sampled output is processed further.</p>
+</dd>
+<dt><tt class="docutils literal"><span class="pre">SYSTEM</span></tt></dt>
+<dd><p class="first">This sampling method divides the table into logical segments of data
+and samples the table at this granularity. This sampling method either
+selects all the rows from a particular segment of data or skips it
+(based on a comparison between the sample percentage and a random
+value calculated at runtime).</p>
+<p class="last">The rows selected in a system sampling will be dependent on which
+connector is used. For example, when used with Hive, it is dependent
+on how the data is laid out on HDFS. This method does not guarantee
+independent sampling probabilities.</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Neither of the two methods allow deterministic bounds on the number of rows returned.</p>
+</div>
+<p>Examples:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="o">*</span>
+<span class="k">FROM</span> <span class="n">users</span> <span class="n">TABLESAMPLE</span> <span class="n">BERNOULLI</span> <span class="p">(</span><span class="mi">50</span><span class="p">);</span>
+
+<span class="k">SELECT</span> <span class="o">*</span>
+<span class="k">FROM</span> <span class="n">users</span> <span class="n">TABLESAMPLE</span> <span class="k">SYSTEM</span> <span class="p">(</span><span class="mi">75</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>Using sampling with joins:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">o</span><span class="p">.</span><span class="o">*</span><span class="p">,</span> <span class="n">i</span><span class="p">.</span><span class="o">*</span>
+<span class="k">FROM</span> <span class="n">orders</span> <span class="n">o</span> <span class="n">TABLESAMPLE</span> <span class="k">SYSTEM</span> <span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+<span class="k">JOIN</span> <span class="n">lineitem</span> <span class="n">i</span> <span class="n">TABLESAMPLE</span> <span class="n">BERNOULLI</span> <span class="p">(</span><span class="mi">40</span><span class="p">)</span>
+  <span class="k">ON</span> <span class="n">o</span><span class="p">.</span><span class="n">orderkey</span> <span class="o">=</span> <span class="n">i</span><span class="p">.</span><span class="n">orderkey</span><span class="p">;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="unnest">
+<span id="id1"></span><h2>UNNEST</h2>
+<p><tt class="docutils literal"><span class="pre">UNNEST</span></tt> can be used to expand an <a class="reference internal" href="../language/types.html#array-type"><em>ARRAY</em></a> or <a class="reference internal" href="../language/types.html#map-type"><em>MAP</em></a> into a relation.
+Arrays are expanded into a single column, and maps are expanded into two columns (key, value).
+<tt class="docutils literal"><span class="pre">UNNEST</span></tt> can also be used with multiple arguments, in which case they are expanded into multiple columns,
+with as many rows as the highest cardinality argument (the other columns are padded with nulls).
+<tt class="docutils literal"><span class="pre">UNNEST</span></tt> is normally used with a <tt class="docutils literal"><span class="pre">JOIN</span></tt> and can reference columns
+from relations on the left side of the join.</p>
+<p>Using a single column:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">student</span><span class="p">,</span> <span class="n">score</span>
+<span class="k">FROM</span> <span class="n">tests</span>
+<span class="k">CROSS</span> <span class="k">JOIN</span> <span class="k">UNNEST</span><span class="p">(</span><span class="n">scores</span><span class="p">)</span> <span class="k">AS</span> <span class="n">t</span> <span class="p">(</span><span class="n">score</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>Using multiple columns:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">numbers</span><span class="p">,</span> <span class="n">animals</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">a</span>
+<span class="k">FROM</span> <span class="p">(</span>
+  <span class="k">VALUES</span>
+    <span class="p">(</span><span class="nb">ARRAY</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span> <span class="nb">ARRAY</span><span class="p">[</span><span class="s1">&#39;dog&#39;</span><span class="p">,</span> <span class="s1">&#39;cat&#39;</span><span class="p">,</span> <span class="s1">&#39;bird&#39;</span><span class="p">]),</span>
+    <span class="p">(</span><span class="nb">ARRAY</span><span class="p">[</span><span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">],</span> <span class="nb">ARRAY</span><span class="p">[</span><span class="s1">&#39;cow&#39;</span><span class="p">,</span> <span class="s1">&#39;pig&#39;</span><span class="p">])</span>
+<span class="p">)</span> <span class="k">AS</span> <span class="n">x</span> <span class="p">(</span><span class="n">numbers</span><span class="p">,</span> <span class="n">animals</span><span class="p">)</span>
+<span class="k">CROSS</span> <span class="k">JOIN</span> <span class="k">UNNEST</span><span class="p">(</span><span class="n">numbers</span><span class="p">,</span> <span class="n">animals</span><span class="p">)</span> <span class="k">AS</span> <span class="n">t</span> <span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">a</span><span class="p">);</span>
+</pre></div>
+</div>
+<div class="highlight-none"><div class="highlight"><pre>  numbers  |     animals      |  n   |  a
+-----------+------------------+------+------
+ [2, 5]    | [dog, cat, bird] |    2 | dog
+ [2, 5]    | [dog, cat, bird] |    5 | cat
+ [2, 5]    | [dog, cat, bird] | NULL | bird
+ [7, 8, 9] | [cow, pig]       |    7 | cow
+ [7, 8, 9] | [cow, pig]       |    8 | pig
+ [7, 8, 9] | [cow, pig]       |    9 | NULL
+(6 rows)
+</pre></div>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="insert.html">6.8. INSERT</a>
+    </span>
+    <span class="right">
+        <a href="show-catalogs.html">6.10. SHOW CATALOGS</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
