@@ -157,7 +157,7 @@ public abstract class AbstractType
             return false;
         }
 
-        return true;
+        return this.getTypeSignature().equals(((AbstractType) o).getTypeSignature());
     }
 
     @Override
