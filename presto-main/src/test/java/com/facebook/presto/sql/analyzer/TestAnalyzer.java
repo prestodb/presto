@@ -428,12 +428,30 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testWithCaseInsensitiveResolution()
+            throws Exception
+    {
+        // TODO: verify output
+        analyze("WITH AB AS (SELECT * FROM t1) SELECT * FROM ab");
+    }
+
+    @Test
     public void testDuplicateWithQuery()
             throws Exception
     {
         assertFails(DUPLICATE_RELATION,
                 "WITH a AS (SELECT * FROM t1)," +
                         "     a AS (SELECT * FROM t1)" +
+                        "SELECT * FROM a");
+    }
+
+    @Test
+    public void testCaseInsensitiveDuplicateWithQuery()
+            throws Exception
+    {
+        assertFails(DUPLICATE_RELATION,
+                "WITH a AS (SELECT * FROM t1)," +
+                        "     A AS (SELECT * FROM t1)" +
                         "SELECT * FROM a");
     }
 

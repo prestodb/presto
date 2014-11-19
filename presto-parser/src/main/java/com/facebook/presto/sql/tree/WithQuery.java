@@ -29,7 +29,7 @@ public class WithQuery
 
     public WithQuery(String name, Query query, List<String> columnNames)
     {
-        this.name = checkNotNull(name, "name is null");
+        this.name = QualifiedName.of(checkNotNull(name, "name is null")).getParts().get(0);
         this.query = checkNotNull(query, "query is null");
         this.columnNames = columnNames;
     }
