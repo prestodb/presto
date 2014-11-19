@@ -19,12 +19,14 @@ import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -190,7 +192,7 @@ public class QueryStateMachine
                 totalUserTime += stageStats.getTotalUserTime().roundTo(NANOSECONDS);
                 totalBlockedTime += stageStats.getTotalBlockedTime().roundTo(NANOSECONDS);
 
-                if (stageInfo.getSubStages().isEmpty()) {
+                if (Iterables.any(stageInfo.getPlan().getSources(), Predicates.instanceOf(TableScanNode.class))) {
                     rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
                     rawInputPositions += stageStats.getRawInputPositions();
 
