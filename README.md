@@ -7,7 +7,7 @@ See the [User Manual](http://prestodb.io/docs/current/) for deployment instructi
 ## Requirements
 
 * Mac OS X or Linux
-* Java 7, 64-bit
+* Java 8, 64-bit
 * Maven 3.1.1+ (for building)
 * Python 2.4+ (for running with the launcher script)
 
@@ -32,8 +32,8 @@ After building Presto for the first time, you can load the project into your IDE
 After opening the project in IntelliJ, double check that the Java SDK is properly configured properly for the project:
 
 * Open the File menu and select Project Structure
-* In the SDKs section, ensure that a 1.7 JDK is selected (create one if none exist)
-* In the Project section, ensure the Project language level is set to 7.0 as Presto makes use of several Java 7 language features
+* In the SDKs section, ensure that a 1.8 JDK is selected (create one if none exist)
+* In the Project section, ensure the Project language level is set to 8.0 as Presto makes use of several Java 8 language features
 
 Presto comes with sample configuration that should work out-of-the-box for development. Use the following options to create a run configuration:
 

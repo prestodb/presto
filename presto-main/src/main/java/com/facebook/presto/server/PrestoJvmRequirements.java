@@ -13,9 +13,7 @@
  */
 package com.facebook.presto.server;
 
-import com.google.common.base.Splitter;
 import com.google.common.base.StandardSystemProperty;
-import com.google.common.collect.Iterables;
 
 import java.nio.ByteOrder;
 
@@ -26,18 +24,13 @@ final class PrestoJvmRequirements
     public static void verifyJvmRequirements()
     {
         String specVersion = StandardSystemProperty.JAVA_SPECIFICATION_VERSION.value();
-        if (specVersion.compareTo("1.7") < 0) {
-            failRequirement("Presto requires Java 1.7+ (found %s)", specVersion);
+        if (specVersion.compareTo("1.8") < 0) {
+            failRequirement("Presto requires Java 1.8+ (found %s)", specVersion);
         }
 
         String vendor = StandardSystemProperty.JAVA_VENDOR.value();
         if (!vendor.equals("Oracle Corporation")) {
             failRequirement("Presto requires an Oracle or OpenJDK JVM (found %s)", vendor);
-        }
-
-        String version = StandardSystemProperty.JAVA_VERSION.value();
-        if (jdkVersion(version).equals("1.7.0") && (jdkUpdate(version).compareTo("06") < 0)) {
-            failRequirement("Presto requires Oracle JDK 7u6+ (found %s)", version);
         }
 
         String osName = StandardSystemProperty.OS_NAME.value();
@@ -66,15 +59,5 @@ final class PrestoJvmRequirements
     {
         System.err.println(String.format(format, args));
         System.exit(100);
-    }
-
-    private static String jdkVersion(String version)
-    {
-        return Splitter.on('_').split(version).iterator().next();
-    }
-
-    private static String jdkUpdate(String version)
-    {
-        return Iterables.get(Splitter.on('_').split(version), 1, "");
     }
 }
