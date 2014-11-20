@@ -49,6 +49,7 @@ import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.operator.scalar.UrlFunctions;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.operator.window.CumulativeDistributionFunction;
+import com.facebook.presto.operator.window.NTileFunction;
 import com.facebook.presto.operator.window.DenseRankFunction;
 import com.facebook.presto.operator.window.FirstValueFunction.BigintFirstValueFunction;
 import com.facebook.presto.operator.window.FirstValueFunction.BooleanFirstValueFunction;
@@ -189,6 +190,7 @@ public class FunctionRegistry
                 .window("dense_rank", BIGINT, ImmutableList.<Type>of(), DenseRankFunction.class)
                 .window("percent_rank", DOUBLE, ImmutableList.<Type>of(), PercentRankFunction.class)
                 .window("cume_dist", DOUBLE, ImmutableList.<Type>of(), CumulativeDistributionFunction.class)
+                .window("ntile", BIGINT, ImmutableList.<Type>of(BIGINT), NTileFunction.class)
                 .window("first_value", BIGINT, ImmutableList.<Type>of(BIGINT), BigintFirstValueFunction.class)
                 .window("first_value", DOUBLE, ImmutableList.<Type>of(DOUBLE), DoubleFirstValueFunction.class)
                 .window("first_value", BOOLEAN, ImmutableList.<Type>of(BOOLEAN), BooleanFirstValueFunction.class)

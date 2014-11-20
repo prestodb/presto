@@ -383,6 +383,81 @@ public class TestWindowFunctions
     }
 
     @Test
+    public void testNTile()
+            throws Exception
+    {
+        assertWindowQuery("ntile(4) OVER (ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(1, "O", 1)
+                        .row(2, "O", 1)
+                        .row(3, "F", 1)
+                        .row(4, "O", 2)
+                        .row(5, "F", 2)
+                        .row(6, "F", 2)
+                        .row(7, "O", 3)
+                        .row(32, "O", 3)
+                        .row(33, "F", 4)
+                        .row(34, "O", 4)
+                        .build(), queryRunner);
+
+        assertWindowQuery("ntile(6) OVER (ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(1, "O", 1)
+                        .row(2, "O", 1)
+                        .row(3, "F", 2)
+                        .row(4, "O", 2)
+                        .row(5, "F", 3)
+                        .row(6, "F", 3)
+                        .row(7, "O", 4)
+                        .row(32, "O", 4)
+                        .row(33, "F", 5)
+                        .row(34, "O", 6)
+                        .build(), queryRunner);
+
+        assertWindowQuery("ntile(20) OVER (ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(1, "O", 1)
+                        .row(2, "O", 2)
+                        .row(3, "F", 3)
+                        .row(4, "O", 4)
+                        .row(5, "F", 5)
+                        .row(6, "F", 6)
+                        .row(7, "O", 7)
+                        .row(32, "O", 8)
+                        .row(33, "F", 9)
+                        .row(34, "O", 10)
+                        .build(), queryRunner);
+
+        assertWindowQuery("ntile(orderkey) OVER (ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(1, "O", 1)
+                        .row(2, "O", 1)
+                        .row(3, "F", 1)
+                        .row(4, "O", 2)
+                        .row(5, "F", 3)
+                        .row(6, "F", 3)
+                        .row(7, "O", 4)
+                        .row(32, "O", 8)
+                        .row(33, "F", 9)
+                        .row(34, "O", 10)
+                        .build(), queryRunner);
+
+        assertWindowQueryWithNulls("ntile(orderkey) OVER (ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(1, null, 1)
+                        .row(3, "F", 1)
+                        .row(5, "F", 2)
+                        .row(7, null, 2)
+                        .row(34, "O", 5)
+                        .row(null, "F", null)
+                        .row(null, "F", null)
+                        .row(null, "O", null)
+                        .row(null, null, null)
+                        .row(null, null, null)
+                        .build(), queryRunner);
+    }
+
+    @Test
     public void testFirstValue()
     {
         assertWindowQuery("first_value(orderdate) OVER (PARTITION BY orderstatus ORDER BY orderkey)",

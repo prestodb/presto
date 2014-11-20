@@ -39,6 +39,17 @@ Ranking Functions
     Returns the rank of a value in a group of values. This is similar to
     :func:`rank`, except that tie values do not produce gaps in the sequence.
 
+.. function:: ntile(n) -> bigint
+
+    Divides the rows for each window partition into ``n`` buckets ranging
+    from ``1`` to at most ``n``. Bucket values will differ by at most ``1``.
+    If the number of rows in the partition does not divide evenly into the
+    number of buckets, then the remainder values are distributed one per
+    bucket, starting with the first bucket.
+
+    For example, with ``6`` rows and ``4`` buckets, the bucket values would
+    be as follows: ``1`` ``1`` ``2`` ``2`` ``3`` ``4``
+
 .. function:: percent_rank() -> bigint
 
     Returns the percentage ranking of a value in group of values. The result
@@ -57,18 +68,17 @@ Ranking Functions
     Returns a unique, sequential number for each row, starting with one,
     according to the ordering of rows within the window partition.
 
-
 Value Functions
 ---------------
 
 .. warning::
+
     These functions do not respect the window frame (default or specified) and
     instead operate on the entire partition.  This is equivalent to ``RANGE
     BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING``.  In a future
     release, these functions will be changed to respect the window frame and to
     use the standard default window frame ``RANGE BETWEEN UNBOUNDED PRECEDING
     AND CURRENT ROW``.
-
 
 .. function:: first_value(x) -> [same as input]
 
@@ -101,4 +111,3 @@ Value Functions
     offset can be any scalar expression.  The default ``offset`` is ``1``. If the
     offset is null or larger than the window, the ``default_value`` is returned,
     or if it is not specified ``null`` is returned.
-
