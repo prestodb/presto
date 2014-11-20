@@ -237,6 +237,28 @@ public class TestJsonFunctions
         assertFunction(format("JSON_SIZE(CAST('%s' AS JSON), null)", "[1,2,3]"), null);
     }
 
+    @Test
+    public void testJsonEquality()
+    {
+        assertFunction("CAST('[1,2,3]' AS JSON) = CAST('[1,2,3]' AS JSON)", true);
+        assertFunction("CAST('{\"a\":1, \"b\":2}' AS JSON) = CAST('{\"b\":2, \"a\":1}' AS JSON)", true);
+        assertFunction("CAST('null' AS JSON) = CAST('null' AS JSON)", true);
+        assertFunction("CAST('true' AS JSON) = CAST('true' AS JSON)", true);
+        assertFunction("CAST('{\"x\":\"y\"}' AS JSON) = CAST('{\"x\":\"y\"}' AS JSON)", true);
+        assertFunction("CAST('[1,2,3]' AS JSON) = CAST('[2,3,1]' AS JSON)", false);
+        assertFunction("CAST('{\"p_1\": 1, \"p_2\":\"v_2\", \"p_3\":null, \"p_4\":true, \"p_5\": {\"p_1\":1}}' AS JSON) = " +
+                "CAST('{\"p_2\":\"v_2\", \"p_4\":true, \"p_1\": 1, \"p_3\":null, \"p_5\": {\"p_1\":1}}' AS JSON)", true);
+
+        assertFunction("CAST('[1,2,3]' AS JSON) != CAST('[1,2,3]' AS JSON)", false);
+        assertFunction("CAST('{\"a\":1, \"b\":2}' AS JSON) != CAST('{\"b\":2, \"a\":1}' AS JSON)", false);
+        assertFunction("CAST('null' AS JSON) != CAST('null' AS JSON)", false);
+        assertFunction("CAST('true' AS JSON) != CAST('true' AS JSON)", false);
+        assertFunction("CAST('{\"x\":\"y\"}' AS JSON) != CAST('{\"x\":\"y\"}' AS JSON)", false);
+        assertFunction("CAST('[1,2,3]' AS JSON) != CAST('[2,3,1]' AS JSON)", true);
+        assertFunction("CAST('{\"p_1\": 1, \"p_2\":\"v_2\", \"p_3\":null, \"p_4\":true, \"p_5\": {\"p_1\":1}}' AS JSON) != " +
+                "CAST('{\"p_2\":\"v_2\", \"p_4\":true, \"p_1\": 1, \"p_3\":null, \"p_5\": {\"p_1\":1}}' AS JSON)", false);
+    }
+
     private void assertFunction(String projection, Object expected)
     {
         functionAssertions.assertFunction(projection, expected);
