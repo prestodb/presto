@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
@@ -34,10 +35,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class VerifierConfig
 {
-    private String testUsername = "verifier-test";
-    private String controlUsername = "verifier-test";
-    private String testPassword;
-    private String controlPassword;
+    private String testUsernameOverride;
+    private String controlUsernameOverride;
+    private String testPasswordOverride;
+    private String controlPasswordOverride;
     private List<String> suites;
     private String source;
     private String runId = new DateTime().toString("yyyy-MM-dd");
@@ -404,31 +405,33 @@ public class VerifierConfig
         return this;
     }
 
-    @NotNull
-    public String getTestUsername()
+    @Nullable
+    public String getTestUsernameOverride()
     {
-        return testUsername;
+        return testUsernameOverride;
     }
 
     @ConfigDescription("Username for test cluster")
-    @Config("test.username")
-    public VerifierConfig setTestUsername(String testUsername)
+    @Config("test.username-override")
+    @LegacyConfig("test.username")
+    public VerifierConfig setTestUsernameOverride(String testUsernameOverride)
     {
-        this.testUsername = testUsername;
+        this.testUsernameOverride = testUsernameOverride;
         return this;
     }
 
     @Nullable
-    public String getTestPassword()
+    public String getTestPasswordOverride()
     {
-        return testPassword;
+        return testPasswordOverride;
     }
 
     @ConfigDescription("Password for test cluster")
-    @Config("test.password")
-    public VerifierConfig setTestPassword(String testPassword)
+    @Config("test.password-override")
+    @LegacyConfig("test.password")
+    public VerifierConfig setTestPasswordOverride(String testPasswordOverride)
     {
-        this.testPassword = testPassword;
+        this.testPasswordOverride = testPasswordOverride;
         return this;
     }
 
@@ -485,31 +488,33 @@ public class VerifierConfig
         return this;
     }
 
-    @NotNull
-    public String getControlUsername()
+    @Nullable
+    public String getControlUsernameOverride()
     {
-        return controlUsername;
+        return controlUsernameOverride;
     }
 
     @ConfigDescription("Username for control cluster")
-    @Config("control.username")
-    public VerifierConfig setControlUsername(String controlUsername)
+    @Config("control.username-override")
+    @LegacyConfig("control.username")
+    public VerifierConfig setControlUsernameOverride(String controlUsernameOverride)
     {
-        this.controlUsername = controlUsername;
+        this.controlUsernameOverride = controlUsernameOverride;
         return this;
     }
 
     @Nullable
-    public String getControlPassword()
+    public String getControlPasswordOverride()
     {
-        return controlPassword;
+        return controlPasswordOverride;
     }
 
     @ConfigDescription("Password for control cluster")
-    @Config("control.password")
-    public VerifierConfig setControlPassword(String controlPassword)
+    @Config("control.password-override")
+    @LegacyConfig("control.password")
+    public VerifierConfig setControlPasswordOverride(String controlPasswordOverride)
     {
-        this.controlPassword = controlPassword;
+        this.controlPasswordOverride = controlPasswordOverride;
         return this;
     }
 

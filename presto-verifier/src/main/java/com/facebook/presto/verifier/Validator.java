@@ -84,10 +84,10 @@ public class Validator
     public Validator(VerifierConfig config, QueryPair queryPair)
     {
         checkNotNull(config, "config is null");
-        this.testUsername = checkNotNull(config.getTestUsername(), "test username is null");
-        this.controlUsername = checkNotNull(config.getControlUsername(), "control username is null");
-        this.testPassword = config.getTestPassword();
-        this.controlPassword = config.getControlPassword();
+        this.testUsername = checkNotNull(queryPair.getTest().getUsername(), "test username is null");
+        this.controlUsername = checkNotNull(queryPair.getControl().getUsername(), "control username is null");
+        this.testPassword = queryPair.getTest().getPassword();
+        this.controlPassword = queryPair.getControl().getPassword();
         this.controlGateway = checkNotNull(config.getControlGateway(), "controlGateway is null");
         this.testGateway = checkNotNull(config.getTestGateway(), "testGateway is null");
         this.controlTimeout = config.getControlTimeout();
