@@ -29,7 +29,9 @@ public class QueryPairMapper
         return new QueryPair(
                 rs.getString("suite"),
                 rs.getString("name"),
-                new Query(rs.getString("test_catalog"), rs.getString("test_schema"), rs.getString("test_query")),
-                new Query(rs.getString("control_catalog"), rs.getString("control_schema"), rs.getString("control_query")));
+                new Query(rs.getString("test_catalog"), rs.getString("test_schema"), rs.getString("test_query"),
+                            rs.getString("test_username"), rs.getString("test_password")),
+                new Query(rs.getString("control_catalog"), rs.getString("control_schema"), rs.getString("control_query"),
+                            rs.getString("control_username"), rs.getString("control_password")));
     }
 }
