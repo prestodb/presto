@@ -29,6 +29,8 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import io.airlift.tpch.LineItem;
 import io.airlift.tpch.LineItemColumn;
 import io.airlift.tpch.LineItemGenerator;
@@ -133,6 +135,7 @@ public final class BenchmarkHiveFileFormats
     private static final JobConf JOB_CONF = new JobConf();
     private static final ImmutableList<? extends TpchColumn<?>> COLUMNS = ImmutableList.copyOf(LineItemColumn.values());
 
+    private static final long FILTER_ORDER_KEY_ID = 300_000L;
     private static final List<HiveColumnHandle> BIGINT_COLUMN = getHiveColumnHandles(ORDER_KEY);
     private static final List<Integer> BIGINT_COLUMN_INDEX = ImmutableList.copyOf(transform(BIGINT_COLUMN, HiveColumnHandle::getHiveColumnIndex));
 
@@ -539,6 +542,40 @@ public final class BenchmarkHiveFileFormats
                         );
                     }
                     logDuration("lazy", benchmarkFile.getName(), "page", compressionType, start, loopCount, result);
+                }
+            }
+        }
+
+        setReadColumns(JOB_CONF, ALL_COLUMN_INDEXES);
+        for (BenchmarkFile benchmarkFile : benchmarkFiles) {
+            for (HiveRecordCursorProvider recordCursorProvider : benchmarkFile.getRecordCursorProviders()) {
+                for (CompressionType compressionType : compressionTypes) {
+                    double result = 0;
+                    start = System.nanoTime();
+                    for (int loop = 0; loop < loopCount; loop++) {
+                        // cursor interface doesn't support predicate pushdown
+                        result = benchmarkReadAll(
+                                createFileSplit(benchmarkFile.getFile(compressionType)),
+                                createPartitionProperties(benchmarkFile),
+                                recordCursorProvider
+                        );
+                    }
+                    logDuration("pushdown", benchmarkFile.getName(), getCursorType(recordCursorProvider), compressionType, start, loopCount, result);
+                }
+            }
+
+            for (HivePageSourceFactory pageSourceFactory : benchmarkFile.getPageSourceFactory()) {
+                for (CompressionType compressionType : compressionTypes) {
+                    double result = 0;
+                    start = System.nanoTime();
+                    for (int loop = 0; loop < loopCount; loop++) {
+                        result = benchmarkPredicatePushDown(
+                                createFileSplit(benchmarkFile.getFile(compressionType)),
+                                createPartitionProperties(benchmarkFile),
+                                pageSourceFactory
+                        );
+                    }
+                    logDuration("pushdown", benchmarkFile.getName(), "page", compressionType, start, loopCount, result);
                 }
             }
         }
@@ -1319,6 +1356,198 @@ public final class BenchmarkHiveFileFormats
                 for (int position = 0; position < block.getPositionCount(); position++) {
                     if (!block.isNull(position)) {
                         sum += BIGINT.getLong(block, position);
+                    }
+                }
+            }
+            pageSource.close();
+        }
+        return sum;
+    }
+
+    private static double benchmarkPredicatePushDown(
+            FileSplit fileSplit,
+            Properties partitionProperties,
+            HiveRecordCursorProvider hiveRecordCursorProvider)
+            throws IOException
+    {
+        HiveSplit split = createHiveSplit(fileSplit, partitionProperties);
+
+        double sum = 0;
+        for (int i = 0; i < LOOPS; i++) {
+            sum = 0;
+
+            HiveRecordCursor recordCursor = hiveRecordCursorProvider.createHiveRecordCursor(
+                    split.getClientId(),
+                    new Configuration(),
+                    split.getSession(),
+                    new Path(split.getPath()),
+                    split.getStart(),
+                    split.getLength(),
+                    split.getSchema(),
+                    ALL_COLUMNS,
+                    split.getPartitionKeys(),
+                    TupleDomain.<HiveColumnHandle>all(),
+                    DateTimeZone.UTC,
+                    TYPE_MANAGER).get();
+
+            while (recordCursor.advanceNextPosition()) {
+                if (!recordCursor.isNull(0)) {
+                    long orderKey = recordCursor.getLong(0);
+                    if (orderKey != FILTER_ORDER_KEY_ID) {
+                        continue;
+                    }
+                    sum += orderKey;
+                }
+                if (!recordCursor.isNull(1)) {
+                    sum += recordCursor.getLong(1);
+                }
+                if (!recordCursor.isNull(2)) {
+                    sum += recordCursor.getLong(2);
+                }
+                if (!recordCursor.isNull(3)) {
+                    sum += recordCursor.getLong(3);
+                }
+                if (!recordCursor.isNull(4)) {
+                    sum += recordCursor.getLong(4);
+                }
+                if (!recordCursor.isNull(5)) {
+                    sum += recordCursor.getDouble(5);
+                }
+                if (!recordCursor.isNull(6)) {
+                    sum += recordCursor.getDouble(6);
+                }
+                if (!recordCursor.isNull(7)) {
+                    sum += recordCursor.getDouble(7);
+                }
+                if (!recordCursor.isNull(8)) {
+                    sum += recordCursor.getSlice(8).length();
+                }
+                if (!recordCursor.isNull(9)) {
+                    sum += recordCursor.getSlice(9).length();
+                }
+                if (!recordCursor.isNull(10)) {
+                    sum += recordCursor.getSlice(10).length();
+                }
+                if (!recordCursor.isNull(11)) {
+                    sum += recordCursor.getSlice(11).length();
+                }
+                if (!recordCursor.isNull(12)) {
+                    sum += recordCursor.getSlice(12).length();
+                }
+                if (!recordCursor.isNull(13)) {
+                    sum += recordCursor.getSlice(13).length();
+                }
+                if (!recordCursor.isNull(14)) {
+                    sum += recordCursor.getSlice(14).length();
+                }
+                if (!recordCursor.isNull(15)) {
+                    sum += recordCursor.getSlice(15).length();
+                }
+            }
+            recordCursor.close();
+        }
+        return sum;
+    }
+
+    private static double benchmarkPredicatePushDown(
+            FileSplit fileSplit,
+            Properties partitionProperties,
+            HivePageSourceFactory pageSourceFactory)
+            throws IOException
+    {
+        HiveSplit split = createHiveSplit(fileSplit, partitionProperties);
+
+        double sum = 0;
+        for (int i = 0; i < LOOPS; i++) {
+            sum = 0;
+
+            ConnectorPageSource pageSource = pageSourceFactory.createPageSource(
+                    new Configuration(),
+                    split.getSession(),
+                    new Path(split.getPath()),
+                    split.getStart(),
+                    split.getLength(),
+                    split.getSchema(),
+                    ALL_COLUMNS,
+                    split.getPartitionKeys(),
+                    TupleDomain.withFixedValues(ImmutableMap.<HiveColumnHandle, Comparable<?>>of(Iterables.getOnlyElement(getHiveColumnHandles(ORDER_KEY)), FILTER_ORDER_KEY_ID)),
+                    DateTimeZone.UTC).get();
+
+            while (!pageSource.isFinished()) {
+                Page page = pageSource.getNextPage();
+                if (page == null) {
+                    continue;
+                }
+
+                Block block0 = page.getBlock(0);
+                Block block1 = page.getBlock(1);
+                Block block2 = page.getBlock(2);
+                Block block3 = page.getBlock(3);
+                Block block4 = page.getBlock(4);
+                Block block5 = page.getBlock(5);
+                Block block6 = page.getBlock(6);
+                Block block7 = page.getBlock(7);
+                Block block8 = page.getBlock(8);
+                Block block9 = page.getBlock(9);
+                Block block10 = page.getBlock(10);
+                Block block11 = page.getBlock(11);
+                Block block12 = page.getBlock(12);
+                Block block13 = page.getBlock(13);
+                Block block14 = page.getBlock(14);
+                Block block15 = page.getBlock(15);
+
+                for (int position = 0; position < page.getPositionCount(); position++) {
+                    if (!block0.isNull(position)) {
+                        long orderKey = BIGINT.getLong(block0, position);
+                        if (orderKey != FILTER_ORDER_KEY_ID) {
+                            continue;
+                        }
+                        sum += orderKey;
+                    }
+                    if (!block1.isNull(position)) {
+                        sum += BIGINT.getLong(block1, position);
+                    }
+                    if (!block2.isNull(position)) {
+                        sum += BIGINT.getLong(block2, position);
+                    }
+                    if (!block3.isNull(position)) {
+                        sum += BIGINT.getLong(block3, position);
+                    }
+                    if (!block4.isNull(position)) {
+                        sum += BIGINT.getLong(block4, position);
+                    }
+                    if (!block5.isNull(position)) {
+                        sum += DOUBLE.getDouble(block5, position);
+                    }
+                    if (!block6.isNull(position)) {
+                        sum += DOUBLE.getDouble(block6, position);
+                    }
+                    if (!block7.isNull(position)) {
+                        sum += DOUBLE.getDouble(block7, position);
+                    }
+                    if (!block8.isNull(position)) {
+                        sum += VARCHAR.getSlice(block8, position).length();
+                    }
+                    if (!block9.isNull(position)) {
+                        sum += VARCHAR.getSlice(block9, position).length();
+                    }
+                    if (!block10.isNull(position)) {
+                        sum += VARCHAR.getSlice(block10, position).length();
+                    }
+                    if (!block11.isNull(position)) {
+                        sum += VARCHAR.getSlice(block11, position).length();
+                    }
+                    if (!block12.isNull(position)) {
+                        sum += VARCHAR.getSlice(block12, position).length();
+                    }
+                    if (!block13.isNull(position)) {
+                        sum += VARCHAR.getSlice(block13, position).length();
+                    }
+                    if (!block14.isNull(position)) {
+                        sum += VARCHAR.getSlice(block14, position).length();
+                    }
+                    if (!block15.isNull(position)) {
+                        sum += VARCHAR.getSlice(block15, position).length();
                     }
                 }
             }
