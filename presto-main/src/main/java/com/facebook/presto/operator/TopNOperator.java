@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -212,10 +213,13 @@ public class TopNOperator
             }
 
             // Only partial aggregation can flush early. Also, check that we are not flushing tiny bits at a time
-            checkState(finishing || partial, "Task exceeded max memory size of %s", memoryManager.getMaxMemorySize());
-
-            outputIterator = topNBuilder.build();
-            topNBuilder = null;
+            if (finishing || partial) {
+                outputIterator = topNBuilder.build();
+                topNBuilder = null;
+            }
+            else {
+                throw new ExceededMemoryLimitException(memoryManager.getMaxMemorySize());
+            }
         }
 
         pageBuilder.reset();
