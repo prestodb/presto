@@ -178,6 +178,15 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testOrderByNonComparable()
+            throws Exception
+    {
+        assertFails(TYPE_MISMATCH, "SELECT x FROM (SELECT approx_set(1) x) ORDER BY 1");
+        assertFails(TYPE_MISMATCH, "SELECT * FROM (SELECT approx_set(1) x) ORDER BY 1");
+        assertFails(TYPE_MISMATCH, "SELECT x FROM (SELECT approx_set(1) x) ORDER BY x");
+    }
+
+    @Test
     public void testNestedAggregation()
             throws Exception
     {
