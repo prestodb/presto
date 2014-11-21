@@ -15,6 +15,8 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.server.SliceSerializer;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -30,8 +32,12 @@ import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
+import static com.facebook.presto.type.TypeJsonUtils.createBlock;
+import static com.facebook.presto.type.TypeJsonUtils.getObjectList;
 import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -78,6 +84,72 @@ public class ArrayType
         }
         catch (JsonProcessingException e) {
             throw Throwables.propagate(e);
+        }
+    }
+
+    @Override
+    public boolean isComparable()
+    {
+        return elementType.isComparable();
+    }
+
+    @Override
+    public boolean isOrderable()
+    {
+        return elementType.isOrderable();
+    }
+
+    @Override
+    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        return compareTo(leftBlock, leftPosition, rightBlock, rightPosition) == 0;
+    }
+
+    @Override
+    public int hash(Block block, int position)
+    {
+        Slice value = getSlice(block, position);
+        List<Object> array = getObjectList(value);
+        List<Integer> hashArray = new ArrayList<Integer>();
+        for (Object element : array) {
+            checkElementNotNull(element);
+            hashArray.add(elementType.hash(createBlock(elementType, element), 0));
+        }
+        return Objects.hash(hashArray);
+    }
+
+    @Override
+    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        Slice leftSlice = getSlice(leftBlock, leftPosition);
+        Slice rightSlice = getSlice(rightBlock, rightPosition);
+        List<Object> leftArray = getObjectList(leftSlice);
+        List<Object> rightArray = getObjectList(rightSlice);
+
+        int len = Math.min(leftArray.size(), rightArray.size());
+        int index = 0;
+        while (index < len) {
+            checkElementNotNull(leftArray.get(index));
+            checkElementNotNull(rightArray.get(index));
+            int comparison = elementType.compareTo(createBlock(elementType, leftArray.get(index)), 0,
+                    createBlock(elementType, rightArray.get(index)), 0);
+            if (comparison != 0) {
+                return comparison;
+            }
+            index++;
+        }
+
+        if (index == len) {
+            return leftArray.size() - rightArray.size();
+        }
+
+        return 0;
+    }
+
+    private static void checkElementNotNull(Object element)
+    {
+        if (element == null) {
+            throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "ARRAY comparison not supported for arrays with null elements");
         }
     }
 

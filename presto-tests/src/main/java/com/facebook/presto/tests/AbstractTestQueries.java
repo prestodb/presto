@@ -712,6 +712,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByArray()
+            throws Exception
+    {
+        assertQuery("SELECT col[1], count FROM (SELECT ARRAY[custkey] col, COUNT(*) count FROM ORDERS GROUP BY 1 ORDER BY 1)", "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey ORDER BY custkey");
+    }
+
+    @Test
     public void testGroupByNoAggregations()
             throws Exception
     {
