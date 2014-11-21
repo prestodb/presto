@@ -724,6 +724,19 @@ public class TupleAnalyzer
                     }
 
                     orderByExpression = outputExpressions.get((int) (ordinal - 1));
+
+                    if (orderByExpression.isExpression()) {
+                        Type type = analysis.getType(orderByExpression.getExpression());
+                        if (!type.isOrderable()) {
+                            throw new SemanticException(TYPE_MISMATCH, node, "The type of expression in position %s is not orderable (actual: %s), and therefore cannot be used in ORDER BY: %s", ordinal, type, orderByExpression);
+                        }
+                    }
+                    else {
+                        Type type = tupleDescriptor.getFieldByIndex(orderByExpression.getFieldIndex()).getType();
+                        if (!type.isOrderable()) {
+                            throw new SemanticException(TYPE_MISMATCH, node, "The type of expression in position %s is not orderable (actual: %s), and therefore cannot be used in ORDER BY", ordinal, type);
+                        }
+                    }
                 }
 
                 // otherwise, just use the expression as is
@@ -741,6 +754,11 @@ public class TupleAnalyzer
                             context,
                             orderByExpression.getExpression());
                     analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
+
+                    Type type = expressionAnalysis.getType(orderByExpression.getExpression());
+                    if (!type.isOrderable()) {
+                        throw new SemanticException(TYPE_MISMATCH, node, "Type %s is not orderable, and therefore cannot be used in ORDER BY: %s", type, expression);
+                    }
                 }
 
                 orderByExpressionsBuilder.add(orderByExpression);
