@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
@@ -40,18 +41,21 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
+import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.Use;
+import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
@@ -59,8 +63,11 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_FUNCTIONS;
@@ -372,6 +379,52 @@ class StatementAnalyzer
                 ImmutableList.<SortItem>of(),
                 Optional.empty(),
                 Optional.empty());
+
+        return process(query, context);
+    }
+
+    @Override
+    protected TupleDescriptor visitShowSession(ShowSession node, AnalysisContext context)
+    {
+        ImmutableList.Builder<Row> rows = ImmutableList.builder();
+        for (Entry<String, String> property : new TreeMap<>(session.getSystemProperties()).entrySet()) {
+            rows.add(new Row(ImmutableList.<Expression>of(
+                    new StringLiteral(property.getKey()),
+                    new StringLiteral(property.getValue()),
+                    new BooleanLiteral("true"))));
+        }
+        for (Entry<String, Map<String, String>> entry : new TreeMap<>(session.getCatalogProperties()).entrySet()) {
+            String catalog = entry.getKey();
+            for (Entry<String, String> property : new TreeMap<>(entry.getValue()).entrySet()) {
+                rows.add(new Row(ImmutableList.<Expression>of(
+                        new StringLiteral(catalog + "." + property.getKey()),
+                        new StringLiteral(property.getValue()),
+                        new BooleanLiteral("true"))));
+            }
+        }
+
+        // add bogus row so we can support empty sessions
+        rows.add(new Row(ImmutableList.<Expression>of(new StringLiteral(""), new StringLiteral(""), new BooleanLiteral("false"))));
+
+        Query query = new Query(
+                Optional.<With>empty(),
+                new QuerySpecification(
+                        selectList(
+                                aliasedName("name", "Name"),
+                                aliasedName("value", "Value")),
+                        Optional.of(aliased(
+                                new Values(rows.build()),
+                                "session",
+                                ImmutableList.of("name", "value", "include"))),
+                        Optional.<Expression>empty(),
+                        ImmutableList.<Expression>of(),
+                        Optional.<Expression>of(nameReference("include")),
+                        ImmutableList.<SortItem>of(),
+                        Optional.<String>empty()
+                ),
+                ImmutableList.<SortItem>of(),
+                Optional.<String>empty(),
+                Optional.<Approximate>empty());
 
         return process(query, context);
     }

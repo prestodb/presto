@@ -73,6 +73,7 @@ tokens {
     SHOW_COLUMNS;
     SHOW_PARTITIONS;
     SHOW_FUNCTIONS;
+    SHOW_SESSION;
     USE;
     SESSION_SET;
     CREATE_TABLE;
@@ -168,6 +169,7 @@ statement
     | showPartitionsStmt
     | showFunctionsStmt
     | useStatement
+    | showSessionStmt
     | sessionStmt
     | createTableStmt
     | insertStmt
@@ -648,6 +650,10 @@ showPartitionsStmt
 
 showFunctionsStmt
     : SHOW FUNCTIONS -> SHOW_FUNCTIONS
+    ;
+
+showSessionStmt
+    : SHOW SESSION -> SHOW_SESSION
     ;
 
 dropTableStmt
