@@ -19,11 +19,13 @@ import com.facebook.presto.spi.type.TimeZoneKey;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 
 import javax.annotation.Nullable;
 
 import java.net.URI;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -62,8 +64,8 @@ public final class Session
             @JsonProperty("remoteUserAddress") @Nullable String remoteUserAddress,
             @JsonProperty("userAgent") @Nullable String userAgent,
             @JsonProperty("startTime") long startTime,
-            @JsonProperty("systemProperties") @Nullable Map<String, String> systemProperties,
-            @JsonProperty("catalogProperties") @Nullable Map<String, Map<String, String>> catalogProperties)
+            @JsonProperty("systemProperties") Map<String, String> systemProperties,
+            @JsonProperty("catalogProperties") Map<String, Map<String, String>> catalogProperties)
     {
         this.user = requireNonNull(user, "user is null");
         this.source = source;
@@ -74,8 +76,13 @@ public final class Session
         this.remoteUserAddress = remoteUserAddress;
         this.userAgent = userAgent;
         this.startTime = startTime;
-        this.systemProperties = systemProperties != null ? ImmutableMap.copyOf(systemProperties) : ImmutableMap.<String, String>of();
-        this.catalogProperties = catalogProperties != null ? ImmutableMap.copyOf(catalogProperties) : ImmutableMap.<String, Map<String, String>>of();
+        this.systemProperties = ImmutableMap.copyOf(systemProperties);
+
+        ImmutableMap.Builder<String, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.<String, Map<String, String>>builder();
+        catalogProperties.entrySet().stream()
+                .map(entry -> Maps.immutableEntry(entry.getKey(), ImmutableMap.copyOf(entry.getValue())))
+                .forEach(catalogPropertiesBuilder::put);
+        this.catalogProperties = catalogPropertiesBuilder.build();
     }
 
     @JsonProperty
@@ -145,6 +152,59 @@ public final class Session
     public Map<String, Map<String, String>> getCatalogProperties()
     {
         return catalogProperties;
+    }
+
+    public Session withSystemProperty(String key, String value)
+    {
+        checkNotNull(key, "key is null");
+        checkNotNull(value, "value is null");
+
+        Map<String, String> systemProperties = new LinkedHashMap<>(this.systemProperties);
+        systemProperties.put(key, value);
+
+        return new Session(
+                user,
+                source,
+                catalog,
+                schema,
+                timeZoneKey,
+                locale,
+                remoteUserAddress,
+                userAgent,
+                startTime,
+                systemProperties,
+                catalogProperties);
+    }
+
+    public Session withCatalogProperty(String catalog, String key, String value)
+    {
+        checkNotNull(catalog, "catalog is null");
+        checkNotNull(key, "key is null");
+        checkNotNull(value, "value is null");
+
+        Map<String, Map<String, String>> catalogProperties = new LinkedHashMap<>(this.catalogProperties);
+        Map<String, String> properties = catalogProperties.get(catalog);
+        if (properties == null) {
+            properties = new LinkedHashMap<>();
+        }
+        else {
+            properties = new LinkedHashMap<>(properties);
+        }
+        properties.put(key, value);
+        catalogProperties.put(catalog, properties);
+
+        return new Session(
+                user,
+                source,
+                catalog,
+                schema,
+                timeZoneKey,
+                locale,
+                remoteUserAddress,
+                userAgent,
+                startTime,
+                systemProperties,
+                catalogProperties);
     }
 
     public ConnectorSession toConnectorSession()

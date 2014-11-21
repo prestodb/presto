@@ -2748,6 +2748,19 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testShowSession()
+            throws Exception
+    {
+        assertQueryOrdered(
+                getSession()
+                        .withCatalogProperty("connector", "cheese", "burger")
+                        .withSystemProperty("foo", "bar")
+                        .withSystemProperty("apple", "pie"),
+                "SHOW SESSION",
+                "SELECT * FROM VALUES ('apple', 'pie'), ('foo', 'bar'), ('connector.cheese', 'burger')");
+    }
+
+    @Test
     public void testNoFrom()
             throws Exception
     {

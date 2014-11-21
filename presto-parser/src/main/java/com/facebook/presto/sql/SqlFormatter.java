@@ -48,6 +48,7 @@ import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
+import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.Table;
@@ -569,6 +570,14 @@ public final class SqlFormatter
         protected Void visitShowFunctions(ShowFunctions node, Integer context)
         {
             builder.append("SHOW FUNCTIONS");
+
+            return null;
+        }
+
+        @Override
+        protected Void visitShowSession(ShowSession node, Integer context)
+        {
+            builder.append("SHOW SESSION");
 
             return null;
         }
