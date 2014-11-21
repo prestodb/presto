@@ -111,10 +111,18 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testNonComparableDistinct()
+    public void testNonComparableDistinctAggregation()
             throws Exception
     {
         assertFails(TYPE_MISMATCH, "SELECT count(DISTINCT x) FROM (SELECT approx_set(1) x)");
+    }
+
+    @Test
+    public void testNonComparableDistinct()
+            throws Exception
+    {
+        assertFails(TYPE_MISMATCH, "SELECT DISTINCT * FROM (SELECT approx_set(1) x)");
+        assertFails(TYPE_MISMATCH, "SELECT DISTINCT x FROM (SELECT approx_set(1) x)");
     }
 
     @Test

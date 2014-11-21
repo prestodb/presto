@@ -860,6 +860,10 @@ public class TupleAnalyzer
                 for (Field field : fields) {
                     int fieldIndex = tupleDescriptor.indexOf(field);
                     outputExpressionBuilder.add(new FieldOrExpression(fieldIndex));
+
+                    if (node.getSelect().isDistinct() && !field.getType().isComparable())  {
+                        throw new SemanticException(TYPE_MISMATCH, node.getSelect(), "DISTINCT can only be applied to comparable types (actual: %s)", field.getType());
+                    }
                 }
             }
             else if (item instanceof SingleColumn) {
@@ -874,6 +878,11 @@ public class TupleAnalyzer
                         column.getExpression());
                 analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
                 outputExpressionBuilder.add(new FieldOrExpression(column.getExpression()));
+
+                Type type = expressionAnalysis.getType(column.getExpression());
+                if (node.getSelect().isDistinct() && !type.isComparable())  {
+                    throw new SemanticException(TYPE_MISMATCH, node.getSelect(), "DISTINCT can only be applied to comparable types (actual: %s): %s", type, column.getExpression());
+                }
             }
             else {
                 throw new IllegalArgumentException("Unsupported SelectItem type: " + item.getClass().getName());
