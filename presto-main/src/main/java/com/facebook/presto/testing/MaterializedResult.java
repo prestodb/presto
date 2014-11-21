@@ -27,6 +27,7 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.joda.time.DateTimeZone;
 
 import java.sql.Date;
@@ -37,6 +38,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -51,17 +53,19 @@ public class MaterializedResult
     private final List<MaterializedRow> rows;
     private final List<Type> types;
     private final Map<String, String> setSessionProperties;
+    private final Set<String> resetSessionProperties;
 
     public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types)
     {
-        this(rows, types, ImmutableMap.of());
+        this(rows, types, ImmutableMap.of(), ImmutableSet.of());
     }
 
-    public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types, Map<String, String> setSessionProperties)
+    public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types, Map<String, String> setSessionProperties, Set<String> resetSessionProperties)
     {
         this.rows = ImmutableList.copyOf(checkNotNull(rows, "rows is null"));
         this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
         this.setSessionProperties = ImmutableMap.copyOf(checkNotNull(setSessionProperties, "setSessionProperties is null"));
+        this.resetSessionProperties = ImmutableSet.copyOf(checkNotNull(resetSessionProperties, "resetSessionProperties is null"));
     }
 
     public int getRowCount()
@@ -90,6 +94,11 @@ public class MaterializedResult
         return setSessionProperties;
     }
 
+    public Set<String> getResetSessionProperties()
+    {
+        return resetSessionProperties;
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -102,13 +111,14 @@ public class MaterializedResult
         MaterializedResult o = (MaterializedResult) obj;
         return Objects.equal(types, o.types) &&
                 Objects.equal(rows, o.rows) &&
-                Objects.equal(setSessionProperties, o.setSessionProperties);
+                Objects.equal(setSessionProperties, o.setSessionProperties) &&
+                Objects.equal(resetSessionProperties, o.resetSessionProperties);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(rows, types, setSessionProperties);
+        return Objects.hashCode(rows, types, setSessionProperties, resetSessionProperties);
     }
 
     @Override
@@ -118,6 +128,7 @@ public class MaterializedResult
                 .add("rows", rows)
                 .add("types", types)
                 .add("setSessionProperties", setSessionProperties)
+                .add("resetSessionProperties", resetSessionProperties)
                 .toString();
     }
 
@@ -127,7 +138,7 @@ public class MaterializedResult
         for (MaterializedRow row : rows) {
             jdbcRows.add(convertToJdbcTypes(row));
         }
-        return new MaterializedResult(jdbcRows.build(), types, setSessionProperties);
+        return new MaterializedResult(jdbcRows.build(), types, setSessionProperties, resetSessionProperties);
     }
 
     private static MaterializedRow convertToJdbcTypes(MaterializedRow prestoRow)

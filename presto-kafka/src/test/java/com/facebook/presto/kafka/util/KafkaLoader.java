@@ -29,6 +29,7 @@ import org.joda.time.format.ISODateTimeFormat;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -113,7 +114,7 @@ public class KafkaLoader
         }
 
         @Override
-        public Void build(Map<String, String> setSessionProperties)
+        public Void build(Map<String, String> setSessionProperties, Set<String> resetSessionProperties)
         {
             return null;
         }

@@ -81,6 +81,19 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testResetSession()
+            throws Exception
+    {
+        MaterializedResult result = computeActual(getSession(), "RESET SESSION foo");
+        assertTrue((Boolean) Iterables.getOnlyElement(result).getField(0));
+        assertEquals(result.getResetSessionProperties(), ImmutableSet.of("foo"));
+
+        result = computeActual(getSession(), "RESET SESSION connector.cheese");
+        assertTrue((Boolean) Iterables.getOnlyElement(result).getField(0));
+        assertEquals(result.getResetSessionProperties(), ImmutableSet.of("connector.cheese"));
+    }
+
+    @Test
     public void testCreateSampledTableAsSelectLimit()
             throws Exception
     {

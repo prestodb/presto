@@ -68,6 +68,7 @@ statement returns [Statement value]
     | showFunctions             { $value = $showFunctions.value; }
     | use                       { $value = $use.value; }
     | setSession                { $value = $setSession.value; }
+    | resetSession              { $value = $resetSession.value; }
     | showSession               { $value = $showSession.value; }
     | createTable               { $value = $createTable.value; }
     | dropTable                 { $value = $dropTable.value; }
@@ -557,6 +558,10 @@ showSession returns [Statement value]
 
 setSession returns [Statement value]
     : ^(SESSION_SET qname string) { $value = new SetSession($qname.value, $string.value); }
+    ;
+
+resetSession returns [Statement value]
+    : ^(SESSION_RESET qname) { $value = new ResetSession($qname.value); }
     ;
 
 createTable returns [Statement value]

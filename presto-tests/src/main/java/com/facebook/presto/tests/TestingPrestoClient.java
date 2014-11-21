@@ -30,6 +30,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -104,10 +105,10 @@ public class TestingPrestoClient
         }
 
         @Override
-        public MaterializedResult build(Map<String, String> setSessionProperties)
+        public MaterializedResult build(Map<String, String> setSessionProperties, Set<String> resetSessionProperties)
         {
             checkState(types.get() != null, "never received types for the query");
-            return new MaterializedResult(rows.build(), types.get(), setSessionProperties);
+            return new MaterializedResult(rows.build(), types.get(), setSessionProperties, resetSessionProperties);
         }
     }
 
