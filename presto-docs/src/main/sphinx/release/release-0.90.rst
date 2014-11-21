@@ -7,6 +7,7 @@ General Changes
 ---------------
 * Add ConnectorPageSink which is a more efficient interface for column-oriented sources.
 * Add property ``task.writer-count`` to configure the number of writers per task.
+* Added :doc:`/sql/set-session`, :doc:`/sql/reset-session` and :doc:`/sql/show-session`
 
 SPI Changes
 -----------
