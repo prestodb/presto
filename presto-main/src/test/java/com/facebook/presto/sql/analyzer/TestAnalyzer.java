@@ -94,7 +94,7 @@ public class TestAnalyzer
     public void testNonComparableGroupBy()
             throws Exception
     {
-        assertFails(TYPE_MISMATCH, "SELECT * FROM (SELECT ARRAY[1,2]) GROUP BY 1");
+        assertFails(TYPE_MISMATCH, "SELECT * FROM (SELECT approx_set(1)) GROUP BY 1");
     }
 
     @Test
