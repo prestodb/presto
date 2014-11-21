@@ -38,6 +38,7 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameTable;
+import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
@@ -633,6 +634,15 @@ public final class SqlFormatter
                     .append(node.getName())
                     .append(" = ")
                     .append(formatStringLiteral(node.getValue()));
+
+            return null;
+        }
+
+        @Override
+        public Void visitResetSession(ResetSession node, Integer context)
+        {
+            builder.append("RESET SESSION ")
+                    .append(node.getName());
 
             return null;
         }

@@ -45,6 +45,7 @@ public class QueryInfo
     private final String query;
     private final QueryStats queryStats;
     private final Map<String, String> setSessionProperties;
+    private final Set<String> resetSessionProperties;
     private final StageInfo outputStage;
     private final FailureInfo failureInfo;
     private final ErrorCode errorCode;
@@ -61,6 +62,7 @@ public class QueryInfo
             @JsonProperty("query") String query,
             @JsonProperty("queryStats") QueryStats queryStats,
             @JsonProperty("setSessionProperties") Map<String, String> setSessionProperties,
+            @JsonProperty("resetSessionProperties") Set<String> resetSessionProperties,
             @JsonProperty("outputStage") StageInfo outputStage,
             @JsonProperty("failureInfo") FailureInfo failureInfo,
             @JsonProperty("errorCode") ErrorCode errorCode,
@@ -73,6 +75,7 @@ public class QueryInfo
         Preconditions.checkNotNull(fieldNames, "fieldNames is null");
         Preconditions.checkNotNull(queryStats, "queryStats is null");
         Preconditions.checkNotNull(setSessionProperties, "setSessionProperties is null");
+        Preconditions.checkNotNull(resetSessionProperties, "resetSessionProperties is null");
         Preconditions.checkNotNull(query, "query is null");
         Preconditions.checkNotNull(inputs, "inputs is null");
 
@@ -85,6 +88,7 @@ public class QueryInfo
         this.query = query;
         this.queryStats = queryStats;
         this.setSessionProperties = ImmutableMap.copyOf(setSessionProperties);
+        this.resetSessionProperties = ImmutableSet.copyOf(resetSessionProperties);
         this.outputStage = outputStage;
         this.failureInfo = failureInfo;
         this.errorCode = errorCode;
@@ -149,6 +153,12 @@ public class QueryInfo
     public Map<String, String> getSetSessionProperties()
     {
         return setSessionProperties;
+    }
+
+    @JsonProperty
+    public Set<String> getResetSessionProperties()
+    {
+        return resetSessionProperties;
     }
 
     @JsonProperty

@@ -86,6 +86,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.server.ResourceUtil.assertRequest;
 import static com.facebook.presto.server.ResourceUtil.createSessionForRequest;
@@ -187,6 +188,10 @@ public class StatementResource
         query.getSetSessionProperties().entrySet().stream()
                 .forEach(entry -> response.header(PRESTO_SET_SESSION, entry.getKey() + '=' + entry.getValue()));
 
+        // add clear session properties
+        query.getResetSessionProperties().stream()
+                .forEach(name -> response.header(PRESTO_CLEAR_SESSION, name));
+
         return response.build();
     }
 
@@ -227,6 +232,9 @@ public class StatementResource
         @GuardedBy("this")
         private Map<String, String> setSessionProperties;
 
+        @GuardedBy("this")
+        private Set<String> resetSessionProperties;
+
         public Query(Session session,
                 String query,
                 QueryManager queryManager,
@@ -259,6 +267,11 @@ public class StatementResource
         public synchronized Map<String, String> getSetSessionProperties()
         {
             return setSessionProperties;
+        }
+
+        public synchronized Set<String> getResetSessionProperties()
+        {
+            return resetSessionProperties;
         }
 
         public synchronized QueryResults getResults(long token, UriInfo uriInfo, Duration maxWaitTime)
@@ -328,6 +341,7 @@ public class StatementResource
 
             // update setSessionProperties
             setSessionProperties = queryInfo.getSetSessionProperties();
+            resetSessionProperties = queryInfo.getResetSessionProperties();
 
             // first time through, self is null
             QueryResults queryResults = new QueryResults(

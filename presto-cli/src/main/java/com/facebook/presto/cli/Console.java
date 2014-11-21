@@ -237,9 +237,10 @@ public class Console
             query.renderOutput(System.out, outputFormat, interactive);
 
             // update session properties if present
-            if (!query.getSetSessionProperties().isEmpty()) {
+            if (!query.getSetSessionProperties().isEmpty() || !query.getResetSessionProperties().isEmpty()) {
                 Map<String, String> sessionProperties = new HashMap<>(queryRunner.getSession().getProperties());
                 sessionProperties.putAll(query.getSetSessionProperties());
+                sessionProperties.keySet().removeAll(query.getResetSessionProperties());
                 queryRunner.setSession(withProperties(queryRunner.getSession(), sessionProperties));
             }
         }

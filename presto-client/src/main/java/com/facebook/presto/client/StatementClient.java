@@ -16,6 +16,8 @@ package com.facebook.presto.client;
 import com.google.common.base.Objects;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
@@ -29,10 +31,12 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -69,6 +73,7 @@ public class StatementClient
     private final String query;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
+    private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean gone = new AtomicBoolean();
     private final AtomicBoolean valid = new AtomicBoolean(true);
@@ -174,6 +179,11 @@ public class StatementClient
         return ImmutableMap.copyOf(setSessionProperties);
     }
 
+    public Set<String> getResetSessionProperties()
+    {
+        return ImmutableSet.copyOf(resetSessionProperties);
+    }
+
     public boolean isValid()
     {
         return valid.get() && (!isGone()) && (!isClosed());
@@ -234,6 +244,9 @@ public class StatementClient
                 continue;
             }
             setSessionProperties.put(keyValue.get(0), keyValue.size() > 1 ? keyValue.get(1) : "");
+        }
+        for (String clearSession : response.getHeaders().get(PRESTO_CLEAR_SESSION)) {
+            resetSessionProperties.add(clearSession);
         }
         currentResults.set(response.getValue());
     }
