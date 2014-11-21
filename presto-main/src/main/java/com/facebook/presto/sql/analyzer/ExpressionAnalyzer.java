@@ -688,6 +688,7 @@ public class ExpressionAnalyzer
                         ImmutableList.<Expression>builder().add(value).addAll(inListExpression.getValues()).build());
             }
             else if (valueList instanceof SubqueryExpression) {
+                coerceToSingleType(context, node, "value and result of subquery must be of the same type for IN expression: %s vs %s", value, valueList);
                 subqueryInPredicates.add(node);
             }
 

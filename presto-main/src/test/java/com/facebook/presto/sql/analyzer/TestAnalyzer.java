@@ -126,6 +126,13 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testInSubqueryTypes()
+            throws Exception
+    {
+        assertFails(TYPE_MISMATCH, "SELECT * FROM (VALUES ('a')) t(y) WHERE y IN (VALUES (1))");
+    }
+
+    @Test
     public void testScalarSubQueryException()
             throws Exception
     {
