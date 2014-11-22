@@ -26,6 +26,7 @@ import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
+import org.joda.time.DateTimeZone;
 
 import java.sql.Date;
 import java.sql.Time;
@@ -139,6 +140,30 @@ public class MaterializedResult
             jdbcValues.add(jdbcValue);
         }
         return new MaterializedRow(prestoRow.getPrecision(), jdbcValues);
+    }
+
+    public MaterializedResult toTimeZone(DateTimeZone oldTimeZone, DateTimeZone newTimeZone)
+    {
+        ImmutableList.Builder<MaterializedRow> jdbcRows = ImmutableList.builder();
+        for (MaterializedRow row : rows) {
+            jdbcRows.add(toTimeZone(row, oldTimeZone, newTimeZone));
+        }
+        return new MaterializedResult(jdbcRows.build(), types);
+    }
+
+    private static MaterializedRow toTimeZone(MaterializedRow prestoRow, DateTimeZone oldTimeZone, DateTimeZone newTimeZone)
+    {
+        List<Object> values = new ArrayList<>();
+        for (int field = 0; field < prestoRow.getFieldCount(); field++) {
+            Object value = prestoRow.getField(field);
+            if (value instanceof Date) {
+                long oldMillis = ((Date) value).getTime();
+                long newMillis = oldTimeZone.getMillisKeepLocal(newTimeZone, oldMillis);
+                value = new Date(newMillis);
+            }
+            values.add(value);
+        }
+        return new MaterializedRow(prestoRow.getPrecision(), values);
     }
 
     public static MaterializedResult materializeSourceDataStream(Session session, ConnectorPageSource pageSource, List<Type> types)

@@ -41,7 +41,6 @@ import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_Z
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.util.DateTimeUtils.parseDate;
 import static com.facebook.presto.util.DateTimeUtils.parseTime;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestamp;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
@@ -134,7 +133,7 @@ public class KafkaLoader
                 return ((Number) value).doubleValue();
             }
             if (DATE.equals(type)) {
-                return ISO8601_FORMATTER.print(parseDate((String) value));
+                return value;
             }
             if (TIME.equals(type)) {
                 return ISO8601_FORMATTER.print(parseTime(timeZoneKey, (String) value));

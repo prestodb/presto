@@ -25,12 +25,11 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.testing.LocalQueryRunner;
+import com.facebook.presto.util.DateTimeUtils;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 
 import java.util.List;
@@ -42,9 +41,9 @@ import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -231,7 +230,7 @@ public class HandTpchQuery1
             return null;
         }
 
-        private static final Slice MAX_SHIP_DATE = Slices.copiedBuffer("1998-09-02", UTF_8);
+        private static final long MAX_SHIP_DATE = DateTimeUtils.parseDate("1998-09-02");
 
         private static void filterAndProjectRowOriented(PageBuilder pageBuilder,
                 Block returnFlagBlock,
@@ -248,11 +247,11 @@ public class HandTpchQuery1
                     continue;
                 }
 
-                Slice shipDate = VARCHAR.getSlice(shipDateBlock, position);
+                long shipDate = DATE.getLong(shipDateBlock, position);
 
                 // where
                 //     shipdate <= '1998-09-02'
-                if (shipDate.compareTo(MAX_SHIP_DATE) <= 0) {
+                if (shipDate <= MAX_SHIP_DATE) {
                     //     returnflag,
                     //     linestatus
                     //     quantity

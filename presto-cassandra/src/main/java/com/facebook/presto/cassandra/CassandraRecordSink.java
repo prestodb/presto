@@ -14,26 +14,34 @@
 package com.facebook.presto.cassandra;
 
 import com.facebook.presto.spi.RecordSink;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.ISODateTimeFormat;
 
 import java.util.List;
 import java.util.UUID;
 
 import static com.facebook.presto.cassandra.CassandraColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-public class CassandraRecordSink implements RecordSink
+public class CassandraRecordSink
+        implements RecordSink
 {
+    private static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date().withZoneUTC();
+
     private final int fieldCount;
     private final CassandraSession cassandraSession;
     private final boolean sampled;
     private final String insertQuery;
     private final List<Object> values;
     private final String schemaName;
+    private final List<Type> columnTypes;
     private int field = -1;
 
     @Inject
@@ -67,6 +75,8 @@ public class CassandraRecordSink implements RecordSink
 
         insertQuery = queryBuilder.toString();
         values = Lists.newArrayList();
+
+        columnTypes = handle.getColumnTypes();
     }
 
     @Override
@@ -110,7 +120,12 @@ public class CassandraRecordSink implements RecordSink
     @Override
     public void appendLong(long value)
     {
-        append(value);
+        if (DATE.equals(columnTypes.get(field))) {
+            append(DATE_FORMATTER.print(value));
+        }
+        else {
+            append(value);
+        }
     }
 
     @Override
