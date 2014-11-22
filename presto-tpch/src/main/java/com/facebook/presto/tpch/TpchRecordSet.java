@@ -22,11 +22,13 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.tpch.TpchColumn;
+import io.airlift.tpch.TpchColumnType;
 import io.airlift.tpch.TpchEntity;
 import io.airlift.tpch.TpchTable;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.tpch.TpchMetadata.getPrestoType;
 import static com.google.common.base.Preconditions.checkState;
@@ -137,7 +139,11 @@ public class TpchRecordSet<E extends TpchEntity>
         public long getLong(int field)
         {
             checkState(row != null, "No current row");
-            return getTpchColumn(field).getLong(row);
+            TpchColumn<E> tpchColumn = getTpchColumn(field);
+            if (tpchColumn.getType() == TpchColumnType.DATE) {
+                return TimeUnit.DAYS.toMillis(tpchColumn.getDate(row));
+            }
+            return tpchColumn.getLong(row);
         }
 
         @Override

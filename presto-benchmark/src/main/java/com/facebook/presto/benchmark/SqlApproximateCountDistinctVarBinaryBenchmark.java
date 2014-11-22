@@ -22,7 +22,7 @@ public class SqlApproximateCountDistinctVarBinaryBenchmark
 {
     public SqlApproximateCountDistinctVarBinaryBenchmark(LocalQueryRunner localQueryRunner)
     {
-        super(localQueryRunner, "sql_approx_count_distinct_varbinary", 10, 50, "select approx_distinct(orderdate) from orders");
+        super(localQueryRunner, "sql_approx_count_distinct_varbinary", 10, 50, "select approx_distinct(clerk) from orders");
     }
 
     public static void main(String[] args)

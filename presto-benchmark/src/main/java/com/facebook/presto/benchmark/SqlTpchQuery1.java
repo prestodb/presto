@@ -37,7 +37,7 @@ public class SqlTpchQuery1
                 "from\n" +
                 "    lineitem\n" +
                 "where\n" +
-                "    shipdate <= '1998-09-02'\n" +
+                "    shipdate <= DATE '1998-09-02'\n" +
                 "group by\n" +
                 "    returnflag,\n" +
                 "    linestatus\n" +

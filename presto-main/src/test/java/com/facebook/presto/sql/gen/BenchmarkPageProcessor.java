@@ -16,10 +16,10 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -47,6 +47,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.relational.Expressions.call;
@@ -124,7 +125,7 @@ public class BenchmarkPageProcessor
             LineItem lineItem = iterator.next();
             DOUBLE.writeDouble(pageBuilder.getBlockBuilder(EXTENDED_PRICE), lineItem.getExtendedPrice());
             DOUBLE.writeDouble(pageBuilder.getBlockBuilder(DISCOUNT), lineItem.getDiscount());
-            VARCHAR.writeSlice(pageBuilder.getBlockBuilder(SHIP_DATE), Slices.utf8Slice(lineItem.getShipDate()));
+            DATE.writeLong(pageBuilder.getBlockBuilder(SHIP_DATE), TimeUnit.DAYS.toMillis(lineItem.getShipDate()));
             BIGINT.writeLong(pageBuilder.getBlockBuilder(QUANTITY), lineItem.getQuantity());
         }
         return pageBuilder.build();

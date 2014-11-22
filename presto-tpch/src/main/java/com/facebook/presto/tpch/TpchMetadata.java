@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.tpch.TpchColumn;
+import io.airlift.tpch.TpchColumnType;
 import io.airlift.tpch.TpchEntity;
 import io.airlift.tpch.TpchTable;
 
@@ -34,7 +35,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.tpch.Types.checkType;
@@ -205,20 +206,18 @@ public class TpchMetadata
         }
     }
 
-    public static Type getPrestoType(Class<?> javaType)
+    public static Type getPrestoType(TpchColumnType tpchType)
     {
-        if (javaType == Boolean.class) {
-            return BOOLEAN;
+        switch (tpchType) {
+            case BIGINT:
+                return BIGINT;
+            case DATE:
+                return DATE;
+            case DOUBLE:
+                return DOUBLE;
+            case VARCHAR:
+                return VARCHAR;
         }
-        if (javaType == Long.class) {
-            return BIGINT;
-        }
-        if (javaType == Double.class) {
-            return DOUBLE;
-        }
-        if (javaType == String.class) {
-            return VARCHAR;
-        }
-        throw new IllegalArgumentException("Unsupported type " + javaType.getName());
+        throw new IllegalArgumentException("Unsupported type " + tpchType);
     }
 }

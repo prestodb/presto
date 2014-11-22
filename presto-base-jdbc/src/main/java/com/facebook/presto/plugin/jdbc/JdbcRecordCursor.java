@@ -30,7 +30,6 @@ import org.joda.time.DateTimeZone;
 import org.joda.time.chrono.ISOChronology;
 
 import java.sql.Connection;
-import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -44,13 +43,14 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static org.joda.time.DateTimeZone.UTC;
 
 public class JdbcRecordCursor
         implements RecordCursor
 {
     private static final Logger log = Logger.get(JdbcRecordCursor.class);
 
-    private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstance(DateTimeZone.UTC);
+    private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstance(UTC);
 
     private final List<JdbcColumnHandle> columnHandles;
 
@@ -143,8 +143,10 @@ public class JdbcRecordCursor
                 return resultSet.getLong(field + 1);
             }
             if (type.equals(DateType.DATE)) {
-                Date date = resultSet.getDate(field + 1);
-                return UTC_CHRONOLOGY.dayOfMonth().roundFloor(date.getTime());
+                // JDBC returns a date using a timestamp at midnight in the JVM timezone
+                long localMillis = resultSet.getDate(field + 1).getTime();
+                // Convert it to a midnight in UTC
+                return DateTimeZone.getDefault().getMillisKeepLocal(UTC, localMillis);
             }
             if (type.equals(TimeType.TIME)) {
                 Time time = resultSet.getTime(field + 1);

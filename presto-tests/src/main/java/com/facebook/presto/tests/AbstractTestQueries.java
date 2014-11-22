@@ -1064,9 +1064,9 @@ public abstract class AbstractTestQueries
     public void testNonEqualityJoin()
             throws Exception
     {
-        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate > '1994-01-01'");
-        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate <= '1994-01-01'");
-        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate != '1994-01-01'");
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate > DATE '1994-01-01'");
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate <= DATE '1994-01-01'");
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate != DATE '1994-01-01'");
         assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate > orders.orderdate");
         assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.orderdate < lineitem.shipdate");
     }
@@ -1075,14 +1075,14 @@ public abstract class AbstractTestQueries
     public void testNonEqualityLeftJoin()
             throws Exception
     {
-        assertQuery("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate > '1994-01-01'");
+        assertQuery("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate > DATE '1994-01-01'");
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Non-equi.*")
     public void testNonEqualityRightJoin()
             throws Exception
     {
-        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate > '1994-01-01'");
+        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate > DATE '1994-01-01'");
     }
 
     @Test
@@ -2169,10 +2169,10 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT try_cast(orderkey AS BOOLEAN) FROM orders", "SELECT CAST(orderkey AS BOOLEAN) FROM orders");
 
         assertQuery("SELECT try_cast('foo' AS BIGINT) FROM orders", "SELECT CAST(null AS BIGINT) FROM orders");
-        assertQuery("SELECT try_cast(orderdate AS BIGINT) FROM orders", "SELECT CAST(null AS BIGINT) FROM orders");
+        assertQuery("SELECT try_cast(clerk AS BIGINT) FROM orders", "SELECT CAST(null AS BIGINT) FROM orders");
 
         assertQuery("SELECT coalesce(try_cast('foo' AS BIGINT), 456) FROM orders", "SELECT 456 FROM orders");
-        assertQuery("SELECT coalesce(try_cast(orderdate AS BIGINT), 456) FROM orders", "SELECT 456 FROM orders");
+        assertQuery("SELECT coalesce(try_cast(clerk AS BIGINT), 456) FROM orders", "SELECT 456 FROM orders");
     }
 
     @Test
@@ -2629,7 +2629,7 @@ public abstract class AbstractTestQueries
                 .row("custkey", "bigint", true, false, "")
                 .row("orderstatus", "varchar", true, false, "")
                 .row("totalprice", "double", true, false, "")
-                .row("orderdate", "varchar", true, false, "")
+                .row("orderdate", "date", true, false, "")
                 .row("orderpriority", "varchar", true, false, "")
                 .row("clerk", "varchar", true, false, "")
                 .row("shippriority", "bigint", true, false, "")

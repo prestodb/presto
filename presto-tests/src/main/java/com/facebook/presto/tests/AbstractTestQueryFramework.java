@@ -122,7 +122,7 @@ public abstract class AbstractTestQueryFramework
 
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
     {
-        return h2QueryRunner.execute(sql, resultTypes);
+        return h2QueryRunner.execute(getSession(), sql, resultTypes);
     }
 
     public Function<MaterializedRow, String> onlyColumnGetter()

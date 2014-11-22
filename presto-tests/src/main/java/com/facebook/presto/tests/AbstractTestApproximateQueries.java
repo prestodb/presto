@@ -54,8 +54,8 @@ public abstract class AbstractTestApproximateQueries
             throws Exception
     {
         assertApproximateQuery(
-                "SELECT COUNT(shipdate) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey APPROXIMATE AT 99.999 CONFIDENCE",
-                "SELECT 4 * COUNT(shipdate) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey");
+                "SELECT COUNT(clerk) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey APPROXIMATE AT 99.999 CONFIDENCE",
+                "SELECT 4 * COUNT(clerk) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey");
     }
 
     @Test

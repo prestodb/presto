@@ -95,6 +95,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDateObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDoubleObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
@@ -1534,17 +1535,17 @@ public final class BenchmarkHiveFileFormats
             @Override
             public String apply(TpchColumn<?> input)
             {
-                Class<?> type = input.getType();
-                if (type == Long.class) {
-                    return "bigint";
+                switch (input.getType()) {
+                    case BIGINT:
+                        return "bigint";
+                    case DATE:
+                        return "date";
+                    case DOUBLE:
+                        return "double";
+                    case VARCHAR:
+                        return "string";
                 }
-                if (type == Double.class) {
-                    return "double";
-                }
-                if (type == String.class) {
-                    return "string";
-                }
-                throw new IllegalArgumentException("Unsupported type " + type.getName());
+                throw new IllegalArgumentException("Unsupported type " + input.getType());
             }
         };
     }
@@ -1563,17 +1564,17 @@ public final class BenchmarkHiveFileFormats
 
     private static ObjectInspector getObjectInspector(TpchColumn<?> input)
     {
-        Class<?> type = input.getType();
-        if (type == Long.class) {
-            return javaLongObjectInspector;
+        switch (input.getType()) {
+            case BIGINT:
+                return javaLongObjectInspector;
+            case DATE:
+                return javaDateObjectInspector;
+            case DOUBLE:
+                return javaDoubleObjectInspector;
+            case VARCHAR:
+                return javaStringObjectInspector;
         }
-        if (type == Double.class) {
-            return javaDoubleObjectInspector;
-        }
-        if (type == String.class) {
-            return javaStringObjectInspector;
-        }
-        throw new IllegalArgumentException("Unsupported type " + type.getName());
+        throw new IllegalArgumentException("Unsupported type " + input.getType());
     }
 
     private static String getCursorType(HiveRecordCursorProvider recordCursorProvider)
