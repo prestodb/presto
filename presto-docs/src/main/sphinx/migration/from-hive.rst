@@ -28,6 +28,10 @@ Arrays are indexed starting from 1, not from 0::
     SELECT my_array[1] AS first_element
     FROM ...
 
+Construct arrays with ANSI syntax::
+
+    SELECT ARRAY[1, 2, 3] AS my_array
+
 Use ANSI SQL syntax for identifiers and strings
 -----------------------------------------------
 
