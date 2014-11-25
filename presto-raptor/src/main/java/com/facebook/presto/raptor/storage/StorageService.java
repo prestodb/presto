@@ -38,18 +38,20 @@ public class StorageService
     private final File baseStagingDir;
     private final Optional<File> baseBackupDir;
     private final DataSize orcMaxMergeDistance;
+    private final Optional<Integer> rowsPerShard;
 
     @Inject
     public StorageService(StorageManagerConfig config)
     {
-        this(config.getDataDirectory(), Optional.fromNullable(config.getBackupDirectory()), config.getOrcMaxMergeDistance());
+        this(config.getDataDirectory(), Optional.fromNullable(config.getBackupDirectory()), config.getOrcMaxMergeDistance(), Optional.fromNullable(config.getRowsPerShard()));
     }
 
-    public StorageService(File dataDirectory, Optional<File> backupDirectory, DataSize orcMaxMergeDistance)
+    public StorageService(File dataDirectory, Optional<File> backupDirectory, DataSize orcMaxMergeDistance, Optional<Integer> rowsPerShard)
     {
         File baseDataDir = checkNotNull(dataDirectory, "dataDirectory is null");
         this.baseBackupDir = checkNotNull(backupDirectory, "backupDirectory is null");
         this.orcMaxMergeDistance = checkNotNull(orcMaxMergeDistance, "orcMaxMergeDistance is null");
+        this.rowsPerShard = checkNotNull(rowsPerShard, "rowsPerShard is null");
 
         this.baseStorageDir = new File(baseDataDir, "storage");
         this.baseStagingDir = new File(baseDataDir, "staging");
@@ -78,6 +80,11 @@ public class StorageService
     public DataSize getOrcMaxMergeDistance()
     {
         return orcMaxMergeDistance;
+    }
+
+    public Optional<Integer> getRowsPerShard()
+    {
+        return rowsPerShard;
     }
 
     public File getStorageFile(UUID shardUuid)

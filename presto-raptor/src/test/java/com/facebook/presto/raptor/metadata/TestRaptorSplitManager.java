@@ -87,7 +87,7 @@ public class TestRaptorSplitManager
         dataDir = Files.createTempDir();
         ShardManager shardManager = new DatabaseShardManager(dbi);
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        StorageService storageService = new StorageService(dataDir, Optional.<File>absent(), new DataSize(1, MEGABYTE));
+        StorageService storageService = new StorageService(dataDir, Optional.<File>absent(), new DataSize(1, MEGABYTE), Optional.<Integer>absent());
         StorageManager storageManager = new OrcStorageManager(storageService, new ShardRecoveryManager(storageService, nodeManager, shardManager));
 
         String nodeName = UUID.randomUUID().toString();

@@ -16,24 +16,9 @@ package com.facebook.presto.raptor.storage;
 import java.util.List;
 import java.util.UUID;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-public class OutputHandle
+public interface RowSinkProvider
 {
-    private final RowSinkProvider rowSinkProvider;
+    RowSink getRowSink();
 
-    public OutputHandle(RowSinkProvider rowSinkProvider)
-    {
-        this.rowSinkProvider = checkNotNull(rowSinkProvider, "rowSinkProvider is null");
-    }
-
-    public List<UUID> getShardUuids()
-    {
-        return rowSinkProvider.getShardUuids();
-    }
-
-    public RowSinkProvider getRowSinkProvider()
-    {
-        return rowSinkProvider;
-    }
+    List<UUID> getShardUuids();
 }

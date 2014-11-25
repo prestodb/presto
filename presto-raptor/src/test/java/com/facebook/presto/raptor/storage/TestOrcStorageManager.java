@@ -93,7 +93,7 @@ public class TestOrcStorageManager
         temporary = createTempDir();
         directory = new File(temporary, "data");
         File backupDirectory = new File(temporary, "backup");
-        storageService = new StorageService(directory, Optional.of(backupDirectory), ORC_MERGE_DISTANCE);
+        storageService = new StorageService(directory, Optional.of(backupDirectory), ORC_MERGE_DISTANCE, Optional.<Integer>absent());
 
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
@@ -119,7 +119,7 @@ public class TestOrcStorageManager
     @Test
     public void testShardFiles()
     {
-        StorageService storageService = new StorageService(new File("/tmp/data"), Optional.of(new File("/tmp/backup")), ORC_MERGE_DISTANCE);
+        StorageService storageService = new StorageService(new File("/tmp/data"), Optional.of(new File("/tmp/backup")), ORC_MERGE_DISTANCE, Optional.<Integer>absent());
 
         UUID uuid = UUID.fromString("701e1a79-74f7-4f56-b438-b41e8e7d019d");
 
@@ -147,7 +147,7 @@ public class TestOrcStorageManager
 
         OutputHandle handle = manager.createOutputHandle(columnIds, columnTypes, Optional.<Long>absent());
 
-        RowSink sink = handle.getRowSink();
+        RowSink sink = handle.getRowSinkProvider().getRowSink();
 
         sink.beginRecord(1);
         sink.appendLong(123);
@@ -161,7 +161,7 @@ public class TestOrcStorageManager
 
         manager.commit(handle);
 
-        UUID shardUuid = handle.getShardUuid();
+        UUID shardUuid = handle.getShardUuids().get(0);
         File file = storageService.getStorageFile(shardUuid);
         File backupFile = storageService.getBackupFile(shardUuid);
 
@@ -201,7 +201,7 @@ public class TestOrcStorageManager
     public void testReader()
             throws Exception
     {
-        StorageService storageService = new StorageService(directory, Optional.<File>absent(), ORC_MERGE_DISTANCE);
+        StorageService storageService = new StorageService(directory, Optional.<File>absent(), ORC_MERGE_DISTANCE, Optional.<Integer>absent());
         OrcStorageManager manager = new OrcStorageManager(storageService, new ShardRecoveryManager(storageService, nodeManager, shardManager));
 
         List<Long> columnIds = ImmutableList.of(2L, 4L, 6L, 7L, 8L, 9L);
@@ -212,7 +212,7 @@ public class TestOrcStorageManager
 
         OutputHandle handle = manager.createOutputHandle(columnIds, columnTypes, Optional.<Long>absent());
 
-        RowSink sink = handle.getRowSink();
+        RowSink sink = handle.getRowSinkProvider().getRowSink();
 
         sink.beginRecord(1);
         sink.appendLong(123);
@@ -243,7 +243,8 @@ public class TestOrcStorageManager
         // no tuple domain (all)
         TupleDomain<RaptorColumnHandle> tupleDomain = TupleDomain.all();
 
-        try (ConnectorPageSource pageSource = manager.getPageSource(handle.getShardUuid(), columnIds, columnTypes, tupleDomain)) {
+        UUID shardUuid = handle.getShardUuids().get(0);
+        try (ConnectorPageSource pageSource = manager.getPageSource(shardUuid, columnIds, columnTypes, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
             assertEquals(result.getRowCount(), 3);
 
@@ -261,7 +262,7 @@ public class TestOrcStorageManager
                 .put(new RaptorColumnHandle("test", "c1", 2, BIGINT), 124L)
                 .build());
 
-        try (ConnectorPageSource pageSource = manager.getPageSource(handle.getShardUuid(), columnIds, columnTypes, tupleDomain)) {
+        try (ConnectorPageSource pageSource = manager.getPageSource(shardUuid, columnIds, columnTypes, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
             assertEquals(result.getRowCount(), 3);
         }
@@ -271,7 +272,7 @@ public class TestOrcStorageManager
                 .put(new RaptorColumnHandle("test", "c1", 2, BIGINT), 122L)
                 .build());
 
-        try (ConnectorPageSource pageSource = manager.getPageSource(handle.getShardUuid(), columnIds, columnTypes, tupleDomain)) {
+        try (ConnectorPageSource pageSource = manager.getPageSource(shardUuid, columnIds, columnTypes, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
             assertEquals(result.getRowCount(), 0);
         }

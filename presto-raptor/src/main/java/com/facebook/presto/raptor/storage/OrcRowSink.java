@@ -37,6 +37,7 @@ public class OrcRowSink
         implements RowSink
 {
     private static final Constructor<? extends RecordWriter> WRITER_CONSTRUCTOR = getOrcWriterConstructor();
+
     private final RecordWriter recordWriter;
     private final OrcTupleBuffer tupleBuffer;
 

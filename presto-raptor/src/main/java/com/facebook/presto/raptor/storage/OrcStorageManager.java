@@ -66,7 +66,7 @@ public class OrcStorageManager
     public OrcStorageManager(StorageService storageService, ShardRecoveryManager recoveryManager)
     {
         this.recoveryManager = checkNotNull(recoveryManager, "recoveryManager is null");
-        this.storageService = checkNotNull(storageService, "storageManagerUtil is null");
+        this.storageService = checkNotNull(storageService, "storageService is null");
     }
 
     @Override
@@ -118,41 +118,35 @@ public class OrcStorageManager
     public OutputHandle createOutputHandle(List<Long> columnIds, List<Type> columnTypes, Optional<Long> sampleWeightColumnId)
     {
         List<StorageType> storageTypes = toStorageTypes(columnTypes);
-
-        UUID shardUuid = UUID.randomUUID();
-        File stagingFile = storageService.getStagingFile(shardUuid);
-        createParents(stagingFile);
-
-        RowSink rowSink = new OrcRowSink(columnIds, storageTypes, sampleWeightColumnId, stagingFile);
-
-        return new OutputHandle(shardUuid, rowSink);
+        RowSinkProvider rowSinkProvider = new OrcRowSinkProvider(columnIds, storageTypes, sampleWeightColumnId, storageService);
+        return new OutputHandle(rowSinkProvider);
     }
 
     @Override
     public void commit(OutputHandle outputHandle)
     {
-        outputHandle.getRowSink().close();
+        for (UUID shardUuid : outputHandle.getShardUuids()) {
+            File stagingFile = storageService.getStagingFile(shardUuid);
+            File storageFile = storageService.getStorageFile(shardUuid);
 
-        File stagingFile = storageService.getStagingFile(outputHandle.getShardUuid());
-        File storageFile = storageService.getStorageFile(outputHandle.getShardUuid());
+            createParents(storageFile);
 
-        createParents(storageFile);
-
-        try {
-            Files.move(stagingFile.toPath(), storageFile.toPath(), ATOMIC_MOVE);
-        }
-        catch (IOException e) {
-            throw new PrestoException(RAPTOR_ERROR, "Failed to move shard file", e);
-        }
-
-        if (isBackupAvailable()) {
-            File backupFile = storageService.getBackupFile(outputHandle.getShardUuid());
-            createParents(backupFile);
             try {
-                Files.copy(storageFile.toPath(), backupFile.toPath());
+                Files.move(stagingFile.toPath(), storageFile.toPath(), ATOMIC_MOVE);
             }
             catch (IOException e) {
-                throw new PrestoException(RAPTOR_ERROR, "Failed to create backup shard file", e);
+                throw new PrestoException(RAPTOR_ERROR, "Failed to move shard file", e);
+            }
+
+            if (isBackupAvailable()) {
+                File backupFile = storageService.getBackupFile(shardUuid);
+                createParents(backupFile);
+                try {
+                    Files.copy(storageFile.toPath(), backupFile.toPath());
+                }
+                catch (IOException e) {
+                    throw new PrestoException(RAPTOR_ERROR, "Failed to create backup shard file", e);
+                }
             }
         }
     }
@@ -161,6 +155,12 @@ public class OrcStorageManager
     public boolean isBackupAvailable()
     {
         return storageService.isBackupAvailable();
+    }
+
+    @Override
+    public Optional<Integer> getRowsPerShard()
+    {
+        return storageService.getRowsPerShard();
     }
 
     @VisibleForTesting
