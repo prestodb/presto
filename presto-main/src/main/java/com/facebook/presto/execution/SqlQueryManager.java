@@ -325,19 +325,21 @@ public class SqlQueryManager
      */
     public void removeExpiredQueries()
     {
-        while (expirationQueue.size() > maxQueryHistory) {
-            QueryExecution query = expirationQueue.remove();
-            removeQuery(query.getQueryInfo().getQueryId());
-        }
+        DateTime timeHorizon = DateTime.now().minus(maxQueryAge.toMillis());
 
-        DateTime oldestAllowedQuery = DateTime.now().minus(maxQueryAge.toMillis());
-        while (expirationQueue.size() > 0) {
-            QueryExecution query = expirationQueue.peek();
-            if (query.getQueryInfo().getQueryStats().getEndTime().isAfter(oldestAllowedQuery)) {
+        // we're willing to keep queries beyond timeHorizon as long as we have fewer than maxQueryHistory
+        while (expirationQueue.size() > maxQueryHistory) {
+            QueryInfo info = expirationQueue.peek().getQueryInfo();
+
+            // expirationQueue is FIFO based on query end time. Stop when we see the
+            // first query that's too young to expire
+            if (info.getQueryStats().getEndTime().isAfter(timeHorizon)) {
                 return;
             }
 
-            removeQuery(query.getQueryInfo().getQueryId());
+            // only expire them if they are older than maxQueryAge. We need to keep them
+            // around for a while in case clients come back asking for status
+            removeQuery(info.getQueryId());
             expirationQueue.remove();
         }
     }
