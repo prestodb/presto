@@ -58,12 +58,6 @@ public class RowToJsonCast
     }
 
     @Override
-    public String getDescription()
-    {
-        return null;
-    }
-
-    @Override
     public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager)
     {
         checkArgument(arity == 1, "Expected arity to be 1");
