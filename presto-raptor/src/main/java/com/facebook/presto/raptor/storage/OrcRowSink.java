@@ -203,6 +203,7 @@ public class OrcRowSink
             fileSystem.setWriteChecksum(false);
             OrcFile.WriterOptions options = OrcFile.writerOptions(conf)
                     .fileSystem(fileSystem)
+                    .blockPadding(false)
                     .compress(SNAPPY);
             return WRITER_CONSTRUCTOR.newInstance(target, options);
         }
