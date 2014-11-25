@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.spi.StandardErrorCode;
 import io.airlift.stats.CounterStat;
+import io.airlift.stats.DistributionStat;
 import io.airlift.stats.TimeStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -35,6 +36,8 @@ public class SqlQueryManagerStats
     private final CounterStat externalFailures = new CounterStat();
     private final CounterStat insufficientResourcesFailures = new CounterStat();
     private final TimeStat executionTime = new TimeStat(MILLISECONDS);
+    private final DistributionStat wallInputBytesRate = new DistributionStat();
+    private final DistributionStat cpuInputByteRate = new DistributionStat();
 
     public void queryStarted()
     {
@@ -44,7 +47,19 @@ public class SqlQueryManagerStats
     public void queryFinished(QueryInfo info)
     {
         completedQueries.update(1);
-        executionTime.add(info.getQueryStats().getEndTime().getMillis() - info.getQueryStats().getCreateTime().getMillis(), MILLISECONDS);
+
+        long rawInputBytes = info.getQueryStats().getRawInputDataSize().toBytes();
+
+        long executionWallMillis = info.getQueryStats().getEndTime().getMillis() - info.getQueryStats().getCreateTime().getMillis();
+        executionTime.add(executionWallMillis, MILLISECONDS);
+        if (executionWallMillis > 0) {
+            wallInputBytesRate.add(rawInputBytes * 1000 / executionWallMillis);
+        }
+
+        long executionCpuMillis = info.getQueryStats().getTotalCpuTime().toMillis();
+        if (executionCpuMillis > 0) {
+            cpuInputByteRate.add(rawInputBytes * 1000 / executionCpuMillis);
+        }
 
         if (info.getErrorCode() != null) {
             switch (StandardErrorCode.toErrorType(info.getErrorCode().getCode())) {
@@ -146,5 +161,19 @@ public class SqlQueryManagerStats
     public CounterStat getInsufficientResourcesFailures()
     {
         return insufficientResourcesFailures;
+    }
+
+    @Managed(description = "Distribution of query input data rates (wall)")
+    @Nested
+    public DistributionStat getWallInputBytesRate()
+    {
+        return wallInputBytesRate;
+    }
+
+    @Managed(description = "Distribution of query input data rates (cpu)")
+    @Nested
+    public DistributionStat getCpuInputByteRate()
+    {
+        return cpuInputByteRate;
     }
 }
