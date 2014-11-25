@@ -140,6 +140,7 @@ import static com.facebook.presto.operator.scalar.ArraySubscriptOperator.ARRAY_S
 import static com.facebook.presto.operator.scalar.ArrayToJsonCast.ARRAY_TO_JSON;
 import static com.facebook.presto.operator.scalar.IdentityCast.IDENTITY_CAST;
 import static com.facebook.presto.operator.scalar.MapCardinalityFunction.MAP_CARDINALITY;
+import static com.facebook.presto.operator.scalar.MapConstructor.MAP_CONSTRUCTOR;
 import static com.facebook.presto.operator.scalar.MapSubscriptOperator.MAP_SUBSCRIPT;
 import static com.facebook.presto.operator.scalar.MapToJsonCast.MAP_TO_JSON;
 import static com.facebook.presto.operator.scalar.MapKeys.MAP_KEYS;
@@ -282,6 +283,7 @@ public class FunctionRegistry
                 .function(ARRAY_TO_ELEMENT_CONCAT_FUNCTION)
                 .function(ELEMENT_TO_ARRAY_CONCAT_FUNCTION)
                 .function(ARRAY_SORT_FUNCTION)
+                .function(MAP_CONSTRUCTOR)
                 .function(MAP_CARDINALITY)
                 .function(MAP_SUBSCRIPT)
                 .function(IDENTITY_CAST)

@@ -13,9 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.spi.PrestoException;
-import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -31,7 +29,6 @@ public class TestJsonFunctions
     public void setUp()
     {
         functionAssertions = new FunctionAssertions();
-        functionAssertions.addFunctions(ImmutableList.<ParametricFunction>of(new MapConstructor(2, functionAssertions.getMetadata().getTypeManager())));
     }
 
     @Test
@@ -257,7 +254,7 @@ public class TestJsonFunctions
     {
         assertFunction("CAST('[1,2,3]' AS JSON) = CAST('[1,2,3]' AS JSON)", true);
         assertFunction("CAST('{\"a\":1, \"b\":2}' AS JSON) = CAST('{\"b\":2, \"a\":1}' AS JSON)", true);
-        assertFunction("CAST('{\"a\":1, \"b\":2}' AS JSON) = CAST(MAP('b', 2, 'a', 1) AS JSON)", true);
+        assertFunction("CAST('{\"a\":1, \"b\":2}' AS JSON) = CAST(MAP(ARRAY['b','a'], ARRAY[2,1]) AS JSON)", true);
         assertFunction("CAST('null' AS JSON) = CAST('null' AS JSON)", true);
         assertFunction("CAST('true' AS JSON) = CAST('true' AS JSON)", true);
         assertFunction("CAST('{\"x\":\"y\"}' AS JSON) = CAST('{\"x\":\"y\"}' AS JSON)", true);
