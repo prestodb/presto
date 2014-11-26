@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.WindowFunctionDefinition;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.operator.window.AggregateWindowFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -86,8 +87,8 @@ public final class FunctionInfo
         this.deterministic = true;
         this.nullable = false;
         this.nullableArguments = ImmutableList.copyOf(Collections.nCopies(signature.getArgumentTypes().size(), false));
-        this.isWindow = false;
-        this.windowFunctionSupplier = null;
+        this.isWindow = true;
+        this.windowFunctionSupplier = AggregateWindowFunction.supplier(signature, function);
     }
 
     public FunctionInfo(Signature signature, String description, boolean hidden, MethodHandle function, boolean deterministic, boolean nullableResult, List<Boolean> nullableArguments)

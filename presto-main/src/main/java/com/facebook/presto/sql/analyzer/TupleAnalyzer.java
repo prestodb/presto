@@ -607,7 +607,7 @@ public class TupleAnalyzer
                     FunctionCall functionCall = (FunctionCall) fieldOrExpression.getExpression();
                     FunctionInfo functionInfo = analysis.getFunctionInfo(functionCall);
                     checkState(functionInfo != null, "functionInfo is null");
-                    if (functionInfo.isWindow() && !functionCall.getWindow().isPresent()) {
+                    if (functionInfo.isWindow() && !functionInfo.isAggregate() && !functionCall.getWindow().isPresent()) {
                         throw new SemanticException(WINDOW_REQUIRES_OVER, node, "Window function %s requires an OVER clause", functionInfo.getName());
                     }
                 }

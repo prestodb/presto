@@ -17,11 +17,33 @@ clause to specify the window. A window has three components:
 
 For example, the following query ranks orders for each clerk by price::
 
-    SELECT orderid, clerk, totalprice,
-           RANK() OVER (PARTITION BY clerk
+    SELECT orderkey, clerk, totalprice,
+           rank() OVER (PARTITION BY clerk
                         ORDER BY totalprice DESC) AS rnk
     FROM orders
     ORDER BY clerk, rnk
+
+Aggregate Functions
+-------------------
+
+All :doc:`aggregate` can be used as window functions by adding the ``OVER``
+clause. The aggregate function is computed for each row over the rows within
+the current row's window frame.
+
+Currently, explicitly specified window frames are not supported. Thus, these
+functions use the default window frame ``RANGE UNBOUNDED PRECEDING``, which is
+the same as ``RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW``. This frame
+contains all rows from the start of the partition up to the last peer of the
+current row.
+
+For example, the following query produces a rolling sum of order prices
+by day for each clerk::
+
+    SELECT clerk, orderdate, orderkey, totalprice,
+           sum(totalprice) OVER (PARTITION BY clerk
+                                 ORDER BY orderdate) AS rolling_sum
+    FROM orders
+    ORDER BY clerk, orderdate, orderkey
 
 Ranking Functions
 -----------------
