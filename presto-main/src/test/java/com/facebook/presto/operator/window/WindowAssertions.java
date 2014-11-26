@@ -60,8 +60,7 @@ public final class WindowAssertions
     {
         @Language("SQL") String query = format("" +
                 "SELECT orderkey, orderstatus,\n%s\n" +
-                "FROM (%s) x\n" +
-                "ORDER BY orderkey", sql, VALUES);
+                "FROM (%s) x", sql, VALUES);
 
         MaterializedResult actual = localQueryRunner.execute(query);
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -71,8 +70,7 @@ public final class WindowAssertions
     {
         @Language("SQL") String query = format("" +
                 "SELECT orderkey, orderstatus,\n%s\n" +
-                "FROM (%s) x\n" +
-                "ORDER BY orderkey", sql, VALUES_WITH_NULLS);
+                "FROM (%s) x", sql, VALUES_WITH_NULLS);
 
         MaterializedResult actual = localQueryRunner.execute(query);
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
