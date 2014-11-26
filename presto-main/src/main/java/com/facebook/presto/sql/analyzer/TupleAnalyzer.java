@@ -371,8 +371,23 @@ public class TupleAnalyzer
 
         for (Relation relation : Iterables.skip(node.getRelations(), 1)) {
             TupleDescriptor descriptor = analyzer.process(relation, context);
-            if (!elementsEqual(transform(outputDescriptor.getVisibleFields(), typeGetter()), transform(descriptor.getVisibleFields(), typeGetter()))) {
-                throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES, node, "Union query terms have mismatched columns");
+            int outputFieldSize = outputDescriptor.getVisibleFields().size();
+            int descFieldSize = descriptor.getVisibleFields().size();
+            if (outputFieldSize != descFieldSize) {
+                throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
+                                            node,
+                                            "union query has different number of fields: %d, %d",
+                                            outputFieldSize, descFieldSize);
+            }
+            for (int i = 0; i < descriptor.getVisibleFields().size(); i++) {
+                Type outputFieldType = outputDescriptor.getFieldByIndex(i).getType();
+                Type descFieldType = descriptor.getFieldByIndex(i).getType();
+                if (outputFieldType != descFieldType) {
+                    throw new SemanticException(TYPE_MISMATCH,
+                                                node,
+                                                "column %d in union query has incompatible types: %s, %s",
+                                                i, outputFieldType.getDisplayName(), descFieldType.getDisplayName());
+                }
             }
         }
 
