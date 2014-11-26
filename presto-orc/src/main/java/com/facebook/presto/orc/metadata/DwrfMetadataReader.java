@@ -244,6 +244,12 @@ public class DwrfMetadataReader
             return null;
         }
 
+        // temporarily disable string statistics until we figure out the implications of how UTF-16
+        // strings are compared when they contain surrogate pairs and replacement characters
+        if (true) {
+            return null;
+        }
+
         return new StringStatistics(
                 stringStatistics.hasMinimum() ? stringStatistics.getMinimum() : null,
                 stringStatistics.hasMaximum() ? stringStatistics.getMaximum() : null);
