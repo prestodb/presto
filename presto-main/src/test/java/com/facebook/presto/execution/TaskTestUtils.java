@@ -56,7 +56,7 @@ public final class TaskTestUtils
     {
     }
 
-    public static final ScheduledSplit SPLIT = new ScheduledSplit(0, new Split("test", new TestingSplit()));
+    public static final ScheduledSplit SPLIT = new ScheduledSplit(0, new Split("test", TestingSplit.createLocalSplit()));
 
     public static final PlanNodeId TABLE_SCAN_NODE_ID = new PlanNodeId("tableScan");
 

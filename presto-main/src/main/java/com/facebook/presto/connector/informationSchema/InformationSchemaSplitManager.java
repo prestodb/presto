@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
-import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
@@ -70,7 +69,7 @@ public class InformationSchemaSplitManager
     {
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
-            return new FixedSplitSource(SystemTablesManager.CONNECTOR_ID, ImmutableList.<ConnectorSplit>of());
+            return new FixedSplitSource(null, ImmutableList.<ConnectorSplit>of());
         }
 
         ConnectorPartition partition = Iterables.getOnlyElement(partitions);
@@ -86,7 +85,7 @@ public class InformationSchemaSplitManager
 
         ConnectorSplit split = new InformationSchemaSplit(informationSchemaPartition.getTable(), filters.build(), localAddress);
 
-        return new FixedSplitSource(SystemTablesManager.CONNECTOR_ID, ImmutableList.of(split));
+        return new FixedSplitSource(null, ImmutableList.of(split));
     }
 
     public static class InformationSchemaPartition
