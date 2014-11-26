@@ -20,7 +20,7 @@ import com.facebook.presto.spi.type.Type;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class RankFunction
-        implements WindowFunction
+        extends SimpleWindowFunction
 {
     private long rank;
     private long count;

@@ -143,8 +143,8 @@ public class WindowOperator
     private IntComparator orderComparator;
 
     private int partitionEnd;
+    private int peerGroupStart;
     private int peerGroupEnd;
-    private int peerGroupCount;
 
     public WindowOperator(
             OperatorContext operatorContext,
@@ -276,18 +276,18 @@ public class WindowOperator
             // check for new peer group
             boolean newPeerGroup = newPartition || (currentPosition == peerGroupEnd);
             if (newPeerGroup) {
+                peerGroupStart = currentPosition;
                 // find end of peer group
                 peerGroupEnd++;
                 while ((peerGroupEnd < partitionEnd) &&
                         (orderComparator.compare(peerGroupEnd - 1, peerGroupEnd) == 0)) {
                     peerGroupEnd++;
                 }
-                peerGroupCount = peerGroupEnd - currentPosition;
             }
 
             // process window functions
             for (WindowFunction function : windowFunctions) {
-                function.processRow(pageBuilder.getBlockBuilder(channel), newPeerGroup, peerGroupCount);
+                function.processRow(pageBuilder.getBlockBuilder(channel), peerGroupStart, peerGroupEnd - 1);
                 channel++;
             }
 

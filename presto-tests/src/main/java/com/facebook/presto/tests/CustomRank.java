@@ -14,7 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.operator.window.WindowFunction;
+import com.facebook.presto.operator.window.SimpleWindowFunction;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
@@ -22,7 +22,7 @@ import com.facebook.presto.spi.type.Type;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class CustomRank
-        implements WindowFunction
+        extends SimpleWindowFunction
 {
     private long rank;
     private long count;
