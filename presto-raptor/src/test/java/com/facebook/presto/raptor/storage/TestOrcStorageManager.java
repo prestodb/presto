@@ -29,10 +29,12 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import org.joda.time.DateTime;
 import org.joda.time.Days;
 import org.joda.time.chrono.ISOChronology;
+import org.skife.jdbi.v2.DBI;
+import org.skife.jdbi.v2.Handle;
+import org.skife.jdbi.v2.IDBI;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -55,6 +57,7 @@ import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.google.common.io.Files.createTempDir;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.FileUtils.deleteRecursively;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Locale.ENGLISH;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
@@ -67,51 +70,62 @@ public class TestOrcStorageManager
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstance(UTC);
     private static final DateTime EPOCH = new DateTime(0, UTC_CHRONOLOGY);
     private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
+    private static final DataSize ORC_MERGE_DISTANCE = new DataSize(1, MEGABYTE);
 
+    private Handle dummyHandle;
     private File temporary;
     private File directory;
-    private File backupDirectory;
+    private StorageService storageService;
 
     @BeforeClass
     public void setup()
+            throws Exception
     {
         temporary = createTempDir();
         directory = new File(temporary, "data");
-        backupDirectory = new File(temporary, "backup");
+        File backupDirectory = new File(temporary, "backup");
+        storageService = new FileStorageService(directory, Optional.of(backupDirectory));
+        storageService.start();
+
+        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        dummyHandle = dbi.open();
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {
+        if (dummyHandle != null) {
+            dummyHandle.close();
+        }
         deleteRecursively(temporary);
     }
 
     @Test
     public void testShardFiles()
     {
-        OrcStorageManager manager = new OrcStorageManager(new File("/tmp/data"), Optional.of(new File("/tmp/backup")), new DataSize(1, Unit.MEGABYTE));
+        StorageService storageService = new FileStorageService(new File("/tmp/data"), Optional.of(new File("/tmp/backup")));
 
         UUID uuid = UUID.fromString("701e1a79-74f7-4f56-b438-b41e8e7d019d");
 
         assertEquals(
                 new File("/tmp/data/storage/701/e1a/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc"),
-                manager.getStorageFile(uuid));
+                storageService.getStorageFile(uuid));
 
         assertEquals(
                 new File("/tmp/data/staging/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc"),
-                manager.getStagingFile(uuid));
+                storageService.getStagingFile(uuid));
 
         assertEquals(
                 new File("/tmp/backup/701/e1a/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc"),
-                manager.getBackupFile(uuid));
+                storageService.getBackupFile(uuid));
     }
 
     @Test
     public void testWriter()
             throws Exception
     {
-        OrcStorageManager manager = new OrcStorageManager(directory, Optional.of(backupDirectory), new DataSize(1, Unit.MEGABYTE));
+        OrcStorageManager manager = new OrcStorageManager(storageService, ORC_MERGE_DISTANCE);
 
         List<Long> columnIds = ImmutableList.of(3L, 7L);
         List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR);
@@ -133,8 +147,8 @@ public class TestOrcStorageManager
         manager.commit(handle);
 
         UUID shardUuid = handle.getShardUuid();
-        File file = manager.getStorageFile(shardUuid);
-        File backupFile = manager.getBackupFile(shardUuid);
+        File file = storageService.getStorageFile(shardUuid);
+        File backupFile = storageService.getBackupFile(shardUuid);
 
         // verify primary and backup shard exist
         assertFile(file, "primary shard");
@@ -170,7 +184,7 @@ public class TestOrcStorageManager
     public void testReader()
             throws Exception
     {
-        OrcStorageManager manager = new OrcStorageManager(directory, Optional.<File>absent(), new DataSize(1, Unit.MEGABYTE));
+        OrcStorageManager manager = new OrcStorageManager(storageService, ORC_MERGE_DISTANCE);
 
         List<Long> columnIds = ImmutableList.of(2L, 4L, 6L, 7L, 8L, 9L);
         List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR, VARBINARY, DATE, BOOLEAN, DOUBLE);
