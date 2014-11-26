@@ -13,22 +13,26 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 
-public interface WindowFunction
+public abstract class SimpleWindowFunction
+        implements WindowFunction
 {
-    Type getType();
+    private int currentPeerGroupStart = -1;
 
-    /**
-     * Reset state for a new partition (including the first one).
-     *
-     * @param partitionStartPosition position of the first row of the partition in the pagesIndex
-     * @param partitionRowCount the total number of rows in the new partition
-     * @param pagesIndex the pages index which contains sorted values
-     */
-    void reset(int partitionStartPosition, int partitionRowCount, PagesIndex pagesIndex);
+    @Override
+    public final void processRow(BlockBuilder output, int peerGroupStart, int peerGroupEnd)
+    {
+        boolean newPeerGroup = false;
+        if (peerGroupStart != currentPeerGroupStart) {
+            currentPeerGroupStart = peerGroupStart;
+            newPeerGroup = true;
+        }
+
+        int peerGroupCount = (peerGroupEnd - peerGroupStart) + 1;
+
+        processRow(output, newPeerGroup, peerGroupCount);
+    }
 
     /**
      * Process a row by outputting the result of the window function.
@@ -39,8 +43,8 @@ public interface WindowFunction
      * of rows within a peer group is undefined (otherwise they would not be peers).
      *
      * @param output the {@link BlockBuilder} to use for writing the output row
-     * @param peerGroupStart the position of the first row in the peer group
-     * @param peerGroupEnd the position of the last row in the peer group
+     * @param newPeerGroup if this row starts a new peer group
+     * @param peerGroupCount the total number of rows in this peer group
      */
-    void processRow(BlockBuilder output, int peerGroupStart, int peerGroupEnd);
+    public abstract void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount);
 }

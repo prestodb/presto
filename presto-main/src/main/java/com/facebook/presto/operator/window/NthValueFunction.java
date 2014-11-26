@@ -28,7 +28,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.checkCondition;
 
 public class NthValueFunction
-        implements WindowFunction
+        extends SimpleWindowFunction
 {
     public static class BigintNthValueFunction
             extends NthValueFunction

@@ -24,7 +24,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.util.Failures.checkCondition;
 
 public class NTileFunction
-        implements WindowFunction
+        extends SimpleWindowFunction
 {
     private final int valueChannel;
 

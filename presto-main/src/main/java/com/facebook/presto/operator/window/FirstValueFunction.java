@@ -26,7 +26,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
 public class FirstValueFunction
-        implements WindowFunction
+        extends SimpleWindowFunction
 {
     public static class BigintFirstValueFunction
             extends FirstValueFunction
