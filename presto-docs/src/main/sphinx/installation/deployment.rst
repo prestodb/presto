@@ -84,7 +84,7 @@ The following provides a good starting point for creating ``etc/jvm.config``:
     -XX:PermSize=150M
     -XX:MaxPermSize=150M
     -XX:ReservedCodeCacheSize=150M
-    -Xbootclasspath/p:/var/presto/installation/lib/floatingdecimal-0.1.jar
+    -Xbootclasspath/p:/var/presto/installation/lib/floatingdecimal-0.2.jar
 
 Because an ``OutOfMemoryError`` will typically leave the JVM in an
 inconsistent state, we write a heap dump (for debugging) and forcibly
