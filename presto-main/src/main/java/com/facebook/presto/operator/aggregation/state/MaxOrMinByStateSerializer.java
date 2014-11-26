@@ -83,7 +83,8 @@ public class MaxOrMinByStateSerializer
     @Override
     public void deserialize(Block block, int index, MaxOrMinByState state)
     {
-        SliceInput input = block.getSlice(index, 0, block.getLength(0)).getInput();
+        SliceInput input = block.getSlice(index, 0, block.getLength(index)).getInput();
+
         int keyLength = input.readInt();
         int valueLength = input.readInt();
         state.setKey(null);
