@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 
@@ -36,6 +35,7 @@ public class LastValueFunction
             super(BIGINT, argumentChannels);
         }
     }
+
     public static class BooleanLastValueFunction
             extends LastValueFunction
     {
@@ -44,6 +44,7 @@ public class LastValueFunction
             super(BOOLEAN, argumentChannels);
         }
     }
+
     public static class DoubleLastValueFunction
             extends LastValueFunction
     {
@@ -52,6 +53,7 @@ public class LastValueFunction
             super(DOUBLE, argumentChannels);
         }
     }
+
     public static class VarcharLastValueFunction
             extends LastValueFunction
     {
@@ -63,8 +65,6 @@ public class LastValueFunction
 
     private final Type type;
     private final int argumentChannel;
-    private PagesIndex pagesIndex;
-    private int valuePosition;
 
     protected LastValueFunction(Type type, List<Integer> argumentChannels)
     {
@@ -79,15 +79,8 @@ public class LastValueFunction
     }
 
     @Override
-    public void reset(int partitionStartPosition, int partitionRowCount, PagesIndex pagesIndex)
+    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount, int currentPosition)
     {
-        this.pagesIndex = pagesIndex;
-        this.valuePosition = partitionStartPosition + partitionRowCount - 1;
-    }
-
-    @Override
-    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
-    {
-        pagesIndex.appendTo(argumentChannel, valuePosition, output);
+        windowIndex.appendTo(argumentChannel, windowIndex.size() - 1, output);
     }
 }

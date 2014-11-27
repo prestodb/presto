@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 
@@ -27,11 +26,7 @@ public class NTileFunction
         extends SimpleWindowFunction
 {
     private final int valueChannel;
-
-    private PagesIndex pagesIndex;
-    private int currentPosition;
-    private long rowCount;
-    private long currentRow;
+    private int rowCount;
 
     public NTileFunction(List<Integer> argumentChannels)
     {
@@ -45,31 +40,25 @@ public class NTileFunction
     }
 
     @Override
-    public void reset(int partitionStartPosition, int partitionRowCount, PagesIndex pagesIndex)
+    public void reset()
     {
-        this.pagesIndex = pagesIndex;
-        this.currentPosition = partitionStartPosition;
-        this.rowCount = partitionRowCount;
-        this.currentRow = 0;
+        rowCount = windowIndex.size();
     }
 
     @Override
-    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
+    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount, int currentPosition)
     {
-        if (pagesIndex.isNull(valueChannel, currentPosition)) {
+        if (windowIndex.isNull(valueChannel, currentPosition)) {
             output.appendNull();
         }
         else {
-            long buckets = pagesIndex.getLong(valueChannel, currentPosition);
+            long buckets = windowIndex.getLong(valueChannel, currentPosition);
             checkCondition(buckets > 0, INVALID_FUNCTION_ARGUMENT, "Buckets must be greater than 0");
-            BIGINT.writeLong(output, bucket(buckets) + 1);
+            BIGINT.writeLong(output, bucket(buckets, currentPosition) + 1);
         }
-
-        currentPosition++;
-        currentRow++;
     }
 
-    private long bucket(long buckets)
+    private long bucket(long buckets, int currentRow)
     {
         if (rowCount < buckets) {
             return currentRow;

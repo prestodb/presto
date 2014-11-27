@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
@@ -70,11 +69,6 @@ public class NthValueFunction
     private final int valueChannel;
     private final int offsetChannel;
 
-    private int partitionStartPosition;
-    private int currentPosition;
-    private int partitionRowCount;
-    private PagesIndex pagesIndex;
-
     protected NthValueFunction(Type type, List<Integer> argumentChannels)
     {
         this.type = type;
@@ -89,35 +83,24 @@ public class NthValueFunction
     }
 
     @Override
-    public void reset(int partitionStartPosition, int partitionRowCount, PagesIndex pagesIndex)
+    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount, int currentPosition)
     {
-        this.partitionStartPosition = partitionStartPosition;
-        this.currentPosition = partitionStartPosition;
-        this.partitionRowCount = partitionRowCount;
-        this.pagesIndex = pagesIndex;
-    }
-
-    @Override
-    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
-    {
-        if (pagesIndex.isNull(offsetChannel, currentPosition)) {
+        if (windowIndex.isNull(offsetChannel, currentPosition)) {
             output.appendNull();
         }
         else {
-            long offset = pagesIndex.getLong(offsetChannel, currentPosition);
+            long offset = windowIndex.getLong(offsetChannel, currentPosition);
             checkCondition(offset >= 1, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 1");
 
             // offset is base 1
-            long valuePosition = (partitionStartPosition + offset) - 1;
+            long valuePosition = offset - 1;
 
-            if ((valuePosition >= 0) && (valuePosition < (partitionStartPosition + partitionRowCount))) {
-                pagesIndex.appendTo(valueChannel, Ints.checkedCast(valuePosition), output);
+            if ((valuePosition >= 0) && (valuePosition < windowIndex.size())) {
+                windowIndex.appendTo(valueChannel, Ints.checkedCast(valuePosition), output);
             }
             else {
                 output.appendNull();
             }
         }
-
-        currentPosition++;
     }
 }
