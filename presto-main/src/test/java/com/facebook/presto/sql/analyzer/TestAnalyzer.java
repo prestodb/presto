@@ -606,9 +606,9 @@ public class TestAnalyzer
     public void testMismatchedUnionQueries()
             throws Exception
     {
-        assertFails(MISMATCHED_SET_COLUMN_TYPES, "SELECT 1 UNION SELECT 'a'");
-        assertFails(MISMATCHED_SET_COLUMN_TYPES, "SELECT a FROM t1 UNION SELECT 'a'");
-        assertFails(MISMATCHED_SET_COLUMN_TYPES, "(SELECT 1) UNION SELECT 'a'");
+        assertFails(TYPE_MISMATCH, "SELECT 1 UNION SELECT 'a'");
+        assertFails(TYPE_MISMATCH, "SELECT a FROM t1 UNION SELECT 'a'");
+        assertFails(TYPE_MISMATCH, "(SELECT 1) UNION SELECT 'a'");
         assertFails(MISMATCHED_SET_COLUMN_TYPES, "SELECT 1, 2 UNION SELECT 1");
         assertFails(MISMATCHED_SET_COLUMN_TYPES, "SELECT 'a' UNION SELECT 'b', 'c'");
         assertFails(MISMATCHED_SET_COLUMN_TYPES, "TABLE t2 UNION SELECT 'a'");
