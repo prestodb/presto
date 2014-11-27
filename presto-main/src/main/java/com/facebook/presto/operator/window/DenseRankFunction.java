@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 
@@ -31,13 +30,13 @@ public class DenseRankFunction
     }
 
     @Override
-    public void reset(int partitionStartPosition, int partitionRowCount, PagesIndex pagesIndex)
+    public void reset()
     {
         rank = 0;
     }
 
     @Override
-    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
+    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount, int currentPosition)
     {
         if (newPeerGroup) {
             rank++;

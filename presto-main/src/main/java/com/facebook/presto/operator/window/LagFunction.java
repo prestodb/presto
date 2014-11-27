@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
@@ -71,10 +70,6 @@ public class LagFunction
     private final int offsetChannel;
     private final int defaultChannel;
 
-    private int partitionStartPosition;
-    private int currentPosition;
-    private PagesIndex pagesIndex;
-
     protected LagFunction(Type type, List<Integer> argumentChannels)
     {
         this.type = type;
@@ -90,43 +85,26 @@ public class LagFunction
     }
 
     @Override
-    public void reset(int partitionStartPosition, int partitionRowCount, PagesIndex pagesIndex)
+    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount, int currentPosition)
     {
-        this.partitionStartPosition = partitionStartPosition;
-        this.currentPosition = partitionStartPosition;
-        this.pagesIndex = pagesIndex;
-    }
-
-    @Override
-    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
-    {
-        if ((offsetChannel >= 0) && pagesIndex.isNull(offsetChannel, currentPosition)) {
+        if ((offsetChannel >= 0) && windowIndex.isNull(offsetChannel, currentPosition)) {
             output.appendNull();
         }
         else {
-            long offset = (offsetChannel < 0) ? 1 : pagesIndex.getLong(offsetChannel, currentPosition);
+            long offset = (offsetChannel < 0) ? 1 : windowIndex.getLong(offsetChannel, currentPosition);
             checkCondition(offset >= 0, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 0");
 
             long valuePosition = currentPosition - offset;
 
-            if ((valuePosition >= partitionStartPosition) && (valuePosition <= currentPosition)) {
-                pagesIndex.appendTo(valueChannel, Ints.checkedCast(valuePosition), output);
+            if ((valuePosition >= 0) && (valuePosition <= currentPosition)) {
+                windowIndex.appendTo(valueChannel, Ints.checkedCast(valuePosition), output);
+            }
+            else if (defaultChannel >= 0) {
+                windowIndex.appendTo(defaultChannel, currentPosition, output);
             }
             else {
-                appendDefault(output);
+                output.appendNull();
             }
-        }
-
-        currentPosition++;
-    }
-
-    private void appendDefault(BlockBuilder output)
-    {
-        if (defaultChannel < 0) {
-            output.appendNull();
-        }
-        else {
-            pagesIndex.appendTo(defaultChannel, currentPosition, output);
         }
     }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.window.WindowFunction;
+import com.facebook.presto.operator.window.WindowIndex;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.SortOrder;
@@ -142,6 +143,7 @@ public class WindowOperator
     private IntComparator partitionComparator;
     private IntComparator orderComparator;
 
+    private int partitionStart;
     private int partitionEnd;
     private int peerGroupStart;
     private int peerGroupEnd;
@@ -253,6 +255,7 @@ public class WindowOperator
             // check for new partition
             boolean newPartition = (currentPosition == 0) || (currentPosition == partitionEnd);
             if (newPartition) {
+                partitionStart = currentPosition;
                 // find end of partition
                 partitionEnd++;
                 while ((partitionEnd < pagesIndex.getPositionCount()) &&
@@ -261,8 +264,9 @@ public class WindowOperator
                 }
 
                 // reset functions for new partition
+                WindowIndex windowIndex = new WindowIndex(pagesIndex, partitionStart, partitionEnd);
                 for (WindowFunction function : windowFunctions) {
-                    function.reset(currentPosition, partitionEnd - currentPosition, pagesIndex);
+                    function.reset(windowIndex);
                 }
             }
 
@@ -287,7 +291,10 @@ public class WindowOperator
 
             // process window functions
             for (WindowFunction function : windowFunctions) {
-                function.processRow(pageBuilder.getBlockBuilder(channel), peerGroupStart, peerGroupEnd - 1);
+                function.processRow(
+                        pageBuilder.getBlockBuilder(channel),
+                        peerGroupStart - partitionStart,
+                        peerGroupEnd - partitionStart - 1);
                 channel++;
             }
 

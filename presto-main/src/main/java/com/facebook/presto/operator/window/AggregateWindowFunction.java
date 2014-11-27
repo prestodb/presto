@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
@@ -38,8 +37,7 @@ public class AggregateWindowFunction
     private final List<Integer> argumentChannels;
     private final AccumulatorFactory accumulatorFactory;
 
-    private int partitionStartPosition;
-    private PagesIndex pagesIndex;
+    private WindowIndex windowIndex;
 
     private AggregateWindowFunction(InternalAggregationFunction function, List<Integer> argumentChannels)
     {
@@ -55,19 +53,18 @@ public class AggregateWindowFunction
     }
 
     @Override
-    public void reset(int partitionStartPosition, int partitionRowCount, PagesIndex pagesIndex)
+    public void reset(WindowIndex windowIndex)
     {
-        this.partitionStartPosition = partitionStartPosition;
-        this.pagesIndex = pagesIndex;
+        this.windowIndex = windowIndex;
     }
 
     @Override
     public void processRow(BlockBuilder output, int peerGroupStart, int peerGroupEnd)
     {
         PageBuilder pageBuilder = new PageBuilder(function.getParameterTypes());
-        for (int position = partitionStartPosition; position <= peerGroupEnd; position++) {
+        for (int position = 0; position <= peerGroupEnd; position++) {
             for (int i = 0; i < function.getParameterTypes().size(); i++) {
-                pagesIndex.appendTo(argumentChannels.get(i), position, pageBuilder.getBlockBuilder(i));
+                windowIndex.appendTo(argumentChannels.get(i), position, pageBuilder.getBlockBuilder(i));
             }
             pageBuilder.declarePosition();
         }

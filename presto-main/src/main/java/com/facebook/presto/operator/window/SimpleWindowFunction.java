@@ -18,7 +18,20 @@ import com.facebook.presto.spi.block.BlockBuilder;
 public abstract class SimpleWindowFunction
         implements WindowFunction
 {
-    private int currentPeerGroupStart = -1;
+    protected WindowIndex windowIndex;
+
+    private int currentPeerGroupStart;
+    private int currentPosition;
+
+    @Override
+    public final void reset(WindowIndex windowIndex)
+    {
+        this.windowIndex = windowIndex;
+        this.currentPeerGroupStart = -1;
+        this.currentPosition = 0;
+
+        reset();
+    }
 
     @Override
     public final void processRow(BlockBuilder output, int peerGroupStart, int peerGroupEnd)
@@ -31,7 +44,17 @@ public abstract class SimpleWindowFunction
 
         int peerGroupCount = (peerGroupEnd - peerGroupStart) + 1;
 
-        processRow(output, newPeerGroup, peerGroupCount);
+        processRow(output, newPeerGroup, peerGroupCount, currentPosition);
+
+        currentPosition++;
+    }
+
+    /**
+     * Reset state for a new partition (including the first one).
+     */
+    public void reset()
+    {
+        // subclasses can override
     }
 
     /**
@@ -45,6 +68,7 @@ public abstract class SimpleWindowFunction
      * @param output the {@link BlockBuilder} to use for writing the output row
      * @param newPeerGroup if this row starts a new peer group
      * @param peerGroupCount the total number of rows in this peer group
+     * @param currentPosition the current position for this row
      */
-    public abstract void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount);
+    public abstract void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount, int currentPosition);
 }
