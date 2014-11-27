@@ -34,6 +34,10 @@ General Aggregate Functions
 
     Returns the value of ``x`` associated with the maximum value of ``y`` over all input values.
 
+.. function:: min_by(x, y) -> [same as x]
+
+    Returns the value of ``x`` associated with the minimum value of ``y`` over all input values.
+
 .. function:: max(x) -> [same as input]
 
     Returns the maximum value of all input values.
