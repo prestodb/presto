@@ -64,6 +64,7 @@ import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
+import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.type.RowType;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
@@ -589,6 +590,24 @@ public class ExpressionAnalyzer
                     Type type = expressionTypes.get(sortItem.getSortKey());
                     if (!type.isComparable()) {
                         throw new SemanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in window function ORDER BY", type);
+                    }
+                }
+
+                if (node.getWindow().get().getFrame().isPresent()) {
+                    WindowFrame frame = node.getWindow().get().getFrame().get();
+
+                    if (frame.getStart().getValue().isPresent()) {
+                        Type type = process(frame.getStart().getValue().get(), context);
+                        if (!type.equals(BIGINT)) {
+                            throw new SemanticException(TYPE_MISMATCH, node, "Window frame start value type must be BIGINT (actual %s)", type);
+                        }
+                    }
+
+                    if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
+                        Type type = process(frame.getEnd().get().getValue().get(), context);
+                        if (!type.equals(BIGINT)) {
+                            throw new SemanticException(TYPE_MISMATCH, node, "Window frame end value type must be BIGINT (actual %s)", type);
+                        }
                     }
                 }
             }

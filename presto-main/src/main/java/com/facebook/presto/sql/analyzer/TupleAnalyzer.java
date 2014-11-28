@@ -41,6 +41,7 @@ import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
@@ -66,6 +67,7 @@ import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.google.common.base.Function;
@@ -95,6 +97,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionT
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
@@ -114,6 +117,12 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOU
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.EQUAL;
+import static com.facebook.presto.sql.tree.FrameBound.Type.CURRENT_ROW;
+import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
+import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
+import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
+import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -605,6 +614,7 @@ public class TupleAnalyzer
             }
 
             if (window.getFrame().isPresent()) {
+                analyzeWindowFrame(window.getFrame().get());
                 throw new SemanticException(NOT_SUPPORTED, node, "Window frames not yet supported");
             }
 
@@ -624,6 +634,34 @@ public class TupleAnalyzer
         }
 
         analysis.setWindowFunctions(node, windowFunctions);
+    }
+
+    private static void analyzeWindowFrame(WindowFrame frame)
+    {
+        FrameBound.Type startType = frame.getStart().getType();
+        FrameBound.Type endType = frame.getEnd().or(new FrameBound(CURRENT_ROW)).getType();
+
+        if (startType == UNBOUNDED_FOLLOWING) {
+            throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame start cannot be UNBOUNDED FOLLOWING");
+        }
+        if (endType == UNBOUNDED_PRECEDING) {
+            throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame end cannot be UNBOUNDED PRECEDING");
+        }
+        if ((startType == CURRENT_ROW) && (endType == PRECEDING)) {
+            throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame starting from CURRENT ROW cannot end with PRECEDING");
+        }
+        if ((startType == FOLLOWING) && (endType == PRECEDING)) {
+            throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame starting from FOLLOWING cannot end with PRECEDING");
+        }
+        if ((startType == FOLLOWING) && (endType == CURRENT_ROW)) {
+            throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame starting from FOLLOWING cannot end with CURRENT ROW");
+        }
+        if ((frame.getType() == RANGE) && ((startType == PRECEDING) || (endType == PRECEDING))) {
+            throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame RANGE PRECEDING is only supported with UNBOUNDED");
+        }
+        if ((frame.getType() == RANGE) && ((startType == FOLLOWING) || (endType == FOLLOWING))) {
+            throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame RANGE FOLLOWING is only supported with UNBOUNDED");
+        }
     }
 
     private void analyzeHaving(QuerySpecification node, TupleDescriptor tupleDescriptor, AnalysisContext context)
