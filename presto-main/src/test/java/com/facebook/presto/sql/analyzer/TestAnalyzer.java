@@ -396,6 +396,12 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testWindowFunctionWithoutOverClause()
+    {
+        assertFails(WINDOW_REQUIRES_OVER, "SELECT row_number()");
+    }
+
+    @Test
     public void testDistinctInWindowFunctionParameter()
             throws Exception
     {
@@ -800,11 +806,5 @@ public class TestAnalyzer
                 fail(format("Expected error %s, but found %s: %s", error, e.getCode(), e.getMessage()), e);
             }
         }
-    }
-
-    @Test
-    public void testWindowFunctionWithoutOverClause()
-    {
-        assertFails(WINDOW_REQUIRES_OVER, "SELECT row_number()");
     }
 }
