@@ -123,16 +123,7 @@ public class NodeScheduler
                     nodes = nodeManager.getActiveDatasourceNodes(dataSourceName);
                 }
                 else {
-                    nodes = FluentIterable.from(nodeManager.getActiveNodes()).filter(new Predicate<Node>()
-                    {
-                        @Override
-                        public boolean apply(Node node)
-                        {
-                            // TODO: This only filters out the coordinator if it's the current node, which does not work if we have multiple coordinators.
-                            // Instead we should have the coordinator announce that it's a coordinator in service discovery.
-                            return includeCoordinator || !nodeManager.getCurrentNode().getNodeIdentifier().equals(node.getNodeIdentifier());
-                        }
-                    }).toSet();
+                    nodes = nodeManager.getActiveNodes();
                 }
 
                 for (Node node : nodes) {
@@ -269,15 +260,18 @@ public class NodeScheduler
             return assignment;
         }
 
-        private List<Node> selectCandidateNodes(NodeMap nodeMap, Split split)
+        private List<Node> selectCandidateNodes(NodeMap nodeMap, final Split split)
         {
             Set<Node> chosen = new LinkedHashSet<>(minCandidates);
+            String coordinatorIdentifier = nodeManager.getCurrentNode().getNodeIdentifier();
 
             // first look for nodes that match the hint
             for (HostAddress hint : split.getAddresses()) {
                 for (Node node : nodeMap.getNodesByHostAndPort().get(hint)) {
-                    if (chosen.add(node)) {
-                        scheduleLocal.incrementAndGet();
+                    if (includeCoordinator || !coordinatorIdentifier.equals(node.getNodeIdentifier())) {
+                        if (chosen.add(node)) {
+                            scheduleLocal.incrementAndGet();
+                        }
                     }
                 }
 
@@ -294,8 +288,10 @@ public class NodeScheduler
                 // by all nodes in that host
                 if (!hint.hasPort() || split.isRemotelyAccessible()) {
                     for (Node node : nodeMap.getNodesByHost().get(address)) {
-                        if (chosen.add(node)) {
-                            scheduleLocal.incrementAndGet();
+                        if (includeCoordinator || !coordinatorIdentifier.equals(node.getNodeIdentifier())) {
+                            if (chosen.add(node)) {
+                                scheduleLocal.incrementAndGet();
+                            }
                         }
                     }
                 }
@@ -313,11 +309,13 @@ public class NodeScheduler
                         continue;
                     }
                     for (Node node : nodeMap.getNodesByRack().get(Rack.of(address))) {
-                        if (chosen.add(node)) {
-                            scheduleRack.incrementAndGet();
-                        }
-                        if (chosen.size() == minCandidates) {
-                            break;
+                        if (includeCoordinator || !coordinatorIdentifier.equals(node.getNodeIdentifier())) {
+                            if (chosen.add(node)) {
+                                scheduleRack.incrementAndGet();
+                            }
+                            if (chosen.size() == minCandidates) {
+                                break;
+                            }
                         }
                     }
                     if (chosen.size() == minCandidates) {
@@ -330,14 +328,38 @@ public class NodeScheduler
             if (split.isRemotelyAccessible()) {
                 if (chosen.size() < minCandidates) {
                     for (Node node : lazyShuffle(nodeMap.getNodesByHost().values())) {
-                        if (chosen.add(node)) {
-                            scheduleRandom.incrementAndGet();
-                        }
+                        if (includeCoordinator || !coordinatorIdentifier.equals(node.getNodeIdentifier())) {
+                            if (chosen.add(node)) {
+                                scheduleRandom.incrementAndGet();
+                            }
 
-                        if (chosen.size() == minCandidates) {
-                            break;
+                            if (chosen.size() == minCandidates) {
+                                break;
+                            }
                         }
                     }
+                }
+            }
+
+            // if the chosen set is empty and the hint includes the coordinator,
+            // force pick the coordinator
+            if (chosen.isEmpty() && !includeCoordinator) {
+                final HostAddress coordinatorHostAddress = nodeManager.getCurrentNode().getHostAndPort();
+                if (FluentIterable.from(split.getAddresses()).anyMatch(new Predicate<HostAddress>() {
+                    @Override
+                    public boolean apply(HostAddress hostAddress)
+                    {
+                        // Exact match of the coordinator
+                        if (hostAddress.equals(coordinatorHostAddress)) {
+                            return true;
+                        }
+                        // If the split is remotely accessible or the split location doesn't specify a port,
+                        // we can ignore the coordinator's port and match just the ip address
+                        return (!hostAddress.hasPort() || split.isRemotelyAccessible()) &&
+                                hostAddress.getHostText().equals(coordinatorHostAddress.getHostText());
+                    }
+                })) {
+                   chosen.add(nodeManager.getCurrentNode());
                 }
             }
 
