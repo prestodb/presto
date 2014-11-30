@@ -23,14 +23,17 @@ import com.facebook.presto.operator.window.LeadFunction.VarcharLeadFunction;
 import com.facebook.presto.operator.window.NthValueFunction.VarcharNthValueFunction;
 import com.facebook.presto.operator.window.ReflectionWindowFunctionSupplier;
 import com.facebook.presto.operator.window.RowNumberFunction;
+import com.facebook.presto.operator.window.SumByFunction.BigintSumByFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -76,6 +79,10 @@ public class TestWindowOperator
 
     private static final List<WindowFunctionDefinition> LEAD = ImmutableList.of(
             window(new ReflectionWindowFunctionSupplier<>("lead", VARCHAR, ImmutableList.of(VARCHAR, BIGINT, VARCHAR), VarcharLeadFunction.class), 1, 3, 4)
+    );
+
+    private static final List<WindowFunctionDefinition> SUM_BY = ImmutableList.of(
+            window(new ReflectionWindowFunctionSupplier<>("sum_by", BIGINT, ImmutableList.<Type>of(BIGINT), BigintSumByFunction.class), 2)
     );
 
     private ExecutorService executor;
@@ -425,6 +432,44 @@ public class TestWindowOperator
                 .row("b", "A1", 1, true, "C1")
                 .row("b", "C1", 2, false, "D")
                 .row("c", "A3", 1, true, "D")
+                .build();
+
+        assertOperatorEquals(operator, input, expected);
+    }
+
+    @Test
+    public void testSumByPartition()
+            throws Exception
+    {
+        List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT)
+                .row("b", "A1", 1)
+                .row("a", "A2", 1)
+                .row("a", "B1", 2)
+                .pageBreak()
+                .row("b", "C1", 2)
+                .row("a", "C2", 3)
+                .row("c", "A3", 1)
+                .build();
+
+        WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
+                0,
+                ImmutableList.of(VARCHAR, VARCHAR, BIGINT),
+                Ints.asList(0, 1, 2),
+                SUM_BY,
+                Ints.asList(0),
+                Ints.asList(1),
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                100);
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, VARCHAR, BIGINT, BIGINT)
+                .row("a", "A2", 1, 1)
+                .row("a", "B1", 2, 3)
+                .row("a", "C2", 3, 6)
+                .row("b", "A1", 1, 1)
+                .row("b", "C1", 2, 3)
+                .row("c", "A3", 1, 1)
                 .build();
 
         assertOperatorEquals(operator, input, expected);
