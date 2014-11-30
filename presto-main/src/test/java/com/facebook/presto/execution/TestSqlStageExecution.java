@@ -46,6 +46,7 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.base.Optional;
+import com.google.common.base.Supplier;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -94,6 +95,7 @@ public class TestSqlStageExecution
     private InMemoryNodeManager nodeManager;
     private NodeScheduler nodeScheduler;
     private LocationFactory locationFactory;
+    private Supplier<ConnectorSplit> splitFactory;
 
     @BeforeMethod
     public void setUp()
@@ -115,6 +117,13 @@ public class TestSqlStageExecution
         nodeTaskMap = new NodeTaskMap();
         nodeScheduler = new NodeScheduler(nodeManager, nodeSchedulerConfig, nodeTaskMap);
         locationFactory = new MockLocationFactory();
+        splitFactory = new Supplier<ConnectorSplit>() {
+            @Override
+            public ConnectorSplit get()
+            {
+                return TestingSplit.createLocalSplit();
+            }
+        };
     }
 
     @Test(expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*No nodes available to run query")
@@ -125,7 +134,14 @@ public class TestSqlStageExecution
         NodeScheduler nodeScheduler = new NodeScheduler(nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap);
 
         // Start sql stage execution
-        SqlStageExecution sqlStageExecution = createSqlStageExecution(nodeScheduler, 2, 20);
+        StageExecutionPlan tableScanPlan = createTableScanPlan("test", 20, new Supplier<ConnectorSplit>() {
+            @Override
+            public ConnectorSplit get()
+            {
+                return TestingSplit.createEmptySplit();
+            }
+        });
+        SqlStageExecution sqlStageExecution = createSqlStageExecution(nodeScheduler, 2, tableScanPlan);
         Future future = sqlStageExecution.start();
         future.get(1, TimeUnit.SECONDS);
     }
@@ -135,7 +151,8 @@ public class TestSqlStageExecution
             throws Exception
     {
         // Start sql stage execution (schedule 15 splits in batches of 2), there are 3 nodes, each node should get 5 splits
-        SqlStageExecution sqlStageExecution1 = createSqlStageExecution(nodeScheduler, 2, 15);
+        StageExecutionPlan tableScanPlan = createTableScanPlan("test", 15, splitFactory);
+        SqlStageExecution sqlStageExecution1 = createSqlStageExecution(nodeScheduler, 2, tableScanPlan);
         Future future1 = sqlStageExecution1.start();
         future1.get(1, TimeUnit.SECONDS);
         for (RemoteTask remoteTask : sqlStageExecution1.getAllTasks()) {
@@ -147,7 +164,8 @@ public class TestSqlStageExecution
         nodeManager.addNode("foo", additionalNode);
 
         // Schedule next query with 5 splits. Since the new node does not have any splits, all 5 splits are assigned to the new node
-        SqlStageExecution sqlStageExecution2 = createSqlStageExecution(nodeScheduler, 5, 5);
+        StageExecutionPlan tableScanPlan2 = createTableScanPlan("test", 5, splitFactory);
+        SqlStageExecution sqlStageExecution2 = createSqlStageExecution(nodeScheduler, 5, tableScanPlan2);
         Future future2 = sqlStageExecution2.start();
         future2.get(1, TimeUnit.SECONDS);
         List<RemoteTask> tasks2 = sqlStageExecution2.getTasks(additionalNode);
@@ -162,7 +180,8 @@ public class TestSqlStageExecution
             throws Exception
     {
         // Start sql stage execution with 100 splits. Only 20 will be scheduled on each node as that is the maxSplitsPerNode
-        SqlStageExecution sqlStageExecution1 = createSqlStageExecution(nodeScheduler, 100, 100);
+        StageExecutionPlan tableScanPlan = createTableScanPlan("test", 100, splitFactory);
+        SqlStageExecution sqlStageExecution1 = createSqlStageExecution(nodeScheduler, 100, tableScanPlan);
         Future future1 = sqlStageExecution1.start();
 
         // The stage scheduler will block and this will cause a timeout exception
@@ -177,7 +196,7 @@ public class TestSqlStageExecution
         }
     }
 
-    private SqlStageExecution createSqlStageExecution(NodeScheduler nodeScheduler, int splitBatchSize, int splitCount)
+    private SqlStageExecution createSqlStageExecution(NodeScheduler nodeScheduler, int splitBatchSize, StageExecutionPlan tableScanPlan)
     {
         ExecutorService remoteTaskExecutor = newCachedThreadPool(daemonThreadsNamed("remoteTaskExecutor"));
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor);
@@ -187,7 +206,6 @@ public class TestSqlStageExecution
                 .withBuffer(OUT, new UnpartitionedPagePartitionFunction())
                 .withNoMoreBufferIds();
 
-        StageExecutionPlan tableScanPlan = createTableScanPlan("test", splitCount);
         return new SqlStageExecution(new QueryId("query"),
                 locationFactory,
                 tableScanPlan,
@@ -279,7 +297,7 @@ public class TestSqlStageExecution
     private StageExecutionPlan createJoinPlan(String planId)
     {
         // create table scan for build data with a single split, so it is only waiting on the no-more buffers call
-        StageExecutionPlan build = createTableScanPlan("build", 1);
+        StageExecutionPlan build = createTableScanPlan("build", 1, splitFactory);
 
         // create an exchange to read the build data
         ExchangeNode buildExchange = new ExchangeNode(new PlanNodeId(planId + "-build"),
@@ -287,7 +305,7 @@ public class TestSqlStageExecution
                 ImmutableList.copyOf(build.getFragment().getSymbols().keySet()));
 
         // create table scan for probe data with three splits, so it will not send the no-more buffers call
-        StageExecutionPlan probe = createTableScanPlan("probe", 10);
+        StageExecutionPlan probe = createTableScanPlan("probe", 10, splitFactory);
 
         // create an exchange to read the probe data
         ExchangeNode probeExchange = new ExchangeNode(new PlanNodeId(planId + "-probe"),
@@ -311,7 +329,7 @@ public class TestSqlStageExecution
         );
     }
 
-    private StageExecutionPlan createTableScanPlan(String planId, int splitCount)
+    private StageExecutionPlan createTableScanPlan(String planId, int splitCount, Supplier<ConnectorSplit> splitFactory)
     {
         Symbol symbol = new Symbol("column");
 
@@ -336,7 +354,7 @@ public class TestSqlStageExecution
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
 
         for (int i = 0; i < splitCount; i++) {
-            splits.add(new TestingSplit());
+            splits.add(splitFactory.get());
         }
         SplitSource splitSource = new ConnectorAwareSplitSource("test", new FixedSplitSource(null, splits.build()));
 

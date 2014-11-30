@@ -23,12 +23,28 @@ import java.util.List;
 public class TestingSplit
         implements ConnectorSplit
 {
-    public TestingSplit()
+    private static HostAddress localHost = HostAddress.fromString("127.0.0.1");
+
+    private List<HostAddress> addresses;
+
+    public static TestingSplit createLocalSplit()
     {
+        return new TestingSplit(ImmutableList.of(localHost));
+    }
+
+    public static TestingSplit createEmptySplit()
+    {
+        return new TestingSplit(ImmutableList.<HostAddress>of());
     }
 
     public TestingSplit(@JsonProperty("dummy") int dummy)
     {
+        this.addresses = ImmutableList.of(localHost);
+    }
+
+    public TestingSplit(List<HostAddress> addresses)
+    {
+        this.addresses = addresses;
     }
 
     // we need a dummy property because Jackson refuses to serialize/deserialize an empty object
@@ -47,7 +63,7 @@ public class TestingSplit
     @Override
     public List<HostAddress> getAddresses()
     {
-        return ImmutableList.of(HostAddress.fromString("127.0.0.1"));
+        return addresses;
     }
 
     @Override
