@@ -14,46 +14,40 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
+import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-
-public class TestLongMaxAggregation
+public class TestCorrelationAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
-        for (int i = start; i < start + length; i++) {
-            BIGINT.writeLong(blockBuilder, i);
-        }
-        return new Block[] {blockBuilder.build()};
-    }
-
-    @Override
-    public Number getExpectedValue(int start, int length)
-    {
-        if (length == 0) {
-            return null;
-        }
-        return (long) start + length - 1;
+        return new Block[] {getDoubleSequenceBlock(start, length), getDoubleSequenceBlock(start + 2, length)};
     }
 
     @Override
     protected String getFunctionName()
     {
-        return "max";
+        return "corr";
     }
 
     @Override
     protected List<String> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.BIGINT);
+        return ImmutableList.of(StandardTypes.DOUBLE, StandardTypes.DOUBLE);
+    }
+
+    @Override
+    public Object getExpectedValue(int start, int length)
+    {
+        if (length <= 1) {
+            return null;
+        }
+        PearsonsCorrelation corr = new PearsonsCorrelation();
+        return corr.correlation(constructDoublePrimitiveArray(start, length), constructDoublePrimitiveArray(start + 2, length));
     }
 }

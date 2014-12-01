@@ -14,6 +14,9 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
+import com.facebook.presto.operator.aggregation.state.CorrelationState;
+import com.facebook.presto.operator.aggregation.state.CovarianceState;
+import com.facebook.presto.operator.aggregation.state.RegressionState;
 import com.facebook.presto.operator.aggregation.state.VarianceState;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -45,6 +48,30 @@ public final class AggregationUtils
         state.setM2(state.getM2() + delta * (value - state.getMean()));
     }
 
+    public static void updateCovarianceState(CovarianceState state, double independentValue, double dependentValue)
+    {
+        state.setCount(state.getCount() + 1);
+        state.setProductSum(state.getProductSum() + independentValue * dependentValue);
+        state.setIndependentSum(state.getIndependentSum() + independentValue);
+        state.setDependentSum(state.getDependentSum() + dependentValue);
+    }
+
+    public static void updateCorrelationState(CorrelationState state, double independentValue, double dependentValue)
+    {
+        double independentDelta = independentValue - (state.getCount() == 0 ? 0 : state.getIndependentSum() / state.getCount());
+        double dependentDelta = dependentValue - (state.getCount() == 0 ? 0 : state.getDependentSum() / state.getCount());
+        updateCovarianceState(state, independentValue, dependentValue);
+        state.setIndependentM2(state.getIndependentM2() + independentDelta * (independentValue - state.getIndependentSum() / state.getCount()));
+        state.setDependentM2(state.getDependentM2() + dependentDelta * (dependentValue - state.getDependentSum() / state.getCount()));
+    }
+
+    public static void updateRegressionState(RegressionState state, double independentValue, double dependentValue)
+    {
+        double dependentDelta = dependentValue - (state.getCount() == 0 ? 0 : state.getDependentSum() / state.getCount());
+        updateCovarianceState(state, independentValue, dependentValue);
+        state.setDependentM2(state.getDependentM2() + dependentDelta * (dependentValue - state.getDependentSum() / state.getCount()));
+    }
+
     public static void mergeVarianceState(VarianceState state, VarianceState otherState)
     {
         long count = otherState.getCount();
@@ -62,6 +89,40 @@ public final class AggregationUtils
         state.setM2(state.getM2() + m2Delta);
         state.setCount(newCount);
         state.setMean(newMean);
+    }
+
+    public static void mergeCovarianceState(CovarianceState state, CovarianceState otherState)
+    {
+        long otherCount = otherState.getCount();
+        checkArgument(otherCount >= 0, "count is negative");
+        if (otherCount == 0) {
+            return;
+        }
+        updateCovarianceState(state, otherState);
+    }
+
+    public static void mergeCorrelationState(CorrelationState state, CorrelationState otherState)
+    {
+        long otherCount = otherState.getCount();
+        checkArgument(otherCount >= 0, "count is negative");
+        if (otherCount == 0) {
+            return;
+        }
+
+        state.setIndependentM2(getM2(state.getIndependentSum(), state.getCount(), state.getIndependentM2(), otherState.getIndependentSum(), otherState.getCount(), otherState.getIndependentM2()));
+        state.setDependentM2(getM2(state.getDependentSum(), state.getCount(), state.getDependentM2(), otherState.getDependentSum(), otherState.getCount(), otherState.getDependentM2()));
+        updateCovarianceState(state, otherState);
+    }
+
+    public static void mergeRegularSlopeState(RegressionState state, RegressionState otherState)
+    {
+        long otherCount = otherState.getCount();
+        checkArgument(otherCount >= 0, "count is negative");
+        if (otherCount == 0) {
+            return;
+        }
+        state.setDependentM2(getM2(state.getDependentSum(), state.getCount(), state.getDependentM2(), otherState.getDependentSum(), otherState.getCount(), otherState.getDependentM2()));
+        updateCovarianceState(state, otherState);
     }
 
     public static Type getOutputType(@Nullable Method outputFunction, AccumulatorStateSerializer<?> serializer, TypeManager typeManager)
@@ -98,5 +159,33 @@ public final class AggregationUtils
                 return page.getBlock(input);
             }
         };
+    }
+
+    static boolean countBelowAggregationThreshold(CovarianceState state)
+    {
+        return state.getCount() <= 1;
+    }
+
+    static double getCovariancePop(CovarianceState state)
+    {
+        return (state.getProductSum() - state.getIndependentSum() * state.getDependentSum() / state.getCount()) / state.getCount();
+    }
+
+    private static void updateCovarianceState(CovarianceState state, CovarianceState otherState)
+    {
+        state.setIndependentSum(state.getIndependentSum() + otherState.getIndependentSum());
+        state.setDependentSum(state.getDependentSum() + otherState.getDependentSum());
+        state.setProductSum(state.getProductSum() + otherState.getProductSum());
+        state.setCount(state.getCount() + otherState.getCount());
+    }
+
+    private static double getM2(double sum, long count, double m2, double otherSum, long otherCount, double otherM2)
+    {
+        double delta = 0;
+        if (count != 0) {
+            double m2Delta = otherSum / otherCount - sum / count;
+            delta = m2Delta * m2Delta * otherCount * count / (otherCount + count);
+        }
+        return m2 + otherM2 + delta;
     }
 }

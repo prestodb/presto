@@ -24,8 +24,10 @@ import com.facebook.presto.operator.aggregation.ApproximateSumAggregations;
 import com.facebook.presto.operator.aggregation.AverageAggregations;
 import com.facebook.presto.operator.aggregation.BooleanMaxAggregation;
 import com.facebook.presto.operator.aggregation.BooleanMinAggregation;
+import com.facebook.presto.operator.aggregation.CorrelationAggregation;
 import com.facebook.presto.operator.aggregation.CountAggregation;
 import com.facebook.presto.operator.aggregation.CountIfAggregation;
+import com.facebook.presto.operator.aggregation.CovarianceAggregation;
 import com.facebook.presto.operator.aggregation.DoubleMaxAggregation;
 import com.facebook.presto.operator.aggregation.DoubleMinAggregation;
 import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
@@ -34,6 +36,7 @@ import com.facebook.presto.operator.aggregation.LongMinAggregation;
 import com.facebook.presto.operator.aggregation.LongSumAggregation;
 import com.facebook.presto.operator.aggregation.MergeHyperLogLogAggregation;
 import com.facebook.presto.operator.aggregation.NumericHistogramAggregation;
+import com.facebook.presto.operator.aggregation.RegressionAggregation;
 import com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation;
 import com.facebook.presto.operator.aggregation.VarBinaryMinAggregation;
 import com.facebook.presto.operator.aggregation.VarianceAggregation;
@@ -248,6 +251,9 @@ public class FunctionRegistry
                 .aggregate(MergeHyperLogLogAggregation.class)
                 .aggregate(ApproximateSetAggregation.class)
                 .aggregate(NumericHistogramAggregation.class)
+                .aggregate(CovarianceAggregation.class)
+                .aggregate(RegressionAggregation.class)
+                .aggregate(CorrelationAggregation.class)
                 .scalar(StringFunctions.class)
                 .scalar(VarbinaryFunctions.class)
                 .scalar(RegexpFunctions.class)

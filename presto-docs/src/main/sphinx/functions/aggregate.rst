@@ -119,3 +119,20 @@ Statistical Aggregate Functions
 .. function:: var_samp(x) -> double
 
     Returns the sample variance of all input values.
+
+.. function:: covar(x, y) -> double
+
+    Returns sample covariance of input pairs of (x, y)
+
+.. function:: corr(x, y) -> double
+
+    Returns correlation coefficient of input pairs of (x, y)
+
+.. function:: regrSlope(x, y) -> double
+
+    Returns linear regression slope of input pairs of (x, y)
+
+.. function:: regrIntercept(x, y) -> double
+
+    Returns linear regression intercept of input pairs of (x, y)
+
