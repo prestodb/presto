@@ -129,6 +129,7 @@ import java.util.Set;
 import static com.facebook.presto.metadata.ParametricFunctionUtils.isAggregationPredicate;
 import static com.facebook.presto.metadata.ParametricFunctionUtils.isHiddenPredicate;
 import static com.facebook.presto.operator.aggregation.CountColumn.COUNT_COLUMN;
+import static com.facebook.presto.operator.aggregation.ArbitraryAggregation.ARBITRARY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MaxBy.MAX_BY;
 import static com.facebook.presto.operator.aggregation.MinBy.MIN_BY;
 import static com.facebook.presto.operator.scalar.ArrayCardinalityFunction.ARRAY_CARDINALITY;
@@ -282,6 +283,7 @@ public class FunctionRegistry
                 .function(ARRAY_CARDINALITY)
                 .function(ARRAY_CONCAT_FUNCTION)
                 .function(ARRAY_TO_ELEMENT_CONCAT_FUNCTION)
+                .function(ARBITRARY_AGGREGATION)
                 .function(ELEMENT_TO_ARRAY_CONCAT_FUNCTION)
                 .function(ARRAY_SORT_FUNCTION)
                 .function(MAP_CONSTRUCTOR)
