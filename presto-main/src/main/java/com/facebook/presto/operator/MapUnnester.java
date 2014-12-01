@@ -18,6 +18,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
+import com.facebook.presto.type.RowType;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -87,7 +88,7 @@ public class MapUnnester
             if (jsonParser.getCurrentToken() == JsonToken.VALUE_NULL) {
                 valueBlockBuilder.appendNull();
             }
-            else if (valueType instanceof ArrayType || valueType instanceof MapType) {
+            else if (valueType instanceof ArrayType || valueType instanceof MapType || valueType instanceof RowType) {
                 DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(ESTIMATED_JSON_OUTPUT_SIZE);
                 try (JsonGenerator jsonGenerator = JSON_FACTORY.createJsonGenerator(dynamicSliceOutput)) {
                     jsonGenerator.copyCurrentStructure(jsonParser);
