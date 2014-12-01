@@ -225,7 +225,7 @@ public class PrestoConnection
     public int getTransactionIsolation()
             throws SQLException
     {
-        throw new UnsupportedOperationException("getTransactionIsolation");
+        return TRANSACTION_NONE;
     }
 
     @Override
