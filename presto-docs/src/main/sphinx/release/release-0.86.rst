@@ -24,3 +24,4 @@ General Changes
 * Fix rendering of array attributes in JMX connector.
 * Input rows/bytes are now tracked properly for ``JOIN`` queries.
 * Fix case-sensitivity issue when resolving names of constant table expressions.
+* Fix unnesting arrays and maps that contain the ``ROW`` type.
