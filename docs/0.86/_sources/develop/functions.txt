@@ -14,14 +14,8 @@ dependency on presto-main) can provide new functions by returning a
     @SqlType(StandardTypes.Boolean)
     public static boolean isNull(@Nullable @SqlType(StandardTypes.VARCHAR) Slice string)
     {
-        if (string == null) {
-            return true;
-        }
-        else {
-            return false;
-        }
+        return (string == null);
     }
-
 
 The above code implements a new function ``is_null`` which takes a single ``VARCHAR``
 argument, and returns a ``BOOLEAN`` indicating if the argument was ``NULL``.

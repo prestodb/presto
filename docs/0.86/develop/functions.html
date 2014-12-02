@@ -60,12 +60,7 @@ dependency on presto-main) can provide new functions by returning a
 <span class="nd">@SqlType</span><span class="o">(</span><span class="n">StandardTypes</span><span class="o">.</span><span class="na">Boolean</span><span class="o">)</span>
 <span class="kd">public</span> <span class="kd">static</span> <span class="kt">boolean</span> <span class="nf">isNull</span><span class="o">(</span><span class="nd">@Nullable</span> <span class="nd">@SqlType</span><span class="o">(</span><span class="n">StandardTypes</span><span class="o">.</span><span class="na">VARCHAR</span><span class="o">)</span> <span class="n">Slice</span> <span class="n">string</span><span class="o">)</span>
 <span class="o">{</span>
-    <span class="k">if</span> <span class="o">(</span><span class="n">string</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
-        <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
-    <span class="o">}</span>
-    <span class="k">else</span> <span class="o">{</span>
-        <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
-    <span class="o">}</span>
+    <span class="k">return</span> <span class="o">(</span><span class="n">string</span> <span class="o">==</span> <span class="kc">null</span><span class="o">);</span>
 <span class="o">}</span>
 </pre></div>
 </div>
