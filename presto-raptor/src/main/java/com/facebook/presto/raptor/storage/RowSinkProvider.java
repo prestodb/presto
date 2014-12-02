@@ -13,13 +13,12 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import java.io.Closeable;
+import java.util.List;
+import java.util.UUID;
 
-public interface RowSink
-        extends Closeable
+public interface RowSinkProvider
 {
-    void appendTuple(TupleBuffer tupleBuffer);
+    RowSink getRowSink();
 
-    @Override
-    void close();
+    List<UUID> getShardUuids();
 }

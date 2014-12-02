@@ -13,28 +13,32 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.spi.type.Type;
+
+import java.util.List;
 import java.util.UUID;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class OutputHandle
 {
-    private final UUID shardUuid;
-    private final RowSink rowSink;
+    private final RowSinkProvider rowSinkProvider;
 
-    public OutputHandle(UUID shardUuid, RowSink rowSink)
+    public OutputHandle(List<Long> columnIds, List<Type> columnTypes, StorageService storageService)
     {
-        this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
-        this.rowSink = checkNotNull(rowSink, "rowSink is null");
+        checkNotNull(columnIds, "columnIds is null");
+        checkNotNull(columnTypes, "columnTypes is null");
+        checkNotNull(storageService, "storageService is null");
+        this.rowSinkProvider = new OrcRowSinkProvider(columnIds, columnTypes, storageService);
     }
 
-    public UUID getShardUuid()
+    public List<UUID> getShardUuids()
     {
-        return shardUuid;
+        return rowSinkProvider.getShardUuids();
     }
 
     public RowSink getRowSink()
     {
-        return rowSink;
+        return rowSinkProvider.getRowSink();
     }
 }

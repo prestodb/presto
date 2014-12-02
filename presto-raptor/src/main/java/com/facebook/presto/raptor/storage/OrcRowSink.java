@@ -15,11 +15,14 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -42,6 +45,7 @@ import java.util.Properties;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Functions.toStringFunction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -63,137 +67,59 @@ public class OrcRowSink
     private static final JobConf JOB_CONF = createJobConf();
     private static final Constructor<? extends RecordWriter> WRITER_CONSTRUCTOR = getOrcWriterConstructor();
 
-    private final int fieldCount;
     private final OrcSerde serializer;
-    private final RecordWriter recordWriter;
+
     private final SettableStructObjectInspector tableInspector;
     private final List<StructField> structFields;
     private final Object row;
-    private final int sampleWeightField;
 
-    private int field = -1;
+    private final RecordWriter recordWriter;
 
-    public OrcRowSink(List<Long> columnIds, List<StorageType> columnTypes, Optional<Long> sampleWeightColumnId, File target)
+    public OrcRowSink(List<Long> columnIds, List<Type> columnTypes, File target)
     {
         checkArgument(columnIds.size() == columnTypes.size(), "ids and types mismatch");
         checkArgument(isUnique(columnIds), "ids must be unique");
 
-        fieldCount = columnIds.size();
-        sampleWeightField = columnIds.indexOf(sampleWeightColumnId.or(-1L));
-
-        Iterable<String> hiveTypeNames = ImmutableList.copyOf(transform(columnTypes, hiveTypeName()));
+        List<StorageType> storageTypes = toStorageTypes(columnTypes);
+        Iterable<String> hiveTypeNames = ImmutableList.copyOf(transform(storageTypes, hiveTypeName()));
         List<String> columnNames = ImmutableList.copyOf(transform(columnIds, toStringFunction()));
 
         Properties properties = new Properties();
         properties.setProperty(META_TABLE_COLUMNS, Joiner.on(',').join(columnNames));
         properties.setProperty(META_TABLE_COLUMN_TYPES, Joiner.on(':').join(hiveTypeNames));
 
-        serializer = createSerializer(JOB_CONF, properties);
-        recordWriter = createRecordWriter(new Path(target.toURI()), JOB_CONF);
-
-        tableInspector = getStandardStructObjectInspector(columnNames, getJavaObjectInspectors(columnTypes));
+        serializer = createSerializer(getJobConf(), properties);
+        tableInspector = getStandardStructObjectInspector(columnNames, getJavaObjectInspectors(storageTypes));
         structFields = ImmutableList.copyOf(tableInspector.getAllStructFieldRefs());
         row = tableInspector.create();
+        this.recordWriter = createRecordWriter(new Path(target.toURI()), getJobConf());
     }
 
     @Override
-    public void beginRecord(long sampleWeight)
+    public void appendTuple(TupleBuffer tupleBuffer)
     {
-        checkState(field == -1, "already in record");
-        if (sampleWeightField >= 0) {
-            tableInspector.setStructFieldData(row, structFields.get(sampleWeightField), sampleWeight);
+        checkState(tupleBuffer.isFinalized());
+        for (int field = 0; field < tupleBuffer.getFieldCount(); field++) {
+            tableInspector.setStructFieldData(row, structFields.get(field), tupleBuffer.getField(field));
         }
-        field = (sampleWeightField == 0) ? 1 : 0;
-    }
-
-    @Override
-    public void finishRecord()
-    {
-        checkState(field != -1, "not in record");
-        checkState(field == fieldCount, "not all fields set");
-        field = -1;
 
         try {
             recordWriter.write(serializer.serialize(row, tableInspector));
-        }
-        catch (IOException e) {
-            throw new PrestoException(RAPTOR_ERROR, "Failed to write record", e);
-        }
-    }
-
-    @Override
-    public int currentField()
-    {
-        checkState(field != -1, "not in record");
-        return field;
-    }
-
-    @Override
-    public void appendNull()
-    {
-        append(null);
-    }
-
-    @Override
-    public void appendBoolean(boolean value)
-    {
-        append(value);
-    }
-
-    @Override
-    public void appendLong(long value)
-    {
-        append(value);
-    }
-
-    @Override
-    public void appendDouble(double value)
-    {
-        append(value);
-    }
-
-    @Override
-    public void appendString(String value)
-    {
-        append(value);
-    }
-
-    @Override
-    public void appendBytes(byte[] value)
-    {
-        append(value);
-    }
-
-    @Override
-    public void close()
-    {
-        checkState(field == -1, "record not finished");
-
-        try {
-            recordWriter.close(false);
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to close writer", e);
         }
     }
 
-    private void append(Object value)
+    @Override
+    public void close()
     {
-        checkState(field != -1, "not in record");
-        checkState(field < fieldCount, "all fields already set");
-
-        tableInspector.setStructFieldData(row, structFields.get(field), value);
-        field++;
-        if (field == sampleWeightField) {
-            field++;
+        try {
+            recordWriter.close(false);
         }
-    }
-
-    private static OrcSerde createSerializer(Configuration conf, Properties properties)
-    {
-        OrcSerde serde = new OrcSerde();
-        serde.initialize(conf, properties);
-        return serde;
+        catch (IOException e) {
+            throw new PrestoException(RAPTOR_ERROR, "Failed to close writer", e);
+        }
     }
 
     private static RecordWriter createRecordWriter(Path target, JobConf conf)
@@ -232,6 +158,18 @@ public class OrcRowSink
         JobConf jobConf = new JobConf();
         jobConf.setClassLoader(JobConf.class.getClassLoader());
         return new JobConf();
+    }
+
+    public static JobConf getJobConf()
+    {
+        return JOB_CONF;
+    }
+
+    private static OrcSerde createSerializer(Configuration conf, Properties properties)
+    {
+        OrcSerde serde = new OrcSerde();
+        serde.initialize(conf, properties);
+        return serde;
     }
 
     private static List<ObjectInspector> getJavaObjectInspectors(List<StorageType> types)
@@ -280,5 +218,42 @@ public class OrcRowSink
     private static <T> boolean isUnique(Collection<T> items)
     {
         return new HashSet<>(items).size() == items.size();
+    }
+
+    private static List<StorageType> toStorageTypes(List<Type> columnTypes)
+    {
+        return from(columnTypes)
+                .transform(new Function<Type, StorageType>()
+                {
+                    @Override
+                    public StorageType apply(Type type)
+                    {
+                        return toStorageType(type);
+                    }
+                })
+                .toList();
+    }
+
+    private static StorageType toStorageType(Type type)
+    {
+        Class<?> javaType = type.getJavaType();
+        if (javaType == boolean.class) {
+            return StorageType.BOOLEAN;
+        }
+        if (javaType == long.class) {
+            return StorageType.LONG;
+        }
+        if (javaType == double.class) {
+            return StorageType.DOUBLE;
+        }
+        if (javaType == Slice.class) {
+            if (type.equals(VarcharType.VARCHAR)) {
+                return StorageType.STRING;
+            }
+            if (type.equals(VarbinaryType.VARBINARY)) {
+                return StorageType.BYTES;
+            }
+        }
+        throw new PrestoException(NOT_SUPPORTED, "No storage type for type: " + type);
     }
 }

@@ -26,17 +26,11 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarbinaryType;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
-import com.google.common.base.Optional;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
-import io.airlift.slice.Slice;
 
 import java.io.File;
 import java.io.IOException;
@@ -51,7 +45,6 @@ import java.util.concurrent.TimeoutException;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.storage.StorageService.createParents;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static org.joda.time.DateTimeZone.UTC;
@@ -66,7 +59,7 @@ public class OrcStorageManager
     public OrcStorageManager(StorageService storageService, ShardRecoveryManager recoveryManager)
     {
         this.recoveryManager = checkNotNull(recoveryManager, "recoveryManager is null");
-        this.storageService = checkNotNull(storageService, "storageManagerUtil is null");
+        this.storageService = checkNotNull(storageService, "storageService is null");
     }
 
     @Override
@@ -113,48 +106,35 @@ public class OrcStorageManager
         }
     }
 
-    @SuppressWarnings("resource")
     @Override
-    public OutputHandle createOutputHandle(List<Long> columnIds, List<Type> columnTypes, Optional<Long> sampleWeightColumnId)
+    public List<UUID> commit(OutputHandle outputHandle)
     {
-        List<StorageType> storageTypes = toStorageTypes(columnTypes);
+        List<UUID> shardUuids = outputHandle.getShardUuids();
+        for (UUID shardUuid : shardUuids) {
+            File stagingFile = storageService.getStagingFile(shardUuid);
+            File storageFile = storageService.getStorageFile(shardUuid);
 
-        UUID shardUuid = UUID.randomUUID();
-        File stagingFile = storageService.getStagingFile(shardUuid);
-        createParents(stagingFile);
+            createParents(storageFile);
 
-        RowSink rowSink = new OrcRowSink(columnIds, storageTypes, sampleWeightColumnId, stagingFile);
-
-        return new OutputHandle(shardUuid, rowSink);
-    }
-
-    @Override
-    public void commit(OutputHandle outputHandle)
-    {
-        outputHandle.getRowSink().close();
-
-        File stagingFile = storageService.getStagingFile(outputHandle.getShardUuid());
-        File storageFile = storageService.getStorageFile(outputHandle.getShardUuid());
-
-        createParents(storageFile);
-
-        try {
-            Files.move(stagingFile.toPath(), storageFile.toPath(), ATOMIC_MOVE);
-        }
-        catch (IOException e) {
-            throw new PrestoException(RAPTOR_ERROR, "Failed to move shard file", e);
-        }
-
-        if (isBackupAvailable()) {
-            File backupFile = storageService.getBackupFile(outputHandle.getShardUuid());
-            createParents(backupFile);
             try {
-                Files.copy(storageFile.toPath(), backupFile.toPath());
+                Files.move(stagingFile.toPath(), storageFile.toPath(), ATOMIC_MOVE);
             }
             catch (IOException e) {
-                throw new PrestoException(RAPTOR_ERROR, "Failed to create backup shard file", e);
+                throw new PrestoException(RAPTOR_ERROR, "Failed to move shard file", e);
+            }
+
+            if (isBackupAvailable()) {
+                File backupFile = storageService.getBackupFile(shardUuid);
+                createParents(backupFile);
+                try {
+                    Files.copy(storageFile.toPath(), backupFile.toPath());
+                }
+                catch (IOException e) {
+                    throw new PrestoException(RAPTOR_ERROR, "Failed to create backup shard file", e);
+                }
             }
         }
+        return shardUuids;
     }
 
     @Override
@@ -205,42 +185,5 @@ public class OrcStorageManager
             map.put(Long.valueOf(columnNames.get(i)), i);
         }
         return map.build();
-    }
-
-    private static List<StorageType> toStorageTypes(List<Type> columnTypes)
-    {
-        return FluentIterable.from(columnTypes)
-                .transform(new Function<Type, StorageType>()
-                {
-                    @Override
-                    public StorageType apply(Type type)
-                    {
-                        return toStorageType(type);
-                    }
-                })
-                .toList();
-    }
-
-    private static StorageType toStorageType(Type type)
-    {
-        Class<?> javaType = type.getJavaType();
-        if (javaType == boolean.class) {
-            return StorageType.BOOLEAN;
-        }
-        if (javaType == long.class) {
-            return StorageType.LONG;
-        }
-        if (javaType == double.class) {
-            return StorageType.DOUBLE;
-        }
-        if (javaType == Slice.class) {
-            if (type.equals(VarcharType.VARCHAR)) {
-                return StorageType.STRING;
-            }
-            if (type.equals(VarbinaryType.VARBINARY)) {
-                return StorageType.BYTES;
-            }
-        }
-        throw new PrestoException(NOT_SUPPORTED, "No storage type for type: " + type);
     }
 }

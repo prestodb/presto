@@ -20,6 +20,9 @@ import com.facebook.presto.orc.LongVector;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -34,11 +37,9 @@ import java.util.List;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.createReader;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.createReaderNoRows;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.octets;
-import static com.facebook.presto.raptor.storage.StorageType.BOOLEAN;
-import static com.facebook.presto.raptor.storage.StorageType.BYTES;
-import static com.facebook.presto.raptor.storage.StorageType.DOUBLE;
-import static com.facebook.presto.raptor.storage.StorageType.LONG;
-import static com.facebook.presto.raptor.storage.StorageType.STRING;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.io.Files.createTempDir;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -68,7 +69,7 @@ public class TestOrcRowSink
             throws Exception
     {
         List<Long> columnIds = ImmutableList.of(1L, 2L, 4L, 6L, 7L);
-        List<StorageType> columnTypes = ImmutableList.of(LONG, STRING, BYTES, DOUBLE, BOOLEAN);
+        List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR, VARBINARY, DoubleType.DOUBLE, BooleanType.BOOLEAN);
         Optional<Long> sampleWeightColumnId = Optional.absent();
 
         File file = new File(directory, System.nanoTime() + ".orc");
@@ -77,30 +78,31 @@ public class TestOrcRowSink
         byte[] bytes3 = octets(0x01, 0x02, 0x19, 0x80);
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(new EmptyClassLoader());
-                RowSink sink = new OrcRowSink(columnIds, columnTypes, sampleWeightColumnId, file)) {
-            sink.beginRecord(1);
-            sink.appendLong(123);
-            sink.appendString("hello");
-            sink.appendBytes(bytes1);
-            sink.appendDouble(123.456);
-            sink.appendBoolean(true);
-            sink.finishRecord();
+                RowSink sink = new OrcRowSink(columnIds, columnTypes, file)) {
+            TupleBuffer tupleBuffer = new TupleBuffer(columnTypes, -1);
+            tupleBuffer.appendLong(123);
+            tupleBuffer.appendSlice(utf8Slice("hello"));
+            tupleBuffer.appendSlice(wrappedBuffer(bytes1));
+            tupleBuffer.appendDouble(123.456);
+            tupleBuffer.appendBoolean(true);
+            sink.appendTuple(tupleBuffer);
+            tupleBuffer.reset();
 
-            sink.beginRecord(1);
-            sink.appendNull();
-            sink.appendString("world");
-            sink.appendNull();
-            sink.appendDouble(Double.POSITIVE_INFINITY);
-            sink.appendNull();
-            sink.finishRecord();
+            tupleBuffer.appendNull();
+            tupleBuffer.appendSlice(utf8Slice("world"));
+            tupleBuffer.appendNull();
+            tupleBuffer.appendDouble(Double.POSITIVE_INFINITY);
+            tupleBuffer.appendNull();
+            sink.appendTuple(tupleBuffer);
+            tupleBuffer.reset();
 
-            sink.beginRecord(1);
-            sink.appendLong(456);
-            sink.appendString("bye");
-            sink.appendBytes(bytes3);
-            sink.appendDouble(Double.NaN);
-            sink.appendBoolean(false);
-            sink.finishRecord();
+            tupleBuffer.appendLong(456);
+            tupleBuffer.appendSlice(utf8Slice("bye"));
+            tupleBuffer.appendSlice(wrappedBuffer(bytes3));
+            tupleBuffer.appendDouble(Double.NaN);
+            tupleBuffer.appendBoolean(false);
+            sink.appendTuple(tupleBuffer);
+            tupleBuffer.reset();
         }
 
         try (FileOrcDataSource dataSource = new FileOrcDataSource(file, new DataSize(1, Unit.MEGABYTE))) {
@@ -161,12 +163,12 @@ public class TestOrcRowSink
             throws Exception
     {
         List<Long> columnIds = ImmutableList.of(1L);
-        List<StorageType> columnTypes = ImmutableList.of(LONG);
+        List<Type> columnTypes = ImmutableList.<Type>of(BIGINT);
         Optional<Long> sampleWeightColumnId = Optional.absent();
 
         File file = new File(directory, System.nanoTime() + ".orc");
 
-        try (RowSink ignored = new OrcRowSink(columnIds, columnTypes, sampleWeightColumnId, file)) {
+        try (RowSink ignored = new OrcRowSink(columnIds, columnTypes, file)) {
             // no rows
         }
 

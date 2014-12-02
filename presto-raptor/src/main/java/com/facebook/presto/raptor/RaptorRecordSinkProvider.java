@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.storage.StorageManager;
+import com.facebook.presto.raptor.storage.StorageService;
 import com.facebook.presto.raptor.util.CurrentNodeId;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -34,17 +35,19 @@ public class RaptorRecordSinkProvider
         implements ConnectorRecordSinkProvider
 {
     private final StorageManager storageManager;
+    private final StorageService storageService;
     private final String nodeId;
 
     @Inject
-    public RaptorRecordSinkProvider(StorageManager storageManager, CurrentNodeId currentNodeId)
+    public RaptorRecordSinkProvider(StorageManager storageManager, StorageService storageService, CurrentNodeId currentNodeId)
     {
-        this(storageManager, currentNodeId.toString());
+        this(storageManager, storageService, currentNodeId.toString());
     }
 
-    public RaptorRecordSinkProvider(StorageManager storageManager, String nodeId)
+    public RaptorRecordSinkProvider(StorageManager storageManager, StorageService storageService, String nodeId)
     {
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
+        this.storageService = checkNotNull(storageService, "storageService is null");
         this.nodeId = checkNotNull(nodeId, "nodeId is null");
     }
 
@@ -55,6 +58,7 @@ public class RaptorRecordSinkProvider
         return new RaptorRecordSink(
                 nodeId,
                 storageManager,
+                storageService,
                 toColumnIds(handle.getColumnHandles()),
                 handle.getColumnTypes(),
                 optionalColumnId(handle.getSampleWeightColumnHandle()));
@@ -67,6 +71,7 @@ public class RaptorRecordSinkProvider
         return new RaptorRecordSink(
                 nodeId,
                 storageManager,
+                storageService,
                 toColumnIds(handle.getColumnHandles()),
                 handle.getColumnTypes(),
                 Optional.<Long>absent());
