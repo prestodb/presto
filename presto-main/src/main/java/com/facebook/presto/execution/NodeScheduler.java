@@ -176,7 +176,18 @@ public class NodeScheduler
         {
             checkArgument(limit > 0, "limit must be at least 1");
 
-            FluentIterable<Node> nodes = FluentIterable.from(lazyShuffle(nodeMap.get().get().getNodesByHostAndPort().values()));
+            final String coordinatorIdentifier = nodeManager.getCurrentNode().getNodeIdentifier();
+
+            FluentIterable<Node> nodes = FluentIterable.from(lazyShuffle(nodeMap.get().get().getNodesByHostAndPort().values()))
+                    .filter(new Predicate<Node>()
+                    {
+                        @Override
+                        public boolean apply(Node node)
+                        {
+                            return includeCoordinator || !coordinatorIdentifier.equals(node.getNodeIdentifier());
+                        }
+                    });
+
             if (doubleScheduling) {
                 nodes = nodes.cycle();
             }
