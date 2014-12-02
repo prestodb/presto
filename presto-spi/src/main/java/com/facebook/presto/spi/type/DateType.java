@@ -17,17 +17,16 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 
-import static com.facebook.presto.spi.type.TimeZoneIndex.getTimeZoneForKey;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 
 //
-// A date is stored as milliseconds from 1970-01-01T00:00:00 UTC at midnight on the date.
+// A date is stored as days from 1970-01-01.
 //
 // Note: when dealing with a java.sql.Date it is important to remember that the value is stored
 // as the number of milliseconds from 1970-01-01T00:00:00 in UTC but time must be midnight in
 // the local time zone.  This mean when converting between a java.sql.Date and this
-// type, the time zone offset must be added or removed to keep the time at midnight.
+// type, the time zone offset must be added or removed to keep the time at midnight in UTC.
 //
 public final class DateType
         extends AbstractFixedWidthType
@@ -36,7 +35,7 @@ public final class DateType
 
     private DateType()
     {
-        super(parseTypeSignature(StandardTypes.DATE), long.class, SIZE_OF_LONG);
+        super(parseTypeSignature(StandardTypes.DATE), long.class, SIZE_OF_INT);
     }
 
     @Override
@@ -58,32 +57,30 @@ public final class DateType
             return null;
         }
 
-        // convert date to timestamp at midnight in local time zone
-        long date = block.getLong(position, 0);
-        return new SqlDate(date - getTimeZoneForKey(session.getTimeZoneKey()).getOffset(date), session.getTimeZoneKey());
+        int days = block.getInt(position, 0);
+        return new SqlDate(days);
     }
 
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        long leftValue = leftBlock.getLong(leftPosition, 0);
-        long rightValue = rightBlock.getLong(rightPosition, 0);
+        int leftValue = leftBlock.getInt(leftPosition, 0);
+        int rightValue = rightBlock.getInt(rightPosition, 0);
         return leftValue == rightValue;
     }
 
     @Override
     public int hash(Block block, int position)
     {
-        long value = block.getLong(position, 0);
-        return (int) (value ^ (value >>> 32));
+        return block.getInt(position, 0);
     }
 
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        long leftValue = leftBlock.getLong(leftPosition, 0);
-        long rightValue = rightBlock.getLong(rightPosition, 0);
-        return Long.compare(leftValue, rightValue);
+        int leftValue = leftBlock.getInt(leftPosition, 0);
+        int rightValue = rightBlock.getInt(rightPosition, 0);
+        return Integer.compare(leftValue, rightValue);
     }
 
     @Override
@@ -93,19 +90,20 @@ public final class DateType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(block.getLong(position, 0)).closeEntry();
+            blockBuilder.writeInt(block.getInt(position, 0)).closeEntry();
         }
     }
 
     @Override
     public long getLong(Block block, int position)
     {
-        return block.getLong(position, 0);
+        int value = block.getInt(position, 0);
+        return value;
     }
 
     @Override
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
-        blockBuilder.writeLong(value).closeEntry();
+        blockBuilder.writeInt((int) value).closeEntry();
     }
 }

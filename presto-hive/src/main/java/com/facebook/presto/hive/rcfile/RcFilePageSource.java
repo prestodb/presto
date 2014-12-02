@@ -208,7 +208,7 @@ public class RcFilePageSource
                 else if (TIMESTAMP.equals(type)) {
                     long value = timestampPartitionKey(partitionKey.getValue(), hiveStorageTimeZone, name);
                     for (int i = 0; i < MAX_PAGE_SIZE; i++) {
-                        DATE.writeLong(blockBuilder, value);
+                        TIMESTAMP.writeLong(blockBuilder, value);
                     }
                 }
                 else {

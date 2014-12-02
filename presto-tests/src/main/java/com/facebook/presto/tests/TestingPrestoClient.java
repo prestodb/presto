@@ -29,6 +29,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -142,7 +143,8 @@ public class TestingPrestoClient
                         row.add(value);
                     }
                     else if (DATE.equals(type)) {
-                        row.add(new Date(parseDate((String) value)));
+                        int days = parseDate((String) value);
+                        row.add(new Date(TimeUnit.DAYS.toMillis(days)));
                     }
                     else if (TIME.equals(type)) {
                         row.add(new Time(parseTime(timeZoneKey, (String) value)));

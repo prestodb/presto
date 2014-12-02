@@ -44,7 +44,6 @@ import org.joda.time.DateTimeZone;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
@@ -72,6 +71,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.airlift.slice.Slices.wrappedBooleanArray;
 import static io.airlift.slice.Slices.wrappedDoubleArray;
+import static io.airlift.slice.Slices.wrappedIntArray;
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -81,8 +81,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public class OrcPageSource
         implements ConnectorPageSource
 {
-    private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
-
     private final OrcRecordReader recordReader;
     private final OrcDataSource orcDataSource;
 
@@ -180,7 +178,7 @@ public class OrcPageSource
                 else if (type.equals(TIMESTAMP)) {
                     long value = timestampPartitionKey(partitionKey.getValue(), hiveStorageTimeZone, name);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
-                        DATE.writeLong(blockBuilder, value);
+                        TIMESTAMP.writeLong(blockBuilder, value);
                     }
                 }
                 else {
@@ -364,11 +362,16 @@ public class OrcPageSource
             try {
                 LongVector vector = new LongVector();
                 recordReader.readVector(hiveColumnIndex, vector);
-                for (int i = 0; i < batchSize; i++) {
-                    vector.vector[i] *= MILLIS_IN_DAY;
-                }
                 block.setNullVector(vector.isNull);
-                block.setRawSlice(wrappedLongArray(vector.vector, 0, batchSize));
+
+                // Presto stores dates as ints in memory, so convert to int array
+                // TODO to add an ORC int vector
+                int[] days = new int[batchSize];
+                for (int i = 0; i < batchSize; i++) {
+                    days[i] = (int) vector.vector[i];
+                }
+
+                block.setRawSlice(wrappedIntArray(days, 0, batchSize));
             }
             catch (IOException e) {
                 throw propagateException(e);

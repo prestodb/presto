@@ -19,6 +19,7 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.base.Throwables;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
 import org.apache.hadoop.hive.serde2.io.TimestampWritable;
+import org.apache.hadoop.hive.serde2.lazy.LazyDate;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -241,11 +242,15 @@ public final class SerDeUtils
 
     private static String formatDate(Object object, DateObjectInspector inspector)
     {
-        // handle broken ObjectInspectors
+        if (object instanceof LazyDate) {
+            int days = ((LazyDate) object).getWritableObject().getDays();
+            // Render in UTC because we are giving the date formatter milliseconds since 1970-01-01 00:00 UTC
+            return DATE_FORMATTER.withZoneUTC().print(days * MILLIS_IN_DAY);
+        }
         if (object instanceof DateWritable) {
             int days = ((DateWritable) object).getDays();
             // Render in UTC because we are giving the date formatter milliseconds since 1970-01-01 00:00 UTC
-            return DATE_FORMATTER.withZone(DateTimeZone.UTC).print(days * MILLIS_IN_DAY);
+            return DATE_FORMATTER.withZoneUTC().print(days * MILLIS_IN_DAY);
         }
 
         // convert date from VM current time zone to UTC
@@ -257,14 +262,19 @@ public final class SerDeUtils
 
     private static long formatDateAsLong(Object object, DateObjectInspector inspector)
     {
-        // handle broken ObjectInspectors
+        if (object instanceof LazyDate) {
+            return ((LazyDate) object).getWritableObject().getDays();
+        }
         if (object instanceof DateWritable) {
-            int days = ((DateWritable) object).getDays();
-            return days * MILLIS_IN_DAY;
+            return ((DateWritable) object).getDays();
         }
 
-        Date date = inspector.getPrimitiveJavaObject(object);
-        return date.getTime() - date.getTimezoneOffset() * 60 * 1000;
+        // Hive will return java.sql.Date at midnight in JVM time zone
+        long millisLocal = inspector.getPrimitiveJavaObject(object).getTime();
+        // Convert it to midnight in UTC
+        long millisUtc = DateTimeZone.getDefault().getMillisKeepLocal(DateTimeZone.UTC, millisLocal);
+        // Convert midnight UTC to days
+        return TimeUnit.MILLISECONDS.toDays(millisUtc);
     }
 
     private static long formatTimestampAsLong(Object object, TimestampObjectInspector inspector)

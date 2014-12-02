@@ -426,7 +426,7 @@ public class RcBinaryBlockLoader
                         byte[] bytes = writable.getData();
                         int start = writable.getStart();
                         long daysSinceEpoch = readVInt(bytes, start, length);
-                        vector[i] = daysSinceEpoch * MILLIS_IN_DAY;
+                        vector[i] = daysSinceEpoch;
                     }
                     else {
                         isNull[i] = true;

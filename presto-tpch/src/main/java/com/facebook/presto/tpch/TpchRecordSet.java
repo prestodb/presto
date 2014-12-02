@@ -28,7 +28,6 @@ import io.airlift.tpch.TpchTable;
 
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.tpch.TpchMetadata.getPrestoType;
 import static com.google.common.base.Preconditions.checkState;
@@ -141,7 +140,7 @@ public class TpchRecordSet<E extends TpchEntity>
             checkState(row != null, "No current row");
             TpchColumn<E> tpchColumn = getTpchColumn(field);
             if (tpchColumn.getType() == TpchColumnType.DATE) {
-                return TimeUnit.DAYS.toMillis(tpchColumn.getDate(row));
+                return tpchColumn.getDate(row);
             }
             return tpchColumn.getLong(row);
         }

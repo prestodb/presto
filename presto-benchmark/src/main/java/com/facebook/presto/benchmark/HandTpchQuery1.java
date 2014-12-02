@@ -230,7 +230,7 @@ public class HandTpchQuery1
             return null;
         }
 
-        private static final long MAX_SHIP_DATE = DateTimeUtils.parseDate("1998-09-02");
+        private static final int MAX_SHIP_DATE = DateTimeUtils.parseDate("1998-09-02");
 
         private static void filterAndProjectRowOriented(PageBuilder pageBuilder,
                 Block returnFlagBlock,
@@ -247,7 +247,7 @@ public class HandTpchQuery1
                     continue;
                 }
 
-                long shipDate = DATE.getLong(shipDateBlock, position);
+                int shipDate = (int) DATE.getLong(shipDateBlock, position);
 
                 // where
                 //     shipdate <= '1998-09-02'
