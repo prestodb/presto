@@ -75,6 +75,8 @@ import com.facebook.presto.operator.window.NthValueFunction.VarcharNthValueFunct
 import com.facebook.presto.operator.window.PercentRankFunction;
 import com.facebook.presto.operator.window.RankFunction;
 import com.facebook.presto.operator.window.RowNumberFunction;
+import com.facebook.presto.operator.window.SumByFunction.BigintSumByFunction;
+import com.facebook.presto.operator.window.SumByFunction.DoubleSumByFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -113,6 +115,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.primitives.Primitives;
+
 import io.airlift.slice.Slice;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -230,6 +233,8 @@ public class FunctionRegistry
                 .window("lead", VARCHAR, ImmutableList.<Type>of(VARCHAR), VarcharLeadFunction.class)
                 .window("lead", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT), VarcharLeadFunction.class)
                 .window("lead", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT, VARCHAR), VarcharLeadFunction.class)
+                .window("sum_by", BIGINT, ImmutableList.<Type>of(BIGINT), BigintSumByFunction.class)
+                .window("sum_by", DOUBLE, ImmutableList.<Type>of(DOUBLE), DoubleSumByFunction.class)
                 .aggregate(CountAggregation.class)
                 .aggregate(VarianceAggregation.class)
                 .aggregate(ApproximateLongPercentileAggregations.class)
