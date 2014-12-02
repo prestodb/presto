@@ -10,10 +10,6 @@ for queries in Presto. Even if your data source doesn't have underlying
 tables backing it, as long as you adapt your data source to the API
 expected by Presto, you can write queries against this data.
 
-This chapter walks through the several interfaces that comprise the
-Presto SPI and discusses strategies for adapting this API to your data
-source.
-
 Code
 ----
 
@@ -67,7 +63,7 @@ particular data source.
 
 This interface is too big to list in this documentation, but if you
 are interested in seeing strategies for implementing these methods,
-look at the Example HTTP connector and the Cassandra connector. If
+look at the :doc:`example-http` and the Cassandra connector. If
 your underlying data source supports schemas, tables and columns, this
 interface should be straightforward to implement. If you are attempting
 to adapt something that is not a relational database (as the Example HTTP

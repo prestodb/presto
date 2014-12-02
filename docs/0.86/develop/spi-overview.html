@@ -7,42 +7,42 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>SPI Overview &mdash; Presto 0.86 Documentation</title>
+    <title>8.1. SPI Overview &mdash; Presto 0.86 Documentation</title>
     
-    <link rel="stylesheet" href="../../_static/presto.css" type="text/css" />
-    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
-        URL_ROOT:    '../../',
+        URL_ROOT:    '../',
         VERSION:     '0.86',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
       };
     </script>
-    <script type="text/javascript" src="../../_static/jquery.js"></script>
-    <script type="text/javascript" src="../../_static/underscore.js"></script>
-    <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <link rel="top" title="Presto 0.86 Documentation" href="../../index.html" />
-    <link rel="up" title="8.1. Service Provider Interface" href="../spi.html" />
-    <link rel="next" title="Example HTTP Connector" href="example-http.html" />
-    <link rel="prev" title="8.1. Service Provider Interface" href="../spi.html" /> 
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.86 Documentation" href="../index.html" />
+    <link rel="up" title="8. Developer Guide" href="../develop.html" />
+    <link rel="next" title="8.2. Example HTTP Connector" href="example-http.html" />
+    <link rel="prev" title="8. Developer Guide" href="../develop.html" /> 
   </head>
   <body>
 <div class="header">
-    <h1 class="heading"><a href="../../index.html">
+    <h1 class="heading"><a href="../index.html">
         <span>Presto 0.86 Documentation</span></a></h1>
-    <h2 class="heading"><span>SPI Overview</span></h2>
+    <h2 class="heading"><span>8.1. SPI Overview</span></h2>
 </div>
 <div class="topnav">
     
 <p class="nav">
     <span class="left">
-        &laquo; <a href="../spi.html">8.1. Service Provider Interface</a>
+        &laquo; <a href="../develop.html">8. Developer Guide</a>
     </span>
     <span class="right">
-        <a href="example-http.html">Example HTTP Connector</a> &raquo;
+        <a href="example-http.html">8.2. Example HTTP Connector</a> &raquo;
     </span>
 </p>
 
@@ -50,16 +50,13 @@
 <div class="content">
     
   <div class="section" id="spi-overview">
-<h1>SPI Overview</h1>
+<h1>8.1. SPI Overview</h1>
 <p>When you implement a new Presto plugin, you implement interfaces and
 override methods defined by the SPI.</p>
 <p>Plugins can provide connectors, which are the source of all data
 for queries in Presto. Even if your data source doesn&#8217;t have underlying
 tables backing it, as long as you adapt your data source to the API
 expected by Presto, you can write queries against this data.</p>
-<p>This chapter walks through the several interfaces that comprise the
-Presto SPI and discusses strategies for adapting this API to your data
-source.</p>
 <div class="section" id="code">
 <h2>Code</h2>
 <p>The SPI source can be found in the <tt class="docutils literal"><span class="pre">presto-spi</span></tt> directory in the
@@ -106,7 +103,7 @@ schemas, lists of tables, lists of columns, and other metadata about a
 particular data source.</p>
 <p>This interface is too big to list in this documentation, but if you
 are interested in seeing strategies for implementing these methods,
-look at the Example HTTP connector and the Cassandra connector. If
+look at the <a class="reference internal" href="example-http.html"><em>Example HTTP Connector</em></a> and the Cassandra connector. If
 your underlying data source supports schemas, tables and columns, this
 interface should be straightforward to implement. If you are attempting
 to adapt something that is not a relational database (as the Example HTTP
@@ -139,10 +136,10 @@ that is used by Presto to read the column values for each row.</p>
     
 <p class="nav">
     <span class="left">
-        &laquo; <a href="../spi.html">8.1. Service Provider Interface</a>
+        &laquo; <a href="../develop.html">8. Developer Guide</a>
     </span>
     <span class="right">
-        <a href="example-http.html">Example HTTP Connector</a> &raquo;
+        <a href="example-http.html">8.2. Example HTTP Connector</a> &raquo;
     </span>
 </p>
 
