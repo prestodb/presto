@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.storage.StorageManager;
+import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.raptor.storage.StorageService;
 import com.facebook.presto.raptor.util.CurrentNodeId;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -37,16 +38,18 @@ public class RaptorRecordSinkProvider
     private final StorageManager storageManager;
     private final StorageService storageService;
     private final String nodeId;
+    private final StorageManagerConfig storageConfig;
 
     @Inject
-    public RaptorRecordSinkProvider(StorageManager storageManager, StorageService storageService, CurrentNodeId currentNodeId)
+    public RaptorRecordSinkProvider(StorageManager storageManager, StorageManagerConfig storageConfig, StorageService storageService, CurrentNodeId currentNodeId)
     {
-        this(storageManager, storageService, currentNodeId.toString());
+        this(storageManager, storageConfig, storageService, currentNodeId.toString());
     }
 
-    public RaptorRecordSinkProvider(StorageManager storageManager, StorageService storageService, String nodeId)
+    public RaptorRecordSinkProvider(StorageManager storageManager, StorageManagerConfig storageConfig, StorageService storageService, String nodeId)
     {
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
+        this.storageConfig = checkNotNull(storageConfig, "storageConfig is null");
         this.storageService = checkNotNull(storageService, "storageService is null");
         this.nodeId = checkNotNull(nodeId, "nodeId is null");
     }
@@ -61,7 +64,8 @@ public class RaptorRecordSinkProvider
                 storageService,
                 toColumnIds(handle.getColumnHandles()),
                 handle.getColumnTypes(),
-                optionalColumnId(handle.getSampleWeightColumnHandle()));
+                optionalColumnId(handle.getSampleWeightColumnHandle()),
+                Optional.fromNullable(storageConfig.getRowsPerShard()));
     }
 
     @Override
@@ -74,7 +78,8 @@ public class RaptorRecordSinkProvider
                 storageService,
                 toColumnIds(handle.getColumnHandles()),
                 handle.getColumnTypes(),
-                Optional.<Long>absent());
+                Optional.<Long>absent(),
+                Optional.fromNullable(storageConfig.getRowsPerShard()));
     }
 
     private static List<Long> toColumnIds(List<RaptorColumnHandle> columnHandles)

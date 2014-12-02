@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.raptor.CappedRowSink;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
@@ -39,6 +40,14 @@ public class OutputHandle
 
     public RowSink getRowSink()
     {
+        return getRowSink(Optional.<Integer>absent());
+    }
+
+    public RowSink getRowSink(Optional<Integer> rowsPerShard)
+    {
+        if (rowsPerShard.isPresent()) {
+            return CappedRowSink.from(rowSinkProvider, rowsPerShard.get());
+        }
         return rowSinkProvider.getRowSink();
     }
 }

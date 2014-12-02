@@ -58,7 +58,8 @@ public class RaptorRecordSink
             StorageService storageService,
             List<Long> columnIds,
             List<Type> columnTypes,
-            Optional<Long> sampleWeightColumnId)
+            Optional<Long> sampleWeightColumnId,
+            Optional<Integer> rowsPerShard)
     {
         checkNotNull(sampleWeightColumnId, "sampleWeightColumnId is null");
 
@@ -66,7 +67,7 @@ public class RaptorRecordSink
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
         this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
         this.outputHandle = new OutputHandle(columnIds, columnTypes, storageService);
-        this.rowSink = outputHandle.getRowSink();
+        this.rowSink = outputHandle.getRowSink(rowsPerShard);
         this.tupleBuffer = new TupleBuffer(columnTypes, columnIds.indexOf(sampleWeightColumnId.or(-1L)));
     }
 

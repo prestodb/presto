@@ -28,6 +28,7 @@ public class StorageManagerConfig
 {
     private File dataDirectory = new File("var/data/storage");
     private File backupDirectory;
+    private Integer rowsPerShard;
 
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
 
@@ -69,6 +70,20 @@ public class StorageManagerConfig
     public StorageManagerConfig setOrcMaxMergeDistance(DataSize orcMaxMergeDistance)
     {
         this.orcMaxMergeDistance = orcMaxMergeDistance;
+        return this;
+    }
+
+    @Nullable
+    public Integer getRowsPerShard()
+    {
+        return rowsPerShard;
+    }
+
+    @Config("storage.rows-per-shard")
+    @ConfigDescription("Maximum number of rows per shard")
+    public StorageManagerConfig setRowsPerShard(Integer rowsPerShard)
+    {
+        this.rowsPerShard = rowsPerShard;
         return this;
     }
 }
