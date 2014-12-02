@@ -432,13 +432,6 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testWindowFrameNotSupported()
-            throws Exception
-    {
-        assertFails(NOT_SUPPORTED, "SELECT count(*) over (ORDER BY a ROWS UNBOUNDED PRECEDING) FROM t1");
-    }
-
-    @Test
     public void testGroupByOrdinalsWithWildcard()
             throws Exception
     {

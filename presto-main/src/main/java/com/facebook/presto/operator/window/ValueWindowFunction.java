@@ -14,32 +14,46 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 
-public interface WindowFunction
+public abstract class ValueWindowFunction
+        implements WindowFunction
 {
-    Type getType();
+    protected WindowIndex windowIndex;
+
+    private int currentPosition;
+
+    @Override
+    public final void reset(WindowIndex windowIndex)
+    {
+        this.windowIndex = windowIndex;
+        this.currentPosition = 0;
+
+        reset();
+    }
+
+    @Override
+    public final void processRow(BlockBuilder output, int peerGroupStart, int peerGroupEnd, int frameStart, int frameEnd)
+    {
+        processRow(output, frameStart, frameEnd, currentPosition);
+
+        currentPosition++;
+    }
 
     /**
      * Reset state for a new partition (including the first one).
-     *
-     * @param windowIndex the window index which contains sorted values for the partition
      */
-    void reset(WindowIndex windowIndex);
+    public void reset()
+    {
+        // subclasses can override
+    }
 
     /**
      * Process a row by outputting the result of the window function.
-     * <p/>
-     * This method provides information about the ordering peer group. A peer group is all
-     * of the rows that are peers within the specified ordering. Rows are peers if they
-     * compare equal to each other using the specified ordering expression. The ordering
-     * of rows within a peer group is undefined (otherwise they would not be peers).
      *
-     * @param output the {@link BlockBuilder} to use for writing the output row
-     * @param peerGroupStart the position of the first row in the peer group
-     * @param peerGroupEnd the position of the last row in the peer group
+     * @param output the {@link com.facebook.presto.spi.block.BlockBuilder} to use for writing the output row
      * @param frameStart the position of the first row in the window frame
      * @param frameEnd the position of the last row in the window frame
+     * @param currentPosition the current position for this row
      */
-    void processRow(BlockBuilder output, int peerGroupStart, int peerGroupEnd, int frameStart, int frameEnd);
+    public abstract void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition);
 }

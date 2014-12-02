@@ -24,9 +24,9 @@ public class TestLastValueFunction
         extends AbstractTestWindowFunction
 {
     @Test
-    public void testLastValue()
+    public void testLastValueUnbounded()
     {
-        assertWindowQuery("last_value(orderdate) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+        assertUnboundedWindowQuery("last_value(orderdate) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
                         .row(3, "F", "1993-10-27")
                         .row(5, "F", "1993-10-27")
@@ -39,7 +39,7 @@ public class TestLastValueFunction
                         .row(32, "O", "1998-07-21")
                         .row(34, "O", "1998-07-21")
                         .build());
-        assertWindowQueryWithNulls("last_value(orderdate) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+        assertUnboundedWindowQueryWithNulls("last_value(orderdate) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
                         .row(3, "F", "1992-02-21")
                         .row(5, "F", "1992-02-21")
@@ -53,7 +53,7 @@ public class TestLastValueFunction
                         .row(null, null, "1995-07-16")
                         .build());
 
-        assertWindowQuery("last_value(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+        assertUnboundedWindowQuery("last_value(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
                         .row(3, "F", 33)
                         .row(5, "F", 33)
@@ -66,7 +66,40 @@ public class TestLastValueFunction
                         .row(32, "O", 34)
                         .row(34, "O", 34)
                         .build());
-        assertWindowQueryWithNulls("last_value(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+        assertUnboundedWindowQueryWithNulls("last_value(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(3, "F", null)
+                        .row(5, "F", null)
+                        .row(null, "F", null)
+                        .row(null, "F", null)
+                        .row(34, "O", null)
+                        .row(null, "O", null)
+                        .row(1, null, null)
+                        .row(7, null, null)
+                        .row(null, null, null)
+                        .row(null, null, null)
+                        .build());
+    }
+
+    @Test
+    public void testLastValueBounded()
+    {
+        assertWindowQuery("last_value(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+                        "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(3, "F", 6)
+                        .row(5, "F", 33)
+                        .row(6, "F", 33)
+                        .row(33, "F", 33)
+                        .row(1, "O", 4)
+                        .row(2, "O", 7)
+                        .row(4, "O", 32)
+                        .row(7, "O", 34)
+                        .row(32, "O", 34)
+                        .row(34, "O", 34)
+                        .build());
+        assertWindowQueryWithNulls("last_value(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+                        "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
                         .row(3, "F", null)
                         .row(5, "F", null)

@@ -434,7 +434,6 @@ public final class ExpressionFormatter
             return "(" + joinExpressions(node.getValues()) + ")";
         }
 
-        // TODO: add tests for window clause formatting, as these are not really expressions
         @Override
         public String visitWindow(Window node, Void context)
         {

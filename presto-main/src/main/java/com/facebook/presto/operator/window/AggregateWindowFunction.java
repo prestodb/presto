@@ -18,7 +18,6 @@ import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
@@ -26,8 +25,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class AggregateWindowFunction
@@ -59,10 +56,10 @@ public class AggregateWindowFunction
     }
 
     @Override
-    public void processRow(BlockBuilder output, int peerGroupStart, int peerGroupEnd)
+    public void processRow(BlockBuilder output, int peerGroupStart, int peerGroupEnd, int frameStart, int frameEnd)
     {
         PageBuilder pageBuilder = new PageBuilder(function.getParameterTypes());
-        for (int position = 0; position <= peerGroupEnd; position++) {
+        for (int position = frameStart; (position >= 0) && (position <= frameEnd); position++) {
             for (int i = 0; i < function.getParameterTypes().size(); i++) {
                 windowIndex.appendTo(argumentChannels.get(i), position, pageBuilder.getBlockBuilder(i));
             }
@@ -71,10 +68,7 @@ public class AggregateWindowFunction
 
         Accumulator accumulator = accumulatorFactory.createAccumulator();
         accumulator.addInput(pageBuilder.build());
-        Block result = accumulator.evaluateFinal();
-
-        checkCondition(result.getPositionCount() == 1, INTERNAL_ERROR, "aggregation function returned multiple values");
-        getType().appendTo(result, 0, output);
+        accumulator.evaluateFinal(output);
     }
 
     public static WindowFunctionSupplier supplier(Signature signature, final InternalAggregationFunction function)

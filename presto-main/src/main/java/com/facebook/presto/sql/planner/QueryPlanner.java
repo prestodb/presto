@@ -36,6 +36,7 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -45,6 +46,8 @@ import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SortItem.NullOrdering;
 import com.facebook.presto.sql.tree.SortItem.Ordering;
 import com.facebook.presto.sql.tree.SubqueryExpression;
+import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -387,29 +390,71 @@ class QueryPlanner
         }
 
         for (FunctionCall windowFunction : windowFunctions) {
-            // Pre-project inputs
-            ImmutableList<Expression> inputs = ImmutableList.<Expression>builder()
-                    .addAll(windowFunction.getArguments())
-                    .addAll(windowFunction.getWindow().get().getPartitionBy())
-                    .addAll(Iterables.transform(windowFunction.getWindow().get().getOrderBy(), sortKeyGetter()))
-                    .build();
+            Window window = windowFunction.getWindow().get();
 
-            subPlan = appendProjections(subPlan, inputs);
+            // Extract frame
+            WindowFrame.Type frameType = WindowFrame.Type.RANGE;
+            FrameBound.Type frameStartType = FrameBound.Type.UNBOUNDED_PRECEDING;
+            FrameBound.Type frameEndType = FrameBound.Type.CURRENT_ROW;
+            Expression frameStart = null;
+            Expression frameEnd = null;
+
+            if (window.getFrame().isPresent()) {
+                WindowFrame frame = window.getFrame().get();
+                frameType = frame.getType();
+
+                frameStartType = frame.getStart().getType();
+                frameStart = frame.getStart().getValue().orNull();
+
+                if (frame.getEnd().isPresent()) {
+                    frameEndType = frame.getEnd().get().getType();
+                    frameEnd = frame.getEnd().get().getValue().orNull();
+                }
+            }
+
+            // Pre-project inputs
+            ImmutableList.Builder<Expression> inputs = ImmutableList.<Expression>builder()
+                    .addAll(windowFunction.getArguments())
+                    .addAll(window.getPartitionBy())
+                    .addAll(Iterables.transform(window.getOrderBy(), sortKeyGetter()));
+
+            if (frameStart != null) {
+                inputs.add(frameStart);
+            }
+            if (frameEnd != null) {
+                inputs.add(frameEnd);
+            }
+
+            subPlan = appendProjections(subPlan, inputs.build());
 
             // Rewrite PARTITION BY in terms of pre-projected inputs
             ImmutableList.Builder<Symbol> partitionBySymbols = ImmutableList.builder();
-            for (Expression expression : windowFunction.getWindow().get().getPartitionBy()) {
+            for (Expression expression : window.getPartitionBy()) {
                 partitionBySymbols.add(subPlan.translate(expression));
             }
 
             // Rewrite ORDER BY in terms of pre-projected inputs
             ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
             Map<Symbol, SortOrder> orderings = new HashMap<>();
-            for (SortItem item : windowFunction.getWindow().get().getOrderBy()) {
+            for (SortItem item : window.getOrderBy()) {
                 Symbol symbol = subPlan.translate(item.getSortKey());
                 orderBySymbols.add(symbol);
                 orderings.put(symbol, toSortOrder(item));
             }
+
+            // Rewrite frame bounds in terms of pre-projected inputs
+            Optional<Symbol> frameStartSymbol = Optional.absent();
+            Optional<Symbol> frameEndSymbol = Optional.absent();
+            if (frameStart != null) {
+                frameStartSymbol = Optional.of(subPlan.translate(frameStart));
+            }
+            if (frameEnd != null) {
+                frameEndSymbol = Optional.of(subPlan.translate(frameEnd));
+            }
+
+            WindowNode.Frame frame = new WindowNode.Frame(frameType,
+                    frameStartType, frameStartSymbol,
+                    frameEndType, frameEndSymbol);
 
             TranslationMap outputTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis);
             outputTranslations.copyMappingsFrom(subPlan.getTranslations());
@@ -435,7 +480,16 @@ class QueryPlanner
 
             // create window node
             subPlan = new PlanBuilder(outputTranslations,
-                    new WindowNode(idAllocator.getNextId(), subPlan.getRoot(), partitionBySymbols.build(), orderBySymbols.build(), orderings, assignments.build(), signatures, Optional.<Symbol>absent()),
+                    new WindowNode(
+                            idAllocator.getNextId(),
+                            subPlan.getRoot(),
+                            partitionBySymbols.build(),
+                            orderBySymbols.build(),
+                            orderings,
+                            frame,
+                            assignments.build(),
+                            signatures,
+                            Optional.<Symbol>absent()),
                     subPlan.getSampleWeight());
 
             if (needCoercion) {

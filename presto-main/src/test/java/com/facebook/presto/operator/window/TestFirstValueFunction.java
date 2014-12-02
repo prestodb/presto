@@ -24,7 +24,7 @@ public class TestFirstValueFunction
         extends AbstractTestWindowFunction
 {
     @Test
-    public void testFirstValue()
+    public void testFirstValueUnbounded()
     {
         assertWindowQuery("first_value(orderdate) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
@@ -78,6 +78,39 @@ public class TestFirstValueFunction
                         .row(7, null, 1)
                         .row(null, null, 1)
                         .row(null, null, 1)
+                        .build());
+    }
+
+    @Test
+    public void testFirstValueBounded()
+    {
+        assertWindowQuery("first_value(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+                        "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(3, "F", 3)
+                        .row(5, "F", 3)
+                        .row(6, "F", 3)
+                        .row(33, "F", 5)
+                        .row(1, "O", 1)
+                        .row(2, "O", 1)
+                        .row(4, "O", 1)
+                        .row(7, "O", 2)
+                        .row(32, "O", 4)
+                        .row(34, "O", 7)
+                        .build());
+        assertWindowQueryWithNulls("first_value(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+                        "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(3, "F", 3)
+                        .row(5, "F", 3)
+                        .row(null, "F", 3)
+                        .row(null, "F", 5)
+                        .row(34, "O", 34)
+                        .row(null, "O", 34)
+                        .row(1, null, 1)
+                        .row(7, null, 1)
+                        .row(null, null, 1)
+                        .row(null, null, 7)
                         .build());
     }
 }

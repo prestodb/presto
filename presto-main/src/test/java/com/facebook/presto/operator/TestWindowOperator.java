@@ -26,7 +26,10 @@ import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.tree.FrameBound;
+import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.testing.MaterializedResult;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
@@ -109,15 +112,13 @@ public class TestWindowOperator
                 .row(5, 0.4)
                 .build();
 
-        WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
-                0,
+        WindowOperatorFactory operatorFactory = createFactoryUnbounded(
                 ImmutableList.of(BIGINT, DOUBLE),
                 Ints.asList(1, 0),
                 ROW_NUMBER,
                 Ints.asList(),
                 Ints.asList(0),
-                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
-                10);
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
@@ -145,15 +146,13 @@ public class TestWindowOperator
                 .row("a", 6, 0.1, true)
                 .build();
 
-        WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
-                0,
+        WindowOperatorFactory operatorFactory = createFactoryUnbounded(
                 ImmutableList.of(VARCHAR, BIGINT, DOUBLE, BOOLEAN),
                 Ints.asList(0, 1, 2, 3),
                 ROW_NUMBER,
                 Ints.asList(0),
                 Ints.asList(1),
-                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
-                10);
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
@@ -184,15 +183,14 @@ public class TestWindowOperator
                 .row(8)
                 .build();
 
-        WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
-                0,
+        WindowOperatorFactory operatorFactory = createFactoryUnbounded(
                 ImmutableList.of(BIGINT),
                 Ints.asList(0),
                 ROW_NUMBER,
                 Ints.asList(),
                 Ints.asList(),
-                ImmutableList.copyOf(new SortOrder[] {}),
-                10);
+                ImmutableList.copyOf(new SortOrder[] {}));
+
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT)
@@ -225,15 +223,13 @@ public class TestWindowOperator
                 .addPipelineContext(true, true)
                 .addDriverContext();
 
-        WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
-                0,
+        WindowOperatorFactory operatorFactory = createFactoryUnbounded(
                 ImmutableList.of(BIGINT, DOUBLE),
                 Ints.asList(1),
                 ROW_NUMBER,
                 Ints.asList(),
                 Ints.asList(0),
-                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
-                10);
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
@@ -254,15 +250,13 @@ public class TestWindowOperator
                 .row("c", "A3", 1, true, "")
                 .build();
 
-        WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
-                0,
+        WindowOperatorFactory operatorFactory = createFactoryUnbounded(
                 ImmutableList.of(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR),
                 Ints.asList(0, 1, 2, 3),
                 FIRST_VALUE,
                 Ints.asList(0),
                 Ints.asList(2),
-                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
-                100);
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
@@ -292,15 +286,13 @@ public class TestWindowOperator
                 .row("c", "A3", 1, true, "")
                 .build();
 
-        WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
-                0,
+        WindowOperatorFactory operatorFactory = createFactoryUnbounded(
                 ImmutableList.of(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR),
                 Ints.asList(0, 1, 2, 3),
                 LAST_VALUE,
                 Ints.asList(0),
                 Ints.asList(2),
-                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
-                100);
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
@@ -330,15 +322,13 @@ public class TestWindowOperator
                 .row("c", "A3", 1, null, true, "")
                 .build();
 
-        WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
-                0,
+        WindowOperatorFactory operatorFactory = createFactoryUnbounded(
                 ImmutableList.of(VARCHAR, VARCHAR, BIGINT, BIGINT, BOOLEAN, VARCHAR),
                 Ints.asList(0, 1, 2, 4),
                 NTH_VALUE,
                 Ints.asList(0),
                 Ints.asList(2),
-                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
-                100);
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
@@ -368,15 +358,13 @@ public class TestWindowOperator
                 .row("c", "A3", 1, 1, "D", true, "")
                 .build();
 
-        WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
-                0,
+        WindowOperatorFactory operatorFactory = createFactoryUnbounded(
                 ImmutableList.of(VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR),
                 Ints.asList(0, 1, 2, 5),
                 LAG,
                 Ints.asList(0),
                 Ints.asList(2),
-                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
-                100);
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
@@ -406,15 +394,13 @@ public class TestWindowOperator
                 .row("c", "A3", 1, 1, "D", true, "")
                 .build();
 
-        WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
-                0,
+        WindowOperatorFactory operatorFactory = createFactoryUnbounded(
                 ImmutableList.of(VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR),
                 Ints.asList(0, 1, 2, 5),
                 LEAD,
                 Ints.asList(0),
                 Ints.asList(2),
-                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
-                100);
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
@@ -428,5 +414,27 @@ public class TestWindowOperator
                 .build();
 
         assertOperatorEquals(operator, input, expected);
+    }
+
+    private static WindowOperatorFactory createFactoryUnbounded(
+            List<? extends Type> sourceTypes,
+            List<Integer> outputChannels,
+            List<WindowFunctionDefinition> functions,
+            List<Integer> partitionChannels,
+            List<Integer> sortChannels,
+            List<SortOrder> sortOrder)
+    {
+        return new WindowOperatorFactory(
+                0,
+                sourceTypes,
+                outputChannels,
+                functions,
+                partitionChannels,
+                sortChannels,
+                sortOrder,
+                WindowFrame.Type.RANGE,
+                FrameBound.Type.UNBOUNDED_PRECEDING, Optional.<Integer>absent(),
+                FrameBound.Type.UNBOUNDED_FOLLOWING, Optional.<Integer>absent(),
+                10);
     }
 }

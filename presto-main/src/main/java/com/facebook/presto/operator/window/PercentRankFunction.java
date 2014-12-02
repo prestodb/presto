@@ -19,7 +19,7 @@ import com.facebook.presto.spi.type.Type;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class PercentRankFunction
-        extends SimpleWindowFunction
+        extends RankingWindowFunction
 {
     private long totalCount;
     private long rank;

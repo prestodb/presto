@@ -16,7 +16,9 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.WindowFrame;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Optional;
@@ -40,6 +42,7 @@ public class WindowNode
     private final List<Symbol> partitionBy;
     private final List<Symbol> orderBy;
     private final Map<Symbol, SortOrder> orderings;
+    private final Frame frame;
     private final Map<Symbol, FunctionCall> windowFunctions;
     private final Map<Symbol, Signature> functionHandles;
 
@@ -52,6 +55,7 @@ public class WindowNode
             @JsonProperty("partitionBy") List<Symbol> partitionBy,
             @JsonProperty("orderBy") List<Symbol> orderBy,
             @JsonProperty("orderings") Map<Symbol, SortOrder> orderings,
+            @JsonProperty("frame") Frame frame,
             @JsonProperty("windowFunctions") Map<Symbol, FunctionCall> windowFunctions,
             @JsonProperty("signatures") Map<Symbol, Signature> signatures,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
@@ -62,6 +66,7 @@ public class WindowNode
         checkNotNull(partitionBy, "partitionBy is null");
         checkNotNull(orderBy, "orderBy is null");
         checkArgument(orderings.size() == orderBy.size(), "orderBy and orderings sizes don't match");
+        checkNotNull(frame, "frame is null");
         checkNotNull(windowFunctions, "windowFunctions is null");
         checkNotNull(signatures, "signatures is null");
         checkArgument(windowFunctions.keySet().equals(signatures.keySet()), "windowFunctions does not match signatures");
@@ -71,6 +76,7 @@ public class WindowNode
         this.partitionBy = ImmutableList.copyOf(partitionBy);
         this.orderBy = ImmutableList.copyOf(orderBy);
         this.orderings = ImmutableMap.copyOf(orderings);
+        this.frame = frame;
         this.windowFunctions = ImmutableMap.copyOf(windowFunctions);
         this.functionHandles = ImmutableMap.copyOf(signatures);
         this.hashSymbol = hashSymbol;
@@ -113,6 +119,12 @@ public class WindowNode
     }
 
     @JsonProperty
+    public Frame getFrame()
+    {
+        return frame;
+    }
+
+    @JsonProperty
     public Map<Symbol, FunctionCall> getWindowFunctions()
     {
         return windowFunctions;
@@ -134,5 +146,60 @@ public class WindowNode
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitWindow(this, context);
+    }
+
+    @Immutable
+    public static class Frame
+    {
+        private final WindowFrame.Type type;
+        private final FrameBound.Type startType;
+        private final Optional<Symbol> startValue;
+        private final FrameBound.Type endType;
+        private final Optional<Symbol> endValue;
+
+        @JsonCreator
+        public Frame(
+                @JsonProperty("type") WindowFrame.Type type,
+                @JsonProperty("startType") FrameBound.Type startType,
+                @JsonProperty("startValue") Optional<Symbol> startValue,
+                @JsonProperty("endType") FrameBound.Type endType,
+                @JsonProperty("endValue") Optional<Symbol> endValue)
+        {
+            this.startType = checkNotNull(startType, "startType is null");
+            this.startValue = checkNotNull(startValue, "startValue is null");
+            this.endType = checkNotNull(endType, "endType is null");
+            this.endValue = checkNotNull(endValue, "endValue is null");
+            this.type = checkNotNull(type, "type is null");
+        }
+
+        @JsonProperty
+        public WindowFrame.Type getType()
+        {
+            return type;
+        }
+
+        @JsonProperty
+        public FrameBound.Type getStartType()
+        {
+            return startType;
+        }
+
+        @JsonProperty
+        public Optional<Symbol> getStartValue()
+        {
+            return startValue;
+        }
+
+        @JsonProperty
+        public FrameBound.Type getEndType()
+        {
+            return endType;
+        }
+
+        @JsonProperty
+        public Optional<Symbol> getEndValue()
+        {
+            return endValue;
+        }
     }
 }

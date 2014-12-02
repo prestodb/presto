@@ -509,6 +509,15 @@ public class LocalExecutionPlanner
                 }
             }));
 
+            Optional<Integer> frameStartChannel = Optional.absent();
+            Optional<Integer> frameEndChannel = Optional.absent();
+            if (node.getFrame().getStartValue().isPresent()) {
+                frameStartChannel = Optional.of(source.getLayout().get(node.getFrame().getStartValue().get()));
+            }
+            if (node.getFrame().getEndValue().isPresent()) {
+                frameEndChannel = Optional.of(source.getLayout().get(node.getFrame().getEndValue().get()));
+            }
+
             ImmutableList.Builder<Integer> outputChannels = ImmutableList.builder();
             for (int i = 0; i < source.getTypes().size(); i++) {
                 outputChannels.add(i);
@@ -552,6 +561,9 @@ public class LocalExecutionPlanner
                         partitionChannels,
                         sortChannels,
                         sortOrder,
+                        node.getFrame().getType(),
+                        node.getFrame().getStartType(), frameStartChannel,
+                        node.getFrame().getEndType(), frameEndChannel,
                         1_000_000);
 
             return new PhysicalOperation(operatorFactory, outputMappings.build(), source);

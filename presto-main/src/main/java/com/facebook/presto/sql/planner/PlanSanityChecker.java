@@ -44,6 +44,7 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Collection;
@@ -125,6 +126,15 @@ public final class PlanSanityChecker
 
             checkDependencies(inputs, node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().getOutputSymbols());
             checkDependencies(inputs, node.getOrderBy(), "Invalid node. Order by symbols (%s) not in source plan output (%s)", node.getOrderBy(), node.getSource().getOutputSymbols());
+
+            ImmutableList.Builder<Symbol> bounds = ImmutableList.builder();
+            if (node.getFrame().getStartValue().isPresent()) {
+                bounds.add(node.getFrame().getStartValue().get());
+            }
+            if (node.getFrame().getEndValue().isPresent()) {
+                bounds.add(node.getFrame().getEndValue().get());
+            }
+            checkDependencies(inputs, bounds.build(), "Invalid node. Frame bounds (%s) not in source plan output (%s)", bounds.build(), node.getSource().getOutputSymbols());
 
             for (FunctionCall call : node.getWindowFunctions().values()) {
                 Set<Symbol> dependencies = DependencyExtractor.extractUnique(call);

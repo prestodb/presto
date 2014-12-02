@@ -15,7 +15,7 @@ package com.facebook.presto.operator.window;
 
 import com.facebook.presto.spi.block.BlockBuilder;
 
-public abstract class SimpleWindowFunction
+public abstract class RankingWindowFunction
         implements WindowFunction
 {
     protected WindowIndex windowIndex;
@@ -34,7 +34,7 @@ public abstract class SimpleWindowFunction
     }
 
     @Override
-    public final void processRow(BlockBuilder output, int peerGroupStart, int peerGroupEnd)
+    public final void processRow(BlockBuilder output, int peerGroupStart, int peerGroupEnd, int frameStart, int frameEnd)
     {
         boolean newPeerGroup = false;
         if (peerGroupStart != currentPeerGroupStart) {

@@ -25,7 +25,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
 public class FirstValueFunction
-        extends SimpleWindowFunction
+        extends ValueWindowFunction
 {
     public static class BigintFirstValueFunction
             extends FirstValueFunction
@@ -79,8 +79,13 @@ public class FirstValueFunction
     }
 
     @Override
-    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount, int currentPosition)
+    public void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition)
     {
-        windowIndex.appendTo(argumentChannel, 0, output);
+        if (frameStart < 0) {
+            output.appendNull();
+            return;
+        }
+
+        windowIndex.appendTo(argumentChannel, frameStart, output);
     }
 }

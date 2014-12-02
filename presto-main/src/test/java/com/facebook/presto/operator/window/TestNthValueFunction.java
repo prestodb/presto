@@ -24,10 +24,10 @@ public class TestNthValueFunction
         extends AbstractTestWindowFunction
 {
     @Test
-    public void testNthValue()
+    public void testNthValueUnbounded()
     {
         // constant offset
-        assertWindowQuery("nth_value(orderkey, 2) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+        assertUnboundedWindowQuery("nth_value(orderkey, 2) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
                         .row(3, "F", 5)
                         .row(5, "F", 5)
@@ -40,7 +40,7 @@ public class TestNthValueFunction
                         .row(32, "O", 2)
                         .row(34, "O", 2)
                         .build());
-        assertWindowQueryWithNulls("nth_value(orderkey, 2) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+        assertUnboundedWindowQueryWithNulls("nth_value(orderkey, 2) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
                         .row(3, "F", 5)
                         .row(5, "F", 5)
@@ -55,7 +55,7 @@ public class TestNthValueFunction
                         .build());
 
         // variable offset
-        assertWindowQuery("nth_value(orderkey, orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+        assertUnboundedWindowQuery("nth_value(orderkey, orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
                         .row(3, "F", 6)
                         .row(5, "F", null)
@@ -68,7 +68,7 @@ public class TestNthValueFunction
                         .row(32, "O", null)
                         .row(34, "O", null)
                         .build());
-        assertWindowQueryWithNulls(
+        assertUnboundedWindowQueryWithNulls(
                 "nth_value(orderkey, orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey DESC NULLS FIRST)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
                         .row(3, "F", 5)
@@ -84,7 +84,7 @@ public class TestNthValueFunction
                         .build());
 
         // null offset
-        assertWindowQuery("nth_value(orderkey, null) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+        assertUnboundedWindowQuery("nth_value(orderkey, null) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
                         .row(3, "F", null)
                         .row(5, "F", null)
@@ -99,7 +99,7 @@ public class TestNthValueFunction
                         .build());
 
         // huge offset (larger than an int)
-        assertWindowQuery("nth_value(orderkey, 8 * 1000 * 1000 * 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+        assertUnboundedWindowQuery("nth_value(orderkey, 8 * 1000 * 1000 * 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
                         .row(3, "F", null)
                         .row(5, "F", null)
@@ -111,6 +111,39 @@ public class TestNthValueFunction
                         .row(7, "O", null)
                         .row(32, "O", null)
                         .row(34, "O", null)
+                        .build());
+    }
+
+    @Test
+    public void testNthValueBounded()
+    {
+        assertWindowQuery("nth_value(orderkey, 4) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+                        "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(3, "F", null)
+                        .row(5, "F", 33)
+                        .row(6, "F", 33)
+                        .row(33, "F", null)
+                        .row(1, "O", null)
+                        .row(2, "O", 7)
+                        .row(4, "O", 7)
+                        .row(7, "O", 32)
+                        .row(32, "O", 34)
+                        .row(34, "O", null)
+                        .build());
+        assertWindowQueryWithNulls("nth_value(orderkey, 4) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+                        "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(3, "F", null)
+                        .row(5, "F", null)
+                        .row(null, "F", null)
+                        .row(null, "F", null)
+                        .row(34, "O", null)
+                        .row(null, "O", null)
+                        .row(1, null, null)
+                        .row(7, null, null)
+                        .row(null, null, null)
+                        .row(null, null, null)
                         .build());
     }
 }
