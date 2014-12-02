@@ -27,7 +27,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.checkCondition;
 
 public class NthValueFunction
-        extends SimpleWindowFunction
+        extends ValueWindowFunction
 {
     public static class BigintNthValueFunction
             extends NthValueFunction
@@ -83,9 +83,9 @@ public class NthValueFunction
     }
 
     @Override
-    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount, int currentPosition)
+    public void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition)
     {
-        if (windowIndex.isNull(offsetChannel, currentPosition)) {
+        if ((frameStart < 0) || windowIndex.isNull(offsetChannel, currentPosition)) {
             output.appendNull();
         }
         else {
@@ -93,9 +93,9 @@ public class NthValueFunction
             checkCondition(offset >= 1, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 1");
 
             // offset is base 1
-            long valuePosition = offset - 1;
+            long valuePosition = frameStart + (offset - 1);
 
-            if ((valuePosition >= 0) && (valuePosition < windowIndex.size())) {
+            if ((valuePosition >= frameStart) && (valuePosition <= frameEnd)) {
                 windowIndex.appendTo(valueChannel, Ints.checkedCast(valuePosition), output);
             }
             else {

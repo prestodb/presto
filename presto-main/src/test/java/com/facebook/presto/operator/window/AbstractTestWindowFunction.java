@@ -19,6 +19,7 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public abstract class AbstractTestWindowFunction
 {
@@ -40,8 +41,25 @@ public abstract class AbstractTestWindowFunction
         WindowAssertions.assertWindowQuery(sql, expected, queryRunner);
     }
 
+    protected void assertUnboundedWindowQuery(@Language("SQL") String sql, MaterializedResult expected)
+    {
+        assertWindowQuery(unbounded(sql), expected);
+    }
+
     protected void assertWindowQueryWithNulls(@Language("SQL") String sql, MaterializedResult expected)
     {
         WindowAssertions.assertWindowQueryWithNulls(sql, expected, queryRunner);
+    }
+
+    protected void assertUnboundedWindowQueryWithNulls(@Language("SQL") String sql, MaterializedResult expected)
+    {
+        assertWindowQueryWithNulls(unbounded(sql), expected);
+    }
+
+    @Language("SQL")
+    private static String unbounded(@Language("SQL") String sql)
+    {
+        checkArgument(sql.endsWith(")"), "SQL does not end with ')'");
+        return sql.substring(0, sql.length() - 1) + " ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)";
     }
 }

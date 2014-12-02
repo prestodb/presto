@@ -19,7 +19,7 @@ import com.facebook.presto.spi.type.Type;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class DenseRankFunction
-        extends SimpleWindowFunction
+        extends RankingWindowFunction
 {
     private long rank;
 

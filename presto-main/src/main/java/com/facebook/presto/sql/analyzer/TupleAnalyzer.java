@@ -615,7 +615,6 @@ public class TupleAnalyzer
 
             if (window.getFrame().isPresent()) {
                 analyzeWindowFrame(window.getFrame().get());
-                throw new SemanticException(NOT_SUPPORTED, node, "Window frames not yet supported");
             }
 
             List<TypeSignature> argumentTypes = Lists.transform(windowFunction.getArguments(), new Function<Expression, TypeSignature>()

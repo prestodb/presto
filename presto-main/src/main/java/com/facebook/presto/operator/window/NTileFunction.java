@@ -23,7 +23,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.util.Failures.checkCondition;
 
 public class NTileFunction
-        extends SimpleWindowFunction
+        extends RankingWindowFunction
 {
     private final int valueChannel;
     private int rowCount;

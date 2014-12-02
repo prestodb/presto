@@ -173,7 +173,12 @@ public class UnaliasSymbolReferences
                 orderings.put(canonicalize(entry.getKey()), entry.getValue());
             }
 
-            return new WindowNode(node.getId(), source, canonicalize(node.getPartitionBy()), canonicalize(node.getOrderBy()), orderings.build(), functionCalls.build(), functionInfos.build(), node.getHashSymbol());
+            WindowNode.Frame frame = node.getFrame();
+            frame = new WindowNode.Frame(frame.getType(),
+                    frame.getStartType(), canonicalize(frame.getStartValue()),
+                    frame.getEndType(), canonicalize(frame.getEndValue()));
+
+            return new WindowNode(node.getId(), source, canonicalize(node.getPartitionBy()), canonicalize(node.getOrderBy()), orderings.build(), frame, functionCalls.build(), functionInfos.build(), node.getHashSymbol());
         }
 
         @Override

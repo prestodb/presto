@@ -13,7 +13,10 @@ clause to specify the window. A window has three components:
 * The ordering specification, which determines the order in which input rows
   will be processed by the window function.
 * The window frame, which specifies a sliding window of rows to be processed
-  by the function for a given row.
+  by the function for a given row. If the frame is not specified, it defaults
+  to ``RANGE UNBOUNDED PRECEDING``, which is the same as
+  ``RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW``. This frame contains all
+  rows from the start of the partition up to the last peer of the current row.
 
 For example, the following query ranks orders for each clerk by price::
 
@@ -29,12 +32,6 @@ Aggregate Functions
 All :doc:`aggregate` can be used as window functions by adding the ``OVER``
 clause. The aggregate function is computed for each row over the rows within
 the current row's window frame.
-
-Currently, explicitly specified window frames are not supported. Thus, these
-functions use the default window frame ``RANGE UNBOUNDED PRECEDING``, which is
-the same as ``RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW``. This frame
-contains all rows from the start of the partition up to the last peer of the
-current row.
 
 For example, the following query produces a rolling sum of order prices
 by day for each clerk::
@@ -93,35 +90,26 @@ Ranking Functions
 Value Functions
 ---------------
 
-.. warning::
-
-    These functions do not respect the window frame (default or specified) and
-    instead operate on the entire partition.  This is equivalent to ``RANGE
-    BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING``.  In a future
-    release, these functions will be changed to respect the window frame and to
-    use the standard default window frame ``RANGE BETWEEN UNBOUNDED PRECEDING
-    AND CURRENT ROW``.
-
 .. function:: first_value(x) -> [same as input]
 
-    Returns the first value of the window (see warning above).
+    Returns the first value of the window.
 
 .. function:: last_value(x) -> [same as input]
 
-    Returns the last value of the window (see warning above).
+    Returns the last value of the window.
 
 .. function:: nth_value(x, offset) -> [same as input]
 
-    Returns the value at the specified offset from beginning the window  (see
-    warning above).  Offsets start at ``1``. The offset can be any scalar
+    Returns the value at the specified offset from beginning the window.
+    Offsets start at ``1``. The offset can be any scalar
     expression.  If the offset is null or greater than the number of values in
     the window, null is returned.  It is an error for the offset to be zero or
     negative.
 
 .. function:: lead(x[, offset [, default_value]]) -> [same as input]
 
-    Returns the value at ``offset`` rows after the current row in the window
-    (see warning above).  Offsets start at ``0``, which is the current row.  The
+    Returns the value at ``offset`` rows after the current row in the window.
+    Offsets start at ``0``, which is the current row. The
     offset can be any scalar expression.  The default ``offset`` is ``1``. If the
     offset is null or larger than the window, the ``default_value`` is returned,
     or if it is not specified ``null`` is returned.
@@ -129,7 +117,7 @@ Value Functions
 .. function:: lag(x[, offset [, default_value]]) -> [same as input]
 
     Returns the value at ``offset`` rows before the current row in the window
-    (see warning above).  Offsets start at ``0``, which is the current row.  The
+    Offsets start at ``0``, which is the current row.  The
     offset can be any scalar expression.  The default ``offset`` is ``1``. If the
     offset is null or larger than the window, the ``default_value`` is returned,
     or if it is not specified ``null`` is returned.

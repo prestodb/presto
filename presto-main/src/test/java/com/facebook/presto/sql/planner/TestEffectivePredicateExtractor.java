@@ -40,11 +40,13 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.type.UnknownType;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -280,9 +282,11 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.of(A),
                 ImmutableList.of(A),
                 ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST),
+                new WindowNode.Frame(WindowFrame.Type.RANGE,
+                        FrameBound.Type.UNBOUNDED_PRECEDING, Optional.<Symbol>absent(),
+                        FrameBound.Type.CURRENT_ROW, Optional.<Symbol>absent()),
                 ImmutableMap.<Symbol, FunctionCall>of(),
-                ImmutableMap.<Symbol, Signature>of(),
-                Optional.<Symbol>absent());
+                ImmutableMap.<Symbol, Signature>of(), Optional.<Symbol>absent());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 

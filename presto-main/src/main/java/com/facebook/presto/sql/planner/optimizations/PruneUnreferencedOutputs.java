@@ -253,6 +253,13 @@ public class PruneUnreferencedOutputs
                     .addAll(node.getPartitionBy())
                     .addAll(node.getOrderBy());
 
+            if (node.getFrame().getStartValue().isPresent()) {
+                expectedInputs.add(node.getFrame().getStartValue().get());
+            }
+            if (node.getFrame().getEndValue().isPresent()) {
+                expectedInputs.add(node.getFrame().getEndValue().get());
+            }
+
             if (node.getHashSymbol().isPresent()) {
                 expectedInputs.add(node.getHashSymbol().get());
             }
@@ -273,7 +280,7 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
 
-            return new WindowNode(node.getId(), source, node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), functionCalls.build(), functions.build(), node.getHashSymbol());
+            return new WindowNode(node.getId(), source, node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getFrame(), functionCalls.build(), functions.build(), node.getHashSymbol());
         }
 
         @Override

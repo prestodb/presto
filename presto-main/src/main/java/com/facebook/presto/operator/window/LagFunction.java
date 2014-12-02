@@ -27,7 +27,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.checkCondition;
 
 public class LagFunction
-        extends SimpleWindowFunction
+        extends ValueWindowFunction
 {
     public static class BigintLagFunction
             extends LagFunction
@@ -85,7 +85,7 @@ public class LagFunction
     }
 
     @Override
-    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount, int currentPosition)
+    public void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition)
     {
         if ((offsetChannel >= 0) && windowIndex.isNull(offsetChannel, currentPosition)) {
             output.appendNull();

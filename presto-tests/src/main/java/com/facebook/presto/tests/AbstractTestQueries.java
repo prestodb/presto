@@ -2041,111 +2041,45 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testWindowFirstValueFunction()
+    public void testValueWindowFunctions()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT * FROM (\n" +
+        MaterializedResult actual = computeActual("SELECT * FROM (\n" +
                 "  SELECT orderkey, orderstatus\n" +
-                "    , first_value(orderkey + 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey) as fvalue\n" +
+                "    , first_value(orderkey + 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey) fvalue\n" +
+                "    , nth_value(orderkey + 1000, 2) OVER (PARTITION BY orderstatus ORDER BY orderkey\n" +
+                "        ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) nvalue\n" +
+                "    FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
+                "  ) x\n" +
+                "ORDER BY orderkey LIMIT 5");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT, BIGINT)
+                .row(1, "O", 1001, 1002)
+                .row(2, "O", 1001, 1002)
+                .row(3, "F", 1003, 1005)
+                .row(4, "O", 1001, 1002)
+                .row(5, "F", 1003, 1005)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testWindowFrames()
+    {
+        MaterializedResult actual = computeActual("SELECT * FROM (\n" +
+                "  SELECT orderkey, orderstatus\n" +
+                "    , sum(orderkey + 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey\n" +
+                "        ROWS BETWEEN mod(custkey, 2) PRECEDING AND custkey / 500 FOLLOWING)\n" +
                 "    FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
                 "  ) x\n" +
                 "ORDER BY orderkey LIMIT 5");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
                 .row(1, "O", 1001)
-                .row(2, "O", 1001)
-                .row(3, "F", 1003)
-                .row(4, "O", 1001)
-                .row(5, "F", 1003)
-                .build();
-
-        assertEquals(actual, expected);
-    }
-
-    @Test
-    public void testWindowLastValueFunction()
-    {
-        MaterializedResult actual = computeActual("" +
-                "SELECT * FROM (\n" +
-                "  SELECT orderkey, orderstatus\n" +
-                "    , last_value(orderkey + 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey) as lvalue\n" +
-                "    FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
-                "  ) x\n" +
-                "ORDER BY orderkey LIMIT 5");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
-                .row(1, "O", 1034)
-                .row(2, "O", 1034)
-                .row(3, "F", 1033)
-                .row(4, "O", 1034)
-                .row(5, "F", 1033)
-                .build();
-
-        assertEquals(actual, expected);
-    }
-
-    @Test
-    public void testWindowNthValueFunction()
-    {
-        MaterializedResult actual = computeActual("" +
-                "SELECT * FROM (\n" +
-                "  SELECT orderkey, orderstatus\n" +
-                "    , nth_value(orderkey + 1000, 2) OVER (PARTITION BY orderstatus ORDER BY orderkey) as lvalue\n" +
-                "    FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
-                "  ) x\n" +
-                "ORDER BY orderkey LIMIT 5");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
-                .row(1, "O", 1002)
-                .row(2, "O", 1002)
-                .row(3, "F", 1005)
-                .row(4, "O", 1002)
-                .row(5, "F", 1005)
-                .build();
-
-        assertEquals(actual, expected);
-    }
-
-    @Test
-    public void testWindowLagValueFunction()
-    {
-        MaterializedResult actual = computeActual("" +
-                "SELECT * FROM (\n" +
-                "  SELECT orderkey, orderstatus\n" +
-                "    , lag(orderkey + 1000, 1, 0) OVER (PARTITION BY orderstatus ORDER BY orderkey) as lvalue\n" +
-                "    FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
-                "  ) x\n" +
-                "ORDER BY orderkey LIMIT 5");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
-                .row(1, "O", 0)
-                .row(2, "O", 1001)
-                .row(3, "F", 0)
-                .row(4, "O", 1002)
-                .row(5, "F", 1003)
-                .build();
-
-        assertEquals(actual, expected);
-    }
-
-    @Test
-    public void testWindowLeadValueFunction()
-    {
-        MaterializedResult actual = computeActual("" +
-                "SELECT * FROM (\n" +
-                "  SELECT orderkey, orderstatus\n" +
-                "    , lead(orderkey + 1000, 2, 0) OVER (PARTITION BY orderstatus ORDER BY orderkey) as lvalue\n" +
-                "    FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
-                "  ) x\n" +
-                "ORDER BY orderkey LIMIT 6");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
-                .row(1, "O", 1004)
-                .row(2, "O", 1007)
-                .row(3, "F", 1006)
-                .row(4, "O", 1032)
-                .row(5, "F", 1033)
-                .row(6, "F", 0)
+                .row(2, "O", 3007)
+                .row(3, "F", 3014)
+                .row(4, "O", 4045)
+                .row(5, "F", 2008)
                 .build();
 
         assertEquals(actual, expected);

@@ -25,7 +25,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
 public class LastValueFunction
-        extends SimpleWindowFunction
+        extends ValueWindowFunction
 {
     public static class BigintLastValueFunction
             extends LastValueFunction
@@ -79,8 +79,13 @@ public class LastValueFunction
     }
 
     @Override
-    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount, int currentPosition)
+    public void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition)
     {
-        windowIndex.appendTo(argumentChannel, windowIndex.size() - 1, output);
+        if (frameStart < 0) {
+            output.appendNull();
+            return;
+        }
+
+        windowIndex.appendTo(argumentChannel, frameEnd, output);
     }
 }
