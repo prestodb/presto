@@ -44,6 +44,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -261,7 +262,7 @@ public class H2QueryRunner
                         part.bind(column, cursor.getSlice(column).toStringUtf8());
                     }
                     else if (DATE.equals(type)) {
-                        long millisUtc = cursor.getLong(column);
+                        long millisUtc = TimeUnit.DAYS.toMillis(cursor.getLong(column));
                         // H2 expects dates in to be millis at midnight in the JVM timezone
                         long localMillis = DateTimeZone.UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millisUtc);
                         part.bind(column, new Date(localMillis));

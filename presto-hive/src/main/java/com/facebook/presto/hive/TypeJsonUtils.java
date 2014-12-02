@@ -36,6 +36,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveUtil.isArrayType;
 import static com.facebook.presto.hive.HiveUtil.isMapType;
@@ -109,7 +110,7 @@ public final class TypeJsonUtils
 
         Object value = type.getObjectValue(session, blockBuilder.build(), 0);
         if (type.equals(DateType.DATE)) {
-            return new Date(((SqlDate) value).getMillisAtMidnight());
+            return toJavaSqlDate((SqlDate) value);
         }
         if (type.equals(TimestampType.TIMESTAMP)) {
             return new Timestamp(((SqlTimestamp) value).getMillisUtc());
@@ -136,12 +137,19 @@ public final class TypeJsonUtils
 
         Object value = type.getObjectValue(session, blockBuilder.build(), 0);
         if (type.equals(DateType.DATE)) {
-            return new Date(((SqlDate) value).getMillisAtMidnight());
+            return toJavaSqlDate((SqlDate) value);
         }
         if (type.equals(TimestampType.TIMESTAMP)) {
             return new Timestamp(((SqlTimestamp) value).getMillisUtc());
         }
 
         return value;
+    }
+
+    private static Date toJavaSqlDate(SqlDate value)
+    {
+        int days = value.getDays();
+        // todo should this be adjusted to midnight in JVM timezone?
+        return new Date(TimeUnit.DAYS.toMillis(days));
     }
 }

@@ -16,12 +16,15 @@ package com.facebook.presto.plugin.jdbc;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
+import org.joda.time.DateTimeZone;
+import org.joda.time.chrono.ISOChronology;
 
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.google.common.base.Preconditions.checkState;
@@ -116,7 +119,10 @@ public class JdbcRecordSink
     {
         try {
             if (DATE.equals(columnTypes.get(field))) {
-                statement.setDate(next(), new Date(value));
+                // convert to midnight in default time zone
+                long utcMillis = TimeUnit.DAYS.toMillis(value);
+                long localMillis = ISOChronology.getInstanceUTC().getZone().getMillisKeepLocal(DateTimeZone.getDefault(), utcMillis);
+                statement.setDate(next(), new Date(localMillis));
             }
             else {
                 statement.setLong(next(), value);

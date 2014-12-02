@@ -22,6 +22,7 @@ import org.joda.time.format.ISODateTimeFormat;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.cassandra.CassandraColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -121,7 +122,7 @@ public class CassandraRecordSink
     public void appendLong(long value)
     {
         if (DATE.equals(columnTypes.get(field))) {
-            append(DATE_FORMATTER.print(value));
+            append(DATE_FORMATTER.print(TimeUnit.DAYS.toMillis(value)));
         }
         else {
             append(value);

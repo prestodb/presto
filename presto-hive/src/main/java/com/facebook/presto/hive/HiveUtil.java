@@ -54,6 +54,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
@@ -200,7 +201,8 @@ public final class HiveUtil
 
     public static long parseHiveDate(String value)
     {
-        return HIVE_DATE_PARSER.parseMillis(value);
+        long millis = HIVE_DATE_PARSER.parseMillis(value);
+        return TimeUnit.MILLISECONDS.toDays(millis);
     }
 
     public static long parseHiveTimestamp(String value, DateTimeZone timeZone)

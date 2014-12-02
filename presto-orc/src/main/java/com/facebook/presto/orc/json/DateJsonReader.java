@@ -63,8 +63,8 @@ public class DateJsonReader
             throw new OrcCorruptionException("Value is not null but data stream is not present");
         }
 
-        long millis = dataStream.next() * MILLIS_IN_DAY;
-        generator.writeNumber(millis);
+        long days = dataStream.next();
+        generator.writeNumber(days);
     }
 
     @Override
@@ -79,8 +79,8 @@ public class DateJsonReader
             throw new OrcCorruptionException("Value is not null but data stream is not present");
         }
 
-        long millis = dataStream.next() * MILLIS_IN_DAY;
-        return String.valueOf(millis);
+        long days = dataStream.next();
+        return String.valueOf(days);
     }
 
     @Override

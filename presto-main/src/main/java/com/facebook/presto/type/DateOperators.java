@@ -21,6 +21,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.chrono.ISOChronology;
 
+import java.util.concurrent.TimeUnit;
+
 import static com.facebook.presto.metadata.OperatorType.BETWEEN;
 import static com.facebook.presto.metadata.OperatorType.CAST;
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
@@ -96,20 +98,24 @@ public final class DateOperators
     @SqlType(StandardTypes.TIMESTAMP)
     public static long castToTimestamp(ConnectorSession session, @SqlType(StandardTypes.DATE) long value)
     {
+        long utcMillis = TimeUnit.DAYS.toMillis(value);
+
         // date is encoded as milliseconds at midnight in UTC
         // convert to midnight if the session timezone
         ISOChronology chronology = getChronology(session.getTimeZoneKey());
-        return value - chronology.getZone().getOffset(value);
+        return utcMillis - chronology.getZone().getOffset(utcMillis);
     }
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long castToTimestampWithTimeZone(ConnectorSession session, @SqlType(StandardTypes.DATE) long value)
     {
+        long utcMillis = TimeUnit.DAYS.toMillis(value);
+
         // date is encoded as milliseconds at midnight in UTC
         // convert to midnight if the session timezone
         ISOChronology chronology = getChronology(session.getTimeZoneKey());
-        long millis = value - chronology.getZone().getOffset(value);
+        long millis = utcMillis - chronology.getZone().getOffset(utcMillis);
         return packDateTimeWithZone(millis, session.getTimeZoneKey());
     }
 
@@ -117,7 +123,7 @@ public final class DateOperators
     @SqlType(StandardTypes.VARCHAR)
     public static Slice castToSlice(@SqlType(StandardTypes.DATE) long value)
     {
-        return Slices.copiedBuffer(printDate(value), UTF_8);
+        return Slices.copiedBuffer(printDate((int) value), UTF_8);
     }
 
     @ScalarOperator(CAST)
@@ -136,6 +142,6 @@ public final class DateOperators
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.DATE) long value)
     {
-        return (int) (value ^ (value >>> 32));
+        return (int) value;
     }
 }

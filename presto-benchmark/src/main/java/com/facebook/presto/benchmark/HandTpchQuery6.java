@@ -71,8 +71,8 @@ public class HandTpchQuery6
     public static class TpchQuery6Processor
             implements PageProcessor
     {
-        private static final long MIN_SHIP_DATE = DateTimeUtils.parseDate("1994-01-01");
-        private static final long MAX_SHIP_DATE = DateTimeUtils.parseDate("1995-01-01");
+        private static final int MIN_SHIP_DATE = DateTimeUtils.parseDate("1994-01-01");
+        private static final int MAX_SHIP_DATE = DateTimeUtils.parseDate("1995-01-01");
 
         @Override
         public int process(ConnectorSession session, Page page, int start, int end, PageBuilder pageBuilder)

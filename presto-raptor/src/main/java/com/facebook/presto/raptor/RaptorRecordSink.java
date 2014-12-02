@@ -111,7 +111,7 @@ public class RaptorRecordSink
             return value;
         }
         if (type.equals(DATE)) {
-            return value / MILLIS_IN_DAY;
+            return value;
         }
         throw unsupportedType(type);
     }

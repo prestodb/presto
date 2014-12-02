@@ -416,7 +416,7 @@ public abstract class AbstractTestQueries
     public void testDistinctGroupBy()
             throws Exception
     {
-        assertQuery("SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count");
+        assertQuery("SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count, orderdate");
     }
 
     @Test

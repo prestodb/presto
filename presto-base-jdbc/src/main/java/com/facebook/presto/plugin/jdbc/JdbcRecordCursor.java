@@ -26,7 +26,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import org.joda.time.DateTimeZone;
 import org.joda.time.chrono.ISOChronology;
 
 import java.sql.Connection;
@@ -36,6 +35,7 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -146,7 +146,9 @@ public class JdbcRecordCursor
                 // JDBC returns a date using a timestamp at midnight in the JVM timezone
                 long localMillis = resultSet.getDate(field + 1).getTime();
                 // Convert it to a midnight in UTC
-                return DateTimeZone.getDefault().getMillisKeepLocal(UTC, localMillis);
+                long utcMillis = ISOChronology.getInstance().getZone().getMillisKeepLocal(UTC, localMillis);
+                // convert to days
+                return TimeUnit.MILLISECONDS.toDays(utcMillis);
             }
             if (type.equals(TimeType.TIME)) {
                 Time time = resultSet.getTime(field + 1);

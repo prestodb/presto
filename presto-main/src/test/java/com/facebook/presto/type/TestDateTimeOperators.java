@@ -26,11 +26,14 @@ import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.concurrent.TimeUnit;
+
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.HOURS;
+import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.fail;
 
 public class TestDateTimeOperators
@@ -64,12 +67,12 @@ public class TestDateTimeOperators
     @Test
     public void testDatePlusInterval()
     {
-        assertFunction("DATE '2001-1-22' + INTERVAL '3' day", new SqlDate(new DateTime(2001, 1, 25, 0, 0, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-        assertFunction("INTERVAL '3' day + DATE '2001-1-22'", new SqlDate(new DateTime(2001, 1, 25, 0, 0, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-        assertFunction("DATE '2001-1-22' + INTERVAL '3' month", new SqlDate(new DateTime(2001, 4, 22, 0, 0, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-        assertFunction("INTERVAL '3' month + DATE '2001-1-22'", new SqlDate(new DateTime(2001, 4, 22, 0, 0, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-        assertFunction("DATE '2001-1-22' + INTERVAL '3' year", new SqlDate(new DateTime(2004, 1, 22, 0, 0, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-        assertFunction("INTERVAL '3' year + DATE '2001-1-22'", new SqlDate(new DateTime(2004, 1, 22, 0, 0, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("DATE '2001-1-22' + INTERVAL '3' day", toDate(new DateTime(2001, 1, 25, 0, 0, 0, 0, UTC)));
+        assertFunction("INTERVAL '3' day + DATE '2001-1-22'", toDate(new DateTime(2001, 1, 25, 0, 0, 0, 0, UTC)));
+        assertFunction("DATE '2001-1-22' + INTERVAL '3' month", toDate(new DateTime(2001, 4, 22, 0, 0, 0, 0, UTC)));
+        assertFunction("INTERVAL '3' month + DATE '2001-1-22'", toDate(new DateTime(2001, 4, 22, 0, 0, 0, 0, UTC)));
+        assertFunction("DATE '2001-1-22' + INTERVAL '3' year", toDate(new DateTime(2004, 1, 22, 0, 0, 0, 0, UTC)));
+        assertFunction("INTERVAL '3' year + DATE '2001-1-22'", toDate(new DateTime(2004, 1, 22, 0, 0, 0, 0, UTC)));
 
         try {
             functionAssertions.tryEvaluate("DATE '2001-1-22' + INTERVAL '3' hour");
@@ -165,7 +168,7 @@ public class TestDateTimeOperators
     @Test
     public void testDateMinusInterval()
     {
-        assertFunction("DATE '2001-1-22' - INTERVAL '3' day", new SqlDate(new DateTime(2001, 1, 19, 0, 0, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("DATE '2001-1-22' - INTERVAL '3' day", toDate(new DateTime(2001, 1, 19, 0, 0, 0, 0, UTC)));
 
         try {
             functionAssertions.tryEvaluate("DATE '2001-1-22' - INTERVAL '3' hour");
@@ -264,5 +267,10 @@ public class TestDateTimeOperators
                 new SqlTimestamp(new DateTime(2013, 10, 27, 0, 5, 0, 0, TIME_ZONE).getMillis() + HOURS.toMillis(3), TIME_ZONE_KEY));
         assertFunction("TIMESTAMP '2013-10-27 03:05' - INTERVAL '2' hour",
                 new SqlTimestamp(new DateTime(2013, 10, 27, 2, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+    }
+
+    private static SqlDate toDate(DateTime dateTime)
+    {
+        return new SqlDate((int) TimeUnit.MILLISECONDS.toDays(dateTime.getMillis()));
     }
 }

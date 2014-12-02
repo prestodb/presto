@@ -58,6 +58,7 @@ import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveUtil.isArrayType;
@@ -160,7 +161,8 @@ public class HiveRecordSink
     {
         Type type = columnTypes.get(field);
         if (type == DateType.DATE) {
-            append(new Date(value));
+            // todo should this be adjusted to midnight in JVM timezone?
+            append(new Date(TimeUnit.DAYS.toMillis(value)));
         }
         else if (type == TimestampType.TIMESTAMP) {
             append(new Timestamp(value));

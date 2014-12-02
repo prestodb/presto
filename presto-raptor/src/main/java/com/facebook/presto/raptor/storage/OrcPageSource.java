@@ -52,6 +52,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.wrappedBooleanArray;
 import static io.airlift.slice.Slices.wrappedDoubleArray;
+import static io.airlift.slice.Slices.wrappedIntArray;
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -148,7 +149,7 @@ public class OrcPageSource
                     blocks[fieldId] = new LazyFixedWidthBlock(BOOLEAN.getFixedSize(), batchSize, new LazyBooleanBlockLoader(columnIndexes[fieldId], batchSize));
                 }
                 else if (DATE.equals(type)) {
-                    blocks[fieldId] = new LazyFixedWidthBlock(DATE.getFixedSize(), batchSize, new LazyDateBlockLoader(columnIndexes[fieldId], batchSize));
+                    blocks[fieldId] = new LazyFixedWidthBlock(DATE.getFixedSize(), batchSize, new LazyIntBlockLoader(columnIndexes[fieldId], batchSize));
                 }
                 else if (BIGINT.equals(type) || TIMESTAMP.equals(type)) {
                     blocks[fieldId] = new LazyFixedWidthBlock(((FixedWidthType) type).getFixedSize(), batchSize, new LazyLongBlockLoader(columnIndexes[fieldId], batchSize));
@@ -252,14 +253,14 @@ public class OrcPageSource
         }
     }
 
-    private final class LazyDateBlockLoader
+    private final class LazyIntBlockLoader
             implements LazyBlockLoader<LazyFixedWidthBlock>
     {
         private final int expectedBatchId = batchId;
         private final int batchSize;
         private final int columnIndex;
 
-        public LazyDateBlockLoader(int columnIndex, int batchSize)
+        public LazyIntBlockLoader(int columnIndex, int batchSize)
         {
             this.batchSize = batchSize;
             this.columnIndex = columnIndex;
@@ -270,13 +271,17 @@ public class OrcPageSource
         {
             checkState(batchId == expectedBatchId);
             try {
+                // TODO to add an ORC int vector
                 LongVector vector = new LongVector();
                 recordReader.readVector(columnIndex, vector);
-                for (int i = 0; i < batchSize; i++) {
-                    vector.vector[i] *= MILLIS_IN_DAY;
-                }
                 block.setNullVector(vector.isNull);
-                block.setRawSlice(wrappedLongArray(vector.vector, 0, batchSize));
+
+                int[] ints = new int[batchSize];
+                for (int i = 0; i < batchSize; i++) {
+                    ints[i] = (int) vector.vector[i];
+                }
+
+                block.setRawSlice(wrappedIntArray(ints, 0, batchSize));
             }
             catch (IOException e) {
                 throw new PrestoException(RAPTOR_ERROR, e);

@@ -30,6 +30,7 @@ import org.testng.annotations.Test;
 
 import java.util.Locale;
 import java.util.TimeZone;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
@@ -50,7 +51,7 @@ public class TestDateTimeFunctions
     private static final TimeZoneKey WEIRD_ZONE_KEY = getTimeZoneKey("+07:09");
     private static final DateTimeZone WEIRD_ZONE = getDateTimeZone(WEIRD_ZONE_KEY);
 
-    private static final DateTime DATE = new DateTime(2001, 8, 22, 0, 0, 0, 0, DATE_TIME_ZONE);
+    private static final DateTime DATE = new DateTime(2001, 8, 22, 0, 0, 0, 0, DateTimeZone.UTC);
     private static final String DATE_LITERAL = "DATE '2001-08-22'";
 
     private static final DateTime TIME = new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE);
@@ -86,8 +87,9 @@ public class TestDateTimeFunctions
             throws Exception
     {
         // current date is the time at midnight in the session time zone
-        DateMidnight dateMidnight = new DateMidnight(session.getStartTime(), DateTimeZone.UTC).withZoneRetainFields(DATE_TIME_ZONE);
-        assertFunction("CURRENT_DATE", toDate(dateMidnight.getMillis()));
+        DateMidnight dateMidnight = new DateMidnight(session.getStartTime(), DATE_TIME_ZONE);
+        int days = (int) TimeUnit.MILLISECONDS.toDays(dateMidnight.getMillis());
+        assertFunction("CURRENT_DATE", new SqlDate(days));
     }
 
     @Test
@@ -483,7 +485,7 @@ public class TestDateTimeFunctions
     @Test
     public void testDateDiffDate()
     {
-        DateTime baseDateTime = new DateTime(1960, 5, 3, 0, 0, 0, 0, DATE_TIME_ZONE);
+        DateTime baseDateTime = new DateTime(1960, 5, 3, 0, 0, 0, 0, DateTimeZone.UTC);
         String baseDateTimeLiteral = "DATE '1960-05-03'";
 
         assertFunction("date_diff('day', " + baseDateTimeLiteral + ", " + DATE_LITERAL + ")", daysBetween(baseDateTime, DATE).getDays());
@@ -669,14 +671,10 @@ public class TestDateTimeFunctions
         functionAssertions.assertFunction(projection, expected);
     }
 
-    private SqlDate toDate(long milliseconds)
-    {
-        return new SqlDate(milliseconds, session.getTimeZoneKey());
-    }
-
     private SqlDate toDate(DateTime dateDate)
     {
-        return new SqlDate(dateDate.getMillis(), session.getTimeZoneKey());
+        long millis = dateDate.getMillis();
+        return new SqlDate((int) TimeUnit.MILLISECONDS.toDays(millis));
     }
 
     private SqlTime toTime(long milliseconds)

@@ -37,6 +37,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
@@ -326,7 +327,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
             long storageTime = ((Date) value).getTime();
             // convert date from VM current time zone to UTC
             long utcMillis = storageTime + DateTimeZone.getDefault().getOffset(storageTime);
-            return utcMillis;
+            return TimeUnit.MILLISECONDS.toDays(utcMillis);
         }
         if (value instanceof Timestamp) {
             // The Hive SerDe parses timestamps using the default time zone of

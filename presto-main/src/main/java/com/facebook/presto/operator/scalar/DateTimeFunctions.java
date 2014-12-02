@@ -25,7 +25,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeField;
-import org.joda.time.DateTimeZone;
 import org.joda.time.chrono.ISOChronology;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -45,6 +44,9 @@ import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.joda.time.DateTimeZone.UTC;
 
 public final class DateTimeFunctions
 {
@@ -57,7 +59,7 @@ public final class DateTimeFunctions
         }
     };
 
-    private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstance(DateTimeZone.UTC);
+    private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstance(UTC);
     private static final DateTimeField SECOND_OF_MINUTE = UTC_CHRONOLOGY.secondOfMinute();
     private static final DateTimeField DAY_OF_WEEK = UTC_CHRONOLOGY.dayOfWeek();
     private static final DateTimeField DAY_OF_MONTH = UTC_CHRONOLOGY.dayOfMonth();
@@ -78,10 +80,8 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.DATE)
     public static long currentDate(ConnectorSession session)
     {
-        // Stack value is the millisecond at midnight on the date in UTC so
-        // no we do not want to correct to the local client time zone.  Client
-        // time zone corrections are not needed for date.
-        return UTC_CHRONOLOGY.dayOfMonth().roundFloor(session.getStartTime());
+        long millis = getChronology(session.getTimeZoneKey()).dayOfMonth().roundFloor(session.getStartTime());
+        return MILLISECONDS.toDays(millis);
     }
 
     @Description("current time with time zone")
@@ -157,14 +157,14 @@ public final class DateTimeFunctions
         return unpackMillisUtc(timestampWithTimeZone) / 1000.0;
     }
 
-    @ScalarFunction(value = "at_timezone")
+    @ScalarFunction("at_timezone")
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
     public static long timeAtTimeZone(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long timeWithTimeZone, @SqlType(StandardTypes.VARCHAR) Slice zoneId)
     {
         return packDateTimeWithZone(unpackMillisUtc(timeWithTimeZone), zoneId.toStringUtf8());
     }
 
-    @ScalarFunction(value = "at_timezone")
+    @ScalarFunction("at_timezone")
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
     public static long timeAtTimeZone(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long timeWithTimeZone, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long zoneOffset)
     {
@@ -176,14 +176,14 @@ public final class DateTimeFunctions
         return packDateTimeWithZone(unpackMillisUtc(timeWithTimeZone), getTimeZoneKeyForOffset(zoneOffsetMinutes));
     }
 
-    @ScalarFunction(value = "at_timezone")
+    @ScalarFunction("at_timezone")
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long timestampAtTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone, @SqlType(StandardTypes.VARCHAR) Slice zoneId)
     {
         return packDateTimeWithZone(unpackMillisUtc(timestampWithTimeZone), zoneId.toStringUtf8());
     }
 
-    @ScalarFunction(value = "at_timezone")
+    @ScalarFunction("at_timezone")
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long timestampAtTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long zoneOffset)
     {
@@ -198,9 +198,10 @@ public final class DateTimeFunctions
     @Description("truncate to the specified precision in the session timezone")
     @ScalarFunction("date_trunc")
     @SqlType(StandardTypes.DATE)
-    public static long truncateDate(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice unit, @SqlType(StandardTypes.DATE) long time)
+    public static long truncateDate(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice unit, @SqlType(StandardTypes.DATE) long date)
     {
-        return getDateField(UTC_CHRONOLOGY, unit).roundFloor(time);
+        long millis = getDateField(UTC_CHRONOLOGY, unit).roundFloor(DAYS.toMillis(date));
+        return MILLISECONDS.toDays(millis);
     }
 
     @Description("truncate to the specified precision in the session timezone")
@@ -242,7 +243,8 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.DATE)
     public static long addFieldValueDate(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice unit, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DATE) long date)
     {
-        return getDateField(UTC_CHRONOLOGY, unit).add(date, Ints.checkedCast(value));
+        long millis = getDateField(UTC_CHRONOLOGY, unit).add(DAYS.toMillis(date), Ints.checkedCast(value));
+        return MILLISECONDS.toDays(millis);
     }
 
     @Description("add the specified amount of time to the given time")
@@ -296,7 +298,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long diffDate(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice unit, @SqlType(StandardTypes.DATE) long date1, @SqlType(StandardTypes.DATE) long date2)
     {
-        return getDateField(UTC_CHRONOLOGY, unit).getDifference(date2, date1);
+        return getDateField(UTC_CHRONOLOGY, unit).getDifference(DAYS.toMillis(date2), DAYS.toMillis(date1));
     }
 
     @Description("difference of the given times in the given unit")
@@ -643,7 +645,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long dayOfWeekFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return DAY_OF_WEEK.get(date);
+        return DAY_OF_WEEK.get(DAYS.toMillis(date));
     }
 
     @Description("day of the month of the given timestamp")
@@ -667,7 +669,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long dayFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return DAY_OF_MONTH.get(date);
+        return DAY_OF_MONTH.get(DAYS.toMillis(date));
     }
 
     @Description("day of the month of the given interval")
@@ -699,7 +701,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long dayOfYearFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return DAY_OF_YEAR.get(date);
+        return DAY_OF_YEAR.get(DAYS.toMillis(date));
     }
 
     @Description("week of the year of the given timestamp")
@@ -723,7 +725,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long weekFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return WEEK_OF_YEAR.get(date);
+        return WEEK_OF_YEAR.get(DAYS.toMillis(date));
     }
 
     @Description("month of the year of the given timestamp")
@@ -747,7 +749,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long monthFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return MONTH_OF_YEAR.get(date);
+        return MONTH_OF_YEAR.get(DAYS.toMillis(date));
     }
 
     @Description("month of the year of the given interval")
@@ -779,7 +781,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long quarterFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return QUARTER.get(date);
+        return QUARTER.get(DAYS.toMillis(date));
     }
 
     @Description("year of the given timestamp")
@@ -803,7 +805,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long yearFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return YEAR.get(date);
+        return YEAR.get(DAYS.toMillis(date));
     }
 
     @Description("year of the given interval")

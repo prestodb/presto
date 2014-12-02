@@ -19,6 +19,8 @@ import com.facebook.presto.spi.type.StandardTypes;
 import org.joda.time.DateTimeField;
 import org.joda.time.chrono.ISOChronology;
 
+import java.util.concurrent.TimeUnit;
+
 import static com.facebook.presto.metadata.OperatorType.ADD;
 import static com.facebook.presto.metadata.OperatorType.SUBTRACT;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -42,7 +44,7 @@ public final class DateTimeOperators
         if (MILLIS_OF_DAY.get(right) != 0) {
             throw new IllegalArgumentException("Can not add hour, minutes or seconds to a Date");
         }
-        return left + right;
+        return left + TimeUnit.MILLISECONDS.toDays(right);
     }
 
     @ScalarOperator(ADD)
@@ -52,7 +54,7 @@ public final class DateTimeOperators
         if (MILLIS_OF_DAY.get(left) != 0) {
             throw new IllegalArgumentException("Can not add hour, minutes or seconds to a Date");
         }
-        return left + right;
+        return TimeUnit.MILLISECONDS.toDays(left) + right;
     }
 
     @ScalarOperator(ADD)
@@ -115,14 +117,16 @@ public final class DateTimeOperators
     @SqlType(StandardTypes.DATE)
     public static long datePlusIntervalYearToMonth(@SqlType(StandardTypes.DATE) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
-        return MONTH_OF_YEAR_UTC.add(left, right);
+        long millis = MONTH_OF_YEAR_UTC.add(TimeUnit.DAYS.toMillis(left), right);
+        return TimeUnit.MILLISECONDS.toDays(millis);
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.DATE)
     public static long intervalYearToMonthPlusDate(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.DATE) long right)
     {
-        return MONTH_OF_YEAR_UTC.add(right, left);
+        long millis = MONTH_OF_YEAR_UTC.add(TimeUnit.DAYS.toMillis(right), left);
+        return TimeUnit.MILLISECONDS.toDays(millis);
     }
 
     @ScalarOperator(ADD)
@@ -188,7 +192,7 @@ public final class DateTimeOperators
         if (MILLIS_OF_DAY.get(right) != 0) {
             throw new IllegalArgumentException("Can not subtract hour, minutes or seconds from a Date");
         }
-        return left - right;
+        return left - TimeUnit.MILLISECONDS.toDays(right);
     }
 
     @ScalarOperator(SUBTRACT)
@@ -223,7 +227,8 @@ public final class DateTimeOperators
     @SqlType(StandardTypes.DATE)
     public static long dateMinusIntervalYearToMonth(ConnectorSession session, @SqlType(StandardTypes.DATE) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
-        return MONTH_OF_YEAR_UTC.add(left, -right);
+        long millis = MONTH_OF_YEAR_UTC.add(TimeUnit.DAYS.toMillis(left), -right);
+        return TimeUnit.MILLISECONDS.toDays(millis);
     }
 
     @ScalarOperator(SUBTRACT)

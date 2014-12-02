@@ -26,14 +26,15 @@ import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.DateTimeParser;
 import org.joda.time.format.DateTimePrinter;
+import org.joda.time.format.ISODateTimeFormat;
 import org.joda.time.format.PeriodFormatter;
 import org.joda.time.format.PeriodFormatterBuilder;
 import org.joda.time.format.PeriodParser;
-import org.joda.time.format.ISODateTimeFormat;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
@@ -48,14 +49,14 @@ public final class DateTimeUtils
 
     private static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date().withZoneUTC();
 
-    public static long parseDate(String value)
+    public static int parseDate(String value)
     {
-        return DATE_FORMATTER.parseMillis(value);
+        return (int) TimeUnit.MILLISECONDS.toDays(DATE_FORMATTER.parseMillis(value));
     }
 
-    public static String printDate(long millis)
+    public static String printDate(int days)
     {
-        return DATE_FORMATTER.print(millis);
+        return DATE_FORMATTER.print(TimeUnit.DAYS.toMillis(days));
     }
 
     private static final DateTimeFormatter TIMESTAMP_FORMATTER;

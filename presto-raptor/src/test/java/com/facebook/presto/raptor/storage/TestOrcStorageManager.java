@@ -252,10 +252,10 @@ public class TestOrcStorageManager
 
     private static SqlDate sqlDate(int year, int month, int day)
     {
-        return new SqlDate(new DateTime(year, month, day, 0, 0, 0, 0, UTC).getMillis(), SESSION.getTimeZoneKey());
+        return new SqlDate(dateValue(new DateTime(year, month, day, 0, 0, 0, 0, UTC)));
     }
 
-    private static long dateValue(DateTime dateTime)
+    private static int dateValue(DateTime dateTime)
     {
         return Days.daysBetween(EPOCH, new DateTime(dateTime, UTC_CHRONOLOGY)).getDays();
     }

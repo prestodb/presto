@@ -198,7 +198,13 @@ public final class FunctionAssertions
             expected = ((Slice) expected).toString(UTF_8);
         }
 
-        assertEquals(selectSingleValue(projection, compiler), expected);
+        Object actual = selectSingleValue(projection, compiler);
+        try {
+            assertEquals(actual, expected);
+        }
+        catch (Throwable e) {
+            throw e;
+        }
     }
 
     public void assertFunctionNull(String projection)

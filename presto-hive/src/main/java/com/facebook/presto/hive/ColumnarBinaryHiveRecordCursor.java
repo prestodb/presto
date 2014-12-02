@@ -40,7 +40,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
@@ -79,8 +78,6 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Cate
 class ColumnarBinaryHiveRecordCursor<K>
         extends HiveRecordCursor
 {
-    private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
-
     private final RecordReader<K, BytesRefArrayWritable> recordReader;
     private final DateTimeZone sessionTimeZone;
     private final K key;
@@ -381,7 +378,7 @@ class ColumnarBinaryHiveRecordCursor<K>
         else if (hiveTypes[column].equals(HIVE_DATE)) {
             checkState(length >= 1, "Date should be at least 1 byte");
             long daysSinceEpoch = readVInt(bytes, start, length);
-            longs[column] = daysSinceEpoch * MILLIS_IN_DAY;
+            longs[column] = daysSinceEpoch;
         }
         else if (hiveTypes[column].equals(HIVE_TIMESTAMP)) {
             checkState(length >= 1, "Timestamp should be at least 1 byte");

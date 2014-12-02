@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -120,7 +121,8 @@ public class MaterializedResult
             Object prestoValue = prestoRow.getField(field);
             Object jdbcValue;
             if (prestoValue instanceof SqlDate) {
-                jdbcValue = new Date(((SqlDate) prestoValue).getMillisAtMidnight());
+                int days = ((SqlDate) prestoValue).getDays();
+                jdbcValue = new Date(TimeUnit.DAYS.toMillis(days));
             }
             else if (prestoValue instanceof SqlTime) {
                 jdbcValue = new Time(((SqlTime) prestoValue).getMillisUtc());

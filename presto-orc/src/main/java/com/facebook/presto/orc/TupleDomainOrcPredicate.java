@@ -31,7 +31,6 @@ import io.airlift.slice.Slices;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -40,8 +39,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class TupleDomainOrcPredicate<C>
         implements OrcPredicate
 {
-    private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
-
     private final TupleDomain<C> effectivePredicate;
     private final List<ColumnReference<C>> columnReferences;
 
@@ -107,8 +104,7 @@ public class TupleDomainOrcPredicate<C>
             }
         }
         else if (type.getTypeSignature().getBase().equals(StandardTypes.DATE) && columnStatistics.getDateStatistics() != null) {
-            // TODO remove this when DATE type memory representation is changed to days instead of millis
-            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getDateStatistics(), days -> days * MILLIS_IN_DAY);
+            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getDateStatistics());
         }
         else if (boxedJavaType == Long.class && columnStatistics.getIntegerStatistics() != null) {
             return createDomain(boxedJavaType, hasNullValue, columnStatistics.getIntegerStatistics());

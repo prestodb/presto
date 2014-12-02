@@ -19,6 +19,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.chrono.ISOChronology;
 
+import java.util.concurrent.TimeUnit;
+
 import static com.facebook.presto.metadata.OperatorType.BETWEEN;
 import static com.facebook.presto.metadata.OperatorType.CAST;
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
@@ -103,7 +105,8 @@ public final class TimestampWithTimeZoneOperators
         long date = chronology.dayOfYear().roundFloor(unpackMillisUtc(value));
         // date is currently midnight in timezone of the original value
         // convert to UTC
-        return date + chronology.getZone().getOffset(date);
+        long millis = date + chronology.getZone().getOffset(date);
+        return TimeUnit.MILLISECONDS.toDays(millis);
     }
 
     @ScalarOperator(CAST)

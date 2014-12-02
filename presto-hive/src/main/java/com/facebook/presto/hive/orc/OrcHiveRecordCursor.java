@@ -47,7 +47,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveType.HIVE_BINARY;
@@ -89,8 +88,6 @@ import static org.apache.hadoop.hive.ql.io.orc.OrcUtil.getFieldValue;
 public class OrcHiveRecordCursor
         extends HiveRecordCursor
 {
-    private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
-
     private final RecordReader recordReader;
     private final DateTimeZone sessionTimeZone;
 
@@ -340,7 +337,7 @@ public class OrcHiveRecordCursor
                 longs[column] = shortWritable.get();
             }
             else if (hiveTypes[column].equals(HIVE_DATE)) {
-                longs[column] = ((DateWritable) object).getDays() * MILLIS_IN_DAY;
+                longs[column] = ((DateWritable) object).getDays();
             }
             else if (hiveTypes[column].equals(HIVE_TIMESTAMP)) {
                 TimestampWritable timestampWritable = (TimestampWritable) object;

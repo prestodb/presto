@@ -22,9 +22,6 @@ import com.google.common.collect.Range;
 import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Shorts;
 import org.joda.time.DateTimeZone;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -159,7 +156,7 @@ public abstract class AbstractTestOrcReader
         tester.testRoundTrip(javaDateObjectInspector,
                 transform(writeValues, AbstractTestOrcReader::intToDate),
                 transform(writeValues, AbstractTestOrcReader::intToDays),
-                transform(writeValues, AbstractTestOrcReader::intToDaysMillis));
+                transform(writeValues, AbstractTestOrcReader::intToDays));
     }
 
     @Test
@@ -420,16 +417,6 @@ public abstract class AbstractTestOrcReader
         return input.getTime();
     }
 
-    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(HIVE_STORAGE_TIME_ZONE);
-
-    private static String timestampToString(Timestamp input)
-    {
-        if (input == null) {
-            return null;
-        }
-        return TIMESTAMP_FORMATTER.print(input.getTime());
-    }
-
     private static Date intToDate(Integer input)
     {
         if (input == null) {
@@ -446,22 +433,6 @@ public abstract class AbstractTestOrcReader
             return null;
         }
         return (long) input;
-    }
-
-    private static Long intToDaysMillis(Integer input)
-    {
-        if (input == null) {
-            return null;
-        }
-        return TimeUnit.DAYS.toMillis(input);
-    }
-
-    private static String intToDateString(Integer input)
-    {
-        if (input == null) {
-            return null;
-        }
-        return ISODateTimeFormat.date().withZoneUTC().print(TimeUnit.DAYS.toMillis(input));
     }
 
     private static byte[] stringToByteArray(String input)
