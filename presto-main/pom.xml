@@ -99,11 +99,6 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>floatingdecimal</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>http-server</artifactId>
         </dependency>
 

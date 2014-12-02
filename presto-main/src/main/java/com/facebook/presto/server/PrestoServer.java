@@ -29,7 +29,6 @@ import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.discovery.client.ServiceAnnouncement;
 import io.airlift.event.client.HttpEventModule;
 import io.airlift.event.client.JsonEventModule;
-import io.airlift.floatingdecimal.FloatingDecimal;
 import io.airlift.http.server.HttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.JmxHttpModule;
@@ -103,10 +102,6 @@ public class PrestoServer
 
         try {
             Injector injector = app.strictConfig().initialize();
-
-            if (!FloatingDecimal.isPatchInstalled()) {
-                log.warn("FloatingDecimal patch not installed. Parallelism will be diminished when parsing/formatting doubles");
-            }
 
             injector.getInstance(PluginManager.class).loadPlugins();
 
