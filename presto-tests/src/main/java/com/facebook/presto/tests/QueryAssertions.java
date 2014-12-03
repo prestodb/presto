@@ -62,11 +62,15 @@ public final class QueryAssertions
         MaterializedResult expectedResults = h2QueryRunner.execute(session, expected, actualResults.getTypes());
         log.info("FINISHED in presto: %s, h2: %s, total: %s", actualTime, nanosSince(expectedStart), nanosSince(start));
 
+        List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
+        List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
         if (ensureOrdering) {
-            assertEquals(actualResults.getMaterializedRows(), expectedResults.getMaterializedRows());
+            if (!actualRows.equals(expectedRows)) {
+                assertEquals(actualRows, expectedRows);
+            }
         }
         else {
-            assertEqualsIgnoreOrder(actualResults.getMaterializedRows(), expectedResults.getMaterializedRows());
+            assertEqualsIgnoreOrder(actualRows, expectedRows);
         }
     }
 
