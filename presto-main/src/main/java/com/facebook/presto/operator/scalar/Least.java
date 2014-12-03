@@ -24,16 +24,19 @@ import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.sql.gen.ByteCodeUtils;
+import com.facebook.presto.sql.gen.Bootstrap;
+import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.CompilerUtils;
+import com.facebook.presto.sql.gen.SqlTypeByteCodeExpression;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Primitives;
+import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
@@ -48,17 +51,19 @@ import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
-import static com.facebook.presto.sql.relational.Signatures.arrayConstructorSignature;
+import static com.facebook.presto.sql.relational.Signatures.leastSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.invoke.MethodHandles.lookup;
+import static java.lang.String.format;
 
 public final class Least
         extends ParametricScalar
 {
     public static final Least LEAST = new Least();
-    private static final Signature SIGNATURE = new Signature("least", ImmutableList.of(typeParameter("E")), "E", ImmutableList.of("E"), true, true);
+    private static final Signature SIGNATURE = new Signature("least", ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("E"), true, false);
 
     @Override
     public Signature getSignature()
@@ -69,7 +74,7 @@ public final class Least
     @Override
     public boolean isHidden()
     {
-        return true;
+        return false;
     }
 
     @Override
@@ -81,25 +86,19 @@ public final class Least
     @Override
     public String getDescription()
     {
-        // Internal function, doesn't need a description
-        return "";
+        return "LEAST(arg1, [arg2, ...]) returns the least element among the given set of orderable elements of the same type.";
     }
 
     @Override
     public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager)
     {
-        checkArgument(types.size() == 1, "Can only construct arrays from exactly matching types");
+        checkArgument(types.size() == 1, "Can select the least element only from exactly matching types");
         Class<?> res;
         ImmutableList.Builder<Class<?>> builder = ImmutableList.builder();
         Type type = types.get("E");
-        checkArgument(type.isComparable(), "Type should be comparable");
+        checkArgument(type.isOrderable(), "Type should be orderable");
         for (int i = 0; i < arity; i++) {
-            if (type.getJavaType().isPrimitive()) {
-                builder.add(Primitives.wrap(type.getJavaType()));
-            }
-            else {
-                builder.add(type.getJavaType());
-            }
+            builder.add(type.getJavaType());
         }
         ImmutableList<Class<?>> stackTypes = builder.build();
         Class<?> clazz = generateLeast(stackTypes, type);
@@ -111,8 +110,8 @@ public final class Least
         catch (ReflectiveOperationException e) {
             throw Throwables.propagate(e);
         }
-        List<Boolean> nullableParameters = ImmutableList.copyOf(Collections.nCopies(stackTypes.size(), true));
-        return new FunctionInfo(arrayConstructorSignature(type.getTypeSignature(), Collections.nCopies(arity, type.getTypeSignature())), "Finds the least element", true, methodHandle, true, false, nullableParameters);
+        List<Boolean> nullableParameters = ImmutableList.copyOf(Collections.nCopies(stackTypes.size(), false));
+        return new FunctionInfo(leastSignature(type.getTypeSignature(), Collections.nCopies(arity, type.getTypeSignature())), "Finds the least element", true, methodHandle, true, false, nullableParameters);
     }
 
     private static Class<?> generateLeast(List<Class<?>> stackTypes, Type elementType)
@@ -124,13 +123,14 @@ public final class Least
                 return input.getSimpleName();
             }
         }).toList();
+
+        CompilerContext context = new CompilerContext(Bootstrap.BOOTSTRAP_METHOD);
         ClassDefinition definition = new ClassDefinition(
-                new CompilerContext(null),
+                context,
                 a(PUBLIC, FINAL),
                 CompilerUtils.makeClassName(Joiner.on("").join(stackTypeNames) + "Least"),
                 type(Object.class));
 
-        // Generate constructor
         definition.declareDefaultConstructor(a(PRIVATE));
 
         ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
@@ -139,39 +139,95 @@ public final class Least
             parameters.add(arg("arg" + i, stackType));
         }
 
-        CompilerContext context = new CompilerContext(null);
         Block body = definition.declareMethod(context, a(PUBLIC, STATIC), "least", type(stackTypes.get(0)), parameters.build())
                 .getBody();
 
-        Variable ansVariable = context.declareVariable(Object.class, "ans");
+        Variable typeVariable = context.declareVariable(Type.class, "typeVar");
+        CallSiteBinder binder = new CallSiteBinder();
+        body.comment("typeVariable = elementType;")
+                .append(SqlTypeByteCodeExpression.constantType(context, binder, elementType))
+                .putVariable(typeVariable);
 
-        body.comment("Object ans = arg0;")
-                .newObject(stackTypes.get(0))
+        for (int i = 0; i < stackTypes.size(); i++) {
+            Class<?> stackType = stackTypes.get(i);
+            Variable currentBlock = context.declareVariable(com.facebook.presto.spi.block.Block.class, "block" + i);
+            Variable blockBuilder = context.declareVariable(com.facebook.presto.spi.block.BlockBuilder.class, "blockBuilder" + i);
+            Block buildBlock = new Block(context)
+                    .comment("blockBuilder%d = typeVariable.createBlockBuilder(new BlockBuilderStatus());", i)
+                    .getVariable(typeVariable)
+                    .newObject(com.facebook.presto.spi.block.BlockBuilderStatus.class)
+                    .dup()
+                    .invokeConstructor(com.facebook.presto.spi.block.BlockBuilderStatus.class)
+                    .invokeInterface(Type.class, "createBlockBuilder", com.facebook.presto.spi.block.BlockBuilder.class, com.facebook.presto.spi.block.BlockBuilderStatus.class)
+                    .putVariable(blockBuilder);
+
+            String writeMethodName;
+            if (stackType == long.class) {
+                writeMethodName = "writeLong";
+            }
+            else if (stackType == boolean.class) {
+                writeMethodName = "writeBoolean";
+            }
+            else if (stackType == double.class) {
+                writeMethodName = "writeDouble";
+            }
+            else if (stackType == Slice.class) {
+                writeMethodName = "writeSlice";
+            }
+            else {
+                throw new PrestoException(INTERNAL_ERROR, format("Unexpected type %s", stackType.getName()));
+            }
+
+            Block writeBlock = new Block(context)
+                    .comment("typeVariable.%s(blockBuilder%d, arg%d);", writeMethodName, i, i)
+                    .getVariable(typeVariable)
+                    .getVariable(blockBuilder)
+                    .getVariable("arg" + i)
+                    .invokeInterface(Type.class, writeMethodName, void.class, com.facebook.presto.spi.block.BlockBuilder.class, stackType);
+
+            buildBlock.append(writeBlock);
+
+            Block storeBlock = new Block(context)
+                    .comment("block%d = blockBuilder%d.build();", i, i)
+                    .getVariable(blockBuilder)
+                    .invokeInterface(com.facebook.presto.spi.block.BlockBuilder.class, "build", com.facebook.presto.spi.block.Block.class)
+                    .putVariable(currentBlock);
+            buildBlock.append(storeBlock);
+            body.append(buildBlock);
+        }
+
+        Variable ansVariable = context.declareVariable(stackTypes.get(0), "ans");
+        Variable ansBlockVariable = context.declareVariable(com.facebook.presto.spi.block.Block.class, "ansBlock");
+
+        body.comment("ans = arg0; ansBlock = block0;")
                 .getVariable("arg0")
-                .putVariable(ansVariable);
+                .putVariable(ansVariable)
+                .getVariable("block0")
+                .putVariable(ansBlockVariable);
 
         for (int i = 1; i < stackTypes.size(); i++) {
-            Class<?> stackType = stackTypes.get(i);
-            if (stackType.isPrimitive()) {
-                body.append(ByteCodeUtils.boxPrimitiveIfNecessary(context, stackType));
-            }
-            LabelNode end = new LabelNode("end");
-            Block cool = new Block(context)
-                    .getVariable(ansVariable)
-                    .getVariable("arg" + i)
-                    .invokeVirtual(stackType, "compareTo", int.class, stackType)
+            LabelNode end = new LabelNode("end" + i);
+            Block compare = new Block(context)
+                    .getVariable(typeVariable)
+                    .getVariable(ansBlockVariable)
+                    .push(0)
+                    .getVariable("block" + i)
+                    .push(0)
+                    .invokeInterface(Type.class, "compareTo", int.class, com.facebook.presto.spi.block.Block.class, int.class, com.facebook.presto.spi.block.Block.class, int.class)
                     .push(0)
                     .append(JumpInstruction.jumpIfIntLessThan(end))
                     .getVariable("arg" + i)
                     .putVariable(ansVariable)
+                    .getVariable("block" + i)
+                    .putVariable(ansBlockVariable)
                     .visitLabel(end);
-            body.append(cool);
+            body.append(compare);
         }
 
         body.comment("return ans;")
                     .getVariable(ansVariable)
-                    .retObject();
+                    .ret(stackTypes.get(0));
 
-        return defineClass(definition, Object.class, new DynamicClassLoader());
+        return defineClass(definition, Object.class, binder.getBindings(), new DynamicClassLoader());
     }
 }

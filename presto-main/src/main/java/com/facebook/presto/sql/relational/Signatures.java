@@ -33,7 +33,6 @@ import static com.facebook.presto.metadata.Signature.internalFunction;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
-import static com.facebook.presto.sql.tree.Least.LEAST;
 import static com.facebook.presto.type.TypeUtils.typeSignatureGetter;
 
 public final class Signatures
@@ -115,7 +114,7 @@ public final class Signatures
 
     public static Signature leastSignature(TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
-        return internalFunction(LEAST, returnType, argumentTypes);
+        return internalFunction("LEAST", returnType, argumentTypes);
     }
 
     public static Signature comparisonExpressionSignature(ComparisonExpression.Type expressionType, Type leftType, Type rightType)

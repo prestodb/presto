@@ -350,12 +350,4 @@ public final class MathFunctions
 
         return value1 > value2 ? value1 : value2;
     }
-
-    @Description("get the smallest of the given values")
-    @ScalarFunction
-    @SqlType(StandardTypes.BIGINT)
-    public static long least(@SqlType(StandardTypes.BIGINT) long value1, @SqlType(StandardTypes.BIGINT) long value2)
-    {
-        return value1 < value2 ? value1 : value2;
-    }
 }
