@@ -38,12 +38,14 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_NO_HOST_FOR_SHARD;
 import static com.facebook.presto.raptor.util.Nodes.nodeIdentifier;
 import static com.facebook.presto.raptor.util.Types.checkType;
+import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -99,7 +101,11 @@ public class RaptorSplitManager
 
                 // Pick a random node and optimistically assign the shard to it.
                 // That node will restore the shard from the backup location.
-                Node node = selectRandom(nodeManager.getActiveDatasourceNodes(connectorId));
+                Set<Node> activeDatasourceNodes = nodeManager.getActiveDatasourceNodes(connectorId);
+                if (!activeDatasourceNodes.isEmpty()) {
+                    throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
+                }
+                Node node = selectRandom(activeDatasourceNodes);
                 shardManager.assignShard(shardId, node.getNodeIdentifier());
                 addresses = ImmutableList.of(node.getHostAndPort());
             }
