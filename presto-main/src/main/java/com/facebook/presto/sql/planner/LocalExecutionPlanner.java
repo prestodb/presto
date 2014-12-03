@@ -181,6 +181,7 @@ public class LocalExecutionPlanner
     private final DataSize maxIndexMemorySize;
     private final IndexJoinLookupStats indexJoinLookupStats;
     private final DataSize maxPartialAggregationMemorySize;
+    private final int writerCount;
 
     @Inject
     public LocalExecutionPlanner(
@@ -206,6 +207,7 @@ public class LocalExecutionPlanner
         this.indexJoinLookupStats = checkNotNull(indexJoinLookupStats, "indexJoinLookupStats is null");
         this.maxIndexMemorySize = checkNotNull(taskManagerConfig, "taskManagerConfig is null").getMaxTaskIndexMemoryUsage();
         this.maxPartialAggregationMemorySize = taskManagerConfig.getMaxPartialAggregationMemoryUsage();
+        this.writerCount = taskManagerConfig.getWriterCount();
 
         interpreterEnabled = compilerConfig.isInterpreterEnabled();
     }
@@ -218,13 +220,15 @@ public class LocalExecutionPlanner
         LocalExecutionPlanContext context = new LocalExecutionPlanContext(session, types);
 
         PhysicalOperation physicalOperation = plan.accept(new Visitor(session), context);
+
         DriverFactory driverFactory = new DriverFactory(
                 context.isInputDriver(),
                 true,
                 ImmutableList.<OperatorFactory>builder()
                         .addAll(physicalOperation.getOperatorFactories())
                         .add(outputOperatorFactory.createOutputOperator(context.getNextOperatorId(), physicalOperation.getTypes()))
-                        .build());
+                        .build(),
+                context.getDriverInstanceCount());
         context.addDriverFactory(driverFactory);
 
         return new LocalExecutionPlan(context.getDriverFactories());
@@ -239,6 +243,7 @@ public class LocalExecutionPlanner
 
         private int nextOperatorId;
         private boolean inputDriver = true;
+        private int driverInstanceCount = 1;
 
         public LocalExecutionPlanContext(Session session, Map<Symbol, Type> types)
         {
@@ -302,6 +307,17 @@ public class LocalExecutionPlanner
         public LocalExecutionPlanContext createIndexSourceSubContext(IndexSourceContext indexSourceContext)
         {
             return new LocalExecutionPlanContext(session, types, driverFactories, Optional.of(indexSourceContext));
+        }
+
+        public int getDriverInstanceCount()
+        {
+            return driverInstanceCount;
+        }
+
+        public void setDriverInstanceCount(int driverInstanceCount)
+        {
+            checkArgument(driverInstanceCount > 0, "driverInstanceCount must be > 0");
+            this.driverInstanceCount = driverInstanceCount;
         }
     }
 
@@ -1299,6 +1315,9 @@ public class LocalExecutionPlanner
 
             // create the table writer
             ConnectorPageSink pageSink = getPageSink(node);
+
+            // Set table writer count
+            context.setDriverInstanceCount(writerCount);
 
             List<Integer> inputChannels = node.getColumns().stream()
                     .map(exchange::symbolToChannel)
