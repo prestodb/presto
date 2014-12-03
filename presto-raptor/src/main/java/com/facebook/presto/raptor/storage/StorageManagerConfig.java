@@ -31,6 +31,7 @@ public class StorageManagerConfig
     private Integer rowsPerShard;
 
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
+    private Integer bucketCount;
 
     @NotNull
     public File getDataDirectory()
@@ -84,6 +85,20 @@ public class StorageManagerConfig
     public StorageManagerConfig setRowsPerShard(Integer rowsPerShard)
     {
         this.rowsPerShard = rowsPerShard;
+        return this;
+    }
+
+    @Nullable
+    public Integer getBucketCount()
+    {
+        return bucketCount;
+    }
+
+    @Config("storage.bucket-count")
+    @ConfigDescription("Number of buckets to create")
+    public StorageManagerConfig setBucketCount(Integer bucketCount)
+    {
+        this.bucketCount = bucketCount;
         return this;
     }
 }

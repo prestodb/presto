@@ -37,7 +37,8 @@ public class TestDatabaseStorageManagerConfig
                 .setDataDirectory(new File("var/data/storage"))
                 .setBackupDirectory(null)
                 .setOrcMaxMergeDistance(new DataSize(1, Unit.MEGABYTE))
-                .setRowsPerShard(null));
+                .setRowsPerShard(null)
+                .setBucketCount(null));
     }
 
     @Test
@@ -48,13 +49,15 @@ public class TestDatabaseStorageManagerConfig
                 .put("storage.backup-directory", "/backup")
                 .put("storage.orc.max-merge-distance", "16kB")
                 .put("storage.rows-per-shard", "100")
+                .put("storage.bucket-count", "3")
                 .build();
 
         StorageManagerConfig expected = new StorageManagerConfig()
                 .setDataDirectory(new File("/data"))
                 .setBackupDirectory(new File("/backup"))
                 .setOrcMaxMergeDistance(new DataSize(16, Unit.KILOBYTE))
-                .setRowsPerShard(100);
+                .setRowsPerShard(100)
+                .setBucketCount(3);
 
         assertFullMapping(properties, expected);
     }

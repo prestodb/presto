@@ -15,6 +15,8 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.raptor.CappedRowSink;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.UUID;
@@ -40,11 +42,19 @@ public class OutputHandle
 
     public RowSink getRowSink()
     {
-        return getRowSink(Optional.<Integer>absent());
+        return getRowSink(Optional.<Integer>absent(), Optional.<Integer>absent(), ImmutableList.<Integer>of());
     }
 
     public RowSink getRowSink(Optional<Integer> rowsPerShard)
     {
+        return getRowSink(rowsPerShard, Optional.<Integer>absent(), ImmutableList.<Integer>of());
+    }
+
+    public RowSink getRowSink(Optional<Integer> rowsPerShard, Optional<Integer> bucketCount, List<Integer> bucketFields)
+    {
+        if (bucketCount.isPresent() && !bucketFields.isEmpty()) {
+            return OrcShardedRowSink.from(rowSinkProvider, bucketCount.get(), bucketFields, rowsPerShard);
+        }
         if (rowsPerShard.isPresent()) {
             return CappedRowSink.from(rowSinkProvider, rowsPerShard.get());
         }

@@ -33,19 +33,22 @@ public final class RaptorColumnHandle
     private final String columnName;
     private final long columnId;
     private final Type columnType;
+    private final boolean bucketKey;
 
     @JsonCreator
     public RaptorColumnHandle(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("columnName") String columnName,
             @JsonProperty("columnId") long columnId,
-            @JsonProperty("columnType") Type columnType)
+            @JsonProperty("columnType") Type columnType,
+            @JsonProperty("bucketKey") boolean bucketKey)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null");
         this.columnName = checkNotNull(columnName, "columnName is null");
         checkArgument(columnId > 0, "columnId must be greater than zero");
         this.columnId = columnId;
         this.columnType = checkNotNull(columnType, "columnType is null");
+        this.bucketKey = bucketKey;
     }
 
     @JsonProperty
@@ -70,6 +73,12 @@ public final class RaptorColumnHandle
     public Type getColumnType()
     {
         return columnType;
+    }
+
+    @JsonProperty
+    public boolean isBucketKey()
+    {
+        return bucketKey;
     }
 
     @Override

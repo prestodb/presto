@@ -258,7 +258,7 @@ public class TestOrcStorageManager
 
         // tuple domain within the column range
         tupleDomain = TupleDomain.withFixedValues(ImmutableMap.<RaptorColumnHandle, Comparable<?>>builder()
-                .put(new RaptorColumnHandle("test", "c1", 2, BIGINT), 124L)
+                .put(new RaptorColumnHandle("test", "c1", 2, BIGINT, false), 124L)
                 .build());
 
         try (ConnectorPageSource pageSource = manager.getPageSource(shardUuid, columnIds, columnTypes, tupleDomain)) {
@@ -268,7 +268,7 @@ public class TestOrcStorageManager
 
         // tuple domain outside the column range
         tupleDomain = TupleDomain.withFixedValues(ImmutableMap.<RaptorColumnHandle, Comparable<?>>builder()
-                .put(new RaptorColumnHandle("test", "c1", 2, BIGINT), 122L)
+                .put(new RaptorColumnHandle("test", "c1", 2, BIGINT, false), 122L)
                 .build());
 
         try (ConnectorPageSource pageSource = manager.getPageSource(shardUuid, columnIds, columnTypes, tupleDomain)) {

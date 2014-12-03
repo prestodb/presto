@@ -126,7 +126,7 @@ public class RaptorMetadata
         }
 
         if (sampleWeightColumnHandle != null) {
-            sampleWeightColumnHandle = new RaptorColumnHandle(connectorId, SAMPLE_WEIGHT_COLUMN_NAME, sampleWeightColumnHandle.getColumnId(), BIGINT);
+            sampleWeightColumnHandle = new RaptorColumnHandle(connectorId, SAMPLE_WEIGHT_COLUMN_NAME, sampleWeightColumnHandle.getColumnId(), BIGINT, sampleWeightColumnHandle.isBucketKey());
         }
         return new RaptorTableHandle(
                 connectorId,
@@ -244,7 +244,7 @@ public class RaptorMetadata
         checkState(tableId != null, "table %s already exists", tableMetadata.getTable());
         RaptorColumnHandle sampleWeightColumnHandle = null;
         if (tableMetadata.isSampled()) {
-            sampleWeightColumnHandle = new RaptorColumnHandle(connectorId, SAMPLE_WEIGHT_COLUMN_NAME, tableMetadata.getColumns().size() + 1, BIGINT);
+            sampleWeightColumnHandle = new RaptorColumnHandle(connectorId, SAMPLE_WEIGHT_COLUMN_NAME, tableMetadata.getColumns().size() + 1, BIGINT, false);
         }
 
         return new RaptorTableHandle(
@@ -296,12 +296,12 @@ public class RaptorMetadata
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             long columnId = column.getOrdinalPosition() + 1;
             maxColumnId = Math.max(maxColumnId, columnId);
-            columnHandles.add(new RaptorColumnHandle(connectorId, column.getName(), columnId, column.getType()));
+            columnHandles.add(new RaptorColumnHandle(connectorId, column.getName(), columnId, column.getType(), false));
             columnTypes.add(column.getType());
         }
         RaptorColumnHandle sampleWeightColumnHandle = null;
         if (tableMetadata.isSampled()) {
-            sampleWeightColumnHandle = new RaptorColumnHandle(connectorId, SAMPLE_WEIGHT_COLUMN_NAME, maxColumnId + 1, BIGINT);
+            sampleWeightColumnHandle = new RaptorColumnHandle(connectorId, SAMPLE_WEIGHT_COLUMN_NAME, maxColumnId + 1, BIGINT, false);
             columnHandles.add(sampleWeightColumnHandle);
             columnTypes.add(BIGINT);
         }
@@ -346,7 +346,7 @@ public class RaptorMetadata
         ImmutableList.Builder<RaptorColumnHandle> columnHandles = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
         for (TableColumn column : dao.getTableColumns(tableId)) {
-            columnHandles.add(new RaptorColumnHandle(connectorId, column.getColumnName(), column.getColumnId(), column.getDataType()));
+            columnHandles.add(new RaptorColumnHandle(connectorId, column.getColumnName(), column.getColumnId(), column.getDataType(), column.isBucketKey()));
             columnTypes.add(column.getDataType());
         }
 
@@ -429,17 +429,24 @@ public class RaptorMetadata
 
     private RaptorColumnHandle getRaptorColumnHandle(TableColumn tableColumn)
     {
-        return new RaptorColumnHandle(connectorId, tableColumn.getColumnName(), tableColumn.getColumnId(), tableColumn.getDataType());
+        return new RaptorColumnHandle(connectorId, tableColumn.getColumnName(), tableColumn.getColumnId(), tableColumn.getDataType(), tableColumn.isBucketKey());
     }
 
     private static List<ShardNode> parseFragments(Collection<String> fragments)
     {
+        // Format of each fragment: nodeId:shardUuid1,shardUuid2,shardUuid3
         ImmutableList.Builder<ShardNode> shards = ImmutableList.builder();
         for (String fragment : fragments) {
-            Iterator<String> split = Splitter.on(':').split(fragment).iterator();
+            Iterator<String> split = Splitter.on(':').trimResults().omitEmptyStrings().split(fragment).iterator();
             String nodeId = split.next();
-            UUID shardUuid = UUID.fromString(split.next());
-            shards.add(new ShardNode(shardUuid, nodeId));
+            if (!split.hasNext()) {
+                continue;
+            }
+            String uuids = split.next();
+            for (String uuidString : Splitter.on(',').trimResults().omitEmptyStrings().split(uuids)) {
+                UUID shardUuid = UUID.fromString(uuidString);
+                shards.add(new ShardNode(shardUuid, nodeId));
+            }
         }
         return shards.build();
     }

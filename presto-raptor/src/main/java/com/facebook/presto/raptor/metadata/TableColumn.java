@@ -39,8 +39,9 @@ public class TableColumn
     private final int ordinalPosition;
     private final Type dataType;
     private final long columnId;
+    private final boolean bucketKey;
 
-    public TableColumn(SchemaTableName table, String columnName, int ordinalPosition, Type dataType, long columnId)
+    public TableColumn(SchemaTableName table, String columnName, int ordinalPosition, Type dataType, long columnId, boolean bucketKey)
     {
         this.table = checkNotNull(table, "table is null");
         this.columnName = checkNotNull(columnName, "columnName is null");
@@ -48,6 +49,7 @@ public class TableColumn
         this.ordinalPosition = ordinalPosition;
         this.dataType = checkNotNull(dataType, "dataType is null");
         this.columnId = columnId;
+        this.bucketKey = bucketKey;
     }
 
     public SchemaTableName getTable()
@@ -110,7 +112,7 @@ public class TableColumn
 
     public ColumnMetadata toColumnMetadata()
     {
-        return new ColumnMetadata(columnName, dataType, ordinalPosition, false);
+        return new ColumnMetadata(columnName, dataType, ordinalPosition, bucketKey);
     }
 
     public static Function<TableColumn, ColumnMetadata> columnMetadataGetter()
@@ -123,6 +125,11 @@ public class TableColumn
                 return input.toColumnMetadata();
             }
         };
+    }
+
+    public boolean isBucketKey()
+    {
+        return bucketKey;
     }
 
     public static class Mapper
@@ -153,7 +160,8 @@ public class TableColumn
                     r.getString("column_name"),
                     r.getInt("ordinal_position"),
                     type,
-                    r.getLong("column_id"));
+                    r.getLong("column_id"),
+                    r.getBoolean("bucket_key"));
         }
     }
 }

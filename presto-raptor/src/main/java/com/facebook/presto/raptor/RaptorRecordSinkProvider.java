@@ -23,7 +23,9 @@ import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.RecordSink;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
@@ -65,7 +67,9 @@ public class RaptorRecordSinkProvider
                 toColumnIds(handle.getColumnHandles()),
                 handle.getColumnTypes(),
                 optionalColumnId(handle.getSampleWeightColumnHandle()),
-                Optional.fromNullable(storageConfig.getRowsPerShard()));
+                Optional.fromNullable(storageConfig.getRowsPerShard()),
+                Optional.fromNullable(storageConfig.getBucketCount()),
+                ImmutableList.<Long>of());
     }
 
     @Override
@@ -79,7 +83,9 @@ public class RaptorRecordSinkProvider
                 toColumnIds(handle.getColumnHandles()),
                 handle.getColumnTypes(),
                 Optional.<Long>absent(),
-                Optional.fromNullable(storageConfig.getRowsPerShard()));
+                Optional.fromNullable(storageConfig.getRowsPerShard()),
+                Optional.fromNullable(storageConfig.getBucketCount()),
+                toColumnIds(getBucketKeyColumnHandles(handle.getColumnHandles())));
     }
 
     private static List<Long> toColumnIds(List<RaptorColumnHandle> columnHandles)
@@ -102,5 +108,17 @@ public class RaptorRecordSinkProvider
                 return handle.getColumnId();
             }
         };
+    }
+
+    private static List<RaptorColumnHandle> getBucketKeyColumnHandles(List<RaptorColumnHandle> columnHandles)
+    {
+        return FluentIterable.from(columnHandles).filter(new Predicate<RaptorColumnHandle>()
+        {
+            @Override
+            public boolean apply(RaptorColumnHandle input)
+            {
+                return input.isBucketKey();
+            }
+        }).toList();
     }
 }

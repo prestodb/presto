@@ -21,9 +21,11 @@ import com.facebook.presto.raptor.storage.TupleBuffer;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import io.airlift.slice.Slices;
 
 import java.util.List;
@@ -59,7 +61,9 @@ public class RaptorRecordSink
             List<Long> columnIds,
             List<Type> columnTypes,
             Optional<Long> sampleWeightColumnId,
-            Optional<Integer> rowsPerShard)
+            Optional<Integer> rowsPerShard,
+            Optional<Integer> bucketCount,
+            List<Long> bucketColumnIds)
     {
         checkNotNull(sampleWeightColumnId, "sampleWeightColumnId is null");
 
@@ -67,7 +71,8 @@ public class RaptorRecordSink
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
         this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
         this.outputHandle = new OutputHandle(columnIds, columnTypes, storageService);
-        this.rowSink = outputHandle.getRowSink(rowsPerShard);
+        List<Integer> bucketFields = toIndex(columnIds, bucketColumnIds);
+        this.rowSink = outputHandle.getRowSink(rowsPerShard, bucketCount, bucketFields);
         this.tupleBuffer = new TupleBuffer(columnTypes, columnIds.indexOf(sampleWeightColumnId.or(-1L)));
     }
 
@@ -148,5 +153,17 @@ public class RaptorRecordSink
     private static PrestoException unsupportedType(Type type)
     {
         return new PrestoException(NOT_SUPPORTED, "Type is not supported for writing: " + type);
+    }
+
+    private static List<Integer> toIndex(final List<Long> columnIds, List<Long> hashColumnIds)
+    {
+        return ImmutableList.copyOf(Iterables.transform(hashColumnIds, new Function<Long, Integer>()
+        {
+            @Override
+            public Integer apply(Long input)
+            {
+                return columnIds.indexOf(input);
+            }
+        }));
     }
 }
