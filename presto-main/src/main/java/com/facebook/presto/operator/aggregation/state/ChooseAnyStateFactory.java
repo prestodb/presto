@@ -30,35 +30,35 @@ public class ChooseAnyStateFactory
     @Override
     public ChooseAnyState createSingleState()
     {
-        return new SingleNullableTypeState(valueType);
+        return new SingleChooseAnyState(valueType);
     }
 
     @Override
     public Class<? extends ChooseAnyState> getSingleStateClass()
     {
-        return SingleNullableTypeState.class;
+        return SingleChooseAnyState.class;
     }
 
     @Override
     public ChooseAnyState createGroupedState()
     {
-        return new GroupedNullableTypeState(valueType);
+        return new GroupedChooseAnyState(valueType);
     }
 
     @Override
     public Class<? extends ChooseAnyState> getGroupedStateClass()
     {
-        return GroupedNullableTypeState.class;
+        return GroupedChooseAnyState.class;
     }
 
-    public static class GroupedNullableTypeState
+    public static class GroupedChooseAnyState
             extends AbstractGroupedAccumulatorState
             implements ChooseAnyState
     {
         private final Type valueType;
         private final BlockBigArray values = new BlockBigArray();
 
-        public GroupedNullableTypeState(Type valueType)
+        public GroupedChooseAnyState(Type valueType)
         {
             this.valueType = valueType;
         }
@@ -94,13 +94,13 @@ public class ChooseAnyStateFactory
         }
     }
 
-    public static class SingleNullableTypeState
+    public static class SingleChooseAnyState
             implements ChooseAnyState
     {
         private final Type valueType;
         private Block value;
 
-        public SingleNullableTypeState(Type valueType)
+        public SingleChooseAnyState(Type valueType)
         {
             this.valueType = valueType;
         }
@@ -108,11 +108,12 @@ public class ChooseAnyStateFactory
         @Override
         public long getEstimatedSize()
         {
-            long size = 0;
             if (value != null) {
-                size += value.getSizeInBytes();
+                return (long) value.getSizeInBytes();
             }
-            return size;
+            else {
+                return 0L;
+            }
         }
 
         @Override
