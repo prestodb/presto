@@ -162,6 +162,9 @@ public class RowNumberOperator
     public boolean isFinished()
     {
         if (isSinglePartition() && maxRowsPerPartition.isPresent()) {
+            if (finishing && inputPage == null) {
+                return true;
+            }
             return partitionRowCount.get(0) == maxRowsPerPartition.get();
         }
 
