@@ -17,48 +17,48 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.array.BlockBigArray;
 
-public class ChooseAnyStateFactory
-        implements AccumulatorStateFactory<ChooseAnyState>
+public class ArbitraryAggregationStateFactory
+        implements AccumulatorStateFactory<ArbitraryAggregationState>
 {
     private final Type valueType;
 
-    public ChooseAnyStateFactory(Type valueType)
+    public ArbitraryAggregationStateFactory(Type valueType)
     {
         this.valueType = valueType;
     }
 
     @Override
-    public ChooseAnyState createSingleState()
+    public ArbitraryAggregationState createSingleState()
     {
-        return new SingleChooseAnyState(valueType);
+        return new SingleArbitraryAggregationState(valueType);
     }
 
     @Override
-    public Class<? extends ChooseAnyState> getSingleStateClass()
+    public Class<? extends ArbitraryAggregationState> getSingleStateClass()
     {
-        return SingleChooseAnyState.class;
+        return SingleArbitraryAggregationState.class;
     }
 
     @Override
-    public ChooseAnyState createGroupedState()
+    public ArbitraryAggregationState createGroupedState()
     {
-        return new GroupedChooseAnyState(valueType);
+        return new GroupedArbitraryAggregationState(valueType);
     }
 
     @Override
-    public Class<? extends ChooseAnyState> getGroupedStateClass()
+    public Class<? extends ArbitraryAggregationState> getGroupedStateClass()
     {
-        return GroupedChooseAnyState.class;
+        return GroupedArbitraryAggregationState.class;
     }
 
-    public static class GroupedChooseAnyState
+    public static class GroupedArbitraryAggregationState
             extends AbstractGroupedAccumulatorState
-            implements ChooseAnyState
+            implements ArbitraryAggregationState
     {
         private final Type valueType;
         private final BlockBigArray values = new BlockBigArray();
 
-        public GroupedChooseAnyState(Type valueType)
+        public GroupedArbitraryAggregationState(Type valueType)
         {
             this.valueType = valueType;
         }
@@ -94,13 +94,13 @@ public class ChooseAnyStateFactory
         }
     }
 
-    public static class SingleChooseAnyState
-            implements ChooseAnyState
+    public static class SingleArbitraryAggregationState
+            implements ArbitraryAggregationState
     {
         private final Type valueType;
         private Block value;
 
-        public SingleChooseAnyState(Type valueType)
+        public SingleArbitraryAggregationState(Type valueType)
         {
             this.valueType = valueType;
         }

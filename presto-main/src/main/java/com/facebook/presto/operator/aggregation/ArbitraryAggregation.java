@@ -17,9 +17,9 @@ import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.ParametricAggregation;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.aggregation.state.ChooseAnyState;
-import com.facebook.presto.operator.aggregation.state.ChooseAnyStateFactory;
-import com.facebook.presto.operator.aggregation.state.ChooseAnyStateSerializer;
+import com.facebook.presto.operator.aggregation.state.ArbitraryAggregationState;
+import com.facebook.presto.operator.aggregation.state.ArbitraryAggregationStateFactory;
+import com.facebook.presto.operator.aggregation.state.ArbitraryAggregationStateSerializer;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -38,14 +38,14 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.util.Reflection.method;
 
-public class ChooseAny
+public class ArbitraryAggregation
         extends ParametricAggregation
 {
-    public static final ChooseAny CHOOSE_ANY = new ChooseAny();
-    private static final String NAME = "choose_any";
-    private static final Method OUTPUT_FUNCTION = method(ChooseAny.class, "output", ChooseAnyState.class, BlockBuilder.class);
-    private static final Method INPUT_FUNCTION = method(ChooseAny.class, "input", ChooseAnyState.class, Block.class, int.class);
-    private static final Method COMBINE_FUNCTION = method(ChooseAny.class, "combine", ChooseAnyState.class, ChooseAnyState.class);
+    public static final ArbitraryAggregation ARBITRARY_AGGREGATION = new ArbitraryAggregation();
+    private static final String NAME = "arbitrary";
+    private static final Method OUTPUT_FUNCTION = method(ArbitraryAggregation.class, "output", ArbitraryAggregationState.class, BlockBuilder.class);
+    private static final Method INPUT_FUNCTION = method(ArbitraryAggregation.class, "input", ArbitraryAggregationState.class, Block.class, int.class);
+    private static final Method COMBINE_FUNCTION = method(ArbitraryAggregation.class, "combine", ArbitraryAggregationState.class, ArbitraryAggregationState.class);
     private static final Signature SIGNATURE = new Signature(NAME, ImmutableList.of(typeParameter("T")), "T", ImmutableList.of("T"), false, false);
 
     @Override
@@ -71,14 +71,14 @@ public class ChooseAny
 
     private static InternalAggregationFunction generateAggregation(Type valueType)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(ChooseAny.class.getClassLoader());
+        DynamicClassLoader classLoader = new DynamicClassLoader(ArbitraryAggregation.class.getClassLoader());
 
-        ChooseAnyStateSerializer stateSerializer = new ChooseAnyStateSerializer();
+        ArbitraryAggregationStateSerializer stateSerializer = new ArbitraryAggregationStateSerializer();
         Type intermediateType = stateSerializer.getSerializedType();
 
         List<Type> inputTypes = ImmutableList.of(valueType);
 
-        ChooseAnyStateFactory stateFactory = new ChooseAnyStateFactory(valueType);
+        ArbitraryAggregationStateFactory stateFactory = new ArbitraryAggregationStateFactory(valueType);
         AggregationMetadata metadata = new AggregationMetadata(
                 generateAggregationName(NAME, valueType, inputTypes),
                 createInputParameterMetadata(valueType),
@@ -87,7 +87,7 @@ public class ChooseAny
                 null,
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
-                ChooseAnyState.class,
+                ArbitraryAggregationState.class,
                 stateSerializer,
                 stateFactory,
                 valueType,
@@ -102,21 +102,21 @@ public class ChooseAny
         return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(INPUT_CHANNEL, value), new ParameterMetadata(BLOCK_INDEX));
     }
 
-    public static void input(ChooseAnyState state, Block value, int position)
+    public static void input(ArbitraryAggregationState state, Block value, int position)
     {
         if (state.getValue() == null) {
             state.setValue(value.getSingleValueBlock(position));
         }
     }
 
-    public static void combine(ChooseAnyState state, ChooseAnyState otherState)
+    public static void combine(ArbitraryAggregationState state, ArbitraryAggregationState otherState)
     {
         if (state.getValue() == null && otherState.getValue() != null) {
             state.setValue(otherState.getValue());
         }
     }
 
-    public static void output(ChooseAnyState state, BlockBuilder out)
+    public static void output(ArbitraryAggregationState state, BlockBuilder out)
     {
         if (state.getValue() == null) {
             out.appendNull();

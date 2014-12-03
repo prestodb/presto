@@ -24,8 +24,8 @@ import io.airlift.slice.SliceOutput;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
-public class ChooseAnyStateSerializer
-        implements AccumulatorStateSerializer<ChooseAnyState>
+public class ArbitraryAggregationStateSerializer
+        implements AccumulatorStateSerializer<ArbitraryAggregationState>
 {
     @Override
     public Type getSerializedType()
@@ -34,7 +34,7 @@ public class ChooseAnyStateSerializer
     }
 
     @Override
-    public void serialize(ChooseAnyState state, BlockBuilder out)
+    public void serialize(ArbitraryAggregationState state, BlockBuilder out)
     {
         SliceOutput sliceOutput = new DynamicSliceOutput((int) state.getEstimatedSize());
 
@@ -72,7 +72,7 @@ public class ChooseAnyStateSerializer
     }
 
     @Override
-    public void deserialize(Block block, int index, ChooseAnyState state)
+    public void deserialize(Block block, int index, ArbitraryAggregationState state)
     {
         SliceInput input = block.getSlice(index, 0, block.getLength(index)).getInput();
 

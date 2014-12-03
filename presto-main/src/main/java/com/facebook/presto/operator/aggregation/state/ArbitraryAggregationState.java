@@ -16,8 +16,8 @@ package com.facebook.presto.operator.aggregation.state;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 
-@AccumulatorStateMetadata(stateFactoryClass = ChooseAnyStateFactory.class, stateSerializerClass = ChooseAnyStateSerializer.class)
-public interface ChooseAnyState
+@AccumulatorStateMetadata(stateFactoryClass = ArbitraryAggregationStateFactory.class, stateSerializerClass = ArbitraryAggregationStateSerializer.class)
+public interface ArbitraryAggregationState
     extends AccumulatorState
 {
     Type getType();

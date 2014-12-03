@@ -30,7 +30,7 @@ import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static org.testng.Assert.assertNotNull;
 
-public class TestChooseAnyAggregation
+public class TestArbitraryAggregation
 {
     private static final MetadataManager metadata = new MetadataManager();
 
@@ -40,7 +40,7 @@ public class TestChooseAnyAggregation
         Set<Type> allTypes = FluentIterable.from(metadata.getTypeManager().getTypes()).toSet();
 
         for (Type valueType : allTypes) {
-            assertNotNull(metadata.getExactFunction(new Signature("choose_any", valueType.getTypeSignature(), valueType.getTypeSignature())));
+            assertNotNull(metadata.getExactFunction(new Signature("arbitrary", valueType.getTypeSignature(), valueType.getTypeSignature())));
         }
     }
 
@@ -48,7 +48,7 @@ public class TestChooseAnyAggregation
     public void testNullBoolean()
         throws Exception
     {
-        InternalAggregationFunction booleanAgg = metadata.getExactFunction(new Signature("choose_any", StandardTypes.BOOLEAN, StandardTypes.BOOLEAN)).getAggregationFunction();
+        InternalAggregationFunction booleanAgg = metadata.getExactFunction(new Signature("arbitrary", StandardTypes.BOOLEAN, StandardTypes.BOOLEAN)).getAggregationFunction();
         assertAggregation(
                 booleanAgg,
                 1.0,
@@ -61,7 +61,7 @@ public class TestChooseAnyAggregation
     public void testValidBoolean()
             throws Exception
     {
-        InternalAggregationFunction booleanAgg = metadata.getExactFunction(new Signature("choose_any", StandardTypes.BOOLEAN, StandardTypes.BOOLEAN)).getAggregationFunction();
+        InternalAggregationFunction booleanAgg = metadata.getExactFunction(new Signature("arbitrary", StandardTypes.BOOLEAN, StandardTypes.BOOLEAN)).getAggregationFunction();
         assertAggregation(
                 booleanAgg,
                 1.0,
@@ -74,7 +74,7 @@ public class TestChooseAnyAggregation
     public void testNullLong()
             throws Exception
     {
-        InternalAggregationFunction longAgg = metadata.getExactFunction(new Signature("choose_any", StandardTypes.BIGINT, StandardTypes.BIGINT)).getAggregationFunction();
+        InternalAggregationFunction longAgg = metadata.getExactFunction(new Signature("arbitrary", StandardTypes.BIGINT, StandardTypes.BIGINT)).getAggregationFunction();
         assertAggregation(
                 longAgg,
                 1.0,
@@ -87,7 +87,7 @@ public class TestChooseAnyAggregation
     public void testValidLong()
             throws Exception
     {
-        InternalAggregationFunction longAgg = metadata.getExactFunction(new Signature("choose_any", StandardTypes.BIGINT, StandardTypes.BIGINT)).getAggregationFunction();
+        InternalAggregationFunction longAgg = metadata.getExactFunction(new Signature("arbitrary", StandardTypes.BIGINT, StandardTypes.BIGINT)).getAggregationFunction();
         assertAggregation(
                 longAgg,
                 1.0,
@@ -100,7 +100,7 @@ public class TestChooseAnyAggregation
     public void testNullDouble()
             throws Exception
     {
-        InternalAggregationFunction doubleAgg = metadata.getExactFunction(new Signature("choose_any", StandardTypes.DOUBLE, StandardTypes.DOUBLE)).getAggregationFunction();
+        InternalAggregationFunction doubleAgg = metadata.getExactFunction(new Signature("arbitrary", StandardTypes.DOUBLE, StandardTypes.DOUBLE)).getAggregationFunction();
         assertAggregation(
                 doubleAgg,
                 1.0,
@@ -113,7 +113,7 @@ public class TestChooseAnyAggregation
     public void testValidDouble()
             throws Exception
     {
-        InternalAggregationFunction doubleAgg = metadata.getExactFunction(new Signature("choose_any", StandardTypes.DOUBLE, StandardTypes.DOUBLE)).getAggregationFunction();
+        InternalAggregationFunction doubleAgg = metadata.getExactFunction(new Signature("arbitrary", StandardTypes.DOUBLE, StandardTypes.DOUBLE)).getAggregationFunction();
         assertAggregation(
                 doubleAgg,
                 1.0,
@@ -126,7 +126,7 @@ public class TestChooseAnyAggregation
     public void testNullString()
             throws Exception
     {
-        InternalAggregationFunction stringAgg = metadata.getExactFunction(new Signature("choose_any", StandardTypes.VARCHAR, StandardTypes.VARCHAR)).getAggregationFunction();
+        InternalAggregationFunction stringAgg = metadata.getExactFunction(new Signature("arbitrary", StandardTypes.VARCHAR, StandardTypes.VARCHAR)).getAggregationFunction();
         assertAggregation(
                 stringAgg,
                 1.0,
@@ -139,7 +139,7 @@ public class TestChooseAnyAggregation
     public void testValidString()
             throws Exception
     {
-        InternalAggregationFunction stringAgg = metadata.getExactFunction(new Signature("choose_any", StandardTypes.VARCHAR, StandardTypes.VARCHAR)).getAggregationFunction();
+        InternalAggregationFunction stringAgg = metadata.getExactFunction(new Signature("arbitrary", StandardTypes.VARCHAR, StandardTypes.VARCHAR)).getAggregationFunction();
         assertAggregation(
                 stringAgg,
                 1.0,
