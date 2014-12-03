@@ -1902,6 +1902,12 @@ public abstract class AbstractTestQueries
         assertTrue(all.getMaterializedRows().containsAll(actual.getMaterializedRows()));
     }
 
+    @Test(timeOut = 60000)
+    public void testRowNumberWithLimit() throws Exception
+    {
+        assertQuery("SELECT row_number() over() as rn FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey where orders.orderkey = 10000 limit 20");
+    }
+
     @Test
     public void testTopNUnpartitionedWindow()
             throws Exception
