@@ -1,6 +1,8 @@
 language: java
 jdk:
   - oraclejdk8
+before_install: free -m
+script: mvn test -P travis
 env:
   global:
-    - MAVEN_OPTS="-Xmx2g"
+    - MAVEN_OPTS="-Xmx256m"
