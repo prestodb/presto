@@ -23,6 +23,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -124,7 +125,7 @@ public final class TypeRegistry
             parameterTypes.add(getType(parameter));
         }
 
-        ParametricType parametricType = parametricTypes.get(signature.getBase());
+        ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
         if (parametricType == null) {
             return null;
         }
@@ -148,9 +149,9 @@ public final class TypeRegistry
 
     public void addParametricType(ParametricType parametricType)
     {
-        checkArgument(!parametricTypes.containsKey(parametricType.getName()),
-                "Parametric type already registered: %s", parametricType.getName());
-        parametricTypes.putIfAbsent(parametricType.getName(), parametricType);
+        String name = parametricType.getName().toLowerCase(Locale.ENGLISH);
+        checkArgument(!parametricTypes.containsKey(name), "Parametric type already registered: %s", name);
+        parametricTypes.putIfAbsent(name, parametricType);
     }
 
     public static void verifyTypeClass(Type type)
