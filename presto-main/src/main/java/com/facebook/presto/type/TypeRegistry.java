@@ -106,8 +106,7 @@ public final class TypeRegistry
     {
         Type type = types.get(signature);
         if (type == null) {
-            instantiateParametricType(signature);
-            return types.get(signature);
+            return instantiateParametricType(signature);
         }
         return type;
     }
@@ -118,11 +117,8 @@ public final class TypeRegistry
         return getType(new TypeSignature(baseTypeName, typeParameters, literalParameters));
     }
 
-    private synchronized void instantiateParametricType(TypeSignature signature)
+    private Type instantiateParametricType(TypeSignature signature)
     {
-        if (types.containsKey(signature)) {
-            return;
-        }
         ImmutableList.Builder<Type> parameterTypes = ImmutableList.builder();
         for (TypeSignature parameter : signature.getParameters()) {
             parameterTypes.add(getType(parameter));
@@ -130,11 +126,11 @@ public final class TypeRegistry
 
         ParametricType parametricType = parametricTypes.get(signature.getBase());
         if (parametricType == null) {
-            return;
+            return null;
         }
         Type instantiatedType = parametricType.createType(parameterTypes.build(), signature.getLiteralParameters());
         checkState(instantiatedType.getTypeSignature().equals(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
-        addType(instantiatedType);
+        return instantiatedType;
     }
 
     @Override
