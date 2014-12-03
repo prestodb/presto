@@ -17,11 +17,15 @@ import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.operator.scalar.TestingRowConstructor;
 import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleFieldAccessor;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static org.testng.Assert.assertEquals;
 
 public class TestRowOperators
 {
@@ -36,6 +40,15 @@ public class TestRowOperators
     private void assertFunction(String projection, Object expected)
     {
         functionAssertions.assertFunction(projection, expected);
+    }
+
+    @Test
+    public void testRowTypeLookup()
+            throws Exception
+    {
+        functionAssertions.getMetadata().getType(parseTypeSignature("row<bigint>('a')"));
+        Type type = functionAssertions.getMetadata().getType(parseTypeSignature("row<bigint>('b')"));
+        assertEquals(type.getTypeSignature().getLiteralParameters(), ImmutableList.of("b"));
     }
 
     @Test

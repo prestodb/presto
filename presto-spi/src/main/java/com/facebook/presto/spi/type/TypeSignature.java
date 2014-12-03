@@ -209,13 +209,14 @@ public class TypeSignature
         TypeSignature other = (TypeSignature) o;
 
         return Objects.equals(this.base.toLowerCase(Locale.ENGLISH), other.base.toLowerCase(Locale.ENGLISH)) &&
-                Objects.equals(this.parameters, other.parameters);
+                Objects.equals(this.parameters, other.parameters) &&
+                Objects.equals(this.literalParameters, other.literalParameters);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(base.toLowerCase(Locale.ENGLISH), parameters);
+        return Objects.hash(base.toLowerCase(Locale.ENGLISH), parameters, literalParameters);
     }
 
     private static void checkArgument(boolean argument, String format, Object...args)
