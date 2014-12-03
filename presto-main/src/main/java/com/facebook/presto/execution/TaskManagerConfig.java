@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -39,6 +40,7 @@ public class TaskManagerConfig
 
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
+    private int writerCount = 1;
 
     public boolean isVerboseStats()
     {
@@ -181,6 +183,20 @@ public class TaskManagerConfig
     public TaskManagerConfig setInfoMaxAge(Duration infoMaxAge)
     {
         this.infoMaxAge = infoMaxAge;
+        return this;
+    }
+
+    @Min(1)
+    public int getWriterCount()
+    {
+        return writerCount;
+    }
+
+    @Config("task.writer-count")
+    @ConfigDescription("Number of writers per task")
+    public TaskManagerConfig setWriterCount(int writerCount)
+    {
+        this.writerCount = writerCount;
         return this;
     }
 }

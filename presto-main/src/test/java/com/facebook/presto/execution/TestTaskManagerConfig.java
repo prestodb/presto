@@ -42,7 +42,8 @@ public class TestTaskManagerConfig
                 .setMaxTaskIndexMemoryUsage(new DataSize(64, Unit.MEGABYTE))
                 .setOperatorPreAllocatedMemory(new DataSize(16, Unit.MEGABYTE))
                 .setMaxPartialAggregationMemoryUsage(new DataSize(16, Unit.MEGABYTE))
-                .setSinkMaxBufferSize(new DataSize(32, Unit.MEGABYTE)));
+                .setSinkMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
+                .setWriterCount(1));
     }
 
     @Test
@@ -60,6 +61,7 @@ public class TestTaskManagerConfig
                 .put("task.info.max-age", "22m")
                 .put("task.client.timeout", "10s")
                 .put("sink.max-buffer-size", "42MB")
+                .put("task.writer-count", "3")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
@@ -73,7 +75,8 @@ public class TestTaskManagerConfig
                 .setMaxShardProcessorThreads(3)
                 .setInfoMaxAge(new Duration(22, TimeUnit.MINUTES))
                 .setClientTimeout(new Duration(10, TimeUnit.SECONDS))
-                .setSinkMaxBufferSize(new DataSize(42, Unit.MEGABYTE));
+                .setSinkMaxBufferSize(new DataSize(42, Unit.MEGABYTE))
+                .setWriterCount(3);
 
         assertFullMapping(properties, expected);
     }

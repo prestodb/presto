@@ -194,7 +194,9 @@ public class SqlTaskExecution
         // start unpartitioned drivers
         List<DriverSplitRunner> runners = new ArrayList<>();
         for (DriverSplitRunnerFactory driverFactory : unpartitionedDriverFactories) {
-            runners.add(driverFactory.createDriverRunner(null, false));
+            for (int i = 0; i < driverFactory.getDriverInstances(); i++) {
+                runners.add(driverFactory.createDriverRunner(null, false));
+            }
             driverFactory.setNoMoreSplits();
         }
         enqueueDrivers(true, runners);
@@ -488,6 +490,11 @@ public class SqlTaskExecution
             if (isNoMoreSplits() && pendingCreation.get() <= 0) {
                 driverFactory.close();
             }
+        }
+
+        public int getDriverInstances()
+        {
+            return driverFactory.getDriverInstances();
         }
     }
 
