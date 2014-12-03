@@ -31,4 +31,6 @@ public interface StorageManager
     void commit(OutputHandle outputHandle);
 
     boolean isBackupAvailable();
+
+    Optional<Integer> getRowsPerShard();
 }

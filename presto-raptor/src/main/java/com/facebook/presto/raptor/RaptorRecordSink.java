@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.raptor.storage.RowSink;
 import com.facebook.presto.raptor.storage.OutputHandle;
+import com.facebook.presto.raptor.storage.RowSink;
+import com.facebook.presto.raptor.storage.RowSinkProvider;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSink;
@@ -62,7 +63,15 @@ public class RaptorRecordSink
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
         this.columnTypes = ImmutableList.copyOf(columnTypes);
         this.outputHandle = storageManager.createOutputHandle(columnIds, columnTypes, sampleWeightColumnId);
-        this.rowSink = outputHandle.getRowSink();
+
+        Optional<Integer> rowsPerShard = storageManager.getRowsPerShard();
+        RowSinkProvider rowSinkProvider = outputHandle.getRowSinkProvider();
+        if(rowsPerShard.isPresent()) {
+            this.rowSink = CappedRowSink.from(rowSinkProvider, rowsPerShard.get());
+        }
+        else {
+            this.rowSink = rowSinkProvider.getRowSink();
+        }
     }
 
     @Override
@@ -146,9 +155,11 @@ public class RaptorRecordSink
     @Override
     public String commit()
     {
+        rowSink.close();
         storageManager.commit(outputHandle);
 
-        return Joiner.on(':').join(nodeId, outputHandle.getShardUuid());
+        String shardUuids = Joiner.on(',').join(outputHandle.getShardUuids());
+        return Joiner.on(':').join(nodeId, shardUuids);
     }
 
     private Type currentType()
