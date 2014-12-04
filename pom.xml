@@ -815,6 +815,24 @@
                         </configuration>
                     </execution>
                 </executions>
+                <dependencies>
+                    <!-- The version of checkstyle the plugin depends on doesn't support Java 8,
+                         so override it manually until a new version of the plugin is released.
+                         This is copied verbatim from the dependency declaration in the checkstyle
+                         plugin -->
+                    <dependency>
+                        <groupId>com.puppycrawl.tools</groupId>
+                        <artifactId>checkstyle</artifactId>
+                        <version>6.1.1</version>
+                        <exclusions>
+                            <!-- MCHECKSTYLE-156 -->
+                            <exclusion>
+                                <groupId>com.sun</groupId>
+                                <artifactId>tools</artifactId>
+                            </exclusion>
+                        </exclusions>
+                    </dependency>
+                </dependencies>
             </plugin>
 
             <plugin>
