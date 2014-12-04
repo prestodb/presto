@@ -26,17 +26,44 @@ public interface Operator
 
     OperatorContext getOperatorContext();
 
+    /**
+     * Gets the column types of pages produced by this operator.
+     */
     List<Type> getTypes();
 
+    /**
+     * Notifies the operator that no more pages will be added and the
+     * operator should finish processing and flush results.
+     */
     void finish();
 
+    /**
+     * Is this operator completely finished processing and no more
+     * output pages will be produced.
+     */
     boolean isFinished();
 
+    /**
+     * Returns a future that will be completed when the operator becomes
+     * unblocked.  If the operator is not blocked, this method should return
+     * {@code NOT_BLOCKED}.
+     */
     ListenableFuture<?> isBlocked();
 
+    /**
+     * Returns true if and only if this operator can accept an input page.
+     */
     boolean needsInput();
 
+    /**
+     * Adds an input page to the operator.  This method will only be called if
+     * {@code needsInput()} returns true.
+     */
     void addInput(Page page);
 
+    /**
+     * Gets an output page from the operator.  If no output data is currently
+     * available, return null.
+     */
     Page getOutput();
 }
