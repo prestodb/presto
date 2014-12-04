@@ -48,7 +48,10 @@ public interface Operator
      * unblocked.  If the operator is not blocked, this method should return
      * {@code NOT_BLOCKED}.
      */
-    ListenableFuture<?> isBlocked();
+    default ListenableFuture<?> isBlocked()
+    {
+        return NOT_BLOCKED;
+    }
 
     /**
      * Returns true if and only if this operator can accept an input page.

@@ -29,7 +29,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListenableFuture;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -189,12 +188,6 @@ public class IndexSourceOperator
     {
         Operator delegate = getSource();
         return delegate != null && delegate.isFinished();
-    }
-
-    @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
     }
 
     @Override

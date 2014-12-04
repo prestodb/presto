@@ -23,7 +23,6 @@ import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import com.google.common.util.concurrent.ListenableFuture;
 import it.unimi.dsi.fastutil.ints.IntComparator;
 
 import java.util.Collections;
@@ -264,12 +263,6 @@ public class WindowOperator
     public boolean isFinished()
     {
         return state == State.FINISHED;
-    }
-
-    @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
     }
 
     @Override

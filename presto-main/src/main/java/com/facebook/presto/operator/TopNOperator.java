@@ -21,7 +21,6 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import java.util.Iterator;
@@ -166,12 +165,6 @@ public class TopNOperator
     public boolean isFinished()
     {
         return finishing && topNBuilder == null && (outputIterator == null || !outputIterator.hasNext());
-    }
-
-    @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
     }
 
     @Override

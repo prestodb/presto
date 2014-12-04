@@ -28,7 +28,6 @@ import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.util.DateTimeUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import java.util.List;
@@ -187,12 +186,6 @@ public class HandTpchQuery1
         public boolean isFinished()
         {
             return finishing && pageBuilder.isEmpty();
-        }
-
-        @Override
-        public ListenableFuture<?> isBlocked()
-        {
-            return NOT_BLOCKED;
         }
 
         @Override

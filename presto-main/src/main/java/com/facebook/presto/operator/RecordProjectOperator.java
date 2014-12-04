@@ -20,7 +20,6 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 
 import java.io.Closeable;
@@ -93,12 +92,6 @@ public class RecordProjectOperator
     public boolean isFinished()
     {
         return finishing && pageBuilder.isEmpty();
-    }
-
-    @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
     }
 
     @Override

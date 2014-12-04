@@ -18,7 +18,6 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Optional;
@@ -124,12 +123,6 @@ public class DistinctLimitOperator
     public boolean isFinished()
     {
         return (finishing && outputPage == null) || (remainingLimit == 0 && outputPage == null);
-    }
-
-    @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
     }
 
     @Override

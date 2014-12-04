@@ -19,7 +19,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
@@ -140,12 +139,6 @@ public class UnnestOperator
     public boolean isFinished()
     {
         return finishing && pageBuilder.isEmpty() && currentPage == null;
-    }
-
-    @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
     }
 
     @Override

@@ -18,7 +18,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.Collection;
 import java.util.List;
@@ -119,12 +118,6 @@ public class MarkDistinctOperator
     public boolean isFinished()
     {
         return finishing && outputPage == null;
-    }
-
-    @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
     }
 
     @Override

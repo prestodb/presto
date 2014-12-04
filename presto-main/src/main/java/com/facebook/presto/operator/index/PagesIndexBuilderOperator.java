@@ -20,7 +20,6 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListenableFuture;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -31,7 +30,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 @ThreadSafe
 public class PagesIndexBuilderOperator
-    implements Operator
+        implements Operator
 {
     public static class PagesIndexBuilderOperatorFactory
             implements OperatorFactory
@@ -101,12 +100,6 @@ public class PagesIndexBuilderOperator
     public boolean isFinished()
     {
         return finished;
-    }
-
-    @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
     }
 
     @Override

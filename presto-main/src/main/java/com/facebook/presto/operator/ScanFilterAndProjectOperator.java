@@ -26,7 +26,6 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListenableFuture;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -162,12 +161,6 @@ public class ScanFilterAndProjectOperator
         }
 
         return finishing && pageBuilder.isEmpty();
-    }
-
-    @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
     }
 
     @Override

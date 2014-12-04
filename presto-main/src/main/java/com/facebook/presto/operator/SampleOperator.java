@@ -17,7 +17,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.commons.math3.random.RandomDataGenerator;
 
 import java.util.List;
@@ -119,12 +118,6 @@ public class SampleOperator
     public final boolean isFinished()
     {
         return finishing && pageBuilder.isEmpty() && page == null;
-    }
-
-    @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
     }
 
     @Override
