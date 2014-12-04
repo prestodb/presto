@@ -24,6 +24,8 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.operator.RowPageBuilder;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -54,7 +56,9 @@ public class TestEvaluateClassifierPredictions
         InternalAggregationFunction aggregation = metadata.getExactFunction(new Signature("evaluate_classifier_predictions", StandardTypes.VARCHAR, StandardTypes.BIGINT, StandardTypes.BIGINT)).getAggregationFunction();
         Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0).createAccumulator();
         accumulator.addInput(getPage());
-        Block block = accumulator.evaluateFinal();
+        BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus());
+        accumulator.evaluateFinal(finalOut);
+        Block block = finalOut.build();
 
         String output = VARCHAR.getSlice(block, 0).toStringUtf8();
         List<String> parts = ImmutableList.copyOf(Splitter.on('\n').split(output));

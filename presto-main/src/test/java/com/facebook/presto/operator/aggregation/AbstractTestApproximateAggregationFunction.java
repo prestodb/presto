@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Random;
 
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertApproximateAggregation;
+import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static org.testng.Assert.assertTrue;
@@ -184,7 +185,7 @@ public abstract class AbstractTestApproximateAggregationFunction
             Accumulator accumulator = getFunction().bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.of(page.getChannelCount() - 1), getConfidence()).createAccumulator();
 
             accumulator.addInput(page);
-            Block result = accumulator.evaluateFinal();
+            Block result = getFinalBlock(accumulator);
 
             String approxValue = BlockAssertions.toValues(accumulator.getFinalType(), result).get(0).toString();
             double approx = Double.parseDouble(approxValue.split(" ")[0]);

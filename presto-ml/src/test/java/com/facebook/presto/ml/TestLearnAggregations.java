@@ -22,6 +22,8 @@ import com.facebook.presto.operator.aggregation.AggregationCompiler;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -76,7 +78,9 @@ public class TestLearnAggregations
             throws Exception
     {
         accumulator.addInput(getPage());
-        Block block = accumulator.evaluateFinal();
+        BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus());
+        accumulator.evaluateFinal(finalOut);
+        Block block = finalOut.build();
         Slice slice = accumulator.getFinalType().getSlice(block, 0);
         Model deserialized = ModelUtils.deserialize(slice);
         assertNotNull(deserialized, "deserialization failed");
