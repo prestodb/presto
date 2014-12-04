@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
@@ -54,12 +53,6 @@ public class FinishedOperator
     public boolean isFinished()
     {
         return true;
-    }
-
-    @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
     }
 
     @Override

@@ -24,7 +24,6 @@ import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
@@ -175,12 +174,6 @@ public class HashAggregationOperator
     public boolean isFinished()
     {
         return finishing && aggregationBuilder == null && (outputIterator == null || !outputIterator.hasNext());
-    }
-
-    @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
     }
 
     @Override

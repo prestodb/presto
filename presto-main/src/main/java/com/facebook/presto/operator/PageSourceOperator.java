@@ -18,7 +18,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -69,12 +68,6 @@ public class PageSourceOperator
     public boolean isFinished()
     {
         return pageSource.isFinished();
-    }
-
-    @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
     }
 
     @Override
