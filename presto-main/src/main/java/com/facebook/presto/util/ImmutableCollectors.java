@@ -14,6 +14,7 @@
 package com.facebook.presto.util;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.stream.Collector;
@@ -44,6 +45,19 @@ public final class ImmutableCollectors
                     return left;
                 },
                 ImmutableSet.Builder::build,
+                Collector.Characteristics.UNORDERED);
+    }
+
+    public static <T> Collector<T, ?, ImmutableMultiset<T>> toImmutableMultiset()
+    {
+        return Collector.<T, ImmutableMultiset.Builder<T>, ImmutableMultiset<T>>of(
+                ImmutableMultiset.Builder::new,
+                ImmutableMultiset.Builder::add,
+                (left, right) -> {
+                    left.addAll(right.build());
+                    return left;
+                },
+                ImmutableMultiset.Builder::build,
                 Collector.Characteristics.UNORDERED);
     }
 }
