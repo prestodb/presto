@@ -70,6 +70,7 @@ public class PluginManager
             .add("io.airlift.slice")
             .add("javax.inject")
             .add("javax.annotation")
+            .add("java.")
             .build();
 
     private static final Logger log = Logger.get(PluginManager.class);
