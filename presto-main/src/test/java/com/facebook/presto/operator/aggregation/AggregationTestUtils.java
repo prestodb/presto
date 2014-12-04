@@ -63,13 +63,27 @@ public final class AggregationTestUtils
         for (Page page : pages) {
             accumulator.addInput(page);
         }
-        Block result = accumulator.evaluateFinal();
+        Block result = getFinalBlock(accumulator);
 
         if (expectedValue == null) {
             return BlockAssertions.toValues(function.getFinalType(), result).get(0) == null;
         }
 
         return withinErrorBound(BlockAssertions.toValues(function.getFinalType(), result).get(0).toString(), expectedValue);
+    }
+
+    public static Block getIntermediateBlock(Accumulator accumulator)
+    {
+        BlockBuilder blockBuilder = accumulator.getIntermediateType().createBlockBuilder(new BlockBuilderStatus());
+        accumulator.evaluateIntermediate(blockBuilder);
+        return blockBuilder.build();
+    }
+
+    public static Block getFinalBlock(Accumulator accumulator)
+    {
+        BlockBuilder blockBuilder = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus());
+        accumulator.evaluateFinal(blockBuilder);
+        return blockBuilder.build();
     }
 
     public static boolean partialApproximateAggregationWithinErrorBound(InternalAggregationFunction function, int sampleWeightChannel, double confidence, Double expectedValue, Page... pages)
@@ -82,12 +96,12 @@ public final class AggregationTestUtils
             }
         }
 
-        Block partialBlock = partialAccumulator.evaluateIntermediate();
+        Block partialBlock = getIntermediateBlock(partialAccumulator);
 
         Accumulator finalAggregation = factory.createIntermediateAccumulator();
         finalAggregation.addIntermediate(partialBlock);
 
-        Block finalBlock = finalAggregation.evaluateFinal();
+        Block finalBlock = getFinalBlock(finalAggregation);
 
         if (expectedValue == null) {
             return BlockAssertions.toValues(function.getFinalType(), finalBlock).get(0) == null;
@@ -197,7 +211,7 @@ public final class AggregationTestUtils
             }
         }
 
-        Block block = aggregation.evaluateFinal();
+        Block block = getFinalBlock(aggregation);
         return BlockAssertions.getOnlyValue(aggregation.getFinalType(), block);
     }
 
@@ -229,15 +243,17 @@ public final class AggregationTestUtils
             }
         }
 
-        Block partialBlock = partialAggregation.evaluateIntermediate();
+        Block partialBlock = getIntermediateBlock(partialAggregation);
 
         Accumulator finalAggregation = factory.createIntermediateAccumulator();
         // Test handling of empty intermediate blocks
-        Block emptyBlock = factory.createAccumulator().evaluateIntermediate();
+        Accumulator emptyAggregation = factory.createAccumulator();
+        Block emptyBlock = getIntermediateBlock(emptyAggregation);
+
         finalAggregation.addIntermediate(emptyBlock);
         finalAggregation.addIntermediate(partialBlock);
 
-        Block finalBlock = finalAggregation.evaluateFinal();
+        Block finalBlock = getFinalBlock(finalAggregation);
         return BlockAssertions.getOnlyValue(finalAggregation.getFinalType(), finalBlock);
     }
 
