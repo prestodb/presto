@@ -867,6 +867,14 @@
                 <version>0.1.11</version>
                 <extensions>true</extensions>
             </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration combine.children="append">
+                    <fork>false</fork>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 
