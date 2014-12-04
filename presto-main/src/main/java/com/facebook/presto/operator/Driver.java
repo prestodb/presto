@@ -376,62 +376,49 @@ public class Driver
             return;
         }
 
+        // record the current interrupted status (and clear the flag); we'll reset it later
+        boolean wasInterrupted = Thread.interrupted();
+
+        // if we get an error while closing a driver, record it and we will throw it at the end
         Throwable inFlightException = null;
         try {
-            // call finish on every operator; if error occurs, just bail out; we will still call close
             for (Operator operator : operators) {
-                operator.finish();
+                try {
+                    operator.close();
+                }
+                catch (InterruptedException t) {
+                    // don't record the stack
+                    wasInterrupted = true;
+                }
+                catch (Throwable t) {
+                    inFlightException = addSuppressedException(
+                            inFlightException,
+                            t,
+                            "Error closing operator %s for task %s",
+                            operator.getOperatorContext().getOperatorId(),
+                            driverContext.getTaskId());
+                }
             }
+            driverContext.finished();
         }
         catch (Throwable t) {
-            // record in flight exception so we can add suppressed exceptions below
-            inFlightException = t;
-            throw t;
+            // this shouldn't happen but be safe
+            inFlightException = addSuppressedException(
+                    inFlightException,
+                    t,
+                    "Error destroying driver for task %s",
+                    driverContext.getTaskId());
         }
         finally {
-            // record the current interrupted status (and clear the flag); we'll reset it later
-            boolean wasInterrupted = Thread.interrupted();
+            // reset the interrupted flag
+            if (wasInterrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }
 
-            // if we get an error while closing a driver, record it and we will throw it at the end
-            try {
-                for (Operator operator : operators) {
-                        try {
-                            operator.close();
-                        }
-                        catch (InterruptedException t) {
-                            // don't record the stack
-                            wasInterrupted = true;
-                        }
-                        catch (Throwable t) {
-                            inFlightException = addSuppressedException(
-                                    inFlightException,
-                                    t,
-                                    "Error closing operator %s for task %s",
-                                    operator.getOperatorContext().getOperatorId(),
-                                    driverContext.getTaskId());
-                        }
-                }
-                driverContext.finished();
-            }
-            catch (Throwable t) {
-                // this shouldn't happen but be safe
-                inFlightException = addSuppressedException(
-                        inFlightException,
-                        t,
-                        "Error destroying driver for task %s",
-                        driverContext.getTaskId());
-            }
-            finally {
-                // reset the interrupted flag
-                if (wasInterrupted) {
-                    Thread.currentThread().interrupt();
-                }
-            }
-
-            if (inFlightException != null) {
-                // this will always be an Error or Runtime
-                throw Throwables.propagate(inFlightException);
-            }
+        if (inFlightException != null) {
+            // this will always be an Error or Runtime
+            throw Throwables.propagate(inFlightException);
         }
     }
 

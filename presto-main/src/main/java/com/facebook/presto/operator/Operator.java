@@ -34,7 +34,8 @@ public interface Operator
 
     /**
      * Notifies the operator that no more pages will be added and the
-     * operator should finish processing and flush results.
+     * operator should finish processing and flush results. This method
+     * will not be called if the Task is already failed or canceled.
      */
     void finish();
 
