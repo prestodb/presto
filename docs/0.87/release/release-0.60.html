@@ -1,0 +1,205 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>9.28. Release 0.60 &mdash; Presto 0.87 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.87',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.87 Documentation" href="../index.html" />
+    <link rel="up" title="9. Release Notes" href="../release.html" />
+    <link rel="next" title="9.29. Release 0.59" href="release-0.59.html" />
+    <link rel="prev" title="9.27. Release 0.61" href="release-0.61.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.87 Documentation</span></a></h1>
+    <h2 class="heading"><span>9.28. Release 0.60</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.61.html">9.27. Release 0.61</a>
+    </span>
+    <span class="right">
+        <a href="release-0.59.html">9.29. Release 0.59</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-60">
+<h1>9.28. Release 0.60</h1>
+<div class="section" id="jdbc-improvements">
+<h2>JDBC improvements</h2>
+<p>The Presto version of the JDBC <tt class="docutils literal"><span class="pre">DatabaseMetaData</span></tt> interface now includes
+proper implementations of <tt class="docutils literal"><span class="pre">getTables</span></tt>, <tt class="docutils literal"><span class="pre">getSchemas</span></tt> and <tt class="docutils literal"><span class="pre">getCatalogs</span></tt>.</p>
+<p>The JDBC driver is now always packaged as a standalone jar without any
+dependencies.  Previously, this artifact was published with the Maven
+classifier <tt class="docutils literal"><span class="pre">standalone</span></tt>. The new build does not publish this artifact
+anymore.</p>
+</div>
+<div class="section" id="use-catalog-and-use-schema">
+<h2>USE CATALOG and USE SCHEMA</h2>
+<p>The <a class="reference internal" href="../installation/cli.html"><em>Command Line Interface</em></a> now supports <a class="reference internal" href="../sql/use-catalog.html"><em>USE CATALOG</em></a> and
+<a class="reference internal" href="../sql/use-schema.html"><em>USE SCHEMA</em></a>.</p>
+</div>
+<div class="section" id="tpch-connector">
+<h2>TPCH Connector</h2>
+<p>We have added a new connector that will generate synthetic data following the
+TPC-H specification. This connector makes it easy to generate large datasets for
+testing and bug reports. When generating bug reports, we encourage users to use
+this catalog since it eases the process of reproducing the issue. The data is
+generated dynamically for each query, so no disk space is used by this
+connector. To add the <tt class="docutils literal"><span class="pre">tpch</span></tt> catalog to your system, create the catalog
+property file <tt class="docutils literal"><span class="pre">etc/catalog/tpch.properties</span></tt> on both the coordinator and workers
+with the following contents:</p>
+<div class="highlight-none"><div class="highlight"><pre>connector.name=tpch
+</pre></div>
+</div>
+<p>Additionally, update the <tt class="docutils literal"><span class="pre">datasources</span></tt> property in the config properties file,
+<tt class="docutils literal"><span class="pre">etc/config.properties</span></tt>, for the workers to include <tt class="docutils literal"><span class="pre">tpch</span></tt>.</p>
+</div>
+<div class="section" id="spi-changes">
+<h2>SPI changes</h2>
+<p>The <tt class="docutils literal"><span class="pre">Connector</span></tt> interface now has explicit methods for supplying the services
+expected by the query engine. Previously, this was handled by a generic
+<tt class="docutils literal"><span class="pre">getService</span></tt> method.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This is a backwards incompatible change to <tt class="docutils literal"><span class="pre">Connector</span></tt> in the SPI,
+so if you have written a connector, you will need to update your code before
+deploying this release.</p>
+</div>
+<p>Additionally, we have added the <tt class="docutils literal"><span class="pre">NodeManager</span></tt> interface to the SPI to allow a
+plugin to detect all nodes in the Presto cluster.  This is important for some
+connectors that can divide a table evenly between all nodes as long as the
+connector knows how many nodes exist.  To access the node manager, simply add
+the following to the <tt class="docutils literal"><span class="pre">Plugin</span></tt> class:</p>
+<div class="highlight-java"><div class="highlight"><pre><span class="nd">@Inject</span>
+<span class="kd">public</span> <span class="kt">void</span> <span class="nf">setNodeManager</span><span class="o">(</span><span class="n">NodeManager</span> <span class="n">nodeManager</span><span class="o">)</span>
+<span class="o">{</span>
+    <span class="k">this</span><span class="o">.</span><span class="na">nodeManager</span> <span class="o">=</span> <span class="n">nodeManager</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="optimizations">
+<h2>Optimizations</h2>
+<div class="section" id="distinct-limit">
+<h3>DISTINCT LIMIT</h3>
+<p>For queries with the following form:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="k">DISTINCT</span> <span class="p">...</span>
+<span class="k">FROM</span> <span class="n">T</span>
+<span class="k">LIMIT</span> <span class="n">N</span>
+</pre></div>
+</div>
+<p>We have added an optimization that stops the query as soon as <tt class="docutils literal"><span class="pre">N</span></tt> distinct
+rows are found.</p>
+</div>
+<div class="section" id="range-predicates">
+<h3>Range predicates</h3>
+<p>When optimizing a join, Presto analyzes the ranges of the partitions on each
+side of a join and pushes these ranges to the other side.  When tables have a
+lot of partitions, this can result in a very large filter with one expression
+for each partition.  The optimizer now summarizes the predicate ranges to reduce
+the complexity of the filters.</p>
+</div>
+<div class="section" id="compound-filters">
+<h3>Compound filters</h3>
+<p>Complex expressions involving <tt class="docutils literal"><span class="pre">AND</span></tt>, <tt class="docutils literal"><span class="pre">OR</span></tt>, or <tt class="docutils literal"><span class="pre">NOT</span></tt> are now optimized by
+the expression optimizer.</p>
+</div>
+<div class="section" id="window-functions">
+<h3>Window functions</h3>
+<p>Window functions with a <tt class="docutils literal"><span class="pre">PARTITION</span> <span class="pre">BY</span></tt> clause are now distributed based on the
+partition key.</p>
+</div>
+</div>
+<div class="section" id="bug-fixes">
+<h2>Bug fixes</h2>
+<ul>
+<li><p class="first">Scheduling</p>
+<p>In the changes to schedule splits in batches, we introduced two bugs that
+resulted in an unbalanced workload across nodes which increases query latency.
+The first problem was not inspecting the queued split count of the nodes while
+scheduling the batch, and the second problem was not counting the splits
+awaiting creation in the task executor.</p>
+</li>
+<li><p class="first">JSON conversion of complex Hive types</p>
+<p>Presto converts complex Hive types (array, map, struct and union) into JSON.
+Previously, numeric keys in maps were converted to numbers, not strings,
+which is invalid as JSON only allows strings for object keys. This prevented
+the <a class="reference internal" href="../functions/json.html"><em>JSON Functions</em></a> from working.</p>
+</li>
+<li><p class="first">Hive hidden files</p>
+<p>Presto will now ignore files in Hive that start with an underscore <tt class="docutils literal"><span class="pre">_</span></tt> or
+a dot <tt class="docutils literal"><span class="pre">.</span></tt>.  This matches the behavior of Hadoop MapReduce / Hive.</p>
+</li>
+<li><p class="first">Failures incorrectly reported as no data</p>
+<p>Certain types of failures would result in the query appearing to succeed and
+return an incomplete result (often zero rows). There was a race condition
+between the error propagation and query teardown. In some cases, the query
+would be torn down before the exception made it to the coordinator. This was a
+regression introduced during the query teardown optimization work. There are
+now tests to catch this type of bug.</p>
+</li>
+<li><p class="first">Exchange client leak</p>
+<p>When a query finished early (e.g., limit or failure) and the exchange operator
+was blocked waiting for data from other nodes, the exchange was not be closed
+properly. This resulted in continuous failing HTTP requests which leaked
+resources and produced large log files.</p>
+</li>
+<li><p class="first">Hash partitioning</p>
+<p>A query with many <tt class="docutils literal"><span class="pre">GROUP</span> <span class="pre">BY</span></tt> items could fail due to an overflow in the hash
+function.</p>
+</li>
+<li><p class="first">Compiled NULL literal</p>
+<p>In some cases queries with a select expression like <tt class="docutils literal"><span class="pre">CAST(NULL</span> <span class="pre">AS</span> <span class="pre">varchar)</span></tt>
+would fail due to a bug in the output type detection code in expression
+compiler.</p>
+</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.61.html">9.27. Release 0.61</a>
+    </span>
+    <span class="right">
+        <a href="release-0.59.html">9.29. Release 0.59</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
