@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
 
 public interface Operator
+        extends AutoCloseable
 {
     ListenableFuture<?> NOT_BLOCKED = Futures.immediateFuture(null);
 
@@ -69,4 +70,13 @@ public interface Operator
      * available, return null.
      */
     Page getOutput();
+
+    /**
+     * This method will always be called before releasing the Operator reference.
+     */
+    @Override
+    default void close()
+            throws Exception
+    {
+    }
 }

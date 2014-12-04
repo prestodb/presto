@@ -395,9 +395,8 @@ public class Driver
             // if we get an error while closing a driver, record it and we will throw it at the end
             try {
                 for (Operator operator : operators) {
-                    if (operator instanceof AutoCloseable) {
                         try {
-                            ((AutoCloseable) operator).close();
+                            operator.close();
                         }
                         catch (InterruptedException t) {
                             // don't record the stack
@@ -411,7 +410,6 @@ public class Driver
                                     operator.getOperatorContext().getOperatorId(),
                                     driverContext.getTaskId());
                         }
-                    }
                 }
                 driverContext.finished();
             }
