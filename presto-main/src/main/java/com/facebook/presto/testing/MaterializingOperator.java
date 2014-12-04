@@ -66,11 +66,17 @@ public class MaterializingOperator
     private final OperatorContext operatorContext;
     private final MaterializedResult.Builder resultBuilder;
     private boolean finished;
+    private boolean closed;
 
     public MaterializingOperator(OperatorContext operatorContext, List<Type> sourceTypes)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         resultBuilder = MaterializedResult.resultBuilder(operatorContext.getSession(), sourceTypes);
+    }
+
+    public boolean isClosed()
+    {
+        return closed;
     }
 
     public MaterializedResult getMaterializedResult()
@@ -122,5 +128,11 @@ public class MaterializingOperator
     public Page getOutput()
     {
         return null;
+    }
+
+    @Override
+    public void close()
+    {
+        closed = true;
     }
 }

@@ -165,6 +165,11 @@ public class TaskContext
         return taskStateMachine.getState().isDone();
     }
 
+    public TaskState getState()
+    {
+        return taskStateMachine.getState();
+    }
+
     public DataSize getMaxMemorySize()
     {
         return new DataSize(maxMemory, BYTE).convertToMostSuccinctDataSize();
