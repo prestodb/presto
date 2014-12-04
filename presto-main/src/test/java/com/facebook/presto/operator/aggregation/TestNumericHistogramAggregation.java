@@ -30,6 +30,8 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.Map;
 
+import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getFinalBlock;
+import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getIntermediateBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static org.testng.Assert.assertEquals;
@@ -66,14 +68,15 @@ public class TestNumericHistogramAggregation
     {
         Accumulator singleStep = factory.createAccumulator();
         singleStep.addInput(input);
-        Block expected = singleStep.evaluateFinal();
+        Block expected = getFinalBlock(singleStep);
 
         Accumulator partialStep = factory.createAccumulator();
         partialStep.addInput(input);
+        Block partialBlock = getIntermediateBlock(partialStep);
 
         Accumulator finalStep = factory.createAccumulator();
-        finalStep.addIntermediate(partialStep.evaluateIntermediate());
-        Block actual = finalStep.evaluateFinal();
+        finalStep.addIntermediate(partialBlock);
+        Block actual = getFinalBlock(finalStep);
 
         assertEquals(extractSingleValue(actual), extractSingleValue(expected));
     }
@@ -84,17 +87,17 @@ public class TestNumericHistogramAggregation
     {
         Accumulator singleStep = factory.createAccumulator();
         singleStep.addInput(input);
-        Block singleStepResult = singleStep.evaluateFinal();
+        Block singleStepResult = getFinalBlock(singleStep);
 
         Accumulator partialStep = factory.createAccumulator();
         partialStep.addInput(input);
+        Block intermediate = getIntermediateBlock(partialStep);
 
         Accumulator finalStep = factory.createAccumulator();
-        Block intermediate = partialStep.evaluateIntermediate();
 
         finalStep.addIntermediate(intermediate);
         finalStep.addIntermediate(intermediate);
-        Block actual = finalStep.evaluateFinal();
+        Block actual = getFinalBlock(finalStep);
 
         Map<String, Double> expected = Maps.transformValues(extractSingleValue(singleStepResult), new Function<Double, Double>()
         {
@@ -113,7 +116,7 @@ public class TestNumericHistogramAggregation
             throws Exception
     {
         Accumulator accumulator = factory.createAccumulator();
-        Block result = accumulator.evaluateFinal();
+        Block result = getFinalBlock(accumulator);
 
         assertTrue(result.getPositionCount() == 1);
         assertTrue(result.isNull(0));
