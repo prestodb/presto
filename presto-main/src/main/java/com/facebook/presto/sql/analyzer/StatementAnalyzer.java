@@ -69,7 +69,6 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.connector.system.CatalogSystemTable.CATALOG_TABLE_NAME;
-import static com.facebook.presto.metadata.MetadataUtil.columnTypeGetter;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.QueryUtil.aliased;
 import static com.facebook.presto.sql.QueryUtil.aliasedName;
@@ -393,7 +392,7 @@ class StatementAnalyzer
         analysis.setInsertTarget(targetTableHandle.get());
 
         List<ColumnMetadata> columns = metadata.getTableMetadata(targetTableHandle.get()).getColumns();
-        Iterable<Type> tableTypes = transform(columns, columnTypeGetter());
+        Iterable<Type> tableTypes = transform(columns, ColumnMetadata::getType);
 
         Iterable<Type> queryTypes = transform(descriptor.getVisibleFields(), typeGetter());
 
