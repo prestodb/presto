@@ -120,7 +120,7 @@ public class PlanPrinter
     public static String textDistributedPlan(SubPlan plan, Metadata metadata)
     {
         List<PlanFragment> fragments = plan.getAllFragments();
-        Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, PlanFragment.idGetter());
+        Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, PlanFragment::getId);
         PlanFragment fragment = plan.getFragment();
         return new PlanPrinter(fragment.getRoot(), fragment.getSymbols(), metadata, Optional.of(fragmentsById)).toString();
     }
