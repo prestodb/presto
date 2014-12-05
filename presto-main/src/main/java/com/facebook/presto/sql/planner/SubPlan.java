@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
@@ -76,7 +75,7 @@ public class SubPlan
                 .bag();
 
         Multiset<PlanFragmentId> childrenIds = IterableTransformer.on(children)
-                .transform(SubPlan.fragmentGetter())
+                .transform(SubPlan::getFragment)
                 .transform(PlanFragment::getId)
                 .bag();
 
@@ -85,17 +84,5 @@ public class SubPlan
         for (SubPlan child : children) {
             child.sanityCheck();
         }
-    }
-
-    public static Function<SubPlan, PlanFragment> fragmentGetter()
-    {
-        return new Function<SubPlan, PlanFragment>()
-        {
-            @Override
-            public PlanFragment apply(SubPlan input)
-            {
-                return input.getFragment();
-            }
-        };
     }
 }
