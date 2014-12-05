@@ -188,4 +188,27 @@ public final class TypeJsonUtils
         }
         return blockBuilder.build();
     }
+
+    public static Object getValue(Block input, Type type, int position)
+    {
+        if (input.isNull(position)) {
+            return null;
+        }
+
+        if (type.getJavaType() == long.class) {
+            return type.getLong(input, position);
+        }
+        else if (type.getJavaType() == double.class) {
+            return type.getDouble(input, position);
+        }
+        else if (type.getJavaType() == Slice.class) {
+            return type.getObjectValue(null, input, position);
+        }
+        else if (type.getJavaType() == boolean.class) {
+            return type.getBoolean(input, position);
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported type: " + type.getJavaType().getSimpleName());
+        }
+    }
 }
