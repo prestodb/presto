@@ -85,7 +85,6 @@ import static com.facebook.presto.sql.QueryUtil.subquery;
 import static com.facebook.presto.sql.QueryUtil.table;
 import static com.facebook.presto.sql.QueryUtil.unaliasedName;
 import static com.facebook.presto.sql.QueryUtil.values;
-import static com.facebook.presto.sql.analyzer.Field.typeGetter;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
@@ -394,7 +393,7 @@ class StatementAnalyzer
         List<ColumnMetadata> columns = metadata.getTableMetadata(targetTableHandle.get()).getColumns();
         Iterable<Type> tableTypes = transform(columns, ColumnMetadata::getType);
 
-        Iterable<Type> queryTypes = transform(descriptor.getVisibleFields(), typeGetter());
+        Iterable<Type> queryTypes = transform(descriptor.getVisibleFields(), Field::getType);
 
         if (!elementsEqual(tableTypes, queryTypes)) {
             throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES, insert, "Insert query has mismatched column types: " +

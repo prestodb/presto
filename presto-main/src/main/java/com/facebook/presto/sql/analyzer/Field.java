@@ -13,12 +13,10 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Function;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -86,18 +84,6 @@ public class Field
         return hidden;
     }
 
-    public static Function<Field, Type> typeGetter()
-    {
-        return new Function<Field, Type>()
-        {
-            @Override
-            public Type apply(Field field)
-            {
-                return field.getType();
-            }
-        };
-    }
-
     public boolean matchesPrefix(Optional<QualifiedName> prefix)
     {
         return !prefix.isPresent() || relationAlias.isPresent() && relationAlias.get().hasSuffix(prefix.get());
@@ -132,54 +118,6 @@ public class Field
 
         // TODO: need to know whether the qualified name and the name of this field were quoted
         return matchesPrefix(name.getPrefix()) && this.name.get().equalsIgnoreCase(name.getSuffix());
-    }
-
-    public static Function<Field, Optional<QualifiedName>> relationAliasGetter()
-    {
-        return new Function<Field, Optional<QualifiedName>>()
-        {
-            @Override
-            public Optional<QualifiedName> apply(Field input)
-            {
-                return input.getRelationAlias();
-            }
-        };
-    }
-
-    public static Predicate<Field> isVisiblePredicate()
-    {
-        return new Predicate<Field>()
-        {
-            @Override
-            public boolean apply(Field field)
-            {
-                return !field.isHidden();
-            }
-        };
-    }
-
-    public static Predicate<Field> matchesPrefixPredicate(final Optional<QualifiedName> prefix)
-    {
-        return new Predicate<Field>()
-        {
-            @Override
-            public boolean apply(Field input)
-            {
-                return input.matchesPrefix(prefix);
-            }
-        };
-    }
-
-    public static Predicate<Field> canResolvePredicate(final QualifiedName name)
-    {
-        return new Predicate<Field>()
-        {
-            @Override
-            public boolean apply(Field input)
-            {
-                return input.canResolve(name);
-            }
-        };
     }
 
     @Override
