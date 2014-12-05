@@ -155,8 +155,6 @@ import static com.facebook.presto.operator.UnnestOperator.UnnestOperatorFactory;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
-import static com.facebook.presto.sql.planner.plan.IndexJoinNode.EquiJoinClause.indexGetter;
-import static com.facebook.presto.sql.planner.plan.IndexJoinNode.EquiJoinClause.probeGetter;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
@@ -1037,7 +1035,7 @@ public class LocalExecutionPlanner
         private SetMultimap<Symbol, Integer> mapIndexSourceLookupSymbolToProbeKeyInput(IndexJoinNode node, Map<Symbol, Integer> probeKeyLayout)
         {
             Set<Symbol> indexJoinSymbols = FluentIterable.from(node.getCriteria())
-                    .transform(indexGetter())
+                    .transform(IndexJoinNode.EquiJoinClause::getIndex)
                     .toSet();
 
             // Trace the index join symbols to the index source lookup symbols
@@ -1065,8 +1063,8 @@ public class LocalExecutionPlanner
         {
             List<IndexJoinNode.EquiJoinClause> clauses = node.getCriteria();
 
-            List<Symbol> probeSymbols = Lists.transform(clauses, probeGetter());
-            List<Symbol> indexSymbols = Lists.transform(clauses, indexGetter());
+            List<Symbol> probeSymbols = Lists.transform(clauses, IndexJoinNode.EquiJoinClause::getProbe);
+            List<Symbol> indexSymbols = Lists.transform(clauses, IndexJoinNode.EquiJoinClause::getIndex);
 
             // Plan probe side
             PhysicalOperation probeSource = node.getProbeSource().accept(this, context);
@@ -1091,21 +1089,21 @@ public class LocalExecutionPlanner
             Set<Symbol> indexSymbolsNeededBySource = IndexJoinOptimizer.IndexKeyTracer.trace(node.getIndexSource(), ImmutableSet.copyOf(indexSymbols)).keySet();
 
             Set<Integer> lookupSourceInputChannels = FluentIterable.from(node.getCriteria())
-                    .filter(Predicates.compose(in(indexSymbolsNeededBySource), indexGetter()))
-                    .transform(probeGetter())
+                    .filter(Predicates.compose(in(indexSymbolsNeededBySource), IndexJoinNode.EquiJoinClause::getIndex))
+                    .transform(IndexJoinNode.EquiJoinClause::getProbe)
                     .transform(Functions.forMap(probeKeyLayout))
                     .toSet();
 
             Optional<DynamicTupleFilterFactory> dynamicTupleFilterFactory = Optional.absent();
             if (lookupSourceInputChannels.size() < probeKeyLayout.values().size()) {
                 int[] nonLookupInputChannels = Ints.toArray(FluentIterable.from(node.getCriteria())
-                        .filter(Predicates.compose(not(in(indexSymbolsNeededBySource)), indexGetter()))
-                        .transform(probeGetter())
+                        .filter(Predicates.compose(not(in(indexSymbolsNeededBySource)), IndexJoinNode.EquiJoinClause::getIndex))
+                        .transform(IndexJoinNode.EquiJoinClause::getProbe)
                         .transform(Functions.forMap(probeKeyLayout))
                         .toList());
                 int[] nonLookupOutputChannels = Ints.toArray(FluentIterable.from(node.getCriteria())
-                        .filter(Predicates.compose(not(in(indexSymbolsNeededBySource)), indexGetter()))
-                        .transform(indexGetter())
+                        .filter(Predicates.compose(not(in(indexSymbolsNeededBySource)), IndexJoinNode.EquiJoinClause::getIndex))
+                        .transform(IndexJoinNode.EquiJoinClause::getIndex)
                         .transform(Functions.forMap(indexSource.getLayout()))
                         .toList());
 

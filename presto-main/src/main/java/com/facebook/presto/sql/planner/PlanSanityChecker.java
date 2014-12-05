@@ -330,7 +330,7 @@ public final class PlanSanityChecker
             }
 
             Set<Symbol> lookupSymbols = FluentIterable.from(node.getCriteria())
-                    .transform(IndexJoinNode.EquiJoinClause.indexGetter())
+                    .transform(IndexJoinNode.EquiJoinClause::getIndex)
                     .toSet();
             Map<Symbol, Symbol> trace = IndexKeyTracer.trace(node.getIndexSource(), lookupSymbols);
             checkArgument(!trace.isEmpty() && lookupSymbols.containsAll(trace.keySet()),

@@ -162,7 +162,7 @@ public class PruneUnreferencedOutputs
         {
             ImmutableSet.Builder<Symbol> probeInputsBuilder = ImmutableSet.builder();
             probeInputsBuilder.addAll(expectedOutputs)
-                    .addAll(Iterables.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause.probeGetter()));
+                    .addAll(Iterables.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause::getProbe));
             if (node.getProbeHashSymbol().isPresent()) {
                 probeInputsBuilder.add(node.getProbeHashSymbol().get());
             }
@@ -170,7 +170,7 @@ public class PruneUnreferencedOutputs
 
             ImmutableSet.Builder<Symbol> indexInputBuilder = ImmutableSet.builder();
             indexInputBuilder.addAll(expectedOutputs)
-                    .addAll(Iterables.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause.indexGetter()));
+                    .addAll(Iterables.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause::getIndex));
             if (node.getIndexHashSymbol().isPresent()) {
                 indexInputBuilder.add(node.getIndexHashSymbol().get());
             }
