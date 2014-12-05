@@ -16,8 +16,6 @@ package com.facebook.presto.failureDetector;
 import com.facebook.presto.util.IterableTransformer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
@@ -142,8 +140,8 @@ public class HeartbeatFailureDetector
     public Set<ServiceDescriptor> getFailed()
     {
         return IterableTransformer.on(tasks.values())
-                .select(isFailedPredicate())
-                .transform(serviceGetter())
+                .select(MonitoringTask::isFailed)
+                .transform(MonitoringTask::getService)
                 .set();
     }
 
@@ -178,26 +176,27 @@ public class HeartbeatFailureDetector
     void updateMonitoredServices()
     {
         Set<ServiceDescriptor> online = IterableTransformer.on(selector.selectAllServices())
-                .select(not(serviceDescriptorHasNodeId(nodeInfo.getNodeId())))
+                .select(not(descriptor -> nodeInfo.getNodeId().equals(descriptor.getNodeId())))
                 .set();
 
         Set<UUID> onlineIds = IterableTransformer.on(online)
-                .transform(idGetter())
+                .transform(ServiceDescriptor::getId)
                 .set();
 
         // make sure only one thread is updating the registrations
         synchronized (tasks) {
             // 1. remove expired tasks
             List<UUID> expiredIds = IterableTransformer.on(tasks.values())
-                    .select(isExpiredPredicate())
-                    .transform(serviceIdGetter())
+                    .select(MonitoringTask::isExpired)
+                    .transform(MonitoringTask::getService)
+                    .transform(ServiceDescriptor::getId)
                     .list();
 
             tasks.keySet().removeAll(expiredIds);
 
             // 2. disable offline services
             Iterable<MonitoringTask> toDisable = IterableTransformer.on(tasks.values())
-                    .select(compose(not(in(onlineIds)), serviceIdGetter()))
+                    .select(compose(not(in(onlineIds)), task -> task.getService().getId()))
                     .all();
 
             for (MonitoringTask task : toDisable) {
@@ -206,7 +205,7 @@ public class HeartbeatFailureDetector
 
             // 3. create tasks for new services
             Set<ServiceDescriptor> newServices = IterableTransformer.on(online)
-                    .select(compose(not(in(tasks.keySet())), idGetter()))
+                    .select(compose(not(in(tasks.keySet())), ServiceDescriptor::getId))
                     .set();
 
             for (ServiceDescriptor service : newServices) {
@@ -219,7 +218,7 @@ public class HeartbeatFailureDetector
 
             // 4. enable all online tasks (existing plus newly created)
             Iterable<MonitoringTask> toEnable = IterableTransformer.on(tasks.values())
-                    .select(compose(in(onlineIds), serviceIdGetter()))
+                    .select(compose(in(onlineIds), task -> task.getService().getId()))
                     .all();
 
             for (MonitoringTask task : toEnable) {
@@ -241,79 +240,6 @@ public class HeartbeatFailureDetector
         }
 
         return null;
-    }
-
-    private static Predicate<ServiceDescriptor> serviceDescriptorHasNodeId(final String nodeId)
-    {
-        checkNotNull(nodeId, "nodeId is null");
-        return new Predicate<ServiceDescriptor>()
-        {
-            @Override
-            public boolean apply(ServiceDescriptor descriptor)
-            {
-                return nodeId.equals(descriptor.getNodeId());
-            }
-        };
-    }
-
-    private static Function<ServiceDescriptor, UUID> idGetter()
-    {
-        return new Function<ServiceDescriptor, UUID>()
-        {
-            @Override
-            public UUID apply(ServiceDescriptor descriptor)
-            {
-                return descriptor.getId();
-            }
-        };
-    }
-
-    private static Function<MonitoringTask, ServiceDescriptor> serviceGetter()
-    {
-        return new Function<MonitoringTask, ServiceDescriptor>()
-        {
-            @Override
-            public ServiceDescriptor apply(MonitoringTask task)
-            {
-                return task.getService();
-            }
-        };
-    }
-
-    private static Function<MonitoringTask, UUID> serviceIdGetter()
-    {
-        return new Function<MonitoringTask, UUID>()
-        {
-            @Override
-            public UUID apply(MonitoringTask task)
-            {
-                return task.getService().getId();
-            }
-        };
-    }
-
-    private static Predicate<MonitoringTask> isExpiredPredicate()
-    {
-        return new Predicate<MonitoringTask>()
-        {
-            @Override
-            public boolean apply(MonitoringTask task)
-            {
-                return task.isExpired();
-            }
-        };
-    }
-
-    private static Predicate<MonitoringTask> isFailedPredicate()
-    {
-        return new Predicate<MonitoringTask>()
-        {
-            @Override
-            public boolean apply(MonitoringTask task)
-            {
-                return task.isFailed();
-            }
-        };
     }
 
     @ThreadSafe
