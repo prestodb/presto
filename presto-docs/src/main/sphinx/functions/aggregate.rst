@@ -50,6 +50,10 @@ General Aggregate Functions
 
     Returns the sum of all input values.
 
+.. function:: arbitrary(x) -> [same as input]
+
+    Returns an arbitrary non-NULL value, if one exists.
+
 Approximate Aggregate Functions
 -------------------------------
 
