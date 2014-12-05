@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
-import com.google.common.base.Function;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
@@ -381,18 +380,6 @@ public class PipelineContext
 
                 ImmutableList.copyOf(operatorSummaries.values()),
                 drivers);
-    }
-
-    public static Function<PipelineContext, PipelineStats> pipelineStatsGetter()
-    {
-        return new Function<PipelineContext, PipelineStats>()
-        {
-            @Override
-            public PipelineStats apply(PipelineContext pipelineContext)
-            {
-                return pipelineContext.getPipelineStats();
-            }
-        };
     }
 
     private static <K, V> boolean compareAndSet(ConcurrentMap<K, V> map, K key, V oldValue, V newValue)
