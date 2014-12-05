@@ -17,7 +17,6 @@ import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.facebook.presto.byteCode.FieldDefinition;
 import com.facebook.presto.byteCode.ParameterizedType;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
 
@@ -132,7 +131,7 @@ public abstract class ByteCodeExpression
     {
         return invoke(methodName,
                 returnType,
-                ImmutableList.copyOf(transform(checkNotNull(parameters, "parameters is null"), typeGetter())),
+                ImmutableList.copyOf(transform(checkNotNull(parameters, "parameters is null"), ByteCodeExpression::getType)),
                 parameters);
     }
 
@@ -193,17 +192,5 @@ public abstract class ByteCodeExpression
     public final <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
     {
         return visitor.visitByteCodeExpression(parent, this);
-    }
-
-    public static Function<ByteCodeExpression, ParameterizedType> typeGetter()
-    {
-        return new Function<ByteCodeExpression, ParameterizedType>()
-        {
-            @Override
-            public ParameterizedType apply(ByteCodeExpression byteCodeExpression)
-            {
-                return byteCodeExpression.getType();
-            }
-        };
     }
 }
