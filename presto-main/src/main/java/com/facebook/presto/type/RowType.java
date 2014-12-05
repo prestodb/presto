@@ -41,7 +41,7 @@ public class RowType
 
     public RowType(List<Type> fieldTypes, List<String> fieldNames)
     {
-        super(new TypeSignature("row", Lists.transform(fieldTypes, TypeUtils.typeSignatureGetter()), ImmutableList.<Object>copyOf(fieldNames)), Slice.class);
+        super(new TypeSignature("row", Lists.transform(fieldTypes, Type::getTypeSignature), ImmutableList.<Object>copyOf(fieldNames)), Slice.class);
         ImmutableList.Builder<RowField> builder = ImmutableList.builder();
         for (int i = 0; i < fieldTypes.size(); i++) {
             builder.add(new RowField(fieldTypes.get(i), fieldNames.get(i)));

@@ -16,7 +16,6 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.type.TypeUtils;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
@@ -70,12 +69,12 @@ public final class Signature
 
     public Signature(String name, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes, boolean variableArity, boolean internal)
     {
-        this(name, typeParameters, parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeUtils.typeSignatureParser()), variableArity, internal);
+        this(name, typeParameters, parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeSignature::parseTypeSignature), variableArity, internal);
     }
 
     public Signature(String name, String returnType, List<String> argumentTypes)
     {
-        this(name, ImmutableList.<TypeParameter>of(), parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeUtils.typeSignatureParser()), false, false);
+        this(name, ImmutableList.<TypeParameter>of(), parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeSignature::parseTypeSignature), false, false);
     }
 
     public Signature(String name, String returnType, String... argumentTypes)

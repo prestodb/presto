@@ -29,7 +29,6 @@ import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -55,28 +54,6 @@ public final class TypeUtils
             return leftIsNull && rightIsNull;
         }
         return type.equalTo(leftBlock, leftPosition, rightBlock, rightPosition);
-    }
-
-    public static Function<Type, TypeSignature> typeSignatureGetter()
-    {
-        return new Function<Type, TypeSignature>() {
-            @Override
-            public TypeSignature apply(Type input)
-            {
-                return input.getTypeSignature();
-            }
-        };
-    }
-
-    public static Function<String, TypeSignature> typeSignatureParser()
-    {
-        return new Function<String, TypeSignature>() {
-            @Override
-            public TypeSignature apply(String input)
-            {
-                return parseTypeSignature(input);
-            }
-        };
     }
 
     public static List<Type> resolveTypes(List<TypeSignature> typeNames, final TypeManager typeManager)
