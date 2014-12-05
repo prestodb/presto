@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.facebook.presto.metadata.ColumnHandle.connectorHandleGetter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -54,7 +53,7 @@ public class PageSourceManager
         checkNotNull(split, "split is null");
         checkNotNull(columns, "columns is null");
 
-        List<ConnectorColumnHandle> handles = Lists.transform(columns, connectorHandleGetter());
+        List<ConnectorColumnHandle> handles = Lists.transform(columns, ColumnHandle::getConnectorHandle);
 
         return getPageSourceProvider(split).createPageSource(split.getConnectorSplit(), handles);
     }

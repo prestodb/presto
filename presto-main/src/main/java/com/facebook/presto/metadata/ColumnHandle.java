@@ -16,7 +16,6 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 
 import java.util.Objects;
 
@@ -72,28 +71,5 @@ public final class ColumnHandle
     public String toString()
     {
         return connectorId + ":" + connectorHandle;
-    }
-
-    public static Function<ColumnHandle, ConnectorColumnHandle> connectorHandleGetter()
-    {
-        return new Function<ColumnHandle, ConnectorColumnHandle>()
-        {
-            @Override
-            public ConnectorColumnHandle apply(ColumnHandle input)
-            {
-                return input.getConnectorHandle();
-            }
-        };
-    }
-
-    public static Function<ConnectorColumnHandle, ColumnHandle> fromConnectorHandle(final String connectorId)
-    {
-        return new Function<ConnectorColumnHandle, ColumnHandle>() {
-            @Override
-            public ColumnHandle apply(ConnectorColumnHandle handle)
-            {
-                return new ColumnHandle(connectorId, handle);
-            }
-        };
     }
 }
