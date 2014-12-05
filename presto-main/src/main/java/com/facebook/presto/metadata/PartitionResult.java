@@ -20,7 +20,6 @@ import com.google.common.collect.Lists;
 
 import java.util.List;
 
-import static com.facebook.presto.metadata.Partition.fromConnectorPartition;
 import static com.facebook.presto.metadata.Util.fromConnectorDomain;
 
 public class PartitionResult
@@ -33,7 +32,7 @@ public class PartitionResult
         Preconditions.checkNotNull(connectorId, "connectorId is null");
         Preconditions.checkNotNull(connectorPartitionResult, "connectorPartitionResult is null");
 
-        partitions = Lists.transform(connectorPartitionResult.getPartitions(), fromConnectorPartition(connectorId));
+        partitions = Lists.transform(connectorPartitionResult.getPartitions(), partition -> new Partition(connectorId, partition));
         undeterminedTupleDomain = fromConnectorDomain(connectorId, connectorPartitionResult.getUndeterminedTupleDomain());
     }
 
