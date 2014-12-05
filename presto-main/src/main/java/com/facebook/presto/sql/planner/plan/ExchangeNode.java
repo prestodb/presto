@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
@@ -72,17 +71,5 @@ public class ExchangeNode
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitExchange(this, context);
-    }
-
-    public static Function<ExchangeNode, List<PlanFragmentId>> sourceFragmentIdsGetter()
-    {
-        return new Function<ExchangeNode, List<PlanFragmentId>>()
-        {
-            @Override
-            public List<PlanFragmentId> apply(ExchangeNode input)
-            {
-                return input.getSourceFragmentIds();
-            }
-        };
     }
 }

@@ -71,7 +71,7 @@ public class SubPlan
         Multiset<PlanFragmentId> exchangeIds = IterableTransformer.on(fragment.getSources())
                 .select(instanceOf(ExchangeNode.class))
                 .cast(ExchangeNode.class)
-                .transformAndFlatten(ExchangeNode.sourceFragmentIdsGetter())
+                .transformAndFlatten(ExchangeNode::getSourceFragmentIds)
                 .bag();
 
         Multiset<PlanFragmentId> childrenIds = IterableTransformer.on(children)
