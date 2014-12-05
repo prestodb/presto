@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.Page;
-import com.google.common.base.Function;
 import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
@@ -320,18 +319,6 @@ public class OperatorContext
     private static long nanosBetween(long start, long end)
     {
         return Math.abs(end - start);
-    }
-
-    public static Function<OperatorContext, OperatorStats> operatorStatsGetter()
-    {
-        return new Function<OperatorContext, OperatorStats>()
-        {
-            @Override
-            public OperatorStats apply(OperatorContext operatorContext)
-            {
-                return operatorContext.getOperatorStats();
-            }
-        };
     }
 
     private class BlockedMonitor

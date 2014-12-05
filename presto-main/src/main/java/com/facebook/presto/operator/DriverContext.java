@@ -33,7 +33,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.operator.OperatorContext.operatorStatsGetter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getFirst;
@@ -272,7 +271,7 @@ public class DriverContext
             totalBlockedTime += blockedMonitor.getBlockedTime();
         }
 
-        List<OperatorStats> operators = ImmutableList.copyOf(transform(operatorContexts, operatorStatsGetter()));
+        List<OperatorStats> operators = ImmutableList.copyOf(transform(operatorContexts, OperatorContext::getOperatorStats));
         OperatorStats inputOperator = getFirst(operators, null);
         DataSize rawInputDataSize;
         long rawInputPositions;
@@ -338,7 +337,7 @@ public class DriverContext
                 processedInputPositions,
                 outputDataSize.convertToMostSuccinctDataSize(),
                 outputPositions,
-                ImmutableList.copyOf(transform(operatorContexts, operatorStatsGetter())));
+                ImmutableList.copyOf(transform(operatorContexts, OperatorContext::getOperatorStats)));
     }
 
     public boolean isPartitioned()
