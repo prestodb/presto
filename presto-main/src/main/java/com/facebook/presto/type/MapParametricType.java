@@ -15,6 +15,7 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
@@ -34,7 +35,8 @@ public final class MapParametricType
 {
     public static final MapParametricType MAP = new MapParametricType();
     // TODO: support types that don't use == for comparison of the bits in their stack type
-    private static final Set<Type> SUPPORTED_KEY_TYPES = ImmutableSet.<Type>of(VARCHAR, VARBINARY, BIGINT, DOUBLE, BOOLEAN, DATE, TIMESTAMP);
+    @VisibleForTesting
+    public static final Set<Type> SUPPORTED_KEY_TYPES = ImmutableSet.<Type>of(VARCHAR, VARBINARY, BIGINT, DOUBLE, BOOLEAN, DATE, TIMESTAMP);
 
     private MapParametricType()
     {
