@@ -17,7 +17,6 @@ import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import org.joda.time.DateTime;
 
@@ -154,29 +153,5 @@ public class TaskInfo
                 .add("taskId", taskId)
                 .add("state", state)
                 .toString();
-    }
-
-    public static Function<TaskInfo, TaskState> taskStateGetter()
-    {
-        return new Function<TaskInfo, TaskState>()
-        {
-            @Override
-            public TaskState apply(TaskInfo taskInfo)
-            {
-                return taskInfo.getState();
-            }
-        };
-    }
-
-    public static Function<TaskInfo, TaskInfo> summarizeTaskInfo()
-    {
-        return new Function<TaskInfo, TaskInfo>()
-        {
-            @Override
-            public TaskInfo apply(TaskInfo input)
-            {
-                return input.summarize();
-            }
-        };
     }
 }
