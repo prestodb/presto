@@ -21,7 +21,6 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -171,32 +170,8 @@ public class JmxRecordSetProvider
         String[] columnNamesArray = uniqueColumnNames.toArray(new String[uniqueColumnNames.size()]);
 
         return IterableTransformer.on(mbeanServer.getAttributes(objectName, columnNamesArray).asList())
-                .uniqueIndex(attributeNameGetter())
-                .transformValues(attributeValueGetter())
+                .uniqueIndex(Attribute::getName)
+                .transformValues(Attribute::getValue)
                 .map();
-    }
-
-    private static Function<Attribute, String> attributeNameGetter()
-    {
-        return new Function<Attribute, String>()
-        {
-            @Override
-            public String apply(Attribute attribute)
-            {
-                return attribute.getName();
-            }
-        };
-    }
-
-    private static Function<Attribute, Object> attributeValueGetter()
-    {
-        return new Function<Attribute, Object>()
-        {
-            @Override
-            public Object apply(Attribute attribute)
-            {
-                return attribute.getValue();
-            }
-        };
     }
 }
