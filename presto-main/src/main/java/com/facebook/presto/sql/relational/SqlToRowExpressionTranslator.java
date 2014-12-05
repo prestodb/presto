@@ -75,7 +75,6 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.facebook.presto.sql.relational.Expressions.field;
-import static com.facebook.presto.sql.relational.RowExpression.typeGetter;
 import static com.facebook.presto.sql.relational.Signatures.arithmeticExpressionSignature;
 import static com.facebook.presto.sql.relational.Signatures.arithmeticNegationSignature;
 import static com.facebook.presto.sql.relational.Signatures.arrayConstructorSignature;
@@ -261,7 +260,7 @@ public final class SqlToRowExpressionTranslator
                     .toList();
 
             List<TypeSignature> argumentTypes = FluentIterable.from(arguments)
-                    .transform(typeGetter())
+                    .transform(RowExpression::getType)
                     .transform(typeSignatureGetter())
                     .toList();
             Signature signature = new Signature(node.getName().getSuffix(), types.get(node).getTypeSignature(), argumentTypes);
@@ -322,7 +321,7 @@ public final class SqlToRowExpressionTranslator
                     .transform(processFunction(context))
                     .toList();
 
-            List<Type> argumentTypes = FluentIterable.from(arguments).transform(typeGetter()).toList();
+            List<Type> argumentTypes = FluentIterable.from(arguments).transform(RowExpression::getType).toList();
             return call(coalesceSignature(types.get(node), argumentTypes), types.get(node), arguments);
         }
 
@@ -510,7 +509,7 @@ public final class SqlToRowExpressionTranslator
                     .transform(processFunction(context))
                     .toList();
             List<Type> argumentTypes = FluentIterable.from(arguments)
-                    .transform(typeGetter())
+                    .transform(RowExpression::getType)
                     .toList();
             return call(arrayConstructorSignature(types.get(node), argumentTypes), types.get(node), arguments);
         }
