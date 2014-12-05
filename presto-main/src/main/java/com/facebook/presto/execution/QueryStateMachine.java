@@ -46,7 +46,6 @@ import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.inDoneState;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
-import static com.facebook.presto.execution.StageInfo.stageStateGetter;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -390,7 +389,7 @@ public class QueryStateMachine
             return false;
         }
         return FluentIterable.from(getAllStages(rootStage))
-                .transform(stageStateGetter())
+                .transform(StageInfo::getState)
                 .allMatch(isStageRunningOrDone());
     }
 
