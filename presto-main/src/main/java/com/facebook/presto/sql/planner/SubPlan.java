@@ -77,7 +77,7 @@ public class SubPlan
 
         Multiset<PlanFragmentId> childrenIds = IterableTransformer.on(children)
                 .transform(SubPlan.fragmentGetter())
-                .transform(PlanFragment.idGetter())
+                .transform(PlanFragment::getId)
                 .bag();
 
         Preconditions.checkState(exchangeIds.equals(childrenIds), "Subplan exchange ids don't match child fragment ids (%s vs %s)", exchangeIds, childrenIds);

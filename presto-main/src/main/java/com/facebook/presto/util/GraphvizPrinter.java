@@ -150,7 +150,7 @@ public final class GraphvizPrinter
     public static String printDistributed(SubPlan plan)
     {
         List<PlanFragment> fragments = plan.getAllFragments();
-        Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, PlanFragment.idGetter());
+        Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, PlanFragment::getId);
         PlanNodeIdGenerator idGenerator = new PlanNodeIdGenerator();
 
         StringBuilder output = new StringBuilder();
