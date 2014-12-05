@@ -37,7 +37,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.operator.OperatorContext.operatorStatsGetter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
@@ -322,7 +321,7 @@ public class PipelineContext
             totalUserTime += driverStats.getTotalUserTime().roundTo(NANOSECONDS);
             totalBlockedTime += driverStats.getTotalBlockedTime().roundTo(NANOSECONDS);
 
-            List<OperatorStats> operators = ImmutableList.copyOf(transform(driverContext.getOperatorContexts(), operatorStatsGetter()));
+            List<OperatorStats> operators = ImmutableList.copyOf(transform(driverContext.getOperatorContexts(), OperatorContext::getOperatorStats));
             for (OperatorStats operator : operators) {
                 runningOperators.put(operator.getOperatorId(), operator);
             }
