@@ -16,6 +16,7 @@ package com.facebook.presto.connector.system;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.InMemoryRecordSet.Builder;
@@ -34,7 +35,6 @@ import javax.inject.Inject;
 import java.util.List;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static com.facebook.presto.metadata.MetadataUtil.columnTypeGetter;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.transform;
@@ -102,7 +102,7 @@ public class TaskSystemTable
     @Override
     public List<Type> getColumnTypes()
     {
-        return ImmutableList.copyOf(transform(TASK_TABLE.getColumns(), columnTypeGetter()));
+        return ImmutableList.copyOf(transform(TASK_TABLE.getColumns(), ColumnMetadata::getType));
     }
 
     @Override

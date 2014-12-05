@@ -19,7 +19,6 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -106,30 +105,6 @@ public final class MetadataUtil
         return null;
     }
 
-    public static Function<ColumnMetadata, Type> columnTypeGetter()
-    {
-        return new Function<ColumnMetadata, Type>()
-        {
-            @Override
-            public Type apply(ColumnMetadata columnMetadata)
-            {
-                return columnMetadata.getType();
-            }
-        };
-    }
-
-    public static Function<ColumnMetadata, String> columnNameGetter()
-    {
-        return new Function<ColumnMetadata, String>()
-        {
-            @Override
-            public String apply(ColumnMetadata columnMetadata)
-            {
-                return columnMetadata.getName();
-            }
-        };
-    }
-
     public static QualifiedTableName createQualifiedTableName(Session session, QualifiedName name)
     {
         checkNotNull(session, "session is null");
@@ -142,18 +117,6 @@ public final class MetadataUtil
         String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCatalog();
 
         return new QualifiedTableName(catalogName, schemaName, tableName);
-    }
-
-    public static Function<SchemaTableName, String> schemaNameGetter()
-    {
-        return new Function<SchemaTableName, String>()
-        {
-            @Override
-            public String apply(SchemaTableName schemaTableName)
-            {
-                return schemaTableName.getSchemaName();
-            }
-        };
     }
 
     public static class SchemaMetadataBuilder

@@ -29,7 +29,6 @@ import java.io.IOException;
 import java.io.Reader;
 import java.util.List;
 
-import static com.facebook.presto.metadata.MetadataUtil.columnTypeGetter;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 
@@ -52,7 +51,7 @@ public class DelimitedRecordSet
         this.columnSplitter = checkNotNull(columnSplitter, "columnSplitter is null");
         this.columns = ImmutableList.copyOf(columns);
 
-        this.columnTypes = ImmutableList.copyOf(transform(columns, columnTypeGetter()));
+        this.columnTypes = ImmutableList.copyOf(transform(columns, ColumnMetadata::getType));
     }
 
     @Override
