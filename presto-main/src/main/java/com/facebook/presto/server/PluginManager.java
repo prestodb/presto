@@ -25,7 +25,6 @@ import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeRegistry;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -39,7 +38,6 @@ import io.airlift.resolver.ArtifactResolver;
 import io.airlift.resolver.DefaultArtifact;
 import org.sonatype.aether.artifact.Artifact;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
@@ -300,20 +298,7 @@ public class PluginManager
     private static List<Artifact> sortedArtifacts(List<Artifact> artifacts)
     {
         List<Artifact> list = Lists.newArrayList(artifacts);
-        Collections.sort(list, Ordering.natural().nullsLast().onResultOf(artifactFileGetter()));
+        Collections.sort(list, Ordering.natural().nullsLast().onResultOf(Artifact::getFile));
         return list;
-    }
-
-    private static Function<Artifact, Comparable<File>> artifactFileGetter()
-    {
-        return new Function<Artifact, Comparable<File>>()
-        {
-            @Nullable
-            @Override
-            public Comparable<File> apply(Artifact input)
-            {
-                return input.getFile();
-            }
-        };
     }
 }
