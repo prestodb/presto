@@ -21,7 +21,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
@@ -188,19 +187,7 @@ public class TableScanNode
 
         }
 
-        private static Function<Partition, TupleDomain<ColumnHandle>> tupleDomainGetter()
-        {
-            return new Function<Partition, TupleDomain<ColumnHandle>>()
-            {
-                @Override
-                public TupleDomain<ColumnHandle> apply(Partition partition)
-                {
-                    return partition.getTupleDomain();
-                }
-            };
-        }
-
-            private static TupleDomain<ColumnHandle> computePartitionsDomainSummary(Optional<GeneratedPartitions> generatedPartitions)
+        private static TupleDomain<ColumnHandle> computePartitionsDomainSummary(Optional<GeneratedPartitions> generatedPartitions)
         {
             if (!generatedPartitions.isPresent()) {
                 return TupleDomain.all();
@@ -210,7 +197,7 @@ public class TableScanNode
                 return TupleDomain.none();
             }
 
-            List<TupleDomain<ColumnHandle>> domains = FluentIterable.from(generatedPartitions.get().getPartitions()).transform(tupleDomainGetter()).toList();
+            List<TupleDomain<ColumnHandle>> domains = FluentIterable.from(generatedPartitions.get().getPartitions()).transform(Partition::getTupleDomain).toList();
             return TupleDomain.columnWiseUnion(domains);
         }
 
