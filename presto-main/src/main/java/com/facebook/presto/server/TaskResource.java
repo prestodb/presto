@@ -56,7 +56,6 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
-import static com.facebook.presto.execution.TaskInfo.summarizeTaskInfo;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
@@ -88,7 +87,7 @@ public class TaskResource
     {
         List<TaskInfo> allTaskInfo = taskManager.getAllTaskInfo();
         if (shouldSummarize(uriInfo)) {
-            allTaskInfo = ImmutableList.copyOf(transform(allTaskInfo, summarizeTaskInfo()));
+            allTaskInfo = ImmutableList.copyOf(transform(allTaskInfo, TaskInfo::summarize));
         }
         return allTaskInfo;
     }
