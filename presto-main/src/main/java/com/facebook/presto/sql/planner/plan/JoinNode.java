@@ -17,7 +17,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Join;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
@@ -181,30 +180,6 @@ public class JoinNode
         public Symbol getRight()
         {
             return right;
-        }
-
-        public static Function<EquiJoinClause, Symbol> leftGetter()
-        {
-            return new Function<EquiJoinClause, Symbol>()
-            {
-                @Override
-                public Symbol apply(EquiJoinClause input)
-                {
-                    return input.getLeft();
-                }
-            };
-        }
-
-        public static Function<EquiJoinClause, Symbol> rightGetter()
-        {
-            return new Function<EquiJoinClause, Symbol>()
-            {
-                @Override
-                public Symbol apply(EquiJoinClause input)
-                {
-                    return input.getRight();
-                }
-            };
         }
     }
 }

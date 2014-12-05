@@ -52,8 +52,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
-import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -103,8 +101,8 @@ public class IndexJoinOptimizer
             PlanNode rightRewritten = planRewriter.rewrite(node.getRight(), context);
 
             if (!node.getCriteria().isEmpty()) { // Index join only possible with JOIN criteria
-                List<Symbol> leftJoinSymbols = Lists.transform(node.getCriteria(), leftGetter());
-                List<Symbol> rightJoinSymbols = Lists.transform(node.getCriteria(), rightGetter());
+                List<Symbol> leftJoinSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft);
+                List<Symbol> rightJoinSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight);
 
                 Optional<PlanNode> leftIndexCandidate = IndexSourceRewriter.rewriteWithIndex(
                         leftRewritten,

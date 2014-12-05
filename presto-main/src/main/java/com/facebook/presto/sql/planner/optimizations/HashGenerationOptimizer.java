@@ -46,8 +46,6 @@ import com.google.common.collect.Lists;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
-import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -192,8 +190,8 @@ public class HashGenerationOptimizer
         {
             List<JoinNode.EquiJoinClause> clauses = node.getCriteria();
 
-            List<Symbol> leftSymbols = Lists.transform(clauses, leftGetter());
-            List<Symbol> rightSymbols = Lists.transform(clauses, rightGetter());
+            List<Symbol> leftSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft);
+            List<Symbol> rightSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getRight);
 
             PlanNode rewrittenLeft = planRewriter.rewrite(node.getLeft(), null);
             PlanNode rewrittenRight = planRewriter.rewrite(node.getRight(), null);
