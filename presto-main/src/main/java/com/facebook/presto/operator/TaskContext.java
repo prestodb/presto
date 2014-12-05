@@ -32,7 +32,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.operator.PipelineContext.pipelineStatsGetter;
 import static com.facebook.presto.util.Threads.checkNotSameThreadExecutor;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -258,7 +257,7 @@ public class TaskContext
             }
         }
 
-        List<PipelineStats> pipelineStats = ImmutableList.copyOf(transform(pipelineContexts, pipelineStatsGetter()));
+        List<PipelineStats> pipelineStats = ImmutableList.copyOf(transform(pipelineContexts, PipelineContext::getPipelineStats));
 
         int totalDrivers = 0;
         int queuedDrivers = 0;
