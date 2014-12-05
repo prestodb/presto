@@ -146,6 +146,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testMaps()
+            throws Exception
+    {
+        assertQuery("SELECT m[max_key] FROM (SELECT map_agg(orderkey, orderkey) m, max(orderkey) max_key FROM orders)", "SELECT max(orderkey) FROM orders");
+    }
+
+    @Test
     public void testValues()
             throws Exception
     {

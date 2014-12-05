@@ -189,7 +189,7 @@ public class GroupByHash
         return false;
     }
 
-    private int putIfAbsent(int position, Page page, Block[] hashBlocks)
+    public int putIfAbsent(int position, Page page, Block[] hashBlocks)
     {
         int rawHash = hashGenerator.hashPosition(position, page);
         int hashPosition = getHashPosition(rawHash, mask);
