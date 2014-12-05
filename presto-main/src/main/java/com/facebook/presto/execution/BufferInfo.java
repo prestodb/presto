@@ -15,7 +15,6 @@ package com.facebook.presto.execution;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
@@ -98,17 +97,5 @@ public class BufferInfo
                 .add("bufferedPages", bufferedPages)
                 .add("pagesSent", pagesSent)
                 .toString();
-    }
-
-    public static Function<BufferInfo, TaskId> bufferIdGetter()
-    {
-        return new Function<BufferInfo, TaskId>()
-        {
-            @Override
-            public TaskId apply(BufferInfo taskInfo)
-            {
-                return taskInfo.getBufferId();
-            }
-        };
     }
 }

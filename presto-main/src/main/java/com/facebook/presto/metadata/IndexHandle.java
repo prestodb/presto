@@ -16,7 +16,6 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 
 import java.util.Objects;
 
@@ -72,17 +71,5 @@ public final class IndexHandle
     public String toString()
     {
         return connectorId + ":" + connectorHandle;
-    }
-
-    public static Function<IndexHandle, ConnectorIndexHandle> connectorHandleGetter()
-    {
-        return new Function<IndexHandle, ConnectorIndexHandle>()
-        {
-            @Override
-            public ConnectorIndexHandle apply(IndexHandle input)
-            {
-                return input.getConnectorHandle();
-            }
-        };
     }
 }

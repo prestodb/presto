@@ -37,7 +37,6 @@ import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import javax.annotation.Nullable;
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -380,19 +379,6 @@ public class SqlQueryManager
         expirationQueue.add(execution);
 
         return execution.getQueryInfo();
-    }
-
-    private static Function<QueryExecution, DateTime> endTimeGetter()
-    {
-        return new Function<QueryExecution, DateTime>()
-        {
-            @Nullable
-            @Override
-            public DateTime apply(QueryExecution input)
-            {
-                return input.getQueryInfo().getQueryStats().getEndTime();
-            }
-        };
     }
 
     private static class QueryStarter
