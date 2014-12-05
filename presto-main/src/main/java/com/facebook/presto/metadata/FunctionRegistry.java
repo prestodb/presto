@@ -126,8 +126,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.metadata.ParametricFunctionUtils.isAggregationPredicate;
-import static com.facebook.presto.metadata.ParametricFunctionUtils.isHiddenPredicate;
 import static com.facebook.presto.operator.aggregation.CountColumn.COUNT_COLUMN;
 import static com.facebook.presto.operator.aggregation.ArbitraryAggregation.ARBITRARY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MaxBy.MAX_BY;
@@ -324,13 +322,13 @@ public class FunctionRegistry
     public List<ParametricFunction> list()
     {
         return FluentIterable.from(functions.list())
-                .filter(not(isHiddenPredicate()))
+                .filter(not(ParametricFunction::isHidden))
                 .toList();
     }
 
     public boolean isAggregationFunction(QualifiedName name)
     {
-        return Iterables.any(functions.get(name), isAggregationPredicate());
+        return Iterables.any(functions.get(name), ParametricFunction::isAggregate);
     }
 
     public FunctionInfo resolveFunction(QualifiedName name, List<TypeSignature> parameterTypes, final boolean approximate)
@@ -687,7 +685,7 @@ public class FunctionRegistry
             // Make sure all functions with the same name are aggregations or none of them are
             for (Map.Entry<QualifiedName, Collection<ParametricFunction>> entry : this.functions.asMap().entrySet()) {
                 Collection<ParametricFunction> values = entry.getValue();
-                checkState(Iterables.all(values, isAggregationPredicate()) || !Iterables.any(values, isAggregationPredicate()),
+                checkState(Iterables.all(values, ParametricFunction::isAggregate) || !Iterables.any(values, ParametricFunction::isAggregate),
                         "'%s' is both an aggregation and a scalar function", entry.getKey());
             }
         }
