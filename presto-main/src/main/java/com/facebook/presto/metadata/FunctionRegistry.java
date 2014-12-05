@@ -557,6 +557,20 @@ public class FunctionRegistry
         return false;
     }
 
+    public static Optional<Type> getCommonSuperType(List<? extends Type> types)
+    {
+        checkArgument(!types.isEmpty(), "types is empty");
+        Type superType = UNKNOWN;
+        for (Type type : types) {
+            Optional<Type> commonSuperType = getCommonSuperType(superType, type);
+            if (!commonSuperType.isPresent()) {
+                return Optional.absent();
+            }
+            superType = commonSuperType.get();
+        }
+        return Optional.of(superType);
+    }
+
     public static Optional<Type> getCommonSuperType(Type firstType, Type secondType)
     {
         if (firstType.equals(UNKNOWN)) {
