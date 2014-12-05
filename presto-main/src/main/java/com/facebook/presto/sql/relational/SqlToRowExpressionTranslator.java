@@ -91,7 +91,6 @@ import static com.facebook.presto.sql.relational.Signatures.switchSignature;
 import static com.facebook.presto.sql.relational.Signatures.tryCastSignature;
 import static com.facebook.presto.sql.relational.Signatures.whenSignature;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
-import static com.facebook.presto.type.TypeUtils.typeSignatureGetter;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithoutTimeZone;
@@ -261,7 +260,7 @@ public final class SqlToRowExpressionTranslator
 
             List<TypeSignature> argumentTypes = FluentIterable.from(arguments)
                     .transform(RowExpression::getType)
-                    .transform(typeSignatureGetter())
+                    .transform(Type::getTypeSignature)
                     .toList();
             Signature signature = new Signature(node.getName().getSuffix(), types.get(node).getTypeSignature(), argumentTypes);
 

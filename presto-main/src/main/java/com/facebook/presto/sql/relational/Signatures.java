@@ -33,7 +33,6 @@ import static com.facebook.presto.metadata.Signature.internalFunction;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
-import static com.facebook.presto.type.TypeUtils.typeSignatureGetter;
 
 public final class Signatures
 {
@@ -104,7 +103,7 @@ public final class Signatures
 
     public static Signature arrayConstructorSignature(Type returnType, List<? extends Type> argumentTypes)
     {
-        return internalFunction(ARRAY_CONSTRUCTOR, returnType.getTypeSignature(), Lists.transform(argumentTypes, typeSignatureGetter()));
+        return internalFunction(ARRAY_CONSTRUCTOR, returnType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature));
     }
 
     public static Signature arrayConstructorSignature(TypeSignature returnType, List<TypeSignature> argumentTypes)
@@ -157,6 +156,6 @@ public final class Signatures
 
     public static Signature coalesceSignature(Type returnType, List<Type> argumentTypes)
     {
-        return internalFunction(COALESCE, returnType.getTypeSignature(), Lists.transform(argumentTypes, typeSignatureGetter()));
+        return internalFunction(COALESCE, returnType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature));
     }
 }
