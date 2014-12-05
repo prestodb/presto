@@ -22,6 +22,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 
 import java.util.List;
 
@@ -31,15 +32,18 @@ public class AggregateWindowFunction
         implements WindowFunction
 {
     private final InternalAggregationFunction function;
-    private final List<Integer> argumentChannels;
+    private final int[] argumentChannels;
     private final AccumulatorFactory accumulatorFactory;
 
     private WindowIndex windowIndex;
+    private Accumulator accumulator;
+    private int currentStart;
+    private int currentEnd;
 
     private AggregateWindowFunction(InternalAggregationFunction function, List<Integer> argumentChannels)
     {
         this.function = checkNotNull(function, "function is null");
-        this.argumentChannels = ImmutableList.copyOf(argumentChannels);
+        this.argumentChannels = Ints.toArray(argumentChannels);
         this.accumulatorFactory = function.bind(createArgs(function), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0);
     }
 
@@ -53,22 +57,52 @@ public class AggregateWindowFunction
     public void reset(WindowIndex windowIndex)
     {
         this.windowIndex = windowIndex;
+        resetAccumulator();
     }
 
     @Override
     public void processRow(BlockBuilder output, int peerGroupStart, int peerGroupEnd, int frameStart, int frameEnd)
     {
+        if (frameStart < 0) {
+            // empty frame
+            resetAccumulator();
+        }
+        else if ((frameStart == currentStart) && (frameEnd >= currentEnd)) {
+            // same or expanding frame
+            accumulate(currentEnd + 1, frameEnd);
+            currentEnd = frameEnd;
+        }
+        else {
+            // different frame
+            resetAccumulator();
+            accumulate(frameStart, frameEnd);
+            currentStart = frameStart;
+            currentEnd = frameEnd;
+        }
+
+        accumulator.evaluateFinal(output);
+    }
+
+    private void accumulate(int start, int end)
+    {
+        // TODO: add Accumulator method that does not require creating pages
         PageBuilder pageBuilder = new PageBuilder(function.getParameterTypes());
-        for (int position = frameStart; (position >= 0) && (position <= frameEnd); position++) {
+        for (int position = start; position <= end; position++) {
             for (int i = 0; i < function.getParameterTypes().size(); i++) {
-                windowIndex.appendTo(argumentChannels.get(i), position, pageBuilder.getBlockBuilder(i));
+                windowIndex.appendTo(argumentChannels[i], position, pageBuilder.getBlockBuilder(i));
             }
             pageBuilder.declarePosition();
         }
-
-        Accumulator accumulator = accumulatorFactory.createAccumulator();
         accumulator.addInput(pageBuilder.build());
-        accumulator.evaluateFinal(output);
+    }
+
+    private void resetAccumulator()
+    {
+        if (currentStart >= 0) {
+            accumulator = accumulatorFactory.createAccumulator();
+            currentStart = -1;
+            currentEnd = -1;
+        }
     }
 
     public static WindowFunctionSupplier supplier(Signature signature, final InternalAggregationFunction function)
