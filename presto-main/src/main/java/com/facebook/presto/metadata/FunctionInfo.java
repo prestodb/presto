@@ -20,7 +20,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
@@ -248,17 +247,5 @@ public final class FunctionInfo
                 .add("isAggregate", isAggregate)
                 .add("isWindow", isWindow)
                 .toString();
-    }
-
-    public static Function<FunctionInfo, Signature> handleGetter()
-    {
-        return new Function<FunctionInfo, Signature>()
-        {
-            @Override
-            public Signature apply(FunctionInfo input)
-            {
-                return input.getSignature();
-            }
-        };
     }
 }
