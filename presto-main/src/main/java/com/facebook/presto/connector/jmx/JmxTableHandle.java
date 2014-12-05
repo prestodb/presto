@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.connector.jmx.JmxColumnHandle.columnMetadataGetter;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Iterables.transform;
 
@@ -94,6 +93,6 @@ public class JmxTableHandle
 
     public ConnectorTableMetadata getTableMetadata()
     {
-        return new ConnectorTableMetadata(new SchemaTableName(JmxMetadata.SCHEMA_NAME, objectName), ImmutableList.copyOf(transform(columns, columnMetadataGetter())));
+        return new ConnectorTableMetadata(new SchemaTableName(JmxMetadata.SCHEMA_NAME, objectName), ImmutableList.copyOf(transform(columns, JmxColumnHandle::getColumnMetadata)));
     }
 }
