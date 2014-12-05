@@ -30,7 +30,6 @@ import java.util.List;
 import static com.facebook.presto.metadata.FunctionRegistry.getMagicLiteralFunctionSignature;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.metadata.FunctionRegistry.unmangleOperator;
-import static com.facebook.presto.metadata.ParametricFunctionUtils.nameGetter;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -126,7 +125,7 @@ public class TestFunctionRegistry
     {
         FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
         List<ParametricFunction> functions = registry.list();
-        List<String> names = transform(functions, nameGetter());
+        List<String> names = transform(functions, input -> input.getSignature().getName());
 
         assertTrue(names.contains("length"), "Expected function names " + names + " to contain 'length'");
         assertTrue(names.contains("stddev"), "Expected function names " + names + " to contain 'stddev'");
