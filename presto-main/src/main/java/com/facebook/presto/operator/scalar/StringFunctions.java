@@ -268,12 +268,4 @@ public final class StringFunctions
         }
         return upper;
     }
-
-    @Description("get the largest of the given values")
-    @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice greatest(@SqlType(StandardTypes.VARCHAR) Slice value1, @SqlType(StandardTypes.VARCHAR) Slice value2)
-    {
-        return value1.compareTo(value2) > 0 ? value1 : value2;
-    }
 }
