@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
-import com.google.common.base.Function;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
@@ -37,7 +36,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.operator.OperatorContext.operatorStatsGetter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
@@ -322,7 +320,7 @@ public class PipelineContext
             totalUserTime += driverStats.getTotalUserTime().roundTo(NANOSECONDS);
             totalBlockedTime += driverStats.getTotalBlockedTime().roundTo(NANOSECONDS);
 
-            List<OperatorStats> operators = ImmutableList.copyOf(transform(driverContext.getOperatorContexts(), operatorStatsGetter()));
+            List<OperatorStats> operators = ImmutableList.copyOf(transform(driverContext.getOperatorContexts(), OperatorContext::getOperatorStats));
             for (OperatorStats operator : operators) {
                 runningOperators.put(operator.getOperatorId(), operator);
             }
@@ -382,18 +380,6 @@ public class PipelineContext
 
                 ImmutableList.copyOf(operatorSummaries.values()),
                 drivers);
-    }
-
-    public static Function<PipelineContext, PipelineStats> pipelineStatsGetter()
-    {
-        return new Function<PipelineContext, PipelineStats>()
-        {
-            @Override
-            public PipelineStats apply(PipelineContext pipelineContext)
-            {
-                return pipelineContext.getPipelineStats();
-            }
-        };
     }
 
     private static <K, V> boolean compareAndSet(ConcurrentMap<K, V> map, K key, V oldValue, V newValue)

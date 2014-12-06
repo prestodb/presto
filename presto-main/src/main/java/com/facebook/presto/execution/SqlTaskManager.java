@@ -191,7 +191,7 @@ public class SqlTaskManager
     @Override
     public List<TaskInfo> getAllTaskInfo()
     {
-        return ImmutableList.copyOf(transform(tasks.asMap().values(), SqlTask.taskInfoGetter()));
+        return ImmutableList.copyOf(transform(tasks.asMap().values(), SqlTask::getTaskInfo));
     }
 
     @Override
@@ -254,7 +254,7 @@ public class SqlTaskManager
     public void removeOldTasks()
     {
         DateTime oldestAllowedTask = DateTime.now().minus(infoCacheTime.toMillis());
-        for (TaskInfo taskInfo : filter(transform(tasks.asMap().values(), SqlTask.taskInfoGetter()), notNull())) {
+        for (TaskInfo taskInfo : filter(transform(tasks.asMap().values(), SqlTask::getTaskInfo), notNull())) {
             try {
                 DateTime endTime = taskInfo.getStats().getEndTime();
                 if (endTime != null && endTime.isBefore(oldestAllowedTask)) {

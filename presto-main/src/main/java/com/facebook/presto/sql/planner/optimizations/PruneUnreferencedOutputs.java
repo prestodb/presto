@@ -61,8 +61,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
-import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.Iterables.concat;
@@ -107,14 +105,14 @@ public class PruneUnreferencedOutputs
         public PlanNode rewriteJoin(JoinNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
             ImmutableSet.Builder<Symbol> leftInputsBuilder = ImmutableSet.builder();
-            leftInputsBuilder.addAll(expectedOutputs).addAll(Iterables.transform(node.getCriteria(), leftGetter()));
+            leftInputsBuilder.addAll(expectedOutputs).addAll(Iterables.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft));
             if (node.getLeftHashSymbol().isPresent()) {
                 leftInputsBuilder.add(node.getLeftHashSymbol().get());
             }
             Set<Symbol> leftInputs = leftInputsBuilder.build();
 
             ImmutableSet.Builder<Symbol> rightInputsBuilder = ImmutableSet.builder();
-            rightInputsBuilder.addAll(expectedOutputs).addAll(Iterables.transform(node.getCriteria(), rightGetter()));
+            rightInputsBuilder.addAll(expectedOutputs).addAll(Iterables.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight));
             if (node.getRightHashSymbol().isPresent()) {
                 rightInputsBuilder.add(node.getRightHashSymbol().get());
             }
@@ -162,7 +160,7 @@ public class PruneUnreferencedOutputs
         {
             ImmutableSet.Builder<Symbol> probeInputsBuilder = ImmutableSet.builder();
             probeInputsBuilder.addAll(expectedOutputs)
-                    .addAll(Iterables.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause.probeGetter()));
+                    .addAll(Iterables.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause::getProbe));
             if (node.getProbeHashSymbol().isPresent()) {
                 probeInputsBuilder.add(node.getProbeHashSymbol().get());
             }
@@ -170,7 +168,7 @@ public class PruneUnreferencedOutputs
 
             ImmutableSet.Builder<Symbol> indexInputBuilder = ImmutableSet.builder();
             indexInputBuilder.addAll(expectedOutputs)
-                    .addAll(Iterables.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause.indexGetter()));
+                    .addAll(Iterables.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause::getIndex));
             if (node.getIndexHashSymbol().isPresent()) {
                 indexInputBuilder.add(node.getIndexHashSymbol().get());
             }

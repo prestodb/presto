@@ -39,7 +39,6 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
@@ -53,8 +52,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
-import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -104,8 +101,8 @@ public class IndexJoinOptimizer
             PlanNode rightRewritten = planRewriter.rewrite(node.getRight(), context);
 
             if (!node.getCriteria().isEmpty()) { // Index join only possible with JOIN criteria
-                List<Symbol> leftJoinSymbols = Lists.transform(node.getCriteria(), leftGetter());
-                List<Symbol> rightJoinSymbols = Lists.transform(node.getCriteria(), rightGetter());
+                List<Symbol> leftJoinSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft);
+                List<Symbol> rightJoinSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight);
 
                 Optional<PlanNode> leftIndexCandidate = IndexSourceRewriter.rewriteWithIndex(
                         leftRewritten,
@@ -185,18 +182,6 @@ public class IndexJoinOptimizer
             {
                 checkArgument(expression instanceof QualifiedNameReference);
                 return Symbol.fromQualifiedName(((QualifiedNameReference) expression).getName());
-            }
-        };
-    }
-
-    private static Predicate<Expression> instanceOfQualifiedNameReference()
-    {
-        return new Predicate<Expression>()
-        {
-            @Override
-            public boolean apply(Expression expression)
-            {
-                return expression instanceof QualifiedNameReference;
             }
         };
     }
@@ -285,7 +270,7 @@ public class IndexJoinOptimizer
             // Rewrite the lookup symbols in terms of only the pre-projected symbols that have direct translations
             Set<Symbol> newLookupSymbols = FluentIterable.from(context.getLookupSymbols())
                     .transform(Functions.forMap(node.getAssignments()))
-                    .filter(instanceOfQualifiedNameReference())
+                    .filter(expression -> expression instanceof QualifiedNameReference)
                     .transform(symbolFromReferenceGetter())
                     .toSet();
 
@@ -407,7 +392,7 @@ public class IndexJoinOptimizer
             public Map<Symbol, Symbol> visitProject(ProjectNode node, Set<Symbol> lookupSymbols)
             {
                 // Map from output Symbols to source Symbols
-                Map<Symbol, Symbol> directSymbolTranslationOutputMap = Maps.transformValues(Maps.filterValues(node.getAssignments(), instanceOfQualifiedNameReference()), symbolFromReferenceGetter());
+                Map<Symbol, Symbol> directSymbolTranslationOutputMap = Maps.transformValues(Maps.filterValues(node.getAssignments(), expression -> expression instanceof QualifiedNameReference), symbolFromReferenceGetter());
                 Map<Symbol, Symbol> outputToSourceMap = FluentIterable.from(lookupSymbols)
                         .filter(in(directSymbolTranslationOutputMap.keySet()))
                         .toMap(Functions.forMap(directSymbolTranslationOutputMap));

@@ -69,7 +69,6 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.connector.system.CatalogSystemTable.CATALOG_TABLE_NAME;
-import static com.facebook.presto.metadata.MetadataUtil.columnTypeGetter;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.QueryUtil.aliased;
 import static com.facebook.presto.sql.QueryUtil.aliasedName;
@@ -86,7 +85,6 @@ import static com.facebook.presto.sql.QueryUtil.subquery;
 import static com.facebook.presto.sql.QueryUtil.table;
 import static com.facebook.presto.sql.QueryUtil.unaliasedName;
 import static com.facebook.presto.sql.QueryUtil.values;
-import static com.facebook.presto.sql.analyzer.Field.typeGetter;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
@@ -393,9 +391,9 @@ class StatementAnalyzer
         analysis.setInsertTarget(targetTableHandle.get());
 
         List<ColumnMetadata> columns = metadata.getTableMetadata(targetTableHandle.get()).getColumns();
-        Iterable<Type> tableTypes = transform(columns, columnTypeGetter());
+        Iterable<Type> tableTypes = transform(columns, ColumnMetadata::getType);
 
-        Iterable<Type> queryTypes = transform(descriptor.getVisibleFields(), typeGetter());
+        Iterable<Type> queryTypes = transform(descriptor.getVisibleFields(), Field::getType);
 
         if (!elementsEqual(tableTypes, queryTypes)) {
             throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES, insert, "Insert query has mismatched column types: " +

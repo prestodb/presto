@@ -206,16 +206,4 @@ public class PlanFragment
                 .add("hashChannel", hashChannel)
                 .toString();
     }
-
-    public static Function<PlanFragment, PlanFragmentId> idGetter()
-    {
-        return new Function<PlanFragment, PlanFragmentId>()
-        {
-            @Override
-            public PlanFragmentId apply(PlanFragment input)
-            {
-                return input.getId();
-            }
-        };
-    }
 }

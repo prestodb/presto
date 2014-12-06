@@ -1064,9 +1064,9 @@ public abstract class AbstractTestQueries
     public void testNonEqualityJoin()
             throws Exception
     {
-        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate > DATE '1994-01-01'");
-        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate <= DATE '1994-01-01'");
-        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate != DATE '1994-01-01'");
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 2");
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity <= 2");
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity != 2");
         assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate > orders.orderdate");
         assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.orderdate < lineitem.shipdate");
     }
@@ -1075,14 +1075,14 @@ public abstract class AbstractTestQueries
     public void testNonEqualityLeftJoin()
             throws Exception
     {
-        assertQuery("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate > DATE '1994-01-01'");
+        assertQuery("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 2");
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Non-equi.*")
     public void testNonEqualityRightJoin()
             throws Exception
     {
-        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate > DATE '1994-01-01'");
+        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 2");
     }
 
     @Test
@@ -1900,6 +1900,12 @@ public abstract class AbstractTestQueries
         // there are 3 distinct orderstatus, so expect 15 rows.
         assertEquals(actual.getMaterializedRows().size(), 15);
         assertTrue(all.getMaterializedRows().containsAll(actual.getMaterializedRows()));
+    }
+
+    @Test(timeOut = 60000)
+    public void testRowNumberWithLimit() throws Exception
+    {
+        assertQuery("SELECT row_number() over() as rn FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey where orders.orderkey = 10000 limit 20");
     }
 
     @Test

@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 import org.joda.time.DateTime;
 
 import java.net.URI;
@@ -111,17 +110,5 @@ public class PageBufferClientStatus
                 .add("pagesReceived", pagesReceived)
                 .add("httpRequestState", httpRequestState)
                 .toString();
-    }
-
-    public static Function<PageBufferClientStatus, URI> uriGetter()
-    {
-        return new Function<PageBufferClientStatus, URI>()
-        {
-            @Override
-            public URI apply(PageBufferClientStatus input)
-            {
-                return input.getUri();
-            }
-        };
     }
 }

@@ -273,19 +273,6 @@ public class SqlTask
         return taskId.toString();
     }
 
-    public static Function<SqlTask, TaskInfo> taskInfoGetter()
-    {
-        return new Function<SqlTask, TaskInfo>()
-        {
-            @Nullable
-            @Override
-            public TaskInfo apply(SqlTask sqlTask)
-            {
-                return sqlTask.getTaskInfo();
-            }
-        };
-    }
-
     private static final class TaskHolder
     {
         private final SqlTaskExecution taskExecution;

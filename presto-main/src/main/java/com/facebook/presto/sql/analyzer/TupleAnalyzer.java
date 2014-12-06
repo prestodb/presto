@@ -92,7 +92,6 @@ import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static com.facebook.presto.sql.analyzer.Field.typeGetter;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
@@ -563,11 +562,11 @@ public class TupleAnalyzer
 
         // Use the first descriptor as the output descriptor for the VALUES
         TupleDescriptor outputDescriptor = analyzer.process(node.getRows().get(0), context).withOnlyVisibleFields();
-        Iterable<Type> types = transform(outputDescriptor.getVisibleFields(), typeGetter());
+        Iterable<Type> types = transform(outputDescriptor.getVisibleFields(), Field::getType);
 
         for (Row row : Iterables.skip(node.getRows(), 1)) {
             TupleDescriptor descriptor = analyzer.process(row, context);
-            Iterable<Type> rowTypes = transform(descriptor.getVisibleFields(), typeGetter());
+            Iterable<Type> rowTypes = transform(descriptor.getVisibleFields(), Field::getType);
             if (!elementsEqual(types, rowTypes)) {
                 throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES, node, "Values rows have mismatched types: " +
                         "Expected: (" + Joiner.on(", ").join(types) + "), " +

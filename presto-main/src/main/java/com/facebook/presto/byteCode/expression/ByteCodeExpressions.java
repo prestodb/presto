@@ -24,7 +24,6 @@ import java.lang.reflect.Method;
 import static com.facebook.presto.byteCode.ParameterizedType.toParameterizedType;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.expression.ArithmeticByteCodeExpression.createArithmeticByteCodeExpression;
-import static com.facebook.presto.byteCode.expression.ByteCodeExpression.typeGetter;
 import static com.facebook.presto.byteCode.instruction.Constant.loadBoolean;
 import static com.facebook.presto.byteCode.instruction.Constant.loadClass;
 import static com.facebook.presto.byteCode.instruction.Constant.loadDouble;
@@ -172,7 +171,7 @@ public final class ByteCodeExpressions
     {
         return newInstance(
                 returnType,
-                ImmutableList.copyOf(transform(checkNotNull(parameters, "parameters is null"), typeGetter())),
+                ImmutableList.copyOf(transform(checkNotNull(parameters, "parameters is null"), ByteCodeExpression::getType)),
                 parameters);
     }
 
@@ -213,7 +212,7 @@ public final class ByteCodeExpressions
                 type(checkNotNull(methodTargetType, "methodTargetType is null")),
                 methodName,
                 type(checkNotNull(returnType, "returnType is null")),
-                ImmutableList.copyOf(transform(checkNotNull(parameters, "parameters is null"), typeGetter())),
+                ImmutableList.copyOf(transform(checkNotNull(parameters, "parameters is null"), ByteCodeExpression::getType)),
                 parameters);
     }
 
@@ -284,7 +283,7 @@ public final class ByteCodeExpressions
                 bootstrapArgs,
                 methodName,
                 type(checkNotNull(returnType, "returnType is null")),
-                ImmutableList.copyOf(transform(checkNotNull(parameters, "parameters is null"), typeGetter())),
+                ImmutableList.copyOf(transform(checkNotNull(parameters, "parameters is null"), ByteCodeExpression::getType)),
                 parameters);
     }
 

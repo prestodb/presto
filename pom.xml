@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>28</version>
+        <version>29</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.87-SNAPSHOT</version>
+    <version>0.88-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -45,7 +45,7 @@
 
         <dep.antlr.version>3.4</dep.antlr.version>
         <dep.slice.version>0.7</dep.slice.version>
-        <dep.airlift.version>0.98-SNAPSHOT</dep.airlift.version>
+        <dep.airlift.version>0.98</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
 
         <cli.skip-execute>true</cli.skip-execute>
@@ -388,7 +388,7 @@
             <dependency>
                 <groupId>io.airlift.tpch</groupId>
                 <artifactId>tpch</artifactId>
-                <version>0.3-SNAPSHOT</version>
+                <version>0.3</version>
             </dependency>
 
             <dependency>
@@ -796,6 +796,25 @@
 
         <plugins>
             <plugin>
+                <groupId>org.gaul</groupId>
+                <artifactId>modernizer-maven-plugin</artifactId>
+                <version>1.1.0</version>
+                <configuration>
+                    <javaVersion>1.8</javaVersion>
+                    <failOnViolations>false</failOnViolations>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>modernizer</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>modernizer</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
                 <version>2.11</version>
@@ -815,6 +834,24 @@
                         </configuration>
                     </execution>
                 </executions>
+                <dependencies>
+                    <!-- The version of checkstyle the plugin depends on doesn't support Java 8,
+                         so override it manually until a new version of the plugin is released.
+                         This is copied verbatim from the dependency declaration in the checkstyle
+                         plugin -->
+                    <dependency>
+                        <groupId>com.puppycrawl.tools</groupId>
+                        <artifactId>checkstyle</artifactId>
+                        <version>6.1.1</version>
+                        <exclusions>
+                            <!-- MCHECKSTYLE-156 -->
+                            <exclusion>
+                                <groupId>com.sun</groupId>
+                                <artifactId>tools</artifactId>
+                            </exclusion>
+                        </exclusions>
+                    </dependency>
+                </dependencies>
             </plugin>
 
             <plugin>
@@ -829,6 +866,14 @@
                 <artifactId>provisio-maven-plugin</artifactId>
                 <version>0.1.11</version>
                 <extensions>true</extensions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration combine.children="append">
+                    <fork>false</fork>
+                </configuration>
             </plugin>
         </plugins>
     </build>
@@ -849,6 +894,22 @@
                             <arguments>
                                 <argument>--debug</argument>
                             </arguments>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>travis</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration combine.children="append">
+                            <argLine>${argLine} -Duser.timezone=${test.timezone} -Xmx1280m -Xms1280m</argLine>
+                            <parallel></parallel>
+                            <threadCount>1</threadCount>
                         </configuration>
                     </plugin>
                 </plugins>

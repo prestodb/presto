@@ -261,7 +261,10 @@ public class H2QueryRunner
                         part.bind(column, cursor.getSlice(column).toStringUtf8());
                     }
                     else if (DATE.equals(type)) {
-                        part.bind(column, new Date(cursor.getLong(column)));
+                        long millisUtc = cursor.getLong(column);
+                        // H2 expects dates in to be millis at midnight in the JVM timezone
+                        long localMillis = DateTimeZone.UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millisUtc);
+                        part.bind(column, new Date(localMillis));
                     }
                     else {
                         throw new IllegalArgumentException("Unsupported type " + type);

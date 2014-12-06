@@ -29,12 +29,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.sql.analyzer.Field.isVisiblePredicate;
-import static com.facebook.presto.sql.analyzer.Field.relationAliasGetter;
 import static com.facebook.presto.sql.analyzer.Optionals.isPresentPredicate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Predicates.not;
 
 @Immutable
 public class TupleDescriptor
@@ -53,7 +52,7 @@ public class TupleDescriptor
     {
         checkNotNull(fields, "fields is null");
         this.allFields = ImmutableList.copyOf(fields);
-        this.visibleFields = ImmutableList.copyOf(Iterables.filter(fields, isVisiblePredicate()));
+        this.visibleFields = ImmutableList.copyOf(Iterables.filter(fields, not(Field::isHidden)));
 
         int index = 0;
         ImmutableMap.Builder<Field, Integer> builder = ImmutableMap.builder();
@@ -120,7 +119,7 @@ public class TupleDescriptor
     public Set<QualifiedName> getRelationAliases()
     {
         return IterableTransformer.on(allFields)
-                .transform(relationAliasGetter())
+                .transform(Field::getRelationAlias)
                 .select(isPresentPredicate())
                 .transform(Optionals.<QualifiedName>optionalGetter())
                 .set();
@@ -132,7 +131,7 @@ public class TupleDescriptor
     public List<Field> resolveFieldsWithPrefix(Optional<QualifiedName> prefix)
     {
         return IterableTransformer.on(visibleFields)
-                .select(Field.matchesPrefixPredicate(prefix))
+                .select(input -> input.matchesPrefix(prefix))
                 .list();
     }
 
@@ -142,7 +141,7 @@ public class TupleDescriptor
     public List<Field> resolveFields(QualifiedName name)
     {
         return IterableTransformer.on(allFields)
-                .select(Field.canResolvePredicate(name))
+                .select(input -> input.canResolve(name))
                 .list();
     }
 

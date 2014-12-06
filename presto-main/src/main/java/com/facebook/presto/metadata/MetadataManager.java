@@ -59,7 +59,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.facebook.presto.metadata.ColumnHandle.fromConnectorHandle;
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
 import static com.facebook.presto.metadata.QualifiedTableName.convertFromSchemaTableName;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
@@ -220,7 +219,7 @@ public class MetadataManager
     {
         Map<String, ConnectorColumnHandle> columns = lookupConnectorFor(tableHandle).getColumnHandles(tableHandle.getConnectorHandle());
 
-        return Maps.transformValues(columns, fromConnectorHandle(tableHandle.getConnectorId()));
+        return Maps.transformValues(columns, handle -> new ColumnHandle(tableHandle.getConnectorId(), handle));
     }
 
     @Override

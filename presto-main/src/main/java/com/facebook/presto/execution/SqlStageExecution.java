@@ -35,7 +35,6 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
@@ -76,8 +75,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
-import static com.facebook.presto.execution.StageInfo.stageStateGetter;
-import static com.facebook.presto.execution.TaskInfo.taskStateGetter;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Failures.toFailures;
@@ -289,8 +286,8 @@ public class SqlStageExecution
             // never be visible.
             StageState state = stageState.get();
 
-            List<TaskInfo> taskInfos = IterableTransformer.on(tasks.values()).transform(taskInfoGetter()).list();
-            List<StageInfo> subStageInfos = IterableTransformer.on(subStages.values()).transform(stageInfoGetter()).list();
+            List<TaskInfo> taskInfos = IterableTransformer.on(tasks.values()).transform(RemoteTask::getTaskInfo).list();
+            List<StageInfo> subStageInfos = IterableTransformer.on(subStages.values()).transform(StageExecutionNode::getStageInfo).list();
 
             int totalTasks = taskInfos.size();
             int runningTasks = 0;
@@ -904,12 +901,12 @@ public class SqlStageExecution
                     return;
                 }
 
-                List<StageState> subStageStates = ImmutableList.copyOf(transform(transform(subStages.values(), stageInfoGetter()), stageStateGetter()));
+                List<StageState> subStageStates = ImmutableList.copyOf(transform(transform(subStages.values(), StageExecutionNode::getStageInfo), StageInfo::getState));
                 if (any(subStageStates, equalTo(StageState.FAILED))) {
                     stageState.set(StageState.FAILED);
                 }
                 else {
-                    List<TaskState> taskStates = ImmutableList.copyOf(transform(transform(tasks.values(), taskInfoGetter()), taskStateGetter()));
+                    List<TaskState> taskStates = ImmutableList.copyOf(transform(transform(tasks.values(), RemoteTask::getTaskInfo), TaskInfo::getState));
                     if (any(taskStates, equalTo(TaskState.FAILED))) {
                         stageState.set(StageState.FAILED);
                     }
@@ -988,30 +985,6 @@ public class SqlStageExecution
                 .add("location", location)
                 .add("stageState", stageState.get())
                 .toString();
-    }
-
-    public static Function<RemoteTask, TaskInfo> taskInfoGetter()
-    {
-        return new Function<RemoteTask, TaskInfo>()
-        {
-            @Override
-            public TaskInfo apply(RemoteTask remoteTask)
-            {
-                return remoteTask.getTaskInfo();
-            }
-        };
-    }
-
-    public static Function<StageExecutionNode, StageInfo> stageInfoGetter()
-    {
-        return new Function<StageExecutionNode, StageInfo>()
-        {
-            @Override
-            public StageInfo apply(StageExecutionNode stage)
-            {
-                return stage.getStageInfo();
-            }
-        };
     }
 }
 

@@ -16,11 +16,10 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.type.TypeUtils;
-import com.facebook.presto.type.UnknownType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
@@ -32,8 +31,10 @@ import java.util.Map;
 import java.util.Objects;
 
 import static com.facebook.presto.metadata.FunctionRegistry.canCoerce;
+import static com.facebook.presto.metadata.FunctionRegistry.getCommonSuperType;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -68,12 +69,12 @@ public final class Signature
 
     public Signature(String name, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes, boolean variableArity, boolean internal)
     {
-        this(name, typeParameters, parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeUtils.typeSignatureParser()), variableArity, internal);
+        this(name, typeParameters, parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeSignature::parseTypeSignature), variableArity, internal);
     }
 
     public Signature(String name, String returnType, List<String> argumentTypes)
     {
-        this(name, ImmutableList.<TypeParameter>of(), parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeUtils.typeSignatureParser()), false, false);
+        this(name, ImmutableList.<TypeParameter>of(), parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeSignature::parseTypeSignature), false, false);
     }
 
     public Signature(String name, String returnType, String... argumentTypes)
@@ -248,6 +249,17 @@ public final class Signature
             }
         }
 
+        // Bind the variable arity argument first, to make sure it's bound to the common super type
+        if (varArgs && types.size() >= argumentTypes.size()) {
+            Optional<Type> superType = getCommonSuperType(types.subList(argumentTypes.size() - 1, types.size()));
+            if (!superType.isPresent()) {
+                return false;
+            }
+            if (!matchAndBind(boundParameters, unboundParameters, argumentTypes.get(argumentTypes.size() - 1), superType.get(), allowCoercion, typeManager)) {
+                return false;
+            }
+        }
+
         for (int i = 0; i < types.size(); i++) {
             // Get the current argument signature, or the last one, if this is a varargs function
             TypeSignature typeSignature = argumentTypes.get(Math.min(i, argumentTypes.size() - 1));
@@ -287,7 +299,7 @@ public final class Signature
             }
         }
 
-        if (type.equals(UnknownType.UNKNOWN) && allowCoercion) {
+        if (type.equals(UNKNOWN) && allowCoercion) {
             // The unknown type can be coerced to any type, so don't bind the parameters, since nothing can be coerced to the unknown type
             return true;
         }

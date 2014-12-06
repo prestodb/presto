@@ -350,24 +350,4 @@ public final class MathFunctions
 
         return value1 > value2 ? value1 : value2;
     }
-
-    @Description("get the smallest of the given values")
-    @ScalarFunction
-    @SqlType(StandardTypes.BIGINT)
-    public static long least(@SqlType(StandardTypes.BIGINT) long value1, @SqlType(StandardTypes.BIGINT) long value2)
-    {
-        return value1 < value2 ? value1 : value2;
-    }
-
-    @Description("get the smallest of the given values")
-    @ScalarFunction
-    @SqlType(StandardTypes.DOUBLE)
-    public static double least(@SqlType(StandardTypes.DOUBLE) double value1, @SqlType(StandardTypes.DOUBLE) double value2)
-    {
-        if (Double.isNaN(value1) || Double.isNaN(value2)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid argument to least(): NaN");
-        }
-
-        return value1 < value2 ? value1 : value2;
-    }
 }

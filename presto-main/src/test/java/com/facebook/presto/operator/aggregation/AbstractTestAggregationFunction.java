@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.testing.RunLengthEncodedBlock;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.block.Block;
@@ -21,7 +22,6 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeRegistry;
-import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.Lists;
 import org.testng.annotations.Test;
 
@@ -36,7 +36,7 @@ public abstract class AbstractTestAggregationFunction
 
     protected final InternalAggregationFunction getFunction()
     {
-        return functionRegistry.resolveFunction(QualifiedName.of(getFunctionName()), Lists.transform(getFunctionParameterTypes(), TypeUtils.typeSignatureParser()), isApproximate()).getAggregationFunction();
+        return functionRegistry.resolveFunction(QualifiedName.of(getFunctionName()), Lists.transform(getFunctionParameterTypes(), TypeSignature::parseTypeSignature), isApproximate()).getAggregationFunction();
     }
 
     protected abstract String getFunctionName();

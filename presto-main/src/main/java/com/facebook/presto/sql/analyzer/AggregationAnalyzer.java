@@ -59,10 +59,6 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 
-import static com.facebook.presto.sql.analyzer.FieldOrExpression.expressionGetter;
-import static com.facebook.presto.sql.analyzer.FieldOrExpression.fieldIndexGetter;
-import static com.facebook.presto.sql.analyzer.FieldOrExpression.isExpressionPredicate;
-import static com.facebook.presto.sql.analyzer.FieldOrExpression.isFieldReferencePredicate;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
@@ -93,15 +89,15 @@ public class AggregationAnalyzer
         this.metadata = metadata;
 
         this.expressions = IterableTransformer.on(groupByExpressions)
-                .select(isExpressionPredicate())
-                .transform(expressionGetter())
+                .select(FieldOrExpression::isExpression)
+                .transform(FieldOrExpression::getExpression)
                 .list();
 
         ImmutableList.Builder<Integer> fieldIndexes = ImmutableList.builder();
 
         fieldIndexes.addAll(IterableTransformer.on(groupByExpressions)
-                .select(isFieldReferencePredicate())
-                .transform(fieldIndexGetter())
+                .select(FieldOrExpression::isFieldReference)
+                .transform(FieldOrExpression::getFieldIndex)
                 .all());
 
         // For a query like "SELECT * FROM T GROUP BY a", groupByExpressions will contain "a",

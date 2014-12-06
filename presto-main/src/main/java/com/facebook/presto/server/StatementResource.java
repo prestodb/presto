@@ -84,7 +84,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.execution.QueryInfo.queryIdGetter;
 import static com.facebook.presto.server.ResourceUtil.assertRequest;
 import static com.facebook.presto.server.ResourceUtil.createSessionForRequest;
 import static com.facebook.presto.util.Failures.toFailure;
@@ -619,7 +618,7 @@ public class StatementResource
 
                 Set<QueryId> queryIdsSnapshot = ImmutableSet.copyOf(queries.keySet());
                 // do not call queryManager.getQueryInfo() since it updates the heartbeat time
-                Set<QueryId> liveQueries = ImmutableSet.copyOf(transform(queryManager.getAllQueryInfo(), queryIdGetter()));
+                Set<QueryId> liveQueries = ImmutableSet.copyOf(transform(queryManager.getAllQueryInfo(), QueryInfo::getQueryId));
 
                 Set<QueryId> deadQueries = Sets.difference(queryIdsSnapshot, liveQueries);
                 for (QueryId deadQueryId : deadQueries) {

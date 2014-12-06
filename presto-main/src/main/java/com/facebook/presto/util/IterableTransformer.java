@@ -30,6 +30,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * @deprecated Use {@link java.util.stream.Stream} instead
+ */
+@Deprecated
 public class IterableTransformer<E>
 {
     private final Iterable<E> iterable;
