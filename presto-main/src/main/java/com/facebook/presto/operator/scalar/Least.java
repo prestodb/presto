@@ -52,12 +52,12 @@ import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.OpCode.NOP;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.control.IfStatement.ifStatementBuilder;
+import static com.facebook.presto.metadata.Signature.internalFunction;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
-import static com.facebook.presto.sql.relational.Signatures.leastSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -95,17 +95,21 @@ public final class Least
     @Override
     public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager)
     {
-        ImmutableList.Builder<Class<?>> builder = ImmutableList.builder();
         Type type = types.get("E");
         checkArgument(type.isOrderable(), "Type must be orderable");
+
+        ImmutableList.Builder<Class<?>> builder = ImmutableList.builder();
         for (int i = 0; i < arity; i++) {
             builder.add(type.getJavaType());
         }
         ImmutableList<Class<?>> stackTypes = builder.build();
+
         Class<?> clazz = generateLeast(stackTypes, type);
         MethodHandle methodHandle = methodHandle(clazz, "least", stackTypes.toArray(new Class<?>[stackTypes.size()]));
         List<Boolean> nullableParameters = ImmutableList.copyOf(Collections.nCopies(stackTypes.size(), false));
-        return new FunctionInfo(leastSignature(type.getTypeSignature(), Collections.nCopies(arity, type.getTypeSignature())), getDescription(), isHidden(), methodHandle, isDeterministic(), false, nullableParameters);
+
+        Signature specializedSignature = internalFunction(SIGNATURE.getName(), type.getTypeSignature(), Collections.nCopies(arity, type.getTypeSignature()));
+        return new FunctionInfo(specializedSignature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, nullableParameters);
     }
 
     public static void checkNotNaN(double value)
