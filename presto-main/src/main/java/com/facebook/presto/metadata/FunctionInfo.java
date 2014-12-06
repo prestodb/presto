@@ -50,6 +50,7 @@ public final class FunctionInfo
     private final boolean isApproximate;
 
     private final MethodHandle methodHandle;
+    private final MethodHandle blockMethodHandle;
     private final boolean deterministic;
 
     private final boolean isWindow;
@@ -69,6 +70,7 @@ public final class FunctionInfo
         this.aggregationFunction = null;
         this.isApproximate = false;
         this.methodHandle = null;
+        this.blockMethodHandle = null;
 
         this.isWindow = true;
         this.windowFunctionSupplier = checkNotNull(windowFunctionSupplier, "windowFunction is null");
@@ -84,6 +86,7 @@ public final class FunctionInfo
         this.aggregationFunction = function;
         this.isAggregate = true;
         this.methodHandle = null;
+        this.blockMethodHandle = null;
         this.deterministic = true;
         this.nullable = false;
         this.nullableArguments = ImmutableList.copyOf(Collections.nCopies(signature.getArgumentTypes().size(), false));
@@ -91,7 +94,27 @@ public final class FunctionInfo
         this.windowFunctionSupplier = AggregateWindowFunction.supplier(signature, function);
     }
 
-    public FunctionInfo(Signature signature, String description, boolean hidden, MethodHandle function, boolean deterministic, boolean nullableResult, List<Boolean> nullableArguments)
+    public FunctionInfo(
+            Signature signature,
+            String description,
+            boolean hidden,
+            MethodHandle function,
+            boolean deterministic,
+            boolean nullableResult,
+            List<Boolean> nullableArguments)
+    {
+        this(signature, description, hidden, function, null, deterministic, nullableResult, nullableArguments);
+    }
+
+    public FunctionInfo(
+            Signature signature,
+            String description,
+            boolean hidden,
+            MethodHandle function,
+            MethodHandle blockFunction,
+            boolean deterministic,
+            boolean nullableResult,
+            List<Boolean> nullableArguments)
     {
         this.signature = signature;
         this.description = description;
@@ -109,6 +132,7 @@ public final class FunctionInfo
         this.isWindow = false;
         this.windowFunctionSupplier = null;
         this.methodHandle = checkNotNull(function, "function is null");
+        this.blockMethodHandle = blockFunction;
     }
 
     @Override
@@ -201,6 +225,12 @@ public final class FunctionInfo
     {
         checkState(methodHandle != null, "not a scalar function or operator");
         return methodHandle;
+    }
+
+    public MethodHandle getBlockMethodHandle()
+    {
+        checkState(methodHandle != null, "not a scalar function or operator");
+        return blockMethodHandle;
     }
 
     @Override

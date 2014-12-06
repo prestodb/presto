@@ -217,6 +217,75 @@ public final class ByteCodeUtils
         return block;
     }
 
+    public static ByteCodeNode generateBlockInvocation(CompilerContext context, FunctionInfo function, List<Variable> blockArguments, Binding binding)
+    {
+        Signature signature = function.getSignature();
+
+        MethodType methodType = binding.getType();
+        Class<?> unboxedReturnType = Primitives.unwrap(methodType.returnType());
+
+        LabelNode end = new LabelNode("end");
+        Block block = new Block(context)
+                .setDescription("invoke " + signature);
+
+        Variable positionVariable = context.getVariable("position");
+
+        // if any parameters are not nullable and the value is null,
+        for (int index = 0; index < blockArguments.size(); index++) {
+            if (!function.getNullableArguments().get(index)) {
+                LabelNode notNull = new LabelNode("parameter_" + index + "_is_not_null");
+                block.append(blockArguments.get(index).invoke("isNull", boolean.class, positionVariable))
+                        .ifFalseGoto(notNull)
+                        .putVariable("wasNull", true)
+                        .pushJavaDefault(unboxedReturnType)
+                        .gotoLabel(end)
+                        .visitLabel(notNull);
+            }
+        }
+
+        // push arguments
+        int index = 0;
+        for (Class<?> type : methodType.parameterArray()) {
+            if (type == ConnectorSession.class) {
+                block.getVariable("session");
+            }
+            else if (type == int.class) {
+                block.append(positionVariable);
+            }
+            else {
+                block.append(blockArguments.get(index));
+                index++;
+            }
+        }
+
+        // invoke method
+        block.append(invoke(context, binding, function.getSignature()));
+
+        // handle null response types
+        if (function.isNullable()) {
+            if (unboxedReturnType.isPrimitive()) {
+                LabelNode notNull = new LabelNode("notNull");
+                block.dup(methodType.returnType())
+                        .ifNotNullGoto(notNull)
+                        .putVariable("wasNull", true)
+                        .comment("swap boxed null with unboxed default")
+                        .pop(methodType.returnType())
+                        .pushJavaDefault(unboxedReturnType)
+                        .gotoLabel(end)
+                        .visitLabel(notNull)
+                        .append(unboxPrimitive(context, unboxedReturnType));
+            }
+            else {
+                block.dup(methodType.returnType())
+                        .ifNotNullGoto(end)
+                        .putVariable("wasNull", true);
+            }
+        }
+        block.visitLabel(end);
+
+        return block;
+    }
+
     public static ByteCodeNode boxPrimitiveIfNecessary(CompilerContext context, Class<?> type)
     {
         if (!Primitives.isWrapperType(type)) {

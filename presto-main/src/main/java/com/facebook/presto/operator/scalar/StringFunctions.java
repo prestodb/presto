@@ -15,6 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import com.google.common.base.Ascii;
@@ -72,6 +73,13 @@ public final class StringFunctions
     public static long length(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         return slice.length();
+    }
+
+    @BlockScalarFunction
+    @SqlType(StandardTypes.BIGINT)
+    public static long length(int position, @SqlType(StandardTypes.VARCHAR) Block block)
+    {
+        return block.getLength(position);
     }
 
     @Description("greedily removes occurrences of a pattern in a string")

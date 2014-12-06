@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.type;
+package com.facebook.presto.operator.scalar;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -19,8 +19,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.METHOD, ElementType.PARAMETER, ElementType.TYPE_USE})
-public @interface SqlType
+@Target(ElementType.METHOD)
+public @interface BlockScalarFunction
 {
     String value() default "";
 }

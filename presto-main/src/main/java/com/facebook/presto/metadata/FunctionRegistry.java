@@ -432,6 +432,7 @@ public class FunctionRegistry
                     null,
                     true,
                     identity,
+                    null,
                     true,
                     false,
                     ImmutableList.of(false));
@@ -665,7 +666,7 @@ public class FunctionRegistry
         operatorType.validateSignature(returnType, argumentTypes);
 
         Signature signature = Signature.internalOperator(operatorType.name(), returnType, argumentTypes);
-        return new FunctionInfo(signature, operatorType.getOperator(), true, method, true, nullable, nullableArguments);
+        return new FunctionInfo(signature, operatorType.getOperator(), true, method, null, true, nullable, nullableArguments);
     }
 
     public static String mangleOperatorName(OperatorType operatorType)
