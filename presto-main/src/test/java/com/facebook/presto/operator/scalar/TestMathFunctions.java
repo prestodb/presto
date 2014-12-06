@@ -362,11 +362,14 @@ public class TestMathFunctions
         // bigint
         assertFunction("greatest(1, 2)", 2);
         assertFunction("greatest(-1, -2)", -1);
+        assertFunction("greatest(5, 4, 3, 2, 1, 2, 3, 4, 1, 5)", 5);
+        assertFunction("greatest(-1)", -1);
 
         // double
         assertFunction("greatest(1.5, 2.3)", 2.3);
         assertFunction("greatest(-1.5, -2.3)", -1.5);
-        assertFunction("greatest(1.5, 1.0 / 0.0)", Double.POSITIVE_INFINITY);
+        assertFunction("greatest(-1.5, -2.3, -5/3)", -1.0);
+        assertFunction("greatest(1.5, -1.0 / 0.0, 1.0 / 0.0)", Double.POSITIVE_INFINITY);
 
         // mixed
         assertFunction("greatest(1, 2.0)", 2.0);
