@@ -110,14 +110,12 @@ public class PredicatePushDown
     private final Metadata metadata;
     private final SqlParser sqlParser;
     private final SplitManager splitManager;
-    private final boolean experimentalSyntaxEnabled;
 
-    public PredicatePushDown(Metadata metadata, SqlParser sqlParser, SplitManager splitManager, boolean experimentalSyntaxEnabled)
+    public PredicatePushDown(Metadata metadata, SqlParser sqlParser, SplitManager splitManager)
     {
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
-        this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
     }
 
     @Override
@@ -128,7 +126,7 @@ public class PredicatePushDown
         checkNotNull(types, "types is null");
         checkNotNull(idAllocator, "idAllocator is null");
 
-        return PlanRewriter.rewriteWith(new Rewriter(symbolAllocator, idAllocator, metadata, sqlParser, splitManager, session, experimentalSyntaxEnabled), plan, BooleanLiteral.TRUE_LITERAL);
+        return PlanRewriter.rewriteWith(new Rewriter(symbolAllocator, idAllocator, metadata, sqlParser, splitManager, session), plan, BooleanLiteral.TRUE_LITERAL);
     }
 
     private static class Rewriter
@@ -140,7 +138,6 @@ public class PredicatePushDown
         private final SqlParser sqlParser;
         private final SplitManager splitManager;
         private final Session session;
-        private final boolean experimentalSyntaxEnabled;
 
         private Rewriter(
                 SymbolAllocator symbolAllocator,
@@ -148,8 +145,7 @@ public class PredicatePushDown
                 Metadata metadata,
                 SqlParser sqlParser,
                 SplitManager splitManager,
-                Session session,
-                boolean experimentalSyntaxEnabled)
+                Session session)
         {
             this.symbolAllocator = checkNotNull(symbolAllocator, "symbolAllocator is null");
             this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");
@@ -157,7 +153,6 @@ public class PredicatePushDown
             this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
             this.splitManager = checkNotNull(splitManager, "splitManager is null");
             this.session = checkNotNull(session, "session is null");
-            this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
         }
 
         @Override
