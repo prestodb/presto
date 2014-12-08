@@ -163,18 +163,6 @@ public final class ExpressionUtils
         return Iterables.isEmpty(expressions) ? emptyDefault : or(expressions);
     }
 
-    public static Function<Symbol, QualifiedNameReference> symbolToQualifiedNameReference()
-    {
-        return new Function<Symbol, QualifiedNameReference>()
-        {
-            @Override
-            public QualifiedNameReference apply(Symbol symbol)
-            {
-                return new QualifiedNameReference(symbol.toQualifiedName());
-            }
-        };
-    }
-
     public static Expression stripNonDeterministicConjuncts(Expression expression)
     {
         return combineConjuncts(filter(extractConjuncts(expression), DeterminismEvaluator::isDeterministic));

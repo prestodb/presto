@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.base.Preconditions;
@@ -39,6 +40,11 @@ public class Symbol
     public QualifiedName toQualifiedName()
     {
         return QualifiedName.of(name);
+    }
+
+    public QualifiedNameReference toQualifiedNameReference()
+    {
+        return new QualifiedNameReference(toQualifiedName());
     }
 
     public static Symbol fromQualifiedName(QualifiedName name)
