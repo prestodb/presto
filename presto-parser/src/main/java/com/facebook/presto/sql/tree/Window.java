@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 import java.util.List;
 import java.util.Optional;
@@ -66,15 +66,15 @@ public class Window
             return false;
         }
         Window o = (Window) obj;
-        return Objects.equal(partitionBy, o.partitionBy) &&
-                Objects.equal(orderBy, o.orderBy) &&
-                Objects.equal(frame, o.frame);
+        return Objects.equals(partitionBy, o.partitionBy) &&
+                Objects.equals(orderBy, o.orderBy) &&
+                Objects.equals(frame, o.frame);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(partitionBy, orderBy, frame);
+        return Objects.hash(partitionBy, orderBy, frame);
     }
 
     @Override

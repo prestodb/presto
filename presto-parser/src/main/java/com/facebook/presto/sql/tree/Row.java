@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
+import java.util.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -52,7 +52,7 @@ public final class Row
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(items);
+        return Objects.hash(items);
     }
 
     @Override
@@ -65,6 +65,6 @@ public final class Row
             return false;
         }
         Row other = (Row) obj;
-        return Objects.equal(this.items, other.items);
+        return Objects.equals(this.items, other.items);
     }
 }

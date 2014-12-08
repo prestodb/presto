@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -67,7 +67,7 @@ public class ShowPartitions
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(table, where, orderBy, limit);
+        return Objects.hash(table, where, orderBy, limit);
     }
 
     @Override
@@ -80,10 +80,10 @@ public class ShowPartitions
             return false;
         }
         ShowPartitions o = (ShowPartitions) obj;
-        return Objects.equal(table, o.table) &&
-                Objects.equal(where, o.where) &&
-                Objects.equal(orderBy, o.orderBy) &&
-                Objects.equal(limit, o.limit);
+        return Objects.equals(table, o.table) &&
+                Objects.equals(where, o.where) &&
+                Objects.equals(orderBy, o.orderBy) &&
+                Objects.equals(limit, o.limit);
     }
 
     @Override

@@ -27,9 +27,11 @@ options {
 
     import java.util.ArrayList;
     import java.util.List;
+    import java.util.Objects;
     import java.util.Optional;
     import com.google.common.collect.ImmutableList;
-    import com.google.common.base.Objects;
+
+    import static com.google.common.base.Objects.firstNonNull;
 }
 
 @members {
@@ -86,7 +88,7 @@ queryExpr returns [Query value]
         { $value = new Query(
             Optional.ofNullable($withClause.value),
             $queryBody.value,
-            Objects.firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
+            firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
             Optional.ofNullable($limitClause.value),
             Optional.ofNullable($approximateClause.value));
         }
@@ -113,9 +115,9 @@ querySpec returns [QuerySpecification value]
             $selectClause.value,
             Optional.ofNullable($fromClause.value),
             Optional.ofNullable($whereClause.value),
-            Objects.firstNonNull($groupClause.value, ImmutableList.<Expression>of()),
+            firstNonNull($groupClause.value, ImmutableList.<Expression>of()),
             Optional.ofNullable($havingClause.value),
-            Objects.firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
+            firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
             Optional.ofNullable($limitClause.value));
         }
     ;
@@ -375,8 +377,8 @@ functionCall returns [FunctionCall value]
 window returns [Window value]
     : ^(WINDOW windowPartition? orderClause? windowFrame?)
         { $value = new Window(
-            Objects.firstNonNull($windowPartition.value, ImmutableList.<Expression>of()),
-            Objects.firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
+            firstNonNull($windowPartition.value, ImmutableList.<Expression>of()),
+            firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
             $windowFrame.value);
         }
     ;
@@ -533,7 +535,7 @@ showPartitions returns [Statement value]
         { $value = new ShowPartitions(
             $qname.value,
             Optional.ofNullable($whereClause.value),
-            Objects.firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
+            firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
             Optional.ofNullable($limitClause.value));
         }
     ;

@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
+import java.util.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -52,7 +52,7 @@ public final class Unnest
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(expressions);
+        return Objects.hash(expressions);
     }
 
     @Override
@@ -65,6 +65,6 @@ public final class Unnest
             return false;
         }
         Unnest other = (Unnest) obj;
-        return Objects.equal(this.expressions, other.expressions);
+        return Objects.equals(this.expressions, other.expressions);
     }
 }

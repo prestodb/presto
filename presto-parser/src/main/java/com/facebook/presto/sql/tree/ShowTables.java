@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -48,7 +48,7 @@ public class ShowTables
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(schema, likePattern);
+        return Objects.hash(schema, likePattern);
     }
 
     @Override
@@ -61,8 +61,8 @@ public class ShowTables
             return false;
         }
         ShowTables o = (ShowTables) obj;
-        return Objects.equal(schema, o.schema) &&
-                Objects.equal(likePattern, o.likePattern);
+        return Objects.equals(schema, o.schema) &&
+                Objects.equals(likePattern, o.likePattern);
     }
 
     @Override

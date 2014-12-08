@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -49,7 +49,7 @@ public final class Approximate
             return false;
         }
         Approximate o = (Approximate) obj;
-        return Objects.equal(confidence, o.confidence);
+        return Objects.equals(confidence, o.confidence);
     }
 
     @Override

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 import java.util.List;
 import java.util.Optional;
@@ -123,18 +123,18 @@ public class QuerySpecification
             return false;
         }
         QuerySpecification o = (QuerySpecification) obj;
-        return Objects.equal(select, o.select) &&
-                Objects.equal(from, o.from) &&
-                Objects.equal(where, o.where) &&
-                Objects.equal(groupBy, o.groupBy) &&
-                Objects.equal(having, o.having) &&
-                Objects.equal(orderBy, o.orderBy) &&
-                Objects.equal(limit, o.limit);
+        return Objects.equals(select, o.select) &&
+                Objects.equals(from, o.from) &&
+                Objects.equals(where, o.where) &&
+                Objects.equals(groupBy, o.groupBy) &&
+                Objects.equals(having, o.having) &&
+                Objects.equals(orderBy, o.orderBy) &&
+                Objects.equals(limit, o.limit);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(select, from, where, groupBy, having, orderBy, limit);
+        return Objects.hash(select, from, where, groupBy, having, orderBy, limit);
     }
 }
