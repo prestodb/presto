@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.SortedRangeSet;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
@@ -49,17 +48,5 @@ public final class DomainUtils
             return domain;
         }
         return Domain.create(SortedRangeSet.of(domain.getRanges().getSpan()), domain.isNullAllowed());
-    }
-
-    public static Function<Domain, Domain> simplifyDomainFunction()
-    {
-        return new Function<Domain, Domain>()
-        {
-            @Override
-            public Domain apply(Domain domain)
-            {
-                return simplifyDomain(domain);
-            }
-        };
     }
 }
