@@ -56,15 +56,12 @@ import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.LikeFunctions;
 import com.google.common.base.Charsets;
 import com.google.common.base.Functions;
-import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import org.joni.Regex;
-
-import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -354,7 +351,7 @@ public class ExpressionInterpreter
             // the analysis below. If the value is null, it means that we can't apply the HashSet
             // optimization
             if (!inListCache.containsKey(valueList)) {
-                if (Iterables.all(valueList.getValues(), isNonNullLiteralPredicate())) {
+                if (Iterables.all(valueList.getValues(), ExpressionInterpreter::isNullLiteral)) {
                     // if all elements are constant, create a set with them
                     set = new HashSet<>();
                     for (Expression expression : valueList.getValues()) {
@@ -860,15 +857,8 @@ public class ExpressionInterpreter
         }
     }
 
-    private static Predicate<Expression> isNonNullLiteralPredicate()
+    private static boolean isNullLiteral(Expression entry)
     {
-        return new Predicate<Expression>()
-        {
-            @Override
-            public boolean apply(@Nullable Expression input)
-            {
-                return input instanceof Literal && !(input instanceof NullLiteral);
-            }
-        };
+        return entry instanceof Literal && !(entry instanceof NullLiteral);
     }
 }
