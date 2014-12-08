@@ -27,9 +27,9 @@ options {
 
     import java.util.ArrayList;
     import java.util.List;
+    import java.util.Optional;
     import com.google.common.collect.ImmutableList;
     import com.google.common.base.Objects;
-    import com.google.common.base.Optional;
 }
 
 @members {
@@ -84,11 +84,11 @@ queryExpr returns [Query value]
       limitClause?
       approximateClause?
         { $value = new Query(
-            Optional.fromNullable($withClause.value),
+            Optional.ofNullable($withClause.value),
             $queryBody.value,
             Objects.firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
-            Optional.fromNullable($limitClause.value),
-            Optional.fromNullable($approximateClause.value));
+            Optional.ofNullable($limitClause.value),
+            Optional.ofNullable($approximateClause.value));
         }
     ;
 
@@ -111,12 +111,12 @@ querySpec returns [QuerySpecification value]
         limitClause?)
         { $value = new QuerySpecification(
             $selectClause.value,
-            Optional.fromNullable($fromClause.value),
-            Optional.fromNullable($whereClause.value),
+            Optional.ofNullable($fromClause.value),
+            Optional.ofNullable($whereClause.value),
             Objects.firstNonNull($groupClause.value, ImmutableList.<Expression>of()),
-            Optional.fromNullable($havingClause.value),
+            Optional.ofNullable($havingClause.value),
             Objects.firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
-            Optional.fromNullable($limitClause.value));
+            Optional.ofNullable($limitClause.value));
         }
     ;
 
@@ -164,7 +164,7 @@ selectList returns [List<SelectItem> value = new ArrayList<>()]
 
 selectItem returns [SelectItem value]
     :
-      ^(SELECT_ITEM expr ident?)                       { $value = new SingleColumn($expr.value, Optional.fromNullable($ident.value)); }
+      ^(SELECT_ITEM expr ident?)                       { $value = new SingleColumn($expr.value, Optional.ofNullable($ident.value)); }
     | (^(ALL_COLUMNS qname)) => ^(ALL_COLUMNS qname)   { $value = new AllColumns($qname.value); }
     | ALL_COLUMNS                                      { $value = new AllColumns(); }
     ;
@@ -250,9 +250,9 @@ joinedTable returns [Relation value]
     ;
 
 joinRelation returns [Join value]
-    : ^(CROSS_JOIN a=relation b=relation)                               { $value = new Join(Join.Type.CROSS, $a.value, $b.value, Optional.<JoinCriteria>absent()); }
-    | ^(QUALIFIED_JOIN t=joinType c=joinCriteria a=relation b=relation) { $value = new Join($t.value, $a.value, $b.value, Optional.fromNullable($c.value)); }
-    | ^(IMPLICIT_JOIN a=relation b=relation)                            { $value = new Join(Join.Type.IMPLICIT, $a.value, $b.value, Optional.<JoinCriteria>absent()); }
+    : ^(CROSS_JOIN a=relation b=relation)                               { $value = new Join(Join.Type.CROSS, $a.value, $b.value, Optional.empty()); }
+    | ^(QUALIFIED_JOIN t=joinType c=joinCriteria a=relation b=relation) { $value = new Join($t.value, $a.value, $b.value, Optional.ofNullable($c.value)); }
+    | ^(IMPLICIT_JOIN a=relation b=relation)                            { $value = new Join(Join.Type.IMPLICIT, $a.value, $b.value, Optional.empty()); }
     ;
 
 aliasedRelation returns [AliasedRelation value]
@@ -260,7 +260,7 @@ aliasedRelation returns [AliasedRelation value]
     ;
 
 sampledRelation returns [SampledRelation value]
-    : ^(SAMPLED_RELATION r=relation t=sampleType p=expr s=rescaled st=stratifyOn?) { $value = new SampledRelation($r.value, $t.value, $p.value, $s.value, Optional.fromNullable($st.value)); }
+    : ^(SAMPLED_RELATION r=relation t=sampleType p=expr s=rescaled st=stratifyOn?) { $value = new SampledRelation($r.value, $t.value, $p.value, $s.value, Optional.ofNullable($st.value)); }
     ;
 
 aliasedColumns returns [List<String> value]
@@ -513,7 +513,7 @@ showTablesLike returns [String value]
     ;
 
 showSchemas returns [Statement value]
-    : ^(SHOW_SCHEMAS from=showSchemasFrom?) { $value = new ShowSchemas(Optional.fromNullable($from.value)); }
+    : ^(SHOW_SCHEMAS from=showSchemasFrom?) { $value = new ShowSchemas(Optional.ofNullable($from.value)); }
     ;
 
 showSchemasFrom returns [String value]
@@ -532,9 +532,9 @@ showPartitions returns [Statement value]
     : ^(SHOW_PARTITIONS qname whereClause? orderClause? limitClause?)
         { $value = new ShowPartitions(
             $qname.value,
-            Optional.fromNullable($whereClause.value),
+            Optional.ofNullable($whereClause.value),
             Objects.firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
-            Optional.fromNullable($limitClause.value));
+            Optional.ofNullable($limitClause.value));
         }
     ;
 

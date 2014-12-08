@@ -14,9 +14,9 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -105,11 +105,11 @@ public class QuerySpecification
         return toStringHelper(this)
                 .add("select", select)
                 .add("from", from)
-                .add("where", where.orNull())
+                .add("where", where.orElse(null))
                 .add("groupBy", groupBy)
-                .add("having", having.orNull())
+                .add("having", having.orElse(null))
                 .add("orderBy", orderBy)
-                .add("limit", limit.orNull())
+                .add("limit", limit.orElse(null))
                 .toString();
     }
 

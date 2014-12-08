@@ -155,7 +155,7 @@ public class LogicalPlanner
         int columnNumber = 0;
         TupleDescriptor outputDescriptor = analysis.getOutputDescriptor();
         for (Field field : outputDescriptor.getVisibleFields()) {
-            String name = field.getName().or("_col" + columnNumber);
+            String name = field.getName().orElse("_col" + columnNumber);
             names.add(name);
 
             int fieldIndex = outputDescriptor.indexOf(field);

@@ -14,7 +14,8 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
+
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -32,7 +33,7 @@ public class IfExpression
     {
         this.condition = checkNotNull(condition, "condition is null");
         this.trueValue = checkNotNull(trueValue, "trueValue is null");
-        this.falseValue = Optional.fromNullable(falseValue);
+        this.falseValue = Optional.ofNullable(falseValue);
     }
 
     public Expression getCondition()

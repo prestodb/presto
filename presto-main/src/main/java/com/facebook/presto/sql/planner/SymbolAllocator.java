@@ -95,7 +95,7 @@ public class SymbolAllocator
 
     public Symbol newSymbol(Field field)
     {
-        String nameHint = field.getName().or("field");
+        String nameHint = field.getName().orElse("field");
         return newSymbol(nameHint, field.getType());
     }
 

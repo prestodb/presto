@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -22,6 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Locale.ENGLISH;
 
@@ -97,7 +97,7 @@ public class QualifiedName
     public Optional<QualifiedName> getPrefix()
     {
         if (parts.size() == 1) {
-            return Optional.absent();
+            return Optional.empty();
         }
 
         return Optional.of(QualifiedName.of(parts.subList(0, parts.size() - 1)));

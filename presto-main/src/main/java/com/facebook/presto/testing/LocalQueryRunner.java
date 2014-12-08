@@ -60,7 +60,6 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -90,7 +89,6 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.type.TypeUtils;
-import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -102,11 +100,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
+import static com.facebook.presto.util.Optionals.guavaOptional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -312,8 +312,7 @@ public class LocalQueryRunner
     public boolean tableExists(Session session, String table)
     {
         QualifiedTableName name =  new QualifiedTableName(session.getCatalog(), session.getSchema(), table);
-        Optional<TableHandle> handle = getMetadata().getTableHandle(session, name);
-        return handle.isPresent();
+        return getMetadata().getTableHandle(session, name).isPresent();
     }
 
     @Override
@@ -455,7 +454,7 @@ public class LocalQueryRunner
         }
 
         // Otherwise return all partitions
-        PartitionResult matchingPartitions = splitManager.getPartitions(node.getTable(), Optional.<TupleDomain<ColumnHandle>>absent());
+        PartitionResult matchingPartitions = splitManager.getPartitions(node.getTable(), guavaOptional(Optional.empty()));
         return matchingPartitions.getPartitions();
     }
 
@@ -530,7 +529,7 @@ public class LocalQueryRunner
     private Split getLocalQuerySplit(TableHandle tableHandle)
     {
         try {
-            List<Partition> partitions = splitManager.getPartitions(tableHandle, Optional.<TupleDomain<ColumnHandle>>absent()).getPartitions();
+            List<Partition> partitions = splitManager.getPartitions(tableHandle, guavaOptional(Optional.empty())).getPartitions();
             SplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitions);
             Split split = Iterables.getOnlyElement(splitSource.getNextBatch(1000));
             while (!splitSource.isFinished()) {

@@ -14,8 +14,9 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+
+import java.util.Optional;
 
 public class SingleColumn
         extends SelectItem
@@ -39,7 +40,7 @@ public class SingleColumn
 
     public SingleColumn(Expression expression)
     {
-        this(expression, Optional.<String>absent());
+        this(expression, Optional.empty());
     }
 
     public Optional<String> getAlias()

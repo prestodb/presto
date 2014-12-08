@@ -316,7 +316,7 @@ public final class ExpressionTreeRewriter<C>
                 falseValue = rewrite(node.getFalseValue().get(), context.get());
             }
 
-            if ((condition != node.getCondition()) || (trueValue != node.getTrueValue()) || (falseValue != node.getFalseValue().orNull())) {
+            if ((condition != node.getCondition()) || (trueValue != node.getTrueValue()) || (falseValue != node.getFalseValue().orElse(null))) {
                 return new IfExpression(condition, trueValue, falseValue);
             }
 
@@ -430,7 +430,7 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
 
-            Window rewrittenWindow = node.getWindow().orNull();
+            Window rewrittenWindow = node.getWindow().orElse(null);
             if (rewrittenWindow != null) {
                 ImmutableList.Builder<Expression> partitionBy = ImmutableList.builder();
                 for (Expression expression : rewrittenWindow.getPartitionBy()) {
@@ -449,7 +449,7 @@ public final class ExpressionTreeRewriter<C>
                     }
                 }
 
-                WindowFrame frame = rewrittenWindow.getFrame().orNull();
+                WindowFrame frame = rewrittenWindow.getFrame().orElse(null);
                 if (frame != null) {
                     FrameBound start = frame.getStart();
                     if (start.getValue().isPresent()) {
@@ -459,7 +459,7 @@ public final class ExpressionTreeRewriter<C>
                         }
                     }
 
-                    FrameBound end = frame.getEnd().orNull();
+                    FrameBound end = frame.getEnd().orElse(null);
                     if ((end != null) && end.getValue().isPresent()) {
                         Expression value = rewrite(end.getValue().get(), context.get());
                         if (value != end.getValue().get()) {
@@ -467,14 +467,14 @@ public final class ExpressionTreeRewriter<C>
                         }
                     }
 
-                    if ((frame.getStart() != start) || (frame.getEnd().orNull() != end)) {
+                    if ((frame.getStart() != start) || (frame.getEnd().orElse(null) != end)) {
                         frame = new WindowFrame(frame.getType(), start, end);
                     }
                 }
 
                 if (!sameElements(rewrittenWindow.getPartitionBy(), partitionBy.build()) ||
                         !sameElements(rewrittenWindow.getOrderBy(), orderBy.build()) ||
-                        rewrittenWindow.getFrame().orNull() != frame) {
+                        rewrittenWindow.getFrame().orElse(null) != frame) {
                     rewrittenWindow = new Window(partitionBy.build(), orderBy.build(), frame);
                 }
             }
@@ -485,7 +485,7 @@ public final class ExpressionTreeRewriter<C>
             }
 
             if (!sameElements(node.getArguments(), arguments.build()) ||
-                    (rewrittenWindow != node.getWindow().orNull())) {
+                    (rewrittenWindow != node.getWindow().orElse(null))) {
                 return new FunctionCall(node.getName(), rewrittenWindow, node.isDistinct(), arguments.build());
             }
 

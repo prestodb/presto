@@ -15,8 +15,9 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -32,7 +33,7 @@ public class Field
         Preconditions.checkNotNull(name, "name is null");
         Preconditions.checkNotNull(type, "type is null");
 
-        return new Field(Optional.<QualifiedName>absent(), Optional.of(name), type, false);
+        return new Field(Optional.empty(), Optional.of(name), type, false);
     }
 
     public static Field newUnqualified(Optional<String> name, Type type)
@@ -40,7 +41,7 @@ public class Field
         Preconditions.checkNotNull(name, "name is null");
         Preconditions.checkNotNull(type, "type is null");
 
-        return new Field(Optional.<QualifiedName>absent(), name, type, false);
+        return new Field(Optional.empty(), name, type, false);
     }
 
     public static Field newQualified(QualifiedName relationAlias, Optional<String> name, Type type, boolean hidden)
@@ -129,7 +130,7 @@ public class Field
                     .append(".");
         }
 
-        result.append(name.or("<anonymous>"))
+        result.append(name.orElse("<anonymous>"))
                 .append(":")
                 .append(type);
 

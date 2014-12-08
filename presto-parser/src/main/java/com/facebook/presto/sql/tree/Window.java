@@ -14,9 +14,9 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -32,7 +32,7 @@ public class Window
     {
         this.partitionBy = checkNotNull(partitionBy, "partitionBy is null");
         this.orderBy = checkNotNull(orderBy, "orderBy is null");
-        this.frame = Optional.fromNullable(frame);
+        this.frame = Optional.ofNullable(frame);
     }
 
     public List<Expression> getPartitionBy()

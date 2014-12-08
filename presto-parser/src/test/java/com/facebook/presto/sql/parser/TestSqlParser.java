@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.tree.AllColumns;
-import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CurrentTime;
@@ -45,11 +44,11 @@ import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Values;
-import com.facebook.presto.sql.tree.With;
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.table;
@@ -117,7 +116,7 @@ public class TestSqlParser
         assertExpression("ARRAY [1, 2][1]", new SubscriptExpression(
                         new ArrayConstructor(ImmutableList.<Expression>of(new LongLiteral("1"), new LongLiteral("2"))),
                         new LongLiteral("1"))
-                );
+        );
         try {
             assertExpression("CASE WHEN TRUE THEN ARRAY[1,2] END[1]", null);
             fail();
@@ -153,7 +152,7 @@ public class TestSqlParser
 
     @Test
     public void testCast()
-        throws Exception
+            throws Exception
     {
         assertCast("varchar");
         assertCast("bigint");
@@ -223,18 +222,18 @@ public class TestSqlParser
     {
         assertStatement("SELECT 123.456E7 FROM DUAL",
                 new Query(
-                        Optional.<With>absent(),
+                        Optional.empty(),
                         new QuerySpecification(
                                 selectList(new DoubleLiteral("123.456E7")),
                                 table(QualifiedName.of("DUAL")),
-                                Optional.<Expression>absent(),
+                                Optional.empty(),
                                 ImmutableList.<Expression>of(),
-                                Optional.<Expression>absent(),
+                                Optional.empty(),
                                 ImmutableList.<SortItem>of(),
-                                Optional.<String>absent()),
+                                Optional.empty()),
                         ImmutableList.<SortItem>of(),
-                        Optional.<String>absent(),
-                        Optional.<Approximate>absent()));
+                        Optional.empty(),
+                        Optional.empty()));
     }
 
     @Test
@@ -242,14 +241,14 @@ public class TestSqlParser
     {
         assertStatement("SELECT 123 INTERSECT DISTINCT SELECT 123 INTERSECT ALL SELECT 123",
                 new Query(
-                        Optional.<With>absent(),
+                        Optional.empty(),
                         new Intersect(ImmutableList.<Relation>of(
                                 new Intersect(ImmutableList.<Relation>of(createSelect123(), createSelect123()), true),
                                 createSelect123()
                         ), false),
                         ImmutableList.<SortItem>of(),
-                        Optional.<String>absent(),
-                        Optional.<Approximate>absent()));
+                        Optional.empty(),
+                        Optional.empty()));
     }
 
     @Test
@@ -257,26 +256,26 @@ public class TestSqlParser
     {
         assertStatement("SELECT 123 UNION DISTINCT SELECT 123 UNION ALL SELECT 123",
                 new Query(
-                        Optional.<With>absent(),
+                        Optional.empty(),
                         new Union(ImmutableList.<Relation>of(
                                 new Union(ImmutableList.<Relation>of(createSelect123(), createSelect123()), true),
                                 createSelect123()
                         ), false),
                         ImmutableList.<SortItem>of(),
-                        Optional.<String>absent(),
-                        Optional.<Approximate>absent()));
+                        Optional.empty(),
+                        Optional.empty()));
     }
 
     private static QuerySpecification createSelect123()
     {
         return new QuerySpecification(
                 new Select(false, ImmutableList.<SelectItem>of(new SingleColumn(new LongLiteral("123")))),
-                Optional.<Relation>absent(),
-                Optional.<Expression>absent(),
+                Optional.empty(),
+                Optional.empty(),
                 ImmutableList.<Expression>of(),
-                Optional.<Expression>absent(),
+                Optional.empty(),
                 ImmutableList.<SortItem>of(),
-                Optional.<String>absent()
+                Optional.empty()
         );
     }
 
@@ -285,7 +284,7 @@ public class TestSqlParser
     {
         assertStatement("VALUES ('a', 1, 2.2), ('b', 2, 3.3)",
                 new Query(
-                        Optional.<With>absent(),
+                        Optional.empty(),
                         new Values(ImmutableList.of(
                                 new Row(ImmutableList.<Expression>of(
                                         new StringLiteral("a"),
@@ -299,41 +298,41 @@ public class TestSqlParser
                                 ))
                         )),
                         ImmutableList.<SortItem>of(),
-                        Optional.<String>absent(),
-                        Optional.<Approximate>absent()));
+                        Optional.empty(),
+                        Optional.empty()));
 
         assertStatement("SELECT * FROM (VALUES ('a', 1, 2.2), ('b', 2, 3.3))",
                 new Query(
-                        Optional.<With>absent(),
+                        Optional.empty(),
                         new QuerySpecification(
                                 selectList(new AllColumns()),
                                 Optional.<Relation>of(new TableSubquery(
-                                        new Query(
-                                                Optional.<With>absent(),
-                                                new Values(ImmutableList.of(
-                                                        new Row(ImmutableList.<Expression>of(
-                                                                new StringLiteral("a"),
-                                                                new LongLiteral("1"),
-                                                                new DoubleLiteral("2.2")
+                                                new Query(
+                                                        Optional.empty(),
+                                                        new Values(ImmutableList.of(
+                                                                new Row(ImmutableList.<Expression>of(
+                                                                        new StringLiteral("a"),
+                                                                        new LongLiteral("1"),
+                                                                        new DoubleLiteral("2.2")
+                                                                )),
+                                                                new Row(ImmutableList.<Expression>of(
+                                                                        new StringLiteral("b"),
+                                                                        new LongLiteral("2"),
+                                                                        new DoubleLiteral("3.3")
+                                                                ))
                                                         )),
-                                                        new Row(ImmutableList.<Expression>of(
-                                                                new StringLiteral("b"),
-                                                                new LongLiteral("2"),
-                                                                new DoubleLiteral("3.3")
-                                                        ))
-                                                )),
-                                                ImmutableList.<SortItem>of(),
-                                                Optional.<String>absent(),
-                                                Optional.<Approximate>absent()))
+                                                        ImmutableList.<SortItem>of(),
+                                                        Optional.empty(),
+                                                        Optional.empty()))
                                 ),
-                                Optional.<Expression>absent(),
+                                Optional.empty(),
                                 ImmutableList.<Expression>of(),
-                                Optional.<Expression>absent(),
+                                Optional.empty(),
                                 ImmutableList.<SortItem>of(),
-                                Optional.<String>absent()),
+                                Optional.empty()),
                         ImmutableList.<SortItem>of(),
-                        Optional.<String>absent(),
-                        Optional.<Approximate>absent()));
+                        Optional.empty(),
+                        Optional.empty()));
     }
 
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: no viable alternative at input '<EOF>'")

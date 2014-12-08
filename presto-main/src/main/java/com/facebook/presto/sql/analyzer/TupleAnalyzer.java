@@ -71,7 +71,6 @@ import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -87,6 +86,7 @@ import java.util.EnumSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
@@ -123,6 +123,7 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.util.Optionals.jdkOptional;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -160,11 +161,11 @@ public class TupleAnalyzer
             ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, context.getLateralTupleDescriptor(), context);
             Type expressionType = expressionAnalysis.getType(expression);
             if (expressionType instanceof ArrayType) {
-                outputFields.add(Field.newUnqualified(Optional.<String>absent(), ((ArrayType) expressionType).getElementType()));
+                outputFields.add(Field.newUnqualified(Optional.empty(), ((ArrayType) expressionType).getElementType()));
             }
             else if (expressionType instanceof MapType) {
-                outputFields.add(Field.newUnqualified(Optional.<String>absent(), ((MapType) expressionType).getKeyType()));
-                outputFields.add(Field.newUnqualified(Optional.<String>absent(), ((MapType) expressionType).getValueType()));
+                outputFields.add(Field.newUnqualified(Optional.empty(), ((MapType) expressionType).getKeyType()));
+                outputFields.add(Field.newUnqualified(Optional.empty(), ((MapType) expressionType).getValueType()));
             }
             else {
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot unnest type: " + expressionType);
@@ -201,7 +202,7 @@ public class TupleAnalyzer
 
         QualifiedTableName name = MetadataUtil.createQualifiedTableName(session, table.getName());
 
-        Optional<ViewDefinition> optionalView = metadata.getView(session, name);
+        Optional<ViewDefinition> optionalView = jdkOptional(metadata.getView(session, name));
         if (optionalView.isPresent()) {
             ViewDefinition view = optionalView.get();
 
@@ -219,7 +220,7 @@ public class TupleAnalyzer
             return descriptor;
         }
 
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
+        Optional<TableHandle> tableHandle = jdkOptional(metadata.getTableHandle(session, name));
         if (!tableHandle.isPresent()) {
             if (!metadata.getCatalogNames().containsKey(name.getCatalogName())) {
                 throw new SemanticException(MISSING_CATALOG, table, "Catalog %s does not exist", name.getCatalogName());
@@ -325,7 +326,7 @@ public class TupleAnalyzer
     @Override
     protected TupleDescriptor visitTableSubquery(TableSubquery node, AnalysisContext context)
     {
-        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, session, experimentalSyntaxEnabled, Optional.<QueryExplainer>absent());
+        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, session, experimentalSyntaxEnabled, Optional.empty());
         TupleDescriptor descriptor = analyzer.process(node.getQuery(), context);
 
         analysis.setOutputDescriptor(node, descriptor);
@@ -414,7 +415,7 @@ public class TupleAnalyzer
             throw new SemanticException(NOT_SUPPORTED, node, "Full outer joins are not supported");
         }
 
-        JoinCriteria criteria = node.getCriteria().orNull();
+        JoinCriteria criteria = node.getCriteria().orElse(null);
         if (criteria instanceof NaturalJoin) {
             throw new SemanticException(NOT_SUPPORTED, node, "Natural join not supported");
         }
@@ -557,7 +558,7 @@ public class TupleAnalyzer
         ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
         for (Expression expression : node.getItems()) {
             ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, new TupleDescriptor(), context);
-            outputFields.add(Field.newUnqualified(Optional.<String>absent(), expressionAnalysis.getType(expression)));
+            outputFields.add(Field.newUnqualified(Optional.empty(), expressionAnalysis.getType(expression)));
         }
         return new TupleDescriptor(outputFields.build());
     }
@@ -630,7 +631,7 @@ public class TupleAnalyzer
     private static void analyzeWindowFrame(WindowFrame frame)
     {
         FrameBound.Type startType = frame.getStart().getType();
-        FrameBound.Type endType = frame.getEnd().or(new FrameBound(CURRENT_ROW)).getType();
+        FrameBound.Type endType = frame.getEnd().orElse(new FrameBound(CURRENT_ROW)).getType();
 
         if (startType == UNBOUNDED_FOLLOWING) {
             throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame start cannot be UNBOUNDED FOLLOWING");
@@ -1023,7 +1024,7 @@ public class TupleAnalyzer
                     .setStartTime(session.getStartTime())
                     .build();
 
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewSession, experimentalSyntaxEnabled, Optional.<QueryExplainer>absent());
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewSession, experimentalSyntaxEnabled, Optional.empty());
             return analyzer.process(query, new AnalysisContext());
         }
         catch (RuntimeException e) {
@@ -1052,7 +1053,7 @@ public class TupleAnalyzer
         for (int i = 0; i < columns.size(); i++) {
             ViewColumn column = columns.get(i);
             Field field = fieldList.get(i);
-            if (!column.getName().equals(field.getName().orNull()) ||
+            if (!column.getName().equals(field.getName().orElse(null)) ||
                     !column.getType().equals(field.getType())) {
                 return true;
             }
