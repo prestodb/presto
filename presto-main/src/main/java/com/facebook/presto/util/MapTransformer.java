@@ -48,7 +48,7 @@ public class MapTransformer<K, V>
 
     public <V1 extends V> MapTransformer<K, V1> castValues(Class<V1> clazz)
     {
-        return transformValues(MoreFunctions.<V, V1>cast(clazz));
+        return transformValues(clazz::cast);
     }
 
     public Map<K, V> map()
