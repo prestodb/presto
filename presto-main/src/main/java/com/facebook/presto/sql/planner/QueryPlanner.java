@@ -49,7 +49,6 @@ import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -57,8 +56,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-
-import javax.annotation.Nullable;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -289,7 +286,7 @@ class QueryPlanner
 
         Set<FieldOrExpression> arguments = IterableTransformer.on(analysis.getAggregates(node))
                 .transformAndFlatten(argumentsGetter())
-                .transform(toFieldOrExpression())
+                .transform(FieldOrExpression::new)
                 .set();
 
         // 1. Pre-project all scalar inputs (arguments and non-trivial group by expressions)
@@ -675,18 +672,5 @@ class QueryPlanner
                 return SortOrder.DESC_NULLS_LAST;
             }
         }
-    }
-
-    public static Function<Expression, FieldOrExpression> toFieldOrExpression()
-    {
-        return new Function<Expression, FieldOrExpression>()
-        {
-            @Nullable
-            @Override
-            public FieldOrExpression apply(Expression input)
-            {
-                return new FieldOrExpression(input);
-            }
-        };
     }
 }
