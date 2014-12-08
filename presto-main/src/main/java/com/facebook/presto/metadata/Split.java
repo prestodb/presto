@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 
 import java.util.List;
 
@@ -72,16 +71,5 @@ public final class Split
                 .add("connectorId", connectorId)
                 .add("connectorSplit", connectorSplit)
                 .toString();
-    }
-
-    public static Function<ConnectorSplit, Split> fromConnectorSplit(final String connectorId)
-    {
-        return new Function<ConnectorSplit, Split>() {
-            @Override
-            public Split apply(ConnectorSplit split)
-            {
-                return new Split(connectorId, split);
-            }
-        };
     }
 }
