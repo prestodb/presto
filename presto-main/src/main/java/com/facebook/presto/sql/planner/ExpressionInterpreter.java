@@ -820,17 +820,6 @@ public class ExpressionInterpreter
             FunctionInfo operatorInfo = metadata.resolveOperator(operatorType, argumentTypes);
             return invoke(session, operatorInfo.getMethodHandle(), argumentValues);
         }
-
-        private Object optimize(Node node, Object context)
-        {
-            checkState(optimize, "not optimizing");
-            try {
-                return process(node, context);
-            }
-            catch (RuntimeException e) {
-                return node;
-            }
-        }
     }
 
     private static class PagePositionContext
