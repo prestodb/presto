@@ -28,13 +28,13 @@ import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;

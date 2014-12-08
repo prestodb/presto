@@ -26,12 +26,13 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.type.TypeRegistry;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -785,7 +786,7 @@ public class TestAnalyzer
                         .build(),
                 metadata,
                 SQL_PARSER,
-                Optional.<QueryExplainer>absent(),
+                Optional.empty(),
                 true);
 
         approximateDisabledAnalyzer = new Analyzer(
@@ -799,7 +800,7 @@ public class TestAnalyzer
                         .build(),
                 metadata,
                 SQL_PARSER,
-                Optional.<QueryExplainer>absent(),
+                Optional.empty(),
                 false);
     }
 

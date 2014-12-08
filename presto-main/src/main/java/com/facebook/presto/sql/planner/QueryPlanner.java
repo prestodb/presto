@@ -66,6 +66,7 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
+import static com.facebook.presto.util.Optionals.guavaOptional;
 import static com.google.common.base.Preconditions.checkState;
 
 class QueryPlanner
@@ -399,11 +400,11 @@ class QueryPlanner
                 frameType = frame.getType();
 
                 frameStartType = frame.getStart().getType();
-                frameStart = frame.getStart().getValue().orNull();
+                frameStart = frame.getStart().getValue().orElse(null);
 
                 if (frame.getEnd().isPresent()) {
                     frameEndType = frame.getEnd().get().getType();
-                    frameEnd = frame.getEnd().get().getValue().orNull();
+                    frameEnd = frame.getEnd().get().getValue().orElse(null);
                 }
             }
 
@@ -604,6 +605,11 @@ class QueryPlanner
         return sort(subPlan, node.getOrderBy(), node.getLimit(), analysis.getOrderByExpressions(node));
     }
 
+    private PlanBuilder sort(PlanBuilder subPlan, List<SortItem> orderBy, java.util.Optional<String> limit, List<FieldOrExpression> orderByExpressions)
+    {
+        return sort(subPlan, orderBy, guavaOptional(limit), orderByExpressions);
+    }
+
     private PlanBuilder sort(PlanBuilder subPlan, List<SortItem> orderBy, Optional<String> limit, List<FieldOrExpression> orderByExpressions)
     {
         if (orderBy.isEmpty()) {
@@ -640,6 +646,11 @@ class QueryPlanner
     private PlanBuilder limit(PlanBuilder subPlan, QuerySpecification node)
     {
         return limit(subPlan, node.getOrderBy(), node.getLimit());
+    }
+
+    private PlanBuilder limit(PlanBuilder subPlan, List<SortItem> orderBy, java.util.Optional<String> limit)
+    {
+        return limit(subPlan, orderBy, guavaOptional(limit));
     }
 
     private PlanBuilder limit(PlanBuilder subPlan, List<SortItem> orderBy, Optional<String> limit)
