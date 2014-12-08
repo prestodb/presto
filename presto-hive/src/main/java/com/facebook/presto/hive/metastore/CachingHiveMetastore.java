@@ -393,6 +393,21 @@ public class CachingHiveMetastore
     }
 
     @Override
+    public void refreshTableMetadata(String databaseName, String tableName) throws NoSuchObjectException
+    {
+        HiveTableName hiveTableName = HiveTableName.table(databaseName, tableName);
+        tableCache.invalidate(hiveTableName);
+        partitionNamesCache.invalidate(hiveTableName);
+        try {
+            tableCache.get(hiveTableName); //trigger a synchronous load
+            partitionNamesCache.get(hiveTableName);
+        }
+        catch (ExecutionException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+    }
+
+    @Override
     public List<String> getAllViews(String databaseName)
             throws NoSuchObjectException
     {

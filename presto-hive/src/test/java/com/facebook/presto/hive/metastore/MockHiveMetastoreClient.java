@@ -21,13 +21,18 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import org.apache.hadoop.hive.metastore.Warehouse;
+import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.hadoop.hive.metastore.api.InvalidObjectException;
+import org.apache.hadoop.hive.metastore.api.InvalidOperationException;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
+import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -36,9 +41,11 @@ public class MockHiveMetastoreClient
 {
     static final String TEST_DATABASE = "testdb";
     static final String BAD_DATABASE = "baddb";
-    static final String TEST_TABLE = "testtbl";
+    static final String TEST_TABLE_NAME = "testtbl";
     static final String TEST_PARTITION1 = "key=testpartition1";
     static final String TEST_PARTITION2 = "key=testpartition2";
+    static Table testTable = null;
+    static List<String> partitionNames;
 
     private final AtomicInteger accessCount = new AtomicInteger();
     private boolean throwException;
@@ -46,6 +53,14 @@ public class MockHiveMetastoreClient
     MockHiveMetastoreClient()
     {
         super(null);
+        List<FieldSchema> testColumns = new ArrayList<>();
+        testColumns.add(new FieldSchema("col1", "string", null));
+        testColumns.add(new FieldSchema("col2", "string", null));
+        StorageDescriptor sd = new StorageDescriptor(testColumns, null, null, null, false, 0, null, null, null, null);
+        testTable = new Table(TEST_TABLE_NAME, TEST_DATABASE, "", 0, 0, 0, sd, ImmutableList.of(new FieldSchema("key", "String", null)), null, "", "", "");
+        partitionNames = new ArrayList<>();
+        partitionNames.add(TEST_PARTITION1);
+        partitionNames.add(TEST_PARTITION2);
     }
 
     public void setThrowException(boolean throwException)
@@ -80,7 +95,7 @@ public class MockHiveMetastoreClient
         if (!dbName.equals(TEST_DATABASE)) {
             return ImmutableList.of(); // As specified by Hive specification
         }
-        return ImmutableList.of(TEST_TABLE);
+        return ImmutableList.of(TEST_TABLE_NAME);
     }
 
     @Override
@@ -105,10 +120,10 @@ public class MockHiveMetastoreClient
         if (throwException) {
             throw new RuntimeException();
         }
-        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE)) {
+        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE_NAME)) {
             throw new NoSuchObjectException();
         }
-        return new Table(TEST_TABLE, TEST_DATABASE, "", 0, 0, 0, null, ImmutableList.of(new FieldSchema("key", "String", null)), null, "", "", "");
+        return testTable;
     }
 
     @Override
@@ -119,10 +134,10 @@ public class MockHiveMetastoreClient
         if (throwException) {
             throw new RuntimeException();
         }
-        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE)) {
+        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE_NAME)) {
             return ImmutableList.of();
         }
-        return ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2);
+        return ImmutableList.copyOf(partitionNames);
     }
 
     @Override
@@ -133,10 +148,10 @@ public class MockHiveMetastoreClient
         if (throwException) {
             throw new RuntimeException();
         }
-        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE)) {
+        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE_NAME)) {
             throw new NoSuchObjectException();
         }
-        return ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2);
+        return ImmutableList.copyOf(partitionNames);
     }
 
     @Override
@@ -147,10 +162,10 @@ public class MockHiveMetastoreClient
         if (throwException) {
             throw new RuntimeException();
         }
-        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE) || !ImmutableSet.of(TEST_PARTITION1, TEST_PARTITION2).contains(partName)) {
+        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE_NAME) || !ImmutableSet.of(TEST_PARTITION1, TEST_PARTITION2).contains(partName)) {
             throw new NoSuchObjectException();
         }
-        return new Partition(null, TEST_DATABASE, TEST_TABLE, 0, 0, null, null);
+        return new Partition(null, TEST_DATABASE, TEST_TABLE_NAME, 0, 0, null, null);
     }
 
     @Override
@@ -161,7 +176,7 @@ public class MockHiveMetastoreClient
         if (throwException) {
             throw new RuntimeException();
         }
-        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE) || !ImmutableSet.of(TEST_PARTITION1, TEST_PARTITION2).containsAll(names)) {
+        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE_NAME) || !ImmutableSet.of(TEST_PARTITION1, TEST_PARTITION2).containsAll(names)) {
             throw new NoSuchObjectException();
         }
         return Lists.transform(names, new Function<String, Partition>()
@@ -170,7 +185,7 @@ public class MockHiveMetastoreClient
             public Partition apply(String name)
             {
                 try {
-                    return new Partition(ImmutableList.copyOf(Warehouse.getPartValuesFromPartName(name)), TEST_DATABASE, TEST_TABLE, 0, 0, null, null);
+                    return new Partition(ImmutableList.copyOf(Warehouse.getPartValuesFromPartName(name)), TEST_DATABASE, TEST_TABLE_NAME, 0, 0, null, null);
                 }
                 catch (MetaException e) {
                     throw Throwables.propagate(e);
@@ -183,5 +198,25 @@ public class MockHiveMetastoreClient
     public void close()
     {
         // No-op
+    }
+
+    @Override
+    public void alter_table(String dbName, String tableName, Table newTable) throws InvalidOperationException, MetaException, TException
+    {
+        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE_NAME)) {
+            throw new NoSuchObjectException();
+        }
+        testTable = new Table(newTable);
+    }
+
+    @Override
+    public Partition add_partition(Partition newPartition) throws InvalidObjectException, AlreadyExistsException, MetaException, TException
+    {
+        if (!newPartition.getDbName().equals(TEST_DATABASE) || !newPartition.getTableName().equals(TEST_TABLE_NAME)) {
+            throw new NoSuchObjectException();
+        }
+
+        partitionNames.addAll(newPartition.getValues());
+        return newPartition;
     }
 }

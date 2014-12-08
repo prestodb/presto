@@ -77,6 +77,7 @@ tokens {
     USE_SCHEMA;
     CREATE_TABLE;
     DROP_TABLE;
+    REFRESH_TABLE;
     RENAME_TABLE;
     CREATE_VIEW;
     DROP_VIEW;
@@ -171,6 +172,7 @@ statement
     | createTableStmt
     | insertStmt
     | dropTableStmt
+    | refreshStmt
     | alterTableStmt
     | createViewStmt
     | dropViewStmt
@@ -649,6 +651,10 @@ dropTableStmt
     : DROP TABLE qname -> ^(DROP_TABLE qname)
     ;
 
+refreshStmt
+    : REFRESH qname -> ^(REFRESH_TABLE qname)
+    ;
+
 insertStmt
     : INSERT INTO qname query -> ^(INSERT qname query)
     ;
@@ -885,6 +891,7 @@ USE: 'USE';
 PARTITIONS: 'PARTITIONS';
 FUNCTIONS: 'FUNCTIONS';
 DROP: 'DROP';
+REFRESH: 'REFRESH';
 UNION: 'UNION';
 EXCEPT: 'EXCEPT';
 INTERSECT: 'INTERSECT';

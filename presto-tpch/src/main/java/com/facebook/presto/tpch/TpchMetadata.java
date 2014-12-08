@@ -143,6 +143,12 @@ public class TpchMetadata
     }
 
     @Override
+    public void refreshTableMetadata(ConnectorTableHandle table)
+    {
+        throw new UnsupportedOperationException("Refresh is not supported");
+    }
+
+    @Override
     public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
     {
         ConnectorTableMetadata tableMetadata = getTableMetadata(tableHandle);

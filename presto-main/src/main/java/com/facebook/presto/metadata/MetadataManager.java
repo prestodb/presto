@@ -448,6 +448,12 @@ public class MetadataManager
     }
 
     @Override
+    public void refreshTableMetadata(TableHandle tableHandle)
+    {
+        lookupConnectorFor(tableHandle).refreshTableMetadata(tableHandle.getConnectorHandle());
+    }
+
+    @Override
     public FunctionRegistry getFunctionRegistry()
     {
         return functions;

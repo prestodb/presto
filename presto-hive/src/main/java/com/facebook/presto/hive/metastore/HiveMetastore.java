@@ -55,4 +55,7 @@ public interface HiveMetastore
 
     Table getTable(String databaseName, String tableName)
             throws NoSuchObjectException;
+
+    public void refreshTableMetadata(String databaseName, String tableName)
+            throws NoSuchObjectException;
 }

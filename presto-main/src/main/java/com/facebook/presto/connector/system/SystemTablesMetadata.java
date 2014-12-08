@@ -131,4 +131,10 @@ public class SystemTablesMetadata
         }
         return builder.build();
     }
+
+    @Override
+    public void refreshTableMetadata(ConnectorTableHandle table)
+    {
+        throw new UnsupportedOperationException("Refresh is not supported");
+    }
 }

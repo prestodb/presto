@@ -232,6 +232,12 @@ public class TestingMetadata
         return map.build();
     }
 
+    @Override
+    public void refreshTableMetadata(ConnectorTableHandle table)
+    {
+        throw new UnsupportedOperationException("Refresh is not supported");
+    }
+
     private static SchemaTableName getTableName(ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
