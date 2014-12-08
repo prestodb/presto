@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamV1Checkpoint;
 import com.google.common.primitives.Ints;
 
 import java.io.IOException;
 
-import static com.facebook.presto.orc.OrcCorruptionException.verifyFormat;
 import static com.facebook.presto.orc.stream.OrcStreamUtils.MIN_REPEAT_SIZE;
 
 public class LongStreamV1
@@ -50,14 +50,18 @@ public class LongStreamV1
         lastReadInputCheckpoint = input.getCheckpoint();
 
         int control = input.read();
-        verifyFormat(control != -1, "Read past end of RLE integer from %s", input);
+        if (control == -1) {
+            throw new OrcCorruptionException("Read past end of RLE integer from %s", input);
+        }
 
         if (control < 0x80) {
             numLiterals = control + MIN_REPEAT_SIZE;
             used = 0;
             repeat = true;
             delta = input.read();
-            verifyFormat(delta != -1, "End of stream in RLE Integer from %s", input);
+            if (delta == -1) {
+                throw new OrcCorruptionException("End of stream in RLE Integer from %s", input);
+            }
 
             // convert from 0 to 255 to -128 to 127 by converting to a signed byte
             // noinspection SillyAssignment

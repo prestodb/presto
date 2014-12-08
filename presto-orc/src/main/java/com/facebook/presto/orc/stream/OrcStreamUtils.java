@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.OrcCorruptionException;
+
 import java.io.IOException;
 import java.io.InputStream;
 
-import static com.facebook.presto.orc.OrcCorruptionException.verifyFormat;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -33,7 +34,9 @@ final class OrcStreamUtils
     {
         while (length > 0) {
             long result = input.skip(length);
-            verifyFormat(result >= 0, "Unexpected end of stream");
+            if (result < 0) {
+                throw new OrcCorruptionException("Unexpected end of stream");
+            }
             length -= result;
         }
     }
@@ -43,7 +46,9 @@ final class OrcStreamUtils
     {
         while (offset < length) {
             int result = input.read(buffer, offset, length - offset);
-            verifyFormat(result >= 0, "Unexpected end of stream");
+            if (result < 0) {
+                throw new OrcCorruptionException("Unexpected end of stream");
+            }
             offset += result;
         }
     }

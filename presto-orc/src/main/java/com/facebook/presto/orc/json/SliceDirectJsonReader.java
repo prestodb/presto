@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.json;
 
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
@@ -29,7 +30,6 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.orc.OrcCorruptionException.verifyFormat;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
@@ -101,7 +101,9 @@ public class SliceDirectJsonReader
     private int bufferNextValue()
             throws IOException
     {
-        verifyFormat(lengthStream != null, "Value is not null but length stream is not present");
+        if (lengthStream == null) {
+            throw new OrcCorruptionException("Value is not null but length stream is not present");
+        }
 
         int length = Ints.checkedCast(lengthStream.next());
         if (data.length < length) {
@@ -109,7 +111,9 @@ public class SliceDirectJsonReader
         }
 
         if (length > 0) {
-            verifyFormat(dataStream != null, "Length is not zero but data stream is not present");
+            if (dataStream == null) {
+                throw new OrcCorruptionException("Length is not zero but data stream is not present");
+            }
             dataStream.next(length, data);
         }
         return length;
@@ -128,7 +132,9 @@ public class SliceDirectJsonReader
             return;
         }
 
-        verifyFormat(lengthStream != null, "Value is not null but length stream is not present");
+        if (lengthStream == null) {
+            throw new OrcCorruptionException("Value is not null but length stream is not present");
+        }
 
         // skip non-null length
         long dataSkipSize = lengthStream.sum(skipSize);
@@ -137,7 +143,9 @@ public class SliceDirectJsonReader
             return;
         }
 
-        verifyFormat(dataStream != null, "Length is not zero but data stream is not present");
+        if (dataStream == null) {
+            throw new OrcCorruptionException("Length is not zero but data stream is not present");
+        }
 
         // skip data bytes
         dataStream.skip(Ints.checkedCast(dataSkipSize));

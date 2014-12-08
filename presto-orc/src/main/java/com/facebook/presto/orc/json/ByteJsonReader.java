@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.json;
 
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
@@ -25,7 +26,6 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.orc.OrcCorruptionException.verifyFormat;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -56,7 +56,9 @@ public class ByteJsonReader
             return;
         }
 
-        verifyFormat(dataStream != null, "Value is not null but data stream is not present");
+        if (dataStream == null) {
+            throw new OrcCorruptionException("Value is not null but data stream is not present");
+        }
 
         generator.writeNumber(dataStream.next());
     }
@@ -69,7 +71,9 @@ public class ByteJsonReader
             return null;
         }
 
-        verifyFormat(dataStream != null, "Value is not null but data stream is not present");
+        if (dataStream == null) {
+            throw new OrcCorruptionException("Value is not null but data stream is not present");
+        }
 
         return String.valueOf(dataStream.next());
     }
@@ -87,7 +91,9 @@ public class ByteJsonReader
             return;
         }
 
-        verifyFormat(dataStream != null, "Value is not null but data stream is not present");
+        if (dataStream == null) {
+            throw new OrcCorruptionException("Value is not null but data stream is not present");
+        }
 
         // skip non-null values
         dataStream.skip(skipSize);

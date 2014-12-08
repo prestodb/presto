@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 
 import java.io.IOException;
 import java.io.InputStream;
 
-import static com.facebook.presto.orc.OrcCorruptionException.verifyFormat;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.INT;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.LONG;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.SHORT;
@@ -134,7 +134,9 @@ public final class LongDecode
         long b;
         do {
             b = inputStream.read();
-            verifyFormat(b != -1, "EOF while reading unsigned vint");
+            if (b == -1) {
+                throw new OrcCorruptionException("EOF while reading unsigned vint");
+            }
             result |= (b & 0b0111_1111) << offset;
             offset += 7;
         } while ((b & 0b1000_0000) != 0);

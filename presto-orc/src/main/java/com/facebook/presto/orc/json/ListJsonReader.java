@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.json;
 
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
@@ -27,7 +28,6 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.orc.OrcCorruptionException.verifyFormat;
 import static com.facebook.presto.orc.json.JsonReaders.createJsonReader;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
@@ -65,7 +65,9 @@ public class ListJsonReader
             return;
         }
 
-        verifyFormat(lengthStream != null, "Value is not null but length stream is not present");
+        if (lengthStream == null) {
+            throw new OrcCorruptionException("Value is not null but length stream is not present");
+        }
 
         long length = lengthStream.next();
         generator.writeStartArray();
@@ -88,7 +90,9 @@ public class ListJsonReader
             return;
         }
 
-        verifyFormat(lengthStream != null, "Value is not null but length stream is not present");
+        if (lengthStream == null) {
+            throw new OrcCorruptionException("Value is not null but length stream is not present");
+        }
 
         long elementSkipSize = lengthStream.sum(skipSize);
         elementReader.skip(Ints.checkedCast(elementSkipSize));
