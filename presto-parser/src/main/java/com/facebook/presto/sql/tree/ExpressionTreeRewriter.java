@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -51,18 +50,6 @@ public final class ExpressionTreeRewriter<C>
     public <T extends Expression> T defaultRewrite(T node, C context)
     {
         return (T) visitor.process(node, new Context<>(context, true));
-    }
-
-    public static <C, T extends Expression> Function<Expression, T> rewriteFunction(final ExpressionRewriter<C> rewriter)
-    {
-        return new Function<Expression, T>()
-        {
-            @Override
-            public T apply(Expression node)
-            {
-                return (T) rewriteWith(rewriter, node);
-            }
-        };
     }
 
     private class RewritingVisitor

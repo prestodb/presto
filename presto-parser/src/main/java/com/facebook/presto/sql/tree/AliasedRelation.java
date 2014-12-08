@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 
 import java.util.List;
@@ -101,17 +100,5 @@ public class AliasedRelation
         result = 31 * result + alias.hashCode();
         result = 31 * result + (columnNames != null ? columnNames.hashCode() : 0);
         return result;
-    }
-
-    public static Function<QualifiedName, QualifiedName> applyAlias(final AliasedRelation node)
-    {
-        return new Function<QualifiedName, QualifiedName>()
-        {
-            @Override
-            public QualifiedName apply(QualifiedName input)
-            {
-                return QualifiedName.of(node.getAlias(), input.getSuffix()); // TODO: handle column aliases
-            }
-        };
     }
 }
