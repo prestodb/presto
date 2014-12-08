@@ -21,7 +21,6 @@ import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -389,18 +388,6 @@ public class QueryStateMachine
         }
         return FluentIterable.from(getAllStages(rootStage))
                 .transform(StageInfo::getState)
-                .allMatch(isStageRunningOrDone());
-    }
-
-    private static Predicate<StageState> isStageRunningOrDone()
-    {
-        return new Predicate<StageState>()
-        {
-            @Override
-            public boolean apply(StageState state)
-            {
-                return (state == StageState.RUNNING) || state.isDone();
-            }
-        };
+                .allMatch(state -> (state == StageState.RUNNING) || state.isDone());
     }
 }
