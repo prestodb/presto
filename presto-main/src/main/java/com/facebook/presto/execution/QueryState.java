@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.google.common.base.Predicate;
-
 public enum QueryState
 {
     /**
@@ -59,17 +57,5 @@ public enum QueryState
     public boolean isDone()
     {
         return doneState;
-    }
-
-    public static Predicate<QueryState> inDoneState()
-    {
-        return new Predicate<QueryState>()
-        {
-            @Override
-            public boolean apply(QueryState state)
-            {
-                return state.isDone();
-            }
-        };
     }
 }
