@@ -912,7 +912,7 @@ public class SqlStageExecution
                     }
                     else if (currentState != StageState.PLANNED && currentState != StageState.SCHEDULING) {
                         // all tasks are now scheduled, so we can check the finished state
-                        if (all(taskStates, TaskState.inDoneState())) {
+                        if (all(taskStates, TaskState::isDone)) {
                             stageState.set(StageState.FINISHED);
                         }
                         else if (any(taskStates, equalTo(TaskState.RUNNING))) {

@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.google.common.base.Predicate;
-
 public enum TaskState
 {
     /**
@@ -53,17 +51,5 @@ public enum TaskState
     public boolean isDone()
     {
         return doneState;
-    }
-
-    public static Predicate<TaskState> inDoneState()
-    {
-        return new Predicate<TaskState>()
-        {
-            @Override
-            public boolean apply(TaskState state)
-            {
-                return state.isDone();
-            }
-        };
     }
 }
