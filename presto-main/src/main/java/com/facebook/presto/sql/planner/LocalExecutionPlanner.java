@@ -112,7 +112,6 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.util.IterableTransformer;
-import com.facebook.presto.util.MoreFunctions;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Optional;
@@ -368,8 +367,8 @@ public class LocalExecutionPlanner
             Ordering<Integer> comparator = Ordering.natural();
 
             List<Symbol> sourceSymbols = IterableTransformer.on(source.getLayout().entrySet())
-                    .orderBy(comparator.onResultOf(MoreFunctions.<Symbol, Integer>valueGetter()))
-                    .transform(MoreFunctions.<Symbol, Integer>keyGetter())
+                    .orderBy(comparator.onResultOf(Map.Entry::getValue))
+                    .transform(Map.Entry::getKey)
                     .list();
 
             List<Symbol> resultSymbols = node.getOutputSymbols();
@@ -1294,8 +1293,8 @@ public class LocalExecutionPlanner
 
             // are the symbols of the source in the same order as the sink expects?
             boolean projectionMatchesOutput = IterableTransformer.on(source.getLayout().entrySet())
-                    .orderBy(Ordering.<Integer>natural().onResultOf(MoreFunctions.<Symbol, Integer>valueGetter()))
-                    .transform(MoreFunctions.<Symbol, Integer>keyGetter())
+                    .orderBy(Ordering.<Integer>natural().onResultOf(Map.Entry::getValue))
+                    .transform(Map.Entry::getKey)
                     .list()
                     .equals(node.getOutputSymbols());
 
@@ -1394,8 +1393,8 @@ public class LocalExecutionPlanner
                 List<OperatorFactory> operatorFactories = new ArrayList<>(source.getOperatorFactories());
 
                 boolean projectionMatchesOutput = IterableTransformer.on(source.getLayout().entrySet())
-                        .orderBy(Ordering.<Integer>natural().onResultOf(MoreFunctions.<Symbol, Integer>valueGetter()))
-                        .transform(MoreFunctions.<Symbol, Integer>keyGetter())
+                        .orderBy(Ordering.<Integer>natural().onResultOf(Map.Entry::getValue))
+                        .transform(Map.Entry::getKey)
                         .list()
                         .equals(expectedLayout);
 
