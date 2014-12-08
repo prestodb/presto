@@ -14,6 +14,7 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.sql.planner.DependencyExtractor;
+import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.IsNullPredicate;
@@ -31,7 +32,6 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.sql.planner.DeterminismEvaluator.deterministic;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Predicates.not;
@@ -177,7 +177,7 @@ public final class ExpressionUtils
 
     public static Expression stripNonDeterministicConjuncts(Expression expression)
     {
-        return combineConjuncts(filter(extractConjuncts(expression), deterministic()));
+        return combineConjuncts(filter(extractConjuncts(expression), DeterminismEvaluator::isDeterministic));
     }
 
     public static Function<Expression, Expression> expressionOrNullSymbols(final Predicate<Symbol> nullSymbolScope)
@@ -204,10 +204,10 @@ public final class ExpressionUtils
     private static Iterable<Expression> removeDuplicates(Iterable<Expression> expressions)
     {
         // Capture all non-deterministic predicates
-        Iterable<Expression> nonDeterministicDisjuncts = Iterables.filter(expressions, not(deterministic()));
+        Iterable<Expression> nonDeterministicDisjuncts = Iterables.filter(expressions, not(DeterminismEvaluator::isDeterministic));
 
         // Capture and de-dupe all deterministic predicates
-        Iterable<Expression> deterministicDisjuncts = ImmutableSet.copyOf(Iterables.filter(expressions, deterministic()));
+        Iterable<Expression> deterministicDisjuncts = ImmutableSet.copyOf(Iterables.filter(expressions, DeterminismEvaluator::isDeterministic));
 
         return Iterables.concat(nonDeterministicDisjuncts, deterministicDisjuncts);
     }
