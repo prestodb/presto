@@ -43,7 +43,7 @@ public class ConnectorAwareSplitSource
     public List<Split> getNextBatch(int maxSize)
             throws InterruptedException
     {
-        return Lists.transform(source.getNextBatch(maxSize), Split.fromConnectorSplit(connectorId));
+        return Lists.transform(source.getNextBatch(maxSize), split -> new Split(connectorId, split));
     }
 
     @Override
