@@ -65,7 +65,6 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
 import static com.facebook.presto.util.Optionals.guavaOptional;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -412,7 +411,7 @@ class QueryPlanner
             ImmutableList.Builder<Expression> inputs = ImmutableList.<Expression>builder()
                     .addAll(windowFunction.getArguments())
                     .addAll(window.getPartitionBy())
-                    .addAll(Iterables.transform(window.getOrderBy(), sortKeyGetter()));
+                    .addAll(Iterables.transform(window.getOrderBy(), SortItem::getSortKey));
 
             if (frameStart != null) {
                 inputs.add(frameStart);

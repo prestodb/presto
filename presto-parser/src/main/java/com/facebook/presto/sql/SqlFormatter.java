@@ -63,7 +63,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.sql.ExpressionFormatter.expressionFormatterFunction;
 import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.ExpressionFormatter.formatSortItems;
 import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
@@ -180,7 +179,7 @@ public final class SqlFormatter
             }
 
             if (!node.getGroupBy().isEmpty()) {
-                append(indent, "GROUP BY " + Joiner.on(", ").join(transform(node.getGroupBy(), expressionFormatterFunction())))
+                append(indent, "GROUP BY " + Joiner.on(", ").join(transform(node.getGroupBy(), ExpressionFormatter::formatExpression)))
                         .append('\n');
             }
 
@@ -364,7 +363,7 @@ public final class SqlFormatter
         protected Void visitRow(Row node, Integer indent)
         {
             builder.append('(')
-                    .append(Joiner.on(", ").join(transform(node.getItems(), expressionFormatterFunction())))
+                    .append(Joiner.on(", ").join(transform(node.getItems(), ExpressionFormatter::formatExpression)))
                     .append(')');
 
             return null;

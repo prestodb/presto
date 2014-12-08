@@ -58,15 +58,14 @@ import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
-import static com.google.common.collect.Iterables.transform;
 
 public final class ExpressionFormatter
 {
@@ -75,18 +74,6 @@ public final class ExpressionFormatter
     public static String formatExpression(Expression expression)
     {
         return new Formatter().process(expression, null);
-    }
-
-    public static Function<Expression, String> expressionFormatterFunction()
-    {
-        return new Function<Expression, String>()
-        {
-            @Override
-            public String apply(Expression input)
-            {
-                return formatExpression(input);
-            }
-        };
     }
 
     public static class Formatter
@@ -497,14 +484,9 @@ public final class ExpressionFormatter
 
         private String joinExpressions(List<Expression> expressions)
         {
-            return Joiner.on(", ").join(transform(expressions, new Function<Expression, Object>()
-            {
-                @Override
-                public Object apply(Expression input)
-                {
-                    return process(input, null);
-                }
-            }));
+            return Joiner.on(", ").join(expressions.stream()
+                    .map((e) -> process(e, null))
+                    .iterator());
         }
 
         private static String formatIdentifier(String s)
@@ -521,47 +503,44 @@ public final class ExpressionFormatter
 
     static String formatSortItems(List<SortItem> sortItems)
     {
-        return Joiner.on(", ").join(transform(sortItems, sortItemFormatterFunction()));
+        return Joiner.on(", ").join(sortItems.stream()
+                .map(sortItemFormatterFunction())
+                .iterator());
     }
 
     private static Function<SortItem, String> sortItemFormatterFunction()
     {
-        return new Function<SortItem, String>()
-        {
-            @Override
-            public String apply(SortItem input)
-            {
-                StringBuilder builder = new StringBuilder();
+        return input -> {
+            StringBuilder builder = new StringBuilder();
 
-                builder.append(formatExpression(input.getSortKey()));
+            builder.append(formatExpression(input.getSortKey()));
 
-                switch (input.getOrdering()) {
-                    case ASCENDING:
-                        builder.append(" ASC");
-                        break;
-                    case DESCENDING:
-                        builder.append(" DESC");
-                        break;
-                    default:
-                        throw new UnsupportedOperationException("unknown ordering: " + input.getOrdering());
-                }
-
-                switch (input.getNullOrdering()) {
-                    case FIRST:
-                        builder.append(" NULLS FIRST");
-                        break;
-                    case LAST:
-                        builder.append(" NULLS LAST");
-                        break;
-                    case UNDEFINED:
-                        // no op
-                        break;
-                    default:
-                        throw new UnsupportedOperationException("unknown null ordering: " + input.getNullOrdering());
-                }
-
-                return builder.toString();
+            switch (input.getOrdering()) {
+                case ASCENDING:
+                    builder.append(" ASC");
+                    break;
+                case DESCENDING:
+                    builder.append(" DESC");
+                    break;
+                default:
+                    throw new UnsupportedOperationException("unknown ordering: " + input.getOrdering());
             }
+
+            switch (input.getNullOrdering()) {
+                case FIRST:
+                    builder.append(" NULLS FIRST");
+                    break;
+                case LAST:
+                    builder.append(" NULLS LAST");
+                    break;
+                case UNDEFINED:
+                    // no op
+                    break;
+                default:
+                    throw new UnsupportedOperationException("unknown null ordering: " + input.getNullOrdering());
+            }
+
+            return builder.toString();
         };
     }
 }

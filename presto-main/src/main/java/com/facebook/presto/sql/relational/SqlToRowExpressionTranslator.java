@@ -97,6 +97,7 @@ import static com.facebook.presto.util.DateTimeUtils.parseTimeWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 
 public final class SqlToRowExpressionTranslator
 {
@@ -254,9 +255,9 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitFunctionCall(FunctionCall node, Void context)
         {
-            List<RowExpression> arguments = FluentIterable.from(node.getArguments())
-                    .transform(processFunction(context))
-                    .toList();
+            List<RowExpression> arguments = node.getArguments().stream()
+                    .map(value -> process(value, context))
+                    .collect(toImmutableList());
 
             List<TypeSignature> argumentTypes = FluentIterable.from(arguments)
                     .transform(RowExpression::getType)
@@ -316,9 +317,9 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitCoalesceExpression(CoalesceExpression node, Void context)
         {
-            List<RowExpression> arguments = FluentIterable.from(node.getOperands())
-                    .transform(processFunction(context))
-                    .toList();
+            List<RowExpression> arguments = node.getOperands().stream()
+                            .map(value -> process(value, context))
+                            .collect(toImmutableList());
 
             List<Type> argumentTypes = FluentIterable.from(arguments).transform(RowExpression::getType).toList();
             return call(coalesceSignature(types.get(node), argumentTypes), types.get(node), arguments);
@@ -504,9 +505,9 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitArrayConstructor(ArrayConstructor node, Void context)
         {
-            List<RowExpression> arguments = FluentIterable.from(node.getValues())
-                    .transform(processFunction(context))
-                    .toList();
+            List<RowExpression> arguments = node.getValues().stream()
+                    .map(value -> process(value, context))
+                    .collect(toImmutableList());
             List<Type> argumentTypes = FluentIterable.from(arguments)
                     .transform(RowExpression::getType)
                     .toList();
