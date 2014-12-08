@@ -31,7 +31,6 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
@@ -85,7 +84,7 @@ public class SimplifyExpressions
         public PlanNode rewriteProject(ProjectNode node, Void context, PlanRewriter<Void> planRewriter)
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
-            Map<Symbol, Expression> assignments = ImmutableMap.copyOf(Maps.transformValues(node.getAssignments(), simplifyExpressionFunction()));
+            Map<Symbol, Expression> assignments = ImmutableMap.copyOf(Maps.transformValues(node.getAssignments(), this::simplifyExpression));
             return new ProjectNode(node.getId(), source, assignments);
         }
 
@@ -108,18 +107,6 @@ public class SimplifyExpressions
                 originalConstraint = simplifyExpression(node.getOriginalConstraint());
             }
             return new TableScanNode(node.getId(), node.getTable(), node.getOutputSymbols(), node.getAssignments(), originalConstraint, node.getSummarizedPartition());
-        }
-
-        private Function<Expression, Expression> simplifyExpressionFunction()
-        {
-            return new Function<Expression, Expression>()
-            {
-                @Override
-                public Expression apply(Expression input)
-                {
-                    return simplifyExpression(input);
-                }
-            };
         }
 
         private Expression simplifyExpression(Expression input)
