@@ -30,8 +30,12 @@ import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
+import static com.facebook.presto.type.TypeJsonUtils.createBlock;
+import static com.facebook.presto.type.TypeJsonUtils.getObjectList;
 import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -79,6 +83,68 @@ public class ArrayType
         catch (JsonProcessingException e) {
             throw Throwables.propagate(e);
         }
+    }
+
+    @Override
+    public boolean isComparable()
+    {
+        return elementType.isComparable();
+    }
+
+    @Override
+    public boolean isOrderable()
+    {
+        return elementType.isOrderable();
+    }
+
+    @Override
+    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        return compareTo(leftBlock, leftPosition, rightBlock, rightPosition) == 0;
+    }
+
+    @Override
+    public int hash(Block block, int position)
+    {
+        if (block.isNull(position)) {
+            return 0;
+        }
+        Slice value = block.getSlice(position, 0, block.getLength(position));
+        List<Object> array = getObjectList(value);
+        List<Integer> hashArray = new ArrayList<Integer>();
+        for (Object element : array) {
+            hashArray.add(elementType.hash(createBlock(elementType, element), 0));
+        }
+        return Objects.hash(hashArray);
+    }
+
+    @Override
+    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        if (leftBlock.isNull(leftPosition) && rightBlock.isNull(rightPosition)) {
+            return 0;
+        }
+        if (leftBlock.isNull(leftPosition) || rightBlock.isNull(rightPosition)) {
+            throw new UnsupportedOperationException("Array is not comparable with NULL");
+        }
+        Slice leftSlice = leftBlock.getSlice(leftPosition, 0, leftBlock.getLength(leftPosition));
+        Slice rightSlice = rightBlock.getSlice(rightPosition, 0, rightBlock.getLength(rightPosition));
+        List<Object> leftArray = getObjectList(leftSlice);
+        List<Object> rightArray = getObjectList(rightSlice);
+
+        int len = Math.min(leftArray.size(), rightArray.size());
+        int index = 0;
+        while (index < len && elementType.compareTo(createBlock(elementType, leftArray.get(index)), 0,
+                                            createBlock(elementType, rightArray.get(index)), 0) == 0) {
+            index++;
+        }
+
+        if (index == len) {
+            return leftArray.size() - rightArray.size();
+        }
+
+        return elementType.compareTo(createBlock(elementType, leftArray.get(index)), 0,
+                            createBlock(elementType, rightArray.get(index)), 0);
     }
 
     @Override

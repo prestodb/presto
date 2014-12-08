@@ -17,9 +17,11 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import io.airlift.slice.Slice;
 
 import java.util.List;
 
+import static com.facebook.presto.type.TypeJsonUtils.getObjectList;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
@@ -44,6 +46,8 @@ public class TestBigintArrayType
     @Override
     protected Object getGreaterValue(Object value)
     {
-        throw new UnsupportedOperationException();
+        List<Object> array = getObjectList((Slice) value);
+        array.add(1L);
+        return ArrayType.toStackRepresentation(array);
     }
 }
