@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 
 public final class PlanRewriter<C>
@@ -48,18 +47,6 @@ public final class PlanRewriter<C>
     public <T extends PlanNode> T defaultRewrite(T node, C context)
     {
         return (T) node.accept(visitor, new Context<>(context, true));
-    }
-
-    public static <C, T extends PlanNode> Function<PlanNode, T> rewriteFunction(final PlanNodeRewriter<C> rewriter)
-    {
-        return new Function<PlanNode, T>()
-        {
-            @Override
-            public T apply(PlanNode node)
-            {
-                return (T) rewriteWith(rewriter, node);
-            }
-        };
     }
 
     private class RewritingVisitor
