@@ -13,6 +13,10 @@ The ``coalesce`` function can be used to convert null into zero.
 General Aggregate Functions
 ---------------------------
 
+.. function:: arbitrary(x) -> [same as input]
+
+    Returns an arbitrary non-null value of ``x``, if one exists.
+
 .. function:: avg(x) -> double
 
     Returns the average (arithmetic mean) of all input values.
@@ -49,10 +53,6 @@ General Aggregate Functions
 .. function:: sum(x) -> [same as input]
 
     Returns the sum of all input values.
-
-.. function:: arbitrary(x) -> [same as input]
-
-    Returns an arbitrary non-NULL value, if one exists.
 
 Approximate Aggregate Functions
 -------------------------------

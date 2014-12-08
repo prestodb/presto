@@ -58,7 +58,7 @@ public class ArbitraryAggregation
     @Override
     public String getDescription()
     {
-        return "Returns any arbitrary value that will be non-null if such a value exists";
+        return "return an arbitrary non-null input value";
     }
 
     @Override
