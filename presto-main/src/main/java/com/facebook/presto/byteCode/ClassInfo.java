@@ -37,7 +37,6 @@ import org.objectweb.asm.tree.MethodNode;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.ParameterizedType.pathToParameterizedType;
 import static com.facebook.presto.byteCode.ParameterizedType.toParameterizedType;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
@@ -62,8 +61,8 @@ public class ClassInfo
                 typeFromPathName(classNode.name),
                 classNode.access,
                 classNode.superName == null ? null : typeFromPathName(classNode.superName),
-                transform(classNode.interfaces, pathToParameterizedType()),
-                classNode.methods);
+                transform((List<String>) classNode.interfaces, ParameterizedType::typeFromPathName),
+                (List<MethodNode>) classNode.methods);
     }
 
     public ClassInfo(ClassInfoLoader loader, Class<?> aClass)
