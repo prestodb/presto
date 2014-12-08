@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 import java.util.Optional;
 
@@ -67,14 +67,14 @@ public class IfExpression
             return false;
         }
         IfExpression o = (IfExpression) obj;
-        return Objects.equal(condition, o.condition) &&
-                Objects.equal(trueValue, o.trueValue) &&
-                Objects.equal(falseValue, o.falseValue);
+        return Objects.equals(condition, o.condition) &&
+                Objects.equals(trueValue, o.trueValue) &&
+                Objects.equals(falseValue, o.falseValue);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(condition, trueValue, falseValue);
+        return Objects.hash(condition, trueValue, falseValue);
     }
 }

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
@@ -70,13 +70,13 @@ public class Intersect
             return false;
         }
         Intersect o = (Intersect) obj;
-        return Objects.equal(relations, o.relations) &&
-                Objects.equal(distinct, o.distinct);
+        return Objects.equals(relations, o.relations) &&
+                Objects.equals(distinct, o.distinct);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(relations, distinct);
+        return Objects.hash(relations, distinct);
     }
 }

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -42,7 +42,7 @@ public class ShowColumns
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(table);
+        return Objects.hash(table);
     }
 
     @Override
@@ -55,7 +55,7 @@ public class ShowColumns
             return false;
         }
         ShowColumns o = (ShowColumns) obj;
-        return Objects.equal(table, o.table);
+        return Objects.equals(table, o.table);
     }
 
     @Override

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.parser;
 
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.antlr.runtime.ANTLRStringStream;
@@ -25,6 +24,7 @@ import org.antlr.runtime.TokenSource;
 
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -244,14 +244,14 @@ public class StatementSplitter
                 return false;
             }
             Statement o = (Statement) obj;
-            return Objects.equal(statement, o.statement) &&
-                    Objects.equal(terminator, o.terminator);
+            return Objects.equals(statement, o.statement) &&
+                    Objects.equals(terminator, o.terminator);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(statement, terminator);
+            return Objects.hash(statement, terminator);
         }
 
         @Override

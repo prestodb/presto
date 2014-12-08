@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -43,13 +43,13 @@ public class JoinOn
             return false;
         }
         JoinOn o = (JoinOn) obj;
-        return Objects.equal(expression, o.expression);
+        return Objects.equals(expression, o.expression);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(expression);
+        return Objects.hash(expression);
     }
 
     @Override

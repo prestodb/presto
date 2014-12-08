@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 import java.util.List;
 
@@ -69,7 +69,7 @@ public class WithQuery
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(name, query, columnNames);
+        return Objects.hash(name, query, columnNames);
     }
 
     @Override
@@ -82,8 +82,8 @@ public class WithQuery
             return false;
         }
         WithQuery o = (WithQuery) obj;
-        return Objects.equal(name, o.name) &&
-                Objects.equal(query, o.query) &&
-                Objects.equal(columnNames, o.columnNames);
+        return Objects.equals(name, o.name) &&
+                Objects.equals(query, o.query) &&
+                Objects.equals(columnNames, o.columnNames);
     }
 }

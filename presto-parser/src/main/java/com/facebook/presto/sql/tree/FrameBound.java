@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 import java.util.Optional;
 
@@ -72,14 +72,14 @@ public class FrameBound
             return false;
         }
         FrameBound o = (FrameBound) obj;
-        return Objects.equal(type, o.type) &&
-                Objects.equal(value, o.value);
+        return Objects.equals(type, o.type) &&
+                Objects.equals(value, o.value);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(type, value);
+        return Objects.hash(type, value);
     }
 
     @Override

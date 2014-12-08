@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 public class FunctionCall
@@ -75,15 +74,15 @@ public class FunctionCall
             return false;
         }
         FunctionCall o = (FunctionCall) obj;
-        return Objects.equal(name, o.name) &&
-                Objects.equal(window, o.window) &&
-                Objects.equal(distinct, o.distinct) &&
-                Objects.equal(arguments, o.arguments);
+        return Objects.equals(name, o.name) &&
+                Objects.equals(window, o.window) &&
+                Objects.equals(distinct, o.distinct) &&
+                Objects.equals(arguments, o.arguments);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(name, distinct, window, arguments);
+        return Objects.hash(name, distinct, window, arguments);
     }
 }

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -49,13 +49,13 @@ public class JoinUsing
             return false;
         }
         JoinUsing o = (JoinUsing) obj;
-        return Objects.equal(columns, o.columns);
+        return Objects.equals(columns, o.columns);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(columns);
+        return Objects.hash(columns);
     }
 
     @Override

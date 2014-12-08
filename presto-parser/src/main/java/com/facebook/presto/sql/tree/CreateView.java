@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -56,7 +56,7 @@ public class CreateView
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(name, query, replace);
+        return Objects.hash(name, query, replace);
     }
 
     @Override
@@ -69,9 +69,9 @@ public class CreateView
             return false;
         }
         CreateView o = (CreateView) obj;
-        return Objects.equal(name, o.name)
-                && Objects.equal(query, o.query)
-                && Objects.equal(replace, o.replace);
+        return Objects.equals(name, o.name)
+                && Objects.equals(query, o.query)
+                && Objects.equals(replace, o.replace);
     }
 
     @Override

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -41,7 +41,7 @@ public class DropView
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(name);
+        return Objects.hash(name);
     }
 
     @Override
@@ -54,7 +54,7 @@ public class DropView
             return false;
         }
         DropView o = (DropView) obj;
-        return Objects.equal(name, o.name);
+        return Objects.equals(name, o.name);
     }
 
     @Override
