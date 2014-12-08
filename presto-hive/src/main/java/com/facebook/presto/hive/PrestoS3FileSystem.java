@@ -118,6 +118,8 @@ public class PrestoS3FileSystem
     {
         checkNotNull(uri, "uri is null");
         checkNotNull(conf, "conf is null");
+        super.initialize(uri, conf);
+        setConf(conf);
 
         this.uri = URI.create(uri.getScheme() + "://" + uri.getAuthority());
         this.workingDirectory = new Path("/").makeQualified(this.uri, new Path("/"));
