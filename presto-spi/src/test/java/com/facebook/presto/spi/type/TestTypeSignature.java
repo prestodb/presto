@@ -13,17 +13,15 @@
  */
 package com.facebook.presto.spi.type;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Locale.ENGLISH;
+import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -70,31 +68,19 @@ public class TestTypeSignature
 
     private static void assertSignature(String base, List<String> parameters, List<Object> literalParameters)
     {
-        List<String> lowerCaseTypeNames = FluentIterable.from(parameters).transform(new Function<String, String>() {
-            @Override
-            public String apply(String input)
-            {
-                return input.toLowerCase(ENGLISH);
-            }
-        }).toList();
+        List<String> lowerCaseTypeNames = parameters.stream()
+                .map(value -> value.toLowerCase(ENGLISH))
+                .collect(toList());
 
         String typeName = base.toLowerCase(ENGLISH);
         if (!parameters.isEmpty()) {
             typeName += "<" + Joiner.on(",").join(lowerCaseTypeNames) + ">";
         }
         if (!literalParameters.isEmpty()) {
-            typeName += "(" + Joiner.on(",").join(Lists.transform(literalParameters, new Function<Object, String>() {
-                @Override
-                public String apply(Object input)
-                {
-                    if (input instanceof String) {
-                        return "'" + input + "'";
-                    }
-                    else {
-                        return input.toString();
-                    }
-                }
-            })) + ")";
+            List<String> transform = literalParameters.stream()
+                    .map(TestTypeSignature::convertParameter)
+                    .collect(toList());
+            typeName += "(" + Joiner.on(",").join(transform) + ")";
         }
         TypeSignature signature = parseTypeSignature(typeName);
         assertEquals(signature.getBase(), base);
@@ -104,5 +90,13 @@ public class TestTypeSignature
         }
         assertEquals(signature.getLiteralParameters(), literalParameters);
         assertEquals(typeName, signature.toString());
+    }
+
+    private static String convertParameter(Object value)
+    {
+        if (value instanceof String) {
+            return "'" + value + "'";
+        }
+        return value.toString();
     }
 }
