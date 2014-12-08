@@ -21,7 +21,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -29,9 +28,7 @@ import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 
@@ -43,6 +40,7 @@ import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class CreateViewTask
@@ -75,9 +73,11 @@ public class CreateViewTask
         String sql = getFormattedSql(statement);
 
         Analysis analysis = analyzeStatement(statement, session, metadata);
-        Iterable<Field> fields = analysis.getOutputDescriptor().getVisibleFields();
 
-        List<ViewColumn> columns = FluentIterable.from(fields).transform(fieldToColumn()).toList();
+        List<ViewColumn> columns = analysis.getOutputDescriptor()
+                .getVisibleFields().stream()
+                .map(field -> new ViewColumn(field.getName().get(), field.getType()))
+                .collect(toImmutableList());
 
         String data = codec.toJson(new ViewDefinition(sql, session.getCatalog(), session.getSchema(), columns));
 
@@ -89,18 +89,6 @@ public class CreateViewTask
         QueryExplainer explainer = new QueryExplainer(session, planOptimizers, metadata, sqlParser, experimentalSyntaxEnabled, distributedIndexJoinsEnabled, distributedJoinsEnabled);
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, Optional.of(explainer), experimentalSyntaxEnabled);
         return analyzer.analyze(statement);
-    }
-
-    private static Function<Field, ViewColumn> fieldToColumn()
-    {
-        return new Function<Field, ViewColumn>()
-        {
-            @Override
-            public ViewColumn apply(Field field)
-            {
-                return new ViewColumn(field.getName().get(), field.getType());
-            }
-        };
     }
 
     private String getFormattedSql(CreateView statement)
