@@ -38,7 +38,6 @@ import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.WhenClause;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -74,7 +73,7 @@ public class CanonicalizeExpressions
         public PlanNode rewriteProject(ProjectNode node, Void context, PlanRewriter<Void> planRewriter)
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
-            Map<Symbol, Expression> assignments = ImmutableMap.copyOf(Maps.transformValues(node.getAssignments(), canonicalizeExpressionFunction()));
+            Map<Symbol, Expression> assignments = ImmutableMap.copyOf(Maps.transformValues(node.getAssignments(), CanonicalizeExpressions::canonicalizeExpression));
             return new ProjectNode(node.getId(), source, assignments);
         }
 
@@ -98,19 +97,6 @@ public class CanonicalizeExpressions
             }
             return new TableScanNode(node.getId(), node.getTable(), node.getOutputSymbols(), node.getAssignments(), originalConstraint, node.getGeneratedPartitions());
         }
-
-        private Function<Expression, Expression> canonicalizeExpressionFunction()
-        {
-            return new Function<Expression, Expression>()
-            {
-                @Override
-                public Expression apply(Expression input)
-                {
-                    return canonicalizeExpression(input);
-                }
-            };
-        }
-
     }
 
     private static class CanonicalizeExpressionRewriter
