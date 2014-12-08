@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.json;
 
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
@@ -27,7 +28,6 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.orc.OrcCorruptionException.verifyFormat;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
@@ -66,8 +66,12 @@ public class TimestampJsonReader
             return;
         }
 
-        verifyFormat(secondsStream != null, "Value is not null but seconds stream is not present");
-        verifyFormat(nanosStream != null, "Value is not null but nanos stream is not present");
+        if (secondsStream == null) {
+            throw new OrcCorruptionException("Value is not null but seconds stream is not present");
+        }
+        if (nanosStream == null) {
+            throw new OrcCorruptionException("Value is not null but nanos stream is not present");
+        }
 
         long timestamp = decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds);
         generator.writeNumber(timestamp);
@@ -81,8 +85,12 @@ public class TimestampJsonReader
             return null;
         }
 
-        verifyFormat(secondsStream != null, "Value is not null but seconds stream is not present");
-        verifyFormat(nanosStream != null, "Value is not null but nanos stream is not present");
+        if (secondsStream == null) {
+            throw new OrcCorruptionException("Value is not null but seconds stream is not present");
+        }
+        if (nanosStream == null) {
+            throw new OrcCorruptionException("Value is not null but nanos stream is not present");
+        }
 
         long timestamp = decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds);
         return String.valueOf(timestamp);
@@ -101,8 +109,12 @@ public class TimestampJsonReader
             return;
         }
 
-        verifyFormat(secondsStream != null, "Value is not null but seconds stream is not present");
-        verifyFormat(nanosStream != null, "Value is not null but nanos stream is not present");
+        if (secondsStream == null) {
+            throw new OrcCorruptionException("Value is not null but seconds stream is not present");
+        }
+        if (nanosStream == null) {
+            throw new OrcCorruptionException("Value is not null but nanos stream is not present");
+        }
 
         // skip non-null values
         secondsStream.skip(skipSize);

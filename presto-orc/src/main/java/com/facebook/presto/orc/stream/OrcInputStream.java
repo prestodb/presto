@@ -26,7 +26,6 @@ import java.io.InputStream;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
-import static com.facebook.presto.orc.OrcCorruptionException.verifyFormat;
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.decodeCompressedBlockOffset;
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.decodeDecompressedOffset;
@@ -148,7 +147,9 @@ public final class OrcInputStream
         int decompressedOffset = decodeDecompressedOffset(checkpoint);
         boolean discardedBuffer;
         if (compressedBlockOffset != currentCompressedBlockOffset) {
-            verifyFormat(compressionKind != UNCOMPRESSED, "Reset stream has a compressed block offset but stream is not compressed");
+            if (compressionKind == UNCOMPRESSED) {
+                throw new OrcCorruptionException("Reset stream has a compressed block offset but stream is not compressed");
+            }
             compressedSliceInput.setPosition(compressedBlockOffset);
             current = EMPTY_SLICE.getInput();
             discardedBuffer = true;

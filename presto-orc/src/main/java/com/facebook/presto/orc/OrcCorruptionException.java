@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import org.jetbrains.annotations.Contract;
-
 import java.io.IOException;
 
 import static java.lang.String.format;
@@ -22,13 +20,9 @@ import static java.lang.String.format;
 public class OrcCorruptionException
         extends IOException
 {
-    @Contract("false, _, _ -> fail")
-    public static void verifyFormat(boolean test, String messageFormat, Object... args)
-            throws OrcCorruptionException
+    public OrcCorruptionException(String message)
     {
-        if (!test) {
-            throw new OrcCorruptionException(messageFormat, args);
-        }
+        super(message);
     }
 
     public OrcCorruptionException(String messageFormat, Object... args)
