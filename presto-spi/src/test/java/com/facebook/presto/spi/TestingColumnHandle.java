@@ -15,13 +15,14 @@ package com.facebook.presto.spi;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class TestingColumnHandle
-    implements ConnectorColumnHandle
+        implements ConnectorColumnHandle
 {
     private final String name;
 
@@ -40,7 +41,7 @@ public class TestingColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(name);
+        return Objects.hash(name);
     }
 
     @Override
@@ -52,8 +53,8 @@ public class TestingColumnHandle
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final TestingColumnHandle other = (TestingColumnHandle) obj;
-        return Objects.equal(this.name, other.name);
+        TestingColumnHandle other = (TestingColumnHandle) obj;
+        return Objects.equals(this.name, other.name);
     }
 
     @Override
