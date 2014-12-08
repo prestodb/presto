@@ -18,10 +18,8 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -55,14 +53,7 @@ public class TableWriterOperator
             this.recordSink = checkNotNull(recordSink, "recordSink is null");
 
             checkNotNull(recordTypes, "types is null");
-            this.recordTypes = ImmutableList.copyOf(Iterables.transform(recordTypes, new Function<Type, Type>()
-            {
-                @Override
-                public Type apply(Type type)
-                {
-                    return type;
-                }
-            }));
+            this.recordTypes = ImmutableList.copyOf(recordTypes);
 
             this.sampleWeightChannel = checkNotNull(sampleWeightChannel, "sampleWeightChannel is null");
         }
