@@ -48,7 +48,6 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.FluentIterable;
@@ -252,7 +251,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
-            List<Symbol> canonical = Lists.transform(node.getOutputSymbols(), canonicalizeFunction());
+            List<Symbol> canonical = Lists.transform(node.getOutputSymbols(), this::canonicalize);
             return new OutputNode(node.getId(), source, node.getColumnNames(), canonical);
         }
 
@@ -382,13 +381,13 @@ public class UnaliasSymbolReferences
 
         private List<Symbol> canonicalize(List<Symbol> outputs)
         {
-            return Lists.transform(outputs, canonicalizeFunction());
+            return Lists.transform(outputs, this::canonicalize);
         }
 
         private Set<Symbol> canonicalize(Set<Symbol> symbols)
         {
             return FluentIterable.from(symbols)
-                    .transform(canonicalizeFunction())
+                    .transform(this::canonicalize)
                     .toSet();
         }
 
@@ -416,21 +415,9 @@ public class UnaliasSymbolReferences
         {
             ImmutableListMultimap.Builder<Symbol, Symbol> builder = ImmutableListMultimap.builder();
             for (Map.Entry<Symbol, Collection<Symbol>> entry : unionSymbolMap.asMap().entrySet()) {
-                builder.putAll(canonicalize(entry.getKey()), Iterables.transform(entry.getValue(), canonicalizeFunction()));
+                builder.putAll(canonicalize(entry.getKey()), Iterables.transform(entry.getValue(), this::canonicalize));
             }
             return builder.build();
-        }
-
-        private Function<Symbol, Symbol> canonicalizeFunction()
-        {
-            return new Function<Symbol, Symbol>()
-            {
-                @Override
-                public Symbol apply(Symbol input)
-                {
-                    return canonicalize(input);
-                }
-            };
         }
     }
 }
