@@ -83,7 +83,6 @@ import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.expressionOrNullSymbols;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
-import static com.facebook.presto.sql.ExpressionUtils.symbolToQualifiedNameReference;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.DeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
@@ -281,11 +280,11 @@ public class PredicatePushDown
                     // Create identity projections for all existing symbols
                     ImmutableMap.Builder<Symbol, Expression> leftProjections = ImmutableMap.builder();
                     leftProjections.putAll(IterableTransformer.<Symbol>on(node.getLeft().getOutputSymbols())
-                            .toMap(symbolToQualifiedNameReference())
+                            .toMap(Symbol::toQualifiedNameReference)
                             .map());
                     ImmutableMap.Builder<Symbol, Expression> rightProjections = ImmutableMap.builder();
                     rightProjections.putAll(IterableTransformer.<Symbol>on(node.getRight().getOutputSymbols())
-                            .toMap(symbolToQualifiedNameReference())
+                            .toMap(Symbol::toQualifiedNameReference)
                             .map());
 
                     // HACK! we don't support cross joins right now, so put in a simple fake join predicate instead if all of the join clauses got simplified out

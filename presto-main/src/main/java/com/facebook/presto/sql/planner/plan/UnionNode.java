@@ -33,7 +33,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.sql.ExpressionUtils.symbolToQualifiedNameReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -104,7 +103,7 @@ public class UnionNode
     {
         return IterableTransformer.on(getOutputSymbols())
                 .toMap(outputToSourceSymbolFunction(sourceIndex))
-                .transformValues(symbolToQualifiedNameReference())
+                .transformValues(Symbol::toQualifiedNameReference)
                 .immutableMap();
     }
 
@@ -117,7 +116,7 @@ public class UnionNode
         return Multimaps.transformValues(FluentIterable.from(getOutputSymbols())
                 .toMap(outputToSourceSymbolFunction(sourceIndex))
                 .asMultimap()
-                .inverse(), symbolToQualifiedNameReference());
+                .inverse(), Symbol::toQualifiedNameReference);
     }
 
     private Function<Symbol, Symbol> outputToSourceSymbolFunction(final int sourceIndex)
