@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.sql.analyzer.Optionals.isPresentPredicate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -120,8 +119,8 @@ public class TupleDescriptor
     {
         return IterableTransformer.on(allFields)
                 .transform(Field::getRelationAlias)
-                .select(isPresentPredicate())
-                .transform(Optionals.<QualifiedName>optionalGetter())
+                .select(Optional::isPresent)
+                .transform(Optional::get)
                 .set();
     }
 
