@@ -50,8 +50,6 @@ import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -134,18 +132,6 @@ public class AggregationAnalyzer
     private class Visitor
             extends AstVisitor<Boolean, Void>
     {
-        private Predicate<Expression> isConstantPredicate()
-        {
-            return new Predicate<Expression>()
-            {
-                @Override
-                public boolean apply(Expression input)
-                {
-                    return process(input, null);
-                }
-            };
-        }
-
         @Override
         protected Boolean visitExpression(Expression node, Void context)
         {
@@ -168,7 +154,7 @@ public class AggregationAnalyzer
         @Override
         protected Boolean visitArrayConstructor(ArrayConstructor node, Void context)
         {
-            return Iterables.all(node.getValues(), isConstantPredicate());
+            return node.getValues().stream().allMatch(expression -> process(expression, context));
         }
 
         @Override
@@ -180,7 +166,7 @@ public class AggregationAnalyzer
         @Override
         protected Boolean visitCoalesceExpression(CoalesceExpression node, Void context)
         {
-            return Iterables.all(node.getOperands(), isConstantPredicate());
+            return node.getOperands().stream().allMatch(expression -> process(expression, context));
         }
 
         @Override
@@ -212,13 +198,13 @@ public class AggregationAnalyzer
         @Override
         protected Boolean visitArithmeticExpression(ArithmeticExpression node, Void context)
         {
-            return Iterables.all(ImmutableList.of(node.getLeft(), node.getRight()), isConstantPredicate());
+            return process(node.getLeft(), context) && process(node.getRight(), context);
         }
 
         @Override
         protected Boolean visitComparisonExpression(ComparisonExpression node, Void context)
         {
-            return Iterables.all(ImmutableList.of(node.getLeft(), node.getRight()), isConstantPredicate());
+            return process(node.getLeft(), context) && process(node.getRight(), context);
         }
 
         @Override
@@ -248,7 +234,7 @@ public class AggregationAnalyzer
         @Override
         protected Boolean visitInListExpression(InListExpression node, Void context)
         {
-            return Iterables.all(node.getValues(), isConstantPredicate());
+            return node.getValues().stream().allMatch(expression -> process(expression, context));
         }
 
         @Override
@@ -292,7 +278,7 @@ public class AggregationAnalyzer
                 return false;
             }
 
-            return Iterables.all(node.getArguments(), isConstantPredicate());
+            return node.getArguments().stream().allMatch(expression -> process(expression, context));
         }
 
         @Override
@@ -371,7 +357,7 @@ public class AggregationAnalyzer
         @Override
         protected Boolean visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
         {
-            return Iterables.all(ImmutableList.of(node.getLeft(), node.getRight()), isConstantPredicate());
+            return process(node.getLeft(), context) && process(node.getRight(), context);
         }
 
         @Override
@@ -385,7 +371,7 @@ public class AggregationAnalyzer
                 expressions.add(node.getFalseValue().get());
             }
 
-            return Iterables.all(expressions.build(), isConstantPredicate());
+            return expressions.build().stream().allMatch(expression -> process(expression, context));
         }
 
         @Override
@@ -427,7 +413,7 @@ public class AggregationAnalyzer
         @Override
         public Boolean process(Node node, @Nullable Void context)
         {
-            if (Iterables.any(expressions, Predicates.<Node>equalTo(node))) {
+            if (expressions.stream().anyMatch(node::equals)) {
                 return true;
             }
 
