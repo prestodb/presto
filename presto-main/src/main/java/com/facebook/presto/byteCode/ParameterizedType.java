@@ -14,7 +14,6 @@
 package com.facebook.presto.byteCode;
 
 import com.google.common.base.Function;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.Type;
 
@@ -329,51 +328,8 @@ public class ParameterizedType
         }
     }
 
-    public static Predicate<ParameterizedType> isGenericType()
-    {
-        return new Predicate<ParameterizedType>()
-        {
-            @Override
-            public boolean apply(ParameterizedType input)
-            {
-                return input.isGeneric();
-            }
-        };
-    }
-
-    public static Function<ParameterizedType, String> getParameterType()
-    {
-        return new Function<ParameterizedType, String>()
-        {
-            @Override
-            public String apply(ParameterizedType input)
-            {
-                return input.getType();
-            }
-        };
-    }
-
     public static Function<Class<?>, ParameterizedType> toParameterizedType()
     {
-        return new Function<Class<?>, ParameterizedType>()
-        {
-            @Override
-            public ParameterizedType apply(@Nullable Class<?> input)
-            {
-                return new ParameterizedType(input);
-            }
-        };
-    }
-
-    public static Function<String, ParameterizedType> pathToParameterizedType()
-    {
-        return new Function<String, ParameterizedType>()
-        {
-            @Override
-            public ParameterizedType apply(@Nullable String input)
-            {
-                return typeFromPathName(input);
-            }
-        };
+        return ParameterizedType::new;
     }
 }

@@ -34,7 +34,6 @@ import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.toAccessModifier;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.getNamedParameterType;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.getSourceString;
-import static com.facebook.presto.byteCode.ParameterizedType.getParameterType;
 import static com.facebook.presto.byteCode.ParameterizedType.toParameterizedType;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.google.common.collect.Iterables.transform;
@@ -318,7 +317,7 @@ public class MethodDefinition
     {
         StringBuilder sb = new StringBuilder();
         sb.append("(");
-        Joiner.on("").appendTo(sb, transform(parameterTypes, getParameterType()));
+        Joiner.on("").appendTo(sb, transform(parameterTypes, ParameterizedType::getType));
         sb.append(")");
         sb.append(returnType.getType());
         return sb.toString();
