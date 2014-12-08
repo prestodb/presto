@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Partition;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.sql.planner.DomainUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -36,7 +37,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.sql.planner.DomainUtils.columnHandleToSymbol;
-import static com.facebook.presto.sql.planner.DomainUtils.simplifyDomainFunction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -158,7 +158,7 @@ public class TableScanNode
             builder.append("NONE");
         }
         else {
-            builder.append(Maps.transformValues(columnHandleToSymbol(summarizedPartition.getPartitionDomainSummary().getDomains(), assignments), simplifyDomainFunction()));
+            builder.append(Maps.transformValues(columnHandleToSymbol(summarizedPartition.getPartitionDomainSummary().getDomains(), assignments), DomainUtils::simplifyDomain));
         }
         return builder.toString();
     }
