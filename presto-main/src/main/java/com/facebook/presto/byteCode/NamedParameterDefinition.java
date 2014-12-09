@@ -15,7 +15,6 @@ package com.facebook.presto.byteCode;
 
 import com.google.common.base.Function;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 @Immutable
@@ -69,18 +68,6 @@ public class NamedParameterDefinition
         sb.append(", type=").append(type);
         sb.append('}');
         return sb.toString();
-    }
-
-    public static Function<NamedParameterDefinition, ParameterizedType> getNamedParameterType()
-    {
-        return new Function<NamedParameterDefinition, ParameterizedType>()
-        {
-            @Override
-            public ParameterizedType apply(@Nullable NamedParameterDefinition input)
-            {
-                return input.getType();
-            }
-        };
     }
 
     public static Function<NamedParameterDefinition, String> getSourceString()

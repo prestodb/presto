@@ -32,7 +32,6 @@ import java.util.List;
 
 import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.toAccessModifier;
-import static com.facebook.presto.byteCode.NamedParameterDefinition.getNamedParameterType;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.getSourceString;
 import static com.facebook.presto.byteCode.ParameterizedType.toParameterizedType;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
@@ -90,7 +89,7 @@ public class MethodDefinition
             this.returnType = type(void.class);
         }
         this.parameters = ImmutableList.copyOf(parameters);
-        this.parameterTypes = Lists.transform(this.parameters, getNamedParameterType());
+        this.parameterTypes = Lists.transform(this.parameters, NamedParameterDefinition::getType);
         this.parameterAnnotations = ImmutableList.copyOf(transform(parameters, new Function<NamedParameterDefinition, List<AnnotationDefinition>>()
         {
             @Override
