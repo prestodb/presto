@@ -51,6 +51,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.SystemSessionProperties.isBigQueryEnabled;
+import static com.facebook.presto.SystemSessionProperties.isDistributedIndexJoinsEnabled;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -472,7 +473,7 @@ public class SqlQueryExecution
                     maxPendingSplitsPerNode,
                     initialHashPartitions,
                     experimentalSyntaxEnabled,
-                    distributedIndexJoinsEnabled,
+                    isDistributedIndexJoinsEnabled(session, distributedIndexJoinsEnabled),
                     isBigQueryEnabled(session, distributedJoinsEnabled),
                     executor,
                     nodeTaskMap);
