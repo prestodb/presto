@@ -17,7 +17,6 @@ import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
@@ -30,6 +29,7 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class BlockEncodingManager
         implements BlockEncodingSerde
@@ -94,12 +94,12 @@ public final class BlockEncodingManager
         int length = input.readInt();
         byte[] bytes = new byte[length];
         input.readBytes(bytes);
-        return new String(bytes, Charsets.UTF_8);
+        return new String(bytes, UTF_8);
     }
 
     private static void writeLengthPrefixedString(SliceOutput output, String value)
     {
-        byte[] bytes = value.getBytes(Charsets.UTF_8);
+        byte[] bytes = value.getBytes(UTF_8);
         output.writeInt(bytes.length);
         output.writeBytes(bytes);
     }

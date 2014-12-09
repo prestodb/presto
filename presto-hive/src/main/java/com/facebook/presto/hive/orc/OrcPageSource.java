@@ -34,7 +34,6 @@ import com.facebook.presto.spi.block.LazySliceArrayBlock;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -74,6 +73,7 @@ import static io.airlift.slice.Slices.wrappedDoubleArray;
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class OrcPageSource
         implements ConnectorPageSource
@@ -135,7 +135,7 @@ public class OrcPageSource
                 HivePartitionKey partitionKey = partitionKeysByName.get(name);
                 checkArgument(partitionKey != null, "No value provided for partition key %s", name);
 
-                byte[] bytes = partitionKey.getValue().getBytes(Charsets.UTF_8);
+                byte[] bytes = partitionKey.getValue().getBytes(UTF_8);
 
                 BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
 
@@ -153,7 +153,7 @@ public class OrcPageSource
                         value = false;
                     }
                     else {
-                        String valueString = new String(bytes, Charsets.UTF_8);
+                        String valueString = new String(bytes, UTF_8);
                         throw new IllegalArgumentException(String.format("Invalid partition value '%s' for BOOLEAN partition key %s", valueString, name));
                     }
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {

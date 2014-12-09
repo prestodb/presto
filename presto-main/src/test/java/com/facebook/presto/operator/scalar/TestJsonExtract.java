@@ -16,7 +16,6 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
-import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -31,6 +30,7 @@ import static com.facebook.presto.operator.scalar.JsonExtract.ObjectFieldJsonExt
 import static com.facebook.presto.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
 import static com.facebook.presto.operator.scalar.JsonExtract.generateExtractor;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -333,21 +333,21 @@ public class TestJsonExtract
         JsonParser jsonParser = jsonFactory.createJsonParser(json);
         jsonParser.nextToken(); // Advance to the first token
         Slice extract = jsonExtractor.extract(jsonParser);
-        return (extract == null) ? null : extract.toString(Charsets.UTF_8);
+        return (extract == null) ? null : extract.toString(UTF_8);
     }
 
     private static String doScalarExtract(String inputJson, String jsonPath)
             throws IOException
     {
         Slice value = JsonExtract.extract(Slices.utf8Slice(inputJson), generateExtractor(jsonPath, new ScalarValueJsonExtractor()));
-        return (value == null) ? null : value.toString(Charsets.UTF_8);
+        return (value == null) ? null : value.toString(UTF_8);
     }
 
     private static String doJsonExtract(String inputJson, String jsonPath)
             throws IOException
     {
         Slice value = JsonExtract.extract(Slices.utf8Slice(inputJson), generateExtractor(jsonPath, new JsonValueJsonExtractor()));
-        return (value == null) ? null : value.toString(Charsets.UTF_8);
+        return (value == null) ? null : value.toString(UTF_8);
     }
 
     private static List<String> tokenizePath(String path)

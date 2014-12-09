@@ -17,7 +17,6 @@ import com.facebook.presto.hive.util.SerDeUtils;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -62,6 +61,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 class GenericHiveRecordCursor<K, V extends Writable>
         extends HiveRecordCursor
@@ -168,7 +168,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
                 HivePartitionKey partitionKey = partitionKeysByName.get(column.getName());
                 checkArgument(partitionKey != null, "Unknown partition key %s", column.getName());
 
-                byte[] bytes = partitionKey.getValue().getBytes(Charsets.UTF_8);
+                byte[] bytes = partitionKey.getValue().getBytes(UTF_8);
 
                 Type type = types[columnIndex];
                 if (HiveUtil.isHiveNull(bytes)) {
@@ -182,7 +182,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
                         booleans[columnIndex] = false;
                     }
                     else {
-                        String valueString = new String(bytes, Charsets.UTF_8);
+                        String valueString = new String(bytes, UTF_8);
                         throw new IllegalArgumentException(String.format("Invalid partition value '%s' for BOOLEAN partition key %s", valueString, names[columnIndex]));
                     }
                 }

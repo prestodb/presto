@@ -15,17 +15,17 @@ package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.Statement;
-import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import org.antlr.runtime.tree.CommonTree;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 
-import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.sql.parser.TreePrinter.treeToString;
+import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.google.common.base.Strings.repeat;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertFalse;
 
 public class TestStatementBuilder
@@ -243,7 +243,7 @@ public class TestStatementBuilder
     private static String readResource(String name)
             throws IOException
     {
-        return Resources.toString(Resources.getResource(name), Charsets.UTF_8);
+        return Resources.toString(Resources.getResource(name), UTF_8);
     }
 
     private static String fixTpchQuery(String s)

@@ -18,7 +18,6 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
-import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
@@ -41,6 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.facebook.presto.cli.ConsolePrinter.REAL_TERMINAL;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class Query
         implements Closeable
@@ -199,7 +199,7 @@ public class Query
 
     private static Writer createWriter(OutputStream out)
     {
-        return new OutputStreamWriter(out, Charsets.UTF_8);
+        return new OutputStreamWriter(out, UTF_8);
     }
 
     @Override

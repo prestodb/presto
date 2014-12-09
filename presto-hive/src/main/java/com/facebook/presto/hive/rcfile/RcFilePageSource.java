@@ -29,7 +29,6 @@ import com.facebook.presto.spi.block.LazySliceArrayBlock;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -67,6 +66,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class RcFilePageSource
         implements ConnectorPageSource
@@ -165,7 +165,7 @@ public class RcFilePageSource
                 HivePartitionKey partitionKey = partitionKeysByName.get(name);
                 checkArgument(partitionKey != null, "No value provided for partition key %s", name);
 
-                byte[] bytes = partitionKey.getValue().getBytes(Charsets.UTF_8);
+                byte[] bytes = partitionKey.getValue().getBytes(UTF_8);
 
                 BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
 
@@ -183,7 +183,7 @@ public class RcFilePageSource
                         value = false;
                     }
                     else {
-                        String valueString = new String(bytes, Charsets.UTF_8);
+                        String valueString = new String(bytes, UTF_8);
                         throw new IllegalArgumentException(String.format("Invalid partition value '%s' for BOOLEAN partition key %s", valueString, name));
                     }
                     for (int i = 0; i < MAX_PAGE_SIZE; i++) {

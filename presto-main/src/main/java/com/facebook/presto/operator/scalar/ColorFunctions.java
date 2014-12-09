@@ -17,7 +17,6 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.ColorType;
 import com.facebook.presto.type.SqlType;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -25,16 +24,16 @@ import io.airlift.slice.Slices;
 import java.awt.Color;
 
 import static com.facebook.presto.operator.scalar.StringFunctions.upper;
-import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class ColorFunctions
 {
     private static final String ANSI_RESET = "\u001b[0m";
 
-    private static final Slice RENDERED_TRUE = render(Slices.copiedBuffer("\u2713", Charsets.UTF_8), color(Slices.copiedBuffer("green", Charsets.UTF_8)));
-    private static final Slice RENDERED_FALSE = render(Slices.copiedBuffer("\u2717", Charsets.UTF_8), color(Slices.copiedBuffer("red", Charsets.UTF_8)));
+    private static final Slice RENDERED_TRUE = render(Slices.copiedBuffer("\u2713", UTF_8), color(Slices.copiedBuffer("green", UTF_8)));
+    private static final Slice RENDERED_FALSE = render(Slices.copiedBuffer("\u2717", UTF_8), color(Slices.copiedBuffer("red", UTF_8)));
 
     public enum SystemColor
     {
@@ -97,7 +96,7 @@ public final class ColorFunctions
             return -(index + 1);
         }
         catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(format("Invalid color: '%s'", color.toString(Charsets.UTF_8)), e);
+            throw new IllegalArgumentException(format("Invalid color: '%s'", color.toString(UTF_8)), e);
         }
     }
 
@@ -157,24 +156,24 @@ public final class ColorFunctions
 
         // color
         builder.append(ansiColorEscape(color))
-                .append(value.toString(Charsets.UTF_8))
+                .append(value.toString(UTF_8))
                 .append(ANSI_RESET);
 
-        return Slices.copiedBuffer(builder.toString(), Charsets.UTF_8);
+        return Slices.copiedBuffer(builder.toString(), UTF_8);
     }
 
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
     public static Slice render(@SqlType(StandardTypes.BIGINT) long value, @SqlType(ColorType.NAME) long color)
     {
-        return render(Slices.copiedBuffer(Long.toString(value), Charsets.UTF_8), color);
+        return render(Slices.copiedBuffer(Long.toString(value), UTF_8), color);
     }
 
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
     public static Slice render(@SqlType(StandardTypes.DOUBLE) double value, @SqlType(ColorType.NAME) long color)
     {
-        return render(Slices.copiedBuffer(Double.toString(value), Charsets.UTF_8), color);
+        return render(Slices.copiedBuffer(Double.toString(value), UTF_8), color);
     }
 
     @ScalarFunction
@@ -221,7 +220,7 @@ public final class ColorFunctions
             builder.append(' ');
         }
 
-        return Slices.copiedBuffer(builder.toString(), Charsets.UTF_8);
+        return Slices.copiedBuffer(builder.toString(), UTF_8);
     }
 
     private static int interpolate(float fraction, long lowRgb, long highRgb)
