@@ -2,7 +2,7 @@ language: java
 jdk:
   - oraclejdk8
 before_install: free -m
-script: mvn test -P travis
+script: mvn test -P travis -Dair.check.skip-dependency=true
 env:
   global:
     - MAVEN_OPTS="-Xmx256m"
