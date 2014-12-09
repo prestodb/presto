@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.server.SliceSerializer;
@@ -72,7 +73,7 @@ public class MapValues
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager)
+    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         checkArgument(arity == 1, "map_values expects only one argument");
         Type keyType = types.get("K");

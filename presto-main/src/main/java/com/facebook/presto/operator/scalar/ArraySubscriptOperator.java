@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricOperator;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.PrestoException;
@@ -83,7 +84,7 @@ public class ArraySubscriptOperator
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager)
+    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         checkArgument(types.size() == 1, "Expected one type, got %s", types);
         Type elementType = types.get("E");

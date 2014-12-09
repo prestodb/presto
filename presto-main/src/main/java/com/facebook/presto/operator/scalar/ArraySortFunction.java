@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.PrestoException;
@@ -76,7 +77,7 @@ public final class ArraySortFunction
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager)
+    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         checkArgument(types.size() == 1, format("%s expects only one argument", FUNCTION_NAME));
         Type type = types.get("E");

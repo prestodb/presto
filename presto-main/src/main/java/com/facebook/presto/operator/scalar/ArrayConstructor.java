@@ -20,6 +20,7 @@ import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.NamedParameterDefinition;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
@@ -94,7 +95,7 @@ public final class ArrayConstructor
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager)
+    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         // Check to see if we're creating an empty, un-specialized array
         if (types.isEmpty()) {

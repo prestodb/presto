@@ -39,5 +39,5 @@ public interface ParametricFunction
     String getDescription();
 
     // TODO: This should really return an object with just the MethodHandle/InternalAggregation...etc. However, due to the magic literal hack this is not possible
-    FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager);
+    FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry);
 }

@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricAggregation;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.state.MaxOrMinByState;
@@ -62,7 +63,7 @@ public class MinBy
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager)
+    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type keyType = types.get("K");
         Type valueType = types.get("V");
