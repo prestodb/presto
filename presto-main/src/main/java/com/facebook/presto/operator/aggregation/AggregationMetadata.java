@@ -21,9 +21,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.SqlType;
-import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Predicate;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
@@ -42,6 +39,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.SAMPLE_WEIGHT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -269,16 +267,14 @@ public class AggregationMetadata
 
         public static ParameterMetadata fromAnnotations(Annotation[] annotations, String methodName, TypeManager typeManager)
         {
-            List<Annotation> baseTypes = IterableTransformer.on(annotations).select(new Predicate<Annotation>()
-            {
-                @Override
-                public boolean apply(@Nullable Annotation input)
-                {
-                    return input instanceof SqlType || input instanceof BlockIndex || input instanceof SampleWeight;
-                }
-            }).list();
-            boolean nullable = !FluentIterable.from(Arrays.asList(annotations)).filter(NullablePosition.class).isEmpty();
+            List<Annotation> baseTypes = Arrays.asList(annotations).stream()
+                    .filter(annotation -> annotation instanceof SqlType || annotation instanceof BlockIndex || annotation instanceof SampleWeight)
+                    .collect(toImmutableList());
+
             checkArgument(baseTypes.size() == 1, "Parameter of %s must have exactly one of @SqlType, @BlockIndex, and @SampleWeight", methodName);
+
+            boolean nullable = Arrays.asList(annotations).stream().anyMatch(annotation -> annotation instanceof NullablePosition);
+
             Annotation annotation = baseTypes.get(0);
             checkArgument(!nullable || (annotation instanceof SqlType), "%s contains a parameters with @Nullable that is not @SqlType", methodName);
             if (annotation instanceof SqlType) {

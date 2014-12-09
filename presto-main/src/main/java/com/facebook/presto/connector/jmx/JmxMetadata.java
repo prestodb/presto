@@ -22,7 +22,6 @@ import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
@@ -130,14 +129,7 @@ public class JmxMetadata
     public Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
         JmxTableHandle jmxTableHandle = checkType(tableHandle, JmxTableHandle.class, "tableHandle");
-        return ImmutableMap.<String, ConnectorColumnHandle>copyOf(Maps.uniqueIndex(jmxTableHandle.getColumns(), new Function<JmxColumnHandle, String>()
-        {
-            @Override
-            public String apply(JmxColumnHandle input)
-            {
-                return input.getColumnName().toLowerCase(ENGLISH);
-            }
-        }));
+        return ImmutableMap.copyOf(Maps.uniqueIndex(jmxTableHandle.getColumns(), column -> column.getColumnName().toLowerCase(ENGLISH)));
     }
 
     @Override

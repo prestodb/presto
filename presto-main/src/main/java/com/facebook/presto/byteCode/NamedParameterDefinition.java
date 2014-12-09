@@ -72,13 +72,6 @@ public class NamedParameterDefinition
 
     public static Function<NamedParameterDefinition, String> getSourceString()
     {
-        return new Function<NamedParameterDefinition, String>()
-        {
-            @Override
-            public String apply(NamedParameterDefinition input)
-            {
-                return input.getType().getJavaClassName() + " " + input.getName();
-            }
-        };
+        return input -> input.getType().getJavaClassName() + " " + input.getName();
     }
 }

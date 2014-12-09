@@ -710,14 +710,9 @@ public class DistributedLogicalPlanner
 
     private static Function<Symbol, Integer> channelGetter(final PlanNode node)
     {
-        return new Function<Symbol, Integer>()
-        {
-            @Override
-            public Integer apply(Symbol input)
-            {
-                checkArgument(node.getOutputSymbols().contains(input), "node does not contain symbol");
-                return node.getOutputSymbols().indexOf(input);
-            }
+        return input -> {
+            checkArgument(node.getOutputSymbols().contains(input), "node does not contain symbol");
+            return node.getOutputSymbols().indexOf(input);
         };
     }
 }

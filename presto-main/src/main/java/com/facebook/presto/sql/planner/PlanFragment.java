@@ -21,7 +21,6 @@ import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.util.IterableTransformer;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -34,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -159,14 +159,9 @@ public class PlanFragment
         checkState(outputPartitioning == OutputPartitioning.HASH, "fragment is not hash partitioned");
         checkState(root instanceof SinkNode, "root is not an instance of SinkNode");
         // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
-        return IterableTransformer.on(partitionBy).transform(new Function<Symbol, Integer>()
-        {
-            @Override
-            public Integer apply(Symbol input)
-            {
-                return root.getOutputSymbols().indexOf(input);
-            }
-        }).list();
+        return partitionBy.stream()
+                .map(symbol -> root.getOutputSymbols().indexOf(symbol))
+                .collect(toImmutableList());
     }
 
     public List<Type> getTypes()

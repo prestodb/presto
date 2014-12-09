@@ -20,8 +20,6 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.SqlType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Functions;
-import com.google.common.base.Predicate;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -34,6 +32,7 @@ import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.collect.Lists.transform;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -91,16 +90,10 @@ public class TestFunctionRegistry
     {
         List<ParametricFunction> functions = new FunctionListBuilder(new TypeRegistry())
                 .scalar(CustomFunctions.class)
-                .getFunctions();
-
-        functions = FluentIterable.from(functions).filter(new Predicate<ParametricFunction>()
-        {
-            @Override
-            public boolean apply(ParametricFunction input)
-            {
-                return input.getSignature().getName().equals("custom_add");
-            }
-        }).toList();
+                .getFunctions()
+                .stream()
+                .filter(input -> input.getSignature().getName().equals("custom_add"))
+                .collect(toImmutableList());
 
         FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
         registry.addFunctions(functions);

@@ -53,7 +53,6 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
-import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SubqueryExpression;
@@ -64,8 +63,6 @@ import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
-import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -93,6 +90,7 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.NOT_EQUAL;
 import static com.facebook.presto.sql.tree.Join.Type.INNER;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -522,14 +520,9 @@ class RelationPlanner
         List<Symbol> unionOutputSymbols = null;
         ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
         ImmutableListMultimap.Builder<Symbol, Symbol> symbolMapping = ImmutableListMultimap.builder();
-        List<RelationPlan> subPlans = IterableTransformer.on(node.getRelations()).transform(new Function<Relation, RelationPlan>()
-        {
-            @Override
-            public RelationPlan apply(Relation relation)
-            {
-                return process(relation, context);
-            }
-        }).list();
+        List<RelationPlan> subPlans = node.getRelations().stream()
+                .map(relation -> process(relation, context))
+                .collect(toImmutableList());
 
         boolean hasSampleWeight = false;
         for (RelationPlan subPlan : subPlans) {

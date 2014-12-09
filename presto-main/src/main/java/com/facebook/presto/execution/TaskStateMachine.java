@@ -14,7 +14,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.google.common.base.Predicate;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
@@ -109,14 +108,7 @@ public class TaskStateMachine
         checkNotNull(doneState, "doneState is null");
         checkArgument(doneState.isDone(), "doneState %s is not a done state", doneState);
 
-        taskState.setIf(doneState, new Predicate<TaskState>()
-        {
-            @Override
-            public boolean apply(TaskState currentState)
-            {
-                return !currentState.isDone();
-            }
-        });
+        taskState.setIf(doneState, currentState -> !currentState.isDone());
     }
 
     public Duration waitForStateChange(TaskState currentState, Duration maxWait)

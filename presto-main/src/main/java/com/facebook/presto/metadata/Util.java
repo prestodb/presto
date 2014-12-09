@@ -24,25 +24,11 @@ public final class Util
 
     public static TupleDomain<ConnectorColumnHandle> toConnectorDomain(TupleDomain<ColumnHandle> domain)
     {
-        return domain.transform(new TupleDomain.Function<ColumnHandle, ConnectorColumnHandle>()
-        {
-            @Override
-            public ConnectorColumnHandle apply(ColumnHandle input)
-            {
-                return input.getConnectorHandle();
-            }
-        });
+        return domain.transform(ColumnHandle::getConnectorHandle);
     }
 
     public static TupleDomain<ColumnHandle> fromConnectorDomain(final String connectorId, TupleDomain<ConnectorColumnHandle> domain)
     {
-        return domain.transform(new TupleDomain.Function<ConnectorColumnHandle, ColumnHandle>()
-        {
-            @Override
-            public ColumnHandle apply(ConnectorColumnHandle input)
-            {
-                return new ColumnHandle(connectorId, input);
-            }
-        });
+        return domain.transform(input -> new ColumnHandle(connectorId, input));
     }
 }

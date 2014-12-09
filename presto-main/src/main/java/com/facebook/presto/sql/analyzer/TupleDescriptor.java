@@ -146,14 +146,7 @@ public class TupleDescriptor
 
     public Predicate<QualifiedName> canResolvePredicate()
     {
-        return new Predicate<QualifiedName>()
-        {
-            @Override
-            public boolean apply(QualifiedName input)
-            {
-                return !resolveFields(input).isEmpty();
-            }
-        };
+        return input -> !resolveFields(input).isEmpty();
     }
 
     /**

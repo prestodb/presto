@@ -17,7 +17,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -27,6 +26,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Predicates.not;
 
 @Immutable
 public class DistinctLimitNode
@@ -77,14 +77,7 @@ public class DistinctLimitNode
     public List<Symbol> getDistinctSymbols()
     {
         if (hashSymbol.isPresent()) {
-            return ImmutableList.copyOf(Iterables.filter(getOutputSymbols(), new Predicate<Symbol>()
-            {
-                @Override
-                public boolean apply(Symbol input)
-                {
-                    return !(input.equals(hashSymbol.get()));
-                }
-            }));
+            return ImmutableList.copyOf(Iterables.filter(getOutputSymbols(), not(hashSymbol.get()::equals)));
         }
         return getOutputSymbols();
     }

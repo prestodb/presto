@@ -14,15 +14,13 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.metadata.Split;
-import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SampledSplitSource
@@ -48,16 +46,9 @@ public class SampledSplitSource
     public List<Split> getNextBatch(int maxSize)
             throws InterruptedException
     {
-        List<Split> nextBatch = splitSource.getNextBatch(maxSize);
-        Iterable<Split> sampleIterable = Iterables.filter(nextBatch, new Predicate<Split>()
-        {
-            @Override
-            public boolean apply(@Nullable Split input)
-            {
-                return ThreadLocalRandom.current().nextDouble() < sampleRatio;
-            }
-        });
-        return ImmutableList.copyOf(sampleIterable);
+        return splitSource.getNextBatch(maxSize).stream()
+                .filter(input -> ThreadLocalRandom.current().nextDouble() < sampleRatio)
+                .collect(toImmutableList());
     }
 
     @Override

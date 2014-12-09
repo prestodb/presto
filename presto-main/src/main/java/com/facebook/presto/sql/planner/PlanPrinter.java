@@ -59,7 +59,6 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.util.GraphvizPrinter;
 import com.facebook.presto.util.JsonPlanPrinter;
-import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -273,14 +272,7 @@ public class PlanPrinter
         {
             List<String> partitionBy = Lists.transform(node.getPartitionBy(), Functions.toStringFunction());
 
-            List<String> orderBy = Lists.transform(node.getOrderBy(), new Function<Symbol, String>()
-            {
-                @Override
-                public String apply(Symbol input)
-                {
-                    return input + " " + node.getOrderings().get(input);
-                }
-            });
+            List<String> orderBy = Lists.transform(node.getOrderBy(), input -> input + " " + node.getOrderings().get(input));
 
             List<String> args = new ArrayList<>();
             if (!partitionBy.isEmpty()) {
@@ -303,14 +295,7 @@ public class PlanPrinter
         {
             List<String> partitionBy = Lists.transform(node.getPartitionBy(), Functions.toStringFunction());
 
-            List<String> orderBy = Lists.transform(node.getOrderBy(), new Function<Symbol, String>()
-            {
-                @Override
-                public String apply(Symbol input)
-                {
-                    return input + " " + node.getOrderings().get(input);
-                }
-            });
+            List<String> orderBy = Lists.transform(node.getOrderBy(), input -> input + " " + node.getOrderings().get(input));
 
             List<String> args = new ArrayList<>();
             args.add(format("partition by (%s)", Joiner.on(", ").join(partitionBy)));
@@ -424,14 +409,7 @@ public class PlanPrinter
         @Override
         public Void visitTopN(final TopNNode node, Integer indent)
         {
-            Iterable<String> keys = Iterables.transform(node.getOrderBy(), new Function<Symbol, String>()
-            {
-                @Override
-                public String apply(Symbol input)
-                {
-                    return input + " " + node.getOrderings().get(input);
-                }
-            });
+            Iterable<String> keys = Iterables.transform(node.getOrderBy(), input -> input + " " + node.getOrderings().get(input));
 
             print(indent, "- TopN[%s by (%s)] => [%s]", node.getCount(), Joiner.on(", ").join(keys), formatOutputs(node.getOutputSymbols()));
             return processChildren(node, indent + 1);
@@ -440,14 +418,7 @@ public class PlanPrinter
         @Override
         public Void visitSort(final SortNode node, Integer indent)
         {
-            Iterable<String> keys = Iterables.transform(node.getOrderBy(), new Function<Symbol, String>()
-            {
-                @Override
-                public String apply(Symbol input)
-                {
-                    return input + " " + node.getOrderings().get(input);
-                }
-            });
+            Iterable<String> keys = Iterables.transform(node.getOrderBy(), input -> input + " " + node.getOrderings().get(input));
 
             print(indent, "- Sort[%s] => [%s]", Joiner.on(", ").join(keys), formatOutputs(node.getOutputSymbols()));
             return processChildren(node, indent + 1);
@@ -532,14 +503,7 @@ public class PlanPrinter
 
         private String formatOutputs(Iterable<Symbol> symbols)
         {
-            return Joiner.on(", ").join(Iterables.transform(symbols, new Function<Symbol, String>()
-            {
-                @Override
-                public String apply(Symbol input)
-                {
-                    return input + ":" + types.get(input);
-                }
-            }));
+            return Joiner.on(", ").join(Iterables.transform(symbols, input -> input + ":" + types.get(input)));
         }
     }
 

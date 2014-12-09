@@ -103,13 +103,6 @@ public class QualifiedTableName
 
     public static Function<SchemaTableName, QualifiedTableName> convertFromSchemaTableName(final String catalogName)
     {
-        return new Function<SchemaTableName, QualifiedTableName>()
-        {
-            @Override
-            public QualifiedTableName apply(SchemaTableName input)
-            {
-                return new QualifiedTableName(catalogName, input.getSchemaName(), input.getTableName());
-            }
-        };
+        return input -> new QualifiedTableName(catalogName, input.getSchemaName(), input.getTableName());
     }
 }

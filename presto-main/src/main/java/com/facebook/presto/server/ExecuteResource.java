@@ -19,7 +19,6 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 import com.google.common.collect.AbstractIterator;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.server.HttpServerInfo;
@@ -125,14 +124,7 @@ public class ExecuteResource
 
     private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator)
     {
-        return concat(transform(iterator, new Function<Iterable<T>, Iterator<T>>()
-        {
-            @Override
-            public Iterator<T> apply(Iterable<T> input)
-            {
-                return input.iterator();
-            }
-        }));
+        return concat(transform(iterator, Iterable::iterator));
     }
 
     private static class ResultsPageIterator

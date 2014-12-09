@@ -90,13 +90,6 @@ public final class AggregationUtils
     @SuppressWarnings("UnusedDeclaration")
     public static Function<Integer, Block> pageBlockGetter(final Page page)
     {
-        return new Function<Integer, Block>()
-        {
-            @Override
-            public Block apply(Integer input)
-            {
-                return page.getBlock(input);
-            }
-        };
+        return page::getBlock;
     }
 }

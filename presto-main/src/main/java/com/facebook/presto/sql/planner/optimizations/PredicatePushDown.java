@@ -35,7 +35,6 @@ import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.SymbolResolver;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -601,15 +600,10 @@ public class PredicatePushDown
         // Temporary implementation for joins because the SimplifyExpressions optimizers can not run properly on join clauses
         private Function<Expression, Expression> simplifyExpressions()
         {
-            return new Function<Expression, Expression>()
-            {
-                @Override
-                public Expression apply(Expression expression)
-                {
-                    IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), expression);
-                    ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
-                    return LiteralInterpreter.toExpression(optimizer.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(expression));
-                }
+            return expression -> {
+                IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), expression);
+                ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
+                return LiteralInterpreter.toExpression(optimizer.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(expression));
             };
         }
 
@@ -620,35 +614,23 @@ public class PredicatePushDown
         {
             IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), expression);
             return ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes)
-                    .optimize(new SymbolResolver()
-                    {
-                        @Override
-                        public Object getValue(Symbol symbol)
-                        {
-                            return nullSymbols.contains(symbol) ? null : new QualifiedNameReference(symbol.toQualifiedName());
-                        }
-                    });
+                    .optimize(symbol -> nullSymbols.contains(symbol) ? null : new QualifiedNameReference(symbol.toQualifiedName()));
         }
 
         private static Predicate<Expression> joinEqualityExpression(final Collection<Symbol> leftSymbols)
         {
-            return new Predicate<Expression>()
-            {
-                @Override
-                public boolean apply(Expression expression)
-                {
-                    // At this point in time, our join predicates need to be deterministic
-                    if (isDeterministic(expression) && expression instanceof ComparisonExpression) {
-                        ComparisonExpression comparison = (ComparisonExpression) expression;
-                        if (comparison.getType() == ComparisonExpression.Type.EQUAL) {
-                            Set<Symbol> symbols1 = DependencyExtractor.extractUnique(comparison.getLeft());
-                            Set<Symbol> symbols2 = DependencyExtractor.extractUnique(comparison.getRight());
-                            return (Iterables.all(symbols1, in(leftSymbols)) && Iterables.all(symbols2, not(in(leftSymbols)))) ||
-                                    (Iterables.all(symbols2, in(leftSymbols)) && Iterables.all(symbols1, not(in(leftSymbols))));
-                        }
+            return expression -> {
+                // At this point in time, our join predicates need to be deterministic
+                if (isDeterministic(expression) && expression instanceof ComparisonExpression) {
+                    ComparisonExpression comparison = (ComparisonExpression) expression;
+                    if (comparison.getType() == ComparisonExpression.Type.EQUAL) {
+                        Set<Symbol> symbols1 = DependencyExtractor.extractUnique(comparison.getLeft());
+                        Set<Symbol> symbols2 = DependencyExtractor.extractUnique(comparison.getRight());
+                        return (Iterables.all(symbols1, in(leftSymbols)) && Iterables.all(symbols2, not(in(leftSymbols)))) ||
+                                (Iterables.all(symbols2, in(leftSymbols)) && Iterables.all(symbols1, not(in(leftSymbols))));
                     }
-                    return false;
                 }
+                return false;
             };
         }
 
@@ -860,35 +842,30 @@ public class PredicatePushDown
             final List<Expression> conjuncts = extractConjuncts(predicate);
             final IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), predicate);
 
-            return new Predicate<Partition>()
-            {
-                @Override
-                public boolean apply(Partition partition)
-                {
-                    Map<ColumnHandle, Comparable<?>> columnFixedValueAssignments = partition.getTupleDomain().extractFixedValues();
+            return partition -> {
+                Map<ColumnHandle, Comparable<?>> columnFixedValueAssignments = partition.getTupleDomain().extractFixedValues();
 
-                    checkArgument(columnToSymbol.keySet().containsAll(columnFixedValueAssignments.keySet()), "assignments does not contain all required column handles");
+                checkArgument(columnToSymbol.keySet().containsAll(columnFixedValueAssignments.keySet()), "assignments does not contain all required column handles");
 
-                    ImmutableMap.Builder<Symbol, Object> builder = ImmutableMap.builder();
-                    for (Map.Entry<ColumnHandle, Comparable<?>> entry : columnFixedValueAssignments.entrySet()) {
-                        Symbol translated = columnToSymbol.get(entry.getKey());
-                        if (translated != null) {
-                            builder.put(translated, entry.getValue());
-                        }
+                ImmutableMap.Builder<Symbol, Object> builder = ImmutableMap.builder();
+                for (Map.Entry<ColumnHandle, Comparable<?>> entry : columnFixedValueAssignments.entrySet()) {
+                    Symbol translated = columnToSymbol.get(entry.getKey());
+                    if (translated != null) {
+                        builder.put(translated, entry.getValue());
                     }
-
-                    LookupSymbolResolver inputs = new LookupSymbolResolver(builder.build());
-
-                    // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
-                    for (Expression expression : conjuncts) {
-                        ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
-                        Object optimized = optimizer.optimize(inputs);
-                        if (Boolean.FALSE.equals(optimized) || optimized == null || optimized instanceof NullLiteral) {
-                            return true;
-                        }
-                    }
-                    return false;
                 }
+
+                LookupSymbolResolver inputs = new LookupSymbolResolver(builder.build());
+
+                // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
+                for (Expression expression : conjuncts) {
+                    ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
+                    Object optimized = optimizer.optimize(inputs);
+                    if (Boolean.FALSE.equals(optimized) || optimized == null || optimized instanceof NullLiteral) {
+                        return true;
+                    }
+                }
+                return false;
             };
         }
     }

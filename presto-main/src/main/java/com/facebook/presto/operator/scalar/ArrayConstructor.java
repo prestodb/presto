@@ -31,10 +31,8 @@ import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.RowType;
 import com.facebook.presto.type.UnknownType;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
@@ -58,6 +56,7 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.relational.Signatures.arrayConstructorSignature;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -134,13 +133,10 @@ public final class ArrayConstructor
 
     private static Class<?> generateArrayConstructor(List<Class<?>> stackTypes, Type elementType)
     {
-        List<String> stackTypeNames = FluentIterable.from(stackTypes).transform(new Function<Class<?>, String>() {
-            @Override
-            public String apply(Class<?> input)
-            {
-                return input.getSimpleName();
-            }
-        }).toList();
+        List<String> stackTypeNames = stackTypes.stream()
+                .map(Class::getSimpleName)
+                .collect(toImmutableList());
+
         ClassDefinition definition = new ClassDefinition(
                 new CompilerContext(null),
                 a(PUBLIC, FINAL),
