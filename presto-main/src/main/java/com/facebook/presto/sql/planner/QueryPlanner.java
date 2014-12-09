@@ -65,8 +65,6 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.sql.tree.FunctionCall.argumentsGetter;
-import static com.facebook.presto.sql.tree.FunctionCall.distinctPredicate;
 import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -285,7 +283,7 @@ class QueryPlanner
         }
 
         Set<FieldOrExpression> arguments = IterableTransformer.on(analysis.getAggregates(node))
-                .transformAndFlatten(argumentsGetter())
+                .transformAndFlatten(FunctionCall::getArguments)
                 .transform(FieldOrExpression::new)
                 .set();
 
@@ -331,7 +329,7 @@ class QueryPlanner
         Map<Set<Expression>, Symbol> argumentMarkers = new HashMap<>();
         // Map from aggregate functions to marker symbols
         Map<Symbol, Symbol> masks = new HashMap<>();
-        for (FunctionCall aggregate : Iterables.filter(analysis.getAggregates(node), distinctPredicate())) {
+        for (FunctionCall aggregate : Iterables.filter(analysis.getAggregates(node), FunctionCall::isDistinct)) {
             Set<Expression> args = ImmutableSet.copyOf(aggregate.getArguments());
             Symbol marker = argumentMarkers.get(args);
             Symbol aggregateSymbol = translations.get(aggregate);

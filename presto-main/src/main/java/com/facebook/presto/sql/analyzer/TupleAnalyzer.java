@@ -939,7 +939,7 @@ public class TupleAnalyzer
         List<FunctionCall> aggregates = extractAggregates(node);
 
         if (context.isApproximate()) {
-            if (Iterables.any(aggregates, FunctionCall.distinctPredicate())) {
+            if (Iterables.any(aggregates, FunctionCall::isDistinct)) {
                 throw new SemanticException(NOT_SUPPORTED, node, "DISTINCT aggregations not supported for approximate queries");
             }
         }
