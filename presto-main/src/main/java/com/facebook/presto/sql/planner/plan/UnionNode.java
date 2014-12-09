@@ -121,14 +121,7 @@ public class UnionNode
 
     private Function<Symbol, Symbol> outputToSourceSymbolFunction(final int sourceIndex)
     {
-        return new Function<Symbol, Symbol>()
-        {
-            @Override
-            public Symbol apply(Symbol outputSymbol)
-            {
-                return Iterables.get(symbolMapping.get(outputSymbol), sourceIndex);
-            }
-        };
+        return outputSymbol -> Iterables.get(symbolMapping.get(outputSymbol), sourceIndex);
     }
 
     @Override

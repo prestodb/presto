@@ -110,28 +110,16 @@ public class EffectivePredicateExtractor
 
     private static Predicate<Map.Entry<Symbol, ? extends Expression>> symbolMatchesExpression()
     {
-        return new Predicate<Map.Entry<Symbol, ? extends Expression>>()
-        {
-            @Override
-            public boolean apply(Map.Entry<Symbol, ? extends Expression> entry)
-            {
-                return entry.getValue().equals(new QualifiedNameReference(entry.getKey().toQualifiedName()));
-            }
-        };
+        return entry -> entry.getValue().equals(new QualifiedNameReference(entry.getKey().toQualifiedName()));
     }
 
     private static Function<Map.Entry<Symbol, ? extends Expression>, Expression> entryToEquality()
     {
-        return new Function<Map.Entry<Symbol, ? extends Expression>, Expression>()
-        {
-            @Override
-            public Expression apply(Map.Entry<Symbol, ? extends Expression> entry)
-            {
-                QualifiedNameReference reference = new QualifiedNameReference(entry.getKey().toQualifiedName());
-                Expression expression = entry.getValue();
-                // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
-                return new ComparisonExpression(ComparisonExpression.Type.EQUAL, reference, expression);
-            }
+        return entry -> {
+            QualifiedNameReference reference = new QualifiedNameReference(entry.getKey().toQualifiedName());
+            Expression expression = entry.getValue();
+            // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
+            return new ComparisonExpression(ComparisonExpression.Type.EQUAL, reference, expression);
         };
     }
 
@@ -200,15 +188,10 @@ public class EffectivePredicateExtractor
         if (tupleDomain.isNone()) {
             return tupleDomain;
         }
-        Map<ColumnHandle, Domain> spannedDomains = Maps.transformValues(tupleDomain.getDomains(), new Function<Domain, Domain>()
-        {
-            @Override
-            public Domain apply(Domain domain)
-            {
-                // Retain nullability, but collapse each SortedRangeSet into a single span
-                return Domain.create(getSortedRangeSpan(domain.getRanges()), domain.isNullAllowed());
-            }
-        });
+
+        // Retain nullability, but collapse each SortedRangeSet into a single span
+        Map<ColumnHandle, Domain> spannedDomains = Maps.transformValues(tupleDomain.getDomains(), domain -> Domain.create(getSortedRangeSpan(domain.getRanges()), domain.isNullAllowed()));
+
         return TupleDomain.withColumnDomains(spannedDomains);
     }
 

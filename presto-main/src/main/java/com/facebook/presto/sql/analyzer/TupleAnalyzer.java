@@ -70,7 +70,6 @@ import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -617,14 +616,7 @@ public class TupleAnalyzer
                 analyzeWindowFrame(window.getFrame().get());
             }
 
-            List<TypeSignature> argumentTypes = Lists.transform(windowFunction.getArguments(), new Function<Expression, TypeSignature>()
-            {
-                @Override
-                public TypeSignature apply(Expression input)
-                {
-                    return analysis.getType(input).getTypeSignature();
-                }
-            });
+            List<TypeSignature> argumentTypes = Lists.transform(windowFunction.getArguments(), expression -> analysis.getType(expression).getTypeSignature());
 
             FunctionInfo info = metadata.resolveFunction(windowFunction.getName(), argumentTypes, false);
             if (!info.isWindow()) {

@@ -34,8 +34,6 @@ import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.base.Function;
-import com.google.common.base.Predicate;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -82,10 +80,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static com.facebook.presto.util.Failures.toFailure;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.transform;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
@@ -183,14 +181,10 @@ public class HttpRemoteTask
                 pendingSplits.put(entry.getKey(), scheduledSplit);
             }
 
-            List<BufferInfo> bufferStates = ImmutableList.copyOf(transform(outputBuffers.getBuffers().keySet(), new Function<TaskId, BufferInfo>()
-            {
-                @Override
-                public BufferInfo apply(TaskId outputId)
-                {
-                    return new BufferInfo(outputId, false, 0, 0);
-                }
-            }));
+            List<BufferInfo> bufferStates = outputBuffers.getBuffers()
+                    .keySet().stream()
+                    .map(outputId -> new BufferInfo(outputId, false, 0, 0))
+                    .collect(toImmutableList());
 
             TaskStats taskStats = new TaskContext(taskId, executor, session).getTaskStats();
 
@@ -320,21 +314,16 @@ public class HttpRemoteTask
         }
 
         // change to new value if old value is not changed and new value has a newer version
-        taskInfo.setIf(newValue, new Predicate<TaskInfo>()
-        {
-            @Override
-            public boolean apply(TaskInfo oldValue)
-            {
-                if (oldValue.getState().isDone()) {
-                    // never update if the task has reached a terminal state
-                    return false;
-                }
-                if (newValue.getVersion() < oldValue.getVersion()) {
-                    // don't update to an older version (same version is ok)
-                    return false;
-                }
-                return true;
+        taskInfo.setIf(newValue, oldValue -> {
+            if (oldValue.getState().isDone()) {
+                // never update if the task has reached a terminal state
+                return false;
             }
+            if (newValue.getVersion() < oldValue.getVersion()) {
+                // don't update to an older version (same version is ok)
+                return false;
+            }
+            return true;
         });
     }
 

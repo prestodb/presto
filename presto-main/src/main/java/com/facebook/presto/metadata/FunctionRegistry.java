@@ -98,12 +98,9 @@ import com.facebook.presto.type.TimestampOperators;
 import com.facebook.presto.type.TimestampWithTimeZoneOperators;
 import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharOperators;
-import com.facebook.presto.util.IterableTransformer;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -173,6 +170,8 @@ import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.RegexpType.REGEXP;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -331,13 +330,9 @@ public class FunctionRegistry
 
     public FunctionInfo resolveFunction(QualifiedName name, List<TypeSignature> parameterTypes, final boolean approximate)
     {
-        List<ParametricFunction> candidates = IterableTransformer.on(functions.get(name)).select(new Predicate<ParametricFunction>() {
-            @Override
-            public boolean apply(ParametricFunction input)
-            {
-                return input.isScalar() || input.isApproximate() == approximate;
-            }
-        }).list();
+        List<ParametricFunction> candidates = functions.get(name).stream()
+                .filter(function -> function.isScalar() || function.isApproximate() == approximate)
+                .collect(toImmutableList());
 
         List<Type> resolvedTypes = resolveTypes(parameterTypes, typeManager);
         // search for exact match
@@ -446,20 +441,13 @@ public class FunctionRegistry
     @VisibleForTesting
     public List<ParametricFunction> listOperators()
     {
-        final Set<String> operatorNames = FluentIterable.from(Arrays.asList(OperatorType.values())).transform(new Function<OperatorType, String>() {
-            @Override
-            public String apply(OperatorType input)
-            {
-                return mangleOperatorName(input);
-            }
-        }).toSet();
-        return FluentIterable.from(functions.functions.values()).filter(new Predicate<ParametricFunction>() {
-            @Override
-            public boolean apply(ParametricFunction input)
-            {
-                return operatorNames.contains(input.getSignature().getName());
-            }
-        }).toList();
+        final Set<String> operatorNames = Arrays.asList(OperatorType.values()).stream()
+                .map(FunctionRegistry::mangleOperatorName)
+                .collect(toImmutableSet());
+
+        return functions.list().stream()
+                .filter(function -> operatorNames.contains(function.getSignature().getName()))
+                .collect(toImmutableList());
     }
 
     public FunctionInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
@@ -671,13 +659,7 @@ public class FunctionRegistry
         {
             this.functions = ImmutableListMultimap.<QualifiedName, ParametricFunction>builder()
                     .putAll(map.functions)
-                    .putAll(Multimaps.index(functions, new Function<ParametricFunction, QualifiedName>() {
-                        @Override
-                        public QualifiedName apply(ParametricFunction input)
-                        {
-                            return QualifiedName.of(input.getSignature().getName());
-                        }
-                    }))
+                    .putAll(Multimaps.index(functions, function -> QualifiedName.of(function.getSignature().getName())))
                     .build();
 
             // Make sure all functions with the same name are aggregations or none of them are

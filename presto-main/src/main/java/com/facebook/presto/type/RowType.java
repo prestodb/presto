@@ -25,10 +25,8 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.CollectionType;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -42,6 +40,7 @@ import java.util.List;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.type.TypeJsonUtils.createBlock;
 import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
@@ -123,13 +122,9 @@ public class RowType
     @Override
     public List<Type> getTypeParameters()
     {
-        return FluentIterable.from(fields).transform(new Function<RowField, Type>() {
-            @Override
-            public Type apply(RowField input)
-            {
-                return input.getType();
-            }
-        }).toList();
+        return fields.stream()
+                .map(RowField::getType)
+                .collect(toImmutableList());
     }
 
     public List<RowField> getFields()

@@ -48,7 +48,6 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
@@ -135,26 +134,12 @@ public class TaskResource
 
         ListenableFuture<TaskInfo> futureTaskInfo = MoreFutures.addTimeout(
                 taskManager.getTaskInfo(taskId, currentState),
-                new Callable<TaskInfo>()
-                {
-                    @Override
-                    public TaskInfo call()
-                    {
-                        return taskManager.getTaskInfo(taskId);
-                    }
-                },
+                () -> taskManager.getTaskInfo(taskId),
                 maxWait,
                 executor);
 
         if (shouldSummarize(uriInfo)) {
-            futureTaskInfo = Futures.transform(futureTaskInfo, new Function<TaskInfo, TaskInfo>()
-            {
-                @Override
-                public TaskInfo apply(TaskInfo taskInfo)
-                {
-                    return taskInfo.summarize();
-                }
-            });
+            futureTaskInfo = Futures.transform(futureTaskInfo, TaskInfo::summarize);
         }
 
         // For hard timeout, add an additional 5 seconds to max wait for thread scheduling contention and GC
@@ -192,14 +177,7 @@ public class TaskResource
         ListenableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, outputId, token, DEFAULT_MAX_SIZE);
         bufferResultFuture = MoreFutures.addTimeout(
                 bufferResultFuture,
-                new Callable<BufferResult>()
-                {
-                    @Override
-                    public BufferResult call()
-                    {
-                        return BufferResult.emptyResults(token, false);
-                    }
-                },
+                () -> BufferResult.emptyResults(token, false),
                 DEFAULT_MAX_WAIT_TIME,
                 executor);
 

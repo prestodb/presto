@@ -118,14 +118,7 @@ public final class ExpressionUtils
         Preconditions.checkNotNull(expressions, "expressions is null");
 
         // Flatten all the expressions into their component conjuncts
-        expressions = Iterables.concat(Iterables.transform(expressions, new Function<Expression, Iterable<Expression>>()
-        {
-            @Override
-            public Iterable<Expression> apply(Expression expression)
-            {
-                return extractConjuncts(expression);
-            }
-        }));
+        expressions = Iterables.concat(Iterables.transform(expressions, ExpressionUtils::extractConjuncts));
 
         // Strip out all true literal conjuncts
         expressions = Iterables.filter(expressions, not(Predicates.<Expression>equalTo(TRUE_LITERAL)));
@@ -148,14 +141,7 @@ public final class ExpressionUtils
         Preconditions.checkNotNull(expressions, "expressions is null");
 
         // Flatten all the expressions into their component disjuncts
-        expressions = Iterables.concat(Iterables.transform(expressions, new Function<Expression, Iterable<Expression>>()
-        {
-            @Override
-            public Iterable<Expression> apply(Expression expression)
-            {
-                return extractDisjuncts(expression);
-            }
-        }));
+        expressions = Iterables.concat(Iterables.transform(expressions, ExpressionUtils::extractDisjuncts));
 
         // Strip out all false literal disjuncts
         expressions = Iterables.filter(expressions, not(Predicates.<Expression>equalTo(FALSE_LITERAL)));
@@ -170,22 +156,17 @@ public final class ExpressionUtils
 
     public static Function<Expression, Expression> expressionOrNullSymbols(final Predicate<Symbol> nullSymbolScope)
     {
-        return new Function<Expression, Expression>()
-        {
-            @Override
-            public Expression apply(Expression expression)
-            {
-                Iterable<Symbol> symbols = filter(DependencyExtractor.extractUnique(expression), nullSymbolScope);
-                if (Iterables.isEmpty(symbols)) {
-                    return expression;
-                }
-
-                ImmutableList.Builder<Expression> nullConjuncts = ImmutableList.builder();
-                for (Symbol symbol : symbols) {
-                    nullConjuncts.add(new IsNullPredicate(new QualifiedNameReference(symbol.toQualifiedName())));
-                }
-                return or(expression, and(nullConjuncts.build()));
+        return expression -> {
+            Iterable<Symbol> symbols = filter(DependencyExtractor.extractUnique(expression), nullSymbolScope);
+            if (Iterables.isEmpty(symbols)) {
+                return expression;
             }
+
+            ImmutableList.Builder<Expression> nullConjuncts = ImmutableList.builder();
+            for (Symbol symbol : symbols) {
+                nullConjuncts.add(new IsNullPredicate(new QualifiedNameReference(symbol.toQualifiedName())));
+            }
+            return or(expression, and(nullConjuncts.build()));
         };
     }
 

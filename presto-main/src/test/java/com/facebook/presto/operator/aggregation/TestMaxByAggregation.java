@@ -30,8 +30,6 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.TypeRegistry;
-import com.google.common.base.Predicate;
-import com.google.common.collect.FluentIterable;
 import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -42,6 +40,7 @@ import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -59,14 +58,10 @@ public class TestMaxByAggregation
     @Test
     public void testAllRegistered()
     {
-        Set<Type> orderableTypes = FluentIterable.from(metadata.getTypeManager().getTypes()).filter(new Predicate<Type>()
-        {
-            @Override
-            public boolean apply(Type input)
-            {
-                return input.isOrderable();
-            }
-        }).toSet();
+        Set<Type> orderableTypes = metadata.getTypeManager()
+                .getTypes().stream()
+                .filter(Type::isOrderable)
+                .collect(toImmutableSet());
 
         for (Type keyType : orderableTypes) {
             for (Type valueType : metadata.getTypeManager().getTypes()) {

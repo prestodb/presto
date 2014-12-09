@@ -135,7 +135,6 @@ import io.airlift.units.DataSize;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
-import javax.validation.constraints.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -157,6 +156,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionT
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -394,15 +394,11 @@ public class LocalExecutionPlanner
             final PhysicalOperation source = node.getSource().accept(this, context);
 
             List<Symbol> partitionBySymbols = node.getPartitionBy();
-            List<Integer> partitionChannels = ImmutableList.copyOf(getChannelsForSymbols(partitionBySymbols, source.getLayout()));
-            List<Type> partitionTypes = ImmutableList.copyOf(Iterables.transform(partitionChannels, new Function<Integer, Type>()
-            {
-                @Override
-                public Type apply(Integer input)
-                {
-                    return source.getTypes().get(input);
-                }
-            }));
+            List<Integer> partitionChannels = getChannelsForSymbols(partitionBySymbols, source.getLayout());
+
+            List<Type> partitionTypes = partitionChannels.stream()
+                    .map(channel -> source.getTypes().get(channel))
+                    .collect(toImmutableList());
 
             ImmutableList.Builder<Integer> outputChannels = ImmutableList.builder();
             for (int i = 0; i < source.getTypes().size(); i++) {
@@ -436,26 +432,16 @@ public class LocalExecutionPlanner
             final PhysicalOperation source = node.getSource().accept(this, context);
 
             List<Symbol> partitionBySymbols = node.getPartitionBy();
-            List<Integer> partitionChannels = ImmutableList.copyOf(getChannelsForSymbols(partitionBySymbols, source.getLayout()));
-            List<Type> partitionTypes = ImmutableList.copyOf(Iterables.transform(partitionChannels, new Function<Integer, Type>()
-            {
-                @Override
-                public Type apply(Integer input)
-                {
-                    return source.getTypes().get(input);
-                }
-            }));
+            List<Integer> partitionChannels = getChannelsForSymbols(partitionBySymbols, source.getLayout());
+            List<Type> partitionTypes = partitionChannels.stream()
+                    .map(channel -> source.getTypes().get(channel))
+                    .collect(toImmutableList());
 
             List<Symbol> orderBySymbols = node.getOrderBy();
-            List<Integer> sortChannels = ImmutableList.copyOf(getChannelsForSymbols(orderBySymbols, source.getLayout()));
-            List<SortOrder> sortOrder = ImmutableList.copyOf(Iterables.transform(orderBySymbols, new Function<Symbol, SortOrder>()
-            {
-                @Override
-                public SortOrder apply(Symbol input)
-                {
-                    return node.getOrderings().get(input);
-                }
-            }));
+            List<Integer> sortChannels = getChannelsForSymbols(orderBySymbols, source.getLayout());
+            List<SortOrder> sortOrder = orderBySymbols.stream()
+                    .map(symbol -> node.getOrderings().get(symbol))
+                    .collect(toImmutableList());
 
             ImmutableList.Builder<Integer> outputChannels = ImmutableList.builder();
             for (int i = 0; i < source.getTypes().size(); i++) {
@@ -498,15 +484,10 @@ public class LocalExecutionPlanner
             List<Symbol> orderBySymbols = node.getOrderBy();
             List<Integer> partitionChannels = ImmutableList.copyOf(getChannelsForSymbols(partitionBySymbols, source.getLayout()));
 
-            List<Integer> sortChannels = ImmutableList.copyOf(getChannelsForSymbols(orderBySymbols, source.getLayout()));
-            List<SortOrder> sortOrder = ImmutableList.copyOf(Iterables.transform(orderBySymbols, new Function<Symbol, SortOrder>()
-            {
-                @Override
-                public SortOrder apply(Symbol input)
-                {
-                    return node.getOrderings().get(input);
-                }
-            }));
+            List<Integer> sortChannels = getChannelsForSymbols(orderBySymbols, source.getLayout());
+            List<SortOrder> sortOrder = orderBySymbols.stream()
+                    .map(symbol -> node.getOrderings().get(symbol))
+                    .collect(toImmutableList());
 
             Optional<Integer> frameStartChannel = Optional.absent();
             Optional<Integer> frameEndChannel = Optional.absent();
@@ -1015,16 +996,11 @@ public class LocalExecutionPlanner
             }
             final List<Set<Integer>> overlappingFieldSets = overlappingFieldSetsBuilder.build();
             final List<Integer> remappedProbeKeyChannels = remappedProbeKeyChannelsBuilder.build();
-            Function<RecordSet, RecordSet> probeKeyNormalizer = new Function<RecordSet, RecordSet>()
-            {
-                @Override
-                public RecordSet apply(RecordSet recordSet)
-                {
-                    if (!overlappingFieldSets.isEmpty()) {
-                        recordSet = new FieldSetFilteringRecordSet(recordSet, overlappingFieldSets);
-                    }
-                    return new MappedRecordSet(recordSet, remappedProbeKeyChannels);
+            Function<RecordSet, RecordSet> probeKeyNormalizer = recordSet -> {
+                if (!overlappingFieldSets.isEmpty()) {
+                    recordSet = new FieldSetFilteringRecordSet(recordSet, overlappingFieldSets);
                 }
+                return new MappedRecordSet(recordSet, remappedProbeKeyChannels);
             };
 
             // Declare the input and output schemas for the index and acquire the actual Index
@@ -1508,15 +1484,10 @@ public class LocalExecutionPlanner
                 channel++;
             }
 
-            List<Integer> groupByChannels = ImmutableList.copyOf(getChannelsForSymbols(groupBySymbols, source.getLayout()));
-            List<Type> groupByTypes = ImmutableList.copyOf(Iterables.transform(groupByChannels, new Function<Integer, Type>()
-            {
-                @Override
-                public Type apply(Integer input)
-                {
-                    return source.getTypes().get(input);
-                }
-            }));
+            List<Integer> groupByChannels = getChannelsForSymbols(groupBySymbols, source.getLayout());
+            List<Type> groupByTypes = groupByChannels.stream()
+                    .map(entry -> source.getTypes().get(entry))
+                    .collect(toImmutableList());
 
             Optional<Integer> hashChannel = node.getHashSymbol().transform(channelGetter(source));
 
@@ -1636,14 +1607,9 @@ public class LocalExecutionPlanner
 
     private static Function<Symbol, Integer> channelGetter(final PhysicalOperation source)
     {
-        return new Function<Symbol, Integer>()
-        {
-            @Override
-            public Integer apply(Symbol input)
-            {
-                checkArgument(source.getLayout().containsKey(input));
-                return source.getLayout().get(input);
-            }
+        return input -> {
+            checkArgument(source.getLayout().containsKey(input));
+            return source.getLayout().get(input);
         };
     }
 
@@ -1679,14 +1645,9 @@ public class LocalExecutionPlanner
 
         public Function<Symbol, Integer> channelGetter()
         {
-            return new Function<Symbol, Integer>() {
-                @NotNull
-                @Override
-                public Integer apply(Symbol input)
-                {
-                    checkArgument(layout.containsKey(input));
-                    return layout.get(input);
-                }
+            return input -> {
+                checkArgument(layout.containsKey(input));
+                return layout.get(input);
             };
         }
 

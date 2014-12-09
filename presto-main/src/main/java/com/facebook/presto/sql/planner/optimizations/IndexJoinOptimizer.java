@@ -175,14 +175,9 @@ public class IndexJoinOptimizer
 
     private static Function<Expression, Symbol> symbolFromReferenceGetter()
     {
-        return new Function<Expression, Symbol>()
-        {
-            @Override
-            public Symbol apply(Expression expression)
-            {
-                checkArgument(expression instanceof QualifiedNameReference);
-                return Symbol.fromQualifiedName(((QualifiedNameReference) expression).getName());
-            }
+        return expression -> {
+            checkArgument(expression instanceof QualifiedNameReference);
+            return Symbol.fromQualifiedName(((QualifiedNameReference) expression).getName());
         };
     }
 

@@ -66,8 +66,6 @@ import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.type.RowType;
-import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -110,6 +108,7 @@ import static com.facebook.presto.type.RowType.RowField;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.DateTimeUtils.timeHasTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.timestampHasTimeZone;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -903,18 +902,13 @@ public class ExpressionAnalyzer
             final Map<Symbol, Type> types,
             Iterable<? extends Expression> expressions)
     {
-        List<Field> fields = IterableTransformer.on(DependencyExtractor.extractUnique(expressions))
-                .transform(new Function<Symbol, Field>()
-                {
-                    @Override
-                    public Field apply(Symbol symbol)
-                    {
-                        Type type = types.get(symbol);
-                        checkArgument(type != null, "No type for symbol %s", symbol);
-                        return Field.newUnqualified(symbol.getName(), type);
-                    }
+        List<Field> fields = DependencyExtractor.extractUnique(expressions).stream()
+                .map(symbol -> {
+                    Type type = types.get(symbol);
+                    checkArgument(type != null, "No type for symbol %s", symbol);
+                    return Field.newUnqualified(symbol.getName(), type);
                 })
-                .list();
+                .collect(toImmutableList());
 
         return analyzeExpressions(session, metadata, sqlParser, new TupleDescriptor(fields), expressions);
     }

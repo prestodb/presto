@@ -19,7 +19,6 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -106,14 +105,9 @@ public class SqlTaskManager
                         locationFactory.createLocalTaskLocation(taskId),
                         sqlTaskExecutionFactory,
                         taskNotificationExecutor,
-                        new Function<SqlTask, Void>()
-                        {
-                            @Override
-                            public Void apply(SqlTask sqlTask)
-                            {
+                        sqlTask -> {
                                 finishedTaskStats.merge(sqlTask.getIoStats());
                                 return null;
-                            }
                         },
                         maxBufferSize
                 );

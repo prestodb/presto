@@ -20,8 +20,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -43,6 +41,7 @@ import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -342,14 +341,11 @@ public class TestRowNumberOperator
 
     private static List<Page> stripRowNumberColumn(List<Page> input)
     {
-        return IterableTransformer.on(input).transform(new Function<Page, Page>()
-        {
-            @Override
-            public Page apply(Page page)
-            {
-                Block[] blocks = Arrays.copyOf(page.getBlocks(), page.getChannelCount() - 1);
-                return new Page(blocks);
-            }
-        }).list();
+        return input.stream()
+                .map(page -> {
+                    Block[] blocks = Arrays.copyOf(page.getBlocks(), page.getChannelCount() - 1);
+                    return new Page(blocks);
+                })
+                .collect(toImmutableList());
     }
 }

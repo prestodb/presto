@@ -20,7 +20,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
@@ -99,14 +98,7 @@ public class TestNumericHistogramAggregation
         finalStep.addIntermediate(intermediate);
         Block actual = getFinalBlock(finalStep);
 
-        Map<String, Double> expected = Maps.transformValues(extractSingleValue(singleStepResult), new Function<Double, Double>()
-        {
-            @Override
-            public Double apply(Double input)
-            {
-                return input * 2;
-            }
-        });
+        Map<String, Double> expected = Maps.transformValues(extractSingleValue(singleStepResult), value -> value * 2);
 
         assertEquals(extractSingleValue(actual), expected);
     }

@@ -16,10 +16,8 @@ package com.facebook.presto.execution;
 import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.util.IterableTransformer;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
@@ -30,6 +28,8 @@ import javax.validation.constraints.NotNull;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 
 @Immutable
 public class ExecutionFailureInfo
@@ -118,14 +118,10 @@ public class ExecutionFailureInfo
 
     public FailureInfo toFailureInfo()
     {
-        List<FailureInfo> suppressed = IterableTransformer.on(this.suppressed).transform(new Function<ExecutionFailureInfo, FailureInfo>()
-        {
-            @Override
-            public FailureInfo apply(ExecutionFailureInfo input)
-            {
-                return input.toFailureInfo();
-            }
-        }).list();
+        List<FailureInfo> suppressed = this.suppressed.stream()
+                .map(ExecutionFailureInfo::toFailureInfo)
+                .collect(toImmutableList());
+
         return new FailureInfo(type, message, cause == null ? null : cause.toFailureInfo(), suppressed, stack, errorLocation);
     }
 

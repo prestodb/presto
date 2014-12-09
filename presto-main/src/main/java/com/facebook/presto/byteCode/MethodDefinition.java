@@ -15,7 +15,6 @@ package com.facebook.presto.byteCode;
 
 import com.facebook.presto.byteCode.debug.LocalVariableNode;
 import com.facebook.presto.byteCode.instruction.LabelNode;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -23,7 +22,6 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.tree.InsnNode;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.ArrayList;
@@ -90,14 +88,7 @@ public class MethodDefinition
         }
         this.parameters = ImmutableList.copyOf(parameters);
         this.parameterTypes = Lists.transform(this.parameters, NamedParameterDefinition::getType);
-        this.parameterAnnotations = ImmutableList.copyOf(transform(parameters, new Function<NamedParameterDefinition, List<AnnotationDefinition>>()
-        {
-            @Override
-            public List<AnnotationDefinition> apply(@Nullable NamedParameterDefinition input)
-            {
-                return new ArrayList<>();
-            }
-        }));
+        this.parameterAnnotations = ImmutableList.copyOf(transform(parameters, input -> new ArrayList<>()));
 
         if (!access.contains(STATIC)) {
             getCompilerContext().declareThisVariable(declaringClass.getType());

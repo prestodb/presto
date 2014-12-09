@@ -217,13 +217,6 @@ class PluginClassLoader
 
     private static Function<String, String> classNameToResource()
     {
-        return new Function<String, String>()
-        {
-            @Override
-            public String apply(String className)
-            {
-                return className.replace('.', '/');
-            }
-        };
+        return className -> className.replace('.', '/');
     }
 }

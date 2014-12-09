@@ -30,9 +30,7 @@ import com.facebook.presto.execution.StageStats;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 
@@ -49,8 +47,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.collect.Iterables.filter;
-import static com.google.common.collect.Iterables.transform;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 
 @ThreadSafe
 public class MockQueryManager
@@ -76,19 +73,17 @@ public class MockQueryManager
     @Override
     public List<QueryInfo> getAllQueryInfo()
     {
-        return ImmutableList.copyOf(filter(transform(queries.values(), new Function<SimpleQuery, QueryInfo>()
-        {
-            @Override
-            public QueryInfo apply(SimpleQuery queryWorker)
-            {
-                try {
-                    return queryWorker.getQueryInfo();
-                }
-                catch (RuntimeException ignored) {
-                    return null;
-                }
-            }
-        }), Predicates.notNull()));
+        return queries.values().stream()
+                .map(queryWorker -> {
+                    try {
+                        return queryWorker.getQueryInfo();
+                    }
+                    catch (RuntimeException ignored) {
+                        return null;
+                    }
+                })
+                .filter(value -> value != null)
+                .collect(toImmutableList());
     }
 
     @Override

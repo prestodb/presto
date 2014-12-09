@@ -23,8 +23,6 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.AsyncSemaphore;
@@ -45,6 +43,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -59,9 +58,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.SystemSessionProperties.isBigQueryEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Iterables.filter;
-import static com.google.common.collect.Iterables.transform;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -157,19 +155,17 @@ public class SqlQueryManager
     @Override
     public List<QueryInfo> getAllQueryInfo()
     {
-        return ImmutableList.copyOf(filter(transform(queries.values(), new Function<QueryExecution, QueryInfo>()
-        {
-            @Override
-            public QueryInfo apply(QueryExecution queryExecution)
-            {
-                try {
-                    return queryExecution.getQueryInfo();
-                }
-                catch (RuntimeException ignored) {
-                    return null;
-                }
-            }
-        }), Predicates.notNull()));
+        return queries.values().stream()
+                .map(queryExecution -> {
+                    try {
+                        return queryExecution.getQueryInfo();
+                    }
+                    catch (RuntimeException ignored) {
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .collect(toImmutableList());
     }
 
     @Override
