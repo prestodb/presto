@@ -16,7 +16,6 @@ package com.facebook.presto.cli;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.sql.parser.StatementSplitter;
-import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
@@ -72,6 +71,7 @@ import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerat
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.airlift.log.Logging.Level;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 @Command(name = "presto", description = "Presto interactive console")
@@ -132,7 +132,7 @@ public class PerfTest
     private List<String> loadQueries()
     {
         try {
-            String query = Files.toString(new File(file), Charsets.UTF_8);
+            String query = Files.toString(new File(file), UTF_8);
             StatementSplitter splitter = new StatementSplitter(query + ";");
             return ImmutableList.copyOf(transform(splitter.getCompleteStatements(), new Function<Statement, String>()
             {
@@ -280,7 +280,7 @@ public class PerfTest
         {
             Request.Builder builder = preparePost()
                     .setUri(uriBuilderFrom(session.getServer()).replacePath("/v1/execute").build())
-                    .setBodyGenerator(createStaticBodyGenerator(query, Charsets.UTF_8));
+                    .setBodyGenerator(createStaticBodyGenerator(query, UTF_8));
 
             if (session.getUser() != null) {
                 builder.setHeader(PrestoHeaders.PRESTO_USER, session.getUser());

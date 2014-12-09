@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.example;
 
-import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -38,6 +37,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class ExampleClient
 {
@@ -103,7 +103,7 @@ public class ExampleClient
             throws IOException
     {
         URL result = metadataUri.toURL();
-        String json = Resources.toString(result, Charsets.UTF_8);
+        String json = Resources.toString(result, UTF_8);
         Map<String, List<ExampleTable>> catalog = catalogCodec.fromJson(json);
 
         return ImmutableMap.copyOf(transformValues(catalog, resolveAndIndexTables(metadataUri)));

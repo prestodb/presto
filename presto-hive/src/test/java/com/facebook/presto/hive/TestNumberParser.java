@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.hive;
 
-import com.google.common.base.Charsets;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 import static org.testng.Assert.assertEquals;
 
 public class TestNumberParser
@@ -89,21 +89,21 @@ public class TestNumberParser
 
     private static void assertParseLong(String string)
     {
-        assertEquals(parseLong(string.getBytes(Charsets.US_ASCII), 0, string.length()), Long.parseLong(string));
+        assertEquals(parseLong(string.getBytes(US_ASCII), 0, string.length()), Long.parseLong(string));
 
         // verify we can parse using a non-zero offset
         String padding = "9999";
         String padded = padding + string + padding;
-        assertEquals(parseLong(padded.getBytes(Charsets.US_ASCII), padding.length(), string.length()), Long.parseLong(string));
+        assertEquals(parseLong(padded.getBytes(US_ASCII), padding.length(), string.length()), Long.parseLong(string));
     }
 
     private static void assertParseDouble(String string)
     {
-        assertEquals(parseDouble(string.getBytes(Charsets.US_ASCII), 0, string.length()), Double.parseDouble(string));
+        assertEquals(parseDouble(string.getBytes(US_ASCII), 0, string.length()), Double.parseDouble(string));
 
         // verify we can parse using a non-zero offset
         String padding = "9999";
         String padded = padding + string + padding;
-        assertEquals(parseDouble(padded.getBytes(Charsets.US_ASCII), padding.length(), string.length()), Double.parseDouble(string));
+        assertEquals(parseDouble(padded.getBytes(US_ASCII), padding.length(), string.length()), Double.parseDouble(string));
     }
 }

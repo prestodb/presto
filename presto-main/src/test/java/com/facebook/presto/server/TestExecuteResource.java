@@ -15,13 +15,12 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.google.common.base.Charsets;
 import com.google.common.net.HttpHeaders;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
-import io.airlift.testing.Closeables;
 import io.airlift.http.client.jetty.JettyHttpClient;
+import io.airlift.testing.Closeables;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -30,6 +29,7 @@ import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StringResponseHandler.StringResponse;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -77,7 +77,7 @@ public class TestExecuteResource
                 .setHeader(PrestoHeaders.PRESTO_CATALOG, "catalog")
                 .setHeader(PrestoHeaders.PRESTO_SCHEMA, "schema")
                 .setHeader(PrestoHeaders.PRESTO_TIME_ZONE, "UTC")
-                .setBodyGenerator(createStaticBodyGenerator(query, Charsets.UTF_8))
+                .setBodyGenerator(createStaticBodyGenerator(query, UTF_8))
                 .build();
         return client.execute(request, createStringResponseHandler());
     }

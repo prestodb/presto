@@ -17,7 +17,6 @@ import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import com.google.common.base.Ascii;
-import com.google.common.base.Charsets;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -27,6 +26,7 @@ import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class StringFunctions
 {
@@ -38,7 +38,7 @@ public final class StringFunctions
     public static Slice chr(@SqlType(StandardTypes.BIGINT) long codepoint)
     {
         char[] utf16 = Character.toChars((int) codepoint);
-        ByteBuffer utf8 = Charsets.UTF_8.encode(CharBuffer.wrap(utf16));
+        ByteBuffer utf8 = UTF_8.encode(CharBuffer.wrap(utf16));
         return Slices.wrappedBuffer(utf8.array(), 0, utf8.limit());
     }
 
@@ -74,10 +74,10 @@ public final class StringFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice replace(@SqlType(StandardTypes.VARCHAR) Slice str, @SqlType(StandardTypes.VARCHAR) Slice search, @SqlType(StandardTypes.VARCHAR) Slice replace)
     {
-        String replaced = str.toString(Charsets.UTF_8).replace(
-                search.toString(Charsets.UTF_8),
-                replace.toString(Charsets.UTF_8));
-        return Slices.copiedBuffer(replaced, Charsets.UTF_8);
+        String replaced = str.toString(UTF_8).replace(
+                search.toString(UTF_8),
+                replace.toString(UTF_8));
+        return Slices.copiedBuffer(replaced, UTF_8);
     }
 
     @Description("reverses the given string")

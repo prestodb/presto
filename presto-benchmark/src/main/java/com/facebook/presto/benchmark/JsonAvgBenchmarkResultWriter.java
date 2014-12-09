@@ -14,7 +14,6 @@
 package com.facebook.presto.benchmark;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import io.airlift.json.JsonCodec;
@@ -22,6 +21,8 @@ import io.airlift.json.JsonCodec;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Map;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class JsonAvgBenchmarkResultWriter
         implements BenchmarkResultHook
@@ -82,7 +83,7 @@ public class JsonAvgBenchmarkResultWriter
 
         String json = JSON_CODEC.toJson(average);
         try {
-            outputStream.write(json.getBytes(Charsets.UTF_8));
+            outputStream.write(json.getBytes(UTF_8));
         }
         catch (IOException e) {
             throw Throwables.propagate(e);

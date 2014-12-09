@@ -20,7 +20,6 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.io.SerializedString;
-import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
@@ -38,6 +37,7 @@ import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NULL;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * Extracts values from JSON
@@ -326,7 +326,7 @@ public final class JsonExtract
             if (!token.isScalarValue() || token == VALUE_NULL) {
                 return null;
             }
-            return Slices.wrappedBuffer(jsonParser.getText().getBytes(Charsets.UTF_8));
+            return Slices.wrappedBuffer(jsonParser.getText().getBytes(UTF_8));
         }
     }
 

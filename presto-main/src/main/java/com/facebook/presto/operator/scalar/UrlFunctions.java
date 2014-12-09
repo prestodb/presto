@@ -16,7 +16,6 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
-import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -28,6 +27,7 @@ import java.net.URISyntaxException;
 import java.util.Iterator;
 
 import static com.google.common.base.Strings.nullToEmpty;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class UrlFunctions
 {
@@ -111,14 +111,14 @@ public final class UrlFunctions
         }
 
         Slice query = slice(uri.getQuery());
-        String parameter = parameterName.toString(Charsets.UTF_8);
-        Iterable<String> queryArgs = QUERY_SPLITTER.split(query.toString(Charsets.UTF_8));
+        String parameter = parameterName.toString(UTF_8);
+        Iterable<String> queryArgs = QUERY_SPLITTER.split(query.toString(UTF_8));
 
         for (String queryArg : queryArgs) {
             Iterator<String> arg = ARG_SPLITTER.split(queryArg).iterator();
             if (arg.next().equals(parameter)) {
                 if (arg.hasNext()) {
-                    return Slices.copiedBuffer(arg.next(), Charsets.UTF_8);
+                    return Slices.copiedBuffer(arg.next(), UTF_8);
                 }
                 // first matched key is empty
                 return Slices.EMPTY_SLICE;
@@ -131,14 +131,14 @@ public final class UrlFunctions
 
     private static Slice slice(@Nullable String s)
     {
-        return Slices.copiedBuffer(nullToEmpty(s), Charsets.UTF_8);
+        return Slices.copiedBuffer(nullToEmpty(s), UTF_8);
     }
 
     @Nullable
     private static URI parseUrl(Slice url)
     {
         try {
-            return new URI(url.toString(Charsets.UTF_8));
+            return new URI(url.toString(UTF_8));
         }
         catch (URISyntaxException e) {
             return null;
