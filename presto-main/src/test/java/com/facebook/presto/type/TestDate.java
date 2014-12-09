@@ -172,6 +172,7 @@ public class TestDate
             throws Exception
     {
         assertFunction("greatest(DATE '2013-03-30', DATE '2012-05-23')", new SqlDate(new LocalDate(2013, 3, 30).toDateMidnight(getDateTimeZone(TIME_ZONE_KEY)).getMillis(), TIME_ZONE_KEY));
+        assertFunction("greatest(DATE '2013-03-30', DATE '2012-05-23', DATE '2012-06-01')", new SqlDate(new LocalDate(2013, 3, 30).toDateMidnight(getDateTimeZone(TIME_ZONE_KEY)).getMillis(), TIME_ZONE_KEY));
     }
 
     @Test
