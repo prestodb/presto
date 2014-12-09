@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -77,7 +76,7 @@ public class QualifiedName
         Preconditions.checkNotNull(parts, "parts");
         Preconditions.checkArgument(!Iterables.isEmpty(parts), "parts is empty");
 
-        this.parts = ImmutableList.copyOf(Iterables.transform(parts, toLowerCase()));
+        this.parts = ImmutableList.copyOf(Iterables.transform(parts, s -> s.toLowerCase(ENGLISH)));
     }
 
     public List<String> getParts()
@@ -143,17 +142,5 @@ public class QualifiedName
     public int hashCode()
     {
         return parts.hashCode();
-    }
-
-    private static Function<String, String> toLowerCase()
-    {
-        return new Function<String, String>()
-        {
-            @Override
-            public String apply(String s)
-            {
-                return s.toLowerCase(ENGLISH);
-            }
-        };
     }
 }
