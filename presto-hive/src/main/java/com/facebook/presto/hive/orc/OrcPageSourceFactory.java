@@ -17,16 +17,17 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
 import com.facebook.presto.hive.HivePartitionKey;
-import com.facebook.presto.orc.TupleDomainOrcPredicate;
-import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcRecordReader;
+import com.facebook.presto.orc.TupleDomainOrcPredicate;
+import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -40,6 +41,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.joda.time.DateTimeZone;
@@ -50,10 +52,13 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedReaderEnabled;
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Strings.nullToEmpty;
 
 public class OrcPageSourceFactory
         implements HivePageSourceFactory
@@ -138,6 +143,9 @@ public class OrcPageSourceFactory
             orcDataSource = new HdfsOrcDataSource(path.toString(), inputStream, size, maxMergeDistance);
         }
         catch (Exception e) {
+            if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed")) {
+                throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, e);
+            }
             throw Throwables.propagate(e);
         }
 
@@ -175,6 +183,9 @@ public class OrcPageSourceFactory
                 orcDataSource.close();
             }
             catch (IOException ignored) {
+            }
+            if (e instanceof BlockMissingException) {
+                throw new PrestoException(HIVE_MISSING_DATA, e);
             }
             throw Throwables.propagate(e);
         }
