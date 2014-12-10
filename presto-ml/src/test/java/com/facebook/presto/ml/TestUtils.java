@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.ml;
 
+import com.google.common.collect.ImmutableMap;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -33,6 +35,6 @@ public final class TestUtils
             features.add(new FeatureVector(0, label + rand.nextGaussian()));
         }
 
-        return new Dataset(labels, features);
+        return new Dataset(labels, features, ImmutableMap.of(0, "first", 1, "second"));
     }
 }

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.ml;
 
-import com.facebook.presto.ml.type.ClassifierType;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.CombineFunction;
 import com.facebook.presto.operator.aggregation.InputFunction;
@@ -22,33 +21,22 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
 
-import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
-import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
+import static com.facebook.presto.ml.type.ClassifierType.VARCHAR_CLASSIFIER;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 
 @AggregationFunction(value = "learn_libsvm_classifier", decomposable = false)
-public final class LearnLibSvmClassifierAggregation
+public final class LearnLibSvmVarcharClassifierAggregation
 {
-    private LearnLibSvmClassifierAggregation() {}
+    private LearnLibSvmVarcharClassifierAggregation() {}
 
     @InputFunction
     public static void input(
             LearnState state,
-            @SqlType(BIGINT) long label,
+            @SqlType(VARCHAR) Slice label,
             @SqlType("map<bigint,double>") Slice features,
             @SqlType(VARCHAR) Slice parameters)
     {
-        input(state, (double) label, features, parameters);
-    }
-
-    @InputFunction
-    public static void input(
-            LearnState state,
-            @SqlType(DOUBLE) double label,
-            @SqlType("map<bigint,double>") Slice features,
-            @SqlType(VARCHAR) Slice parameters)
-    {
-        state.getLabels().add(label);
+        state.getLabels().add((double) state.enumerateLabel(label.toStringUtf8()));
         FeatureVector featureVector = ModelUtils.jsonToFeatures(features);
         state.addMemoryUsage(featureVector.getEstimatedSize());
         state.getFeatureVectors().add(featureVector);
@@ -61,12 +49,12 @@ public final class LearnLibSvmClassifierAggregation
         throw new UnsupportedOperationException("LEARN must run on a single machine");
     }
 
-    @OutputFunction("Classifier<bigint>")
+    @OutputFunction("Classifier<varchar>")
     public static void output(LearnState state, BlockBuilder out)
     {
         Dataset dataset = new Dataset(state.getLabels(), state.getFeatureVectors(), state.getLabelEnumeration().inverse());
-        Model model = new ClassifierFeatureTransformer(new SvmClassifier(LibSvmUtils.parseParameters(state.getParameters().toStringUtf8())), new FeatureUnitNormalizer());
+        Model model = new StringClassifierAdapter(new ClassifierFeatureTransformer(new SvmClassifier(LibSvmUtils.parseParameters(state.getParameters().toStringUtf8())), new FeatureUnitNormalizer()));
         model.train(dataset);
-        ClassifierType.BIGINT_CLASSIFIER.writeSlice(out, ModelUtils.serialize(model));
+        VARCHAR_CLASSIFIER.writeSlice(out, ModelUtils.serialize(model));
     }
 }

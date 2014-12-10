@@ -35,8 +35,10 @@ public class MLFunctionFactory
     {
         return new FunctionListBuilder(typeManager)
                 .aggregate(LearnClassifierAggregation.class)
+                .aggregate(LearnVarcharClassifierAggregation.class)
                 .aggregate(LearnRegressorAggregation.class)
                 .aggregate(LearnLibSvmClassifierAggregation.class)
+                .aggregate(LearnLibSvmVarcharClassifierAggregation.class)
                 .aggregate(LearnLibSvmRegressorAggregation.class)
                 .aggregate(EvaluateClassifierPredictionsAggregation.class)
                 .scalar(MLFunctions.class)

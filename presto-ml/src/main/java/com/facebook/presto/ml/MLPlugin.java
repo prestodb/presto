@@ -15,8 +15,6 @@ package com.facebook.presto.ml;
 
 import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.ml.type.ClassifierParametricType;
-import com.facebook.presto.ml.type.ModelType;
-import com.facebook.presto.ml.type.RegressorType;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -28,6 +26,8 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.ml.type.ModelType.MODEL;
+import static com.facebook.presto.ml.type.RegressorType.REGRESSOR;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class MLPlugin
@@ -53,7 +53,7 @@ public class MLPlugin
             return ImmutableList.of(type.cast(new MLFunctionFactory(typeManager)));
         }
         else if (type == Type.class) {
-            return ImmutableList.of(type.cast(ModelType.MODEL), type.cast(RegressorType.REGRESSOR));
+            return ImmutableList.of(type.cast(MODEL), type.cast(REGRESSOR));
         }
         else if (type == ParametricType.class) {
             return ImmutableList.of(type.cast(new ClassifierParametricType()));

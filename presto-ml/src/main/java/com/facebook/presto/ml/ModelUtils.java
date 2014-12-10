@@ -67,6 +67,7 @@ public final class ModelUtils
         builder.put(ClassifierFeatureTransformer.class, 4);
         builder.put(RegressorFeatureTransformer.class, 5);
         builder.put(FeatureUnitNormalizer.class, 6);
+        builder.put(StringClassifierAdapter.class, 7);
 
         MODEL_SERIALIZATION_IDS = builder.build();
     }
