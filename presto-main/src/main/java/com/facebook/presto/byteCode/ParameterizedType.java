@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.byteCode;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.Type;
 
@@ -326,10 +325,5 @@ public class ParameterizedType
                 return "L" + getPathName(n) + ";";
             }
         }
-    }
-
-    public static Function<Class<?>, ParameterizedType> toParameterizedType()
-    {
-        return ParameterizedType::new;
     }
 }
