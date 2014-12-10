@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.conf.Configuration;
@@ -26,6 +25,7 @@ import org.apache.hadoop.hive.serde2.Deserializer;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
@@ -53,7 +53,7 @@ public class ParquetRecordCursorProvider
         @SuppressWarnings("deprecation")
         Deserializer deserializer = getDeserializer(schema);
         if (!(deserializer instanceof ParquetHiveSerDe)) {
-            return Optional.absent();
+            return Optional.empty();
         }
 
         // are all columns supported by Parquet code

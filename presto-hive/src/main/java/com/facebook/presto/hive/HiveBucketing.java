@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorColumnHandle;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -31,6 +30,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.IntObjectInspecto
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
@@ -70,7 +70,7 @@ final class HiveBucketing
         if (!table.getSd().isSetBucketCols() || table.getSd().getBucketCols().isEmpty() ||
                 !table.getSd().isSetNumBuckets() || (table.getSd().getNumBuckets() <= 0) ||
                 bindings.isEmpty()) {
-            return Optional.absent();
+            return Optional.empty();
         }
 
         List<String> bucketColumns = table.getSd().getBucketCols();
@@ -85,10 +85,10 @@ final class HiveBucketing
         for (String column : bucketColumns) {
             ObjectInspector inspector = objectInspectors.get(column);
             if ((inspector == null) || (inspector.getCategory() != Category.PRIMITIVE)) {
-                return Optional.absent();
+                return Optional.empty();
             }
             if (!SUPPORTED_TYPES.contains(((PrimitiveObjectInspector) inspector).getPrimitiveCategory())) {
-                return Optional.absent();
+                return Optional.empty();
             }
         }
 
@@ -103,7 +103,7 @@ final class HiveBucketing
 
         // Check that we have bindings for all bucket columns
         if (bucketBindings.size() != bucketColumns.size()) {
-            return Optional.absent();
+            return Optional.empty();
         }
 
         // Get bindings of bucket columns
@@ -143,7 +143,7 @@ final class HiveBucketing
         }
         catch (HiveException e) {
             log.debug(e, "Error evaluating bucket number");
-            return Optional.absent();
+            return Optional.empty();
         }
     }
 

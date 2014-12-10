@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Optional;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
@@ -25,6 +24,7 @@ import org.apache.hadoop.mapred.RecordReader;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
@@ -48,7 +48,7 @@ public class ColumnarTextHiveRecordCursorProvider
             TypeManager typeManager)
     {
         if (!usesColumnarTextSerDe(schema)) {
-            return Optional.absent();
+            return Optional.empty();
         }
 
         RecordReader<?, ?> recordReader = HiveUtil.createRecordReader(clientId, configuration, path, start, length, schema, columns, typeManager);

@@ -26,7 +26,6 @@ import com.facebook.presto.hive.HiveRecordCursorProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
@@ -46,6 +45,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
@@ -73,7 +73,7 @@ public class DwrfRecordCursorProvider
         @SuppressWarnings("deprecation")
         Deserializer deserializer = getDeserializer(schema);
         if (!(deserializer instanceof OrcSerde)) {
-            return Optional.absent();
+            return Optional.empty();
         }
 
         StructObjectInspector rowInspector = getTableObjectInspector(schema);

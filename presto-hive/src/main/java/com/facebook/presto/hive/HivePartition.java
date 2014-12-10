@@ -18,11 +18,11 @@ import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SerializableNativeValue;
 import com.facebook.presto.spi.TupleDomain;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -44,7 +44,7 @@ public class HivePartition
         this.effectivePredicate = checkNotNull(effectivePredicate, "effectivePredicate is null");
         this.partitionId = UNPARTITIONED_ID;
         this.keys = ImmutableMap.of();
-        this.bucket = Optional.absent();
+        this.bucket = Optional.empty();
     }
 
     public HivePartition(SchemaTableName tableName,
