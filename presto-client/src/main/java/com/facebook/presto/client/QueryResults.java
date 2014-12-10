@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.client;
 
-import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -32,6 +31,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
+import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
+import static com.facebook.presto.spi.type.StandardTypes.DATE;
+import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
+import static com.facebook.presto.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
+import static com.facebook.presto.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
+import static com.facebook.presto.spi.type.StandardTypes.JSON;
+import static com.facebook.presto.spi.type.StandardTypes.MAP;
+import static com.facebook.presto.spi.type.StandardTypes.ROW;
+import static com.facebook.presto.spi.type.StandardTypes.TIME;
+import static com.facebook.presto.spi.type.StandardTypes.TIMESTAMP;
+import static com.facebook.presto.spi.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -183,14 +197,14 @@ public class QueryResults
             return null;
         }
         TypeSignature signature = parseTypeSignature(type);
-        if (signature.getBase().equals("array")) {
+        if (signature.getBase().equals(ARRAY)) {
             List<Object> fixedValue = new ArrayList<>();
             for (Object object : List.class.cast(value)) {
                 fixedValue.add(fixValue(signature.getParameters().get(0).toString(), object));
             }
             return fixedValue;
         }
-        if (signature.getBase().equals("map")) {
+        if (signature.getBase().equals(MAP)) {
             String keyType = signature.getParameters().get(0).toString();
             String valueType = signature.getParameters().get(1).toString();
             Map<Object, Object> fixedValue = new HashMap<>();
@@ -199,7 +213,7 @@ public class QueryResults
             }
             return fixedValue;
         }
-        if (signature.getBase().equals(StandardTypes.ROW)) {
+        if (signature.getBase().equals(ROW)) {
             Map<String, Object> fixedValue = new LinkedHashMap<>();
             List<Object> listValue = List.class.cast(value);
             checkArgument(listValue.size() == signature.getLiteralParameters().size(), "Mismatched data values and row type");
@@ -210,30 +224,30 @@ public class QueryResults
             return fixedValue;
         }
         switch (type) {
-            case "bigint":
+            case BIGINT:
                 if (value instanceof String) {
                     return Long.parseLong((String) value);
                 }
                 return ((Number) value).longValue();
-            case "double":
+            case DOUBLE:
                 if (value instanceof String) {
                     return Double.parseDouble((String) value);
                 }
                 return ((Number) value).doubleValue();
-            case "boolean":
+            case BOOLEAN:
                 if (value instanceof String) {
                     return Boolean.parseBoolean((String) value);
                 }
                 return Boolean.class.cast(value);
-            case "varchar":
-            case "json":
-            case "time":
-            case "time with time zone":
-            case "timestamp":
-            case "timestamp with time zone":
-            case "date":
-            case "interval year to month":
-            case "interval day to second":
+            case VARCHAR:
+            case JSON:
+            case TIME:
+            case TIME_WITH_TIME_ZONE:
+            case TIMESTAMP:
+            case TIMESTAMP_WITH_TIME_ZONE:
+            case DATE:
+            case INTERVAL_YEAR_TO_MONTH:
+            case INTERVAL_DAY_TO_SECOND:
                 return String.class.cast(value);
             default:
                 // for now we assume that only the explicit types above are passed
