@@ -22,21 +22,20 @@ import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static io.airlift.slice.Slices.utf8Slice;
 
 public class TupleDomainOrcPredicate<C>
         implements OrcPredicate
@@ -109,14 +108,7 @@ public class TupleDomainOrcPredicate<C>
         }
         else if (type.getTypeSignature().getBase().equals(StandardTypes.DATE) && columnStatistics.getDateStatistics() != null) {
             // TODO remove this when DATE type memory representation is changed to days instead of millis
-            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getDateStatistics(), new Function<Integer, Long>()
-            {
-                @Override
-                public Long apply(Integer days)
-                {
-                    return days * MILLIS_IN_DAY;
-                }
-            });
+            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getDateStatistics(), days -> days * MILLIS_IN_DAY);
         }
         else if (boxedJavaType == Long.class && columnStatistics.getIntegerStatistics() != null) {
             return createDomain(boxedJavaType, hasNullValue, columnStatistics.getIntegerStatistics());
@@ -125,21 +117,14 @@ public class TupleDomainOrcPredicate<C>
             return createDomain(boxedJavaType, hasNullValue, columnStatistics.getDoubleStatistics());
         }
         else if (boxedJavaType == Slice.class && columnStatistics.getStringStatistics() != null) {
-            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getStringStatistics(), new Function<String, Slice>()
-            {
-                @Override
-                public Slice apply(String value)
-                {
-                    return utf8Slice(value);
-                }
-            });
+            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getStringStatistics(), Slices::utf8Slice);
         }
         return Domain.create(SortedRangeSet.all(boxedJavaType), hasNullValue);
     }
 
     private static <T extends Comparable<T>> Domain createDomain(Class<?> boxedJavaType, boolean hasNullValue, RangeStatistics<T> rangeStatistics)
     {
-        return createDomain(boxedJavaType, hasNullValue, rangeStatistics, Functions.<T>identity());
+        return createDomain(boxedJavaType, hasNullValue, rangeStatistics, value -> value);
     }
 
     private static <F, T extends Comparable<T>> Domain createDomain(Class<?> boxedJavaType, boolean hasNullValue, RangeStatistics<F> rangeStatistics, Function<F, T> function)

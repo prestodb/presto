@@ -23,7 +23,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.type.TypeRegistry;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -64,6 +63,7 @@ import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.Locale.ENGLISH;
+import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.testng.Assert.assertEquals;
@@ -317,14 +317,10 @@ public class TestHiveFileFormats
         splitProperties.setProperty("columns", Joiner.on(',').join(transform(filter(testColumns, not(partitionKeyFilter())), nameGetter())));
         splitProperties.setProperty("columns.types", Joiner.on(',').join(transform(filter(testColumns, not(partitionKeyFilter())), typeGetter())));
 
-        List<HivePartitionKey> partitionKeys = ImmutableList.copyOf(transform(filter(testColumns, partitionKeyFilter()), new Function<TestColumn, HivePartitionKey>()
-        {
-            @Override
-            public HivePartitionKey apply(TestColumn input)
-            {
-                return new HivePartitionKey(input.getName(), HiveType.getHiveType(input.getObjectInspector()), (String) input.getWriteValue());
-            }
-        }));
+        List<HivePartitionKey> partitionKeys = testColumns.stream()
+                .filter(TestColumn::isPartitionKey)
+                .map(input -> new HivePartitionKey(input.getName(), HiveType.getHiveType(input.getObjectInspector()), (String) input.getWriteValue()))
+                .collect(toList());
 
         HiveRecordCursor cursor = cursorProvider.createHiveRecordCursor(
                 "test",
@@ -352,13 +348,10 @@ public class TestHiveFileFormats
         splitProperties.setProperty("columns", Joiner.on(',').join(transform(filter(testColumns, not(partitionKeyFilter())), nameGetter())));
         splitProperties.setProperty("columns.types", Joiner.on(',').join(transform(filter(testColumns, not(partitionKeyFilter())), typeGetter())));
 
-        List<HivePartitionKey> partitionKeys = ImmutableList.copyOf(transform(filter(testColumns, partitionKeyFilter()), new Function<TestColumn, HivePartitionKey>() {
-            @Override
-            public HivePartitionKey apply(TestColumn input)
-            {
-                return new HivePartitionKey(input.getName(), HiveType.getHiveType(input.getObjectInspector()), (String) input.getWriteValue());
-            }
-        }));
+        List<HivePartitionKey> partitionKeys = testColumns.stream()
+                .filter(TestColumn::isPartitionKey)
+                .map(input -> new HivePartitionKey(input.getName(), HiveType.getHiveType(input.getObjectInspector()), (String) input.getWriteValue()))
+                .collect(toList());
 
         List<HiveColumnHandle> columnHandles = getColumnHandles(testColumns);
 

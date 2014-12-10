@@ -16,7 +16,6 @@ package com.facebook.presto.cli;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.sql.parser.StatementSplitter;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -134,14 +133,7 @@ public class PerfTest
         try {
             String query = Files.toString(new File(file), UTF_8);
             StatementSplitter splitter = new StatementSplitter(query + ";");
-            return ImmutableList.copyOf(transform(splitter.getCompleteStatements(), new Function<Statement, String>()
-            {
-                @Override
-                public String apply(Statement statement)
-                {
-                    return statement.statement();
-                }
-            }));
+            return ImmutableList.copyOf(transform(splitter.getCompleteStatements(), Statement::statement));
         }
         catch (IOException e) {
             throw new RuntimeException(format("Error reading from file %s: %s", file, e.getMessage()));
@@ -254,15 +246,10 @@ public class PerfTest
 
         public ListenableFuture<?> execute(final BlockingQueue<String> queue, final CountDownLatch remainingQueries)
         {
-            return executor.submit(new Runnable()
-            {
-                @Override
-                public void run()
-                {
-                    for (String query = queue.poll(); query != null; query = queue.poll()) {
-                        execute(query);
-                        remainingQueries.countDown();
-                    }
+            return executor.submit(() -> {
+                for (String query = queue.poll(); query != null; query = queue.poll()) {
+                    execute(query);
+                    remainingQueries.countDown();
                 }
             });
         }

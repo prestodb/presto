@@ -17,7 +17,6 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
-import com.google.common.base.Function;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -1721,14 +1720,7 @@ public class PrestoResultSet
 
     private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator)
     {
-        return concat(transform(iterator, new Function<Iterable<T>, Iterator<T>>()
-        {
-            @Override
-            public Iterator<T> apply(Iterable<T> input)
-            {
-                return input.iterator();
-            }
-        }));
+        return concat(transform(iterator, Iterable::iterator));
     }
 
     private static class ResultsPageIterator

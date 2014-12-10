@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import com.google.common.base.Function;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ContiguousSet;
@@ -29,8 +28,6 @@ import org.joda.time.format.ISODateTimeFormat;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import javax.annotation.Nullable;
-
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -42,7 +39,6 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static com.google.common.base.Functions.compose;
-import static com.google.common.base.Functions.toStringFunction;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
@@ -140,27 +136,37 @@ public abstract class AbstractTestOrcReader
     private void testRoundTripNumeric(Iterable<Integer> writeValues)
             throws Exception
     {
-        tester.testRoundTrip(javaByteObjectInspector, transform(writeValues, intToByte()), byteToLong());
-        tester.testRoundTrip(javaShortObjectInspector, transform(writeValues, intToShort()), shortToLong());
-        tester.testRoundTrip(javaIntObjectInspector, writeValues, intToLong());
-        tester.testRoundTrip(javaLongObjectInspector, transform(writeValues, intToLong()));
-        tester.testRoundTrip(javaTimestampObjectInspector, transform(writeValues, intToTimestamp()), timestampToLong(), timestampToLong());
+        tester.testRoundTrip(javaByteObjectInspector,
+                transform(writeValues, AbstractTestOrcReader::intToByte),
+                AbstractTestOrcReader::byteToLong);
+
+        tester.testRoundTrip(javaShortObjectInspector,
+                transform(writeValues, AbstractTestOrcReader::intToShort),
+                AbstractTestOrcReader::shortToLong);
+
+        tester.testRoundTrip(javaIntObjectInspector, writeValues, AbstractTestOrcReader::intToLong);
+        tester.testRoundTrip(javaLongObjectInspector, transform(writeValues, AbstractTestOrcReader::intToLong));
+
+        tester.testRoundTrip(javaTimestampObjectInspector,
+                transform(writeValues, AbstractTestOrcReader::intToTimestamp),
+                AbstractTestOrcReader::timestampToLong,
+                AbstractTestOrcReader::timestampToLong);
 
         // date has three representations
         // normal format: DAYS since 1970
         // json stack: is milliseconds UTC since 1970
         // json json: ISO 8601 format date
         tester.testRoundTrip(javaDateObjectInspector,
-                transform(writeValues, intToDate()),
-                transform(writeValues, intToDays()),
-                transform(writeValues, intToDaysMillis()));
+                transform(writeValues, AbstractTestOrcReader::intToDate),
+                transform(writeValues, AbstractTestOrcReader::intToDays),
+                transform(writeValues, AbstractTestOrcReader::intToDaysMillis));
     }
 
     @Test
     public void testFloatSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaFloatObjectInspector, floatSequence(0.0f, 0.1f, 30_000), floatToDouble());
+        tester.testRoundTrip(javaFloatObjectInspector, floatSequence(0.0f, 0.1f, 30_000), AbstractTestOrcReader::floatToDouble);
     }
 
     @Test
@@ -174,14 +180,14 @@ public abstract class AbstractTestOrcReader
     public void testStringDirectSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, transform(intsBetween(0, 30_000), toStringFunction()));
+        tester.testRoundTrip(javaStringObjectInspector, transform(intsBetween(0, 30_000), Object::toString));
     }
 
     @Test
     public void testStringDictionarySequence()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), toStringFunction())), 30_000));
+        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), Object::toString)), 30_000));
     }
 
     @Test
@@ -202,29 +208,29 @@ public abstract class AbstractTestOrcReader
     public void testBinaryDirectSequence()
             throws Exception
     {
-        Iterable<byte[]> writeValues = transform(intsBetween(0, 30_000), compose(stringToByteArray(), toStringFunction()));
+        Iterable<byte[]> writeValues = transform(intsBetween(0, 30_000), compose(AbstractTestOrcReader::stringToByteArray, Object::toString));
         tester.testRoundTrip(javaByteArrayObjectInspector,
                 writeValues,
-                transform(writeValues, byteArrayToString()),
-                transform(writeValues, byteArrayToBase64()));
+                transform(writeValues, AbstractTestOrcReader::byteArrayToString),
+                transform(writeValues, AbstractTestOrcReader::byteArrayToBase64));
     }
 
     @Test
     public void testBinaryDictionarySequence()
             throws Exception
     {
-        Iterable<byte[]> writeValues = limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), compose(stringToByteArray(), toStringFunction()))), 30_000);
+        Iterable<byte[]> writeValues = limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), compose(AbstractTestOrcReader::stringToByteArray, Object::toString))), 30_000);
         tester.testRoundTrip(javaByteArrayObjectInspector,
                 writeValues,
-                transform(writeValues, byteArrayToString()),
-                transform(writeValues, byteArrayToBase64()));
+                transform(writeValues, AbstractTestOrcReader::byteArrayToString),
+                transform(writeValues, AbstractTestOrcReader::byteArrayToBase64));
     }
 
     @Test
     public void testEmptyBinarySequence()
             throws Exception
     {
-        tester.testRoundTrip(javaByteArrayObjectInspector, limit(cycle(new byte[0]), 30_000), byteArrayToString());
+        tester.testRoundTrip(javaByteArrayObjectInspector, limit(cycle(new byte[0]), 30_000), AbstractTestOrcReader::byteArrayToString);
     }
 
     private static <T> Iterable<T> skipEvery(final int n, final Iterable<T> iterable)
@@ -296,17 +302,11 @@ public abstract class AbstractTestOrcReader
 
     private static Iterable<Float> floatSequence(double start, double step, int items)
     {
-        return transform(doubleSequence(start, step, items), new Function<Double, Float>()
-        {
-            @Nullable
-            @Override
-            public Float apply(@Nullable Double input)
-            {
-                if (input == null) {
-                    return null;
-                }
-                return input.floatValue();
+        return transform(doubleSequence(start, step, items), input -> {
+            if (input == null) {
+                return null;
             }
+            return input.floatValue();
         });
     }
 
@@ -340,259 +340,148 @@ public abstract class AbstractTestOrcReader
         return ContiguousSet.create(Range.openClosed(lowerInclusive, upperExclusive), DiscreteDomain.integers());
     }
 
-    private static Function<Float, Double> floatToDouble()
+    private static Double floatToDouble(Float input)
     {
-        return new Function<Float, Double>()
-        {
-            @Nullable
-            @Override
-            public Double apply(@Nullable Float input)
-            {
-                if (input == null) {
-                    return null;
-                }
-                return input.doubleValue();
-            }
-        };
+        if (input == null) {
+            return null;
+        }
+        return input.doubleValue();
     }
 
-    private static Function<Integer, Byte> intToByte()
+    private static Byte intToByte(Integer input)
     {
-        return new Function<Integer, Byte>()
-        {
-            @Nullable
-            @Override
-            public Byte apply(@Nullable Integer input)
-            {
-                if (input == null) {
-                    return null;
-                }
-                return input.byteValue();
-            }
-        };
+        if (input == null) {
+            return null;
+        }
+        return input.byteValue();
     }
 
-    private static Function<Integer, Short> intToShort()
+    private static Short intToShort(Integer input)
     {
-        return new Function<Integer, Short>()
-        {
-            @Nullable
-            @Override
-            public Short apply(@Nullable Integer input)
-            {
-                if (input == null) {
-                    return null;
-                }
-                return Shorts.checkedCast(input);
-            }
-        };
+        if (input == null) {
+            return null;
+        }
+        return Shorts.checkedCast(input);
     }
 
-    private static Function<Byte, Long> byteToLong()
+    private static Long byteToLong(Byte input)
     {
-        return toLong();
+        return toLong(input);
     }
 
-    private static Function<Short, Long> shortToLong()
+    private static Long shortToLong(Short input)
     {
-        return toLong();
+        return toLong(input);
     }
 
-    private static Function<Integer, Long> intToLong()
+    private static Long intToLong(Integer input)
     {
-        return toLong();
+        return toLong(input);
     }
 
-    private static <N extends Number> Function<N, Long> toLong()
+    private static <N extends Number> Long toLong(N input)
     {
-        return new Function<N, Long>()
-        {
-            @Nullable
-            @Override
-            public Long apply(@Nullable N input)
-            {
-                if (input == null) {
-                    return null;
-                }
-                return input.longValue();
-            }
-        };
+        if (input == null) {
+            return null;
+        }
+        return input.longValue();
     }
 
-    private static Function<Integer, Timestamp> intToTimestamp()
+    private static Timestamp intToTimestamp(Integer input)
     {
-        return new Function<Integer, Timestamp>()
-        {
-            @Nullable
-            @Override
-            public Timestamp apply(@Nullable Integer input)
-            {
-                if (input == null) {
-                    return null;
-                }
-                Timestamp timestamp = new Timestamp(0);
-                long seconds = (input / 1000);
-                int nanos = ((input % 1000) * 1_000_000);
+        if (input == null) {
+            return null;
+        }
+        Timestamp timestamp = new Timestamp(0);
+        long seconds = (input / 1000);
+        int nanos = ((input % 1000) * 1_000_000);
 
-                // add some junk nanos to the timestamp, which will be truncated
-                nanos += 888_8888;
+        // add some junk nanos to the timestamp, which will be truncated
+        nanos += 888_8888;
 
-                if (nanos < 0) {
-                    nanos += 1_000_000_000;
-                    seconds -= 1;
-                }
-                if (nanos > 1_000_000_000) {
-                    nanos -= 1_000_000_000;
-                    seconds += 1;
-                }
-                timestamp.setTime(seconds);
-                timestamp.setNanos(nanos);
-                return timestamp;
-            }
-        };
+        if (nanos < 0) {
+            nanos += 1_000_000_000;
+            seconds -= 1;
+        }
+        if (nanos > 1_000_000_000) {
+            nanos -= 1_000_000_000;
+            seconds += 1;
+        }
+        timestamp.setTime(seconds);
+        timestamp.setNanos(nanos);
+        return timestamp;
     }
 
-    private static Function<Timestamp, Long> timestampToLong()
+    private static Long timestampToLong(Timestamp input)
     {
-        return new Function<Timestamp, Long>()
-        {
-            @Nullable
-            @Override
-            public Long apply(@Nullable Timestamp input)
-            {
-                if (input == null) {
-                    return null;
-                }
-                return input.getTime();
-            }
-        };
+        if (input == null) {
+            return null;
+        }
+        return input.getTime();
     }
 
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(HIVE_STORAGE_TIME_ZONE);
 
-    private static Function<Timestamp, String> timestampToString()
+    private static String timestampToString(Timestamp input)
     {
-        return new Function<Timestamp, String>()
-        {
-            @Nullable
-            @Override
-            public String apply(@Nullable Timestamp input)
-            {
-                if (input == null) {
-                    return null;
-                }
-                return TIMESTAMP_FORMATTER.print(input.getTime());
-            }
-        };
+        if (input == null) {
+            return null;
+        }
+        return TIMESTAMP_FORMATTER.print(input.getTime());
     }
 
-    private static Function<Integer, Date> intToDate()
+    private static Date intToDate(Integer input)
     {
-        return new Function<Integer, Date>()
-        {
-            @Nullable
-            @Override
-            public Date apply(@Nullable Integer input)
-            {
-                if (input == null) {
-                    return null;
-                }
-                Date date = new Date(0);
-                date.setTime(TimeUnit.DAYS.toMillis(input));
-                return date;
-            }
-        };
+        if (input == null) {
+            return null;
+        }
+        Date date = new Date(0);
+        date.setTime(TimeUnit.DAYS.toMillis(input));
+        return date;
     }
 
-    private static Function<Integer, Long> intToDays()
+    private static Long intToDays(Integer input)
     {
-        return new Function<Integer, Long>()
-        {
-            @Nullable
-            @Override
-            public Long apply(@Nullable Integer input)
-            {
-                if (input == null) {
-                    return null;
-                }
-                return (long) input;
-            }
-        };
+        if (input == null) {
+            return null;
+        }
+        return (long) input;
     }
 
-    private static Function<Integer, Long> intToDaysMillis()
+    private static Long intToDaysMillis(Integer input)
     {
-        return new Function<Integer, Long>()
-        {
-            @Nullable
-            @Override
-            public Long apply(@Nullable Integer input)
-            {
-                if (input == null) {
-                    return null;
-                }
-                return TimeUnit.DAYS.toMillis(input);
-            }
-        };
+        if (input == null) {
+            return null;
+        }
+        return TimeUnit.DAYS.toMillis(input);
     }
 
-    private static Function<Integer, String> intToDateString()
+    private static String intToDateString(Integer input)
     {
-        return new Function<Integer, String>()
-        {
-            @Nullable
-            @Override
-            public String apply(@Nullable Integer input)
-            {
-                if (input == null) {
-                    return null;
-                }
-                return ISODateTimeFormat.date().withZoneUTC().print(TimeUnit.DAYS.toMillis(input));
-            }
-        };
+        if (input == null) {
+            return null;
+        }
+        return ISODateTimeFormat.date().withZoneUTC().print(TimeUnit.DAYS.toMillis(input));
     }
 
-    private static Function<String, byte[]> stringToByteArray()
+    private static byte[] stringToByteArray(String input)
     {
-        return new Function<String, byte[]>()
-        {
-            @Override
-            public byte[] apply(String input)
-            {
-                return input.getBytes(UTF_8);
-            }
-        };
+        return input.getBytes(UTF_8);
     }
 
-    private static Function<byte[], String> byteArrayToBase64()
+    private static String byteArrayToBase64(byte[] input)
     {
-        return new Function<byte[], String>()
-        {
-            @Nullable
-            @Override
-            public String apply(@Nullable byte[] input)
-            {
-                if (input == null) {
-                    return null;
-                }
-                return BaseEncoding.base64().encode(input);
-            }
-        };
+        if (input == null) {
+            return null;
+        }
+        return BaseEncoding.base64().encode(input);
     }
 
-    private static Function<byte[], String> byteArrayToString()
+    private static String byteArrayToString(byte[] input)
     {
-        return new Function<byte[], String>()
-        {
-            @Nullable
-            @Override
-            public String apply(@Nullable byte[] input)
-            {
-                if (input == null) {
-                    return null;
-                }
-                return new String(input, UTF_8);
-            }
-        };
+        if (input == null) {
+            return null;
+        }
+        return new String(input, UTF_8);
     }
 }

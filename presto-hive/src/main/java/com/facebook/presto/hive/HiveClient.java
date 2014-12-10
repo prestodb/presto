@@ -1096,14 +1096,7 @@ public class HiveClient
         HiveTableHandle hiveTableHandle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
 
         checkNotNull(connectorPartitions, "connectorPartitions is null");
-        List<HivePartition> partitions = Lists.transform(connectorPartitions, new Function<ConnectorPartition, HivePartition>()
-        {
-            @Override
-            public HivePartition apply(ConnectorPartition partition)
-            {
-                return checkType(partition, HivePartition.class, "partition");
-            }
-        });
+        List<HivePartition> partitions = Lists.transform(connectorPartitions, partition -> checkType(partition, HivePartition.class, "partition"));
 
         HivePartition partition = Iterables.getFirst(partitions, null);
         if (partition == null) {
@@ -1328,20 +1321,13 @@ public class HiveClient
         }
         final Map<String, String> columnComment = builder.build();
 
-        return new Function<HiveColumnHandle, ColumnMetadata>()
-        {
-            @Override
-            public ColumnMetadata apply(HiveColumnHandle input)
-            {
-                return new ColumnMetadata(
-                        input.getName(),
-                        typeManager.getType(input.getTypeSignature()),
-                        input.getOrdinalPosition(),
-                        input.isPartitionKey(),
-                        columnComment.get(input.getName()),
-                        false);
-            }
-        };
+        return input -> new ColumnMetadata(
+                input.getName(),
+                typeManager.getType(input.getTypeSignature()),
+                input.getOrdinalPosition(),
+                input.isPartitionKey(),
+                columnComment.get(input.getName()),
+                false);
     }
 
     /**

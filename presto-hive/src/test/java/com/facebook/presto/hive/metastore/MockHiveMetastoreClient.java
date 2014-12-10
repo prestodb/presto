@@ -15,7 +15,6 @@ package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.HiveMetastoreClient;
 import com.facebook.presto.hive.shaded.org.apache.thrift.TException;
-import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -164,17 +163,12 @@ public class MockHiveMetastoreClient
         if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE) || !ImmutableSet.of(TEST_PARTITION1, TEST_PARTITION2).containsAll(names)) {
             throw new NoSuchObjectException();
         }
-        return Lists.transform(names, new Function<String, Partition>()
-        {
-            @Override
-            public Partition apply(String name)
-            {
-                try {
-                    return new Partition(ImmutableList.copyOf(Warehouse.getPartValuesFromPartName(name)), TEST_DATABASE, TEST_TABLE, 0, 0, null, null);
-                }
-                catch (MetaException e) {
-                    throw Throwables.propagate(e);
-                }
+        return Lists.transform(names, name -> {
+            try {
+                return new Partition(ImmutableList.copyOf(Warehouse.getPartValuesFromPartName(name)), TEST_DATABASE, TEST_TABLE, 0, 0, null, null);
+            }
+            catch (MetaException e) {
+                throw Throwables.propagate(e);
             }
         });
     }
