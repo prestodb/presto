@@ -65,7 +65,7 @@ public final class LearnLibSvmClassifierAggregation
     public static void output(LearnState state, BlockBuilder out)
     {
         Dataset dataset = new Dataset(state.getLabels(), state.getFeatureVectors());
-        Model model =  new ClassifierFeatureTransformer(new SvmClassifier(state.getParameters()), new FeatureUnitNormalizer());
+        Model model = new ClassifierFeatureTransformer(new SvmClassifier(state.getParameters()), new FeatureUnitNormalizer());
         model.train(dataset);
         ClassifierType.CLASSIFIER.writeSlice(out, ModelUtils.serialize(model));
     }
