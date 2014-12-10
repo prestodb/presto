@@ -13,13 +13,11 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SerializableNativeValue;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -196,18 +194,6 @@ public final class HiveUtil
         String name = schema.getProperty(FILE_INPUT_FORMAT);
         checkArgument(name != null, "missing property: %s", FILE_INPUT_FORMAT);
         return name;
-    }
-
-    public static Function<ConnectorPartition, String> partitionIdGetter()
-    {
-        return new Function<ConnectorPartition, String>()
-        {
-            @Override
-            public String apply(ConnectorPartition input)
-            {
-                return input.getPartitionId();
-            }
-        };
     }
 
     public static long parseHiveTimestamp(String value, DateTimeZone timeZone)
