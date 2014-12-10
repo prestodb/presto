@@ -118,7 +118,7 @@ public class TestRowOperators
         }
 
         try {
-            assertFunction("test_row(1, NULL) = test_row(1, 2)", false);
+            assertFunction("test_row(1, CAST(NULL AS BIGINT)) = test_row(1, 2)", false);
             fail("ROW comparison not implemented for NULL values");
         }
         catch (PrestoException e) {
