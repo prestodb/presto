@@ -16,7 +16,6 @@ package com.facebook.presto.client;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 
 import javax.annotation.concurrent.Immutable;
@@ -42,14 +41,7 @@ public class ClientTypeSignature
     {
         this(
                 typeSignature.getBase(),
-                Lists.transform(typeSignature.getParameters(), new Function<TypeSignature, ClientTypeSignature>()
-                {
-                    @Override
-                    public ClientTypeSignature apply(TypeSignature input)
-                    {
-                        return new ClientTypeSignature(input);
-                    }
-                }),
+                Lists.transform(typeSignature.getParameters(), ClientTypeSignature::new),
                 typeSignature.getLiteralParameters());
     }
 

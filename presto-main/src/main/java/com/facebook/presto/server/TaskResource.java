@@ -20,7 +20,6 @@ import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.util.MoreFutures;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
 import com.google.common.util.concurrent.Futures;
@@ -181,32 +180,27 @@ public class TaskResource
                 DEFAULT_MAX_WAIT_TIME,
                 executor);
 
-        ListenableFuture<Response> responseFuture = Futures.transform(bufferResultFuture, new Function<BufferResult, Response>()
-        {
-            @Override
-            public Response apply(BufferResult result)
-            {
-                List<Page> pages = result.getPages();
+        ListenableFuture<Response> responseFuture = Futures.transform(bufferResultFuture, (BufferResult result) -> {
+            List<Page> pages = result.getPages();
 
-                GenericEntity<?> entity = null;
-                Status status;
-                if (!pages.isEmpty()) {
-                    entity = new GenericEntity<>(pages, new TypeToken<List<Page>>() {}.getType());
-                    status = Status.OK;
-                }
-                else if (result.isBufferClosed()) {
-                    status = Status.GONE;
-                }
-                else {
-                    status = Status.NO_CONTENT;
-                }
-
-                return Response.status(status)
-                        .entity(entity)
-                        .header(PRESTO_PAGE_TOKEN, result.getToken())
-                        .header(PRESTO_PAGE_NEXT_TOKEN, result.getNextToken())
-                        .build();
+            GenericEntity<?> entity = null;
+            Status status;
+            if (!pages.isEmpty()) {
+                entity = new GenericEntity<>(pages, new TypeToken<List<Page>>() {}.getType());
+                status = Status.OK;
             }
+            else if (result.isBufferClosed()) {
+                status = Status.GONE;
+            }
+            else {
+                status = Status.NO_CONTENT;
+            }
+
+            return Response.status(status)
+                    .entity(entity)
+                    .header(PRESTO_PAGE_TOKEN, result.getToken())
+                    .header(PRESTO_PAGE_NEXT_TOKEN, result.getNextToken())
+                    .build();
         });
 
         // For hard timeout, add an additional 5 seconds to max wait for thread scheduling contention and GC

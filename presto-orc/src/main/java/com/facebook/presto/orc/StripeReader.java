@@ -30,7 +30,6 @@ import com.facebook.presto.orc.stream.StreamSource;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.facebook.presto.orc.stream.ValueStream;
 import com.facebook.presto.orc.stream.ValueStreams;
-import com.google.common.base.Function;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -146,24 +145,11 @@ public class StripeReader
             throws IOException
     {
         // transform ranges to have an absolute offset in file
-        diskRanges = Maps.transformValues(diskRanges, new Function<DiskRange, DiskRange>() {
-            @Override
-            public DiskRange apply(DiskRange diskRange)
-            {
-                return new DiskRange(stripeOffset + diskRange.getOffset(), diskRange.getLength());
-            }
-        });
+        diskRanges = Maps.transformValues(diskRanges, diskRange -> new DiskRange(stripeOffset + diskRange.getOffset(), diskRange.getLength()));
 
         Map<StreamId, Slice> streamsData = orcDataSource.readFully(diskRanges);
 
-        return ImmutableMap.copyOf(Maps.transformValues(streamsData, new Function<Slice, OrcInputStream>()
-        {
-            @Override
-            public OrcInputStream apply(Slice input)
-            {
-                return new OrcInputStream(orcDataSource.toString(), input.getInput(), compressionKind, bufferSize);
-            }
-        }));
+        return ImmutableMap.copyOf(Maps.transformValues(streamsData, input -> new OrcInputStream(orcDataSource.toString(), input.getInput(), compressionKind, bufferSize)));
     }
 
     private Map<StreamId, ValueStream<?>> createValueStreams(Map<StreamId, Stream> streams, Map<StreamId, OrcInputStream> streamsData, List<ColumnEncoding> columnEncodings)

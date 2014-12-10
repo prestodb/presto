@@ -303,15 +303,10 @@ public class TestHttpPageBufferClient
         final TestingTicker ticker = new TestingTicker();
         final AtomicReference<Duration> tickerIncrement = new AtomicReference<>(new Duration(0, TimeUnit.SECONDS));
 
-        Function<Request, Response> processor = new Function<Request, Response>()
-        {
-            @Override
-            public Response apply(Request input)
-            {
-                Duration delta = tickerIncrement.get();
-                ticker.increment(delta.toMillis(), TimeUnit.MILLISECONDS);
-                throw new RuntimeException("Foo");
-            }
+        Function<Request, Response> processor = (input) -> {
+            Duration delta = tickerIncrement.get();
+            ticker.increment(delta.toMillis(), TimeUnit.MILLISECONDS);
+            throw new RuntimeException("Foo");
         };
 
         CyclicBarrier requestComplete = new CyclicBarrier(2);

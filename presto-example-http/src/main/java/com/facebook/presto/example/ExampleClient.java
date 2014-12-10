@@ -84,17 +84,12 @@ public class ExampleClient
 
     private static Supplier<Map<String, Map<String, ExampleTable>>> schemasSupplier(final JsonCodec<Map<String, List<ExampleTable>>> catalogCodec, final URI metadataUri)
     {
-        return new Supplier<Map<String, Map<String, ExampleTable>>>()
-        {
-            @Override
-            public Map<String, Map<String, ExampleTable>> get()
-            {
-                try {
-                    return lookupSchemas(metadataUri, catalogCodec);
-                }
-                catch (IOException e) {
-                    throw Throwables.propagate(e);
-                }
+        return () -> {
+            try {
+                return lookupSchemas(metadataUri, catalogCodec);
+            }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
             }
         };
     }
@@ -111,39 +106,17 @@ public class ExampleClient
 
     private static Function<List<ExampleTable>, Map<String, ExampleTable>> resolveAndIndexTables(final URI metadataUri)
     {
-        return new Function<List<ExampleTable>, Map<String, ExampleTable>>()
-        {
-            @Override
-            public Map<String, ExampleTable> apply(List<ExampleTable> tables)
-            {
-                Iterable<ExampleTable> resolvedTables = transform(tables, tableUriResolver(metadataUri));
-                return ImmutableMap.copyOf(uniqueIndex(resolvedTables, nameGetter()));
-            }
+        return tables -> {
+            Iterable<ExampleTable> resolvedTables = transform(tables, tableUriResolver(metadataUri));
+            return ImmutableMap.copyOf(uniqueIndex(resolvedTables, nameGetter()));
         };
     }
 
     private static Function<ExampleTable, ExampleTable> tableUriResolver(final URI baseUri)
     {
-        return new Function<ExampleTable, ExampleTable>()
-        {
-            @Override
-            public ExampleTable apply(ExampleTable table)
-            {
-                List<URI> sources = ImmutableList.copyOf(transform(table.getSources(), uriResolver(baseUri)));
-                return new ExampleTable(table.getName(), table.getColumns(), sources);
-            }
-        };
-    }
-
-    private static Function<URI, URI> uriResolver(final URI baseUri)
-    {
-        return new Function<URI, URI>()
-        {
-            @Override
-            public URI apply(URI source)
-            {
-                return baseUri.resolve(source);
-            }
+        return table -> {
+            List<URI> sources = ImmutableList.copyOf(transform(table.getSources(), baseUri::resolve));
+            return new ExampleTable(table.getName(), table.getColumns(), sources);
         };
     }
 }
