@@ -26,7 +26,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.type.TypeRegistry;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -1410,7 +1409,7 @@ public final class BenchmarkHiveFileFormats
     {
         RecordWriter recordWriter = createRecordWriter(columns, outputFile, outputFormat, compressionType);
 
-        SettableStructObjectInspector objectInspector = getStandardStructObjectInspector(transform(columns, columnNameGetter()), transform(columns, objectInspectorGetter()));
+        SettableStructObjectInspector objectInspector = getStandardStructObjectInspector(transform(columns, input -> input.getColumnName()), transform(columns, input -> getObjectInspector(input)));
 
         Object row = objectInspector.create();
 
@@ -1447,10 +1446,10 @@ public final class BenchmarkHiveFileFormats
         Properties orderTableProperties = new Properties();
         orderTableProperties.setProperty(
                 "columns",
-                Joiner.on(',').join(transform(columns, columnNameGetter())));
+                Joiner.on(',').join(transform(columns, input -> input.getColumnName())));
         orderTableProperties.setProperty(
                 "columns.types",
-                Joiner.on(':').join(transform(columns, columnTypeGetter())));
+                Joiner.on(':').join(transform(columns, BenchmarkHiveFileFormats::getColumnType)));
         return orderTableProperties;
     }
 
@@ -1516,50 +1515,19 @@ public final class BenchmarkHiveFileFormats
         return new DataSize(outputFile.length(), Unit.BYTE).convertToMostSuccinctDataSize();
     }
 
-    private static Function<TpchColumn<?>, String> columnNameGetter()
+    private static String getColumnType(TpchColumn<?> input)
     {
-        return new Function<TpchColumn<?>, String>()
-        {
-            @Override
-            public String apply(TpchColumn<?> input)
-            {
-                return input.getColumnName();
-            }
-        };
-    }
-
-    private static Function<TpchColumn<?>, String> columnTypeGetter()
-    {
-        return new Function<TpchColumn<?>, String>()
-        {
-            @Override
-            public String apply(TpchColumn<?> input)
-            {
-                switch (input.getType()) {
-                    case BIGINT:
-                        return "bigint";
-                    case DATE:
-                        return "date";
-                    case DOUBLE:
-                        return "double";
-                    case VARCHAR:
-                        return "string";
-                }
-                throw new IllegalArgumentException("Unsupported type " + input.getType());
-            }
-        };
-    }
-
-    private static Function<TpchColumn<?>, ObjectInspector> objectInspectorGetter()
-    {
-        return new Function<TpchColumn<?>, ObjectInspector>()
-        {
-            @Override
-            public ObjectInspector apply(TpchColumn<?> input)
-            {
-                return getObjectInspector(input);
-            }
-        };
+        switch (input.getType()) {
+            case BIGINT:
+                return "bigint";
+            case DATE:
+                return "date";
+            case DOUBLE:
+                return "double";
+            case VARCHAR:
+                return "string";
+        }
+        throw new IllegalArgumentException("Unsupported type " + input.getType());
     }
 
     private static ObjectInspector getObjectInspector(TpchColumn<?> input)
