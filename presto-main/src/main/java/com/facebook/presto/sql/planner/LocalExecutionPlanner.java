@@ -1294,7 +1294,7 @@ public class LocalExecutionPlanner
             // serialize writes by forcing data through a single writer
             PhysicalOperation exchange = createInMemoryExchange(node.getSource(), context);
 
-            Optional<Integer> sampleWeightChannel = node.getSampleWeightSymbol().transform(exchange.channelGetter());
+            Optional<Integer> sampleWeightChannel = node.getSampleWeightSymbol().transform(exchange::symbolToChannel);
 
             // create the table writer
             RecordSink recordSink = getRecordSink(node);
@@ -1304,7 +1304,7 @@ public class LocalExecutionPlanner
                     .list();
 
             List<Integer> inputChannels = IterableTransformer.on(node.getColumns())
-                    .transform(exchange.channelGetter())
+                    .transform(exchange::symbolToChannel)
                     .list();
 
             OperatorFactory operatorFactory = new TableWriterOperatorFactory(context.getNextOperatorId(), recordSink, types, inputChannels, sampleWeightChannel);
@@ -1634,12 +1634,10 @@ public class LocalExecutionPlanner
             this.types = operatorFactory.getTypes();
         }
 
-        public Function<Symbol, Integer> channelGetter()
+        public int symbolToChannel(Symbol input)
         {
-            return input -> {
-                checkArgument(layout.containsKey(input));
-                return layout.get(input);
-            };
+            checkArgument(layout.containsKey(input));
+            return layout.get(input);
         }
 
         public List<Type> getTypes()
