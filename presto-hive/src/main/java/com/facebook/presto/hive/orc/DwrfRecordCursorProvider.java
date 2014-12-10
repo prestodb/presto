@@ -123,7 +123,7 @@ public class DwrfRecordCursorProvider
         includes[0] = true;
 
         OrcProto.Type root = types.get(0);
-        List<Integer> included = Lists.transform(columns, HiveColumnHandle.hiveColumnIndexGetter());
+        List<Integer> included = Lists.transform(columns, HiveColumnHandle::getHiveColumnIndex);
         for (int i = 0; i < root.getSubtypesCount(); ++i) {
             if (included.contains(i)) {
                 includeColumnRecursive(types, includes, root.getSubtypes(i));

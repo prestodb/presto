@@ -38,8 +38,6 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnIndexGetter;
-import static com.facebook.presto.hive.HiveColumnHandle.isPartitionKeyPredicate;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedReaderEnabled;
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 import static com.facebook.presto.hive.HiveUtil.setReadColumns;
@@ -105,8 +103,8 @@ public class RcFilePageSourceFactory
         }
 
         // determine which hive columns we will read
-        List<HiveColumnHandle> readColumns = ImmutableList.copyOf(filter(columns, not(isPartitionKeyPredicate())));
-        List<Integer> readHiveColumnIndexes = ImmutableList.copyOf(transform(readColumns, hiveColumnIndexGetter()));
+        List<HiveColumnHandle> readColumns = ImmutableList.copyOf(filter(columns, not(HiveColumnHandle::isPartitionKey)));
+        List<Integer> readHiveColumnIndexes = ImmutableList.copyOf(transform(readColumns, HiveColumnHandle::getHiveColumnIndex));
 
         // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
         setReadColumns(configuration, readHiveColumnIndexes);

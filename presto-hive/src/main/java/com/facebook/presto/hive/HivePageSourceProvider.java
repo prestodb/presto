@@ -35,8 +35,6 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 
-import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnHandle;
-import static com.facebook.presto.hive.HiveColumnHandle.nativeTypeGetter;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
@@ -86,7 +84,7 @@ public class HivePageSourceProvider
         Properties schema = hiveSplit.getSchema();
 
         List<HivePartitionKey> partitionKeys = hiveSplit.getPartitionKeys();
-        List<HiveColumnHandle> hiveColumns = ImmutableList.copyOf(transform(columns, hiveColumnHandle()));
+        List<HiveColumnHandle> hiveColumns = ImmutableList.copyOf(transform(columns, HiveColumnHandle::toHiveColumnHandle));
 
         for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
@@ -108,7 +106,7 @@ public class HivePageSourceProvider
 
         HiveRecordCursor recordCursor = getHiveRecordCursor(clientId, session, configuration, path, start, length, schema, effectivePredicate, partitionKeys, hiveColumns);
         if (recordCursor != null) {
-            List<Type> columnTypes = ImmutableList.copyOf(transform(hiveColumns, nativeTypeGetter(typeManager)));
+            List<Type> columnTypes = ImmutableList.copyOf(transform(hiveColumns, input -> typeManager.getType(input.getTypeSignature())));
             return new RecordPageSource(columnTypes, recordCursor);
         }
 
