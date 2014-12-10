@@ -249,7 +249,7 @@ public final class OperatorAssertion
 
     static List<Page> dropChannel(List<Page> pages, List<Integer> channels)
     {
-        List<Page> actualPages = new ArrayList();
+        List<Page> actualPages = new ArrayList<>();
         for (Page page : pages) {
             int channel = 0;
             Block[] blocks = new Block[page.getChannelCount() - channels.size()];
