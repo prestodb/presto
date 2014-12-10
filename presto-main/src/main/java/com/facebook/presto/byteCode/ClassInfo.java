@@ -37,7 +37,6 @@ import org.objectweb.asm.tree.MethodNode;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.ParameterizedType.toParameterizedType;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
 import static com.google.common.collect.Iterables.transform;
@@ -71,7 +70,7 @@ public class ClassInfo
                 type(aClass),
                 aClass.getModifiers(),
                 aClass.getSuperclass() == null ? null : type(aClass.getSuperclass()),
-                transform(asList(aClass.getInterfaces()), toParameterizedType()),
+                transform(asList(aClass.getInterfaces()), ParameterizedType::type),
                 null);
     }
 

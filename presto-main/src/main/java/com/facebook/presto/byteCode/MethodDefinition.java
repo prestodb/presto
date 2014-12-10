@@ -30,7 +30,6 @@ import java.util.List;
 
 import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.toAccessModifier;
-import static com.facebook.presto.byteCode.ParameterizedType.toParameterizedType;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.google.common.collect.Iterables.transform;
 import static org.objectweb.asm.Opcodes.RETURN;
@@ -287,7 +286,7 @@ public class MethodDefinition
     {
         return methodDescription(
                 type(returnType),
-                Lists.transform(parameterTypes, toParameterizedType())
+                Lists.transform(parameterTypes, ParameterizedType::type)
         );
     }
 
