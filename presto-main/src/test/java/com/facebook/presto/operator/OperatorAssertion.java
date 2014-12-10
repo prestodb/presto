@@ -184,10 +184,6 @@ public final class OperatorAssertion
         assertOperatorEquals(operator, input, expected, false, ImmutableList.<Integer>of());
     }
 
-//    public static void assertOperatorEquals(Operator operator, List<Page> input, MaterializedResult expected, boolean hashEnabled, Optional<Integer> hashChannel)
-//    {
-//        assertOperatorEquals();
-//    }
     public static void assertOperatorEquals(Operator operator, List<Page> input, MaterializedResult expected, boolean hashEnabled, List<Integer> hashChannels)
     {
         List<Page> pages = toPages(operator, input);
