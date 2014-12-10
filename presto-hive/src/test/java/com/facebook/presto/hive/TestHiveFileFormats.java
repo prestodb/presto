@@ -55,9 +55,6 @@ import java.util.List;
 import java.util.Properties;
 import java.util.TimeZone;
 
-import static com.facebook.presto.hive.AbstractTestHiveFileFormats.TestColumn.nameGetter;
-import static com.facebook.presto.hive.AbstractTestHiveFileFormats.TestColumn.partitionKeyFilter;
-import static com.facebook.presto.hive.AbstractTestHiveFileFormats.TestColumn.typeGetter;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
@@ -314,8 +311,8 @@ public class TestHiveFileFormats
         Properties splitProperties = new Properties();
         splitProperties.setProperty(FILE_INPUT_FORMAT, inputFormat.getClass().getName());
         splitProperties.setProperty(SERIALIZATION_LIB, serde.getClass().getName());
-        splitProperties.setProperty("columns", Joiner.on(',').join(transform(filter(testColumns, not(partitionKeyFilter())), nameGetter())));
-        splitProperties.setProperty("columns.types", Joiner.on(',').join(transform(filter(testColumns, not(partitionKeyFilter())), typeGetter())));
+        splitProperties.setProperty("columns", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getName)));
+        splitProperties.setProperty("columns.types", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getType)));
 
         List<HivePartitionKey> partitionKeys = testColumns.stream()
                 .filter(TestColumn::isPartitionKey)
@@ -345,8 +342,8 @@ public class TestHiveFileFormats
         Properties splitProperties = new Properties();
         splitProperties.setProperty(FILE_INPUT_FORMAT, inputFormat.getClass().getName());
         splitProperties.setProperty(SERIALIZATION_LIB, serde.getClass().getName());
-        splitProperties.setProperty("columns", Joiner.on(',').join(transform(filter(testColumns, not(partitionKeyFilter())), nameGetter())));
-        splitProperties.setProperty("columns.types", Joiner.on(',').join(transform(filter(testColumns, not(partitionKeyFilter())), typeGetter())));
+        splitProperties.setProperty("columns", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getName)));
+        splitProperties.setProperty("columns.types", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getType)));
 
         List<HivePartitionKey> partitionKeys = testColumns.stream()
                 .filter(TestColumn::isPartitionKey)
