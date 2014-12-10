@@ -702,10 +702,10 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testUseCollection()
+    public void testUse()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "USE CATALOG default");
+        assertFails(NOT_SUPPORTED, "USE default");
     }
 
     @Test

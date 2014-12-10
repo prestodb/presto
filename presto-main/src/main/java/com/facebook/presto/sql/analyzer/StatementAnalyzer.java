@@ -51,7 +51,7 @@ import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.sql.tree.UseCollection;
+import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
@@ -251,7 +251,7 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitUseCollection(UseCollection node, AnalysisContext context)
+    protected TupleDescriptor visitUse(Use node, AnalysisContext context)
     {
         throw new SemanticException(NOT_SUPPORTED, node, "USE statement is not supported");
     }

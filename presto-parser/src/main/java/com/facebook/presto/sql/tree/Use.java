@@ -13,53 +13,68 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Objects;
+import java.util.Optional;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public final class UseCollection
+public final class Use
         extends Statement
 {
-    public enum CollectionType
+    private final Optional<String> catalog;
+    private final String schema;
+
+    public Use(Optional<String> catalog, String schema)
     {
-        CATALOG,
-        SCHEMA
+        checkNotNull(catalog, "catalog is null");
+        checkNotNull(schema, "schema is null");
+        this.catalog = catalog;
+        this.schema = schema;
     }
 
-    private final String collection;
-    private final CollectionType type;
-
-    public UseCollection(String collection, CollectionType type)
+    public Optional<String> getCatalog()
     {
-        this.collection = checkNotNull(collection);
-        this.type = checkNotNull(type);
+        return catalog;
     }
 
-    public CollectionType getType()
+    public String getSchema()
     {
-        return type;
-    }
-
-    public String getCollection()
-    {
-        return collection;
+        return schema;
     }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitUseCollection(this, context);
+        return visitor.visitUse(this, context);
     }
 
     @Override
     public int hashCode()
     {
-        return 0;
+        return Objects.hash(catalog, schema);
     }
 
     @Override
-    public boolean equals(Object obj)
+    public boolean equals(Object o)
     {
-        return this == obj || (obj != null) && (getClass() == obj.getClass());
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Use use = (Use) o;
+
+        if (!catalog.equals(use.catalog)) {
+            return false;
+        }
+        if (!schema.equals(use.schema)) {
+            return false;
+        }
+
+        return true;
     }
 
     @Override

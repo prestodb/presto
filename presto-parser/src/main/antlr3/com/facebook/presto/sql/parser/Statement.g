@@ -73,8 +73,7 @@ tokens {
     SHOW_COLUMNS;
     SHOW_PARTITIONS;
     SHOW_FUNCTIONS;
-    USE_CATALOG;
-    USE_SCHEMA;
+    USE;
     CREATE_TABLE;
     DROP_TABLE;
     RENAME_TABLE;
@@ -167,7 +166,7 @@ statement
     | showColumnsStmt
     | showPartitionsStmt
     | showFunctionsStmt
-    | useCollectionStmt
+    | useStatement
     | createTableStmt
     | insertStmt
     | dropTableStmt
@@ -586,9 +585,9 @@ frameBound
       )
     ;
 
-useCollectionStmt
-    : USE CATALOG ident -> ^(USE_CATALOG ident)
-    | USE SCHEMA ident -> ^(USE_SCHEMA ident)
+useStatement
+    : USE ident -> ^(USE ident)
+    | USE catalog=ident '.' schema=ident -> ^(USE $catalog $schema)
     ;
 
 explainStmt
@@ -757,7 +756,7 @@ nonReserved
     | DATE | TIME | TIMESTAMP | INTERVAL
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     | EXPLAIN | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
-    | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | SCHEMA | CATALOG | JSON | TO
+    | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | JSON | TO
     | RESCALED | APPROXIMATE | AT | CONFIDENCE
     | VIEW | REPLACE
     ;
@@ -876,9 +875,7 @@ CAST: 'CAST';
 TRY_CAST: 'TRY_CAST';
 SHOW: 'SHOW';
 TABLES: 'TABLES';
-SCHEMA: 'SCHEMA';
 SCHEMAS: 'SCHEMAS';
-CATALOG: 'CATALOG';
 CATALOGS: 'CATALOGS';
 COLUMNS: 'COLUMNS';
 USE: 'USE';

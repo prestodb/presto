@@ -22,5 +22,4 @@ This chapter describes the SQL syntax used in Presto.
     sql/show-partitions
     sql/show-schemas
     sql/show-tables
-    sql/use-catalog
-    sql/use-schema
+    sql/use

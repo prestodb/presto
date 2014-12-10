@@ -16,8 +16,8 @@ anymore.
 USE CATALOG and USE SCHEMA
 --------------------------
 
-The :doc:`/installation/cli` now supports :doc:`/sql/use-catalog` and
-:doc:`/sql/use-schema`.
+The :doc:`/installation/cli` now supports ``USE CATALOG`` and
+``USE SCHEMA``.
 
 
 TPCH Connector

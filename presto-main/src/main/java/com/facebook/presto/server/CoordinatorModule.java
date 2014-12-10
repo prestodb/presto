@@ -49,7 +49,7 @@ import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.sql.tree.UseCollection;
+import com.facebook.presto.sql.tree.Use;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
@@ -125,7 +125,7 @@ public class CoordinatorModule
         executionBinder.addBinding(ShowTables.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowSchemas.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowCatalogs.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
-        executionBinder.addBinding(UseCollection.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(Use.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(CreateTable.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(Insert.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
 

@@ -66,7 +66,7 @@ statement returns [Statement value]
     | showColumns               { $value = $showColumns.value; }
     | showPartitions            { $value = $showPartitions.value; }
     | showFunctions             { $value = $showFunctions.value; }
-    | useCollection             { $value = $useCollection.value; }
+    | use                       { $value = $use.value; }
     | createTable               { $value = $createTable.value; }
     | dropTable                 { $value = $dropTable.value; }
     | renameTable               { $value = $renameTable.value; }
@@ -544,9 +544,9 @@ showFunctions returns [Statement value]
     : SHOW_FUNCTIONS { $value = new ShowFunctions(); }
     ;
 
-useCollection returns [Statement value]
-    : ^(USE_CATALOG ident) { $value = new UseCollection($ident.value, UseCollection.CollectionType.CATALOG); }
-    | ^(USE_SCHEMA ident) { $value = new UseCollection($ident.value, UseCollection.CollectionType.SCHEMA); }
+use returns [Statement value]
+    : ^(USE schema=ident)               { $value = new Use(Optional.empty(), $schema.value); }
+    | ^(USE catalog=ident schema=ident) { $value = new Use(Optional.ofNullable($catalog.value), $schema.value); }
     ;
 
 createTable returns [Statement value]
