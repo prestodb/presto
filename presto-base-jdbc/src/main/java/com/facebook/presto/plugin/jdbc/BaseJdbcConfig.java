@@ -13,15 +13,22 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import java.util.concurrent.TimeUnit;
+
 import io.airlift.configuration.Config;
+import io.airlift.units.Duration;
 
 import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Min;
 
 public class BaseJdbcConfig
 {
     private String connectionUrl;
     private String connectionUser;
     private String connectionPassword;
+    private boolean connectionAutoReconnect = true;
+    private int connectionMaxReconnects = 3;
+    private Duration connectionTimeout = new Duration(3, TimeUnit.SECONDS);
 
     @NotNull
     public String getConnectionUrl()
@@ -57,6 +64,43 @@ public class BaseJdbcConfig
     public BaseJdbcConfig setConnectionPassword(String connectionPassword)
     {
         this.connectionPassword = connectionPassword;
+        return this;
+    }
+
+    public boolean isConnectionAutoReconnect()
+    {
+        return connectionAutoReconnect;
+    }
+
+    @Config("connection-autoReconnect")
+    public BaseJdbcConfig setConnectionAutoReconnect(boolean connectionAutoReconnect)
+    {
+        this.connectionAutoReconnect = connectionAutoReconnect;
+        return this;
+    }
+
+    @Min(1)
+    public int getConnectionMaxReconnects()
+    {
+        return connectionMaxReconnects;
+    }
+
+    @Config("connection-maxReconnects")
+    public BaseJdbcConfig setConnectionMaxReconnects(int connectionMaxReconnects)
+    {
+        this.connectionMaxReconnects = connectionMaxReconnects;
+        return this;
+    }
+
+    public Duration getConnectionTimeout()
+    {
+        return connectionTimeout;
+    }
+
+    @Config("connection-timeout")
+    public BaseJdbcConfig setConnectionTimeout(Duration connectionTimeout)
+    {
+        this.connectionTimeout = connectionTimeout;
         return this;
     }
 }
