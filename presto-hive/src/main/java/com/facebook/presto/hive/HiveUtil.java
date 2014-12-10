@@ -57,8 +57,6 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnIndexGetter;
-import static com.facebook.presto.hive.HiveColumnHandle.isPartitionKeyPredicate;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
@@ -121,8 +119,8 @@ public final class HiveUtil
     public static RecordReader<?, ?> createRecordReader(String clientId, Configuration configuration, Path path, long start, long length, Properties schema, List<HiveColumnHandle> columns, TypeManager typeManager)
     {
         // determine which hive columns we will read
-        List<HiveColumnHandle> readColumns = ImmutableList.copyOf(filter(columns, not(isPartitionKeyPredicate())));
-        List<Integer> readHiveColumnIndexes = ImmutableList.copyOf(transform(readColumns, hiveColumnIndexGetter()));
+        List<HiveColumnHandle> readColumns = ImmutableList.copyOf(filter(columns, not(HiveColumnHandle::isPartitionKey)));
+        List<Integer> readHiveColumnIndexes = ImmutableList.copyOf(transform(readColumns, HiveColumnHandle::getHiveColumnIndex));
 
         // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
         setReadColumns(configuration, readHiveColumnIndexes);
