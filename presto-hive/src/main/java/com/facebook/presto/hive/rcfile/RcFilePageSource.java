@@ -132,7 +132,7 @@ public class RcFilePageSource
 
         this.endFilePosition = offset + length;
 
-        Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey.nameGetter());
+        Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::getName);
 
         int size = columns.size();
 
