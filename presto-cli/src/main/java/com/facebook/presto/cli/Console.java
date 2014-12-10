@@ -20,8 +20,7 @@ import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.parser.StatementSplitter;
-import com.facebook.presto.sql.tree.UseCollection;
-import com.google.common.base.Optional;
+import com.facebook.presto.sql.tree.Use;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
@@ -40,6 +39,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.EnumSet;
+import java.util.Optional;
 
 import static com.facebook.presto.cli.Help.getHelpText;
 import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
@@ -197,27 +197,22 @@ public class Console
             return Optional.of((Object) SQL_PARSER.createStatement(statement));
         }
         catch (ParsingException e) {
-            return Optional.absent();
+            return Optional.empty();
         }
     }
 
     static ClientSession processSessionParameterChange(Object parsedStatement, ClientSession session)
     {
-        if (parsedStatement instanceof UseCollection) {
-            UseCollection use = (UseCollection) parsedStatement;
-            switch (use.getType()) {
-                case CATALOG:
-                    return ClientSession.withCatalog(session, use.getCollection());
-                case SCHEMA:
-                    return ClientSession.withSchema(session, use.getCollection());
-            }
+        if (parsedStatement instanceof Use) {
+            Use use = (Use) parsedStatement;
+            return ClientSession.withCatalogAndSchema(session, use.getCatalog().orElse(session.getCatalog()), use.getSchema());
         }
         return session;
     }
 
     private static boolean isSessionParameterChange(Object statement)
     {
-        return statement instanceof UseCollection;
+        return statement instanceof Use;
     }
 
     private static void executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat)
