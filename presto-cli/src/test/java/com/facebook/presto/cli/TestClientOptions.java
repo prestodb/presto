@@ -140,9 +140,11 @@ public class TestClientOptions
         ClientOptions options = new ClientOptions();
         ClientSession session = options.toClientSession();
         SqlParser sqlParser = new SqlParser();
-        session = Console.processSessionParameterChange(sqlParser.createStatement("USE CATALOG test_catalog"), session);
+        session = Console.processSessionParameterChange(sqlParser.createStatement("USE test_catalog.test_schema"), session);
         assertEquals(session.getCatalog(), "test_catalog");
-        session = Console.processSessionParameterChange(sqlParser.createStatement("USE SCHEMA test_schema"), session);
         assertEquals(session.getSchema(), "test_schema");
+        session = Console.processSessionParameterChange(sqlParser.createStatement("USE test_catalog.test_schema2"), session);
+        assertEquals(session.getCatalog(), "test_catalog");
+        assertEquals(session.getSchema(), "test_schema2");
     }
 }

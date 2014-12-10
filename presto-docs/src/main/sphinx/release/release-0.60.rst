@@ -13,11 +13,10 @@ dependencies.  Previously, this artifact was published with the Maven
 classifier ``standalone``. The new build does not publish this artifact
 anymore.
 
-USE CATALOG and USE SCHEMA
---------------------------
+USE
+---
 
-The :doc:`/installation/cli` now supports :doc:`/sql/use-catalog` and
-:doc:`/sql/use-schema`.
+The :doc:`/installation/cli` now supports :doc:`/sql/use`.
 
 
 TPCH Connector
