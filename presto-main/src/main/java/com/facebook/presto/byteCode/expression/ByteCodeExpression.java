@@ -22,7 +22,6 @@ import org.objectweb.asm.MethodVisitor;
 
 import java.lang.reflect.Field;
 
-import static com.facebook.presto.byteCode.ParameterizedType.toParameterizedType;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -129,15 +128,17 @@ public abstract class ByteCodeExpression
 
     public final ByteCodeExpression invoke(String methodName, ParameterizedType returnType, Iterable<? extends ByteCodeExpression> parameters)
     {
+        checkNotNull(parameters, "parameters is null");
+
         return invoke(methodName,
                 returnType,
-                ImmutableList.copyOf(transform(checkNotNull(parameters, "parameters is null"), ByteCodeExpression::getType)),
+                ImmutableList.copyOf(transform(parameters, ByteCodeExpression::getType)),
                 parameters);
     }
 
     public final ByteCodeExpression invoke(String methodName, Class<?> returnType, Iterable<? extends Class<?>> parameterTypes, ByteCodeExpression... parameters)
     {
-        return invoke(methodName, type(returnType), transform(parameterTypes, toParameterizedType()), ImmutableList.copyOf(checkNotNull(parameters, "parameters is null")));
+        return invoke(methodName, type(returnType), transform(parameterTypes, ParameterizedType::type), ImmutableList.copyOf(checkNotNull(parameters, "parameters is null")));
     }
 
     public final ByteCodeExpression invoke(String methodName, ParameterizedType returnType, Iterable<ParameterizedType> parameterTypes, ByteCodeExpression... parameters)

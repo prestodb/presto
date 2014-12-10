@@ -34,7 +34,6 @@ import static com.facebook.presto.byteCode.OpCode.INVOKEINTERFACE;
 import static com.facebook.presto.byteCode.OpCode.INVOKESPECIAL;
 import static com.facebook.presto.byteCode.OpCode.INVOKESTATIC;
 import static com.facebook.presto.byteCode.OpCode.INVOKEVIRTUAL;
-import static com.facebook.presto.byteCode.ParameterizedType.toParameterizedType;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.google.common.collect.Iterables.transform;
 
@@ -154,12 +153,12 @@ public class InvokeInstruction
 
     public static InstructionNode invokeConstructor(Class<?> target, Class<?>... parameterTypes)
     {
-        return invokeConstructor(type(target), transform(ImmutableList.copyOf(parameterTypes), toParameterizedType()));
+        return invokeConstructor(type(target), transform(ImmutableList.copyOf(parameterTypes), ParameterizedType::type));
     }
 
     public static InstructionNode invokeConstructor(Class<?> target, Iterable<Class<?>> parameterTypes)
     {
-        return invokeConstructor(type(target), transform(parameterTypes, toParameterizedType()));
+        return invokeConstructor(type(target), transform(parameterTypes, ParameterizedType::type));
     }
 
     public static InstructionNode invokeConstructor(ParameterizedType target, ParameterizedType... parameterTypes)
@@ -216,7 +215,7 @@ public class InvokeInstruction
                 type(method.getDeclaringClass()),
                 method.getName(),
                 type(method.getReturnType()),
-                transform(ImmutableList.copyOf(method.getParameterTypes()), toParameterizedType()));
+                transform(ImmutableList.copyOf(method.getParameterTypes()), ParameterizedType::type));
     }
 
     private static InstructionNode invoke(OpCode invocationType, MethodDefinition method)
@@ -243,7 +242,7 @@ public class InvokeInstruction
                 type(target),
                 name,
                 type(returnType),
-                transform(parameterTypes, toParameterizedType()));
+                transform(parameterTypes, ParameterizedType::type));
     }
 
     //
@@ -283,7 +282,7 @@ public class InvokeInstruction
     {
         return new InvokeDynamicInstruction(name,
                 type(methodType.returnType()),
-                transform(methodType.parameterList(), toParameterizedType()),
+                transform(methodType.parameterList(), ParameterizedType::type),
                 bootstrapMethod,
                 ImmutableList.copyOf(bootstrapArguments));
     }
@@ -295,7 +294,7 @@ public class InvokeInstruction
     {
         return new InvokeDynamicInstruction(name,
                 type(methodType.returnType()),
-                transform(methodType.parameterList(), toParameterizedType()),
+                transform(methodType.parameterList(), ParameterizedType::type),
                 bootstrapMethod,
                 ImmutableList.copyOf(bootstrapArguments));
     }
