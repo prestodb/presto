@@ -36,7 +36,6 @@ import com.amazonaws.services.s3.transfer.Transfer;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
 import com.amazonaws.services.s3.transfer.Upload;
-import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.Iterators;
@@ -325,21 +324,14 @@ public class PrestoS3FileSystem
             }
         };
 
-        return Iterators.concat(Iterators.transform(listings, statusFromListing()));
+        return Iterators.concat(Iterators.transform(listings, this::statusFromListing));
     }
 
-    private Function<ObjectListing, Iterator<LocatedFileStatus>> statusFromListing()
+    private Iterator<LocatedFileStatus> statusFromListing(ObjectListing listing)
     {
-        return new Function<ObjectListing, Iterator<LocatedFileStatus>>()
-        {
-            @Override
-            public Iterator<LocatedFileStatus> apply(ObjectListing listing)
-            {
-                return Iterators.concat(
-                        statusFromPrefixes(listing.getCommonPrefixes()),
-                        statusFromObjects(listing.getObjectSummaries()));
-            }
-        };
+        return Iterators.concat(
+                statusFromPrefixes(listing.getCommonPrefixes()),
+                statusFromObjects(listing.getObjectSummaries()));
     }
 
     private Iterator<LocatedFileStatus> statusFromPrefixes(List<String> prefixes)
