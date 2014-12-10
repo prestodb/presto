@@ -97,7 +97,6 @@ import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
-import static com.facebook.presto.hive.HiveUtil.partitionIdGetter;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -378,7 +377,7 @@ public abstract class AbstractTestHiveClient
 
     protected void assertExpectedPartitions(List<ConnectorPartition> actualPartitions, Iterable<ConnectorPartition> expectedPartitions)
     {
-        Map<String, ConnectorPartition> actualById = uniqueIndex(actualPartitions, partitionIdGetter());
+        Map<String, ConnectorPartition> actualById = uniqueIndex(actualPartitions, ConnectorPartition::getPartitionId);
         for (ConnectorPartition expected : expectedPartitions) {
             assertInstanceOf(expected, HivePartition.class);
             HivePartition expectedPartition = (HivePartition) expected;

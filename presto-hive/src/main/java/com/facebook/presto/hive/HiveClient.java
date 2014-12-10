@@ -111,7 +111,6 @@ import static com.facebook.presto.hive.HiveUtil.decodeViewData;
 import static com.facebook.presto.hive.HiveUtil.encodeViewData;
 import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
-import static com.facebook.presto.hive.HiveUtil.partitionIdGetter;
 import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_PARTITION;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
@@ -1104,7 +1103,7 @@ public class HiveClient
         Optional<HiveBucket> bucket = partition.getBucket();
 
         // sort partitions
-        partitions = Ordering.natural().onResultOf(partitionIdGetter()).reverse().sortedCopy(partitions);
+        partitions = Ordering.natural().onResultOf(ConnectorPartition::getPartitionId).reverse().sortedCopy(partitions);
 
         Table table;
         Iterable<HivePartitionMetadata> hivePartitions;
@@ -1161,7 +1160,7 @@ public class HiveClient
                         Map<String, Partition> partitions = metastore.getPartitionsByNames(
                                 tableName.getSchemaName(),
                                 tableName.getTableName(),
-                                Lists.transform(partitionBatch, partitionIdGetter()));
+                                Lists.transform(partitionBatch, ConnectorPartition::getPartitionId));
                         checkState(partitionBatch.size() == partitions.size(), "expected %s partitions but found %s", partitionBatch.size(), partitions.size());
 
                         ImmutableList.Builder<HivePartitionMetadata> results = ImmutableList.builder();
