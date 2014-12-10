@@ -20,11 +20,11 @@ import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -44,7 +44,7 @@ public class AggregateWindowFunction
     {
         this.function = checkNotNull(function, "function is null");
         this.argumentChannels = Ints.toArray(argumentChannels);
-        this.accumulatorFactory = function.bind(createArgs(function), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0);
+        this.accumulatorFactory = function.bind(createArgs(function), Optional.empty(), Optional.empty(), 1.0);
     }
 
     @Override

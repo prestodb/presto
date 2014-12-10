@@ -20,7 +20,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import io.airlift.json.ObjectMapperProvider;
@@ -28,6 +27,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getIntermediateBlock;
@@ -46,7 +46,7 @@ public class TestNumericHistogramAggregation
     {
         FunctionRegistry functionRegistry = new FunctionRegistry(new TypeRegistry(), true);
         InternalAggregationFunction function = functionRegistry.resolveFunction(QualifiedName.of("numeric_histogram"), ImmutableList.of(BIGINT.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()), false).getAggregationFunction();
-        factory = function.bind(ImmutableList.of(0, 1, 2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0);
+        factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty(), Optional.empty(), 1.0);
 
         int numberOfBuckets = 10;
 

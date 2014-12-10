@@ -25,10 +25,10 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.util.DateTimeUtils;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
@@ -62,7 +62,7 @@ public class HandTpchQuery6
                 2,
                 Step.SINGLE,
                 ImmutableList.of(
-                        DOUBLE_SUM.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)
+                        DOUBLE_SUM.bind(ImmutableList.of(0), Optional.empty(), Optional.empty(), 1.0)
                 ));
 
         return ImmutableList.of(tableScanOperator, tpchQuery6Operator, aggregationOperator);

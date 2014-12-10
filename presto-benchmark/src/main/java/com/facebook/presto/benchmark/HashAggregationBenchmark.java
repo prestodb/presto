@@ -18,15 +18,16 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.testing.LocalQueryRunner;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
+import static com.facebook.presto.util.Optionals.guavaOptional;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class HashAggregationBenchmark
@@ -46,8 +47,8 @@ public class HashAggregationBenchmark
                 types,
                 Ints.asList(0),
                 Step.SINGLE,
-                ImmutableList.of(DOUBLE_SUM.bind(ImmutableList.of(1), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)),
-                Optional.<Integer>absent(),
+                ImmutableList.of(DOUBLE_SUM.bind(ImmutableList.of(1), Optional.empty(), Optional.empty(), 1.0)),
+                guavaOptional(Optional.empty()),
                 100_000,
                 new DataSize(16, MEGABYTE));
         return ImmutableList.of(tableScanOperator, aggregationOperator);

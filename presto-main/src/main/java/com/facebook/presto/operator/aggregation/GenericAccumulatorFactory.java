@@ -15,13 +15,13 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
-import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -78,7 +78,7 @@ public class GenericAccumulatorFactory
     public Accumulator createIntermediateAccumulator()
     {
         try {
-            return accumulatorConstructor.newInstance(stateSerializer, stateFactory, ImmutableList.of(), Optional.<Integer>absent(), Optional.<Integer>absent(), confidence);
+            return accumulatorConstructor.newInstance(stateSerializer, stateFactory, ImmutableList.of(), Optional.empty(), Optional.empty(), confidence);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw Throwables.propagate(e);
@@ -100,7 +100,7 @@ public class GenericAccumulatorFactory
     public GroupedAccumulator createGroupedIntermediateAccumulator()
     {
         try {
-            return groupedAccumulatorConstructor.newInstance(stateSerializer, stateFactory, ImmutableList.of(), Optional.<Integer>absent(), Optional.<Integer>absent(), confidence);
+            return groupedAccumulatorConstructor.newInstance(stateSerializer, stateFactory, ImmutableList.of(), Optional.empty(), Optional.empty(), confidence);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw Throwables.propagate(e);
