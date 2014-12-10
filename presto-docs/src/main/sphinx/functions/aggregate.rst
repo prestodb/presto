@@ -54,6 +54,10 @@ General Aggregate Functions
 
     Returns an arbitrary non-NULL value, if one exists.
 
+.. function:: map_agg(K,V) -> map(K,V)
+
+    Returns a map created from the input key/value pairs.
+
 Approximate Aggregate Functions
 -------------------------------
 
