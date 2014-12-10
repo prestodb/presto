@@ -111,7 +111,8 @@ public class WindowFilterPushDown
             if (filter.getLimit().isPresent()) {
                 return filter.getLimit();
             }
-            if (filterContainsWindowFunctions(node, filter.getFilterExpression().get())) {
+            if (filterContainsWindowFunctions(node, filter.getFilterExpression().get()) &&
+                    filter.getFilterExpression().get() instanceof ComparisonExpression) {
                 Symbol rowNumberSymbol = Iterables.getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
                 return WindowLimitExtractor.extract(filter.getFilterExpression().get(), rowNumberSymbol);
             }
@@ -213,52 +214,56 @@ public class WindowFilterPushDown
             @Override
             protected Long visitComparisonExpression(ComparisonExpression node, Symbol rowNumberSymbol)
             {
-                QualifiedNameReference reference = extractReference(node);
-                Literal literal = extractLiteral(node);
-                if (!Symbol.fromQualifiedName(reference.getName()).equals(rowNumberSymbol)) {
+                Optional<QualifiedNameReference> reference = extractReference(node);
+                Optional<Literal> literal = extractLiteral(node);
+                if (!reference.isPresent() || !literal.isPresent()) {
+                    return null;
+                }
+                if (!Symbol.fromQualifiedName(reference.get().getName()).equals(rowNumberSymbol)) {
                     return null;
                 }
 
+                long literalValue = extractValue(literal.get());
                 if (node.getLeft() instanceof QualifiedNameReference && node.getRight() instanceof Literal) {
                     if (node.getType() == ComparisonExpression.Type.LESS_THAN_OR_EQUAL) {
-                        return extractValue(literal);
+                        return literalValue;
                     }
                     if (node.getType() == ComparisonExpression.Type.LESS_THAN) {
-                        return extractValue(literal) - 1;
+                        return literalValue - 1;
                     }
                 }
                 else if (node.getLeft() instanceof Literal && node.getRight() instanceof QualifiedNameReference) {
                     if (node.getType() == ComparisonExpression.Type.GREATER_THAN_OR_EQUAL) {
-                        return extractValue(literal);
+                        return literalValue;
                     }
                     if (node.getType() == ComparisonExpression.Type.GREATER_THAN) {
-                        return extractValue(literal) - 1;
+                        return literalValue - 1;
                     }
                 }
                 return null;
             }
         }
 
-        private static QualifiedNameReference extractReference(ComparisonExpression expression)
+        private static Optional<QualifiedNameReference> extractReference(ComparisonExpression expression)
         {
             if (expression.getLeft() instanceof QualifiedNameReference) {
-                return (QualifiedNameReference) expression.getLeft();
+                return Optional.of((QualifiedNameReference) expression.getLeft());
             }
             if (expression.getRight() instanceof QualifiedNameReference) {
-                return (QualifiedNameReference) expression.getRight();
+                return Optional.of((QualifiedNameReference) expression.getRight());
             }
-            throw new IllegalArgumentException("Comparison does not have a child of type QualifiedNameReference");
+            return Optional.absent();
         }
 
-        private static Literal extractLiteral(ComparisonExpression expression)
+        private static Optional<Literal> extractLiteral(ComparisonExpression expression)
         {
             if (expression.getLeft() instanceof Literal) {
-                return (Literal) expression.getLeft();
+                return Optional.of((Literal) expression.getLeft());
             }
             if (expression.getRight() instanceof Literal) {
-                return (Literal) expression.getRight();
+                return Optional.of((Literal) expression.getRight());
             }
-            throw new IllegalArgumentException("Comparison does not have a child of type Literal");
+            return Optional.absent();
         }
 
         private static long extractValue(Literal literal)
