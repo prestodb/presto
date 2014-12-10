@@ -62,8 +62,9 @@ public final class MLFunctions
     {
         FeatureVector features = ModelUtils.jsonToFeatures(featuresMap);
         Model model = getOrLoadModel(modelSlice);
-        checkArgument(model instanceof Classifier && model.getType().equals(BIGINT_CLASSIFIER), "model is not a classifier");
-        return ((Classifier<Integer>) model).classify(features);
+        checkArgument(model.getType().equals(BIGINT_CLASSIFIER), "model is not a classifier<bigint>");
+        Classifier<Integer> classifier = checkType(model, Classifier.class, "model");
+        return classifier.classify(features);
     }
 
     @ScalarFunction
@@ -72,8 +73,9 @@ public final class MLFunctions
     {
         FeatureVector features = ModelUtils.jsonToFeatures(featuresMap);
         Model model = getOrLoadModel(modelSlice);
-        checkArgument(model instanceof Regressor && model.getType().equals(REGRESSOR), "model is not a regressor");
-        return ((Regressor) model).regress(features);
+        checkArgument(model.getType().equals(REGRESSOR), "model is not a regressor");
+        Regressor regressor = checkType(model, Regressor.class, "model");
+        return regressor.regress(features);
     }
 
     private static Model getOrLoadModel(Slice slice)
