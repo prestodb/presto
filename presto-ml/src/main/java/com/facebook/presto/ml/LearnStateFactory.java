@@ -16,6 +16,10 @@ package com.facebook.presto.ml;
 import com.facebook.presto.operator.aggregation.state.AbstractGroupedAccumulatorState;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
 import com.facebook.presto.util.array.ObjectBigArray;
+import com.facebook.presto.util.array.SliceBigArray;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
+import io.airlift.slice.Slice;
 import libsvm.svm_parameter;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -58,7 +62,9 @@ public class LearnStateFactory
     {
         private final ObjectBigArray<List<Double>> labelsArray = new ObjectBigArray<>();
         private final ObjectBigArray<List<FeatureVector>> featureVectorsArray = new ObjectBigArray<>();
-        private final ObjectBigArray<svm_parameter> parametersArray = new ObjectBigArray<>();
+        private final SliceBigArray parametersArray = new SliceBigArray();
+        private final BiMap<String, Integer> labelEnumeration = HashBiMap.create();
+        private int nextLabel;
         private long size;
 
         @Override
@@ -73,6 +79,22 @@ public class LearnStateFactory
         public long getEstimatedSize()
         {
             return size + labelsArray.sizeOf() + featureVectorsArray.sizeOf();
+        }
+
+        @Override
+        public BiMap<String, Integer> getLabelEnumeration()
+        {
+            return labelEnumeration;
+        }
+
+        @Override
+        public int enumerateLabel(String label)
+        {
+            if (!labelEnumeration.containsKey(label)) {
+                labelEnumeration.put(label, nextLabel);
+                nextLabel++;
+            }
+            return labelEnumeration.get(label);
         }
 
         @Override
@@ -102,13 +124,13 @@ public class LearnStateFactory
         }
 
         @Override
-        public svm_parameter getParameters()
+        public Slice getParameters()
         {
             return parametersArray.get(getGroupId());
         }
 
         @Override
-        public void setParameters(svm_parameter parameters)
+        public void setParameters(Slice parameters)
         {
             parametersArray.set(getGroupId(), parameters);
         }
@@ -125,13 +147,31 @@ public class LearnStateFactory
     {
         private final List<Double> labels = new ArrayList<>();
         private final List<FeatureVector> featureVectors = new ArrayList<>();
-        private svm_parameter parameters;
+        private final BiMap<String, Integer> labelEnumeration = HashBiMap.create();
+        private int nextLabel;
+        private Slice parameters;
         private long size;
 
         @Override
         public long getEstimatedSize()
         {
             return size + 2 * ARRAY_LIST_SIZE;
+        }
+
+        @Override
+        public BiMap<String, Integer> getLabelEnumeration()
+        {
+            return labelEnumeration;
+        }
+
+        @Override
+        public int enumerateLabel(String label)
+        {
+            if (!labelEnumeration.containsKey(label)) {
+                labelEnumeration.put(label, nextLabel);
+                nextLabel++;
+            }
+            return labelEnumeration.get(label);
         }
 
         @Override
@@ -147,13 +187,13 @@ public class LearnStateFactory
         }
 
         @Override
-        public svm_parameter getParameters()
+        public Slice getParameters()
         {
             return parameters;
         }
 
         @Override
-        public void setParameters(svm_parameter parameters)
+        public void setParameters(Slice parameters)
         {
             this.parameters = parameters;
         }

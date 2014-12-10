@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.ml.type;
 
-import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -28,7 +29,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class ClassifierType
         extends ModelType
 {
-    public static final ClassifierType BIGINT_CLASSIFIER = new ClassifierType(BigintType.BIGINT);
+    public static final ClassifierType BIGINT_CLASSIFIER = new ClassifierType(BIGINT);
+    public static final ClassifierType VARCHAR_CLASSIFIER = new ClassifierType(VARCHAR);
 
     private final Type labelType;
 

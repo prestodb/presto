@@ -30,7 +30,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.facebook.presto.ml.type.ClassifierType.BIGINT_CLASSIFIER;
+import static com.facebook.presto.ml.type.ClassifierType.VARCHAR_CLASSIFIER;
 import static com.facebook.presto.ml.type.RegressorType.REGRESSOR;
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class MLFunctions
@@ -41,6 +43,17 @@ public final class MLFunctions
 
     private MLFunctions()
     {
+    }
+
+    @ScalarFunction("classify")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice varcharClassify(@SqlType(MAP_BIGINT_DOUBLE) Slice featuresMap, @SqlType("Classifier<varchar>") Slice modelSlice)
+    {
+        FeatureVector features = ModelUtils.jsonToFeatures(featuresMap);
+        Model model = getOrLoadModel(modelSlice);
+        checkArgument(model.getType().equals(VARCHAR_CLASSIFIER), "model is not a classifier<varchar>");
+        Classifier<String> varcharClassifier = checkType(model, Classifier.class, "model");
+        return Slices.utf8Slice(varcharClassifier.classify(features));
     }
 
     @ScalarFunction

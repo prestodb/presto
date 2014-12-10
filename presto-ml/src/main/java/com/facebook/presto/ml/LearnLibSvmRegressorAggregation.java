@@ -52,7 +52,7 @@ public final class LearnLibSvmRegressorAggregation
         FeatureVector featureVector = ModelUtils.jsonToFeatures(features);
         state.addMemoryUsage(featureVector.getEstimatedSize());
         state.getFeatureVectors().add(featureVector);
-        state.setParameters(LibSvmUtils.parseParameters(parameters.toStringUtf8()));
+        state.setParameters(parameters);
     }
 
     @CombineFunction
@@ -64,8 +64,8 @@ public final class LearnLibSvmRegressorAggregation
     @OutputFunction(RegressorType.NAME)
     public static void output(LearnState state, BlockBuilder out)
     {
-        Dataset dataset = new Dataset(state.getLabels(), state.getFeatureVectors());
-        Model model = new RegressorFeatureTransformer(new SvmRegressor(state.getParameters()), new FeatureUnitNormalizer());
+        Dataset dataset = new Dataset(state.getLabels(), state.getFeatureVectors(), state.getLabelEnumeration().inverse());
+        Model model = new RegressorFeatureTransformer(new SvmRegressor(LibSvmUtils.parseParameters(state.getParameters().toStringUtf8())), new FeatureUnitNormalizer());
         model.train(dataset);
         RegressorType.REGRESSOR.writeSlice(out, ModelUtils.serialize(model));
     }
