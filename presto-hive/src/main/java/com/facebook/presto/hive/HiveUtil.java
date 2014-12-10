@@ -52,12 +52,10 @@ import org.joda.time.format.DateTimeParser;
 import org.joda.time.format.DateTimePrinter;
 import org.joda.time.format.ISODateTimeFormat;
 
-import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.Callable;
 
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnIndexGetter;
 import static com.facebook.presto.hive.HiveColumnHandle.isPartitionKeyPredicate;
@@ -141,15 +139,9 @@ public final class HiveUtil
         }
 
         try {
-            return retry().stopOnIllegalExceptions().run("createRecordReader", new Callable<RecordReader<?, ?>>()
-            {
-                @Override
-                public RecordReader<?, ?> call()
-                        throws IOException
-                {
-                    return inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
-                }
-            });
+            return retry()
+                    .stopOnIllegalExceptions()
+                    .run("createRecordReader", () -> inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL));
         }
         catch (Exception e) {
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, format("Error opening Hive split %s (offset=%s, length=%s) using %s: %s",

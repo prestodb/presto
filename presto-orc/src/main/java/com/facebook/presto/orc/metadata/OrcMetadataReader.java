@@ -17,7 +17,6 @@ import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.hive.shaded.com.google.protobuf.CodedInputStream;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
@@ -62,14 +61,7 @@ public class OrcMetadataReader
 
     private static List<StripeStatistics> toStripeStatistics(List<OrcProto.StripeStatistics> types)
     {
-        return ImmutableList.copyOf(Iterables.transform(types, new Function<OrcProto.StripeStatistics, StripeStatistics>()
-        {
-            @Override
-            public StripeStatistics apply(OrcProto.StripeStatistics type)
-            {
-                return toStripeStatistics(type);
-            }
-        }));
+        return ImmutableList.copyOf(Iterables.transform(types, OrcMetadataReader::toStripeStatistics));
     }
 
     private static StripeStatistics toStripeStatistics(OrcProto.StripeStatistics stripeStatistics)
@@ -93,14 +85,7 @@ public class OrcMetadataReader
 
     private static List<StripeInformation> toStripeInformation(List<OrcProto.StripeInformation> types)
     {
-        return ImmutableList.copyOf(Iterables.transform(types, new Function<OrcProto.StripeInformation, StripeInformation>()
-        {
-            @Override
-            public StripeInformation apply(OrcProto.StripeInformation type)
-            {
-                return toStripeInformation(type);
-            }
-        }));
+        return ImmutableList.copyOf(Iterables.transform(types, OrcMetadataReader::toStripeInformation));
     }
 
     private static StripeInformation toStripeInformation(OrcProto.StripeInformation stripeInformation)
@@ -129,14 +114,7 @@ public class OrcMetadataReader
 
     private static List<Stream> toStream(List<OrcProto.Stream> streams)
     {
-        return ImmutableList.copyOf(Iterables.transform(streams, new Function<OrcProto.Stream, Stream>()
-        {
-            @Override
-            public Stream apply(OrcProto.Stream stream)
-            {
-                return toStream(stream);
-            }
-        }));
+        return ImmutableList.copyOf(Iterables.transform(streams, OrcMetadataReader::toStream));
     }
 
     private static ColumnEncoding toColumnEncoding(OrcProto.ColumnEncoding columnEncoding)
@@ -146,14 +124,7 @@ public class OrcMetadataReader
 
     private static List<ColumnEncoding> toColumnEncoding(List<OrcProto.ColumnEncoding> columnEncodings)
     {
-        return ImmutableList.copyOf(Iterables.transform(columnEncodings, new Function<OrcProto.ColumnEncoding, ColumnEncoding>()
-        {
-            @Override
-            public ColumnEncoding apply(OrcProto.ColumnEncoding columnEncoding)
-            {
-                return toColumnEncoding(columnEncoding);
-            }
-        }));
+        return ImmutableList.copyOf(Iterables.transform(columnEncodings, OrcMetadataReader::toColumnEncoding));
     }
 
     @Override
@@ -162,14 +133,7 @@ public class OrcMetadataReader
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         OrcProto.RowIndex rowIndex = OrcProto.RowIndex.parseFrom(input);
-        return ImmutableList.copyOf(Iterables.transform(rowIndex.getEntryList(), new Function<RowIndexEntry, RowGroupIndex>()
-        {
-            @Override
-            public RowGroupIndex apply(OrcProto.RowIndexEntry rowIndexEntry)
-            {
-                return toRowGroupIndex(rowIndexEntry);
-            }
-        }));
+        return ImmutableList.copyOf(Iterables.transform(rowIndex.getEntryList(), OrcMetadataReader::toRowGroupIndex));
     }
 
     private static RowGroupIndex toRowGroupIndex(RowIndexEntry rowIndexEntry)
@@ -203,14 +167,7 @@ public class OrcMetadataReader
         if (columnStatistics == null) {
             return ImmutableList.of();
         }
-        return ImmutableList.copyOf(Iterables.transform(columnStatistics, new Function<OrcProto.ColumnStatistics, ColumnStatistics>()
-        {
-            @Override
-            public ColumnStatistics apply(OrcProto.ColumnStatistics columnStatistics)
-            {
-                return toColumnStatistics(columnStatistics, isRowGroup);
-            }
-        }));
+        return ImmutableList.copyOf(Iterables.transform(columnStatistics, statistics -> toColumnStatistics(statistics, isRowGroup)));
     }
 
     private static BooleanStatistics toBooleanStatistics(OrcProto.BucketStatistics bucketStatistics)
@@ -296,14 +253,7 @@ public class OrcMetadataReader
 
     private static List<OrcType> toType(List<OrcProto.Type> types)
     {
-        return ImmutableList.copyOf(Iterables.transform(types, new Function<OrcProto.Type, OrcType>()
-        {
-            @Override
-            public OrcType apply(OrcProto.Type type)
-            {
-                return toType(type);
-            }
-        }));
+        return ImmutableList.copyOf(Iterables.transform(types, OrcMetadataReader::toType));
     }
 
     private static OrcTypeKind toTypeKind(OrcProto.Type.Kind typeKind)

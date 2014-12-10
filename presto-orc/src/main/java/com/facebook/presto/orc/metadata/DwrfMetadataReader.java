@@ -18,7 +18,6 @@ import com.facebook.hive.orc.OrcProto.ColumnEncoding.Kind;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
@@ -75,14 +74,7 @@ public class DwrfMetadataReader
 
     private static List<StripeInformation> toStripeInformation(List<OrcProto.StripeInformation> types)
     {
-        return ImmutableList.copyOf(Iterables.transform(types, new Function<OrcProto.StripeInformation, StripeInformation>()
-        {
-            @Override
-            public StripeInformation apply(OrcProto.StripeInformation type)
-            {
-                return toStripeInformation(type);
-            }
-        }));
+        return ImmutableList.copyOf(Iterables.transform(types, DwrfMetadataReader::toStripeInformation));
     }
 
     private static StripeInformation toStripeInformation(OrcProto.StripeInformation stripeInformation)
@@ -111,14 +103,7 @@ public class DwrfMetadataReader
 
     private static List<Stream> toStream(List<OrcProto.Stream> streams)
     {
-        return ImmutableList.copyOf(Iterables.transform(streams, new Function<OrcProto.Stream, Stream>()
-        {
-            @Override
-            public Stream apply(OrcProto.Stream stream)
-            {
-                return toStream(stream);
-            }
-        }));
+        return ImmutableList.copyOf(Iterables.transform(streams, DwrfMetadataReader::toStream));
     }
 
     private static ColumnEncoding toColumnEncoding(OrcTypeKind type, OrcProto.ColumnEncoding columnEncoding)
@@ -144,14 +129,7 @@ public class DwrfMetadataReader
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         OrcProto.RowIndex rowIndex = OrcProto.RowIndex.parseFrom(input);
-        return ImmutableList.copyOf(Iterables.transform(rowIndex.getEntryList(), new Function<OrcProto.RowIndexEntry, RowGroupIndex>()
-        {
-            @Override
-            public RowGroupIndex apply(OrcProto.RowIndexEntry rowIndexEntry)
-            {
-                return toRowGroupIndex(rowIndexEntry);
-            }
-        }));
+        return ImmutableList.copyOf(Iterables.transform(rowIndex.getEntryList(), DwrfMetadataReader::toRowGroupIndex));
     }
 
     private static RowGroupIndex toRowGroupIndex(OrcProto.RowIndexEntry rowIndexEntry)
@@ -174,14 +152,7 @@ public class DwrfMetadataReader
         if (columnStatistics == null) {
             return ImmutableList.of();
         }
-        return ImmutableList.copyOf(Iterables.transform(columnStatistics, new Function<OrcProto.ColumnStatistics, ColumnStatistics>()
-        {
-            @Override
-            public ColumnStatistics apply(OrcProto.ColumnStatistics columnStatistics)
-            {
-                return toColumnStatistics(columnStatistics, isRowGroup);
-            }
-        }));
+        return ImmutableList.copyOf(Iterables.transform(columnStatistics, statistics -> toColumnStatistics(statistics, isRowGroup)));
     }
 
     private static ColumnStatistics toColumnStatistics(OrcProto.ColumnStatistics statistics, boolean isRowGroup)
@@ -262,14 +233,7 @@ public class DwrfMetadataReader
 
     private static List<OrcType> toType(List<OrcProto.Type> types)
     {
-        return ImmutableList.copyOf(Iterables.transform(types, new Function<OrcProto.Type, OrcType>()
-        {
-            @Override
-            public OrcType apply(OrcProto.Type type)
-            {
-                return toType(type);
-            }
-        }));
+        return ImmutableList.copyOf(Iterables.transform(types, DwrfMetadataReader::toType));
     }
 
     private static OrcTypeKind toTypeKind(OrcProto.Type.Kind kind)
