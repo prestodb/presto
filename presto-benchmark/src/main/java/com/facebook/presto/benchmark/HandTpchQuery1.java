@@ -26,13 +26,13 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.util.DateTimeUtils;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.operator.aggregation.AverageAggregations.DOUBLE_AVERAGE;
@@ -44,6 +44,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.util.Optionals.guavaOptional;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -99,15 +100,15 @@ public class HandTpchQuery1
                 Ints.asList(0, 1),
                 Step.SINGLE,
                 ImmutableList.of(
-                        LONG_SUM.bind(ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        DOUBLE_SUM.bind(ImmutableList.of(3), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        DOUBLE_SUM.bind(ImmutableList.of(4), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        LONG_AVERAGE.bind(ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        DOUBLE_AVERAGE.bind(ImmutableList.of(5), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        DOUBLE_AVERAGE.bind(ImmutableList.of(6), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        COUNT.bind(ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)
+                        LONG_SUM.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0),
+                        DOUBLE_SUM.bind(ImmutableList.of(3), Optional.empty(), Optional.empty(), 1.0),
+                        DOUBLE_SUM.bind(ImmutableList.of(4), Optional.empty(), Optional.empty(), 1.0),
+                        LONG_AVERAGE.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0),
+                        DOUBLE_AVERAGE.bind(ImmutableList.of(5), Optional.empty(), Optional.empty(), 1.0),
+                        DOUBLE_AVERAGE.bind(ImmutableList.of(6), Optional.empty(), Optional.empty(), 1.0),
+                        COUNT.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0)
                         ),
-                Optional.<Integer>absent(),
+                guavaOptional(Optional.empty()),
                 10_000,
                 new DataSize(16, MEGABYTE));
 

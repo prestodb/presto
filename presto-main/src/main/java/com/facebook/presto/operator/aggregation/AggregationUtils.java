@@ -21,12 +21,12 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.CaseFormat;
-import com.google.common.base.Function;
 
 import javax.annotation.Nullable;
 
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Locale.ENGLISH;
