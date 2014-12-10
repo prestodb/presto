@@ -21,6 +21,7 @@ import com.facebook.presto.spi.type.TypeSignature;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import static java.lang.String.format;
 
 // Layout is <size>:<model>, where
 //   size: is an int describing the length of the model bytes
@@ -77,6 +78,6 @@ public class ModelType
             return null;
         }
 
-        return String.format("<%s>", getTypeSignature());
+        return format("<%s>", getTypeSignature()).getBytes();
     }
 }
