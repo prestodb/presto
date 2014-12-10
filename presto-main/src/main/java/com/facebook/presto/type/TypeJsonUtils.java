@@ -49,6 +49,7 @@ public final class TypeJsonUtils
     private static final JsonFactory JSON_FACTORY = new JsonFactory().disable(CANONICALIZE_FIELD_NAMES);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
     private static final CollectionType COLLECTION_TYPE = OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, Object.class);
+    private static final com.fasterxml.jackson.databind.type.MapType MAP_TYPE = OBJECT_MAPPER.getTypeFactory().constructMapType(Map.class, String.class, Object.class);
 
     private TypeJsonUtils() {}
 
@@ -156,6 +157,16 @@ public final class TypeJsonUtils
         }
     }
 
+    public static Map<String, Object> getObjectMap(Slice slice)
+    {
+        try {
+            return OBJECT_MAPPER.readValue(slice.getInput(), MAP_TYPE);
+        }
+        catch (IOException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
+    }
+
     public static Block createBlock(Type type, Object element)
     {
         BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
@@ -180,6 +191,51 @@ public final class TypeJsonUtils
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unexpected type %s", javaType.getName()));
         }
         return blockBuilder.build();
+    }
+
+    public static Object castKey(Type type, String key)
+    {
+        Class<?> javaType = type.getJavaType();
+
+        if (key == null) {
+            return null;
+        }
+        else if (javaType == boolean.class) {
+           return Boolean.valueOf(key);
+        }
+        else if (javaType == long.class) {
+            return Long.parseLong(key);
+        }
+        else if (javaType == double.class) {
+           return Double.parseDouble(key);
+        }
+        else if (javaType == Slice.class) {
+            return Slices.utf8Slice(key);
+        }
+        else {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unexpected type %s", javaType.getName()));
+        }
+    }
+
+    public static Object castValue(Type type, Object value)
+    {
+        Class<?> javaType = type.getJavaType();
+
+        if (value == null) {
+            return null;
+        }
+        else if (javaType == boolean.class || javaType == double.class) {
+            return value;
+        }
+        else if (javaType == long.class) {
+            return ((Number) value).longValue();
+        }
+        else if (javaType == Slice.class) {
+            return Slices.utf8Slice(value.toString());
+        }
+        else {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unexpected type %s", javaType.getName()));
+        }
     }
 
     public static Object getValue(Block input, Type type, int position)
