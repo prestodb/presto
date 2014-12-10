@@ -16,9 +16,10 @@ package com.facebook.presto.tests;
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
-import com.google.common.base.Optional;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -33,7 +34,7 @@ public abstract class AbstractTestIntegrationSmokeTest
 
     protected AbstractTestIntegrationSmokeTest(QueryRunner queryRunner)
     {
-        this(queryRunner, Optional.<Session>absent());
+        this(queryRunner, Optional.empty());
     }
 
     protected AbstractTestIntegrationSmokeTest(QueryRunner queryRunner, Session sampledSession)
