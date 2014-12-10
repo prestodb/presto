@@ -24,7 +24,6 @@ import com.facebook.presto.hive.util.BackgroundCacheLoader;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
@@ -584,7 +583,7 @@ public class CachingHiveMetastore
     public Map<String, Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
             throws NoSuchObjectException
     {
-        Iterable<HivePartitionName> names = transform(partitionNames, partitionNameCreator(databaseName, tableName));
+        Iterable<HivePartitionName> names = transform(partitionNames, name -> HivePartitionName.partition(databaseName, tableName, name));
 
         ImmutableMap.Builder<String, Partition> partitionsByName = ImmutableMap.builder();
         Map<HivePartitionName, Partition> all = getAll(partitionCache, names, NoSuchObjectException.class);
@@ -659,19 +658,6 @@ public class CachingHiveMetastore
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
-    }
-
-    private static Function<String, HivePartitionName> partitionNameCreator(final String databaseName, final String tableName)
-    {
-        return new Function<String, HivePartitionName>()
-        {
-            @SuppressWarnings("ClassEscapesDefinedScope")
-            @Override
-            public HivePartitionName apply(String partitionName)
-            {
-                return HivePartitionName.partition(databaseName, tableName, partitionName);
-            }
-        };
     }
 
     private static class HiveTableName
