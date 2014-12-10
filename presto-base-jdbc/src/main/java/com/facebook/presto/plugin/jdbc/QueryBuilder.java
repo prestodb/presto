@@ -21,7 +21,6 @@ import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
@@ -48,7 +47,7 @@ public class QueryBuilder
         StringBuilder sql = new StringBuilder();
 
         sql.append("SELECT ");
-        Joiner.on(", ").appendTo(sql, transform(columns, quoteColumn()));
+        Joiner.on(", ").appendTo(sql, transform(columns, column -> quote(column.getColumnName())));
         if (columns.isEmpty()) {
             sql.append("null");
         }
@@ -145,7 +144,7 @@ public class QueryBuilder
             disjuncts.add(toPredicate(columnName, "=", getOnlyElement(singleValues)));
         }
         else if (singleValues.size() > 1) {
-            disjuncts.add(quote(columnName) + " IN (" + Joiner.on(",").join(transform(singleValues, encode())) + ")");
+            disjuncts.add(quote(columnName) + " IN (" + Joiner.on(",").join(transform(singleValues, QueryBuilder::encode)) + ")");
         }
 
         // Add nullability disjuncts
@@ -168,35 +167,11 @@ public class QueryBuilder
         return quote + name + quote;
     }
 
-    private Function<JdbcColumnHandle, String> quoteColumn()
-    {
-        return new Function<JdbcColumnHandle, String>()
-        {
-            @Override
-            public String apply(JdbcColumnHandle column)
-            {
-                return quote(column.getColumnName());
-            }
-        };
-    }
-
     private static String encode(Object value)
     {
         if (value instanceof Number || value instanceof Boolean) {
             return value.toString();
         }
         throw new UnsupportedOperationException("Can't handle type: " + value.getClass().getName());
-    }
-
-    private static Function<Object, String> encode()
-    {
-        return new Function<Object, String>()
-        {
-            @Override
-            public String apply(Object input)
-            {
-                return encode(input);
-            }
-        };
     }
 }
