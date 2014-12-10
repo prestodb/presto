@@ -19,7 +19,6 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -28,6 +27,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -39,7 +39,7 @@ public class KafkaPlugin
 {
     private TypeManager typeManager;
     private NodeManager nodeManager;
-    private Optional<Supplier<Map<SchemaTableName, KafkaTopicDescription>>> tableDescriptionSupplier = Optional.absent();
+    private Optional<Supplier<Map<SchemaTableName, KafkaTopicDescription>>> tableDescriptionSupplier = Optional.empty();
     private Map<String, String> optionalConfig = ImmutableMap.of();
 
     @Override
