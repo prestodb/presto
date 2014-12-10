@@ -57,7 +57,6 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -288,7 +287,7 @@ public class PredicatePushDown
 
                     // HACK! we don't support cross joins right now, so put in a simple fake join predicate instead if all of the join clauses got simplified out
                     // TODO: remove this code when cross join support is added
-                    Iterable<Expression> simplifiedJoinConjuncts = transform(extractConjuncts(newJoinPredicate), simplifyExpressions());
+                    Iterable<Expression> simplifiedJoinConjuncts = transform(extractConjuncts(newJoinPredicate), this::simplifyExpression);
                     simplifiedJoinConjuncts = filter(simplifiedJoinConjuncts, not(Predicates.<Expression>equalTo(BooleanLiteral.TRUE_LITERAL)));
                     if (Iterables.isEmpty(simplifiedJoinConjuncts)) {
                         simplifiedJoinConjuncts = ImmutableList.<Expression>of(new ComparisonExpression(ComparisonExpression.Type.EQUAL, new LongLiteral("0"), new LongLiteral("0")));
@@ -598,13 +597,11 @@ public class PredicatePushDown
         }
 
         // Temporary implementation for joins because the SimplifyExpressions optimizers can not run properly on join clauses
-        private Function<Expression, Expression> simplifyExpressions()
+        private Expression simplifyExpression(Expression expression)
         {
-            return expression -> {
-                IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), expression);
-                ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
-                return LiteralInterpreter.toExpression(optimizer.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(expression));
-            };
+            IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), expression);
+            ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
+            return LiteralInterpreter.toExpression(optimizer.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(expression));
         }
 
         /**
