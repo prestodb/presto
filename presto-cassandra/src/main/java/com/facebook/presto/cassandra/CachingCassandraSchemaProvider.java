@@ -17,7 +17,6 @@ import com.facebook.presto.spi.NotFoundException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
@@ -187,7 +186,7 @@ public class CachingCassandraSchemaProvider
     {
         return retry()
                 .stopOnIllegalExceptions()
-                .run("getAllSchemas", () -> Maps.uniqueIndex(session.getAllSchemas(), toLowerCase()));
+                .run("getAllSchemas", () -> Maps.uniqueIndex(session.getAllSchemas(), CachingCassandraSchemaProvider::toLowerCase));
     }
 
     public List<String> getAllTables(String databaseName)
@@ -206,7 +205,7 @@ public class CachingCassandraSchemaProvider
                         caseSensitiveDatabaseName = databaseName;
                     }
                     List<String> tables = session.getAllTables(caseSensitiveDatabaseName);
-                    Map<String, String> nameMap = Maps.uniqueIndex(tables, toLowerCase());
+                    Map<String, String> nameMap = Maps.uniqueIndex(tables, CachingCassandraSchemaProvider::toLowerCase);
 
                     if (tables.isEmpty()) {
                         // Check to see if the database exists
@@ -309,9 +308,9 @@ public class CachingCassandraSchemaProvider
         }
     }
 
-    private static Function<String, String> toLowerCase()
+    private static String toLowerCase(String value)
     {
-        return value -> value.toLowerCase(ENGLISH);
+        return value.toLowerCase(ENGLISH);
     }
 
     private static final class PartitionListKey
