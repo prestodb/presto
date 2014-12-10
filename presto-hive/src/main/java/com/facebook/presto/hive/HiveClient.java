@@ -104,10 +104,8 @@ import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAM
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveSessionProperties.getHiveStorageFormat;
-import static com.facebook.presto.hive.HiveType.columnTypeToHiveType;
 import static com.facebook.presto.hive.HiveType.getHiveType;
 import static com.facebook.presto.hive.HiveType.getSupportedHiveType;
-import static com.facebook.presto.hive.HiveType.hiveTypeNameGetter;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
 import static com.facebook.presto.hive.HiveUtil.encodeViewData;
@@ -704,8 +702,8 @@ public class HiveClient
 
         // create the table in the metastore
         List<String> types = FluentIterable.from(handle.getColumnTypes())
-                .transform(columnTypeToHiveType())
-                .transform(hiveTypeNameGetter())
+                .transform(HiveType::toHiveType)
+                .transform(HiveType::getHiveTypeName)
                 .toList();
 
         boolean sampled = false;

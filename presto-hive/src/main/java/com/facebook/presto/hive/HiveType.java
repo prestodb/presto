@@ -24,7 +24,6 @@ import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
@@ -163,30 +162,6 @@ public final class HiveType
             return new HiveType(format("map<%s,%s>", hiveKeyType.getHiveTypeName(), hiveValueType.getHiveTypeName()));
         }
         throw new PrestoException(NOT_SUPPORTED, "unsupported type: " + type);
-    }
-
-    public static Function<Type, HiveType> columnTypeToHiveType()
-    {
-        return new Function<Type, HiveType>()
-        {
-            @Override
-            public HiveType apply(Type type)
-            {
-                return toHiveType(type);
-            }
-        };
-    }
-
-    public static Function<HiveType, String> hiveTypeNameGetter()
-    {
-        return new Function<HiveType, String>()
-        {
-            @Override
-            public String apply(HiveType type)
-            {
-                return type.getHiveTypeName();
-            }
-        };
     }
 
     @Override

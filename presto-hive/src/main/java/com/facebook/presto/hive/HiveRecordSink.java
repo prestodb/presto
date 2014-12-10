@@ -60,8 +60,6 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
-import static com.facebook.presto.hive.HiveType.columnTypeToHiveType;
-import static com.facebook.presto.hive.HiveType.hiveTypeNameGetter;
 import static com.facebook.presto.hive.HiveUtil.isArrayType;
 import static com.facebook.presto.hive.HiveUtil.isMapType;
 import static com.google.common.base.Preconditions.checkState;
@@ -103,7 +101,7 @@ public class HiveRecordSink
         columnTypes = ImmutableList.copyOf(handle.getColumnTypes());
         connectorSession = handle.getConnectorSession();
 
-        Iterable<String> hiveTypeNames = transform(transform(handle.getColumnTypes(), columnTypeToHiveType()), hiveTypeNameGetter());
+        Iterable<String> hiveTypeNames = transform(transform(handle.getColumnTypes(), HiveType::toHiveType), HiveType::getHiveTypeName);
 
         Properties properties = new Properties();
         properties.setProperty(META_TABLE_COLUMNS, Joiner.on(',').join(handle.getColumnNames()));
