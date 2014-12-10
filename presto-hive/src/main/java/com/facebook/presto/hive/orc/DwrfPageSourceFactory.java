@@ -23,7 +23,6 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Optional;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import org.apache.hadoop.conf.Configuration;
@@ -34,6 +33,7 @@ import org.joda.time.DateTimeZone;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
@@ -81,13 +81,13 @@ public class DwrfPageSourceFactory
             DateTimeZone hiveStorageTimeZone)
     {
         if (!isOptimizedReaderEnabled(session, enabled)) {
-            return Optional.absent();
+            return Optional.empty();
         }
 
         @SuppressWarnings("deprecation")
         Deserializer deserializer = getDeserializer(schema);
         if (!(deserializer instanceof OrcSerde)) {
-            return Optional.absent();
+            return Optional.empty();
         }
 
         return Optional.of(createOrcPageSource(

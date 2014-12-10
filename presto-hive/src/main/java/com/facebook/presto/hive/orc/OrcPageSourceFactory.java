@@ -31,7 +31,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -50,6 +49,7 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
@@ -100,13 +100,13 @@ public class OrcPageSourceFactory
             DateTimeZone hiveStorageTimeZone)
     {
         if (!isOptimizedReaderEnabled(session, enabled)) {
-            return Optional.absent();
+            return Optional.empty();
         }
 
         @SuppressWarnings("deprecation")
         Deserializer deserializer = getDeserializer(schema);
         if (!(deserializer instanceof OrcSerde)) {
-            return Optional.absent();
+            return Optional.empty();
         }
 
         return Optional.of(createOrcPageSource(

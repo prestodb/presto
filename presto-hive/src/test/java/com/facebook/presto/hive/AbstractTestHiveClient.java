@@ -56,7 +56,6 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.TypeRegistry;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -77,12 +76,12 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveSessionProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
@@ -230,7 +229,7 @@ public abstract class AbstractTestHiveClient
                                 .put(fileFormatColumn, new SerializableNativeValue(Slice.class, utf8Slice("textfile")))
                                 .put(dummyColumn, new SerializableNativeValue(Long.class, 1L))
                                 .build(),
-                        Optional.<HiveBucket>absent()))
+                        Optional.empty()))
                 .add(new HivePartition(tablePartitionFormat,
                         TupleDomain.<HiveColumnHandle>all(),
                         "ds=2012-12-29/file_format=sequencefile/dummy=2",
@@ -239,7 +238,7 @@ public abstract class AbstractTestHiveClient
                                 .put(fileFormatColumn, new SerializableNativeValue(Slice.class, utf8Slice("sequencefile")))
                                 .put(dummyColumn, new SerializableNativeValue(Long.class, 2L))
                                 .build(),
-                        Optional.<HiveBucket>absent()))
+                        Optional.empty()))
                 .add(new HivePartition(tablePartitionFormat,
                         TupleDomain.<HiveColumnHandle>all(),
                         "ds=2012-12-29/file_format=rctext/dummy=3",
@@ -248,7 +247,7 @@ public abstract class AbstractTestHiveClient
                                 .put(fileFormatColumn, new SerializableNativeValue(Slice.class, utf8Slice("rctext")))
                                 .put(dummyColumn, new SerializableNativeValue(Long.class, 3L))
                                 .build(),
-                        Optional.<HiveBucket>absent()))
+                        Optional.empty()))
                 .add(new HivePartition(tablePartitionFormat,
                         TupleDomain.<HiveColumnHandle>all(),
                         "ds=2012-12-29/file_format=rcbinary/dummy=4",
@@ -257,10 +256,10 @@ public abstract class AbstractTestHiveClient
                                 .put(fileFormatColumn, new SerializableNativeValue(Slice.class, utf8Slice("rcbinary")))
                                 .put(dummyColumn, new SerializableNativeValue(Long.class, 4L))
                                 .build(),
-                        Optional.<HiveBucket>absent()))
+                        Optional.empty()))
                 .build();
         unpartitionedPartitions = ImmutableSet.<ConnectorPartition>of(new HivePartition(tableUnpartitioned, TupleDomain.<HiveColumnHandle>all()));
-        invalidPartition = new HivePartition(invalidTable, TupleDomain.<HiveColumnHandle>all(), "unknown", ImmutableMap.<ConnectorColumnHandle, SerializableNativeValue>of(), Optional.<HiveBucket>absent());
+        invalidPartition = new HivePartition(invalidTable, TupleDomain.<HiveColumnHandle>all(), "unknown", ImmutableMap.<ConnectorColumnHandle, SerializableNativeValue>of(), Optional.empty());
         timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(timeZoneId));
     }
 

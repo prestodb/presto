@@ -47,7 +47,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.base.Throwables;
@@ -94,6 +93,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -997,7 +997,7 @@ public class HiveClient
 
             Domain allowedDomain = predicate.getDomains().get(column);
             if (allowedDomain != null && !allowedDomain.includesValue(parsedValue.getValue())) {
-                return Optional.absent();
+                return Optional.empty();
             }
             builder.put(column, parsedValue);
         }

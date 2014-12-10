@@ -22,7 +22,6 @@ import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
@@ -32,6 +31,7 @@ import org.joda.time.DateTimeZone;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 

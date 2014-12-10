@@ -24,7 +24,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
@@ -58,6 +57,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executor;
@@ -340,14 +340,14 @@ class HiveSplitSourceProvider
         FileStatus[] statuses = listStatus(fs, path);
 
         if (statuses.length != bucket.getBucketCount()) {
-            return Optional.absent();
+            return Optional.empty();
         }
 
         Map<String, FileStatus> map = new HashMap<>();
         List<String> paths = new ArrayList<>();
         for (FileStatus status : statuses) {
             if (!isFile(status)) {
-                return Optional.absent();
+                return Optional.empty();
             }
             String pathString = status.getPath().toString();
             map.put(pathString, status);
