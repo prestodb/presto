@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.cli;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -157,22 +156,10 @@ public class AlignedTablePrinter
         Iterable<List<String>> hexLines = partition(hexPairs, bytesPerLine);
 
         // lines: ["61 62 63", ...]
-        Iterable<String> lines = transform(hexLines, joinerFunction(HEX_BYTE_JOINER));
+        Iterable<String> lines = transform(hexLines, HEX_BYTE_JOINER::join);
 
         // joined: "61 62 63\n..."
         return HEX_LINE_JOINER.join(lines);
-    }
-
-    private static Function<Iterable<String>, String> joinerFunction(final Joiner joiner)
-    {
-        return new Function<Iterable<String>, String>()
-        {
-            @Override
-            public String apply(Iterable<String> iterable)
-            {
-                return joiner.join(iterable);
-            }
-        };
     }
 
     private static String center(String s, int maxWidth, int padding)
