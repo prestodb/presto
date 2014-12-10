@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.byteCode;
 
-import com.google.common.base.Function;
-
 import javax.annotation.concurrent.Immutable;
 
 @Immutable
@@ -70,8 +68,8 @@ public class NamedParameterDefinition
         return sb.toString();
     }
 
-    public static Function<NamedParameterDefinition, String> getSourceString()
+    public String getSourceString()
     {
-        return input -> input.getType().getJavaClassName() + " " + input.getName();
+        return getType().getJavaClassName() + " " + getName();
     }
 }

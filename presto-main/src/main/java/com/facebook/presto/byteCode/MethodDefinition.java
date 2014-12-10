@@ -30,7 +30,6 @@ import java.util.List;
 
 import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.toAccessModifier;
-import static com.facebook.presto.byteCode.NamedParameterDefinition.getSourceString;
 import static com.facebook.presto.byteCode.ParameterizedType.toParameterizedType;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.google.common.collect.Iterables.transform;
@@ -269,7 +268,7 @@ public class MethodDefinition
         Joiner.on(' ').appendTo(sb, access).append(' ');
         sb.append(returnType.getJavaClassName()).append(' ');
         sb.append(name).append('(');
-        Joiner.on(", ").appendTo(sb, transform(parameters, getSourceString())).append(')');
+        Joiner.on(", ").appendTo(sb, transform(parameters, NamedParameterDefinition::getSourceString)).append(')');
         return sb.toString();
     }
 
