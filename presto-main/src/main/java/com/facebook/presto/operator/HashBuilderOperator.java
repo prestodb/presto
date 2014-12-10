@@ -113,7 +113,7 @@ public class HashBuilderOperator
         this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
         this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
 
-        this.pagesIndex = new PagesIndex(lookupSourceSupplier.getTypes(), expectedPositions, operatorContext);
+        this.pagesIndex = new PagesIndex(lookupSourceSupplier.getTypes(), expectedPositions);
     }
 
     @Override
@@ -135,7 +135,7 @@ public class HashBuilderOperator
             return;
         }
 
-        LookupSource lookupSource = pagesIndex.createLookupSource(hashChannels, hashChannel);
+        LookupSource lookupSource = pagesIndex.createLookupSource(hashChannels, operatorContext, hashChannel);
         lookupSourceSupplier.setLookupSource(lookupSource);
         finished = true;
     }
@@ -159,6 +159,7 @@ public class HashBuilderOperator
         checkState(!isFinished(), "Operator is already finished");
 
         pagesIndex.addPage(page);
+        operatorContext.setMemoryReservation(pagesIndex.getEstimatedSize().toBytes());
         operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
     }
 

@@ -63,7 +63,6 @@ public class PagesIndex
     private static final JoinCompiler joinCompiler = new JoinCompiler();
 
     private final List<Type> types;
-    private final OperatorContext operatorContext;
     private final LongArrayList valueAddresses;
     private final ObjectArrayList<Block>[] channels;
 
@@ -71,10 +70,9 @@ public class PagesIndex
     private long pagesMemorySize;
     private long estimatedSize;
 
-    public PagesIndex(List<Type> types, int expectedPositions, OperatorContext operatorContext)
+    public PagesIndex(List<Type> types, int expectedPositions)
     {
         this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.valueAddresses = new LongArrayList(expectedPositions);
 
         //noinspection rawtypes
@@ -120,7 +118,7 @@ public class PagesIndex
             valueAddresses.add(sliceAddress);
         }
 
-        estimatedSize = operatorContext.setMemoryReservation(calculateEstimatedSize());
+        estimatedSize = calculateEstimatedSize();
     }
 
     public DataSize getEstimatedSize()
@@ -246,12 +244,12 @@ public class PagesIndex
         };
     }
 
-    public LookupSource createLookupSource(List<Integer> joinChannels)
+    public LookupSource createLookupSource(List<Integer> joinChannels, OperatorContext operatorContext)
     {
-        return createLookupSource(joinChannels, Optional.empty());
+        return createLookupSource(joinChannels, operatorContext, Optional.empty());
     }
 
-    public LookupSource createLookupSource(List<Integer> joinChannels, Optional<Integer> hashChannel)
+    public LookupSource createLookupSource(List<Integer> joinChannels, OperatorContext operatorContext, Optional<Integer> hashChannel)
     {
         try {
             LookupSourceFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels);
