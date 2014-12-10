@@ -1574,15 +1574,6 @@ public class LocalExecutionPlanner
         return builder.build();
     }
 
-    private List<Type> getTypesForChannels(List<Type> types, List<Integer> channels)
-    {
-        ImmutableList.Builder<Type> builder = ImmutableList.builder();
-        for (int channel : channels) {
-            builder.add(types.get(channel));
-        }
-        return builder.build();
-    }
-
     private static class IdentityProjectionInfo
     {
         private final Map<Symbol, Integer> layout;
