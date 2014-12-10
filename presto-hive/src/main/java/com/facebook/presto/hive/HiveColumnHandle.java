@@ -23,12 +23,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import org.apache.hadoop.hive.metastore.api.FieldSchema;
-import org.apache.hadoop.hive.metastore.api.Table;
-
-import java.util.Map;
 
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -184,32 +178,6 @@ public class HiveColumnHandle
             public Integer apply(HiveColumnHandle input)
             {
                 return input.getHiveColumnIndex();
-            }
-        };
-    }
-
-    public static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter(Table table, final TypeManager typeManager)
-    {
-        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        for (FieldSchema field : Iterables.concat(table.getSd().getCols(), table.getPartitionKeys())) {
-            if (field.getComment() != null) {
-                builder.put(field.getName(), field.getComment());
-            }
-        }
-        final Map<String, String> columnComment = builder.build();
-
-        return new Function<HiveColumnHandle, ColumnMetadata>()
-        {
-            @Override
-            public ColumnMetadata apply(HiveColumnHandle input)
-            {
-                return new ColumnMetadata(
-                        input.getName(),
-                        typeManager.getType(input.getTypeSignature()),
-                        input.getOrdinalPosition(),
-                        input.isPartitionKey(),
-                        columnComment.get(input.getName()),
-                        false);
             }
         };
     }
