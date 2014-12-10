@@ -15,7 +15,6 @@ package com.facebook.presto.client;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -55,29 +54,5 @@ public class Column
     public ClientTypeSignature getTypeSignature()
     {
         return typeSignature;
-    }
-
-    public static Function<Column, String> nameGetter()
-    {
-        return new Function<Column, String>()
-        {
-            @Override
-            public String apply(Column input)
-            {
-                return input.getName();
-            }
-        };
-    }
-
-    public static Function<Column, String> typeGetter()
-    {
-        return new Function<Column, String>()
-        {
-            @Override
-            public String apply(Column input)
-            {
-                return input.getType();
-            }
-        };
     }
 }

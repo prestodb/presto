@@ -144,7 +144,7 @@ public class Query
     private void renderResults(PrintStream out, OutputFormat format, boolean interactive, QueryResults results)
             throws IOException
     {
-        List<String> fieldNames = Lists.transform(results.getColumns(), Column.nameGetter());
+        List<String> fieldNames = Lists.transform(results.getColumns(), Column::getName);
         if (interactive) {
             pageOutput(format, fieldNames);
         }
