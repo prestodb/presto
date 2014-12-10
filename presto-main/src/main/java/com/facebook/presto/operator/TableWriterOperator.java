@@ -13,14 +13,13 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.util.List;
@@ -40,21 +39,16 @@ public class TableWriterOperator
             implements OperatorFactory
     {
         private final int operatorId;
-        private final RecordSink recordSink;
+        private final ConnectorPageSink pageSink;
         private final List<Integer> inputChannels;
-        private final List<Type> recordTypes;
         private final Optional<Integer> sampleWeightChannel;
         private boolean closed;
 
-        public TableWriterOperatorFactory(int operatorId, RecordSink recordSink, List<Type> recordTypes, List<Integer> inputChannels, Optional<Integer> sampleWeightChannel)
+        public TableWriterOperatorFactory(int operatorId, ConnectorPageSink pageSink, List<Integer> inputChannels, Optional<Integer> sampleWeightChannel)
         {
             this.operatorId = operatorId;
             this.inputChannels = checkNotNull(inputChannels, "inputChannels is null");
-            this.recordSink = checkNotNull(recordSink, "recordSink is null");
-
-            checkNotNull(recordTypes, "types is null");
-            this.recordTypes = ImmutableList.copyOf(recordTypes);
-
+            this.pageSink = checkNotNull(pageSink, "pageSink is null");
             this.sampleWeightChannel = checkNotNull(sampleWeightChannel, "sampleWeightChannel is null");
         }
 
@@ -69,7 +63,7 @@ public class TableWriterOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext context = driverContext.addOperatorContext(operatorId, TableWriterOperator.class.getSimpleName());
-            return new TableWriterOperator(context, recordSink, recordTypes, inputChannels, sampleWeightChannel);
+            return new TableWriterOperator(context, pageSink, inputChannels, sampleWeightChannel);
         }
 
         @Override
@@ -85,23 +79,20 @@ public class TableWriterOperator
     }
 
     private final OperatorContext operatorContext;
-    private final RecordSink recordSink;
+    private final ConnectorPageSink pageSink;
     private final Optional<Integer> sampleWeightChannel;
-    private final List<Type> recordTypes;
     private final List<Integer> inputChannels;
 
     private State state = State.RUNNING;
     private long rowCount;
 
     public TableWriterOperator(OperatorContext operatorContext,
-            RecordSink recordSink,
-            List<Type> recordTypes,
+            ConnectorPageSink pageSink,
             List<Integer> inputChannels,
             Optional<Integer> sampleWeightChannel)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.recordSink = checkNotNull(recordSink, "recordSink is null");
-        this.recordTypes = recordTypes;
+        this.pageSink = checkNotNull(pageSink, "pageSink is null");
         this.sampleWeightChannel = checkNotNull(sampleWeightChannel, "sampleWeightChannel is null");
         this.inputChannels = checkNotNull(inputChannels, "inputChannels is null");
     }
@@ -150,52 +141,16 @@ public class TableWriterOperator
         checkNotNull(page, "page is null");
         checkState(state == State.RUNNING, "Operator is %s", state);
 
-        Block sampleWeightBlock = null;
-        if (sampleWeightChannel.isPresent()) {
-            sampleWeightBlock = page.getBlock(sampleWeightChannel.get());
-        }
-
         Block[] blocks = new Block[inputChannels.size()];
         for (int outputChannel = 0; outputChannel < inputChannels.size(); outputChannel++) {
             blocks[outputChannel] = page.getBlock(inputChannels.get(outputChannel));
         }
-
-        for (int position = 0; position < page.getPositionCount(); position++) {
-            long sampleWeight = 1;
-            if (sampleWeightBlock != null) {
-                sampleWeight = BIGINT.getLong(sampleWeightBlock, position);
-            }
-            recordSink.beginRecord(sampleWeight);
-            for (int i = 0; i < blocks.length; i++) {
-                writeField(position, blocks[i], recordTypes.get(i));
-            }
-            recordSink.finishRecord();
+        Block sampleWeightBlock = null;
+        if (sampleWeightChannel.isPresent()) {
+            sampleWeightBlock = page.getBlock(sampleWeightChannel.get());
         }
+        pageSink.appendPage(new Page(blocks), sampleWeightBlock);
         rowCount += page.getPositionCount();
-    }
-
-    private void writeField(int position, Block block, Type type)
-    {
-        if (block.isNull(position)) {
-            recordSink.appendNull();
-            return;
-        }
-
-        if (type.getJavaType() == boolean.class) {
-            recordSink.appendBoolean(type.getBoolean(block, position));
-        }
-        else if (type.getJavaType() == long.class) {
-            recordSink.appendLong(type.getLong(block, position));
-        }
-        else if (type.getJavaType() == double.class) {
-            recordSink.appendDouble(type.getDouble(block, position));
-        }
-        else if (type.getJavaType() == Slice.class) {
-            recordSink.appendString(type.getSlice(block, position).getBytes());
-        }
-        else {
-            throw new AssertionError("unimplemented type: " + type);
-        }
     }
 
     @Override
@@ -206,7 +161,7 @@ public class TableWriterOperator
         }
         state = State.FINISHED;
 
-        String fragment = recordSink.commit();
+        String fragment = pageSink.commit();
 
         PageBuilder page = new PageBuilder(TYPES);
         page.declarePosition();

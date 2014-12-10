@@ -37,4 +37,9 @@ public interface Connector
     ConnectorRecordSinkProvider getRecordSinkProvider();
 
     ConnectorIndexResolver getIndexResolver();
+
+    default ConnectorPageSinkProvider getPageSinkProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
 }

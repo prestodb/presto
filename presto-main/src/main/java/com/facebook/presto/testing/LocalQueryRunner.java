@@ -51,7 +51,6 @@ import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PageSourceOperator;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
-import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -63,6 +62,7 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
@@ -125,7 +125,7 @@ public class LocalQueryRunner
     private final SplitManager splitManager;
     private final PageSourceManager pageSourceManager;
     private final IndexManager indexManager;
-    private final RecordSinkManager recordSinkManager;
+    private final PageSinkManager pageSinkManager;
 
     private final ExpressionCompiler compiler;
     private final ConnectorManager connectorManager;
@@ -143,7 +143,7 @@ public class LocalQueryRunner
         this.nodeManager = new InMemoryNodeManager();
         this.typeRegistry = new TypeRegistry();
         this.indexManager = new IndexManager();
-        this.recordSinkManager = new RecordSinkManager();
+        this.pageSinkManager = new PageSinkManager();
 
         // sys schema
         SystemTablesMetadata systemTablesMetadata = new SystemTablesMetadata();
@@ -169,7 +169,7 @@ public class LocalQueryRunner
                 splitManager,
                 pageSourceManager,
                 indexManager,
-                recordSinkManager,
+                pageSinkManager,
                 new HandleResolver(),
                 ImmutableMap.<String, ConnectorFactory>of(),
                 nodeManager
@@ -381,7 +381,7 @@ public class LocalQueryRunner
                 sqlParser,
                 pageSourceManager,
                 indexManager,
-                recordSinkManager,
+                pageSinkManager,
                 null,
                 compiler,
                 new IndexJoinLookupStats(),

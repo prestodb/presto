@@ -45,7 +45,6 @@ import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
-import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.RowNumberOperator;
 import com.facebook.presto.operator.SampleOperator.SampleOperatorFactory;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator;
@@ -65,14 +64,15 @@ import com.facebook.presto.operator.index.IndexBuildDriverFactoryProvider;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.operator.index.IndexLookupSourceSupplier;
 import com.facebook.presto.operator.index.IndexSourceOperator;
+import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Index;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.MappedRecordSet;
+import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -174,7 +174,7 @@ public class LocalExecutionPlanner
 
     private final PageSourceProvider pageSourceProvider;
     private final IndexManager indexManager;
-    private final RecordSinkManager recordSinkManager;
+    private final PageSinkManager pageSinkManager;
     private final Supplier<ExchangeClient> exchangeClientSupplier;
     private final ExpressionCompiler compiler;
     private final boolean interpreterEnabled;
@@ -188,7 +188,7 @@ public class LocalExecutionPlanner
             SqlParser sqlParser,
             PageSourceProvider pageSourceProvider,
             IndexManager indexManager,
-            RecordSinkManager recordSinkManager,
+            PageSinkManager pageSinkManager,
             Supplier<ExchangeClient> exchangeClientSupplier,
             ExpressionCompiler compiler,
             IndexJoinLookupStats indexJoinLookupStats,
@@ -201,7 +201,7 @@ public class LocalExecutionPlanner
         this.exchangeClientSupplier = exchangeClientSupplier;
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
-        this.recordSinkManager = checkNotNull(recordSinkManager, "recordSinkManager is null");
+        this.pageSinkManager = checkNotNull(pageSinkManager, "pageSinkManager is null");
         this.compiler = checkNotNull(compiler, "compiler is null");
         this.indexJoinLookupStats = checkNotNull(indexJoinLookupStats, "indexJoinLookupStats is null");
         this.maxIndexMemorySize = checkNotNull(taskManagerConfig, "taskManagerConfig is null").getMaxTaskIndexMemoryUsage();
@@ -1298,17 +1298,13 @@ public class LocalExecutionPlanner
             Optional<Integer> sampleWeightChannel = node.getSampleWeightSymbol().map(exchange::symbolToChannel);
 
             // create the table writer
-            RecordSink recordSink = getRecordSink(node);
-
-            List<Type> types = node.getColumns().stream()
-                    .map(context.getTypes()::get)
-                    .collect(toImmutableList());
+            ConnectorPageSink pageSink = getPageSink(node);
 
             List<Integer> inputChannels = node.getColumns().stream()
                     .map(exchange::symbolToChannel)
                     .collect(toImmutableList());
 
-            OperatorFactory operatorFactory = new TableWriterOperatorFactory(context.getNextOperatorId(), recordSink, types, inputChannels, sampleWeightChannel);
+            OperatorFactory operatorFactory = new TableWriterOperatorFactory(context.getNextOperatorId(), pageSink, inputChannels, sampleWeightChannel);
 
             Map<Symbol, Integer> layout = ImmutableMap.<Symbol, Integer>builder()
                     .put(node.getOutputSymbols().get(0), 0)
@@ -1507,14 +1503,14 @@ public class LocalExecutionPlanner
         }
     }
 
-    private RecordSink getRecordSink(TableWriterNode node)
+    private ConnectorPageSink getPageSink(TableWriterNode node)
     {
         WriterTarget target = node.getTarget();
         if (target instanceof CreateHandle) {
-            return recordSinkManager.getRecordSink(((CreateHandle) target).getHandle());
+            return pageSinkManager.createPageSink(((CreateHandle) target).getHandle());
         }
         if (target instanceof InsertHandle) {
-            return recordSinkManager.getRecordSink(((InsertHandle) target).getHandle());
+            return pageSinkManager.createPageSink(((InsertHandle) target).getHandle());
         }
         throw new AssertionError("Unhandled target type: " + target.getClass().getName());
     }
