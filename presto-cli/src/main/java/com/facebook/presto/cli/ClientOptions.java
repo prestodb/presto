@@ -15,7 +15,6 @@ package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientSession;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
@@ -28,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TimeZone;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -136,7 +136,7 @@ public class ClientOptions
             List<String> nameParts = NAME_SPLITTER.splitToList(nameValue.get(0));
             checkArgument(nameParts.size() == 1 || nameParts.size() == 2, "Invalid session property: %s", property);
             if (nameParts.size() == 1) {
-                catalog = Optional.absent();
+                catalog = Optional.empty();
                 name = nameParts.get(0);
             }
             else {
@@ -163,8 +163,8 @@ public class ClientOptions
             checkArgument(!name.isEmpty(), "Session property name is empty");
 
             CharsetEncoder charsetEncoder = US_ASCII.newEncoder();
-            checkArgument(catalog.or("").indexOf('=') < 0, "Session property catalog must not contain '=': %s", name);
-            checkArgument(charsetEncoder.canEncode(catalog.or("")), "Session property catalog is not US_ASCII: %s", name);
+            checkArgument(catalog.orElse("").indexOf('=') < 0, "Session property catalog must not contain '=': %s", name);
+            checkArgument(charsetEncoder.canEncode(catalog.orElse("")), "Session property catalog is not US_ASCII: %s", name);
             checkArgument(name.indexOf('=') < 0, "Session property name must not contain '=': %s", name);
             checkArgument(charsetEncoder.canEncode(name), "Session property name is not US_ASCII: %s", name);
             checkArgument(charsetEncoder.canEncode(value), "Session property value is not US_ASCII: %s", value);
