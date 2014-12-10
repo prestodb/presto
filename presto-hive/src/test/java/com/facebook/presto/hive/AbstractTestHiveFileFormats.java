@@ -28,9 +28,7 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -65,10 +63,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.AbstractTestHiveFileFormats.TestColumn.nameGetter;
-import static com.facebook.presto.hive.AbstractTestHiveFileFormats.TestColumn.objectInspectorGetter;
-import static com.facebook.presto.hive.AbstractTestHiveFileFormats.TestColumn.partitionKeyFilter;
-import static com.facebook.presto.hive.AbstractTestHiveFileFormats.TestColumn.typeGetter;
 import static com.facebook.presto.hive.HiveClient.getType;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.HiveUtil.isArrayType;
@@ -242,14 +236,14 @@ public abstract class AbstractTestHiveFileFormats
             throws Exception
     {
         // filter out partition keys, which are not written to the file
-        testColumns = ImmutableList.copyOf(filter(testColumns, not(partitionKeyFilter())));
+        testColumns = ImmutableList.copyOf(filter(testColumns, not(TestColumn::isPartitionKey)));
 
         JobConf jobConf = new JobConf();
         ReaderWriterProfiler.setProfilerOptions(jobConf);
 
         Properties tableProperties = new Properties();
-        tableProperties.setProperty("columns", Joiner.on(',').join(transform(testColumns, nameGetter())));
-        tableProperties.setProperty("columns.types", Joiner.on(',').join(transform(testColumns, typeGetter())));
+        tableProperties.setProperty("columns", Joiner.on(',').join(transform(testColumns, TestColumn::getName)));
+        tableProperties.setProperty("columns.types", Joiner.on(',').join(transform(testColumns, TestColumn::getType)));
         serDe.initialize(new Configuration(), tableProperties);
 
         if (compressionCodec != null) {
@@ -279,8 +273,8 @@ public abstract class AbstractTestHiveFileFormats
             serDe.initialize(new Configuration(), tableProperties);
 
             SettableStructObjectInspector objectInspector = getStandardStructObjectInspector(
-                    ImmutableList.copyOf(transform(testColumns, nameGetter())),
-                    ImmutableList.copyOf(transform(testColumns, objectInspectorGetter())));
+                    ImmutableList.copyOf(transform(testColumns, TestColumn::getName)),
+                    ImmutableList.copyOf(transform(testColumns, TestColumn::getObjectInspector)));
 
             Object row = objectInspector.create();
 
@@ -486,54 +480,6 @@ public abstract class AbstractTestHiveFileFormats
             sb.append(", partitionKey=").append(partitionKey);
             sb.append('}');
             return sb.toString();
-        }
-
-        public static Function<TestColumn, String> nameGetter()
-        {
-            return new Function<TestColumn, String>()
-            {
-                @Override
-                public String apply(TestColumn input)
-                {
-                    return input.getName();
-                }
-            };
-        }
-
-        public static Function<TestColumn, String> typeGetter()
-        {
-            return new Function<TestColumn, String>()
-            {
-                @Override
-                public String apply(TestColumn input)
-                {
-                    return input.getType();
-                }
-            };
-        }
-
-        public static Predicate<TestColumn> partitionKeyFilter()
-        {
-            return new Predicate<TestColumn>()
-            {
-                @Override
-                public boolean apply(TestColumn input)
-                {
-                    return input.isPartitionKey();
-                }
-            };
-        }
-
-        public static Function<TestColumn, ObjectInspector> objectInspectorGetter()
-        {
-            return new Function<TestColumn, ObjectInspector>()
-            {
-                @Override
-                public ObjectInspector apply(TestColumn input)
-                {
-                    return input.getObjectInspector();
-                }
-            };
         }
     }
 }
