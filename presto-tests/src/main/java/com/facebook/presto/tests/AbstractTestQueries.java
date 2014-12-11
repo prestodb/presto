@@ -267,7 +267,7 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT approx_distinct(custkey) FROM orders");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT)
-                .row(971)
+                .row(996)
                 .build();
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -279,9 +279,9 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult actual = computeActual("SELECT orderstatus, approx_distinct(custkey) FROM orders GROUP BY orderstatus");
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row("O", 969)
-                .row("F", 964)
-                .row("P", 301)
+                .row("O", 995)
+                .row("F", 993)
+                .row("P", 304)
                 .build();
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());

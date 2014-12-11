@@ -13,16 +13,15 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.SliceState;
+import com.facebook.presto.operator.aggregation.state.HyperLogLogState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.SqlType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Murmur3;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import io.airlift.stats.cardinality.HyperLogLog;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -34,61 +33,77 @@ public final class ApproximateCountDistinctAggregations
     public static final InternalAggregationFunction LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS = new AggregationCompiler().generateAggregationFunction(ApproximateCountDistinctAggregations.class, BIGINT, ImmutableList.<Type>of(BIGINT));
     public static final InternalAggregationFunction DOUBLE_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS = new AggregationCompiler().generateAggregationFunction(ApproximateCountDistinctAggregations.class, BIGINT, ImmutableList.<Type>of(DOUBLE));
     public static final InternalAggregationFunction VARBINARY_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS = new AggregationCompiler().generateAggregationFunction(ApproximateCountDistinctAggregations.class, BIGINT, ImmutableList.<Type>of(VARCHAR));
-    private static final HyperLogLog ESTIMATOR = new HyperLogLog(2048);
+    private static final int NUMBER_OF_BUCKETS = 2048;
 
     private ApproximateCountDistinctAggregations() {}
 
     @InputFunction
-    public static void input(SliceState state, @SqlType(StandardTypes.VARCHAR) Slice value)
+    public static void input(HyperLogLogState state, @SqlType(StandardTypes.VARCHAR) Slice value)
     {
-        update(state, Murmur3.hash64(value));
+        HyperLogLog hll = getOrCreateHyperLogLog(state);
+        state.addMemoryUsage(-hll.estimatedInMemorySize());
+        hll.add(value);
+        state.addMemoryUsage(hll.estimatedInMemorySize());
     }
 
     @InputFunction
-    public static void input(SliceState state, @SqlType(StandardTypes.DOUBLE) double value)
+    public static void input(HyperLogLogState state, @SqlType(StandardTypes.DOUBLE) double value)
     {
-        update(state, Murmur3.hash64(Double.doubleToLongBits(value)));
+        input(state, Double.doubleToLongBits(value));
     }
 
     @InputFunction
-    public static void input(SliceState state, @SqlType(StandardTypes.BIGINT) long value)
+    public static void input(HyperLogLogState state, @SqlType(StandardTypes.BIGINT) long value)
     {
-        update(state, Murmur3.hash64(value));
+        HyperLogLog hll = getOrCreateHyperLogLog(state);
+        state.addMemoryUsage(-hll.estimatedInMemorySize());
+        hll.add(value);
+        state.addMemoryUsage(hll.estimatedInMemorySize());
     }
 
-    private static void update(SliceState state, long hash)
+    private static HyperLogLog getOrCreateHyperLogLog(HyperLogLogState state)
     {
-        if (state.getSlice() == null) {
-            state.setSlice(Slices.allocate(ESTIMATOR.getSizeInBytes()));
+        HyperLogLog hll = state.getHyperLogLog();
+        if (hll == null) {
+            hll = HyperLogLog.newInstance(NUMBER_OF_BUCKETS);
+            state.setHyperLogLog(hll);
+            state.addMemoryUsage(hll.estimatedInMemorySize());
         }
-        ESTIMATOR.update(hash, state.getSlice(), 0);
+        return hll;
     }
 
     @CombineFunction
-    public static void combine(SliceState state, SliceState otherState)
+    public static void combineState(HyperLogLogState state, HyperLogLogState otherState)
     {
-        if (state.getSlice() == null) {
-            state.setSlice(otherState.getSlice());
+        HyperLogLog input = otherState.getHyperLogLog();
+
+        HyperLogLog previous = state.getHyperLogLog();
+        if (previous == null) {
+            state.setHyperLogLog(input);
+            state.addMemoryUsage(input.estimatedInMemorySize());
         }
         else {
-            ESTIMATOR.mergeInto(state.getSlice(), 0, otherState.getSlice(), 0);
+            state.addMemoryUsage(-previous.estimatedInMemorySize());
+            previous.mergeWith(input);
+            state.addMemoryUsage(previous.estimatedInMemorySize());
         }
     }
 
     @OutputFunction(StandardTypes.BIGINT)
-    public static void output(SliceState state, BlockBuilder out)
+    public static void evaluateFinal(HyperLogLogState state, BlockBuilder out)
     {
-        if (state.getSlice() != null) {
-            BIGINT.writeLong(out, ESTIMATOR.estimate(state.getSlice(), 0));
+        HyperLogLog hyperLogLog = state.getHyperLogLog();
+        if (hyperLogLog == null) {
+            BIGINT.writeLong(out, 0);
         }
         else {
-            BIGINT.writeLong(out, 0);
+            BIGINT.writeLong(out, hyperLogLog.cardinality());
         }
     }
 
     @VisibleForTesting
     public static double getStandardError()
     {
-        return ESTIMATOR.getStandardError();
+        return 1.04 / Math.sqrt(NUMBER_OF_BUCKETS);
     }
 }
