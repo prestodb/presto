@@ -63,10 +63,22 @@ Approximate Aggregate Functions
     This function provides an approximation of ``count(DISTINCT x)``.
     Zero is returned if all input values are null.
 
-    This function uses HyperLogLog configured with 2048 buckets. It should
-    produce a standard error of 2.3%, which is the standard deviation of the
-    (approximately normal) error distribution over all possible sets. It does
-    not guarantee an upper bound on the error for any specific input set.
+    This function should produce a standard error of 2.3%, which is the
+    standard deviation of the (approximately normal) error distribution over
+    all possible sets. It does not guarantee an upper bound on the error for
+    any specific input set.
+
+.. function:: approx_distinct(x, e) -> bigint
+
+    Returns the approximate number of distinct input values.
+    This function provides an approximation of ``count(DISTINCT x)``.
+    Zero is returned if all input values are null.
+
+    This function should produce a standard error of no more than ``e``, which
+    is the standard deviation of the (approximately normal) error distribution
+    over all possible sets. It does not guarantee an upper bound on the error
+    for any specific input set. The current implementation of this function
+    requires that ``e`` be in the range: [0.01149, 0.26000].
 
 .. function:: approx_percentile(x, p) -> [same as input]
 
