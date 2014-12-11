@@ -180,7 +180,8 @@ public final class HiveUtil
             throws ClassNotFoundException
     {
         // CDH uses different names for Parquet
-        if ("parquet.hive.DeprecatedParquetInputFormat".equals(inputFormatName)) {
+        if ("parquet.hive.DeprecatedParquetInputFormat".equals(inputFormatName) ||
+            "parquet.hive.MapredParquetInputFormat".equals(inputFormatName)) {
             return MapredParquetInputFormat.class;
         }
 
