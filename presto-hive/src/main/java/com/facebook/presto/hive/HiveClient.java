@@ -964,7 +964,7 @@ public class HiveClient
         TupleDomain<HiveColumnHandle> compactEffectivePredicate = toCompactTupleDomain(effectivePredicate);
 
         if (table.getPartitionKeys().isEmpty()) {
-            return new ConnectorPartitionResult(ImmutableList.<ConnectorPartition>of(new HivePartition(tableName, compactEffectivePredicate)), effectivePredicate);
+            return new ConnectorPartitionResult(ImmutableList.<ConnectorPartition>of(new HivePartition(tableName, compactEffectivePredicate, bucket)), effectivePredicate);
         }
         else {
             List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table, 0);
