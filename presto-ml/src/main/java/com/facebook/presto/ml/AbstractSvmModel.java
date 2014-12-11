@@ -66,6 +66,7 @@ public abstract class AbstractSvmModel
         }
         finally {
             if (file != null) {
+                //noinspection ResultOfMethodCallIgnored
                 file.delete();
             }
         }
@@ -96,16 +97,9 @@ public abstract class AbstractSvmModel
         }
     }
 
-    private static Callable<svm_model> getTrainingFunction(final svm_problem problem, final svm_parameter param)
+    private static Callable<svm_model> getTrainingFunction(svm_problem problem, svm_parameter param)
     {
-        return new Callable<svm_model>() {
-            @Override
-            public svm_model call()
-                    throws Exception
-            {
-                return svm.svm_train(problem, param);
-            }
-        };
+        return () -> svm.svm_train(problem, param);
     }
 
     protected abstract int getLibsvmType();
