@@ -61,11 +61,9 @@ public class TestEvaluateClassifierPredictions
         Block block = finalOut.build();
 
         String output = VARCHAR.getSlice(block, 0).toStringUtf8();
-        List<String> parts = ImmutableList.copyOf(Splitter.on('\n').split(output));
-        assertEquals(parts.size(), 3);
+        List<String> parts = ImmutableList.copyOf(Splitter.on('\n').omitEmptyStrings().split(output));
+        assertEquals(parts.size(), 7, output);
         assertEquals(parts.get(0), "Accuracy: 1/2 (50.00%)");
-        assertEquals(parts.get(1), "Precision: 1/1 (100.00%)");
-        assertEquals(parts.get(2), "Recall: 1/2 (50.00%)");
     }
 
     private static Page getPage()

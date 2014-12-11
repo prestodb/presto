@@ -17,15 +17,20 @@ import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.CombineFunction;
 import com.facebook.presto.operator.aggregation.InputFunction;
 import com.facebook.presto.operator.aggregation.OutputFunction;
-import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Sets.union;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static java.lang.String.format;
 
 @AggregationFunction("evaluate_classifier_predictions")
 public final class EvaluateClassifierPredictionsAggregation
@@ -35,71 +40,76 @@ public final class EvaluateClassifierPredictionsAggregation
     @InputFunction
     public static void input(EvaluateClassifierPredictionsState state, @SqlType(StandardTypes.BIGINT) long truth, @SqlType(StandardTypes.BIGINT) long prediction)
     {
-        checkArgument(prediction == 1 || prediction == 0, "evaluate_predictions only supports binary classifiers");
-        checkArgument(truth == 1 || truth == 0, "evaluate_predictions only supports binary classifiers");
+        input(state, Slices.utf8Slice(String.valueOf(truth)), Slices.utf8Slice(String.valueOf(prediction)));
+    }
 
-        if (truth == 1) {
-            if (prediction == 1) {
-                state.setTruePositives(state.getTruePositives() + 1);
+    @InputFunction
+    public static void input(EvaluateClassifierPredictionsState state, @SqlType(StandardTypes.VARCHAR) Slice truth, @SqlType(StandardTypes.VARCHAR) Slice prediction)
+    {
+        if (truth.equals(prediction)) {
+            String key = truth.toStringUtf8();
+            if (!state.getTruePositives().containsKey(key)) {
+                state.addMemoryUsage(truth.length() + SIZE_OF_INT);
             }
-            else {
-                state.setFalseNegatives(state.getFalseNegatives() + 1);
-            }
+            state.getTruePositives().put(key, state.getTruePositives().getOrDefault(key, 0) + 1);
         }
         else {
-            if (prediction == 0) {
-                state.setTrueNegatives(state.getTrueNegatives() + 1);
+            String truthKey = truth.toStringUtf8();
+            String predictionKey = prediction.toStringUtf8();
+            if (!state.getFalsePositives().containsKey(predictionKey)) {
+                state.addMemoryUsage(prediction.length() + SIZE_OF_INT);
             }
-            else {
-                state.setFalsePositives(state.getFalsePositives() + 1);
+            state.getFalsePositives().put(predictionKey, state.getFalsePositives().getOrDefault(predictionKey, 0) + 1);
+            if (!state.getFalseNegatives().containsKey(truthKey)) {
+                state.addMemoryUsage(truth.length() + SIZE_OF_INT);
             }
+            state.getFalseNegatives().put(truthKey, state.getFalseNegatives().getOrDefault(truthKey, 0) + 1);
         }
     }
 
     @CombineFunction
     public static void combine(EvaluateClassifierPredictionsState state, EvaluateClassifierPredictionsState scratchState)
     {
-        state.setTruePositives(state.getTruePositives() + scratchState.getTruePositives());
-        state.setFalsePositives(state.getFalsePositives() + scratchState.getFalsePositives());
-        state.setTrueNegatives(state.getTrueNegatives() + scratchState.getTrueNegatives());
-        state.setFalseNegatives(state.getFalseNegatives() + scratchState.getFalseNegatives());
+        int size = 0;
+        size += mergeMaps(state.getTruePositives(), scratchState.getTruePositives());
+        size += mergeMaps(state.getFalsePositives(), scratchState.getFalsePositives());
+        size += mergeMaps(state.getFalseNegatives(), scratchState.getFalseNegatives());
+        state.addMemoryUsage(size);
+    }
+
+    // Returns the estimated memory increase in map
+    private static int mergeMaps(Map<String, Integer> map, Map<String, Integer> other)
+    {
+        int deltaSize = 0;
+        for (Map.Entry<String, Integer> entry : other.entrySet()) {
+            if (!map.containsKey(entry.getKey())) {
+                deltaSize += entry.getKey().getBytes().length + SIZE_OF_INT;
+            }
+            map.put(entry.getKey(), map.getOrDefault(entry.getKey(), 0) + other.getOrDefault(entry.getKey(), 0));
+        }
+        return deltaSize;
     }
 
     @OutputFunction(StandardTypes.VARCHAR)
     public static void output(EvaluateClassifierPredictionsState state, BlockBuilder out)
     {
-        long truePositives = state.getTruePositives();
-        long falsePositives = state.getFalsePositives();
-        long trueNegatives = state.getTrueNegatives();
-        long falseNegatives = state.getFalseNegatives();
-
         StringBuilder sb = new StringBuilder();
-        long correct = trueNegatives + truePositives;
-        long total = truePositives + trueNegatives + falsePositives + falseNegatives;
-        sb.append(String.format(Locale.US, "Accuracy: %d/%d (%.2f%%)\n", correct, total, 100.0 * correct / (double) total));
-        sb.append(String.format(Locale.US, "Precision: %d/%d (%.2f%%)\n", truePositives, truePositives + falsePositives, 100.0 * truePositives / (double) (truePositives + falsePositives)));
-        sb.append(String.format(Locale.US, "Recall: %d/%d (%.2f%%)", truePositives, truePositives + falseNegatives, 100.0 * truePositives / (double) (truePositives + falseNegatives)));
+        long correct = state.getTruePositives()
+                .values()
+                .stream()
+                .reduce(0, Integer::sum);
+        long total = correct + state.getFalsePositives().values().stream().reduce(0, Integer::sum);
+        sb.append(format(Locale.US, "Accuracy: %d/%d (%.2f%%)\n", correct, total, 100.0 * correct / (double) total));
+        Set<String> labels = union(union(state.getTruePositives().keySet(), state.getFalsePositives().keySet()), state.getFalseNegatives().keySet());
+        for (String label : labels) {
+            int truePositives = state.getTruePositives().getOrDefault(label, 0);
+            int falsePositives = state.getFalsePositives().getOrDefault(label, 0);
+            int falseNegatives = state.getFalseNegatives().getOrDefault(label, 0);
+            sb.append(format(Locale.US, "Class '%s'\n", label));
+            sb.append(format(Locale.US, "Precision: %d/%d (%.2f%%)\n", truePositives, truePositives + falsePositives, 100.0 * truePositives / (double) (truePositives + falsePositives)));
+            sb.append(format(Locale.US, "Recall: %d/%d (%.2f%%)\n", truePositives, truePositives + falseNegatives, 100.0 * truePositives / (double) (truePositives + falseNegatives)));
+        }
 
         VARCHAR.writeString(out, sb.toString());
-    }
-
-    public interface EvaluateClassifierPredictionsState
-            extends AccumulatorState
-    {
-        long getTruePositives();
-
-        void setTruePositives(long value);
-
-        long getFalsePositives();
-
-        void setFalsePositives(long value);
-
-        long getTrueNegatives();
-
-        void setTrueNegatives(long value);
-
-        long getFalseNegatives();
-
-        void setFalseNegatives(long value);
     }
 }
