@@ -274,10 +274,37 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testApproximateCountDistinctWithStandardError()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT approx_distinct(custkey, 0.023) FROM orders");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+                .row(996)
+                .build();
+
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
     public void testApproximateCountDistinctGroupBy()
             throws Exception
     {
         MaterializedResult actual = computeActual("SELECT orderstatus, approx_distinct(custkey) FROM orders GROUP BY orderstatus");
+        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+                .row("O", 995)
+                .row("F", 993)
+                .row("P", 304)
+                .build();
+
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testApproximateCountDistinctGroupByWithStandardError()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT orderstatus, approx_distinct(custkey, 0.023) FROM orders GROUP BY orderstatus");
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
                 .row("O", 995)
                 .row("F", 993)

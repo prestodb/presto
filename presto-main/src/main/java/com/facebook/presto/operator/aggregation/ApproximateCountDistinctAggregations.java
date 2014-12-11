@@ -26,21 +26,28 @@ import io.airlift.stats.cardinality.HyperLogLog;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.base.Preconditions.checkArgument;
 
 @AggregationFunction("approx_distinct")
 public final class ApproximateCountDistinctAggregations
 {
-    public static final InternalAggregationFunction LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS = new AggregationCompiler().generateAggregationFunction(ApproximateCountDistinctAggregations.class, BIGINT, ImmutableList.<Type>of(BIGINT));
-    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS = new AggregationCompiler().generateAggregationFunction(ApproximateCountDistinctAggregations.class, BIGINT, ImmutableList.<Type>of(DOUBLE));
-    public static final InternalAggregationFunction VARBINARY_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS = new AggregationCompiler().generateAggregationFunction(ApproximateCountDistinctAggregations.class, BIGINT, ImmutableList.<Type>of(VARCHAR));
-    private static final int NUMBER_OF_BUCKETS = 2048;
+    public static final InternalAggregationFunction LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS = new AggregationCompiler().generateAggregationFunction(ApproximateCountDistinctAggregations.class, BIGINT, ImmutableList.<Type>of(BIGINT, DOUBLE));
+    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS = new AggregationCompiler().generateAggregationFunction(ApproximateCountDistinctAggregations.class, BIGINT, ImmutableList.<Type>of(DOUBLE, DOUBLE));
+    public static final InternalAggregationFunction VARBINARY_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS = new AggregationCompiler().generateAggregationFunction(ApproximateCountDistinctAggregations.class, BIGINT, ImmutableList.<Type>of(VARCHAR, DOUBLE));
+    private static final double DEFAULT_STANDARD_ERROR = 0.023;
 
     private ApproximateCountDistinctAggregations() {}
 
     @InputFunction
-    public static void input(HyperLogLogState state, @SqlType(StandardTypes.VARCHAR) Slice value)
+    public static void input(HyperLogLogState state, @SqlType(StandardTypes.BIGINT) long value)
     {
-        HyperLogLog hll = getOrCreateHyperLogLog(state);
+        input(state, value, DEFAULT_STANDARD_ERROR);
+    }
+
+    @InputFunction
+    public static void input(HyperLogLogState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DOUBLE) double maxStandardError)
+    {
+        HyperLogLog hll = getOrCreateHyperLogLog(state, maxStandardError);
         state.addMemoryUsage(-hll.estimatedInMemorySize());
         hll.add(value);
         state.addMemoryUsage(hll.estimatedInMemorySize());
@@ -49,27 +56,51 @@ public final class ApproximateCountDistinctAggregations
     @InputFunction
     public static void input(HyperLogLogState state, @SqlType(StandardTypes.DOUBLE) double value)
     {
-        input(state, Double.doubleToLongBits(value));
+        input(state, value, DEFAULT_STANDARD_ERROR);
     }
 
     @InputFunction
-    public static void input(HyperLogLogState state, @SqlType(StandardTypes.BIGINT) long value)
+    public static void input(HyperLogLogState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.DOUBLE) double maxStandardError)
     {
-        HyperLogLog hll = getOrCreateHyperLogLog(state);
+        input(state, Double.doubleToLongBits(value), maxStandardError);
+    }
+
+    @InputFunction
+    public static void input(HyperLogLogState state, @SqlType(StandardTypes.VARCHAR) Slice value)
+    {
+        input(state, value, DEFAULT_STANDARD_ERROR);
+    }
+
+    @InputFunction
+    public static void input(HyperLogLogState state, @SqlType(StandardTypes.VARCHAR) Slice value, @SqlType(StandardTypes.DOUBLE) double maxStandardError)
+    {
+        HyperLogLog hll = getOrCreateHyperLogLog(state, maxStandardError);
         state.addMemoryUsage(-hll.estimatedInMemorySize());
         hll.add(value);
         state.addMemoryUsage(hll.estimatedInMemorySize());
     }
 
-    private static HyperLogLog getOrCreateHyperLogLog(HyperLogLogState state)
+    private static HyperLogLog getOrCreateHyperLogLog(HyperLogLogState state, double maxStandardError)
     {
         HyperLogLog hll = state.getHyperLogLog();
         if (hll == null) {
-            hll = HyperLogLog.newInstance(NUMBER_OF_BUCKETS);
+            hll = HyperLogLog.newInstance(standardErrorToBuckets(maxStandardError));
             state.setHyperLogLog(hll);
             state.addMemoryUsage(hll.estimatedInMemorySize());
         }
         return hll;
+    }
+
+    @VisibleForTesting
+    static int standardErrorToBuckets(double maxStandardError)
+    {
+        checkArgument(maxStandardError > 0.0, "Max standard error must be greater than zero");
+        return log2Ceiling((int) Math.ceil(1.0816 / (maxStandardError * maxStandardError)));
+    }
+
+    private static int log2Ceiling(int value)
+    {
+        return Integer.highestOneBit(value - 1) << 1;
     }
 
     @CombineFunction
@@ -99,11 +130,5 @@ public final class ApproximateCountDistinctAggregations
         else {
             BIGINT.writeLong(out, hyperLogLog.cardinality());
         }
-    }
-
-    @VisibleForTesting
-    public static double getStandardError()
-    {
-        return 1.04 / Math.sqrt(NUMBER_OF_BUCKETS);
     }
 }
