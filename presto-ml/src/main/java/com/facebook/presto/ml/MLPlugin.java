@@ -36,7 +36,7 @@ public class MLPlugin
     private TypeManager typeManager;
 
     @Override
-    public synchronized void setOptionalConfig(Map<String, String> optionalConfig)
+    public void setOptionalConfig(Map<String, String> optionalConfig)
     {
     }
 
@@ -47,7 +47,7 @@ public class MLPlugin
     }
 
     @Override
-    public synchronized <T> List<T> getServices(Class<T> type)
+    public <T> List<T> getServices(Class<T> type)
     {
         if (type == FunctionFactory.class) {
             return ImmutableList.of(type.cast(new MLFunctionFactory(typeManager)));
