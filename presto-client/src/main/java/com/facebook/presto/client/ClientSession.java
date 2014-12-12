@@ -38,27 +38,13 @@ public class ClientSession
     private final Map<String, String> properties;
     private final boolean debug;
 
-    public static ClientSession withCatalog(ClientSession session, String catalog)
+    public static ClientSession withCatalogAndSchema(ClientSession session, String catalog, String schema)
     {
         return new ClientSession(
                 session.getServer(),
                 session.getUser(),
                 session.getSource(),
                 catalog,
-                session.getSchema(),
-                session.getTimeZoneId(),
-                session.getLocale(),
-                session.getProperties(),
-                session.isDebug());
-    }
-
-    public static ClientSession withSchema(ClientSession session, String schema)
-    {
-        return new ClientSession(
-                session.getServer(),
-                session.getUser(),
-                session.getSource(),
-                session.getCatalog(),
                 schema,
                 session.getTimeZoneId(),
                 session.getLocale(),
