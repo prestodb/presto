@@ -53,11 +53,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveBooleanParser.isFalse;
-import static com.facebook.presto.hive.HiveBooleanParser.isTrue;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
-import static com.facebook.presto.hive.NumberParser.parseDouble;
-import static com.facebook.presto.hive.NumberParser.parseLong;
+import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -68,6 +68,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static parquet.schema.OriginalType.LIST;
 import static parquet.schema.OriginalType.MAP;
@@ -150,38 +151,25 @@ class ParquetHiveRecordCursor
 
                 byte[] bytes = partitionKey.getValue().getBytes(UTF_8);
 
+                String name = names[columnIndex];
+                Type type = types[columnIndex];
                 if (HiveUtil.isHiveNull(bytes)) {
                     nullsRowDefault[columnIndex] = true;
                 }
-                else if (types[columnIndex].equals(BOOLEAN)) {
-                    if (isTrue(bytes, 0, bytes.length)) {
-                        booleans[columnIndex] = true;
-                    }
-                    else if (isFalse(bytes, 0, bytes.length)) {
-                        booleans[columnIndex] = false;
-                    }
-                    else {
-                        String valueString = new String(bytes, UTF_8);
-                        throw new IllegalArgumentException(String.format("Invalid partition value '%s' for BOOLEAN partition key %s", valueString, names[columnIndex]));
-                    }
+                else if (type.equals(BOOLEAN)) {
+                    booleans[columnIndex] = booleanPartitionKey(partitionKey.getValue(), name);
                 }
-                else if (types[columnIndex].equals(BIGINT)) {
-                    if (bytes.length == 0) {
-                        throw new IllegalArgumentException(String.format("Invalid partition value '' for BIGINT partition key %s", names[columnIndex]));
-                    }
-                    longs[columnIndex] = parseLong(bytes, 0, bytes.length);
+                else if (type.equals(BIGINT)) {
+                    longs[columnIndex] = bigintPartitionKey(partitionKey.getValue(), name);
                 }
-                else if (types[columnIndex].equals(DOUBLE)) {
-                    if (bytes.length == 0) {
-                        throw new IllegalArgumentException(String.format("Invalid partition value '' for DOUBLE partition key %s", names[columnIndex]));
-                    }
-                    doubles[columnIndex] = parseDouble(bytes, 0, bytes.length);
+                else if (type.equals(DOUBLE)) {
+                    doubles[columnIndex] = doublePartitionKey(partitionKey.getValue(), name);
                 }
-                else if (types[columnIndex].equals(VARCHAR)) {
+                else if (type.equals(VARCHAR)) {
                     slices[columnIndex] = Slices.wrappedBuffer(bytes);
                 }
                 else {
-                    throw new UnsupportedOperationException("Unsupported column type: " + types[columnIndex]);
+                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for partition key: %s", type.getDisplayName(), name));
                 }
             }
         }
