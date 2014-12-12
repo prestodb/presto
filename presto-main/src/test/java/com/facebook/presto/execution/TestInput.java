@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.execution;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static org.testng.Assert.assertEquals;
 
@@ -29,9 +30,9 @@ public class TestInput
             throws Exception
     {
         Input expected = new Input("connectorId", "schema", "table", ImmutableList.of(
-                new Column("column1", "string", Optional.<SimpleDomain>absent()),
-                new Column("column2", "string", Optional.<SimpleDomain>absent()),
-                new Column("column3", "string", Optional.<SimpleDomain>absent())));
+                new Column("column1", "string", Optional.empty()),
+                new Column("column2", "string", Optional.empty()),
+                new Column("column3", "string", Optional.empty())));
 
         String json = codec.toJson(expected);
         Input actual = codec.fromJson(json);

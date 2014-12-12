@@ -106,7 +106,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
-import static com.facebook.presto.util.Optionals.guavaOptional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -454,7 +453,7 @@ public class LocalQueryRunner
         }
 
         // Otherwise return all partitions
-        PartitionResult matchingPartitions = splitManager.getPartitions(node.getTable(), guavaOptional(Optional.empty()));
+        PartitionResult matchingPartitions = splitManager.getPartitions(node.getTable(), Optional.empty());
         return matchingPartitions.getPartitions();
     }
 
@@ -470,7 +469,7 @@ public class LocalQueryRunner
             String... columnNames)
     {
         // look up the table
-        TableHandle tableHandle = metadata.getTableHandle(session, new QualifiedTableName(session.getCatalog(), session.getSchema(), tableName)).orNull();
+        TableHandle tableHandle = metadata.getTableHandle(session, new QualifiedTableName(session.getCatalog(), session.getSchema(), tableName)).orElse(null);
         checkArgument(tableHandle != null, "Table %s does not exist", tableName);
 
         // lookup the columns
@@ -529,7 +528,7 @@ public class LocalQueryRunner
     private Split getLocalQuerySplit(TableHandle tableHandle)
     {
         try {
-            List<Partition> partitions = splitManager.getPartitions(tableHandle, guavaOptional(Optional.empty())).getPartitions();
+            List<Partition> partitions = splitManager.getPartitions(tableHandle, Optional.empty()).getPartitions();
             SplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitions);
             Split split = Iterables.getOnlyElement(splitSource.getNextBatch(1000));
             while (!splitSource.isFinished()) {

@@ -50,7 +50,6 @@ import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -63,9 +62,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.util.Optionals.guavaOptional;
 import static com.google.common.base.Preconditions.checkState;
 
 class QueryPlanner
@@ -178,7 +177,7 @@ class QueryPlanner
                 new ValuesNode(idAllocator.getNextId(), ImmutableList.<Symbol>of(), ImmutableList.of(emptyRow)),
                 new TupleDescriptor(),
                 ImmutableList.<Symbol>of(),
-                Optional.<Symbol>absent());
+                Optional.empty());
     }
 
     private PlanBuilder filter(PlanBuilder subPlan, Expression predicate)
@@ -356,7 +355,7 @@ class QueryPlanner
                     subPlan.getRoot(),
                     entry.getValue(),
                     builder.build(),
-                    Optional.<Symbol>absent());
+                    Optional.empty());
             subPlan = new PlanBuilder(subPlan.getTranslations(), markDistinct, subPlan.getSampleWeight());
         }
 
@@ -365,8 +364,8 @@ class QueryPlanner
             confidence = Double.valueOf(analysis.getQuery().getApproximate().get().getConfidence()) / 100.0;
         }
 
-        AggregationNode aggregationNode = new AggregationNode(idAllocator.getNextId(), subPlan.getRoot(), ImmutableList.copyOf(groupBySymbols), aggregationAssignments.build(), functions.build(), new ImmutableMap.Builder<Symbol, Symbol>().putAll(masks).build(), subPlan.getSampleWeight(), confidence, Optional.<Symbol>absent());
-        subPlan = new PlanBuilder(translations, aggregationNode, Optional.<Symbol>absent());
+        AggregationNode aggregationNode = new AggregationNode(idAllocator.getNextId(), subPlan.getRoot(), ImmutableList.copyOf(groupBySymbols), aggregationAssignments.build(), functions.build(), new ImmutableMap.Builder<Symbol, Symbol>().putAll(masks).build(), subPlan.getSampleWeight(), confidence, Optional.empty());
+        subPlan = new PlanBuilder(translations, aggregationNode, Optional.empty());
 
         // 3. Post-projection
         // Add back the implicit casts that we removed in 2.a
@@ -438,8 +437,8 @@ class QueryPlanner
             }
 
             // Rewrite frame bounds in terms of pre-projected inputs
-            Optional<Symbol> frameStartSymbol = Optional.absent();
-            Optional<Symbol> frameEndSymbol = Optional.absent();
+            Optional<Symbol> frameStartSymbol = Optional.empty();
+            Optional<Symbol> frameEndSymbol = Optional.empty();
             if (frameStart != null) {
                 frameStartSymbol = Optional.of(subPlan.translate(frameStart));
             }
@@ -484,7 +483,7 @@ class QueryPlanner
                             frame,
                             assignments.build(),
                             signatures,
-                            Optional.<Symbol>absent()),
+                            Optional.empty()),
                     subPlan.getSampleWeight());
 
             if (needCoercion) {
@@ -568,8 +567,8 @@ class QueryPlanner
                         sourceJoinSymbol,
                         filteringSourceJoinSymbol,
                         semiJoinOutputSymbol,
-                        Optional.<Symbol>absent(),
-                        Optional.<Symbol>absent()),
+                        Optional.empty(),
+                        Optional.empty()),
                 subPlan.getSampleWeight());
     }
 
@@ -584,9 +583,9 @@ class QueryPlanner
                     ImmutableMap.<Symbol, FunctionCall>of(),
                     ImmutableMap.<Symbol, Signature>of(),
                     ImmutableMap.<Symbol, Symbol>of(),
-                    Optional.<Symbol>absent(),
+                    Optional.empty(),
                     1.0,
-                    Optional.<Symbol>absent());
+                    Optional.empty());
 
             return new PlanBuilder(subPlan.getTranslations(), aggregation, subPlan.getSampleWeight());
         }
@@ -602,11 +601,6 @@ class QueryPlanner
     private PlanBuilder sort(PlanBuilder subPlan, QuerySpecification node)
     {
         return sort(subPlan, node.getOrderBy(), node.getLimit(), analysis.getOrderByExpressions(node));
-    }
-
-    private PlanBuilder sort(PlanBuilder subPlan, List<SortItem> orderBy, java.util.Optional<String> limit, List<FieldOrExpression> orderByExpressions)
-    {
-        return sort(subPlan, orderBy, guavaOptional(limit), orderByExpressions);
     }
 
     private PlanBuilder sort(PlanBuilder subPlan, List<SortItem> orderBy, Optional<String> limit, List<FieldOrExpression> orderByExpressions)
@@ -645,11 +639,6 @@ class QueryPlanner
     private PlanBuilder limit(PlanBuilder subPlan, QuerySpecification node)
     {
         return limit(subPlan, node.getOrderBy(), node.getLimit());
-    }
-
-    private PlanBuilder limit(PlanBuilder subPlan, List<SortItem> orderBy, java.util.Optional<String> limit)
-    {
-        return limit(subPlan, orderBy, guavaOptional(limit));
     }
 
     private PlanBuilder limit(PlanBuilder subPlan, List<SortItem> orderBy, Optional<String> limit)

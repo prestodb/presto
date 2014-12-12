@@ -45,7 +45,6 @@ import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -65,6 +64,7 @@ import javax.annotation.concurrent.GuardedBy;
 import java.net.URI;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -77,7 +77,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -315,13 +314,13 @@ public class TestSqlStageExecution
         // join build and probe
         PlanFragment joinPlan = new PlanFragment(
                 new PlanFragmentId(planId),
-                new JoinNode(new PlanNodeId(planId), JoinNode.Type.INNER, probeExchange, buildExchange, ImmutableList.<EquiJoinClause>of(), Optional.<Symbol>absent(), Optional.<Symbol>absent()),
+                new JoinNode(new PlanNodeId(planId), JoinNode.Type.INNER, probeExchange, buildExchange, ImmutableList.<EquiJoinClause>of(), Optional.empty(), Optional.empty()),
                 probe.getFragment().getSymbols(), // this is wrong, but it works
                 PlanDistribution.SOURCE,
                 new PlanNodeId(planId),
                 OutputPartitioning.NONE,
                 ImmutableList.<Symbol>of(),
-                Optional.<Integer>absent());
+                Optional.empty());
 
         return new StageExecutionPlan(joinPlan,
                 probe.getDataSource(),
@@ -343,13 +342,13 @@ public class TestSqlStageExecution
                         ImmutableList.of(symbol),
                         ImmutableMap.of(symbol, new ColumnHandle("test", new TestingColumnHandle("column"))),
                         null,
-                        Optional.<GeneratedPartitions>absent()),
+                        Optional.empty()),
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
                 PlanDistribution.SOURCE,
                 tableScanNodeId,
                 OutputPartitioning.NONE,
                 ImmutableList.<Symbol>of(),
-                Optional.<Integer>absent());
+                Optional.empty());
 
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
 

@@ -46,11 +46,11 @@ import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -171,7 +171,7 @@ public final class JsonPlanPrinter
                 Column column = new Column(
                         columnMetadata.getName(),
                         columnMetadata.getType().toString(),
-                        Optional.fromNullable(SimpleDomain.fromDomain(domain)));
+                        Optional.ofNullable(SimpleDomain.fromDomain(domain)));
                 columnBuilder.add(column);
             }
             Input input = new Input(
@@ -202,7 +202,7 @@ public final class JsonPlanPrinter
                 Column column = new Column(
                         columnMetadata.getName(),
                         columnMetadata.getType().toString(),
-                        Optional.fromNullable(SimpleDomain.fromDomain(domain)));
+                        Optional.ofNullable(SimpleDomain.fromDomain(domain)));
                 columnBuilder.add(column);
             }
             Input input = new Input(

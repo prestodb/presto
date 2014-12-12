@@ -15,9 +15,10 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 
 import javax.annotation.concurrent.Immutable;
+
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
 import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
@@ -33,15 +34,15 @@ public class QualifiedTablePrefix
     public QualifiedTablePrefix(String catalogName)
     {
         this.catalogName = checkCatalogName(catalogName);
-        this.schemaName = Optional.absent();
-        this.tableName = Optional.absent();
+        this.schemaName = Optional.empty();
+        this.tableName = Optional.empty();
     }
 
     public QualifiedTablePrefix(String catalogName, String schemaName)
     {
         this.catalogName = checkCatalogName(catalogName);
         this.schemaName = Optional.of(checkSchemaName(schemaName));
-        this.tableName = Optional.absent();
+        this.tableName = Optional.empty();
     }
 
     public QualifiedTablePrefix(String catalogName, String schemaName, String tableName)
@@ -121,6 +122,6 @@ public class QualifiedTablePrefix
     @Override
     public String toString()
     {
-        return catalogName + '.' + schemaName.or("*") + '.' + tableName.or("*");
+        return catalogName + '.' + schemaName.orElse("*") + '.' + tableName.orElse("*");
     }
 }

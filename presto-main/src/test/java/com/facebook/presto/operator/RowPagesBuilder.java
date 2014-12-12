@@ -18,11 +18,11 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeUtils;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.operator.RowPageBuilder.rowPageBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -58,7 +58,7 @@ public class RowPagesBuilder
 
     RowPagesBuilder(Iterable<Type> types)
     {
-        this(false, Optional.<List<Integer>>absent(), types);
+        this(false, Optional.empty(), types);
     }
 
     RowPagesBuilder(boolean hashEnabled, Optional<List<Integer>> hashChannels, Iterable<Type> types)
@@ -134,6 +134,6 @@ public class RowPagesBuilder
         if (hashEnabled) {
             return Optional.of(types.size());
         }
-        return Optional.absent();
+        return Optional.empty();
     }
 }

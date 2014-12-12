@@ -23,7 +23,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -35,6 +34,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.DomainUtils.columnHandleToSymbol;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -79,7 +79,7 @@ public class TableScanNode
             @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
             @JsonProperty("originalConstraint") @Nullable Expression originalConstraint)
     {
-        this(id, table, outputSymbols, assignments, originalConstraint, new SummarizedPartition(Optional.<GeneratedPartitions>absent()), true);
+        this(id, table, outputSymbols, assignments, originalConstraint, new SummarizedPartition(Optional.empty()), true);
     }
 
     private TableScanNode(PlanNodeId id, TableHandle table, List<Symbol> outputSymbols, Map<Symbol, ColumnHandle> assignments, @Nullable Expression originalConstraint, SummarizedPartition summarizedPartition, boolean partitionsDroppedBySerialization)

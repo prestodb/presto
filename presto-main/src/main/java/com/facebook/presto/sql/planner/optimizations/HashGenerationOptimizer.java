@@ -38,13 +38,13 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -103,7 +103,7 @@ public class HashGenerationOptimizer
                         node.getMasks(),
                         node.getSampleWeight(),
                         node.getConfidence(),
-                        Optional.<Symbol>absent());
+                        Optional.empty());
             }
 
             Symbol hashSymbol = symbolAllocator.newHashSymbol();
@@ -268,7 +268,8 @@ public class HashGenerationOptimizer
                         node.getOrderings(),
                         node.getFrame(),
                         node.getWindowFunctions(),
-                        node.getSignatures(), Optional.<Symbol>absent());
+                        node.getSignatures(),
+                        Optional.empty());
             }
             Symbol hashSymbol = symbolAllocator.newHashSymbol();
             PlanNode hashProjectNode = getHashProjectNode(idAllocator, rewrittenSource, hashSymbol, node.getPartitionBy());
@@ -279,7 +280,8 @@ public class HashGenerationOptimizer
                     node.getOrderings(),
                     node.getFrame(),
                     node.getWindowFunctions(),
-                    node.getSignatures(), Optional.of(hashSymbol));
+                    node.getSignatures(),
+                    Optional.of(hashSymbol));
         }
     }
 

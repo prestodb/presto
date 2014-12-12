@@ -27,7 +27,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
-import static com.facebook.presto.util.Optionals.guavaOptional;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class HashAggregationBenchmark
@@ -48,7 +47,7 @@ public class HashAggregationBenchmark
                 Ints.asList(0),
                 Step.SINGLE,
                 ImmutableList.of(DOUBLE_SUM.bind(ImmutableList.of(1), Optional.empty(), Optional.empty(), 1.0)),
-                guavaOptional(Optional.empty()),
+                Optional.empty(),
                 100_000,
                 new DataSize(16, MEGABYTE));
         return ImmutableList.of(tableScanOperator, aggregationOperator);

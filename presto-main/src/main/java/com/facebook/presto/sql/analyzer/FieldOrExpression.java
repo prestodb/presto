@@ -14,8 +14,9 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.sql.tree.Expression;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+
+import java.util.Optional;
 
 /**
  * Represents an expression or a direct field reference. The latter is used, for
@@ -30,14 +31,14 @@ public class FieldOrExpression
     public FieldOrExpression(int fieldIndex)
     {
         this.fieldIndex = Optional.of(fieldIndex);
-        this.expression = Optional.absent();
+        this.expression = Optional.empty();
     }
 
     public FieldOrExpression(Expression expression)
     {
         Preconditions.checkNotNull(expression, "expression is null");
 
-        this.fieldIndex = Optional.absent();
+        this.fieldIndex = Optional.empty();
         this.expression = Optional.of(expression);
     }
 

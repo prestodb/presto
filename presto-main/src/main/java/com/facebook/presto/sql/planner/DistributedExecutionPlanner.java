@@ -13,13 +13,11 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.split.SampledSplitSource;
-import com.facebook.presto.split.SplitSource;
-import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Partition;
 import com.facebook.presto.metadata.PartitionResult;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.split.SampledSplitSource;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -45,12 +43,12 @@ import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -102,7 +100,7 @@ public class DistributedExecutionPlanner
                 return node.getGeneratedPartitions().get().getPartitions();
             }
 
-            PartitionResult allPartitions = splitManager.getPartitions(node.getTable(), Optional.<TupleDomain<ColumnHandle>>absent());
+            PartitionResult allPartitions = splitManager.getPartitions(node.getTable(), Optional.empty());
             return allPartitions.getPartitions();
         }
 
@@ -138,14 +136,14 @@ public class DistributedExecutionPlanner
         public Optional<SplitSource> visitExchange(ExchangeNode node, Void context)
         {
             // exchange node does not have splits
-            return Optional.absent();
+            return Optional.empty();
         }
 
         @Override
         public Optional<SplitSource> visitValues(ValuesNode node, Void context)
         {
             // values node does not have splits
-            return Optional.absent();
+            return Optional.empty();
         }
 
         @Override

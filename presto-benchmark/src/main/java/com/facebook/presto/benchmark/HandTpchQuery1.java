@@ -44,7 +44,6 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.util.Optionals.guavaOptional;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -108,7 +107,7 @@ public class HandTpchQuery1
                         DOUBLE_AVERAGE.bind(ImmutableList.of(6), Optional.empty(), Optional.empty(), 1.0),
                         COUNT.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0)
                         ),
-                guavaOptional(Optional.empty()),
+                Optional.empty(),
                 10_000,
                 new DataSize(16, MEGABYTE));
 

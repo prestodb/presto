@@ -29,7 +29,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.testing.MaterializedResult;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
@@ -39,6 +38,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -433,8 +433,8 @@ public class TestWindowOperator
                 sortChannels,
                 sortOrder,
                 WindowFrame.Type.RANGE,
-                FrameBound.Type.UNBOUNDED_PRECEDING, Optional.<Integer>absent(),
-                FrameBound.Type.UNBOUNDED_FOLLOWING, Optional.<Integer>absent(),
+                FrameBound.Type.UNBOUNDED_PRECEDING, Optional.empty(),
+                FrameBound.Type.UNBOUNDED_FOLLOWING, Optional.empty(),
                 10);
     }
 }

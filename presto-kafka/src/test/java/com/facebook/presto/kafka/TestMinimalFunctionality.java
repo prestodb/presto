@@ -22,7 +22,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.StandaloneQueryRunner;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import kafka.producer.KeyedMessage;
 import org.testng.annotations.AfterClass;
@@ -31,6 +30,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.Properties;
 import java.util.UUID;
 

@@ -15,9 +15,9 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinProbeCompiler;
-import com.google.common.base.Optional;
 
 import java.util.List;
+import java.util.Optional;
 
 public class LookupJoinOperators
 {

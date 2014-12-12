@@ -17,9 +17,9 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Optional;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
@@ -73,7 +73,7 @@ public class SimpleJoinProbe
             probeBlocks[i] = blocks[probeJoinChannels.get(i)];
         }
         this.probePage = new Page(probeBlocks);
-        this.probeHashBlock = hashChannel.isPresent() ? Optional.of(page.getBlock(hashChannel.get())) : Optional.<Block>absent();
+        this.probeHashBlock = hashChannel.isPresent() ? Optional.of(page.getBlock(hashChannel.get())) : Optional.empty();
     }
 
     @Override

@@ -20,7 +20,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.util.array.LongBigArray;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.airlift.slice.XxHash64;
@@ -28,6 +27,7 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
@@ -91,7 +91,7 @@ public class GroupByHash
             channelBuilders.add(ObjectArrayList.wrap(new Block[1024], 0));
         }
         else {
-            this.precomputedHashChannel = Optional.absent();
+            this.precomputedHashChannel = Optional.empty();
         }
         this.channelBuilders = channelBuilders.build();
         PagesHashStrategyFactory pagesHashStrategyFactory = JOIN_COMPILER.compilePagesHashStrategyFactory(this.types, outputChannels.build());

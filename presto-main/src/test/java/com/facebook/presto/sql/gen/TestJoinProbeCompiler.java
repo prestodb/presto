@@ -30,7 +30,6 @@ import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
 import com.facebook.presto.type.TypeUtils;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -40,6 +39,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -100,7 +100,7 @@ public class TestJoinProbeCompiler
             }
         }
 
-        Optional<Integer> hashChannel = Optional.absent();
+        Optional<Integer> hashChannel = Optional.empty();
         List<List<Block>> channels = ImmutableList.of(channel);
 
         if (hashEnabled) {

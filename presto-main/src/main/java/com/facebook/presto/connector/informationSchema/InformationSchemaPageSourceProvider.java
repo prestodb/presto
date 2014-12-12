@@ -35,11 +35,9 @@ import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SerializableNativeValue;
-import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.split.SplitManager;
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
@@ -52,6 +50,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
@@ -268,7 +267,7 @@ public class InformationSchemaPageSourceProvider
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         checkArgument(tableHandle.isPresent(), "Table %s does not exist", tableName);
         Map<ColumnHandle, String> columnHandles = ImmutableBiMap.copyOf(metadata.getColumnHandles(tableHandle.get())).inverse();
-        PartitionResult partitionResult = splitManager.getPartitions(tableHandle.get(), Optional.<TupleDomain<ColumnHandle>>absent());
+        PartitionResult partitionResult = splitManager.getPartitions(tableHandle.get(), Optional.empty());
 
         for (Partition partition : partitionResult.getPartitions()) {
             for (Entry<ColumnHandle, SerializableNativeValue> entry : partition.getTupleDomain().extractNullableFixedValues().entrySet()) {
@@ -315,7 +314,7 @@ public class InformationSchemaPageSourceProvider
         Optional<String> schemaName = getFilterColumn(filters, "table_schema");
         Optional<String> tableName = getFilterColumn(filters, "table_name");
         if (!schemaName.isPresent()) {
-            return new QualifiedTablePrefix(catalogName, Optional.<String>absent(), Optional.<String>absent());
+            return new QualifiedTablePrefix(catalogName, Optional.empty(), Optional.empty());
         }
         return new QualifiedTablePrefix(catalogName, schemaName, tableName);
     }
@@ -324,14 +323,14 @@ public class InformationSchemaPageSourceProvider
     {
         SerializableNativeValue value = filters.get(columnName);
         if (value == null || value.getValue() == null) {
-            return Optional.absent();
+            return Optional.empty();
         }
         if (Slice.class.isAssignableFrom(value.getType())) {
-            return Optional.fromNullable(((Slice) value.getValue()).toStringUtf8());
+            return Optional.ofNullable(((Slice) value.getValue()).toStringUtf8());
         }
         if (String.class.isAssignableFrom(value.getType())) {
-            return Optional.fromNullable((String) value.getValue());
+            return Optional.ofNullable((String) value.getValue());
         }
-        return Optional.absent();
+        return Optional.empty();
     }
 }

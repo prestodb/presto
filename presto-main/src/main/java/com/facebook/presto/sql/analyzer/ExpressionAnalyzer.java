@@ -833,7 +833,7 @@ public class ExpressionAnalyzer
             // determine super type
             Type superType = UNKNOWN;
             for (Expression expression : expressions) {
-                com.google.common.base.Optional<Type> newSuperType = getCommonSuperType(superType, process(expression, context));
+                Optional<Type> newSuperType = getCommonSuperType(superType, process(expression, context));
                 if (!newSuperType.isPresent()) {
                     throw new SemanticException(TYPE_MISMATCH, expression, message, superType);
                 }

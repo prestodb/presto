@@ -30,11 +30,11 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
-import com.google.common.base.Optional;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -110,7 +110,7 @@ public class LimitPushDown
                     node.getOutputSymbols().containsAll(node.getGroupBy())) {
                 checkArgument(!node.getSampleWeight().isPresent(), "DISTINCT aggregation has sample weight symbol");
                 PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), null);
-                return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, context.getCount(), Optional.<Symbol>absent());
+                return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, context.getCount(), Optional.empty());
             }
             PlanNode rewrittenNode = planRewriter.defaultRewrite(node, null);
             if (context != null) {
