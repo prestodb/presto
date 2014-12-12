@@ -55,8 +55,8 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.HiveType.HIVE_BOOLEAN;
 import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
@@ -95,6 +95,7 @@ public final class HiveUtil
     private static final String VIEW_PREFIX = "/* Presto View: ";
     private static final String VIEW_SUFFIX = " */";
 
+    private static final DateTimeFormatter HIVE_DATE_PARSER = ISODateTimeFormat.date().withZoneUTC();
     private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
 
     static {
@@ -195,6 +196,11 @@ public final class HiveUtil
         String name = schema.getProperty(FILE_INPUT_FORMAT);
         checkArgument(name != null, "missing property: %s", FILE_INPUT_FORMAT);
         return name;
+    }
+
+    public static long parseHiveDate(String value)
+    {
+        return HIVE_DATE_PARSER.parseMillis(value);
     }
 
     public static long parseHiveTimestamp(String value, DateTimeZone timeZone)
@@ -335,7 +341,7 @@ public final class HiveUtil
                 if (isNull) {
                     return new SerializableNativeValue(Long.class, null);
                 }
-                long dateInMillis = ISODateTimeFormat.date().withZone(DateTimeZone.UTC).parseMillis(value);
+                long dateInMillis = parseHiveDate(value);
                 return new SerializableNativeValue(Long.class, dateInMillis);
             }
 

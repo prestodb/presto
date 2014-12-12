@@ -30,8 +30,6 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.mapred.RecordReader;
 import org.joda.time.DateTimeZone;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -44,6 +42,7 @@ import static com.facebook.presto.hive.HiveBooleanParser.isTrue;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
+import static com.facebook.presto.hive.HiveUtil.parseHiveDate;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
@@ -65,7 +64,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 class ColumnarTextHiveRecordCursor<K>
         extends HiveRecordCursor
 {
-    private static final DateTimeFormatter DATE_PARSER = ISODateTimeFormat.date().withZoneUTC();
     private final RecordReader<K, BytesRefArrayWritable> recordReader;
     private final K key;
     private final BytesRefArrayWritable value;
@@ -199,7 +197,7 @@ class ColumnarTextHiveRecordCursor<K>
                     slices[columnIndex] = Slices.wrappedBuffer(bytes);
                 }
                 else if (DATE.equals(type)) {
-                    longs[columnIndex] = ISODateTimeFormat.date().withZone(DateTimeZone.UTC).parseMillis(partitionKey.getValue());
+                    longs[columnIndex] = parseHiveDate(partitionKey.getValue());
                 }
                 else if (TIMESTAMP.equals(type)) {
                     longs[columnIndex] = parseHiveTimestamp(partitionKey.getValue(), hiveStorageTimeZone);
@@ -376,7 +374,7 @@ class ColumnarTextHiveRecordCursor<K>
         }
         else if (hiveTypes[column].equals(HiveType.HIVE_DATE)) {
             String value = new String(bytes, start, length);
-            longs[column] = DATE_PARSER.parseMillis(value);
+            longs[column] = parseHiveDate(value);
             wasNull = false;
         }
         else if (hiveTypes[column].equals(HiveType.HIVE_TIMESTAMP)) {

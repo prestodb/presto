@@ -30,8 +30,6 @@ import org.apache.hadoop.hive.serde2.lazy.LazyFactory;
 import org.apache.hadoop.hive.serde2.lazy.LazyObject;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.joda.time.DateTimeZone;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -50,6 +48,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
+import static com.facebook.presto.hive.HiveUtil.parseHiveDate;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
@@ -60,8 +59,6 @@ import static io.airlift.slice.Slices.wrappedLongArray;
 public class RcTextBlockLoader
         implements RcFileBlockLoader
 {
-    private static final DateTimeFormatter DATE_PARSER = ISODateTimeFormat.date().withZoneUTC();
-
     private final DateTimeZone hiveStorageTimeZone;
     private final DateTimeZone sessionTimeZone;
 
@@ -260,7 +257,7 @@ public class RcTextBlockLoader
                     }
                     else {
                         String value = new String(bytes, start, length);
-                        vector[i] = DATE_PARSER.parseMillis(value);
+                        vector[i] = parseHiveDate(value);
                     }
                 }
 

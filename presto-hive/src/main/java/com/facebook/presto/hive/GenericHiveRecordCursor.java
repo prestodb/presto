@@ -29,7 +29,6 @@ import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.RecordReader;
 import org.joda.time.DateTimeZone;
-import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.IOException;
 import java.sql.Date;
@@ -45,6 +44,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
+import static com.facebook.presto.hive.HiveUtil.parseHiveDate;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
@@ -202,7 +202,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
                     slices[columnIndex] = Slices.wrappedBuffer(Arrays.copyOf(bytes, bytes.length));
                 }
                 else if (DATE.equals(type)) {
-                    longs[columnIndex] = ISODateTimeFormat.date().withZoneUTC().parseMillis(partitionKey.getValue());
+                    longs[columnIndex] = parseHiveDate(partitionKey.getValue());
                 }
                 else if (TIMESTAMP.equals(type)) {
                     longs[columnIndex] = parseHiveTimestamp(partitionKey.getValue(), hiveStorageTimeZone);
