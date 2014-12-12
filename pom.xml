@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.88-SNAPSHOT</version>
+    <version>0.88</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -30,7 +30,7 @@
     <scm>
         <connection>scm:git:git://github.com/facebook/presto.git</connection>
         <url>https://github.com/facebook/presto</url>
-        <tag>HEAD</tag>
+        <tag>0.88</tag>
     </scm>
 
     <properties>
@@ -908,7 +908,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration combine.children="append">
                             <argLine>${argLine} -Duser.timezone=${test.timezone} -Xmx1280m -Xms1280m</argLine>
-                            <parallel></parallel>
+                            <parallel />
                             <threadCount>1</threadCount>
                         </configuration>
                     </plugin>
