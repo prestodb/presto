@@ -20,7 +20,6 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
@@ -31,6 +30,7 @@ import it.unimi.dsi.fastutil.ints.IntListIterator;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.operator.index.IndexSnapshot.UNLOADED_INDEX_KEY;
@@ -59,7 +59,7 @@ public class UnloadedIndexKeyRecordSet
         }
 
         ImmutableList.Builder<PageAndPositions> builder = ImmutableList.builder();
-        GroupByHash groupByHash = new GroupByHash(distinctChannelTypes, normalizedDistinctChannels, Optional.<Integer>absent(), 10_000);
+        GroupByHash groupByHash = new GroupByHash(distinctChannelTypes, normalizedDistinctChannels, Optional.empty(), 10_000);
         for (UpdateRequest request : requests) {
             Page page = request.getPage();
             Block[] blocks = page.getBlocks();

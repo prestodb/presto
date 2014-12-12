@@ -28,11 +28,11 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -144,7 +144,7 @@ public class LogicalPlanner
                 target,
                 outputs);
 
-        return new RelationPlan(commitNode, analysis.getOutputDescriptor(), outputs, Optional.<Symbol>absent());
+        return new RelationPlan(commitNode, analysis.getOutputDescriptor(), outputs, Optional.empty());
     }
 
     private PlanNode createOutputPlan(RelationPlan plan, Analysis analysis)

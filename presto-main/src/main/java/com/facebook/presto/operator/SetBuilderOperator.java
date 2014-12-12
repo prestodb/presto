@@ -17,7 +17,6 @@ import com.facebook.presto.operator.ChannelSet.ChannelSetBuilder;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -26,6 +25,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -134,7 +134,7 @@ public class SetBuilderOperator
 
         this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
         // Set builder is has a single channel which goes in channel 0, if hash is present, add a hachBlock to channel 1
-        Optional<Integer> channelSetHashChannel = hashChannel.isPresent() ? Optional.of(1) : Optional.<Integer>absent();
+        Optional<Integer> channelSetHashChannel = hashChannel.isPresent() ? Optional.of(1) : Optional.empty();
         this.channelSetBuilder = new ChannelSetBuilder(
                 setSupplier.getType(),
                 channelSetHashChannel,

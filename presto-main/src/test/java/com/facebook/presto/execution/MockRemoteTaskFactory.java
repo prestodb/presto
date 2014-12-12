@@ -28,7 +28,6 @@ import com.facebook.presto.sql.planner.TestingTableHandle;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.google.common.base.Optional;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -44,6 +43,7 @@ import javax.annotation.concurrent.GuardedBy;
 import java.net.URI;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
@@ -79,13 +79,13 @@ public class MockRemoteTaskFactory
                         ImmutableList.of(symbol),
                         ImmutableMap.of(symbol, new ColumnHandle("test", new TestingColumnHandle("column"))),
                         null,
-                        Optional.<TableScanNode.GeneratedPartitions>absent()),
+                        Optional.empty()),
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
                 PlanFragment.PlanDistribution.SOURCE,
                 tableScanNodeId,
                 PlanFragment.OutputPartitioning.NONE,
                 ImmutableList.<Symbol>of(),
-                Optional.<Integer>absent()
+                Optional.empty()
         );
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();

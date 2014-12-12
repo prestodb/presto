@@ -36,12 +36,12 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -86,7 +86,7 @@ public class WindowFilterPushDown
                             node.getPartitionBy(),
                             getOnlyElement(node.getWindowFunctions().keySet()),
                             limit,
-                            Optional.<Symbol>absent());
+                            Optional.empty());
                 }
                 if (limit.isPresent()) {
                     return new TopNRowNumberNode(idAllocator.getNextId(),
@@ -97,7 +97,7 @@ public class WindowFilterPushDown
                             getOnlyElement(node.getWindowFunctions().keySet()),
                             limit.get(),
                             false,
-                            Optional.<Symbol>absent());
+                            Optional.empty());
                 }
             }
             return planRewriter.defaultRewrite(node, null);
@@ -106,7 +106,7 @@ public class WindowFilterPushDown
         private static Optional<Integer> getLimit(WindowNode node, Constraint filter)
         {
             if (filter == null || (!filter.getLimit().isPresent() && !filter.getFilterExpression().isPresent())) {
-                return Optional.absent();
+                return Optional.empty();
             }
             if (filter.getLimit().isPresent()) {
                 return filter.getLimit();
@@ -116,7 +116,7 @@ public class WindowFilterPushDown
                 Symbol rowNumberSymbol = Iterables.getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
                 return WindowLimitExtractor.extract(filter.getFilterExpression().get(), rowNumberSymbol);
             }
-            return Optional.absent();
+            return Optional.empty();
         }
 
         private static boolean canOptimizeWindowFunction(WindowNode node)
@@ -142,7 +142,7 @@ public class WindowFilterPushDown
             if (node.getCount() >= Integer.MAX_VALUE) {
                 return planRewriter.defaultRewrite(node, null);
             }
-            Constraint constraint = new Constraint(Optional.of((int) node.getCount()), Optional.<Expression>absent());
+            Constraint constraint = new Constraint(Optional.of((int) node.getCount()), Optional.empty());
             PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), constraint);
 
             if (rewrittenSource != node.getSource()) {
@@ -155,7 +155,7 @@ public class WindowFilterPushDown
         @Override
         public PlanNode rewriteFilter(FilterNode node, Constraint filter, PlanRewriter<Constraint> planRewriter)
         {
-            PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), new Constraint(Optional.<Integer>absent(), Optional.of(node.getPredicate())));
+            PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), new Constraint(Optional.empty(), Optional.of(node.getPredicate())));
             if (rewrittenSource != node.getSource()) {
                 if (rewrittenSource instanceof TopNRowNumberNode) {
                     return rewrittenSource;
@@ -202,7 +202,7 @@ public class WindowFilterPushDown
             Visitor visitor = new Visitor();
             Long limit = visitor.process(expression, rowNumberSymbol);
             if (limit == null || limit >= Integer.MAX_VALUE) {
-                return Optional.absent();
+                return Optional.empty();
             }
 
             return Optional.of(limit.intValue());
@@ -252,7 +252,7 @@ public class WindowFilterPushDown
             if (expression.getRight() instanceof QualifiedNameReference) {
                 return Optional.of((QualifiedNameReference) expression.getRight());
             }
-            return Optional.absent();
+            return Optional.empty();
         }
 
         private static Optional<Literal> extractLiteral(ComparisonExpression expression)
@@ -263,7 +263,7 @@ public class WindowFilterPushDown
             if (expression.getRight() instanceof Literal) {
                 return Optional.of((Literal) expression.getRight());
             }
-            return Optional.absent();
+            return Optional.empty();
         }
 
         private static long extractValue(Literal literal)

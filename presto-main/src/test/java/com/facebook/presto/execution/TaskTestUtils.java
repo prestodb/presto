@@ -40,12 +40,11 @@ import com.facebook.presto.sql.planner.TestingTableHandle;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -72,13 +71,13 @@ public final class TaskTestUtils
                     ImmutableList.of(SYMBOL),
                     ImmutableMap.of(SYMBOL, new ColumnHandle("test", new TestingColumnHandle("column"))),
                     null,
-                    Optional.<GeneratedPartitions>absent()),
+                    Optional.empty()),
             ImmutableMap.<Symbol, Type>of(SYMBOL, VARCHAR),
             PlanDistribution.SOURCE,
             TABLE_SCAN_NODE_ID,
             OutputPartitioning.NONE,
             ImmutableList.<Symbol>of(),
-            Optional.<Integer>absent());
+            Optional.empty());
 
     public static LocalExecutionPlanner createTestingPlanner()
     {

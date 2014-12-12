@@ -19,13 +19,13 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.array.LongBigArray;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -131,7 +131,7 @@ public class RowNumberOperator
 
         this.partitionRowCount = new LongBigArray(0);
         if (partitionChannels.isEmpty()) {
-            this.groupByHash = Optional.absent();
+            this.groupByHash = Optional.empty();
         }
         else {
             int[] channels = Ints.toArray(partitionChannels);

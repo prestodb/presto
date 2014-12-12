@@ -18,7 +18,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import org.testng.annotations.AfterMethod;
@@ -27,6 +26,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -97,7 +97,7 @@ public class TestTopNRowNumberOperator
                 ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                 3,
                 false,
-                Optional.<Integer>absent(),
+                Optional.empty(),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -146,7 +146,7 @@ public class TestTopNRowNumberOperator
                 ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                 3,
                 false,
-                Optional.<Integer>absent(),
+                Optional.empty(),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);

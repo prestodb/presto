@@ -21,7 +21,6 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.WindowFrame;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -29,6 +28,7 @@ import it.unimi.dsi.fastutil.ints.IntComparator;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
@@ -213,9 +213,9 @@ public class WindowOperator
 
         this.frameRange = (checkNotNull(frameType, "frameType is null") == WindowFrame.Type.RANGE);
         this.frameStartType = checkNotNull(frameStartType, "frameStartType is null");
-        this.frameStartChannel = checkNotNull(frameStartChannel, "frameStartChannel is null").or(-1);
+        this.frameStartChannel = checkNotNull(frameStartChannel, "frameStartChannel is null").orElse(-1);
         this.frameEndType = checkNotNull(frameEndType, "frameEndType is null");
-        this.frameEndChannel = checkNotNull(frameEndChannel, "frameEndChannel is null").or(-1);
+        this.frameEndChannel = checkNotNull(frameEndChannel, "frameEndChannel is null").orElse(-1);
 
         this.types = toTypes(sourceTypes, outputChannels, windowFunctions);
 

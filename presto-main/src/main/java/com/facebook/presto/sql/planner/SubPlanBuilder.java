@@ -18,7 +18,6 @@ import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -26,6 +25,7 @@ import com.google.common.collect.Maps;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -42,7 +42,7 @@ public class SubPlanBuilder
     private List<Symbol> partitionBy = ImmutableList.of();
     private List<SubPlan> children = new ArrayList<>();
     private OutputPartitioning outputPartitioning = OutputPartitioning.NONE;
-    private Optional<Integer> hashChannel = Optional.absent();
+    private Optional<Integer> hashChannel = Optional.empty();
 
     public SubPlanBuilder(PlanFragmentId id, SymbolAllocator allocator, PlanDistribution distribution, PlanNode root, PlanNodeId partitionedSource)
     {
@@ -96,11 +96,6 @@ public class SubPlanBuilder
     {
         this.children.add(child);
         return this;
-    }
-
-    public SubPlanBuilder setHashOutputPartitioning(List<Symbol> partitionBy)
-    {
-        return setHashOutputPartitioning(partitionBy, Optional.<Integer>absent());
     }
 
     public SubPlanBuilder setHashOutputPartitioning(List<Symbol> partitionBy, Optional<Integer> hashChannel)

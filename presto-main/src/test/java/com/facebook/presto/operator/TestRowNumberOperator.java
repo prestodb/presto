@@ -20,7 +20,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -32,6 +31,7 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -104,8 +104,8 @@ public class TestRowNumberOperator
                 Ints.asList(1, 0),
                 Ints.asList(),
                 ImmutableList.<Type>of(),
-                Optional.<Integer>absent(),
-                Optional.<Integer>absent(),
+                Optional.empty(),
+                Optional.empty(),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -227,7 +227,7 @@ public class TestRowNumberOperator
                 Ints.asList(0),
                 ImmutableList.of(BIGINT),
                 Optional.of(3),
-                Optional.<Integer>absent(),
+                Optional.empty(),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -297,7 +297,7 @@ public class TestRowNumberOperator
                 Ints.asList(),
                 ImmutableList.<Type>of(),
                 Optional.of(3),
-                Optional.<Integer>absent(),
+                Optional.empty(),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);

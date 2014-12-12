@@ -17,7 +17,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Optional;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -36,6 +35,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -100,7 +100,7 @@ public class BenchmarkGroupByHash
         public void setup()
         {
             pages = createPages(maxPages, channelCount, groupCount, Collections.<Type>nCopies(channelCount, BIGINT));
-            hashChannel = hashEnabled ? Optional.of(channelCount - 1) : Optional.<Integer>absent();
+            hashChannel = hashEnabled ? Optional.of(channelCount - 1) : Optional.empty();
             types = Collections.<Type>nCopies(channelCount - 1, BIGINT);
             channels = new int[channelCount - 1];
             for (int i = 0; i < channelCount - 1; i++) {

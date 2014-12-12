@@ -42,8 +42,8 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.base.Optional;
 
+import java.util.Optional;
 import java.util.Set;
 
 /**

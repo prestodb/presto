@@ -100,7 +100,6 @@ import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharOperators;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -121,6 +120,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.operator.aggregation.ArbitraryAggregation.ARBITRARY_AGGREGATION;
@@ -552,7 +552,7 @@ public class FunctionRegistry
         for (Type type : types) {
             Optional<Type> commonSuperType = getCommonSuperType(superType, type);
             if (!commonSuperType.isPresent()) {
-                return Optional.absent();
+                return Optional.empty();
             }
             superType = commonSuperType.get();
         }
@@ -585,7 +585,7 @@ public class FunctionRegistry
             return Optional.<Type>of(TIMESTAMP_WITH_TIME_ZONE);
         }
 
-        return Optional.absent();
+        return Optional.empty();
     }
 
     public static Type type(Class<?> clazz)

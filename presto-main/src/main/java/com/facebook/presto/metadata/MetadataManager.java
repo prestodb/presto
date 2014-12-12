@@ -37,7 +37,6 @@ import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -55,6 +54,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -203,7 +203,7 @@ public class MetadataManager
                 return Optional.of(new TableHandle(entry.getConnectorId(), tableHandle));
             }
         }
-        return Optional.absent();
+        return Optional.empty();
     }
 
     @Override
@@ -236,7 +236,7 @@ public class MetadataManager
     {
         checkNotNull(prefix, "prefix is null");
 
-        String schemaNameOrNull = prefix.getSchemaName().orNull();
+        String schemaNameOrNull = prefix.getSchemaName().orElse(null);
         Set<QualifiedTableName> tables = new LinkedHashSet<>();
         for (ConnectorMetadataEntry entry : allConnectorsFor(prefix.getCatalogName())) {
             ConnectorSession connectorSession = session.toConnectorSession(entry.getCatalog());
@@ -254,7 +254,7 @@ public class MetadataManager
         ConnectorColumnHandle handle = lookupConnectorFor(tableHandle).getSampleWeightColumnHandle(tableHandle.getConnectorHandle());
 
         if (handle == null) {
-            return Optional.absent();
+            return Optional.empty();
         }
 
         return Optional.of(new ColumnHandle(tableHandle.getConnectorId(), handle));
@@ -385,7 +385,7 @@ public class MetadataManager
     {
         checkNotNull(prefix, "prefix is null");
 
-        String schemaNameOrNull = prefix.getSchemaName().orNull();
+        String schemaNameOrNull = prefix.getSchemaName().orElse(null);
         Set<QualifiedTableName> views = new LinkedHashSet<>();
         for (ConnectorMetadataEntry entry : allConnectorsFor(prefix.getCatalogName())) {
             ConnectorSession connectorSession = session.toConnectorSession(entry.getCatalog());
@@ -428,7 +428,7 @@ public class MetadataManager
                 return Optional.of(deserializeView(view));
             }
         }
-        return Optional.absent();
+        return Optional.empty();
     }
 
     @Override

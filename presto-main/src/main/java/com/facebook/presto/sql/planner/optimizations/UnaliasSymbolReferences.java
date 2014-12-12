@@ -48,7 +48,6 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -64,6 +63,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -354,7 +354,7 @@ public class UnaliasSymbolReferences
             if (symbol.isPresent()) {
                 return Optional.of(canonicalize(symbol.get()));
             }
-            return Optional.absent();
+            return Optional.empty();
         }
 
         private Symbol canonicalize(Symbol symbol)

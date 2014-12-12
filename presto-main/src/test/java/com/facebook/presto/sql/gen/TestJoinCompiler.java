@@ -22,13 +22,13 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler.PagesHashStrategyFactory;
 import com.facebook.presto.type.TypeUtils;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
@@ -67,7 +67,7 @@ public class TestJoinCompiler
                 BlockAssertions.createStringSequenceBlock(20, 30),
                 BlockAssertions.createStringSequenceBlock(15, 25));
 
-        Optional<Integer> hashChannel = Optional.absent();
+        Optional<Integer> hashChannel = Optional.empty();
         List<List<Block>> channels = ImmutableList.of(channel);
         if (hashEnabled) {
             ImmutableList.Builder<Block> hashChannelBuilder = ImmutableList.builder();
@@ -155,7 +155,7 @@ public class TestJoinCompiler
                 BlockAssertions.createBooleanSequenceBlock(20, 30),
                 BlockAssertions.createBooleanSequenceBlock(15, 25));
 
-        Optional<Integer> hashChannel = Optional.absent();
+        Optional<Integer> hashChannel = Optional.empty();
         ImmutableList<List<Block>> channels = ImmutableList.of(extraChannel, varcharChannel, longChannel, doubleChannel, booleanChannel);
         List<Block> precomputedHash = ImmutableList.of();
         if (hashEnabled) {

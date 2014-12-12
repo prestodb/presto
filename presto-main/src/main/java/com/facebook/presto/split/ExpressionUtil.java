@@ -24,10 +24,10 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Optional;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
@@ -93,7 +93,7 @@ public final class ExpressionUtil
                 // if there is a different constant value already bound for this column, the expression will always be false
                 Object previous = bindings.get(column);
                 if (previous != null && !previous.equals(value)) {
-                    return Optional.absent();
+                    return Optional.empty();
                 }
                 bindings.put(column, value);
             }

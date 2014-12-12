@@ -22,11 +22,11 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.NullOutputOperator.NullOutputOperatorFactory;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunnerHashEnabled;
@@ -56,7 +56,7 @@ public class HashBuildAndJoinBenchmark
         ImmutableList.Builder<OperatorFactory> driversBuilder = ImmutableList.builder();
         driversBuilder.add(ordersTableScan);
         OperatorFactory source = ordersTableScan;
-        Optional<Integer> hashChannel = Optional.absent();
+        Optional<Integer> hashChannel = Optional.empty();
         if (hashEnabled) {
             source = createHashProjectOperator(1, ImmutableList.<Type>of(BIGINT, DOUBLE), Ints.asList(0));
             driversBuilder.add(source);
@@ -73,7 +73,7 @@ public class HashBuildAndJoinBenchmark
         ImmutableList.Builder<OperatorFactory> joinDriversBuilder = ImmutableList.builder();
         joinDriversBuilder.add(lineItemTableScan);
         source = lineItemTableScan;
-        hashChannel = Optional.absent();
+        hashChannel = Optional.empty();
         if (hashEnabled) {
             source = createHashProjectOperator(1, ImmutableList.<Type>of(BIGINT, BIGINT), Ints.asList(0));
             joinDriversBuilder.add(source);

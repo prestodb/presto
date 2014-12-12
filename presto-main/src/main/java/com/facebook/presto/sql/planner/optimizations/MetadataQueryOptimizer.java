@@ -40,7 +40,6 @@ import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -48,6 +47,7 @@ import com.google.common.collect.Iterables;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -184,7 +184,7 @@ public class MetadataQueryOptimizer
                     // verify projections are deterministic
                     ProjectNode project = (ProjectNode) source;
                     if (!Iterables.all(project.getExpressions(), DeterminismEvaluator::isDeterministic)) {
-                        return Optional.absent();
+                        return Optional.empty();
                     }
                     source = project.getSource();
                 }
@@ -192,7 +192,7 @@ public class MetadataQueryOptimizer
                     return Optional.of((TableScanNode) source);
                 }
                 else {
-                    return Optional.absent();
+                    return Optional.empty();
                 }
             }
         }

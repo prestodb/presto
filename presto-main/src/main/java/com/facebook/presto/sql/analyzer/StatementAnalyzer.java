@@ -95,7 +95,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_EXISTS;
 import static com.facebook.presto.sql.tree.ExplainFormat.Type.TEXT;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
-import static com.facebook.presto.util.Optionals.jdkOptional;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.elementsEqual;
@@ -274,7 +273,7 @@ class StatementAnalyzer
     protected TupleDescriptor visitShowPartitions(ShowPartitions showPartitions, AnalysisContext context)
     {
         QualifiedTableName table = MetadataUtil.createQualifiedTableName(session, showPartitions.getTable());
-        Optional<TableHandle> tableHandle = jdkOptional(metadata.getTableHandle(session, table));
+        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, table);
         if (!tableHandle.isPresent()) {
             throw new SemanticException(MISSING_TABLE, showPartitions, "Table '%s' does not exist", table);
         }
@@ -384,7 +383,7 @@ class StatementAnalyzer
 
         // verify the insert destination columns match the query
         QualifiedTableName targetTable = MetadataUtil.createQualifiedTableName(session, insert.getTarget());
-        Optional<TableHandle> targetTableHandle = jdkOptional(metadata.getTableHandle(session, targetTable));
+        Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
         if (!targetTableHandle.isPresent()) {
             throw new SemanticException(MISSING_TABLE, insert, "Table '%s' does not exist", targetTable);
         }
@@ -411,7 +410,7 @@ class StatementAnalyzer
         QualifiedTableName targetTable = MetadataUtil.createQualifiedTableName(session, node.getName());
         analysis.setCreateTableDestination(targetTable);
 
-        Optional<TableHandle> targetTableHandle = jdkOptional(metadata.getTableHandle(session, targetTable));
+        Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
         if (targetTableHandle.isPresent()) {
             throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
         }
