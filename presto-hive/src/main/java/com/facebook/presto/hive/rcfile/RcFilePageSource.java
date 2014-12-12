@@ -40,7 +40,6 @@ import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.joda.time.DateTimeZone;
-import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -52,6 +51,7 @@ import static com.facebook.presto.hive.HiveBooleanParser.isFalse;
 import static com.facebook.presto.hive.HiveBooleanParser.isTrue;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
+import static com.facebook.presto.hive.HiveUtil.parseHiveDate;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
@@ -215,7 +215,7 @@ public class RcFilePageSource
                     }
                 }
                 else if (type.equals(DATE)) {
-                    long value = ISODateTimeFormat.date().withZone(DateTimeZone.UTC).parseMillis(partitionKey.getValue());
+                    long value = parseHiveDate(partitionKey.getValue());
                     for (int i = 0; i < MAX_PAGE_SIZE; i++) {
                         DATE.writeLong(blockBuilder, value);
                     }

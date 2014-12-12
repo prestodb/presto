@@ -39,7 +39,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTimeZone;
-import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.IOException;
 import java.util.List;
@@ -49,6 +48,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.hive.HiveBooleanParser.isFalse;
 import static com.facebook.presto.hive.HiveBooleanParser.isTrue;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static com.facebook.presto.hive.HiveUtil.parseHiveDate;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
@@ -185,7 +185,7 @@ public class OrcPageSource
                     }
                 }
                 else if (type.equals(DATE)) {
-                    long value = ISODateTimeFormat.date().withZone(DateTimeZone.UTC).parseMillis(partitionKey.getValue());
+                    long value = parseHiveDate(partitionKey.getValue());
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                         DATE.writeLong(blockBuilder, value);
                     }
