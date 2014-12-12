@@ -1,0 +1,108 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>1.1. Use Cases &mdash; Presto 0.88 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.88',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.88 Documentation" href="../index.html" />
+    <link rel="up" title="1. Overview" href="../overview.html" />
+    <link rel="next" title="2. Installation" href="../installation.html" />
+    <link rel="prev" title="1. Overview" href="../overview.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.88 Documentation</span></a></h1>
+    <h2 class="heading"><span>1.1. Use Cases</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../overview.html">1. Overview</a>
+    </span>
+    <span class="right">
+        <a href="../installation.html">2. Installation</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="use-cases">
+<h1>1.1. Use Cases</h1>
+<p>This section puts Presto into perspective so that prospective
+administrators and end users know what to expect from Presto.</p>
+<div class="section" id="what-presto-is-not">
+<h2>What Presto Is Not</h2>
+<p>Since Presto is being called a <em>database</em> by many members of the community,
+it makes sense to begin with a definition of what Presto is not.</p>
+<p>Do not mistake the fact that Presto understands SQL with it providing
+the features of a standard database. Presto is not a general-purpose
+relational database. It is not a replacement for databases like MySQL,
+PostgreSQL or Oracle. Presto was not designed to handle Online
+Transaction Processing (OLTP). This is also true for many other
+databases designed and optimized for data warehousing or analytics.</p>
+</div>
+<div class="section" id="what-presto-is">
+<h2>What Presto Is</h2>
+<p>Presto is a tool designed to efficiently query vast amounts of data
+using distributed queries. If you work with terabytes or petabytes of
+data, you are likely using tools that interact with Hadoop and HDFS.
+Presto was designed as an alternative to tools that query HDFS
+using pipelines of MapReduce jobs such as Hive or Pig, but Presto
+is not limited to accessing HDFS. Presto can be and has been extended
+to operate over different kinds of data sources including traditional
+relational databases and other data sources such as Cassandra.</p>
+<p>Presto was designed to handle data warehousing and analytics: data analysis,
+aggregating large amounts of data and producing reports. These workloads
+are often classified as Online Analytical Processing (OLAP).</p>
+</div>
+<div class="section" id="who-uses-presto">
+<h2>Who uses Presto?</h2>
+<p>Presto is an open source project that operates under the auspices of
+Facebook. It was invented at Facebook and the project continues to
+be developed by both Facebook internal developers and a number of
+third-party developers in the community.</p>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../overview.html">1. Overview</a>
+    </span>
+    <span class="right">
+        <a href="../installation.html">2. Installation</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

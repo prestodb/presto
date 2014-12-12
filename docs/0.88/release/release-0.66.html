@@ -1,0 +1,249 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>9.23. Release 0.66 &mdash; Presto 0.88 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.88',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.88 Documentation" href="../index.html" />
+    <link rel="up" title="9. Release Notes" href="../release.html" />
+    <link rel="next" title="9.24. Release 0.65" href="release-0.65.html" />
+    <link rel="prev" title="9.22. Release 0.67" href="release-0.67.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.88 Documentation</span></a></h1>
+    <h2 class="heading"><span>9.23. Release 0.66</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.67.html">9.22. Release 0.67</a>
+    </span>
+    <span class="right">
+        <a href="release-0.65.html">9.24. Release 0.65</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-66">
+<h1>9.23. Release 0.66</h1>
+<div class="section" id="type-system">
+<h2>Type System</h2>
+<p>In this release we have replaced the existing simple fixed type system
+with a fully extensible type system and have added several new types.
+We have also expanded the function system to support custom
+arithmetic, comparison and cast operators. For example, the new date/time
+types include an operator for adding an <tt class="docutils literal"><span class="pre">INTERVAL</span></tt> to a <tt class="docutils literal"><span class="pre">TIMESTAMP</span></tt>.</p>
+<p>Existing functions have been updated to operate on and return the
+newly added types.  For example, the ANSI color functions now operate
+on a <tt class="docutils literal"><span class="pre">COLOR</span></tt> type, and the date/time functions operate on standard
+SQL date/time types (described below).</p>
+<p>Finally, plugins can now provide custom types and operators in addition
+to connectors and functions. This feature is highly experimental, so expect
+the interfaces to change over the next few releases.  Also, since in SQL
+there is only one namespace for types, you should be careful to make names
+for custom types unique as we will add other common SQL types to Presto
+in the near future.</p>
+</div>
+<div class="section" id="date-time-types">
+<h2>Date/Time Types</h2>
+<p>Presto now supports all standard SQL date/time types:
+<tt class="docutils literal"><span class="pre">DATE</span></tt>, <tt class="docutils literal"><span class="pre">TIME</span></tt>, <tt class="docutils literal"><span class="pre">TIMESTAMP</span></tt> and <tt class="docutils literal"><span class="pre">INTERVAL</span></tt>.
+All of the date/time functions and language constructs now operate on these
+types instead of <tt class="docutils literal"><span class="pre">BIGINT</span></tt> and perform temporal calculations correctly.
+This was previously broken due to, for example, not being able to detect
+whether an argument was a <tt class="docutils literal"><span class="pre">DATE</span></tt> or a <tt class="docutils literal"><span class="pre">TIMESTAMP</span></tt>.
+This change comes at the cost of breaking existing queries that perform
+arithmetic operations directly on the <tt class="docutils literal"><span class="pre">BIGINT</span></tt> value returned from
+the date/time functions.</p>
+<p>As part of this work, we have also added the <a class="reference internal" href="../functions/datetime.html#date_trunc" title="date_trunc"><tt class="xref py py-func docutils literal"><span class="pre">date_trunc()</span></tt></a> function
+which is convenient for grouping data by a time span. For example, you
+can perform an aggregation by hour:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">date_trunc</span><span class="p">(</span><span class="s1">&#39;hour&#39;</span><span class="p">,</span> <span class="n">timestamp_column</span><span class="p">),</span> <span class="k">count</span><span class="p">(</span><span class="o">*</span><span class="p">)</span>
+<span class="k">FROM</span> <span class="p">...</span>
+<span class="k">GROUP</span> <span class="k">BY</span> <span class="mi">1</span>
+</pre></div>
+</div>
+<div class="section" id="time-zones">
+<h3>Time Zones</h3>
+<p>This release has full support for time zone rules, which are needed to
+perform date/time calculations correctly. Typically, the session time
+zone is used for temporal calculations. This is the time zone of the
+client computer that submits the query, if available. Otherwise, it is
+the time zone of the server running the Presto coordinator.</p>
+<p>Queries that operate with time zones that follow daylight saving can
+produce unexpected results. For example, if we run the following query
+to add 24 hours using in the <tt class="docutils literal"><span class="pre">America/Los</span> <span class="pre">Angeles</span></tt> time zone:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">date_add</span><span class="p">(</span><span class="s1">&#39;hour&#39;</span><span class="p">,</span> <span class="mi">24</span><span class="p">,</span> <span class="k">TIMESTAMP</span> <span class="s1">&#39;2014-03-08 09:00:00&#39;</span><span class="p">);</span>
+<span class="o">=&gt;</span>
+<span class="mi">2014</span><span class="o">-</span><span class="mi">03</span><span class="o">-</span><span class="mi">09</span> <span class="mi">10</span><span class="p">:</span><span class="mi">00</span><span class="p">:</span><span class="mi">00</span><span class="p">.</span><span class="mi">000</span>
+</pre></div>
+</div>
+<p>The timestamp appears to only advance 23 hours. This is because on
+March 9th clocks in <tt class="docutils literal"><span class="pre">America/Los</span> <span class="pre">Angeles</span></tt> are turned forward 1 hour,
+so March 9th only has 23 hours. To advance the day part of the timestamp,
+use the <tt class="docutils literal"><span class="pre">day</span></tt> unit instead:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">date_add</span><span class="p">(</span><span class="s1">&#39;day&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="k">TIMESTAMP</span> <span class="s1">&#39;2014-03-08 09:00:00&#39;</span><span class="p">);</span>
+<span class="o">=&gt;</span>
+<span class="mi">2014</span><span class="o">-</span><span class="mi">03</span><span class="o">-</span><span class="mi">09</span> <span class="mi">09</span><span class="p">:</span><span class="mi">00</span><span class="p">:</span><span class="mi">00</span><span class="p">.</span><span class="mi">000</span>
+</pre></div>
+</div>
+<p>This works because the <a class="reference internal" href="../functions/datetime.html#date_add" title="date_add"><tt class="xref py py-func docutils literal"><span class="pre">date_add()</span></tt></a> function treats the timestamp as
+list of fields, adds the value to the specified field and then rolls any
+overflow into the next higher field.</p>
+<p>Time zones are also necessary for parsing and printing timestamps.
+Queries that use this functionality can also produce unexpected results.
+For example, on the same machine:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="k">TIMESTAMP</span> <span class="s1">&#39;2014-03-09 02:30:00&#39;</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>The above query causes an error because there was no 2:30 AM on March 9th
+in <tt class="docutils literal"><span class="pre">America/Los_Angeles</span></tt> due to a daylight saving time transition.</p>
+<p>In addition to normal <tt class="docutils literal"><span class="pre">TIMESTAMP</span></tt> values, Presto also supports the
+<tt class="docutils literal"><span class="pre">TIMESTAMP</span> <span class="pre">WITH</span> <span class="pre">TIME</span> <span class="pre">ZONE</span></tt> type, where every value has an explicit time zone.
+For example, the following query creates a <tt class="docutils literal"><span class="pre">TIMESTAMP</span> <span class="pre">WITH</span> <span class="pre">TIME</span> <span class="pre">ZONE</span></tt>:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="k">TIMESTAMP</span> <span class="s1">&#39;2014-03-14 09:30:00 Europe/Berlin&#39;</span><span class="p">;</span>
+<span class="o">=&gt;</span>
+<span class="mi">2014</span><span class="o">-</span><span class="mi">03</span><span class="o">-</span><span class="mi">14</span> <span class="mi">09</span><span class="p">:</span><span class="mi">30</span><span class="p">:</span><span class="mi">00</span><span class="p">.</span><span class="mi">000</span> <span class="n">Europe</span><span class="o">/</span><span class="n">Berlin</span>
+</pre></div>
+</div>
+<p>You can also change the time zone of an existing timestamp using the
+<tt class="docutils literal"><span class="pre">AT</span> <span class="pre">TIME</span> <span class="pre">ZONE</span></tt> clause:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="k">TIMESTAMP</span> <span class="s1">&#39;2014-03-14 09:30:00 Europe/Berlin&#39;</span>
+     <span class="k">AT</span> <span class="n">TIME</span> <span class="k">ZONE</span> <span class="s1">&#39;America/Los_Angeles&#39;</span><span class="p">;</span>
+<span class="o">=&gt;</span>
+<span class="mi">2014</span><span class="o">-</span><span class="mi">03</span><span class="o">-</span><span class="mi">14</span> <span class="mi">01</span><span class="p">:</span><span class="mi">30</span><span class="p">:</span><span class="mi">00</span><span class="p">.</span><span class="mi">000</span> <span class="n">America</span><span class="o">/</span><span class="n">Los_Angeles</span>
+</pre></div>
+</div>
+<p>Both timestamps represent the same instant in time;
+they differ only in the time zone used to print them.</p>
+<p>The time zone of the session can be set on a per-query basis using the
+<tt class="docutils literal"><span class="pre">X-Presto-Time-Zone</span></tt> HTTP header, or via the
+<tt class="docutils literal"><span class="pre">PrestoConnection.setTimeZoneId(String)</span></tt> method in the JDBC driver.</p>
+</div>
+<div class="section" id="localization">
+<h3>Localization</h3>
+<p>In addition to time zones, the language of the user is important when
+parsing and printing date/time types. This release adds localization
+support to the Presto engine and functions that require it:
+<a class="reference internal" href="../functions/datetime.html#date_format" title="date_format"><tt class="xref py py-func docutils literal"><span class="pre">date_format()</span></tt></a> and <a class="reference internal" href="../functions/datetime.html#date_parse" title="date_parse"><tt class="xref py py-func docutils literal"><span class="pre">date_parse()</span></tt></a>.
+For example, if we set the language to Spanish:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">date_format</span><span class="p">(</span><span class="k">TIMESTAMP</span> <span class="s1">&#39;2001-01-09 09:04&#39;</span><span class="p">,</span> <span class="s1">&#39;%M&#39;</span><span class="p">);</span>
+<span class="o">=&gt;</span>
+<span class="n">enero</span>
+</pre></div>
+</div>
+<p>If we set the language to Japanese:</p>
+<div class="highlight-sql"><pre>SELECT date_format(TIMESTAMP '2001-01-09 09:04', '%M');
+=&gt;
+1月</pre>
+</div>
+<p>The language of the session can be set on a per-query basis using the
+<tt class="docutils literal"><span class="pre">X-Presto-Language</span></tt> HTTP header, or via the
+<tt class="docutils literal"><span class="pre">PrestoConnection.setLocale(Locale)</span></tt> method in the JDBC driver.</p>
+</div>
+</div>
+<div class="section" id="optimizations">
+<h2>Optimizations</h2>
+<ul class="simple">
+<li>We have upgraded the Hive connector to Hive 0.12 which includes
+performance improvements for RCFile.</li>
+<li><tt class="docutils literal"><span class="pre">GROUP</span> <span class="pre">BY</span></tt> and <tt class="docutils literal"><span class="pre">JOIN</span></tt> operators are now compiled to byte code
+and are significantly faster.</li>
+<li>Reduced memory usage of <tt class="docutils literal"><span class="pre">GROUP</span> <span class="pre">BY</span></tt> and <tt class="docutils literal"><span class="pre">SELECT</span> <span class="pre">DISTINCT</span></tt>,
+which previously required several megabytes of memory
+per operator, even when the number of groups was small.</li>
+<li>The planner now optimizes function call arguments. This should improve
+the performance of queries that contain complex expressions.</li>
+<li>Fixed a performance regression in the HTTP client. The recent HTTP client
+upgrade was using inadvertently GZIP compression and has a bug in the
+buffer management resulting in high CPU usage.</li>
+</ul>
+</div>
+<div class="section" id="spi-changes">
+<h2>SPI changes</h2>
+<p>In this release we have made a number of backward incompatible changes to the SPI:</p>
+<ul class="simple">
+<li>Added <tt class="docutils literal"><span class="pre">Type</span></tt> and related interfaces</li>
+<li><tt class="docutils literal"><span class="pre">ConnectorType</span></tt> in metadata has been replaced with <tt class="docutils literal"><span class="pre">Type</span></tt></li>
+<li>Renamed <tt class="docutils literal"><span class="pre">TableHandle</span></tt> to <tt class="docutils literal"><span class="pre">ConnectorTableHandle</span></tt></li>
+<li>Renamed <tt class="docutils literal"><span class="pre">ColumnHandle</span></tt> to <tt class="docutils literal"><span class="pre">ConnectorColumnHandle</span></tt></li>
+<li>Renamed <tt class="docutils literal"><span class="pre">Partition</span></tt> to <tt class="docutils literal"><span class="pre">ConnectorPartition</span></tt></li>
+<li>Renamed <tt class="docutils literal"><span class="pre">PartitionResult</span></tt> to <tt class="docutils literal"><span class="pre">ConnectorPartitionResult</span></tt></li>
+<li>Renamed <tt class="docutils literal"><span class="pre">Split</span></tt> to <tt class="docutils literal"><span class="pre">ConnectorSplit</span></tt></li>
+<li>Renamed <tt class="docutils literal"><span class="pre">SplitSource</span></tt> to <tt class="docutils literal"><span class="pre">ConnectorSplitSource</span></tt></li>
+<li>Added a <tt class="docutils literal"><span class="pre">ConnectorSession</span></tt> parameter to most <tt class="docutils literal"><span class="pre">ConnectorMetadata</span></tt> methods</li>
+<li>Removed most <tt class="docutils literal"><span class="pre">canHandle</span></tt> methods</li>
+</ul>
+</div>
+<div class="section" id="general-bug-fixes">
+<h2>General Bug Fixes</h2>
+<ul class="simple">
+<li>Fixed CLI hang after using <tt class="docutils literal"><span class="pre">USE</span> <span class="pre">CATALOG</span></tt> or <tt class="docutils literal"><span class="pre">USE</span> <span class="pre">SCHEMA</span></tt></li>
+<li>Implicit coercions in aggregations now work as expected</li>
+<li>Nulls in expressions work as expected</li>
+<li>Fixed memory leak in compiler</li>
+<li>Fixed accounting bug in task memory usage</li>
+<li>Fixed resource leak caused by abandoned queries</li>
+<li>Fail queries immediately on unrecoverable data transport errors</li>
+</ul>
+</div>
+<div class="section" id="hive-bug-fixes">
+<h2>Hive Bug Fixes</h2>
+<ul class="simple">
+<li>Fixed parsing of timestamps in the Hive RCFile Text SerDe (<tt class="docutils literal"><span class="pre">ColumnarSerDe</span></tt>)
+by adding configuration to set the time zone originally used when writing data</li>
+</ul>
+</div>
+<div class="section" id="cassandra-bug-fixes">
+<h2>Cassandra Bug Fixes</h2>
+<ul class="simple">
+<li>Auto-reconnect if Cassandra session dies</li>
+<li>Format collection types as JSON</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.67.html">9.22. Release 0.67</a>
+    </span>
+    <span class="right">
+        <a href="release-0.65.html">9.24. Release 0.65</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
