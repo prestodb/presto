@@ -28,6 +28,7 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
@@ -81,9 +82,13 @@ public abstract class AbstractTestApproximateCountDistinct
     {
         List<Object> baseline = createRandomSample(10000, 15000);
 
-        List<Object> mixed = new ArrayList<>(baseline);
-        mixed.addAll(Collections.<Long>nCopies(baseline.size(), null));
-        Collections.shuffle(mixed);
+        // Randomly insert nulls
+        // We need to retain the preexisting order to ensure that the HLL can generate the same estimates.
+        Iterator<Object> iterator = baseline.iterator();
+        List<Object> mixed = new ArrayList<>();
+        while (iterator.hasNext()) {
+            mixed.add(ThreadLocalRandom.current().nextBoolean() ? null : iterator.next());
+        }
 
         assertCount(mixed, maxStandardError, estimateGroupByCount(baseline, maxStandardError));
     }
