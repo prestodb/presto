@@ -55,8 +55,8 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.HiveType.HIVE_BOOLEAN;
 import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
@@ -370,14 +370,11 @@ public final class HiveUtil
             }
         }
         catch (RuntimeException e) {
-            throw new PrestoException(HIVE_BAD_DATA, format(
-                    "Cannot parse value %s with declared hive type [%s] for partition: %s",
-                    value,
-                    hiveType,
-                    partitionName));
+            throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format(
+                    "Invalid partition value '%s' for Hive type [%s] partition key: %s", value, hiveType, partitionName));
         }
 
-        throw new PrestoException(NOT_SUPPORTED, format("Unsupported partition type [%s] for partition: %s", hiveType, partitionName));
+        throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type [%s] for partition: %s", hiveType, partitionName));
     }
 
     public static boolean isPrestoView(Table table)
@@ -412,5 +409,56 @@ public final class HiveUtil
     public static boolean isStructuralType(HiveType hiveType)
     {
         return hiveType.getCategory() == Category.LIST || hiveType.getCategory() == Category.MAP || hiveType.getCategory() == Category.STRUCT;
+    }
+
+    public static boolean booleanPartitionKey(String value, String name)
+    {
+        if (value.equalsIgnoreCase("true")) {
+            return true;
+        }
+        if (value.equalsIgnoreCase("false")) {
+            return false;
+        }
+        throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for BOOLEAN partition key: %s", value, name));
+    }
+
+    public static long bigintPartitionKey(String value, String name)
+    {
+        try {
+            return parseLong(value);
+        }
+        catch (NumberFormatException e) {
+            throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for BIGINT partition key: %s", value, name));
+        }
+    }
+
+    public static double doublePartitionKey(String value, String name)
+    {
+        try {
+            return parseDouble(value);
+        }
+        catch (NumberFormatException e) {
+            throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for DOUBLE partition key: %s", value, name));
+        }
+    }
+
+    public static long datePartitionKey(String value, String name)
+    {
+        try {
+            return parseHiveDate(value);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for DATE partition key: %s", value, name));
+        }
+    }
+
+    public static long timestampPartitionKey(String value, DateTimeZone zone, String name)
+    {
+        try {
+            return parseHiveTimestamp(value, zone);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for TIMESTAMP partition key: %s", value, name));
+        }
     }
 }

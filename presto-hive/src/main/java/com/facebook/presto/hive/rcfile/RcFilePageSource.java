@@ -47,14 +47,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveBooleanParser.isFalse;
-import static com.facebook.presto.hive.HiveBooleanParser.isTrue;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
+import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
-import static com.facebook.presto.hive.HiveUtil.parseHiveDate;
-import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
-import static com.facebook.presto.hive.NumberParser.parseDouble;
-import static com.facebook.presto.hive.NumberParser.parseLong;
+import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -66,6 +66,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class RcFilePageSource
@@ -175,35 +176,19 @@ public class RcFilePageSource
                     }
                 }
                 else if (type.equals(BOOLEAN)) {
-                    boolean value;
-                    if (isTrue(bytes, 0, bytes.length)) {
-                        value = true;
-                    }
-                    else if (isFalse(bytes, 0, bytes.length)) {
-                        value = false;
-                    }
-                    else {
-                        String valueString = new String(bytes, UTF_8);
-                        throw new IllegalArgumentException(String.format("Invalid partition value '%s' for BOOLEAN partition key %s", valueString, name));
-                    }
+                    boolean value = booleanPartitionKey(partitionKey.getValue(), name);
                     for (int i = 0; i < MAX_PAGE_SIZE; i++) {
                         BOOLEAN.writeBoolean(blockBuilder, value);
                     }
                 }
                 else if (type.equals(BIGINT)) {
-                    if (bytes.length == 0) {
-                        throw new IllegalArgumentException(String.format("Invalid partition value '' for BIGINT partition key %s", name));
-                    }
-                    long value = parseLong(bytes, 0, bytes.length);
+                    long value = bigintPartitionKey(partitionKey.getValue(), name);
                     for (int i = 0; i < MAX_PAGE_SIZE; i++) {
                         BIGINT.writeLong(blockBuilder, value);
                     }
                 }
                 else if (type.equals(DOUBLE)) {
-                    if (bytes.length == 0) {
-                        throw new IllegalArgumentException(String.format("Invalid partition value '' for DOUBLE partition key %s", name));
-                    }
-                    double value = parseDouble(bytes, 0, bytes.length);
+                    double value = doublePartitionKey(partitionKey.getValue(), name);
                     for (int i = 0; i < MAX_PAGE_SIZE; i++) {
                         DOUBLE.writeDouble(blockBuilder, value);
                     }
@@ -215,19 +200,19 @@ public class RcFilePageSource
                     }
                 }
                 else if (type.equals(DATE)) {
-                    long value = parseHiveDate(partitionKey.getValue());
+                    long value = datePartitionKey(partitionKey.getValue(), name);
                     for (int i = 0; i < MAX_PAGE_SIZE; i++) {
                         DATE.writeLong(blockBuilder, value);
                     }
                 }
                 else if (TIMESTAMP.equals(type)) {
-                    long value = parseHiveTimestamp(partitionKey.getValue(), hiveStorageTimeZone);
+                    long value = timestampPartitionKey(partitionKey.getValue(), hiveStorageTimeZone, name);
                     for (int i = 0; i < MAX_PAGE_SIZE; i++) {
                         DATE.writeLong(blockBuilder, value);
                     }
                 }
                 else {
-                    throw new UnsupportedOperationException("Partition key " + name + " had an unsupported column type " + type);
+                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for partition key: %s", type.getDisplayName(), name));
                 }
 
                 constantBlocks[columnIndex] = blockBuilder.build();
