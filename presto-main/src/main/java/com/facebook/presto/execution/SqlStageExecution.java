@@ -89,7 +89,6 @@ import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.units.DataSize.Unit.BYTE;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
@@ -142,7 +141,7 @@ public class SqlStageExecution
     private final NodeTaskMap nodeTaskMap;
 
     // Note: atomic is needed to assure thread safety between constructor and scheduler thread
-    private final AtomicReference<Multimap<PlanNodeId, URI>> exchangeLocations = new AtomicReference<Multimap<PlanNodeId, URI>>(ImmutableMultimap.<PlanNodeId, URI>of());
+    private final AtomicReference<Multimap<PlanNodeId, URI>> exchangeLocations = new AtomicReference<>(ImmutableMultimap.<PlanNodeId, URI>of());
 
     public SqlStageExecution(QueryId queryId,
             LocationFactory locationFactory,
@@ -244,7 +243,7 @@ public class SqlStageExecution
     {
         try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
             if (stageId.equals(this.stageId)) {
-                cancel(true);
+                cancel();
             }
             else {
                 for (StageExecutionNode subStage : subStages.values()) {
@@ -568,7 +567,7 @@ public class SqlStageExecution
                         stageState.set(StageState.FAILED);
                     }
                     log.error(e, "Error while starting stage %s", stageId);
-                    cancel(true);
+                    abort();
                     if (e instanceof InterruptedException) {
                         Thread.currentThread().interrupt();
                     }
@@ -883,8 +882,8 @@ public class SqlStageExecution
                 }
 
                 List<StageState> subStageStates = ImmutableList.copyOf(transform(transform(subStages.values(), StageExecutionNode::getStageInfo), StageInfo::getState));
-                if (any(subStageStates, equalTo(StageState.FAILED))) {
-                    stageState.set(StageState.FAILED);
+                if (subStageStates.stream().anyMatch(StageState::isFailure)) {
+                    stageState.set(StageState.ABORTED);
                 }
                 else {
                     List<TaskState> taskStates = ImmutableList.copyOf(transform(transform(tasks.values(), RemoteTask::getTaskInfo), TaskInfo::getState));
@@ -903,56 +902,74 @@ public class SqlStageExecution
                 }
             }
 
-            if (stageState.get().isDone()) {
-                // finish tasks and stages
-                cancel(false);
+            // finish tasks and stages if stage is complete
+            StageState stageState = this.stageState.get();
+            if (stageState == StageState.ABORTED) {
+                abort();
+            }
+            else if (stageState.isDone()) {
+                cancel();
             }
         }
     }
 
     @Override
-    public void cancel(boolean force)
+    public void cancel()
     {
         checkState(!Thread.holdsLock(this), "Can not cancel while holding a lock on this");
 
         try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
-            // before canceling the task wait to see if it finishes normally
-            if (!force) {
-                Duration waitTime = new Duration(100, MILLISECONDS);
-                for (RemoteTask remoteTask : tasks.values()) {
-                    try {
-                        waitTime = remoteTask.waitForTaskToFinish(waitTime);
-                    }
-                    catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        throw Throwables.propagate(e);
-                    }
-                }
-            }
-            // check if the task completed naturally
+            // check if the stage already completed naturally
             doUpdateState();
-
-            // transition to canceled state, only if not already finished
             synchronized (this) {
-                if (!stageState.get().isDone()) {
-                    log.debug("Cancelling stage %s", stageId);
-                    stageState.set(StageState.CANCELED);
+                if (stageState.get().isDone()) {
+                    return;
                 }
+
+                log.debug("Cancelling stage %s", stageId);
+                stageState.set(StageState.CANCELED);
             }
 
-            // make sure all tasks are done
+            // cancel all tasks
             for (RemoteTask task : tasks.values()) {
                 task.cancel();
             }
 
-            // propagate update to tasks and stages
+            // propagate cancel to sub-stages
             for (StageExecutionNode subStage : subStages.values()) {
-                subStage.cancel(force);
+                subStage.cancel();
             }
         }
     }
 
-    private Split createRemoteSplitFor(TaskId taskId, URI taskLocation)
+    @Override
+    public void abort()
+    {
+        checkState(!Thread.holdsLock(this), "Can not abort while holding a lock on this");
+
+        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
+            // transition to aborted state, only if not already finished
+            doUpdateState();
+            synchronized (this) {
+                if (!stageState.get().isDone()) {
+                    log.debug("Aborting stage %s", stageId);
+                    stageState.set(StageState.ABORTED);
+                }
+            }
+
+            // abort all tasks
+            for (RemoteTask task : tasks.values()) {
+                task.abort();
+            }
+
+            // propagate abort to sub-stages
+            for (StageExecutionNode subStage : subStages.values()) {
+                subStage.abort();
+            }
+        }
+    }
+
+    private static Split createRemoteSplitFor(TaskId taskId, URI taskLocation)
     {
         URI splitLocation = uriBuilderFrom(taskLocation).appendPath("results").appendPath(taskId.toString()).build();
         return new Split("remote", new RemoteSplit(splitLocation));
@@ -1006,5 +1023,7 @@ interface StageExecutionNode
 
     void cancelStage(StageId stageId);
 
-    void cancel(boolean force);
+    void cancel();
+
+    void abort();
 }

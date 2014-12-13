@@ -287,7 +287,7 @@ public class TestSqlStageExecution
         }
         finally {
             if (stageExecution != null) {
-                stageExecution.cancel(false);
+                stageExecution.cancel();
             }
             executor.shutdownNow();
         }
@@ -495,6 +495,12 @@ public class TestSqlStageExecution
 
             @Override
             public void cancel()
+            {
+                taskStateMachine.cancel();
+            }
+
+            @Override
+            public void abort()
             {
                 taskStateMachine.cancel();
             }
