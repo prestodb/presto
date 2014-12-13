@@ -163,9 +163,6 @@ public class MockQueryManager
                 case FINISHED:
                     state = QueryState.FINISHED;
                     break;
-                case CANCELED:
-                    state = QueryState.CANCELED;
-                    break;
                 case FAILED:
                     state = QueryState.FAILED;
                     break;

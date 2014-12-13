@@ -18,7 +18,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -40,11 +39,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executor;
 
-import static com.facebook.presto.execution.QueryState.CANCELED;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
-import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -311,21 +308,6 @@ public class QueryStateMachine
             }
         }
         return queryState.setIf(FINISHED, Predicates.not(QueryState::isDone));
-    }
-
-    public boolean cancel()
-    {
-        synchronized (this) {
-            if (endTime == null) {
-                endTime = DateTime.now();
-            }
-        }
-        synchronized (this) {
-            if (failureCause == null) {
-                failureCause = new PrestoException(USER_CANCELED, "Query was canceled");
-            }
-        }
-        return queryState.setIf(CANCELED, Predicates.not(QueryState::isDone));
     }
 
     public boolean fail(@Nullable Throwable cause)

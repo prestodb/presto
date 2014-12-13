@@ -36,17 +36,13 @@ public enum QueryState
      */
     FINISHED(true),
     /**
-     * Query was canceled by a user.
-     */
-    CANCELED(true),
-    /**
      * Query execution failed.
      */
     FAILED(true);
 
     private final boolean doneState;
 
-    private QueryState(boolean doneState)
+    QueryState(boolean doneState)
     {
         this.doneState = doneState;
     }
