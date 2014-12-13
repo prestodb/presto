@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.execution;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 public enum StageState
 {
     /**
@@ -20,37 +22,45 @@ public enum StageState
      * be in the planned state until, the dependencies of the stage
      * have begun producing output.
      */
-    PLANNED(false),
+    PLANNED(false, false),
     /**
      * Stage tasks are being scheduled on nodes.
      */
-    SCHEDULING(false),
+    SCHEDULING(false, false),
     /**
      * Stage has been scheduled on nodes and ready to execute, but all tasks are still queued.
      */
-    SCHEDULED(false),
+    SCHEDULED(false, false),
     /**
      * Stage is running.
      */
-    RUNNING(false),
+    RUNNING(false, false),
     /**
      * Stage has finished executing and all output has been consumed.
      */
-    FINISHED(true),
+    FINISHED(true, false),
     /**
      * Stage was canceled by a user.
      */
-    CANCELED(true),
+    CANCELED(true, false),
+    /**
+     * Stage was aborted due to a failure in the query.  The failure
+     * was not in this stage.
+     */
+    ABORTED(true, true),
     /**
      * Stage execution failed.
      */
-    FAILED(true);
+    FAILED(true, true);
 
     private final boolean doneState;
+    private final boolean failureState;
 
-    private StageState(boolean doneState)
+    StageState(boolean doneState, boolean failureState)
     {
+        checkArgument(!failureState || doneState, "%s is a non-done failure state", name());
         this.doneState = doneState;
+        this.failureState = failureState;
     }
 
     /**
@@ -59,5 +69,13 @@ public enum StageState
     public boolean isDone()
     {
         return doneState;
+    }
+
+    /**
+     * Is this a non-success terminal state.
+     */
+    public boolean isFailure()
+    {
+        return failureState;
     }
 }

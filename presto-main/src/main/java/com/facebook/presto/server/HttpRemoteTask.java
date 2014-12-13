@@ -392,6 +392,52 @@ public class HttpRemoteTask
     public synchronized void cancel()
     {
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+            if (getTaskInfo().getState().isDone()) {
+                return;
+            }
+
+            URI uri = getTaskInfo().getSelf();
+            if (uri == null) {
+                return;
+            }
+
+            // send cancel to task and ignore response
+            final long start = System.nanoTime();
+            final Request request = prepareDelete()
+                    .setUri(uriBuilderFrom(uri).addParameter("summarize").build())
+                    .build();
+            Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), new FutureCallback<StatusResponse>()
+            {
+                @Override
+                public void onSuccess(StatusResponse result)
+                {
+                    // assume any response is good enough
+                }
+
+                @Override
+                public void onFailure(Throwable t)
+                {
+                    if (t instanceof RejectedExecutionException) {
+                        // client has been shutdown
+                        return;
+                    }
+
+                    // reschedule
+                    if (Duration.nanosSince(start).compareTo(new Duration(2, TimeUnit.MINUTES)) < 0) {
+                        Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), this, executor);
+                    }
+                    else {
+                        log.error(t, "Unable to cancel task at %s", request.getUri());
+                    }
+                }
+            }, executor);
+        }
+    }
+
+    @Override
+    public synchronized void abort()
+    {
+        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             // clear pending splits to free memory
             pendingSplits.clear();
 
@@ -404,48 +450,51 @@ public class HttpRemoteTask
 
             // mark task as canceled (if not already done)
             TaskInfo taskInfo = getTaskInfo();
+            URI uri = taskInfo.getSelf();
             updateTaskInfo(new TaskInfo(taskInfo.getTaskId(),
                     TaskInfo.MAX_VERSION,
-                    TaskState.CANCELED,
-                    taskInfo.getSelf(),
+                    TaskState.CANCELED, // todo change to aborted
+                    uri,
                     taskInfo.getLastHeartbeat(),
                     taskInfo.getOutputBuffers(),
                     taskInfo.getNoMoreSplits(),
                     taskInfo.getStats(),
                     ImmutableList.<ExecutionFailureInfo>of()));
 
-            // fire delete to task and ignore response
-            if (taskInfo.getSelf() != null) {
-                final long start = System.nanoTime();
-                final Request request = prepareDelete()
-                        .setUri(uriBuilderFrom(taskInfo.getSelf()).addParameter("summarize").build())
-                        .build();
-                Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), new FutureCallback<StatusResponse>()
-                {
-                    @Override
-                    public void onSuccess(StatusResponse result)
-                    {
-                        // assume any response is good enough
-                    }
-
-                    @Override
-                    public void onFailure(Throwable t)
-                    {
-                        if (t instanceof RejectedExecutionException) {
-                            // client has been shutdown
-                            return;
-                        }
-
-                        // reschedule
-                        if (Duration.nanosSince(start).compareTo(new Duration(2, TimeUnit.MINUTES)) < 0) {
-                            Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), this, executor);
-                        }
-                        else {
-                            log.error(t, "Unable to cancel task at %s", request.getUri());
-                        }
-                    }
-                }, executor);
+            if (uri == null) {
+                return;
             }
+
+            // send abort to task and ignore response
+            final long start = System.nanoTime();
+            final Request request = prepareDelete()
+                    .setUri(uriBuilderFrom(uri).addParameter("summarize").build())
+                    .build();
+            Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), new FutureCallback<StatusResponse>()
+            {
+                @Override
+                public void onSuccess(StatusResponse result)
+                {
+                    // assume any response is good enough
+                }
+
+                @Override
+                public void onFailure(Throwable t)
+                {
+                    if (t instanceof RejectedExecutionException) {
+                        // client has been shutdown
+                        return;
+                    }
+
+                    // reschedule
+                    if (Duration.nanosSince(start).compareTo(new Duration(2, TimeUnit.MINUTES)) < 0) {
+                        Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), this, executor);
+                    }
+                    else {
+                        log.error(t, "Unable to abort task at %s", request.getUri());
+                    }
+                }
+            }, executor);
         }
     }
 
@@ -506,14 +555,14 @@ public class HttpRemoteTask
             // it is weird to mark the task failed locally and then cancel the remote task, but there is no way to tell a remote task that it is failed
             PrestoException exception = new PrestoException(TOO_MANY_REQUESTS_FAILED,
                     format("Encountered too many errors talking to a worker node. The node may have crashed or be under too much load. This is probably a transient issue, so please retry your query in a few minutes (%s - %s failures, time since last success %s)",
-                    taskInfo.getSelf(),
-                    errorCount,
-                    timeSinceLastSuccess.convertToMostSuccinctTimeUnit()));
+                            taskInfo.getSelf(),
+                            errorCount,
+                            timeSinceLastSuccess.convertToMostSuccinctTimeUnit()));
             for (Throwable error : errorsSinceLastSuccess) {
                 exception.addSuppressed(error);
             }
             failTask(exception);
-            cancel();
+            abort();
         }
     }
 

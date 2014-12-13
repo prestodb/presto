@@ -169,7 +169,7 @@ public class SqlQueryExecution
                     stage.start();
                 }
                 else {
-                    stage.cancel(true);
+                    stage.abort();
                 }
             }
             catch (Throwable e) {
@@ -281,7 +281,7 @@ public class SqlQueryExecution
 
             SqlStageExecution stageExecution = outputStage.get();
             if (stageExecution != null) {
-                stageExecution.cancel(true);
+                stageExecution.abort();
             }
         }
     }
@@ -324,7 +324,7 @@ public class SqlQueryExecution
         // if output stage is done, transition to done
         StageState outputStageState = outputStageInfo.getState();
         if (outputStageState.isDone()) {
-            if (outputStageState == StageState.FAILED) {
+            if (outputStageState.isFailure()) {
                 stateMachine.fail(failureCause(outputStageInfo));
             }
             else if (outputStageState == StageState.CANCELED) {

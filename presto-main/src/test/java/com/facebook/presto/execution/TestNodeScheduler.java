@@ -245,7 +245,7 @@ public class TestNodeScheduler
         RemoteTask remoteTask = remoteTaskFactory.createTableScanTask(chosenNode, ImmutableList.of(new Split("foo", new TestSplitRemote())));
         nodeTaskMap.addTask(chosenNode, remoteTask);
         assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 1);
-        remoteTask.cancel();
+        remoteTask.abort();
         TimeUnit.MILLISECONDS.sleep(100); // Sleep until cache expires
         assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 0);
     }

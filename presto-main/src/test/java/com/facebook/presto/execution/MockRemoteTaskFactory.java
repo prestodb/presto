@@ -220,6 +220,12 @@ public class MockRemoteTaskFactory
         }
 
         @Override
+        public void abort()
+        {
+            taskStateMachine.cancel();
+        }
+
+        @Override
         public int getPartitionedSplitCount()
         {
             if (taskStateMachine.getState().isDone()) {
