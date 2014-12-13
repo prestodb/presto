@@ -34,6 +34,7 @@ import static com.facebook.presto.metadata.MetadataUtil.SchemaMetadataBuilder.sc
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.findColumnMetadata;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -88,6 +89,7 @@ public class InformationSchemaMetadata
                     .column("argument_types", VARCHAR)
                     .column("return_type", VARCHAR)
                     .column("function_type", VARCHAR)
+                    .column("deterministic", BOOLEAN)
                     .column("description", VARCHAR)
                     .build())
             .table(tableMetadataBuilder(TABLE_INTERNAL_PARTITIONS)

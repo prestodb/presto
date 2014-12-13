@@ -356,6 +356,7 @@ class StatementAnalyzer
                                 aliasedName("return_type", "Return Type"),
                                 aliasedName("argument_types", "Argument Types"),
                                 aliasedName("function_type", "Function Type"),
+                                aliasedName("deterministic", "Deterministic"),
                                 aliasedName("description", "Description")),
                         table(QualifiedName.of(TABLE_INTERNAL_FUNCTIONS.getSchemaName(), TABLE_INTERNAL_FUNCTIONS.getTableName())),
                         Optional.empty(),
