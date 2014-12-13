@@ -223,26 +223,12 @@ public class InformationSchemaPageSourceProvider
             if (function.isApproximate()) {
                 continue;
             }
-
-            String functionType;
-            if (function.isAggregate()) {
-                functionType = "aggregate";
-            }
-            else if (function.isWindow()) {
-                functionType = "window";
-            }
-            else if (function.isDeterministic()) {
-                functionType = "scalar";
-            }
-            else {
-                functionType = "scalar (non-deterministic)";
-            }
-
             table.add(
                     function.getSignature().getName(),
                     Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
                     function.getSignature().getReturnType().toString(),
-                    functionType,
+                    getFunctionType(function),
+                    function.isDeterministic(),
                     nullToEmpty(function.getDescription()));
         }
         return table.build();
@@ -332,5 +318,16 @@ public class InformationSchemaPageSourceProvider
             return Optional.ofNullable((String) value.getValue());
         }
         return Optional.empty();
+    }
+
+    private static String getFunctionType(ParametricFunction function)
+    {
+        if (function.isAggregate()) {
+            return "aggregate";
+        }
+        if (function.isWindow()) {
+            return "window";
+        }
+        return "scalar";
     }
 }
