@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.json;
+package com.facebook.presto.orc.block;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
@@ -19,49 +19,57 @@ import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSources;
-import com.fasterxml.jackson.core.JsonGenerator;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.google.common.primitives.Ints;
+import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
-
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.orc.json.JsonReaders.createJsonReader;
+import static com.facebook.presto.orc.block.BlockReaders.createBlockReader;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class ListJsonReader
-        implements JsonReader
+public class MapBlockReader
+        implements BlockReader
 {
+    private final DynamicSliceOutput out = new DynamicSliceOutput(1024);
+
     private final StreamDescriptor streamDescriptor;
     private final boolean checkForNulls;
 
-    private final JsonReader elementReader;
+    private final BlockReader keyReader;
+    private final BlockReader valueReader;
 
     @Nullable
     private BooleanStream presentStream;
-
     @Nullable
     private LongStream lengthStream;
 
-    public ListJsonReader(StreamDescriptor streamDescriptor, boolean checkForNulls, DateTimeZone hiveStorageTimeZone)
+    public MapBlockReader(StreamDescriptor streamDescriptor, boolean checkForNulls, DateTimeZone hiveStorageTimeZone)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
         this.checkForNulls = checkForNulls;
 
-        elementReader = createJsonReader(streamDescriptor.getNestedStreams().get(0), true, hiveStorageTimeZone);
+        keyReader = createBlockReader(streamDescriptor.getNestedStreams().get(0), true, hiveStorageTimeZone);
+        valueReader = createBlockReader(streamDescriptor.getNestedStreams().get(1), true, hiveStorageTimeZone);
     }
 
     @Override
-    public void readNextValueInto(JsonGenerator generator)
+    public void readNextValueInto(BlockBuilder builder)
             throws IOException
     {
+        out.reset();
+
         if (presentStream != null && !presentStream.nextBit()) {
-            generator.writeNull();
+            checkNotNull(builder, "parent builder is null").appendNull();
             return;
         }
 
@@ -69,12 +77,19 @@ public class ListJsonReader
             throw new OrcCorruptionException("Value is not null but length stream is not present");
         }
 
+        BlockBuilder currentBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(1000, 1000));
+
         long length = lengthStream.next();
-        generator.writeStartArray();
         for (int i = 0; i < length; i++) {
-            elementReader.readNextValueInto(generator);
+            keyReader.readNextValueInto(currentBuilder);
+            valueReader.readNextValueInto(currentBuilder);
         }
-        generator.writeEndArray();
+
+        currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
+
+        if (builder != null) {
+            VARBINARY.writeSlice(builder, out.copySlice());
+        }
     }
 
     @Override
@@ -86,7 +101,7 @@ public class ListJsonReader
             skipSize = presentStream.countBitsSet(skipSize);
         }
 
-        if (skipSize == 0) {
+        if (skipSize == 0)  {
             return;
         }
 
@@ -94,8 +109,10 @@ public class ListJsonReader
             throw new OrcCorruptionException("Value is not null but length stream is not present");
         }
 
+        // skip non-null values
         long elementSkipSize = lengthStream.sum(skipSize);
-        elementReader.skip(Ints.checkedCast(elementSkipSize));
+        keyReader.skip(Ints.checkedCast(elementSkipSize));
+        valueReader.skip(Ints.checkedCast(elementSkipSize));
     }
 
     @Override
@@ -105,7 +122,8 @@ public class ListJsonReader
         presentStream = null;
         lengthStream = null;
 
-        elementReader.openStripe(dictionaryStreamSources, encoding);
+        keyReader.openStripe(dictionaryStreamSources, encoding);
+        valueReader.openStripe(dictionaryStreamSources, encoding);
     }
 
     @Override
@@ -117,7 +135,14 @@ public class ListJsonReader
         }
         lengthStream = dataStreamSources.getStreamSource(streamDescriptor, LENGTH, LongStream.class).openStream();
 
-        elementReader.openRowGroup(dataStreamSources);
+        keyReader.openRowGroup(dataStreamSources);
+        valueReader.openRowGroup(dataStreamSources);
+    }
+
+    @Override
+    public Slice toSlice()
+    {
+        return out.copySlice();
     }
 
     @Override

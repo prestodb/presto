@@ -24,14 +24,14 @@ import com.facebook.presto.sql.analyzer.SemanticException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Longs;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.type.ArrayType.rawSlicesToStackRepresentation;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.type.ArrayType.toStackRepresentation;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
@@ -78,8 +78,32 @@ public class TestArrayOperators
     public void testStackRepresentation()
             throws Exception
     {
-        Slice slice = rawSlicesToStackRepresentation(ImmutableList.of(toStackRepresentation(ImmutableList.of(1L, 2L)), toStackRepresentation(ImmutableList.of(3L))));
-        assertEquals(slice, Slices.utf8Slice("[[1,2],[3]]"));
+        Slice slice = toStackRepresentation(ImmutableList.of(
+                toStackRepresentation(ImmutableList.of(1L, 2L), BIGINT),
+                toStackRepresentation(ImmutableList.of(3L), BIGINT)), new ArrayType(new ArrayType(BIGINT)));
+
+        DynamicSliceOutput output = new DynamicSliceOutput(100);
+        output.appendInt(2) // size of root array
+                .appendInt(33) // length of the first sub array bytes
+                .appendInt(21) // length of the second sub array bytes
+                .appendByte(0) // null flags
+                .appendInt(54) // length of root array bytes
+
+                    .appendInt(2) // size of the first array
+                    .appendInt(8) // length of long value 1
+                    .appendInt(8) // length of long value 2
+                    .appendByte(0) // null flags
+                    .appendInt(16) // length of values
+                    .appendLong(1) // value 1
+                    .appendLong(2) // value 2
+
+                    .appendInt(1) // size of the second array
+                    .appendInt(8) // length of long value 3
+                    .appendByte(0) // null flags
+                    .appendInt(8) // length of values
+                    .appendLong(3); // value 3
+
+        assertEquals(slice, output.slice());
     }
 
     @Test

@@ -11,13 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.json;
+package com.facebook.presto.orc.block;
 
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.stream.StreamSources;
-import com.fasterxml.jackson.core.JsonGenerator;
+import com.facebook.presto.spi.block.BlockBuilder;
 
 import java.io.IOException;
 import java.util.List;
@@ -26,36 +26,32 @@ import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
+import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class SliceJsonReader
-        implements JsonMapKeyReader
+public class LongBlockReader
+        implements BlockReader
 {
     private final StreamDescriptor streamDescriptor;
-    private final SliceDirectJsonReader directReader;
-    private final SliceDictionaryJsonReader dictionaryReader;
-    private JsonMapKeyReader currentReader;
 
-    public SliceJsonReader(StreamDescriptor streamDescriptor, boolean writeBinary)
+    private final LongDirectBlockReader directReader;
+
+    private final LongDictionaryBlockReader dictionaryReader;
+    private BlockReader currentReader;
+
+    public LongBlockReader(StreamDescriptor streamDescriptor)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
-        directReader = new SliceDirectJsonReader(streamDescriptor, writeBinary);
-        dictionaryReader = new SliceDictionaryJsonReader(streamDescriptor, writeBinary);
+        directReader = new LongDirectBlockReader(streamDescriptor);
+        dictionaryReader = new LongDictionaryBlockReader(streamDescriptor);
     }
 
     @Override
-    public void readNextValueInto(JsonGenerator generator)
+    public void readNextValueInto(BlockBuilder builder)
             throws IOException
     {
-        currentReader.readNextValueInto(generator);
-    }
-
-    @Override
-    public String nextValueAsMapKey()
-            throws IOException
-    {
-        return currentReader.nextValueAsMapKey();
+        currentReader.readNextValueInto(builder);
     }
 
     @Override
@@ -66,19 +62,18 @@ public class SliceJsonReader
     }
 
     @Override
-    public void openStripe(StreamSources dictionaryStreamSources,
-            List<ColumnEncoding> encoding)
+    public void openStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
-        ColumnEncodingKind columnEncodingKind = encoding.get(streamDescriptor.getStreamId()).getColumnEncodingKind();
-        if (columnEncodingKind == DIRECT || columnEncodingKind == DIRECT_V2 || columnEncodingKind == ColumnEncodingKind.DWRF_DIRECT) {
+        ColumnEncodingKind kind = encoding.get(streamDescriptor.getStreamId()).getColumnEncodingKind();
+        if (kind == DIRECT || kind == DIRECT_V2 || kind == DWRF_DIRECT) {
             currentReader = directReader;
         }
-        else if (columnEncodingKind == DICTIONARY || columnEncodingKind == DICTIONARY_V2) {
+        else if (kind == DICTIONARY || kind == DICTIONARY_V2) {
             currentReader = dictionaryReader;
         }
         else {
-            throw new IllegalArgumentException("Unsupported encoding " + columnEncodingKind);
+            throw new IllegalArgumentException("Unsupported encoding " + kind);
         }
 
         currentReader.openStripe(dictionaryStreamSources, encoding);

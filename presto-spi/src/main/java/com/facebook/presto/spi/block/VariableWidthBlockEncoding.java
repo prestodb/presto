@@ -69,6 +69,24 @@ public class VariableWidthBlockEncoding
     }
 
     @Override
+    public int getEstimatedSize(Block block)
+    {
+        int positionCount = block.getPositionCount();
+
+        int size = 4; // positionCount integer bytes
+        int totalLength = 0;
+        for (int position = 0; position < positionCount; position++) {
+            totalLength += block.getLength(position);
+            size += 4; // length integer bytes
+        }
+
+        size += positionCount / 8 + 1; // one byte null bits per eight elements and possibly last null bits
+        size += 4 + totalLength; // totalLength integer bytes and data bytes
+
+        return size;
+    }
+
+    @Override
     public Block readBlock(SliceInput sliceInput)
     {
         int positionCount = sliceInput.readInt();

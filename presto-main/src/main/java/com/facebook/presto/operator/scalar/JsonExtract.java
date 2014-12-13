@@ -29,7 +29,6 @@ import io.airlift.slice.Slices;
 import java.io.IOException;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.type.TypeJsonUtils.getDoubleValue;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
@@ -256,60 +255,6 @@ public final class JsonExtract
             }
 
             return delegate.extract(jsonParser);
-        }
-    }
-
-    public static class BooleanJsonExtractor
-            implements JsonExtractor<Boolean>
-    {
-        @Override
-        public Boolean extract(JsonParser jsonParser)
-                throws IOException
-        {
-            JsonToken token = jsonParser.getCurrentToken();
-            if (token == null) {
-                throw new JsonParseException("Unexpected end of value", jsonParser.getCurrentLocation());
-            }
-            if (!token.isScalarValue() || token == VALUE_NULL) {
-                return null;
-            }
-            return jsonParser.getBooleanValue();
-        }
-    }
-
-    public static class DoubleJsonExtractor
-            implements JsonExtractor<Double>
-    {
-        @Override
-        public Double extract(JsonParser jsonParser)
-                throws IOException
-        {
-            JsonToken token = jsonParser.getCurrentToken();
-            if (token == null) {
-                throw new JsonParseException("Unexpected end of value", jsonParser.getCurrentLocation());
-            }
-            if (!token.isScalarValue() || token == VALUE_NULL) {
-                return null;
-            }
-            return getDoubleValue(jsonParser);
-        }
-    }
-
-    public static class LongJsonExtractor
-            implements JsonExtractor<Long>
-    {
-        @Override
-        public Long extract(JsonParser jsonParser)
-                throws IOException
-        {
-            JsonToken token = jsonParser.getCurrentToken();
-            if (token == null) {
-                throw new JsonParseException("Unexpected end of value", jsonParser.getCurrentLocation());
-            }
-            if (!token.isScalarValue() || token == VALUE_NULL) {
-                return null;
-            }
-            return jsonParser.getLongValue();
         }
     }
 

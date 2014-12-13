@@ -19,20 +19,16 @@ import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TypeParameter;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.StructBuilder;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.type.MapType;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.type.ArrayType;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
-import java.io.IOException;
 import java.lang.invoke.MethodHandle;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
@@ -48,11 +44,9 @@ public final class MapConstructor
 {
     public static final MapConstructor MAP_CONSTRUCTOR = new MapConstructor();
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final Signature SIGNATURE = new Signature("map", ImmutableList.of(comparableTypeParameter("K"), typeParameter("V")), "map<K,V>", ImmutableList.of("array<K>", "array<V>"), false, false);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapConstructor.class, "createMap", Slice.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapConstructor.class, "createMap", Type.class, Type.class, Slice.class, Slice.class);
     private static final String DESCRIPTION = "Constructs a map from the given key/value arrays";
-    private static final ArrayType ARRAY_TYPE = MAPPER.getTypeFactory().constructArrayType(Object.class);
 
     @Override
     public Signature getSignature()
@@ -84,35 +78,31 @@ public final class MapConstructor
         Type keyType = types.get("K");
         Type valueType = types.get("V");
 
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(keyType);
+        methodHandle = methodHandle.bindTo(valueType);
+
         Type mapType = typeManager.getParameterizedType(MAP, ImmutableList.of(keyType.getTypeSignature(), valueType.getTypeSignature()), ImmutableList.of());
         ImmutableList<TypeSignature> argumentTypes = ImmutableList.of(parameterizedTypeName(StandardTypes.ARRAY, keyType.getTypeSignature()), parameterizedTypeName(StandardTypes.ARRAY, valueType.getTypeSignature()));
         Signature signature = new Signature("map", ImmutableList.<TypeParameter>of(), mapType.getTypeSignature(), argumentTypes, false, false);
 
-        return new FunctionInfo(signature, DESCRIPTION, isHidden(), METHOD_HANDLE, isDeterministic(), false, ImmutableList.of(false, false));
+        return new FunctionInfo(signature, DESCRIPTION, isHidden(), methodHandle, isDeterministic(), false, ImmutableList.of(false, false));
     }
 
-    public static Slice createMap(Slice keys, Slice values)
+    public static Slice createMap(Type keyType, Type valueType, Slice keys, Slice values)
     {
-        Map<Object, Object> map = new LinkedHashMap<>();
-        Object[] keysArray;
-        Object[] valuesArray;
-        try {
-            keysArray = MAPPER.readValue(keys.getInput(), ARRAY_TYPE);
-            valuesArray = MAPPER.readValue(values.getInput(), ARRAY_TYPE);
+        StructBuilder builder = StructBuilder.mapBuilder(keyType, valueType);
+        Block keyBlock = StructBuilder.readBlock(keys.getInput());
+        Block valueBlock = StructBuilder.readBlock(values.getInput());
 
-            checkCondition(keysArray.length == valuesArray.length, INVALID_FUNCTION_ARGUMENT, "Key and value arrays must be the same length");
-            for (int i = 0; i < keysArray.length; i++) {
-                if (keysArray[i] == null) {
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
-                }
-
-                map.put(keysArray[i], valuesArray[i]);
+        checkCondition(keyBlock.getPositionCount() == valueBlock.getPositionCount(), INVALID_FUNCTION_ARGUMENT, "Key and value arrays must be the same length");
+        for (int i = 0; i < keyBlock.getPositionCount(); i++) {
+            if (keyBlock.isNull(i)) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
             }
-        }
-        catch (IOException e) {
-            Throwables.propagate(e);
+            builder.add(keyBlock, i);
+            builder.add(valueBlock, i);
         }
 
-        return MapType.toStackRepresentation(map);
+        return builder.build();
     }
 }

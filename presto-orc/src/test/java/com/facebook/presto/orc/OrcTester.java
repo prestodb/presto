@@ -17,6 +17,8 @@ import com.facebook.hive.orc.OrcConf;
 import com.facebook.presto.orc.metadata.DwrfMetadataReader;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
+import com.facebook.presto.spi.block.StructBuilder;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
@@ -24,8 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
-import io.airlift.json.JsonCodec;
-import io.airlift.json.JsonCodecFactory;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import org.apache.hadoop.fs.Path;
@@ -55,6 +56,7 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -81,7 +83,6 @@ import static org.testng.Assert.assertTrue;
 
 public class OrcTester
 {
-    private static final JsonCodec<Object> OBJECT_JSON_CODEC = new JsonCodecFactory().jsonCodec(Object.class);
     public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("Asia/Katmandu");
 
     public enum Format
@@ -136,40 +137,30 @@ public class OrcTester
         return orcTester;
     }
 
-    public void testRoundTrip(PrimitiveObjectInspector columnObjectInspector, Iterable<?> writeValues)
+    public void testRoundTrip(PrimitiveObjectInspector columnObjectInspector, Iterable<?> writeValues, Type... parameterTypes)
             throws Exception
     {
-        testRoundTrip(columnObjectInspector, writeValues, writeValues);
+        testRoundTrip(columnObjectInspector, writeValues, writeValues, parameterTypes);
     }
 
-    public <W, R> void testRoundTrip(PrimitiveObjectInspector columnObjectInspector, Iterable<W> writeValues, Function<W, R> transform)
+    public <W, R> void testRoundTrip(PrimitiveObjectInspector columnObjectInspector, Iterable<W> writeValues, Function<W, R> transform, Type... parameterTypes)
             throws Exception
     {
-        testRoundTrip(columnObjectInspector, writeValues, transform(writeValues, transform));
+        testRoundTrip(columnObjectInspector, writeValues, transform(writeValues, transform), parameterTypes);
     }
 
-    public <W, R, J> void testRoundTrip(PrimitiveObjectInspector columnObjectInspector,
-            Iterable<W> writeValues,
-            Function<W, R> readTransform,
-            Function<W, J> readJsonTransform)
+    public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type... parameterTypes)
             throws Exception
     {
-        Iterable<R> readValues = transform(writeValues, readTransform);
-        Iterable<J> readJsonJsonValues = transform(writeValues, readJsonTransform);
-        testRoundTrip(columnObjectInspector, writeValues, readValues, readValues);
-    }
-
-    public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues)
-            throws Exception
-    {
-        testRoundTrip(objectInspector, writeValues, readValues, readValues);
+        testRoundTrip(objectInspector, writeValues, readValues, readValues, parameterTypes);
     }
 
     public void testRoundTrip(
             ObjectInspector objectInspector,
             Iterable<?> writeValues,
             Iterable<?> readValues,
-            Iterable<?> readJsonStackValues)
+            Iterable<?> readStackValues,
+            Type... parameterTypes)
             throws Exception
     {
         // just the values
@@ -180,90 +171,86 @@ public class OrcTester
 
         // values wrapped in struct
         if (structTestsEnabled) {
-            testStructRoundTrip(objectInspector, writeValues, readJsonStackValues);
+            testStructRoundTrip(objectInspector, writeValues, readStackValues, parameterTypes);
         }
 
         // values wrapped in a struct wrapped in a struct
         if (complexStructuralTestsEnabled) {
-            testStructRoundTrip(createHiveStructInspector(objectInspector), transform(writeValues, OrcTester::toHiveStruct), transform(readJsonStackValues, OrcTester::toObjectStruct));
+            testStructRoundTrip(createHiveStructInspector(objectInspector), transform(writeValues, OrcTester::toHiveStruct), transform(readStackValues, OrcTester::toObjectStruct), parameterTypes);
         }
 
         // values wrapped in map
         if (mapTestsEnabled) {
-            testMapRoundTrip(objectInspector, writeValues, readJsonStackValues);
+            testMapRoundTrip(objectInspector, writeValues, readStackValues, parameterTypes);
         }
 
         // values wrapped in list
         if (listTestsEnabled) {
-            testListRoundTrip(objectInspector, writeValues, readJsonStackValues);
+            testListRoundTrip(objectInspector, writeValues, readStackValues, parameterTypes);
         }
 
         // values wrapped in a list wrapped in a list
         if (complexStructuralTestsEnabled) {
-            testListRoundTrip(createHiveListInspector(objectInspector), transform(writeValues, OrcTester::toHiveList), transform(readJsonStackValues, OrcTester::toObjectList));
+            testListRoundTrip(createHiveListInspector(objectInspector), transform(writeValues, OrcTester::toHiveList), transform(readStackValues, OrcTester::toObjectList));
         }
     }
 
-    private void testStructRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readJsonValues)
+    private void testStructRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type... parameterTypes)
             throws Exception
     {
         // values in simple struct
-        testRoundTripType(createHiveStructInspector(objectInspector), transform(writeValues, OrcTester::toHiveStruct), transform(readJsonValues, OrcTester::toJsonStruct));
+        testRoundTripType(createHiveStructInspector(objectInspector), transform(writeValues, OrcTester::toHiveStruct), transform(readValues, value -> toBlockStruct(value, parameterTypes)));
 
         if (structuralNullTestsEnabled) {
             // values and nulls in simple struct
             testRoundTripType(createHiveStructInspector(objectInspector),
                     transform(insertNullEvery(5, writeValues), OrcTester::toHiveStruct),
-                    transform(insertNullEvery(5, readJsonValues), OrcTester::toJsonStruct));
+                    transform(insertNullEvery(5, readValues), value -> toBlockStruct(value, parameterTypes)));
 
             // all null values in simple struct
             testRoundTripType(createHiveStructInspector(objectInspector),
                     transform(transform(writeValues, constant(null)), OrcTester::toHiveStruct),
-                    transform(transform(writeValues, constant(null)), OrcTester::toJsonStruct));
+                    transform(transform(writeValues, constant(null)), value -> toBlockStruct(value, parameterTypes)));
         }
     }
 
-    private void testMapRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readJsonValues)
+    private void testMapRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type... parameterTypes)
             throws Exception
     {
-        // json does not support null keys, so we just write the first value
-        Object nullKeyWrite = writeValues.iterator().next();
-        Object nullKeyRead = readJsonValues.iterator().next();
-
         // values in simple map
         testRoundTripType(createHiveMapInspector(objectInspector),
-                transform(writeValues, value -> toHiveMap(nullKeyWrite, value)),
-                transform(readJsonValues, value -> toJsonMap(nullKeyRead, value)));
+                transform(writeValues, value -> toHiveMap(value)),
+                transform(readValues, value -> toBlockMap(value, parameterTypes)));
 
         if (structuralNullTestsEnabled) {
             // values and nulls in simple map
             testRoundTripType(createHiveMapInspector(objectInspector),
-                    transform(insertNullEvery(5, writeValues), value -> toHiveMap(nullKeyWrite, value)),
-                    transform(insertNullEvery(5, readJsonValues), value -> toJsonMap(nullKeyRead, value)));
+                    transform(insertNullEvery(5, writeValues), value -> toHiveMap(value)),
+                    transform(insertNullEvery(5, readValues), value -> toBlockMap(value, parameterTypes)));
 
             // all null values in simple map
             testRoundTripType(createHiveMapInspector(objectInspector),
-                    transform(transform(writeValues, constant(null)), value -> toHiveMap(nullKeyWrite, value)),
-                    transform(transform(readJsonValues, constant(null)), value -> toJsonMap(nullKeyRead, value)));
+                    transform(transform(writeValues, constant(null)), value -> toHiveMap(value)),
+                    transform(transform(readValues, constant(null)), value -> toBlockMap(value, parameterTypes)));
         }
     }
 
-    private void testListRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readJsonValues)
+    private void testListRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type... parameterTypes)
             throws Exception
     {
         // values in simple list
-        testRoundTripType(createHiveListInspector(objectInspector), transform(writeValues, OrcTester::toHiveList), transform(readJsonValues, OrcTester::toJsonList));
+        testRoundTripType(createHiveListInspector(objectInspector), transform(writeValues, OrcTester::toHiveList), transform(readValues, value -> toBlockList(value, parameterTypes)));
 
         if (structuralNullTestsEnabled) {
             // values and nulls in simple list
             testRoundTripType(createHiveListInspector(objectInspector),
                     transform(insertNullEvery(5, writeValues), OrcTester::toHiveList),
-                    transform(insertNullEvery(5, readJsonValues), OrcTester::toJsonList));
+                    transform(insertNullEvery(5, readValues), value -> toBlockList(value, parameterTypes)));
 
             // all null values in simple list
             testRoundTripType(createHiveListInspector(objectInspector),
                     transform(transform(writeValues, constant(null)), OrcTester::toHiveList),
-                    transform(transform(readJsonValues, constant(null)), OrcTester::toJsonList));
+                    transform(transform(readValues, constant(null)), value -> toBlockList(value, parameterTypes)));
         }
     }
 
@@ -352,6 +339,9 @@ public class OrcTester
                 for (int i = 0; i < batchSize; i++) {
                     assertTrue(iterator.hasNext());
                     Object expected = iterator.next();
+                    if (expected instanceof String) {
+                        expected = Slices.utf8Slice((String) expected);
+                    }
 
                     if (!Objects.equals(objectVector.vector[i], expected)) {
                         assertEquals(objectVector.vector[i], expected);
@@ -579,15 +569,9 @@ public class OrcTester
         return new Object[] {input, input};
     }
 
-    private static Object toJsonStruct(Object input)
+    private static Object toBlockStruct(Object input, Type... parameterTypes)
     {
-        if (input instanceof Float) {
-            input = ((Float) input).doubleValue();
-        }
-        List<Object> data = new ArrayList<>();
-        data.add(input);
-        data.add(input);
-        return OBJECT_JSON_CODEC.toJson(data);
+        return StructBuilder.rowBuilder(Arrays.asList(parameterTypes)).addAll(input, input).build();
     }
 
     private static Object toObjectStruct(Object input)
@@ -606,30 +590,16 @@ public class OrcTester
         return getStandardMapObjectInspector(objectInspector, objectInspector);
     }
 
-    private static Object toHiveMap(final Object nullKeyValue, Object input)
+    private static Object toHiveMap(Object input)
     {
         Map<Object, Object> map = new HashMap<>();
-        if (input == null) {
-            // json doesn't support null keys, so just write the nullKeyValue
-            map.put(nullKeyValue, null);
-        }
-        else {
-            map.put(input, input);
-        }
+        map.put(input, input);
         return map;
     }
 
-    private static Object toJsonMap(final Object nullKeyValue, Object input)
+    private static Object toBlockMap(Object input, Type... parameterTypes)
     {
-        Map<Object, Object> map = new HashMap<>();
-        if (input == null) {
-            // json doesn't support null keys, so just write the nullKeyValue
-            map.put(nullKeyValue, null);
-        }
-        else {
-            map.put(input, input);
-        }
-        return OBJECT_JSON_CODEC.toJson(map);
+        return StructBuilder.mapBuilder(parameterTypes[0], parameterTypes[0]).addAll(input, input).build();
     }
 
     private static StandardListObjectInspector createHiveListInspector(ObjectInspector objectInspector)
@@ -646,16 +616,13 @@ public class OrcTester
         return list;
     }
 
-    private static Object toJsonList(Object input)
+    private static Object toBlockList(Object input, Type... parameterTypes)
     {
-        if (input instanceof Float) {
-            input = ((Float) input).doubleValue();
-        }
-        ArrayList<Object> list = new ArrayList<>(4);
+        StructBuilder builder = StructBuilder.rowBuilder(Arrays.asList(parameterTypes));
         for (int i = 0; i < 4; i++) {
-            list.add(input);
+            builder.add(input);
         }
-        return OBJECT_JSON_CODEC.toJson(list);
+        return builder.build();
     }
 
     private static Object toObjectList(Object input)

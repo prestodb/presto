@@ -13,13 +13,17 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.block.StructBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
@@ -36,10 +40,16 @@ public class TestSimpleRowType
     private static Block createTestBlock()
     {
         BlockBuilder blockBuilder = TYPE.createBlockBuilder(new BlockBuilderStatus());
-        VARCHAR.writeString(blockBuilder, "[1,\"cat\"]");
-        VARCHAR.writeString(blockBuilder, "[2,\"cats\"]");
-        VARCHAR.writeString(blockBuilder, "[3,\"dog\"]");
+        List<Type> parameterTypes = ImmutableList.of(BIGINT, VARCHAR);
+        TYPE.writeSlice(blockBuilder, sliceOf(parameterTypes, 1, "cat"));
+        TYPE.writeSlice(blockBuilder, sliceOf(parameterTypes, 2, "cats"));
+        TYPE.writeSlice(blockBuilder, sliceOf(parameterTypes, 3, "dog"));
         return blockBuilder.build();
+    }
+
+    private static Slice sliceOf(List<Type> parameterTypes, Object... values)
+    {
+        return StructBuilder.rowBuilder(parameterTypes).addAll(values).build();
     }
 
     @Override

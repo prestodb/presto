@@ -18,7 +18,10 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -70,11 +73,11 @@ public class TestUnnestOperator
         Type mapType = metadata.getType(parseTypeSignature("map<bigint,bigint>"));
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
-                .row(1, "[2, 3]", "{\"4\": 5}")
-                .row(2, "[99]", null)
+                .row(1, ArrayType.toStackRepresentation(ImmutableList.of(2, 3), BIGINT), MapType.toStackRepresentation(ImmutableMap.of(4, 5), BIGINT, BIGINT))
+                .row(2, ArrayType.toStackRepresentation(ImmutableList.of(99), BIGINT), null)
                 .row(3, null, null)
                 .pageBreak()
-                .row(6, "[7, 8]", "{\"9\": 10, \"11\": 12}")
+                .row(6, ArrayType.toStackRepresentation(ImmutableList.of(7, 8), BIGINT), MapType.toStackRepresentation(ImmutableMap.of(9, 10, 11, 12), BIGINT, BIGINT))
                 .build();
 
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(0, ImmutableList.of(0), ImmutableList.<Type>of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType));
@@ -100,7 +103,8 @@ public class TestUnnestOperator
         Type mapType = metadata.getType(parseTypeSignature("map<bigint,double>"));
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
-                .row(1, "[\"-Infinity\", \"Infinity\", \"NaN\"]", "{\"1\": \"-Infinity\", \"2\": \"Infinity\", \"3\": \"NaN\"}")
+                .row(1, ArrayType.toStackRepresentation(ImmutableList.of(NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, NaN), DOUBLE),
+                        MapType.toStackRepresentation(ImmutableMap.of(1, NEGATIVE_INFINITY, 2, POSITIVE_INFINITY, 3, NaN), BIGINT, DOUBLE))
                 .build();
 
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(0, ImmutableList.of(0), ImmutableList.<Type>of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType));

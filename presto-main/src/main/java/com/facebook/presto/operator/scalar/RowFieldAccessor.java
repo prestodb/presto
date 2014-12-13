@@ -19,8 +19,6 @@ import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.RowType;
 import com.facebook.presto.util.Reflection;
 import com.google.common.collect.ImmutableList;
@@ -32,17 +30,10 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.FunctionRegistry.mangleFieldAccessor;
-import static com.facebook.presto.operator.scalar.JsonExtract.BooleanJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.DoubleJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.JsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.JsonValueJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.LongJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.generateExtractor;
+import static com.facebook.presto.spi.block.StructBuilder.readBlock;
 import static com.facebook.presto.type.RowType.RowField;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static java.lang.String.format;
 
 public class RowFieldAccessor
         extends ParametricScalar
@@ -54,10 +45,10 @@ public class RowFieldAccessor
 
     static {
         ImmutableMap.Builder<String, MethodHandle> builder = ImmutableMap.builder();
-        builder.put("long", Reflection.methodHandle(RowFieldAccessor.class, "longAccessor", JsonExtractor.class, Slice.class));
-        builder.put("double", Reflection.methodHandle(RowFieldAccessor.class, "doubleAccessor", JsonExtractor.class, Slice.class));
-        builder.put("boolean", Reflection.methodHandle(RowFieldAccessor.class, "booleanAccessor", JsonExtractor.class, Slice.class));
-        builder.put("slice", Reflection.methodHandle(RowFieldAccessor.class, "sliceAccessor", JsonExtractor.class, Slice.class));
+        builder.put("long", Reflection.methodHandle(RowFieldAccessor.class, "longAccessor", FieldExtractor.class, Slice.class));
+        builder.put("double", Reflection.methodHandle(RowFieldAccessor.class, "doubleAccessor", FieldExtractor.class, Slice.class));
+        builder.put("boolean", Reflection.methodHandle(RowFieldAccessor.class, "booleanAccessor", FieldExtractor.class, Slice.class));
+        builder.put("slice", Reflection.methodHandle(RowFieldAccessor.class, "sliceAccessor", FieldExtractor.class, Slice.class));
         METHOD_HANDLE_MAP = builder.build();
     }
 
@@ -75,26 +66,22 @@ public class RowFieldAccessor
         checkNotNull(returnType, "%s not found in row type %s", fieldName, type);
         signature = new Signature(mangleFieldAccessor(fieldName), returnType.getTypeSignature(), type.getTypeSignature());
 
-        JsonExtractor<?> extractor;
-        if (returnType instanceof ArrayType || returnType instanceof MapType || returnType instanceof RowType) {
-            extractor = new JsonValueJsonExtractor();
-        }
-        else if (returnType.getJavaType() == boolean.class) {
-            extractor = new BooleanJsonExtractor();
+        FieldExtractor<?> extractor;
+        if (returnType.getJavaType() == boolean.class) {
+            extractor = new BooleanFieldExtractor(returnType, index);
         }
         else if (returnType.getJavaType() == long.class) {
-            extractor = new LongJsonExtractor();
+            extractor = new LongFieldExtractor(returnType, index);
         }
         else if (returnType.getJavaType() == double.class) {
-            extractor = new DoubleJsonExtractor();
+            extractor = new DoubleFieldExtractor(returnType, index);
         }
         else if (returnType.getJavaType() == Slice.class) {
-            extractor = new ScalarValueJsonExtractor();
+            extractor = new SliceFieldExtractor(returnType, index);
         }
         else {
             throw new IllegalArgumentException("Unsupported stack type: " + returnType.getJavaType());
         }
-        extractor = generateExtractor(format("$[%d]", index), extractor, true);
         String stackType = returnType.getJavaType().getSimpleName().toLowerCase();
         checkState(METHOD_HANDLE_MAP.containsKey(stackType), "method handle missing for %s stack type", stackType);
         methodHandle = METHOD_HANDLE_MAP.get(stackType).bindTo(extractor);
@@ -131,23 +118,93 @@ public class RowFieldAccessor
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), true, ImmutableList.of(false));
     }
 
-    public static Long longAccessor(JsonExtractor<Long> extractor, Slice row)
+    public static Long longAccessor(FieldExtractor<Long> extractor, Slice row)
     {
-        return JsonExtract.extract(row, extractor);
+        return extractor.extract(row);
     }
 
-    public static Boolean booleanAccessor(JsonExtractor<Boolean> extractor, Slice row)
+    public static Boolean booleanAccessor(FieldExtractor<Boolean> extractor, Slice row)
     {
-        return JsonExtract.extract(row, extractor);
+        return extractor.extract(row);
     }
 
-    public static Double doubleAccessor(JsonExtractor<Double> extractor, Slice row)
+    public static Double doubleAccessor(FieldExtractor<Double> extractor, Slice row)
     {
-        return JsonExtract.extract(row, extractor);
+        return extractor.extract(row);
     }
 
-    public static Slice sliceAccessor(JsonExtractor<Slice> extractor, Slice row)
+    public static Slice sliceAccessor(FieldExtractor<Slice> extractor, Slice row)
     {
-        return JsonExtract.extract(row, extractor);
+        return extractor.extract(row);
+    }
+
+    private abstract class FieldExtractor<T>
+    {
+        protected final Type type;
+        protected final int index;
+
+        public FieldExtractor(Type type, int index)
+        {
+            this.type = type;
+            this.index = index;
+        }
+
+        public abstract T extract(Slice row);
+    }
+
+    private class BooleanFieldExtractor extends FieldExtractor<Boolean>
+    {
+        public BooleanFieldExtractor(Type type, int index)
+        {
+            super(type, index);
+        }
+
+        @Override
+        public Boolean extract(Slice row)
+        {
+            return type.getBoolean(readBlock(row.getInput()), index);
+        }
+    }
+
+    private class LongFieldExtractor extends FieldExtractor<Long>
+    {
+        public LongFieldExtractor(Type type, int index)
+        {
+            super(type, index);
+        }
+
+        @Override
+        public Long extract(Slice row)
+        {
+            return type.getLong(readBlock(row.getInput()), index);
+        }
+    }
+
+    private class DoubleFieldExtractor extends FieldExtractor<Double>
+    {
+        public DoubleFieldExtractor(Type type, int index)
+        {
+            super(type, index);
+        }
+
+        @Override
+        public Double extract(Slice row)
+        {
+            return type.getDouble(readBlock(row.getInput()), index);
+        }
+    }
+
+    private class SliceFieldExtractor extends FieldExtractor<Slice>
+    {
+        public SliceFieldExtractor(Type type, int index)
+        {
+            super(type, index);
+        }
+
+        @Override
+        public Slice extract(Slice row)
+        {
+            return type.getSlice(readBlock(row.getInput()), index);
+        }
     }
 }

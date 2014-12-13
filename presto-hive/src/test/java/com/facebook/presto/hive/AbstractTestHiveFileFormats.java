@@ -16,6 +16,8 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTimestamp;
@@ -25,9 +27,10 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.RowType;
 import com.facebook.presto.type.TypeRegistry;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.facebook.presto.type.UnknownType;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -63,12 +66,15 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.HiveType.getType;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
+import static com.facebook.presto.spi.block.StructBuilder.arrayBuilder;
+import static com.facebook.presto.spi.block.StructBuilder.mapBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -76,7 +82,6 @@ import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
-import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
@@ -163,48 +168,48 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_map_string",
                     getStandardMapObjectInspector(javaStringObjectInspector, javaStringObjectInspector),
                     ImmutableMap.of("test", "test"),
-                    "{\"test\":\"test\"}"))
-            .add(new TestColumn("t_map_tinyint", getStandardMapObjectInspector(javaByteObjectInspector, javaByteObjectInspector), ImmutableMap.of((byte) 1, (byte) 1), "{\"1\":1}"))
+                    singleMap(VARCHAR, VARCHAR, "test", "test")))
+            .add(new TestColumn("t_map_tinyint", getStandardMapObjectInspector(javaByteObjectInspector, javaByteObjectInspector), ImmutableMap.of((byte) 1, (byte) 1), singleMap(BIGINT, BIGINT, 1, 1)))
             .add(new TestColumn("t_map_smallint",
                     getStandardMapObjectInspector(javaShortObjectInspector, javaShortObjectInspector),
                     ImmutableMap.of((short) 2, (short) 2),
-                    "{\"2\":2}"))
-            .add(new TestColumn("t_map_int", getStandardMapObjectInspector(javaIntObjectInspector, javaIntObjectInspector), ImmutableMap.of(3, 3), "{\"3\":3}"))
-            .add(new TestColumn("t_map_bigint", getStandardMapObjectInspector(javaLongObjectInspector, javaLongObjectInspector), ImmutableMap.of(4L, 4L), "{\"4\":4}"))
-            .add(new TestColumn("t_map_float", getStandardMapObjectInspector(javaFloatObjectInspector, javaFloatObjectInspector), ImmutableMap.of(5.0f, 5.0f), "{\"5.0\":5.0}"))
-            .add(new TestColumn("t_map_double", getStandardMapObjectInspector(javaDoubleObjectInspector, javaDoubleObjectInspector), ImmutableMap.of(6.0, 6.0), "{\"6.0\":6.0}"))
+                    singleMap(BIGINT, BIGINT, 2, 2)))
+            .add(new TestColumn("t_map_int", getStandardMapObjectInspector(javaIntObjectInspector, javaIntObjectInspector), ImmutableMap.of(3, 3), singleMap(BIGINT, BIGINT, 3, 3)))
+            .add(new TestColumn("t_map_bigint", getStandardMapObjectInspector(javaLongObjectInspector, javaLongObjectInspector), ImmutableMap.of(4L, 4L), singleMap(BIGINT, BIGINT, 4L, 4L)))
+            .add(new TestColumn("t_map_float", getStandardMapObjectInspector(javaFloatObjectInspector, javaFloatObjectInspector), ImmutableMap.of(5.0f, 5.0f), singleMap(DOUBLE, DOUBLE, 5.0f, 5.0f)))
+            .add(new TestColumn("t_map_double", getStandardMapObjectInspector(javaDoubleObjectInspector, javaDoubleObjectInspector), ImmutableMap.of(6.0, 6.0), singleMap(DOUBLE, DOUBLE, 6.0, 6.0)))
             .add(new TestColumn("t_map_boolean",
                     getStandardMapObjectInspector(javaBooleanObjectInspector, javaBooleanObjectInspector),
                     ImmutableMap.of(true, true),
-                    "{\"true\":true}"))
+                    singleMap(BOOLEAN, BOOLEAN, true, true)))
             .add(new TestColumn("t_map_date",
                     getStandardMapObjectInspector(javaDateObjectInspector, javaDateObjectInspector),
                     ImmutableMap.of(SQL_DATE, SQL_DATE),
-                    String.format("{\"%d\":%d}", DATE_DAYS, DATE_DAYS)))
+                    singleMap(DateType.DATE, DateType.DATE, DATE_DAYS, DATE_DAYS)))
             .add(new TestColumn("t_map_timestamp",
                     getStandardMapObjectInspector(javaTimestampObjectInspector, javaTimestampObjectInspector),
                     ImmutableMap.of(new Timestamp(TIMESTAMP), new Timestamp(TIMESTAMP)),
-                    String.format("{\"%d\":%d}", TIMESTAMP, TIMESTAMP)))
-            .add(new TestColumn("t_array_string", getStandardListObjectInspector(javaStringObjectInspector), ImmutableList.of("test"), "[\"test\"]"))
-            .add(new TestColumn("t_array_tinyint", getStandardListObjectInspector(javaByteObjectInspector), ImmutableList.of((byte) 1), "[1]"))
-            .add(new TestColumn("t_array_smallint", getStandardListObjectInspector(javaShortObjectInspector), ImmutableList.of((short) 2), "[2]"))
-            .add(new TestColumn("t_array_int", getStandardListObjectInspector(javaIntObjectInspector), ImmutableList.of(3), "[3]"))
-            .add(new TestColumn("t_array_bigint", getStandardListObjectInspector(javaLongObjectInspector), ImmutableList.of(4L), "[4]"))
-            .add(new TestColumn("t_array_float", getStandardListObjectInspector(javaFloatObjectInspector), ImmutableList.of(5.0f), "[5.0]"))
-            .add(new TestColumn("t_array_double", getStandardListObjectInspector(javaDoubleObjectInspector), ImmutableList.of(6.0), "[6.0]"))
-            .add(new TestColumn("t_array_boolean", getStandardListObjectInspector(javaBooleanObjectInspector), ImmutableList.of(true), "[true]"))
+                    singleMap(TimestampType.TIMESTAMP, TimestampType.TIMESTAMP, TIMESTAMP, TIMESTAMP)))
+            .add(new TestColumn("t_array_string", getStandardListObjectInspector(javaStringObjectInspector), ImmutableList.of("test"), fromArray(VARCHAR, "test")))
+            .add(new TestColumn("t_array_tinyint", getStandardListObjectInspector(javaByteObjectInspector), ImmutableList.of((byte) 1), fromArray(BIGINT, 1)))
+            .add(new TestColumn("t_array_smallint", getStandardListObjectInspector(javaShortObjectInspector), ImmutableList.of((short) 2), fromArray(BIGINT, 2)))
+            .add(new TestColumn("t_array_int", getStandardListObjectInspector(javaIntObjectInspector), ImmutableList.of(3), fromArray(BIGINT, 3)))
+            .add(new TestColumn("t_array_bigint", getStandardListObjectInspector(javaLongObjectInspector), ImmutableList.of(4L), fromArray(BIGINT, 4L)))
+            .add(new TestColumn("t_array_float", getStandardListObjectInspector(javaFloatObjectInspector), ImmutableList.of(5.0f), fromArray(DOUBLE, 5.0f)))
+            .add(new TestColumn("t_array_double", getStandardListObjectInspector(javaDoubleObjectInspector), ImmutableList.of(6.0), fromArray(DOUBLE, 6.0)))
+            .add(new TestColumn("t_array_boolean", getStandardListObjectInspector(javaBooleanObjectInspector), ImmutableList.of(true), fromArray(BOOLEAN, true)))
             .add(new TestColumn("t_array_date",
                     getStandardListObjectInspector(javaDateObjectInspector),
                     ImmutableList.of(SQL_DATE),
-                    String.format("[%d]", DATE_DAYS)))
+                    fromArray(DateType.DATE, DATE_DAYS)))
             .add(new TestColumn("t_array_timestamp",
                     getStandardListObjectInspector(javaTimestampObjectInspector),
                     ImmutableList.of(new Timestamp(TIMESTAMP)),
-                    String.format("[%d]", TIMESTAMP)))
+                    fromArray(TimestampType.TIMESTAMP, TIMESTAMP)))
             .add(new TestColumn("t_struct_bigint",
                     getStandardStructObjectInspector(ImmutableList.of("s_bigint"), ImmutableList.of(javaLongObjectInspector)),
                     new Long[] {1L},
-                    "[1]"))
+                    fromArray(BIGINT, 1)))
             .add(new TestColumn("t_complex",
                     getStandardMapObjectInspector(
                             javaStringObjectInspector,
@@ -216,12 +221,16 @@ public abstract class AbstractTestHiveFileFormats
                             )
                     ),
                     ImmutableMap.of("test", ImmutableList.<Object>of(new Integer[] {1})),
-                    "{\"test\":[[1]]}"
+                    singleMap(VARCHAR, new ArrayType(new ArrayType(BIGINT)), "test", fromArray(new ArrayType(BIGINT), fromArray(BIGINT, 1)))
             ))
-            .add(new TestColumn("t_struct_nested", getStandardStructObjectInspector(ImmutableList.of("struct_field") ,
-                    ImmutableList.of(getStandardListObjectInspector(javaStringObjectInspector))), Arrays.asList(Arrays.asList("1", "2", "3")) , "[[\"1\",\"2\",\"3\"]]"))
-            .add(new TestColumn("t_struct_null", getStandardStructObjectInspector(ImmutableList.of("struct_field") ,
-                    ImmutableList.of(javaStringObjectInspector)), Arrays.asList(new Object[] {null}) , "[null]"))
+            .add(new TestColumn("t_struct_nested", getStandardStructObjectInspector(ImmutableList.of("struct_field"),
+                    ImmutableList.of(getStandardListObjectInspector(javaStringObjectInspector))),
+                    Arrays.asList(Arrays.asList("1", "2", "3")),
+                    fromArray(new RowType(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR), Optional.empty()), fromArray(VARCHAR, "1", "2", "3"))))
+            .add(new TestColumn("t_struct_null", getStandardStructObjectInspector(ImmutableList.of("struct_field"),
+                    ImmutableList.of(javaStringObjectInspector)),
+                    Arrays.asList(new Object[] {null}),
+                    fromArray(UnknownType.UNKNOWN, null)))
             .build();
 
     protected List<HiveColumnHandle> getColumnHandles(List<TestColumn> testColumns)
@@ -368,9 +377,8 @@ public abstract class AbstractTestHiveFileFormats
                     assertEquals(fieldFromCursor, testColumn.getExpectedValue(), String.format("Wrong value for column %s", testColumn.getName()));
                 }
                 else {
-                    ObjectMapper mapper = new ObjectMapper();
-                    JsonNode expected = mapper.readTree((String) testColumn.getExpectedValue());
-                    JsonNode actual = mapper.readTree(((Slice) fieldFromCursor).getBytes());
+                    Slice expected = (Slice) testColumn.getExpectedValue();
+                    Slice actual = (Slice) fieldFromCursor;
                     assertEquals(actual, expected, String.format("Wrong value for column %s", testColumn.getName()));
                 }
             }
@@ -390,10 +398,6 @@ public abstract class AbstractTestHiveFileFormats
 
                     Object actualValue = row.getField(i);
                     Object expectedValue = testColumn.getExpectedValue();
-                    if (expectedValue instanceof Slice) {
-                        expectedValue = ((Slice) expectedValue).toStringUtf8();
-                    }
-
                     if (actualValue == null) {
                         assertEquals(null, expectedValue, String.format("Expected null for column %d", i));
                     }
@@ -410,6 +414,10 @@ public abstract class AbstractTestHiveFileFormats
                         assertEquals(actualValue, expectedTimestamp);
                     }
                     else if (testColumn.getObjectInspector().getCategory() == Category.PRIMITIVE) {
+                        if (expectedValue instanceof Slice) {
+                            expectedValue = ((Slice) expectedValue).toStringUtf8();
+                        }
+
                         if (actualValue instanceof Slice) {
                             actualValue = ((Slice) actualValue).toStringUtf8();
                         }
@@ -419,8 +427,10 @@ public abstract class AbstractTestHiveFileFormats
                         assertEquals(actualValue, expectedValue, String.format("Wrong value for column %d", i));
                     }
                     else {
-                        Object expected = stackRepresentationToObject(SESSION, Slices.utf8Slice((String) expectedValue), type);
-                        assertEquals(actualValue, expected, String.format("Wrong value for column %s", testColumn.getName()));
+                        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus());
+                        type.writeSlice(builder, (Slice) expectedValue);
+                        expectedValue = type.getObjectValue(SESSION, builder.build(), 0);
+                        assertEquals(actualValue, expectedValue, String.format("Wrong value for column %s", testColumn.getName()));
                     }
                 }
             }
@@ -428,6 +438,19 @@ public abstract class AbstractTestHiveFileFormats
         finally {
             pageSource.close();
         }
+    }
+
+    private static Slice fromArray(Type type, Object... values)
+    {
+        if (values == null) {
+            return arrayBuilder(type).add(values).build();
+        }
+        return arrayBuilder(type).addAll(values).build();
+    }
+
+    private static Slice singleMap(Type keyType, Type valueType, Object key, Object value)
+    {
+        return mapBuilder(keyType, valueType).addAll(key, value).build();
     }
 
     public static final class TestColumn

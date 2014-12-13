@@ -11,51 +11,48 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.json;
+package com.facebook.presto.orc.block;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
-import com.facebook.presto.orc.stream.LongStream;
+import com.facebook.presto.orc.stream.FloatStream;
 import com.facebook.presto.orc.stream.StreamSources;
-import com.fasterxml.jackson.core.JsonGenerator;
+import com.facebook.presto.spi.block.BlockBuilder;
 
 import javax.annotation.Nullable;
-
 import java.io.IOException;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class DateJsonReader
-        implements JsonMapKeyReader
+public class FloatBlockReader
+        implements BlockReader
 {
-    private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
-
     private final StreamDescriptor streamDescriptor;
 
     @Nullable
     private BooleanStream presentStream;
 
     @Nullable
-    private LongStream dataStream;
+    private FloatStream dataStream;
 
-    public DateJsonReader(StreamDescriptor streamDescriptor)
+    public FloatBlockReader(StreamDescriptor streamDescriptor)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
     }
 
     @Override
-    public void readNextValueInto(JsonGenerator generator)
+    public void readNextValueInto(BlockBuilder builder)
             throws IOException
     {
         if (presentStream != null && !presentStream.nextBit()) {
-            generator.writeNull();
+            builder.appendNull();
             return;
         }
 
@@ -63,24 +60,8 @@ public class DateJsonReader
             throw new OrcCorruptionException("Value is not null but data stream is not present");
         }
 
-        long days = dataStream.next();
-        generator.writeNumber(days);
-    }
-
-    @Override
-    public String nextValueAsMapKey()
-            throws IOException
-    {
-        if (presentStream != null && !presentStream.nextBit()) {
-            return null;
-        }
-
-        if (dataStream == null) {
-            throw new OrcCorruptionException("Value is not null but data stream is not present");
-        }
-
-        long days = dataStream.next();
-        return String.valueOf(days);
+        // write value as a double to avoid strange rounding errors
+        DOUBLE.writeDouble(builder, dataStream.next());
     }
 
     @Override
@@ -117,7 +98,7 @@ public class DateJsonReader
             throws IOException
     {
         presentStream = dataStreamSources.getStreamSource(streamDescriptor, PRESENT, BooleanStream.class).openStream();
-        dataStream = dataStreamSources.getStreamSource(streamDescriptor, DATA, LongStream.class).openStream();
+        dataStream = dataStreamSources.getStreamSource(streamDescriptor, DATA, FloatStream.class).openStream();
     }
 
     @Override
