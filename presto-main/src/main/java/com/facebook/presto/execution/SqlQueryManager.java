@@ -58,6 +58,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.SystemSessionProperties.isBigQueryEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
+import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.concurrent.Threads.threadsNamed;
@@ -253,7 +254,7 @@ public class SqlQueryManager
 
         QueryExecution query = queries.get(queryId);
         if (query != null) {
-            query.cancel();
+            query.fail(new PrestoException(USER_CANCELED, "Query was canceled"));
         }
     }
 
@@ -303,18 +304,6 @@ public class SqlQueryManager
         return queryManagementExecutorMBean;
     }
 
-    public void removeQuery(QueryId queryId)
-    {
-        Preconditions.checkNotNull(queryId, "queryId is null");
-
-        log.debug("Remove query %s", queryId);
-
-        QueryExecution query = queries.remove(queryId);
-        if (query != null) {
-            query.cancel();
-        }
-    }
-
     /**
      * Remove completed queries after a waiting period
      */
@@ -324,17 +313,24 @@ public class SqlQueryManager
 
         // we're willing to keep queries beyond timeHorizon as long as we have fewer than maxQueryHistory
         while (expirationQueue.size() > maxQueryHistory) {
-            QueryInfo info = expirationQueue.peek().getQueryInfo();
+            QueryInfo queryInfo = expirationQueue.peek().getQueryInfo();
 
             // expirationQueue is FIFO based on query end time. Stop when we see the
             // first query that's too young to expire
-            if (info.getQueryStats().getEndTime().isAfter(timeHorizon)) {
+            if (queryInfo.getQueryStats().getEndTime().isAfter(timeHorizon)) {
                 return;
             }
 
             // only expire them if they are older than maxQueryAge. We need to keep them
             // around for a while in case clients come back asking for status
-            removeQuery(info.getQueryId());
+            QueryId queryId = queryInfo.getQueryId();
+
+            log.debug("Remove query %s", queryId);
+            QueryExecution query = queries.remove(queryId);
+            if (query != null) {
+                log.error("Query %s is %s, but still has a QueryExecution registered", queryId, queryInfo.getState());
+                query.fail(new AbandonedException("Query " + queryId, queryInfo.getQueryStats().getLastHeartbeat(), DateTime.now()));
+            }
             expirationQueue.remove();
         }
     }

@@ -59,12 +59,6 @@ public class FailedQueryExecution
     }
 
     @Override
-    public void cancel()
-    {
-        // no-op
-    }
-
-    @Override
     public void fail(Throwable cause)
     {
         // no-op

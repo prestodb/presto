@@ -87,12 +87,6 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
-    public void cancel()
-    {
-        stateMachine.cancel();
-    }
-
-    @Override
     public void fail(Throwable cause)
     {
         stateMachine.fail(cause);

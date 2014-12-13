@@ -27,8 +27,6 @@ public interface QueryExecution
 
     void start();
 
-    void cancel();
-
     void fail(Throwable cause);
 
     void cancelStage(StageId stageId);
