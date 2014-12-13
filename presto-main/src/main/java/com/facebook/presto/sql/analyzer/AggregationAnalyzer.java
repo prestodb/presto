@@ -47,7 +47,6 @@ import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
-import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -61,6 +60,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGA
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.instanceOf;
 
@@ -86,17 +86,17 @@ public class AggregationAnalyzer
         this.tupleDescriptor = tupleDescriptor;
         this.metadata = metadata;
 
-        this.expressions = IterableTransformer.on(groupByExpressions)
-                .select(FieldOrExpression::isExpression)
-                .transform(FieldOrExpression::getExpression)
-                .list();
+        this.expressions = groupByExpressions.stream()
+                .filter(FieldOrExpression::isExpression)
+                .map(FieldOrExpression::getExpression)
+                .collect(toImmutableList());
 
         ImmutableList.Builder<Integer> fieldIndexes = ImmutableList.builder();
 
-        fieldIndexes.addAll(IterableTransformer.on(groupByExpressions)
-                .select(FieldOrExpression::isFieldReference)
-                .transform(FieldOrExpression::getFieldIndex)
-                .all());
+        fieldIndexes.addAll(groupByExpressions.stream()
+                .filter(FieldOrExpression::isFieldReference)
+                .map(FieldOrExpression::getFieldIndex)
+                .iterator());
 
         // For a query like "SELECT * FROM T GROUP BY a", groupByExpressions will contain "a",
         // and the '*' will be expanded to Field references. Therefore we translate all simple name expressions

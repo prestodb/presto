@@ -33,7 +33,6 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.util.IterableTransformer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Throwables;
@@ -78,6 +77,7 @@ import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Failures.toFailures;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -286,8 +286,13 @@ public class SqlStageExecution
             // never be visible.
             StageState state = stageState.get();
 
-            List<TaskInfo> taskInfos = IterableTransformer.on(tasks.values()).transform(RemoteTask::getTaskInfo).list();
-            List<StageInfo> subStageInfos = IterableTransformer.on(subStages.values()).transform(StageExecutionNode::getStageInfo).list();
+            List<TaskInfo> taskInfos = tasks.values().stream()
+                    .map(RemoteTask::getTaskInfo)
+                    .collect(toImmutableList());
+
+            List<StageInfo> subStageInfos = subStages.values().stream()
+                    .map(StageExecutionNode::getStageInfo)
+                    .collect(toImmutableList());
 
             int totalTasks = taskInfos.size();
             int runningTasks = 0;

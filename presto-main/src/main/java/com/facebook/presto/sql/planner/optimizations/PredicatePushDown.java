@@ -56,7 +56,6 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -75,6 +74,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
@@ -277,13 +277,15 @@ public class PredicatePushDown
                 if (!newJoinPredicate.equals(joinPredicate) || isCrossJoin) {
                     // Create identity projections for all existing symbols
                     ImmutableMap.Builder<Symbol, Expression> leftProjections = ImmutableMap.builder();
-                    leftProjections.putAll(IterableTransformer.<Symbol>on(node.getLeft().getOutputSymbols())
-                            .toMap(Symbol::toQualifiedNameReference)
-                            .map());
+
+                    leftProjections.putAll(node.getLeft()
+                            .getOutputSymbols().stream()
+                            .collect(Collectors.toMap(key -> key, Symbol::toQualifiedNameReference)));
+
                     ImmutableMap.Builder<Symbol, Expression> rightProjections = ImmutableMap.builder();
-                    rightProjections.putAll(IterableTransformer.<Symbol>on(node.getRight().getOutputSymbols())
-                            .toMap(Symbol::toQualifiedNameReference)
-                            .map());
+                    rightProjections.putAll(node.getRight()
+                            .getOutputSymbols().stream()
+                            .collect(Collectors.toMap(key -> key, Symbol::toQualifiedNameReference)));
 
                     // HACK! we don't support cross joins right now, so put in a simple fake join predicate instead if all of the join clauses got simplified out
                     // TODO: remove this code when cross join support is added

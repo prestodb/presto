@@ -16,7 +16,6 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -36,10 +35,9 @@ import java.net.URISyntaxException;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Predicates.in;
-import static com.google.common.base.Predicates.not;
 import static java.util.Arrays.asList;
 import static java.util.Locale.ENGLISH;
 
@@ -85,9 +83,9 @@ public final class DiscoveryNodeManager
 
         // This is currently a blacklist.
         // TODO: make it a whitelist (a failure-detecting service selector) and maybe build in support for injecting this in airlift
-        Set<ServiceDescriptor> services = IterableTransformer.on(serviceSelector.selectAllServices())
-                .select(not(in(failureDetector.getFailed())))
-                .set();
+        Set<ServiceDescriptor> services = serviceSelector.selectAllServices().stream()
+                .filter(service -> !failureDetector.getFailed().contains(service))
+                .collect(toImmutableSet());
 
         // reset current node
         currentNode = null;
