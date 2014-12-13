@@ -14,8 +14,8 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Marker;
@@ -30,6 +30,7 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
@@ -48,7 +49,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.metadata.FunctionRegistry.getMagicLiteralFunctionSignature;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.combineDisjunctsWithDefault;
@@ -72,6 +76,9 @@ import static java.math.RoundingMode.FLOOR;
 
 public final class DomainTranslator
 {
+    private static final String DATE_LITERAL = getMagicLiteralFunctionSignature(DATE).getName();
+    private static final String TIMESTAMP_LITERAL = getMagicLiteralFunctionSignature(TIMESTAMP).getName();
+
     private DomainTranslator()
     {
     }
@@ -311,10 +318,16 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitComparisonExpression(ComparisonExpression node, Boolean complement)
         {
-            if (!isSimpleComparison(node)) {
+            if (isSimpleMagicLiteralComparison(node)) {
+                node = normalizeSimpleComparison(node);
+                node = convertMagicLiteralComparison(node);
+            }
+            else if (isSimpleComparison(node)) {
+                node = normalizeSimpleComparison(node);
+            }
+            else {
                 return super.visitComparisonExpression(node, complement);
             }
-            node = normalizeSimpleComparison(node);
 
             Symbol symbol = Symbol.fromQualifiedName(((QualifiedNameReference) node.getLeft()).getName());
             Type columnType = checkedTypeLookup(symbol);
@@ -484,15 +497,13 @@ public final class DomainTranslator
      */
     private static ComparisonExpression normalizeSimpleComparison(ComparisonExpression comparison)
     {
-        if (comparison.getLeft() instanceof QualifiedNameReference && comparison.getRight() instanceof Literal) {
+        if (comparison.getLeft() instanceof QualifiedNameReference) {
             return comparison;
         }
-        else if (comparison.getLeft() instanceof Literal && comparison.getRight() instanceof QualifiedNameReference) {
+        if (comparison.getRight() instanceof QualifiedNameReference) {
             return new ComparisonExpression(flipComparisonDirection(comparison.getType()), comparison.getRight(), comparison.getLeft());
         }
-        else {
-            throw new IllegalArgumentException("ComparisonExpression not a simple literal comparison: " + comparison);
-        }
+        throw new IllegalArgumentException("ComparisonExpression not a simple literal comparison: " + comparison);
     }
 
     private static ComparisonExpression.Type flipComparisonDirection(ComparisonExpression.Type type)
@@ -581,5 +592,36 @@ public final class DomainTranslator
         {
             return remainingExpression;
         }
+    }
+
+    // TODO: remove this horrible hack
+    private static boolean isSimpleMagicLiteralComparison(ComparisonExpression node)
+    {
+        FunctionCall call;
+        if ((node.getLeft() instanceof QualifiedNameReference) && (node.getRight() instanceof FunctionCall)) {
+            call = (FunctionCall) node.getRight();
+        }
+        else if ((node.getLeft() instanceof FunctionCall) && (node.getRight() instanceof QualifiedNameReference)) {
+            call = (FunctionCall) node.getLeft();
+        }
+        else {
+            return false;
+        }
+
+        if (call.getName().getPrefix().isPresent()) {
+            return false;
+        }
+        String name = call.getName().getSuffix();
+
+        return name.equals(DATE_LITERAL) || name.equals(TIMESTAMP_LITERAL);
+    }
+
+    private static ComparisonExpression convertMagicLiteralComparison(ComparisonExpression node)
+    {
+        // "magic literal" functions use the stack type value for the argument
+        checkArgument(isSimpleMagicLiteralComparison(node), "not a simple magic literal comparison");
+        FunctionCall call = (FunctionCall) node.getRight();
+        Expression value = call.getArguments().get(0);
+        return new ComparisonExpression(node.getType(), node.getLeft(), value);
     }
 }

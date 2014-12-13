@@ -41,6 +41,8 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -50,7 +52,9 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.or;
@@ -86,6 +90,10 @@ public class TestDomainTranslator
     private static final ColumnHandle FCH = newColumnHandle("f");
     private static final Symbol G = new Symbol("g");
     private static final ColumnHandle GCH = newColumnHandle("g");
+    private static final Symbol H = new Symbol("h");
+    private static final ColumnHandle HCH = newColumnHandle("h");
+    private static final Symbol I = new Symbol("i");
+    private static final ColumnHandle ICH = newColumnHandle("i");
 
     private static final Map<Symbol, Type> TYPES = ImmutableMap.<Symbol, Type>builder()
             .put(A, BIGINT)
@@ -95,6 +103,8 @@ public class TestDomainTranslator
             .put(E, BIGINT)
             .put(F, DOUBLE)
             .put(G, VARCHAR)
+            .put(H, TIMESTAMP)
+            .put(I, DATE)
             .build();
 
     private static final BiMap<Symbol, ColumnHandle> COLUMN_HANDLES = ImmutableBiMap.<Symbol, ColumnHandle>builder()
@@ -105,7 +115,12 @@ public class TestDomainTranslator
             .put(E, ECH)
             .put(F, FCH)
             .put(G, GCH)
+            .put(H, HCH)
+            .put(I, ICH)
             .build();
+
+    private static final long TIMESTAMP_VALUE = new DateTime(2013, 3, 30, 1, 5, 0, 0, DateTimeZone.UTC).getMillis();
+    private static final long DATE_VALUE = new DateTime(2001, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC).getMillis();
 
     @Test
     public void testNoneRoundTrip()
@@ -139,6 +154,8 @@ public class TestDomainTranslator
                 .put(ECH, Domain.singleValue(2L))
                 .put(FCH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(1.1), Range.equal(2.0), Range.range(3.0, false, 3.5, true)), true))
                 .put(GCH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(utf8Slice("2013-01-01")), Range.greaterThan(utf8Slice("2013-10-01"))), false))
+                .put(HCH, Domain.singleValue(TIMESTAMP_VALUE))
+                .put(ICH, Domain.singleValue(DATE_VALUE))
                 .build());
 
         ExtractionResult result = fromPredicate(toPredicate(tupleDomain));
