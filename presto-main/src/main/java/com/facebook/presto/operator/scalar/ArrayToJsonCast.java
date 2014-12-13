@@ -37,7 +37,7 @@ import java.util.Map;
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
+import static com.facebook.presto.type.TypeUtils.createBlock;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -59,13 +59,15 @@ public class ArrayToJsonCast
         checkArgument(arity == 1, "Expected arity to be 1");
         Type type = types.get("T");
         Type arrayType = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(type.getTypeSignature()), ImmutableList.of());
+
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(arrayType);
+
         return operatorInfo(OperatorType.CAST, parseTypeSignature(StandardTypes.JSON), ImmutableList.of(arrayType.getTypeSignature()), methodHandle, false, ImmutableList.of(false));
     }
 
     public static Slice toJson(Type arrayType, ConnectorSession session, Slice array)
     {
-        Object object = stackRepresentationToObject(session, array, arrayType);
+        Object object = arrayType.getObjectValue(session, createBlock(arrayType, array), 0);
         try {
             return Slices.utf8Slice(OBJECT_MAPPER.writeValueAsString(object));
         }

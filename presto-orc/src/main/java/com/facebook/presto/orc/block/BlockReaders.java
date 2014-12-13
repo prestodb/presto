@@ -11,42 +11,48 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.reader;
+package com.facebook.presto.orc.block;
 
 import com.facebook.presto.orc.StreamDescriptor;
 import org.joda.time.DateTimeZone;
 
-public final class StreamReaders
+public final class BlockReaders
 {
-    private StreamReaders()
+    private BlockReaders()
     {
     }
 
-    public static StreamReader createStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
+    public static BlockReader createBlockReader(
+            StreamDescriptor streamDescriptor,
+            boolean checkForNulls,
+            DateTimeZone hiveStorageTimeZone)
     {
         switch (streamDescriptor.getStreamType()) {
             case BOOLEAN:
-                return new BooleanStreamReader(streamDescriptor);
+                return new BooleanBlockReader(streamDescriptor);
             case BYTE:
-                return new ByteStreamReader(streamDescriptor);
+                return new ByteBlockReader(streamDescriptor);
             case SHORT:
             case INT:
             case LONG:
-            case DATE:
-                return new LongStreamReader(streamDescriptor);
+                return new LongBlockReader(streamDescriptor);
             case FLOAT:
-                return new FloatStreamReader(streamDescriptor);
+                return new FloatBlockReader(streamDescriptor);
             case DOUBLE:
-                return new DoubleStreamReader(streamDescriptor);
+                return new DoubleBlockReader(streamDescriptor);
             case BINARY:
             case STRING:
-                return new SliceStreamReader(streamDescriptor);
+                return new SliceBlockReader(streamDescriptor);
             case TIMESTAMP:
-                return new TimestampStreamReader(streamDescriptor, hiveStorageTimeZone);
+                return new TimestampBlockReader(streamDescriptor, hiveStorageTimeZone);
+            case DATE:
+                return new DateBlockReader(streamDescriptor);
             case STRUCT:
+                return new StructBlockReader(streamDescriptor, checkForNulls, hiveStorageTimeZone);
             case LIST:
+                return new ListBlockReader(streamDescriptor, checkForNulls, hiveStorageTimeZone);
             case MAP:
-                return new BlockStreamReader(streamDescriptor, hiveStorageTimeZone);
+                return new MapBlockReader(streamDescriptor, checkForNulls, hiveStorageTimeZone);
             case UNION:
             case DECIMAL:
             case VARCHAR:

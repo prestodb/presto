@@ -19,8 +19,6 @@ import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.RowType;
 import com.facebook.presto.util.Reflection;
 import com.google.common.collect.ImmutableList;
@@ -32,17 +30,10 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.FunctionRegistry.mangleFieldAccessor;
-import static com.facebook.presto.operator.scalar.JsonExtract.BooleanJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.DoubleJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.JsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.JsonValueJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.LongJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.generateExtractor;
+import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.type.RowType.RowField;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static java.lang.String.format;
 
 public class RowFieldAccessor
         extends ParametricScalar
@@ -54,10 +45,10 @@ public class RowFieldAccessor
 
     static {
         ImmutableMap.Builder<String, MethodHandle> builder = ImmutableMap.builder();
-        builder.put("long", Reflection.methodHandle(RowFieldAccessor.class, "longAccessor", JsonExtractor.class, Slice.class));
-        builder.put("double", Reflection.methodHandle(RowFieldAccessor.class, "doubleAccessor", JsonExtractor.class, Slice.class));
-        builder.put("boolean", Reflection.methodHandle(RowFieldAccessor.class, "booleanAccessor", JsonExtractor.class, Slice.class));
-        builder.put("slice", Reflection.methodHandle(RowFieldAccessor.class, "sliceAccessor", JsonExtractor.class, Slice.class));
+        builder.put("long", Reflection.methodHandle(RowFieldAccessor.class, "longAccessor", Type.class, Integer.class, Slice.class));
+        builder.put("double", Reflection.methodHandle(RowFieldAccessor.class, "doubleAccessor", Type.class, Integer.class, Slice.class));
+        builder.put("boolean", Reflection.methodHandle(RowFieldAccessor.class, "booleanAccessor", Type.class, Integer.class, Slice.class));
+        builder.put("slice", Reflection.methodHandle(RowFieldAccessor.class, "sliceAccessor", Type.class, Integer.class, Slice.class));
         METHOD_HANDLE_MAP = builder.build();
     }
 
@@ -75,29 +66,9 @@ public class RowFieldAccessor
         checkNotNull(returnType, "%s not found in row type %s", fieldName, type);
         signature = new Signature(mangleFieldAccessor(fieldName), returnType.getTypeSignature(), type.getTypeSignature());
 
-        JsonExtractor<?> extractor;
-        if (returnType instanceof ArrayType || returnType instanceof MapType || returnType instanceof RowType) {
-            extractor = new JsonValueJsonExtractor();
-        }
-        else if (returnType.getJavaType() == boolean.class) {
-            extractor = new BooleanJsonExtractor();
-        }
-        else if (returnType.getJavaType() == long.class) {
-            extractor = new LongJsonExtractor();
-        }
-        else if (returnType.getJavaType() == double.class) {
-            extractor = new DoubleJsonExtractor();
-        }
-        else if (returnType.getJavaType() == Slice.class) {
-            extractor = new ScalarValueJsonExtractor();
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported stack type: " + returnType.getJavaType());
-        }
-        extractor = generateExtractor(format("$[%d]", index), extractor, true);
         String stackType = returnType.getJavaType().getSimpleName().toLowerCase();
         checkState(METHOD_HANDLE_MAP.containsKey(stackType), "method handle missing for %s stack type", stackType);
-        methodHandle = METHOD_HANDLE_MAP.get(stackType).bindTo(extractor);
+        methodHandle = METHOD_HANDLE_MAP.get(stackType).bindTo(returnType).bindTo(index);
     }
 
     @Override
@@ -131,23 +102,23 @@ public class RowFieldAccessor
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), true, ImmutableList.of(false));
     }
 
-    public static Long longAccessor(JsonExtractor<Long> extractor, Slice row)
+    public static Long longAccessor(Type type, Integer field, Slice row)
     {
-        return JsonExtract.extract(row, extractor);
+        return type.getLong(readStructuralBlock(row), field);
     }
 
-    public static Boolean booleanAccessor(JsonExtractor<Boolean> extractor, Slice row)
+    public static Boolean booleanAccessor(Type type, Integer field, Slice row)
     {
-        return JsonExtract.extract(row, extractor);
+        return type.getBoolean(readStructuralBlock(row), field);
     }
 
-    public static Double doubleAccessor(JsonExtractor<Double> extractor, Slice row)
+    public static Double doubleAccessor(Type type, Integer field, Slice row)
     {
-        return JsonExtract.extract(row, extractor);
+        return type.getDouble(readStructuralBlock(row), field);
     }
 
-    public static Slice sliceAccessor(JsonExtractor<Slice> extractor, Slice row)
+    public static Slice sliceAccessor(Type type, Integer field, Slice row)
     {
-        return JsonExtract.extract(row, extractor);
+        return type.getSlice(readStructuralBlock(row), field);
     }
 }

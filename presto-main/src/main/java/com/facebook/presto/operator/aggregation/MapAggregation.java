@@ -120,7 +120,7 @@ public class MapAggregation
         }
 
         long startSize = pairs.estimatedInMemorySize();
-        pairs.add(key, value, position);
+        pairs.add(key, value, position, position);
         state.addMemoryUsage(pairs.estimatedInMemorySize() - startSize);
     }
 
@@ -132,7 +132,7 @@ public class MapAggregation
             KeyValuePairs pairs = state.get();
             long startSize = pairs.estimatedInMemorySize();
             for (int i = 0; i < keys.getPositionCount(); i++) {
-                pairs.add(keys, values, i);
+                pairs.add(keys, values, i, i);
             }
             state.addMemoryUsage(pairs.estimatedInMemorySize() - startSize);
         }

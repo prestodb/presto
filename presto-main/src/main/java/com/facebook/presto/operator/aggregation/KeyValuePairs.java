@@ -14,40 +14,26 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.GroupByHash;
-import com.facebook.presto.server.SliceSerializer;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
-import com.facebook.presto.type.RowType;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.google.common.base.Throwables;
+import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.io.IOException;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.type.MapType.toStackRepresentation;
-import static com.facebook.presto.type.TypeJsonUtils.getValue;
-import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
+import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class KeyValuePairs
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(KeyValuePairs.class).instanceSize();
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer()));
     public static final int EXPECTED_HASH_SIZE = 10_000;
 
     private final GroupByHash keysHash;
@@ -93,25 +79,24 @@ public class KeyValuePairs
         return valuePageBuilder.getBlockBuilder(0).build();
     }
 
-    // Once we move to Page for the native container type for Maps we will get rid of the auto-boxing/unboxing here
     private void deserialize(Slice serialized)
     {
-        Map<Object, Object> map = (Map<Object, Object>) stackRepresentationToObject(null, serialized, new MapType(keyType, valueType));
-        for (Map.Entry<Object, Object> entry : map.entrySet()) {
-            add(createBlock(entry.getKey(), keyType), createBlock(entry.getValue(), valueType), 0);
+        Block block = TypeUtils.readStructuralBlock(serialized);
+        for (int i = 0; i < block.getPositionCount(); i += 2) {
+            add(block, block, i, i + 1);
         }
     }
 
-    // Once we move to Page for the native container type for Maps we will get rid of the auto-boxing/unboxing here
     public Slice serialize()
     {
-        Map<Object, Object> newMap = new LinkedHashMap<>();
         Block values = valuePageBuilder.getBlockBuilder(0).build();
         Block keys = keyPageBuilder.getBlockBuilder(0).build();
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), keys.getSizeInBytes() + values.getSizeInBytes());
         for (int i = 0; i < keys.getPositionCount(); i++) {
-            newMap.put(getValue(keys, keyType, i), getValue(values, valueType, i));
+            keyType.appendTo(keys, i, blockBuilder);
+            valueType.appendTo(values, i, blockBuilder);
         }
-        return toStackRepresentation(newMap);
+        return buildStructuralSlice(blockBuilder);
     }
 
     public long estimatedInMemorySize()
@@ -119,57 +104,18 @@ public class KeyValuePairs
         return INSTANCE_SIZE + keyPageBuilder.getSizeInBytes() + valuePageBuilder.getSizeInBytes();
     }
 
-    public void add(Block key, Block value, int position)
+    public void add(Block key, Block value, int keyPosition, int valuePosition)
     {
         Page page = new Page(key);
-        if (!keysHash.contains(position, page)) {
-            int groupId = keysHash.putIfAbsent(position, page, new Block[] { key });
+        if (!keysHash.contains(keyPosition, page)) {
+            int groupId = keysHash.putIfAbsent(keyPosition, page, new Block[] { key });
             keysHash.appendValuesTo(groupId, keyPageBuilder, 0);
-            if (value.isNull(position)) {
+            if (value.isNull(valuePosition)) {
                 valuePageBuilder.getBlockBuilder(0).appendNull();
             }
             else {
-                valueType.appendTo(value, position, valuePageBuilder.getBlockBuilder(0));
+                valueType.appendTo(value, valuePosition, valuePageBuilder.getBlockBuilder(0));
             }
         }
-    }
-
-    private static Block createBlock(Object obj, Type type)
-    {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
-        try {
-            if (obj == null) {
-                return blockBuilder.appendNull().build();
-            }
-            else if (type.getJavaType() == double.class) {
-                type.writeDouble(blockBuilder, ((Number) obj).doubleValue());
-            }
-            else if (type.getJavaType() == long.class) {
-                type.writeLong(blockBuilder, ((Number) obj).longValue());
-            }
-            else if (type.getJavaType() == Slice.class) {
-                //TODO is there a simpler way to handle these types?
-                if (type instanceof VarcharType) {
-                    type.writeSlice(blockBuilder, Slices.utf8Slice((String) obj));
-                }
-                else if (type instanceof ArrayType || type instanceof MapType || type instanceof RowType) {
-                    type.writeSlice(blockBuilder, Slices.utf8Slice(OBJECT_MAPPER.writeValueAsString(obj)));
-                }
-                else {
-                    type.writeSlice(blockBuilder, (Slice) obj);
-                }
-            }
-            else if (type.getJavaType() == boolean.class) {
-                type.writeBoolean(blockBuilder, (Boolean) obj);
-            }
-            else {
-                throw new IllegalArgumentException("Unsupported type: " + type.getJavaType().getSimpleName());
-            }
-        }
-        catch (IOException ioe) {
-            Throwables.propagate(ioe);
-        }
-
-        return blockBuilder.build();
     }
 }

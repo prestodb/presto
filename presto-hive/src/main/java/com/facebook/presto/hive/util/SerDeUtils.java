@@ -13,10 +13,19 @@
  */
 package com.facebook.presto.hive.util;
 
-import com.fasterxml.jackson.core.Base64Variants;
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.google.common.base.Throwables;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.annotations.VisibleForTesting;
+import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
 import org.apache.hadoop.hive.serde2.io.TimestampWritable;
 import org.apache.hadoop.hive.serde2.lazy.LazyDate;
@@ -37,227 +46,170 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.LongObjectInspect
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.ShortObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.StringObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.TimestampObjectInspector;
-import org.apache.hadoop.io.BytesWritable;
 import org.joda.time.DateTimeZone;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.sql.Date;
 import java.sql.Timestamp;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.hive.util.Types.checkType;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class SerDeUtils
 {
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd");
-    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
-    private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
-
     private SerDeUtils() {}
 
-    public static byte[] getJsonBytes(DateTimeZone sessionTimeZone, Object object, ObjectInspector objectInspector)
+    public static Slice getBlockSlice(DateTimeZone sessionTimeZone, Object object, ObjectInspector objectInspector)
     {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        try (JsonGenerator generator = new JsonFactory().createGenerator(out)) {
-            serializeObject(sessionTimeZone, generator, object, objectInspector, null);
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
-        return out.toByteArray();
+        return checkNotNull(serializeObject(sessionTimeZone, null, object, objectInspector), "serialized result is null");
     }
 
-    private static void serializeObject(DateTimeZone sessionTimeZone, JsonGenerator generator, Object object, ObjectInspector inspector, JsonContext context)
-            throws IOException
+    @VisibleForTesting
+    static Slice serializeObject(DateTimeZone sessionTimeZone, BlockBuilder builder, Object object, ObjectInspector inspector)
     {
         switch (inspector.getCategory()) {
             case PRIMITIVE:
-                serializePrimitive(sessionTimeZone, generator, object, (PrimitiveObjectInspector) inspector, context);
-                return;
+                serializePrimitive(sessionTimeZone, builder, object, (PrimitiveObjectInspector) inspector);
+                return null;
             case LIST:
-                serializeList(sessionTimeZone, generator, object, (ListObjectInspector) inspector, context);
-                return;
+                return serializeList(sessionTimeZone, builder, object, (ListObjectInspector) inspector);
             case MAP:
-                serializeMap(sessionTimeZone, generator, object, (MapObjectInspector) inspector, context);
-                return;
+                return serializeMap(sessionTimeZone, builder, object, (MapObjectInspector) inspector);
             case STRUCT:
-                serializeStruct(sessionTimeZone, generator, object, (StructObjectInspector) inspector, context);
-                return;
+                return serializeStruct(sessionTimeZone, builder, object, (StructObjectInspector) inspector);
         }
         throw new RuntimeException("Unknown object inspector category: " + inspector.getCategory());
     }
 
-    private static void serializePrimitive(DateTimeZone sessionTimeZone, JsonGenerator generator, Object object, PrimitiveObjectInspector inspector, JsonContext context)
-            throws IOException
+    private static void serializePrimitive(DateTimeZone sessionTimeZone, BlockBuilder builder, Object object, PrimitiveObjectInspector inspector)
     {
+        checkNotNull(builder, "parent builder is null");
+
         if (object == null) {
-            generator.writeNull();
+            builder.appendNull();
             return;
         }
 
         switch (inspector.getPrimitiveCategory()) {
             case BOOLEAN:
-                generator.writeBoolean(((BooleanObjectInspector) inspector).get(object));
+                BooleanType.BOOLEAN.writeBoolean(builder, ((BooleanObjectInspector) inspector).get(object));
                 return;
             case BYTE:
-                generator.writeNumber(((ByteObjectInspector) inspector).get(object));
+                BigintType.BIGINT.writeLong(builder, ((ByteObjectInspector) inspector).get(object));
                 return;
             case SHORT:
-                generator.writeNumber(((ShortObjectInspector) inspector).get(object));
+                BigintType.BIGINT.writeLong(builder, ((ShortObjectInspector) inspector).get(object));
                 return;
             case INT:
-                generator.writeNumber(((IntObjectInspector) inspector).get(object));
+                BigintType.BIGINT.writeLong(builder, ((IntObjectInspector) inspector).get(object));
                 return;
             case LONG:
-                generator.writeNumber(((LongObjectInspector) inspector).get(object));
+                BigintType.BIGINT.writeLong(builder, ((LongObjectInspector) inspector).get(object));
                 return;
             case FLOAT:
-                generator.writeNumber(((FloatObjectInspector) inspector).get(object));
+                DoubleType.DOUBLE.writeDouble(builder, ((FloatObjectInspector) inspector).get(object));
                 return;
             case DOUBLE:
-                generator.writeNumber(((DoubleObjectInspector) inspector).get(object));
+                DoubleType.DOUBLE.writeDouble(builder, ((DoubleObjectInspector) inspector).get(object));
                 return;
             case STRING:
-                generator.writeString(((StringObjectInspector) inspector).getPrimitiveJavaObject(object));
+                VarcharType.VARCHAR.writeSlice(builder, Slices.utf8Slice(((StringObjectInspector) inspector).getPrimitiveJavaObject(object)));
                 return;
             case DATE:
-                if (context == JsonContext.JSON_STACK) {
-                    generator.writeNumber(formatDateAsLong(object, (DateObjectInspector) inspector));
-                }
-                else {
-                    generator.writeString(formatDate(object, (DateObjectInspector) inspector));
-                }
+                DateType.DATE.writeLong(builder, formatDateAsLong(object, (DateObjectInspector) inspector));
                 return;
             case TIMESTAMP:
-                if (context == JsonContext.JSON_STACK) {
-                    generator.writeNumber(formatTimestampAsLong(object, (TimestampObjectInspector) inspector));
-                }
-                else {
-                    generator.writeString(formatTimestamp(sessionTimeZone, object, (TimestampObjectInspector) inspector));
-                }
+                TimestampType.TIMESTAMP.writeLong(builder, formatTimestampAsLong(object, (TimestampObjectInspector) inspector));
                 return;
             case BINARY:
-                generator.writeBinary(((BinaryObjectInspector) inspector).getPrimitiveJavaObject(object));
+                VARBINARY.writeSlice(builder, Slices.wrappedBuffer(((BinaryObjectInspector) inspector).getPrimitiveJavaObject(object)));
                 return;
         }
         throw new RuntimeException("Unknown primitive type: " + inspector.getPrimitiveCategory());
     }
 
-    private static void serializeList(DateTimeZone sessionTimeZone, JsonGenerator generator, Object object, ListObjectInspector inspector, JsonContext context)
-            throws IOException
+    private static Slice serializeList(DateTimeZone sessionTimeZone, BlockBuilder builder, Object object, ListObjectInspector inspector)
     {
         List<?> list = inspector.getList(object);
         if (list == null) {
-            generator.writeNull();
-            return;
+            checkNotNull(builder, "parent builder is null").appendNull();
+            return null;
         }
 
         ObjectInspector elementInspector = inspector.getListElementObjectInspector();
+        BlockBuilder currentBuilder = createBlockBuilder();
 
-        generator.writeStartArray();
         for (Object element : list) {
-            serializeObject(sessionTimeZone, generator, element, elementInspector, context == null ? JsonContext.JSON_STACK : context);
+            serializeObject(sessionTimeZone, currentBuilder, element, elementInspector);
         }
-        generator.writeEndArray();
+
+        SliceOutput out = new DynamicSliceOutput(1024);
+        currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
+
+        if (builder != null) {
+            VARBINARY.writeSlice(builder, out.slice());
+        }
+
+        return out.slice();
     }
 
-    private static void serializeMap(DateTimeZone sessionTimeZone, JsonGenerator generator, Object object, MapObjectInspector inspector, JsonContext context)
-            throws IOException
+    private static Slice serializeMap(DateTimeZone sessionTimeZone, BlockBuilder builder, Object object, MapObjectInspector inspector)
     {
         Map<?, ?> map = inspector.getMap(object);
         if (map == null) {
-            generator.writeNull();
-            return;
+            checkNotNull(builder, "parent builder is null").appendNull();
+            return null;
         }
 
-        PrimitiveObjectInspector keyInspector = checkType(inspector.getMapKeyObjectInspector(), PrimitiveObjectInspector.class, "map key inspector");
+        ObjectInspector keyInspector = inspector.getMapKeyObjectInspector();
         ObjectInspector valueInspector = inspector.getMapValueObjectInspector();
+        BlockBuilder currentBuilder = createBlockBuilder();
 
-        generator.writeStartObject();
         for (Map.Entry<?, ?> entry : map.entrySet()) {
             // Hive skips map entries with null keys
             if (entry.getKey() != null) {
-                generator.writeFieldName(getPrimitiveAsString(sessionTimeZone, entry.getKey(), keyInspector, context == null ? JsonContext.JSON_STACK : context));
-                serializeObject(sessionTimeZone, generator, entry.getValue(), valueInspector, context == null ? JsonContext.JSON_STACK : context);
+                serializeObject(sessionTimeZone, currentBuilder, entry.getKey(), keyInspector);
+                serializeObject(sessionTimeZone, currentBuilder, entry.getValue(), valueInspector);
             }
         }
-        generator.writeEndObject();
+
+        SliceOutput out = new DynamicSliceOutput(1024);
+        currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
+
+        if (builder != null) {
+            VARBINARY.writeSlice(builder, out.slice());
+        }
+
+        return out.slice();
     }
 
-    private static void serializeStruct(DateTimeZone sessionTimeZone, JsonGenerator generator, Object object, StructObjectInspector inspector, JsonContext context)
-            throws IOException
+    private static Slice serializeStruct(DateTimeZone sessionTimeZone, BlockBuilder builder, Object object, StructObjectInspector inspector)
     {
         if (object == null) {
-            generator.writeNull();
-            return;
+            checkNotNull(builder, "parent builder is null").appendNull();
+            return null;
         }
 
-        generator.writeStartArray();
+        BlockBuilder currentBuilder = createBlockBuilder();
         for (StructField field : inspector.getAllStructFieldRefs()) {
-            serializeObject(sessionTimeZone, generator, inspector.getStructFieldData(object, field), field.getFieldObjectInspector(), JsonContext.JSON_STACK);
+            serializeObject(sessionTimeZone, currentBuilder, inspector.getStructFieldData(object, field), field.getFieldObjectInspector());
         }
-        generator.writeEndArray();
+
+        SliceOutput out = new DynamicSliceOutput(1024);
+        currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
+
+        if (builder != null) {
+            VARBINARY.writeSlice(builder, out.slice());
+        }
+
+        return out.slice();
     }
 
-    private static String getPrimitiveAsString(DateTimeZone sessionTimeZone, Object object, PrimitiveObjectInspector inspector, JsonContext context)
+    private static BlockBuilder createBlockBuilder()
     {
-        switch (inspector.getPrimitiveCategory()) {
-            case BOOLEAN:
-            case BYTE:
-            case SHORT:
-            case INT:
-            case LONG:
-            case FLOAT:
-            case DOUBLE:
-            case STRING:
-                return String.valueOf(inspector.getPrimitiveJavaObject(object));
-            case DATE:
-                if (context == JsonContext.JSON_STACK) {
-                    return String.valueOf(formatDateAsLong(object, (DateObjectInspector) inspector));
-                }
-                else {
-                    return formatDate(object, (DateObjectInspector) inspector);
-                }
-            case TIMESTAMP:
-                if (context == JsonContext.JSON_STACK) {
-                    return String.valueOf(formatTimestampAsLong(object, (TimestampObjectInspector) inspector));
-                }
-                else {
-                    return formatTimestamp(sessionTimeZone, object, (TimestampObjectInspector) inspector);
-                }
-            case BINARY:
-                // Using same Base64 encoder which Jackson uses in JsonGenerator.writeBinary().
-                BytesWritable writable = ((BinaryObjectInspector) inspector).getPrimitiveWritableObject(object);
-                return Base64Variants.getDefaultVariant().encode(Arrays.copyOf(writable.getBytes(), writable.getLength()));
-            default:
-                throw new RuntimeException("Unknown primitive type: " + inspector.getPrimitiveCategory());
-        }
-    }
-
-    private static String formatDate(Object object, DateObjectInspector inspector)
-    {
-        if (object instanceof LazyDate) {
-            int days = ((LazyDate) object).getWritableObject().getDays();
-            // Render in UTC because we are giving the date formatter milliseconds since 1970-01-01 00:00 UTC
-            return DATE_FORMATTER.withZoneUTC().print(days * MILLIS_IN_DAY);
-        }
-        if (object instanceof DateWritable) {
-            int days = ((DateWritable) object).getDays();
-            // Render in UTC because we are giving the date formatter milliseconds since 1970-01-01 00:00 UTC
-            return DATE_FORMATTER.withZoneUTC().print(days * MILLIS_IN_DAY);
-        }
-
-        // convert date from VM current time zone to UTC
-        Date date = inspector.getPrimitiveJavaObject(object);
-        long storageTime = date.getTime();
-        long utcMillis = storageTime + DateTimeZone.getDefault().getOffset(storageTime);
-        return DATE_FORMATTER.withZone(DateTimeZone.UTC).print(utcMillis);
+        // default BlockBuilderStatus could cause OOM at unit tests
+        return VARBINARY.createBlockBuilder(new BlockBuilderStatus(1000, 1000));
     }
 
     private static long formatDateAsLong(Object object, DateObjectInspector inspector)
@@ -283,12 +235,6 @@ public final class SerDeUtils
         return timestamp.getTime();
     }
 
-    private static String formatTimestamp(DateTimeZone sessionTimeZone, Object object, TimestampObjectInspector inspector)
-    {
-        Timestamp timestamp = getTimestamp(object, inspector);
-        return TIMESTAMP_FORMATTER.withZone(sessionTimeZone).print(timestamp.getTime());
-    }
-
     private static Timestamp getTimestamp(Object object, TimestampObjectInspector inspector)
     {
         // handle broken ObjectInspectors
@@ -296,11 +242,5 @@ public final class SerDeUtils
             return ((TimestampWritable) object).getTimestamp();
         }
         return inspector.getPrimitiveJavaObject(object);
-    }
-
-    public enum JsonContext
-    {
-        JSON_STACK,
-        JSON
     }
 }

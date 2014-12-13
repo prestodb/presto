@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.type.MapType;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonSerializer;
@@ -42,7 +43,7 @@ import java.util.TreeMap;
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
+import static com.facebook.presto.type.TypeUtils.createBlock;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -51,7 +52,7 @@ public class MapToJsonCast
 {
     public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast();
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer()).addSerializer(Map.class, new MapSerializer()));
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", Type.class, ConnectorSession.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", Type.class, Type.class, ConnectorSession.class, Slice.class);
 
     private MapToJsonCast()
     {
@@ -65,13 +66,17 @@ public class MapToJsonCast
         Type keyType = types.get("K");
         Type valueType = types.get("V");
         Type mapType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(keyType.getTypeSignature(), valueType.getTypeSignature()), ImmutableList.of());
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(mapType);
+
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(keyType);
+        methodHandle = methodHandle.bindTo(valueType);
+
         return operatorInfo(OperatorType.CAST, parseTypeSignature(StandardTypes.JSON), ImmutableList.of(mapType.getTypeSignature()), methodHandle, false, ImmutableList.of(false));
     }
 
-    public static Slice toJson(Type mapType, ConnectorSession session, Slice slice)
+    public static Slice toJson(Type keyType, Type valueType, ConnectorSession session, Slice slice)
     {
-        Object object = stackRepresentationToObject(session, slice, mapType);
+        MapType mapType = new MapType(keyType, valueType);
+        Object object = mapType.getObjectValue(session, createBlock(mapType, slice), 0);
         try {
             return Slices.utf8Slice(OBJECT_MAPPER.writeValueAsString(object));
         }

@@ -36,7 +36,7 @@ public class SliceVector
         ObjectVector objectVector = new ObjectVector(vector.length);
         for (int i = 0; i < size; i++) {
             if (vector[i] != null) {
-                objectVector.vector[i] = vector[i].toStringUtf8();
+                objectVector.vector[i] = vector[i];
             }
         }
         return objectVector;

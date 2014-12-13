@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.util.SerDeUtils;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -51,6 +50,7 @@ import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
+import static com.facebook.presto.hive.util.SerDeUtils.getBlockSlice;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -486,13 +486,11 @@ class ColumnarTextHiveRecordCursor<K>
             wasNull = true;
         }
         else if (isStructuralType(hiveTypes[column])) {
-            // temporarily special case MAP, LIST, and STRUCT types as strings
-            // TODO: create a real parser for these complex types when we implement data types
             LazyObject<? extends ObjectInspector> lazyObject = LazyFactory.createLazyObject(fieldInspectors[column]);
             ByteArrayRef byteArrayRef = new ByteArrayRef();
             byteArrayRef.setData(bytes);
             lazyObject.init(byteArrayRef, start, length);
-            slices[column] = Slices.wrappedBuffer(SerDeUtils.getJsonBytes(sessionTimeZone, lazyObject.getObject(), fieldInspectors[column]));
+            slices[column] = getBlockSlice(sessionTimeZone, lazyObject.getObject(), fieldInspectors[column]);
             wasNull = false;
         }
         else {

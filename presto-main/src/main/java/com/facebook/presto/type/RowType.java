@@ -23,27 +23,21 @@ import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.AbstractVariableWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.type.CollectionType;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 
-import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.type.TypeJsonUtils.createBlock;
-import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
+import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.lang.String.format;
 
 /**
  * As defined in ISO/IEC FCD 9075-2 (SQL 2011), section 4.8
@@ -52,8 +46,6 @@ public class RowType
         extends AbstractVariableWidthType
 {
     private final List<RowField> fields;
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
-    private static final CollectionType COLLECTION_TYPE = OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, Object.class);
 
     public RowType(List<Type> fieldTypes, Optional<List<String>> fieldNames)
     {
@@ -67,7 +59,7 @@ public class RowType
 
         ImmutableList.Builder<RowField> builder = ImmutableList.builder();
         for (int i = 0; i < fieldTypes.size(); i++) {
-            final int index = i;
+            int index = i;
             builder.add(new RowField(fieldTypes.get(i), fieldNames.map((names) -> names.get(index))));
         }
         fields = builder.build();
@@ -97,8 +89,15 @@ public class RowType
             return null;
         }
 
-        Slice slice = block.getSlice(position, 0, block.getLength(position));
-        return stackRepresentationToObject(session, slice, this);
+        Slice slice = getSlice(block, position);
+        Block arrayBlock = readStructuralBlock(slice);
+        List<Object> values = Lists.newArrayListWithCapacity(arrayBlock.getPositionCount());
+
+        for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
+            values.add(fields.get(i).getType().getObjectValue(session, arrayBlock, i));
+        }
+
+        return Collections.unmodifiableList(values);
     }
 
     @Override
@@ -188,53 +187,41 @@ public class RowType
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        List<Object> leftRow = extractElements(leftBlock, leftPosition);
-        List<Object> rightRow = extractElements(rightBlock, rightPosition);
+        Slice leftSlice = getSlice(leftBlock, leftPosition);
+        Slice rightSlice = getSlice(rightBlock, rightPosition);
+        Block leftArray = readStructuralBlock(leftSlice);
+        Block rightArray = readStructuralBlock(rightSlice);
 
-        int nFields = leftRow.size();
-        for (int i = 0; i < nFields; i++) {
-            Object leftElement = leftRow.get(i);
-            Object rightElement = rightRow.get(i);
-            checkElementNotNull(leftElement);
-            checkElementNotNull(rightElement);
+        for (int i = 0; i < leftArray.getPositionCount(); i++) {
+            checkElementNotNull(leftArray.isNull(i));
+            checkElementNotNull(rightArray.isNull(i));
             Type fieldType = fields.get(i).getType();
-            if (!fieldType.equalTo(createBlock(fieldType, leftElement), 0, createBlock(fieldType, rightElement), 0)) {
+            if (!fieldType.equalTo(leftArray, i, rightArray, i)) {
                 return false;
             }
         }
+
         return true;
     }
 
     @Override
     public int hash(Block block, int position)
     {
-        List<Object> elements = extractElements(block, position);
+        Slice value = getSlice(block, position);
+        Block arrayBlock = readStructuralBlock(value);
         int result = 1;
-        int nFields = elements.size();
-        for (int i = 0; i < nFields; i++) {
-            Object element = elements.get(i);
-            checkElementNotNull(element);
+        for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
+            checkElementNotNull(arrayBlock.isNull(i));
             Type elementType = fields.get(i).getType();
-            result = 31 * result + elementType.hash(createBlock(elementType, element), 0);
+            result = 31 * result + elementType.hash(arrayBlock, i);
         }
         return result;
     }
 
-    private static void checkElementNotNull(Object element)
+    private static void checkElementNotNull(boolean isNull)
     {
-        if (element == null) {
-            throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "ROW comparison not supported for rows with null elements");
-        }
-    }
-
-    private List<Object> extractElements(Block block, int position)
-    {
-        Slice value = getSlice(block, position);
-        try {
-            return OBJECT_MAPPER.readValue(value.getBytes(), COLLECTION_TYPE);
-        }
-        catch (IOException e) {
-            throw new PrestoException(INTERNAL_ERROR, format("Bad native value, '%s'", value.toStringUtf8()), e);
+        if (isNull) {
+            throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "ROW comparison not supported for fields with null elements");
         }
     }
 }

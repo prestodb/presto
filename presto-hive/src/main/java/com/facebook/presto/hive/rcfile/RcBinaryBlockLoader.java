@@ -15,7 +15,6 @@ package com.facebook.presto.hive.rcfile;
 
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.rcfile.RcFilePageSource.RcFileColumnsBatch;
-import com.facebook.presto.hive.util.SerDeUtils;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.LazyFixedWidthBlock;
 import com.facebook.presto.spi.block.LazySliceArrayBlock;
@@ -35,7 +34,6 @@ import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveType.HIVE_BINARY;
 import static com.facebook.presto.hive.HiveType.HIVE_BOOLEAN;
@@ -49,6 +47,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
+import static com.facebook.presto.hive.util.SerDeUtils.getBlockSlice;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -60,7 +59,6 @@ import static io.airlift.slice.Slices.wrappedLongArray;
 public class RcBinaryBlockLoader
         implements RcFileBlockLoader
 {
-    private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
     private static final byte HIVE_EMPTY_STRING_BYTE = (byte) 0xbf;
 
     private final DateTimeZone sessionTimeZone;
@@ -706,15 +704,13 @@ public class RcBinaryBlockLoader
 
                     int length = writable.getLength();
                     if (length > 0) {
-                        // temporarily special case MAP, LIST, and STRUCT types as strings
-                        // TODO: create a real parser for these complex types when we implement data types
                         byte[] bytes = writable.getData();
                         int start = writable.getStart();
                         LazyBinaryObject<? extends ObjectInspector> lazyObject = LazyBinaryFactory.createLazyBinaryObject(fieldInspector);
                         ByteArrayRef byteArrayRef = new ByteArrayRef();
                         byteArrayRef.setData(bytes);
                         lazyObject.init(byteArrayRef, start, length);
-                        vector[i] = Slices.wrappedBuffer(SerDeUtils.getJsonBytes(sessionTimeZone, lazyObject.getObject(), fieldInspector));
+                        vector[i] = getBlockSlice(sessionTimeZone, lazyObject.getObject(), fieldInspector);
                     }
                 }
 

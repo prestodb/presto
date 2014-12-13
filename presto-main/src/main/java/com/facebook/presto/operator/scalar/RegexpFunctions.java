@@ -16,7 +16,11 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.RegexpType;
 import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Ints;
@@ -25,14 +29,12 @@ import io.airlift.slice.Slices;
 
 import javax.annotation.Nullable;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.type.ArrayType.toStackRepresentation;
+import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -95,11 +97,17 @@ public final class RegexpFunctions
     {
         Matcher matcher = pattern.matcher(source.toString(UTF_8));
         validateGroup(group, matcher);
-        List<String> matches = new ArrayList<>();
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
         while (matcher.find()) {
-            matches.add(matcher.group(Ints.checkedCast(group)));
+            String string = matcher.group(Ints.checkedCast(group));
+            if (string == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                VarcharType.VARCHAR.writeString(blockBuilder, string);
+            }
         }
-        return toStackRepresentation(matches);
+        return buildStructuralSlice(blockBuilder);
     }
 
     @Nullable
