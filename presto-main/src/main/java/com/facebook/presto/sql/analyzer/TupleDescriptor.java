@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -29,6 +28,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -117,11 +118,11 @@ public class TupleDescriptor
      */
     public Set<QualifiedName> getRelationAliases()
     {
-        return IterableTransformer.on(allFields)
-                .transform(Field::getRelationAlias)
-                .select(Optional::isPresent)
-                .transform(Optional::get)
-                .set();
+        return allFields.stream()
+                .map(Field::getRelationAlias)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toImmutableSet());
     }
 
     /**
@@ -129,9 +130,9 @@ public class TupleDescriptor
      */
     public List<Field> resolveFieldsWithPrefix(Optional<QualifiedName> prefix)
     {
-        return IterableTransformer.on(visibleFields)
-                .select(input -> input.matchesPrefix(prefix))
-                .list();
+        return visibleFields.stream()
+                .filter(input -> input.matchesPrefix(prefix))
+                .collect(toImmutableList());
     }
 
     /**
@@ -139,9 +140,9 @@ public class TupleDescriptor
      */
     public List<Field> resolveFields(QualifiedName name)
     {
-        return IterableTransformer.on(allFields)
-                .select(input -> input.canResolve(name))
-                .list();
+        return allFields.stream()
+                .filter(input -> input.canResolve(name))
+                .collect(toImmutableList());
     }
 
     public Predicate<QualifiedName> canResolvePredicate()

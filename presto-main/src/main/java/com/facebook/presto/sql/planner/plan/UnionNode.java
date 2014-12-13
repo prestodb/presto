@@ -15,13 +15,13 @@ package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.util.IterableTransformer;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
@@ -33,6 +33,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -91,9 +92,9 @@ public class UnionNode
     public List<Symbol> sourceOutputLayout(int sourceIndex)
     {
         // Make sure the sourceOutputLayout symbols are listed in the same order as the corresponding output symbols
-        return IterableTransformer.on(getOutputSymbols())
-                .transform(outputToSourceSymbolFunction(sourceIndex))
-                .list();
+        return getOutputSymbols().stream()
+                .map(symbol -> symbolMapping.get(symbol).get(sourceIndex))
+                .collect(toImmutableList());
     }
 
     /**
@@ -101,10 +102,12 @@ public class UnionNode
      */
     public Map<Symbol, QualifiedNameReference> sourceSymbolMap(int sourceIndex)
     {
-        return IterableTransformer.on(getOutputSymbols())
-                .toMap(outputToSourceSymbolFunction(sourceIndex))
-                .transformValues(Symbol::toQualifiedNameReference)
-                .immutableMap();
+        ImmutableMap.Builder<Symbol, QualifiedNameReference> builder = ImmutableMap.<Symbol, QualifiedNameReference>builder();
+        for (Map.Entry<Symbol, Collection<Symbol>> entry : symbolMapping.asMap().entrySet()) {
+            builder.put(entry.getKey(), Iterables.get(entry.getValue(), sourceIndex).toQualifiedNameReference());
+        }
+
+        return builder.build();
     }
 
     /**
@@ -121,7 +124,7 @@ public class UnionNode
 
     private Function<Symbol, Symbol> outputToSourceSymbolFunction(final int sourceIndex)
     {
-        return outputSymbol -> Iterables.get(symbolMapping.get(outputSymbol), sourceIndex);
+        return outputSymbol -> symbolMapping.get(outputSymbol).get(sourceIndex);
     }
 
     @Override

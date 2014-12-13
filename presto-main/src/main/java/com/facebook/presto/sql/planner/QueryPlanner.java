@@ -48,7 +48,6 @@ import com.facebook.presto.sql.tree.SortItem.Ordering;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
-import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -61,10 +60,11 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkState;
 
 class QueryPlanner
@@ -281,10 +281,11 @@ class QueryPlanner
             return subPlan;
         }
 
-        Set<FieldOrExpression> arguments = IterableTransformer.on(analysis.getAggregates(node))
-                .transformAndFlatten(FunctionCall::getArguments)
-                .transform(FieldOrExpression::new)
-                .set();
+        Set<FieldOrExpression> arguments = analysis.getAggregates(node).stream()
+                .map(FunctionCall::getArguments)
+                .flatMap(List::stream)
+                .map(FieldOrExpression::new)
+                .collect(toImmutableSet());
 
         // 1. Pre-project all scalar inputs (arguments and non-trivial group by expressions)
         Iterable<FieldOrExpression> inputs = Iterables.concat(analysis.getGroupByExpressions(node), arguments);

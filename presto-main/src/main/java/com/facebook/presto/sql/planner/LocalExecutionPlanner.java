@@ -111,7 +111,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Functions;
 import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
@@ -366,10 +365,11 @@ public class LocalExecutionPlanner
             //   2. verify that symbols from "source" match the expected order of columns according to OutputNode
             Ordering<Integer> comparator = Ordering.natural();
 
-            List<Symbol> sourceSymbols = IterableTransformer.on(source.getLayout().entrySet())
-                    .orderBy(comparator.onResultOf(Map.Entry::getValue))
-                    .transform(Map.Entry::getKey)
-                    .list();
+            List<Symbol> sourceSymbols = source.getLayout()
+                    .entrySet().stream()
+                    .sorted(comparator.onResultOf(Map.Entry::getValue))
+                    .map(Map.Entry::getKey)
+                    .collect(toImmutableList());
 
             List<Symbol> resultSymbols = node.getOutputSymbols();
             if (resultSymbols.equals(sourceSymbols) && resultSymbols.size() == source.getTypes().size()) {
@@ -1268,10 +1268,11 @@ public class LocalExecutionPlanner
             PhysicalOperation source = node.getSource().accept(this, context);
 
             // are the symbols of the source in the same order as the sink expects?
-            boolean projectionMatchesOutput = IterableTransformer.on(source.getLayout().entrySet())
-                    .orderBy(Ordering.<Integer>natural().onResultOf(Map.Entry::getValue))
-                    .transform(Map.Entry::getKey)
-                    .list()
+            boolean projectionMatchesOutput = source.getLayout()
+                    .entrySet().stream()
+                    .sorted(Ordering.<Integer>natural().onResultOf(Map.Entry::getValue))
+                    .map(Map.Entry::getKey)
+                    .collect(toImmutableList())
                     .equals(node.getOutputSymbols());
 
             if (!projectionMatchesOutput) {
@@ -1299,13 +1300,13 @@ public class LocalExecutionPlanner
             // create the table writer
             RecordSink recordSink = getRecordSink(node);
 
-            List<Type> types = IterableTransformer.on(node.getColumns())
-                    .transform(forMap(context.getTypes()))
-                    .list();
+            List<Type> types = node.getColumns().stream()
+                    .map(context.getTypes()::get)
+                    .collect(toImmutableList());
 
-            List<Integer> inputChannels = IterableTransformer.on(node.getColumns())
-                    .transform(exchange::symbolToChannel)
-                    .list();
+            List<Integer> inputChannels = node.getColumns().stream()
+                    .map(exchange::symbolToChannel)
+                    .collect(toImmutableList());
 
             OperatorFactory operatorFactory = new TableWriterOperatorFactory(context.getNextOperatorId(), recordSink, types, inputChannels, sampleWeightChannel);
 
@@ -1368,10 +1369,11 @@ public class LocalExecutionPlanner
                 PhysicalOperation source = subplan.accept(this, subContext);
                 List<OperatorFactory> operatorFactories = new ArrayList<>(source.getOperatorFactories());
 
-                boolean projectionMatchesOutput = IterableTransformer.on(source.getLayout().entrySet())
-                        .orderBy(Ordering.<Integer>natural().onResultOf(Map.Entry::getValue))
-                        .transform(Map.Entry::getKey)
-                        .list()
+                boolean projectionMatchesOutput = source.getLayout()
+                        .entrySet().stream()
+                        .sorted(Ordering.<Integer>natural().onResultOf(Map.Entry::getValue))
+                        .map(Map.Entry::getKey)
+                        .collect(toImmutableList())
                         .equals(expectedLayout);
 
                 if (!projectionMatchesOutput) {
@@ -1408,9 +1410,9 @@ public class LocalExecutionPlanner
 
         private List<Type> getSymbolTypes(List<Symbol> symbols, Map<Symbol, Type> types)
         {
-            return ImmutableList.copyOf(IterableTransformer.on(symbols)
-                    .transform(forMap(types))
-                    .list());
+            return symbols.stream()
+                    .map(types::get)
+                    .collect(toImmutableList());
         }
 
         private AccumulatorFactory buildAccumulatorFactory(PhysicalOperation source, Signature function, FunctionCall call, @Nullable Symbol mask, Optional<Symbol> sampleWeight, double confidence)

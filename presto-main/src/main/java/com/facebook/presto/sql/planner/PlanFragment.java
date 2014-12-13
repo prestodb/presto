@@ -18,10 +18,8 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.SinkNode;
-import com.facebook.presto.util.IterableTransformer;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
@@ -86,9 +84,9 @@ public class PlanFragment
         this.partitionBy = ImmutableList.copyOf(checkNotNull(partitionBy, "partitionBy is null"));
         this.hashChannel = hashChannel;
 
-        types = ImmutableList.copyOf(IterableTransformer.on(root.getOutputSymbols())
-                .transform(Functions.forMap(symbols))
-                .list());
+        types = root.getOutputSymbols().stream()
+                .map(symbols::get)
+                .collect(toImmutableList());
 
         ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
         findSources(root, sources, partitionedSource);

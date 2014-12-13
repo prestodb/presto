@@ -20,12 +20,10 @@ import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.util.IterableTransformer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 
-import java.util.Arrays;
 import javax.inject.Inject;
 import javax.management.Attribute;
 import javax.management.JMException;
@@ -33,6 +31,7 @@ import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -41,6 +40,7 @@ import java.util.Set;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.stream.Collectors.toMap;
 
 public class JmxRecordSetProvider
         implements ConnectorRecordSetProvider
@@ -169,9 +169,8 @@ public class JmxRecordSetProvider
 
         String[] columnNamesArray = uniqueColumnNames.toArray(new String[uniqueColumnNames.size()]);
 
-        return IterableTransformer.on(mbeanServer.getAttributes(objectName, columnNamesArray).asList())
-                .uniqueIndex(Attribute::getName)
-                .transformValues(Attribute::getValue)
-                .map();
+        return mbeanServer.getAttributes(objectName, columnNamesArray)
+                .asList().stream()
+                .collect(toMap(Attribute::getName, Attribute::getValue));
     }
 }

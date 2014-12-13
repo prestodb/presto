@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.failureDetector;
 
-import com.facebook.presto.util.IterableTransformer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
@@ -53,11 +52,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Predicates.compose;
-import static com.google.common.base.Predicates.in;
-import static com.google.common.base.Predicates.not;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.Request.Builder.prepareHead;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -139,10 +137,10 @@ public class HeartbeatFailureDetector
     @Override
     public Set<ServiceDescriptor> getFailed()
     {
-        return IterableTransformer.on(tasks.values())
-                .select(MonitoringTask::isFailed)
-                .transform(MonitoringTask::getService)
-                .set();
+        return tasks.values().stream()
+                .filter(MonitoringTask::isFailed)
+                .map(MonitoringTask::getService)
+                .collect(toImmutableSet());
     }
 
     @Managed(description = "Number of failed services")
@@ -175,38 +173,34 @@ public class HeartbeatFailureDetector
     @VisibleForTesting
     void updateMonitoredServices()
     {
-        Set<ServiceDescriptor> online = IterableTransformer.on(selector.selectAllServices())
-                .select(not(descriptor -> nodeInfo.getNodeId().equals(descriptor.getNodeId())))
-                .set();
+        Set<ServiceDescriptor> online = selector.selectAllServices().stream()
+                .filter(descriptor -> !nodeInfo.getNodeId().equals(descriptor.getNodeId()))
+                .collect(toImmutableSet());
 
-        Set<UUID> onlineIds = IterableTransformer.on(online)
-                .transform(ServiceDescriptor::getId)
-                .set();
+        Set<UUID> onlineIds = online.stream()
+                .map(ServiceDescriptor::getId)
+                .collect(toImmutableSet());
 
         // make sure only one thread is updating the registrations
         synchronized (tasks) {
             // 1. remove expired tasks
-            List<UUID> expiredIds = IterableTransformer.on(tasks.values())
-                    .select(MonitoringTask::isExpired)
-                    .transform(MonitoringTask::getService)
-                    .transform(ServiceDescriptor::getId)
-                    .list();
+            List<UUID> expiredIds = tasks.values().stream()
+                    .filter(MonitoringTask::isExpired)
+                    .map(MonitoringTask::getService)
+                    .map(ServiceDescriptor::getId)
+                    .collect(toImmutableList());
 
             tasks.keySet().removeAll(expiredIds);
 
             // 2. disable offline services
-            Iterable<MonitoringTask> toDisable = IterableTransformer.on(tasks.values())
-                    .select(compose(not(in(onlineIds)), task -> task.getService().getId()))
-                    .all();
-
-            for (MonitoringTask task : toDisable) {
-                task.disable();
-            }
+            tasks.values().stream()
+                    .filter(task -> !onlineIds.contains(task.getService().getId()))
+                    .forEach(MonitoringTask::disable);
 
             // 3. create tasks for new services
-            Set<ServiceDescriptor> newServices = IterableTransformer.on(online)
-                    .select(compose(not(in(tasks.keySet())), ServiceDescriptor::getId))
-                    .set();
+            Set<ServiceDescriptor> newServices = online.stream()
+                    .filter(service -> !tasks.keySet().contains(service.getId()))
+                    .collect(toImmutableSet());
 
             for (ServiceDescriptor service : newServices) {
                 URI uri = getHttpUri(service);
@@ -217,13 +211,9 @@ public class HeartbeatFailureDetector
             }
 
             // 4. enable all online tasks (existing plus newly created)
-            Iterable<MonitoringTask> toEnable = IterableTransformer.on(tasks.values())
-                    .select(compose(in(onlineIds), task -> task.getService().getId()))
-                    .all();
-
-            for (MonitoringTask task : toEnable) {
-                task.enable();
-            }
+            tasks.values().stream()
+                    .filter(task -> onlineIds.contains(task.getService().getId()))
+                    .forEach(MonitoringTask::enable);
         }
     }
 
