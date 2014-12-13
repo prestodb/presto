@@ -13,109 +13,135 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.server.SliceSerializer;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.fasterxml.jackson.databind.type.CollectionType;
-import com.google.common.base.Throwables;
-import io.airlift.json.ObjectMapperProvider;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
+import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-
-import static com.facebook.presto.type.ArrayType.toStackRepresentation;
+import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
+import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 
 public final class ArrayConcatUtils
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer()));
-    private static final CollectionType COLLECTION_TYPE = OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, Object.class);
-
     private ArrayConcatUtils() {}
 
-    public static Slice concat(Slice left, Slice right)
+    public static Slice concat(Type elementType, Slice left, Slice right)
     {
-        List<Object> leftArray = readArray(left);
-        List<Object> rightArray = readArray(right);
-        List<Object> result = new ArrayList<>(leftArray.size() + rightArray.size()); // allow nulls
-        result.addAll(leftArray);
-        result.addAll(rightArray);
-        return toStackRepresentation(result);
-    }
-
-    private static Slice concatElement(Slice in, Object value, boolean append)
-    {
-        List<Object> array = readArray(in);
-        List<Object> result = new ArrayList<>(array.size() + 1); // allow nulls
-        if (append) {
-            result.addAll(array);
-            result.add(value);
+        Block leftBlock = readStructuralBlock(left);
+        Block rightBlock = readStructuralBlock(right);
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), leftBlock.getSizeInBytes() + rightBlock.getSizeInBytes());
+        for (int i = 0; i < leftBlock.getPositionCount(); i++) {
+            elementType.appendTo(leftBlock, i, blockBuilder);
         }
-        else {
-            result.add(value);
-            result.addAll(array);
+        for (int i = 0; i < rightBlock.getPositionCount(); i++) {
+            elementType.appendTo(rightBlock, i, blockBuilder);
         }
-        return toStackRepresentation(result);
+        return buildStructuralSlice(blockBuilder);
     }
 
-    public static Slice appendElement(Slice in, Object value)
+    public static Slice appendElement(Type elementType, Slice in, long value)
     {
-        return concatElement(in, value, true);
-    }
-
-    public static Slice appendElement(Slice in, long value)
-    {
-        return appendElement(in, Long.valueOf(value));
-    }
-
-    public static Slice appendElement(Slice in, boolean value)
-    {
-        return appendElement(in, Boolean.valueOf(value));
-    }
-
-    public static Slice appendElement(Slice in, double value)
-    {
-        return appendElement(in, Double.valueOf(value));
-    }
-
-    public static Slice appendElement(Slice in, Slice value)
-    {
-        return concatElement(in, value, true);
-    }
-
-    public static Slice prependElement(Slice value, Slice in)
-    {
-        return concatElement(in, value, false);
-    }
-
-    public static Slice prependElement(Object value, Slice in)
-    {
-        return concatElement(in, value, false);
-    }
-
-    public static Slice prependElement(long value, Slice in)
-    {
-        return prependElement(Long.valueOf(value), in);
-    }
-
-    public static Slice prependElement(boolean value, Slice in)
-    {
-        return prependElement(Boolean.valueOf(value), in);
-    }
-
-    public static Slice prependElement(double value, Slice in)
-    {
-        return prependElement(Double.valueOf(value), in);
-    }
-
-    private static List<Object> readArray(Slice json)
-    {
-        try {
-            return OBJECT_MAPPER.readValue(json.getInput(), COLLECTION_TYPE);
+        Block block = readStructuralBlock(in);
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            elementType.appendTo(block, i, blockBuilder);
         }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
+
+        elementType.writeLong(blockBuilder, value);
+
+        return buildStructuralSlice(blockBuilder);
+    }
+
+    public static Slice appendElement(Type elementType, Slice in, boolean value)
+    {
+        Block block = readStructuralBlock(in);
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            elementType.appendTo(block, i, blockBuilder);
         }
+
+        elementType.writeBoolean(blockBuilder, value);
+
+        return buildStructuralSlice(blockBuilder);
+    }
+
+    public static Slice appendElement(Type elementType, Slice in, double value)
+    {
+        Block block = readStructuralBlock(in);
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            elementType.appendTo(block, i, blockBuilder);
+        }
+
+        elementType.writeDouble(blockBuilder, value);
+
+        return buildStructuralSlice(blockBuilder);
+    }
+
+    public static Slice appendElement(Type elementType, Slice in, Slice value)
+    {
+        Block block = readStructuralBlock(in);
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            elementType.appendTo(block, i, blockBuilder);
+        }
+
+        elementType.writeSlice(blockBuilder, value);
+
+        return buildStructuralSlice(blockBuilder);
+    }
+
+    public static Slice prependElement(Type elementType, Slice value, Slice in)
+    {
+        Block block = readStructuralBlock(in);
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
+
+        elementType.writeSlice(blockBuilder, value);
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            elementType.appendTo(block, i, blockBuilder);
+        }
+
+        return buildStructuralSlice(blockBuilder);
+    }
+
+    public static Slice prependElement(Type elementType, long value, Slice in)
+    {
+        Block block = readStructuralBlock(in);
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
+
+        elementType.writeLong(blockBuilder, value);
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            elementType.appendTo(block, i, blockBuilder);
+        }
+
+        return buildStructuralSlice(blockBuilder);
+    }
+
+    public static Slice prependElement(Type elementType, boolean value, Slice in)
+    {
+        Block block = readStructuralBlock(in);
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
+
+        elementType.writeBoolean(blockBuilder, value);
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            elementType.appendTo(block, i, blockBuilder);
+        }
+
+        return buildStructuralSlice(blockBuilder);
+    }
+
+    public static Slice prependElement(Type elementType, double value, Slice in)
+    {
+        Block block = readStructuralBlock(in);
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
+
+        elementType.writeDouble(blockBuilder, value);
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            elementType.appendTo(block, i, blockBuilder);
+        }
+
+        return buildStructuralSlice(blockBuilder);
     }
 }

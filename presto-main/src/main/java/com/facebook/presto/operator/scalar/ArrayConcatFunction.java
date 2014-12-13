@@ -36,7 +36,7 @@ public class ArrayConcatFunction
     public static final ArrayConcatFunction ARRAY_CONCAT_FUNCTION = new ArrayConcatFunction();
     private static final String FUNCTION_NAME = "concat";
     private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("array<E>", "array<E>"), false, false);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayConcatUtils.class, FUNCTION_NAME, Slice.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayConcatUtils.class, FUNCTION_NAME, Type.class, Slice.class, Slice.class);
 
     @Override
     public Signature getSignature()
@@ -65,8 +65,10 @@ public class ArrayConcatFunction
     @Override
     public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        TypeSignature typeSignature = parameterizedTypeName("array", types.get("E").getTypeSignature());
+        Type elementType = types.get("E");
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(elementType);
+        TypeSignature typeSignature = parameterizedTypeName("array", elementType.getTypeSignature());
         Signature signature = new Signature(FUNCTION_NAME, typeSignature, typeSignature, typeSignature); // return type & arg types are the same
-        return new FunctionInfo(signature, getDescription(), isHidden(), METHOD_HANDLE, isDeterministic(), false, ImmutableList.of(false, false));
+        return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, ImmutableList.of(false, false));
     }
 }

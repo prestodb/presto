@@ -15,29 +15,28 @@ package com.facebook.presto.ml;
 
 import com.facebook.presto.ml.type.RegressorType;
 import com.facebook.presto.operator.scalar.ScalarFunction;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.hash.HashCode;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import static com.facebook.presto.ml.type.ClassifierType.BIGINT_CLASSIFIER;
 import static com.facebook.presto.ml.type.ClassifierType.VARCHAR_CLASSIFIER;
 import static com.facebook.presto.ml.type.RegressorType.REGRESSOR;
+import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class MLFunctions
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final Cache<HashCode, Model> MODEL_CACHE = CacheBuilder.newBuilder().maximumSize(5).build();
     private static final String MAP_BIGINT_DOUBLE = "map<bigint,double>";
 
@@ -49,7 +48,7 @@ public final class MLFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice varcharClassify(@SqlType(MAP_BIGINT_DOUBLE) Slice featuresMap, @SqlType("Classifier<varchar>") Slice modelSlice)
     {
-        FeatureVector features = ModelUtils.jsonToFeatures(featuresMap);
+        FeatureVector features = ModelUtils.toFeatures(featuresMap);
         Model model = getOrLoadModel(modelSlice);
         checkArgument(model.getType().equals(VARCHAR_CLASSIFIER), "model is not a classifier<varchar>");
         Classifier<String> varcharClassifier = checkType(model, Classifier.class, "model");
@@ -60,7 +59,7 @@ public final class MLFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long classify(@SqlType(MAP_BIGINT_DOUBLE) Slice featuresMap, @SqlType("Classifier<bigint>") Slice modelSlice)
     {
-        FeatureVector features = ModelUtils.jsonToFeatures(featuresMap);
+        FeatureVector features = ModelUtils.toFeatures(featuresMap);
         Model model = getOrLoadModel(modelSlice);
         checkArgument(model.getType().equals(BIGINT_CLASSIFIER), "model is not a classifier<bigint>");
         Classifier<Integer> classifier = checkType(model, Classifier.class, "model");
@@ -71,7 +70,7 @@ public final class MLFunctions
     @SqlType(StandardTypes.DOUBLE)
     public static double regress(@SqlType(MAP_BIGINT_DOUBLE) Slice featuresMap, @SqlType(RegressorType.NAME) Slice modelSlice)
     {
-        FeatureVector features = ModelUtils.jsonToFeatures(featuresMap);
+        FeatureVector features = ModelUtils.toFeatures(featuresMap);
         Model model = getOrLoadModel(modelSlice);
         checkArgument(model.getType().equals(REGRESSOR), "model is not a regressor");
         Regressor regressor = checkType(model, Regressor.class, "model");
@@ -163,17 +162,13 @@ public final class MLFunctions
 
     private static Slice featuresHelper(double... features)
     {
-        Map<Integer, Double> featureMap = new HashMap<>();
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), features.length * (8 + 8));
 
         for (int i = 0; i < features.length; i++) {
-            featureMap.put(i, features[i]);
+            BigintType.BIGINT.writeLong(blockBuilder, i);
+            DoubleType.DOUBLE.writeDouble(blockBuilder, features[i]);
         }
 
-        try {
-            return Slices.utf8Slice(OBJECT_MAPPER.writeValueAsString(featureMap));
-        }
-        catch (JsonProcessingException e) {
-            throw Throwables.propagate(e);
-        }
+        return buildStructuralSlice(blockBuilder);
     }
 }

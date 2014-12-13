@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.json;
+package com.facebook.presto.orc.block;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
@@ -19,60 +19,48 @@ import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSources;
-import com.fasterxml.jackson.core.JsonGenerator;
+import com.facebook.presto.spi.block.BlockBuilder;
 
 import javax.annotation.Nullable;
-
 import java.io.IOException;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class LongDirectJsonReader
-        implements JsonMapKeyReader
+public class DateBlockReader
+        implements BlockReader
 {
     private final StreamDescriptor streamDescriptor;
 
     @Nullable
     private BooleanStream presentStream;
+
     @Nullable
     private LongStream dataStream;
 
-    public LongDirectJsonReader(StreamDescriptor streamDescriptor)
+    public DateBlockReader(StreamDescriptor streamDescriptor)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
     }
 
     @Override
-    public void readNextValueInto(JsonGenerator generator)
+    public void readNextValueInto(BlockBuilder builder)
             throws IOException
     {
         if (presentStream != null && !presentStream.nextBit()) {
-            generator.writeNull();
+            builder.appendNull();
             return;
         }
 
         if (dataStream == null) {
             throw new OrcCorruptionException("Value is not null but data stream is not present");
         }
-        generator.writeNumber(dataStream.next());
-    }
 
-    @Override
-    public String nextValueAsMapKey()
-            throws IOException
-    {
-        if (presentStream != null && !presentStream.nextBit()) {
-            return null;
-        }
-
-        if (dataStream == null) {
-            throw new OrcCorruptionException("Value is not null but data stream is not present");
-        }
-        return String.valueOf(dataStream.next());
+        DATE.writeLong(builder, dataStream.next());
     }
 
     @Override
@@ -84,13 +72,16 @@ public class LongDirectJsonReader
             skipSize = presentStream.countBitsSet(skipSize);
         }
 
-        // skip non-null values
-        if (skipSize > 0) {
-            if (dataStream == null) {
-                throw new OrcCorruptionException("Value is not null but data stream is not present");
-            }
-            dataStream.skip(skipSize);
+        if (skipSize == 0) {
+            return;
         }
+
+        if (dataStream == null) {
+            throw new OrcCorruptionException("Value is not null but data stream is not present");
+        }
+
+        // skip non-null values
+        dataStream.skip(skipSize);
     }
 
     @Override

@@ -15,10 +15,10 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
@@ -46,7 +46,6 @@ import parquet.io.api.RecordMaterializer;
 import parquet.schema.GroupType;
 import parquet.schema.MessageType;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -61,6 +60,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -114,7 +114,6 @@ class ParquetHiveRecordCursor
         checkNotNull(columns, "columns is null");
 
         this.recordReader = createParquetRecordReader(configuration, path, start, length, columns);
-
         this.totalBytes = length;
 
         int size = columns.size();
@@ -352,41 +351,23 @@ class ParquetHiveRecordCursor
     public class PrestoParquetRecordReader
             extends ParquetRecordReader<Void>
     {
-        private final PrestoReadSupport readSupport;
-
         public PrestoParquetRecordReader(PrestoReadSupport readSupport)
         {
             super(readSupport);
-            this.readSupport = readSupport;
-        }
-
-        @Override
-        public void close()
-                throws IOException
-        {
-            try {
-                super.close();
-            }
-            finally {
-                this.readSupport.close();
-            }
         }
     }
 
     public class PrestoReadSupport
             extends ReadSupport<Void>
-            implements Closeable
     {
         private final List<HiveColumnHandle> columns;
         private final List<Converter> converters;
-        private final List<Closeable> converterCloseables;
 
         public PrestoReadSupport(List<HiveColumnHandle> columns, MessageType messageType)
         {
             this.columns = columns;
 
             ImmutableList.Builder<Converter> converters = ImmutableList.builder();
-            ImmutableList.Builder<Closeable> closeableBuilder = ImmutableList.builder();
             for (int i = 0; i < columns.size(); i++) {
                 HiveColumnHandle column = columns.get(i);
                 if (!column.isPartitionKey() && column.getHiveColumnIndex() < messageType.getFieldCount()) {
@@ -398,19 +379,16 @@ class ParquetHiveRecordCursor
                         GroupType groupType = parquetType.asGroupType();
                         switch (column.getTypeSignature().getBase()) {
                             case StandardTypes.ARRAY:
-                                ParquetJsonColumnConverter listConverter = new ParquetJsonColumnConverter(new ParquetListJsonConverter(groupType.getName(), null, groupType), i);
+                                ParquetColumnConverter listConverter = new ParquetColumnConverter(new ParquetListConverter(groupType.getName(), groupType), i);
                                 converters.add(listConverter);
-                                closeableBuilder.add(listConverter);
                                 break;
                             case StandardTypes.MAP:
-                                ParquetJsonColumnConverter mapConverter = new ParquetJsonColumnConverter(new ParquetMapJsonConverter(groupType.getName(), null, groupType), i);
+                                ParquetColumnConverter mapConverter = new ParquetColumnConverter(new ParquetMapConverter(groupType.getName(), groupType), i);
                                 converters.add(mapConverter);
-                                closeableBuilder.add(mapConverter);
                                 break;
                             case StandardTypes.ROW:
-                                ParquetJsonColumnConverter rowConverter = new ParquetJsonColumnConverter(new ParquetStructJsonConverter(groupType.getName(), null, groupType), i);
+                                ParquetColumnConverter rowConverter = new ParquetColumnConverter(new ParquetStructConverter(groupType.getName(), groupType), i);
                                 converters.add(rowConverter);
-                                closeableBuilder.add(rowConverter);
                                 break;
                             default:
                                 throw new IllegalArgumentException("Group column " + groupType.getName() + " type " + groupType.getOriginalType() + " not supported");
@@ -419,7 +397,6 @@ class ParquetHiveRecordCursor
                 }
             }
             this.converters = converters.build();
-            this.converterCloseables = closeableBuilder.build();
         }
 
         @Override
@@ -447,15 +424,6 @@ class ParquetHiveRecordCursor
                 ReadContext readContext)
         {
             return new ParquetRecordConverter(converters);
-        }
-
-        @Override
-        public void close()
-                throws IOException
-        {
-            for (Closeable closeable : converterCloseables) {
-                closeQuietly(closeable);
-            }
         }
     }
 
@@ -591,113 +559,89 @@ class ParquetHiveRecordCursor
         }
     }
 
-    public class ParquetJsonColumnConverter
+    public class ParquetColumnConverter
             extends GroupConverter
-            implements Closeable
     {
-        private final DynamicSliceOutput out = new DynamicSliceOutput(1024);
-
-        private final GroupedJsonConverter jsonConverter;
+        private final GroupedConverter groupedConverter;
         private final int fieldIndex;
 
-        private JsonGenerator generator;
-
-        public ParquetJsonColumnConverter(GroupedJsonConverter jsonConverter, int fieldIndex)
+        public ParquetColumnConverter(GroupedConverter groupedConverter, int fieldIndex)
         {
-            this.jsonConverter = jsonConverter;
+            this.groupedConverter = groupedConverter;
             this.fieldIndex = fieldIndex;
         }
 
         @Override
         public Converter getConverter(int fieldIndex)
         {
-            return jsonConverter.getConverter(fieldIndex);
+            return groupedConverter.getConverter(fieldIndex);
         }
 
         @Override
         public void start()
         {
-            try {
-                out.reset();
-                generator = new JsonFactory().createGenerator(out);
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
-
-            jsonConverter.beforeValue(generator);
-            jsonConverter.start();
+            groupedConverter.beforeValue(null);
+            groupedConverter.start();
         }
 
         @Override
         public void end()
         {
-            jsonConverter.afterValue();
-            jsonConverter.end();
+            groupedConverter.afterValue();
+            groupedConverter.end();
 
             nulls[fieldIndex] = false;
-            try {
-                generator.close();
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
-            slices[fieldIndex] = out.copySlice();
-        }
 
-        @Override
-        public void close()
-                throws IOException
-        {
-            closeQuietly(jsonConverter);
+            slices[fieldIndex] = groupedConverter.toSlice();
         }
     }
 
-    private interface JsonConverter
-            extends Closeable
+    private interface BlockConverter
     {
-        void beforeValue(JsonGenerator generator);
+        void beforeValue(BlockBuilder builder);
 
         void afterValue();
     }
 
-    private abstract static class GroupedJsonConverter
+    private abstract static class GroupedConverter
             extends GroupConverter
-            implements JsonConverter
+            implements BlockConverter
     {
+        public abstract Slice toSlice();
     }
 
-    private static JsonConverter createJsonConverter(String columnName, String fieldName, parquet.schema.Type type)
+    private static BlockConverter createConverter(String columnName, parquet.schema.Type type)
     {
         if (type.isPrimitive()) {
-            return new ParquetPrimitiveJsonConverter(fieldName);
+            return new ParquetPrimitiveConverter();
         }
         else if (type.getOriginalType() == LIST) {
-            return new ParquetListJsonConverter(columnName, fieldName, type.asGroupType());
+            return new ParquetListConverter(columnName, type.asGroupType());
         }
         else if (type.getOriginalType() == MAP) {
-            return new ParquetMapJsonConverter(columnName, fieldName, type.asGroupType());
+            return new ParquetMapConverter(columnName, type.asGroupType());
         }
         else if (type.getOriginalType() == null) {
             // struct does not have an original type
-            return new ParquetStructJsonConverter(columnName, fieldName, type.asGroupType());
+            return new ParquetStructConverter(columnName, type.asGroupType());
         }
         throw new IllegalArgumentException("Unsupported type " + type);
     }
 
-    private static class ParquetStructJsonConverter
-            extends GroupedJsonConverter
+    private static class ParquetStructConverter
+            extends GroupedConverter
     {
-        private final String fieldName;
-        private final List<JsonConverter> converters;
-        private JsonGenerator generator;
+        private final DynamicSliceOutput out = new DynamicSliceOutput(1024);
 
-        public ParquetStructJsonConverter(String columnName, String fieldName, GroupType entryType)
+        private final List<BlockConverter> converters;
+        private BlockBuilder builder;
+        private BlockBuilder currentBuilder;
+
+        public ParquetStructConverter(String columnName, GroupType entryType)
         {
-            this.fieldName = fieldName;
-            ImmutableList.Builder<JsonConverter> converters = ImmutableList.builder();
+            ImmutableList.Builder<BlockConverter> converters = ImmutableList.builder();
             for (parquet.schema.Type fieldType : entryType.getFields()) {
-                converters.add(createJsonConverter(columnName + "." + fieldType.getName(), null, fieldType));
+                converters.add(createConverter(columnName + "." + fieldType.getName(), fieldType));
             }
             this.converters = converters.build();
         }
@@ -709,79 +653,69 @@ class ParquetHiveRecordCursor
         }
 
         @Override
-        public void beforeValue(JsonGenerator generator)
+        public void beforeValue(BlockBuilder builder)
         {
-            this.generator = generator;
-            for (JsonConverter converter : converters) {
-                converter.beforeValue(generator);
-            }
+            this.builder = builder;
         }
 
         @Override
         public void start()
         {
-            try {
-                writeFieldNameIfSet(generator, fieldName);
-                generator.writeStartArray();
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
+            out.reset();
+            this.currentBuilder = createBlockBuilder();
+            for (BlockConverter converter : converters) {
+                converter.beforeValue(currentBuilder);
             }
         }
 
         @Override
         public void end()
         {
-            try {
-                generator.writeEndArray();
+            for (BlockConverter converter : converters) {
+                converter.afterValue();
             }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
+            currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
+
+            if (builder != null) {
+                VARBINARY.writeSlice(builder, out.copySlice());
             }
         }
 
         @Override
         public void afterValue()
         {
-            for (JsonConverter converter : converters) {
-                converter.afterValue();
-            }
         }
 
         @Override
-        public void close()
-                throws IOException
+        public Slice toSlice()
         {
-            for (JsonConverter converter : converters) {
-                closeQuietly(converter);
-            }
+            return out.copySlice();
         }
     }
 
-    private static class ParquetListJsonConverter
-            extends GroupedJsonConverter
+    private static class ParquetListConverter
+            extends GroupedConverter
     {
-        private final JsonConverter elementConverter;
-        private final String fieldName;
-        private JsonGenerator generator;
+        private final DynamicSliceOutput out = new DynamicSliceOutput(1024);
 
-        public ParquetListJsonConverter(String columnName, String fieldName, GroupType listType)
+        private final BlockConverter elementConverter;
+        private BlockBuilder builder;
+        private BlockBuilder currentBuilder;
+
+        public ParquetListConverter(String columnName, GroupType listType)
         {
-            this.fieldName = fieldName;
-
             checkArgument(listType.getFieldCount() == 1,
                     "Expected LIST column '%s' to only have one field, but has %s fields",
                     columnName,
                     listType.getFieldCount());
 
-            elementConverter = new ParquetListEntryJsonConverter(fieldName, listType.getType(0).asGroupType());
+            elementConverter = new ParquetListEntryConverter(columnName, listType.getType(0).asGroupType());
         }
 
         @Override
-        public void beforeValue(JsonGenerator generator)
+        public void beforeValue(BlockBuilder builder)
         {
-            this.generator = generator;
-            elementConverter.beforeValue(generator);
+            this.builder = builder;
         }
 
         @Override
@@ -796,47 +730,43 @@ class ParquetHiveRecordCursor
         @Override
         public void start()
         {
-            try {
-                writeFieldNameIfSet(generator, fieldName);
-                generator.writeStartArray();
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
+            out.reset();
+            this.currentBuilder = createBlockBuilder();
+            elementConverter.beforeValue(currentBuilder);
         }
 
         @Override
         public void end()
         {
-            try {
-                generator.writeEndArray();
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
+            elementConverter.afterValue();
+            currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
+
+            if (builder != null) {
+                VARBINARY.writeSlice(builder, out.copySlice());
             }
         }
 
         @Override
         public void afterValue()
         {
-            elementConverter.afterValue();
         }
 
         @Override
-        public void close()
-                throws IOException
+        public Slice toSlice()
         {
-            closeQuietly(elementConverter);
+            return out.copySlice();
         }
     }
 
-    private static class ParquetListEntryJsonConverter
+    private static class ParquetListEntryConverter
             extends GroupConverter
-            implements JsonConverter
+            implements BlockConverter
     {
-        private final JsonConverter elementConverter;
+        private final BlockConverter elementConverter;
 
-        public ParquetListEntryJsonConverter(String columnName, GroupType elementType)
+        private BlockBuilder builder;
+
+        public ParquetListEntryConverter(String columnName, GroupType elementType)
         {
             checkArgument(elementType.getOriginalType() == null,
                     "Expected LIST column '%s' field to be type STRUCT, but is %s",
@@ -853,7 +783,7 @@ class ParquetHiveRecordCursor
                     columnName,
                     elementType.getFieldName(0));
 
-            elementConverter = createJsonConverter(columnName + ".element", null, elementType.getType(0));
+            elementConverter = createConverter(columnName + ".element", elementType.getType(0));
         }
 
         @Override
@@ -866,46 +796,40 @@ class ParquetHiveRecordCursor
         }
 
         @Override
-        public void beforeValue(JsonGenerator generator)
+        public void beforeValue(BlockBuilder builder)
         {
-            elementConverter.beforeValue(generator);
+            this.builder = builder;
         }
 
         @Override
         public void start()
         {
+            elementConverter.beforeValue(builder);
         }
 
         @Override
         public void end()
         {
+            elementConverter.afterValue();
         }
 
         @Override
         public void afterValue()
         {
-            elementConverter.afterValue();
-        }
-
-        @Override
-        public void close()
-                throws IOException
-        {
-            closeQuietly(elementConverter);
         }
     }
 
-    private static class ParquetMapJsonConverter
-            extends GroupedJsonConverter
+    private static class ParquetMapConverter
+            extends GroupedConverter
     {
-        private final ParquetMapEntryJsonConverter entryConverter;
-        private final String fieldName;
-        private JsonGenerator generator;
+        private final DynamicSliceOutput out = new DynamicSliceOutput(1024);
 
-        public ParquetMapJsonConverter(String columnName, String fieldName, GroupType mapType)
+        private final ParquetMapEntryConverter entryConverter;
+        private BlockBuilder builder;
+        private BlockBuilder currentBuilder;
+
+        public ParquetMapConverter(String columnName, GroupType mapType)
         {
-            this.fieldName = fieldName;
-
             checkArgument(mapType.getFieldCount() == 1,
                     "Expected MAP column '%s' to only have one field, but has %s fields",
                     mapType.getName(),
@@ -922,14 +846,13 @@ class ParquetHiveRecordCursor
                         entryType);
             }
 
-            entryConverter = new ParquetMapEntryJsonConverter(columnName + ".entry", entryType.asGroupType());
+            entryConverter = new ParquetMapEntryConverter(columnName + ".entry", entryType.asGroupType());
         }
 
         @Override
-        public void beforeValue(JsonGenerator generator)
+        public void beforeValue(BlockBuilder builder)
         {
-            this.generator = generator;
-            entryConverter.beforeValue(generator);
+            this.builder = builder;
         }
 
         @Override
@@ -944,48 +867,44 @@ class ParquetHiveRecordCursor
         @Override
         public void start()
         {
-            try {
-                writeFieldNameIfSet(generator, fieldName);
-                generator.writeStartObject();
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
+            out.reset();
+            this.currentBuilder = createBlockBuilder();
+            entryConverter.beforeValue(currentBuilder);
         }
 
         @Override
         public void end()
         {
-            try {
-                generator.writeEndObject();
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
+            entryConverter.afterValue();
+            currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
+
+            if (builder != null) {
+                VARBINARY.writeSlice(builder, out.copySlice());
             }
         }
 
         @Override
         public void afterValue()
         {
-            entryConverter.afterValue();
         }
 
         @Override
-        public void close()
-                throws IOException
+        public Slice toSlice()
         {
-            closeQuietly(entryConverter);
+            return out.copySlice();
         }
     }
 
-    private static class ParquetMapEntryJsonConverter
+    private static class ParquetMapEntryConverter
             extends GroupConverter
-            implements JsonConverter
+            implements BlockConverter
     {
-        private final JsonConverter keyConverter;
-        private final JsonConverter valueConverter;
+        private final BlockConverter keyConverter;
+        private final BlockConverter valueConverter;
 
-        public ParquetMapEntryJsonConverter(String columnName, GroupType entryType)
+        private BlockBuilder builder;
+
+        public ParquetMapEntryConverter(String columnName, GroupType entryType)
         {
             // original version of parquet used null for entry due to a bug
             if (entryType.getOriginalType() != null) {
@@ -1014,8 +933,8 @@ class ParquetHiveRecordCursor
                     columnName,
                     entryGroupType.getType(0));
 
-            keyConverter = new ParquetMapKeyJsonConverter();
-            valueConverter = createJsonConverter(columnName + ".value", null, entryGroupType.getFields().get(1));
+            keyConverter = createConverter(columnName + ".key", entryGroupType.getFields().get(0));
+            valueConverter = createConverter(columnName + ".value", entryGroupType.getFields().get(1));
         }
 
         @Override
@@ -1031,55 +950,46 @@ class ParquetHiveRecordCursor
         }
 
         @Override
-        public void beforeValue(JsonGenerator generator)
+        public void beforeValue(BlockBuilder builder)
         {
-            keyConverter.beforeValue(generator);
-            valueConverter.beforeValue(generator);
+            this.builder = builder;
         }
 
         @Override
         public void start()
         {
+            keyConverter.beforeValue(builder);
+            valueConverter.beforeValue(builder);
         }
 
         @Override
         public void end()
-        {
-        }
-
-        @Override
-        public void afterValue()
         {
             keyConverter.afterValue();
             valueConverter.afterValue();
         }
 
         @Override
-        public void close()
-                throws IOException
+        public void afterValue()
         {
-            closeQuietly(keyConverter);
-            closeQuietly(valueConverter);
         }
     }
 
-    private static class ParquetPrimitiveJsonConverter
+    private static class ParquetPrimitiveConverter
             extends PrimitiveConverter
-            implements JsonConverter
+            implements BlockConverter
     {
-        private final String fieldName;
-        private JsonGenerator generator;
+        private BlockBuilder builder;
         private boolean wroteValue;
 
-        public ParquetPrimitiveJsonConverter(String fieldName)
+        public ParquetPrimitiveConverter()
         {
-            this.fieldName = fieldName;
         }
 
         @Override
-        public void beforeValue(JsonGenerator generator)
+        public void beforeValue(BlockBuilder builder)
         {
-            this.generator = generator;
+            this.builder = checkNotNull(builder, "parent builder is null");
             wroteValue = false;
         }
 
@@ -1090,13 +1000,7 @@ class ParquetHiveRecordCursor
                 return;
             }
 
-            try {
-                writeFieldNameIfSet(generator, fieldName);
-                generator.writeNull();
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
+            builder.appendNull();
         }
 
         @Override
@@ -1130,234 +1034,48 @@ class ParquetHiveRecordCursor
         @Override
         public void addBoolean(boolean value)
         {
-            try {
-                writeFieldNameIfSet(generator, fieldName);
-                generator.writeBoolean(value);
-                wroteValue = true;
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
+            BOOLEAN.writeBoolean(builder, value);
+            wroteValue = true;
         }
 
         @Override
         public void addDouble(double value)
         {
-            try {
-                writeFieldNameIfSet(generator, fieldName);
-                generator.writeNumber(value);
-                wroteValue = true;
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
+            DOUBLE.writeDouble(builder, value);
+            wroteValue = true;
         }
 
         @Override
         public void addLong(long value)
         {
-            try {
-                writeFieldNameIfSet(generator, fieldName);
-                generator.writeNumber(value);
-                wroteValue = true;
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
+            BIGINT.writeLong(builder, value);
+            wroteValue = true;
         }
 
         @Override
         public void addBinary(Binary value)
         {
-            try {
-                writeFieldNameIfSet(generator, fieldName);
-                // todo don't assume binary is a utf-8 string
-                byte[] bytes = value.getBytes();
-                generator.writeUTF8String(bytes, 0, bytes.length);
-                wroteValue = true;
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
+            VARBINARY.writeSlice(builder, Slices.wrappedBuffer(value.getBytes()));
+            wroteValue = true;
         }
 
         @Override
         public void addFloat(float value)
         {
-            try {
-                writeFieldNameIfSet(generator, fieldName);
-                generator.writeNumber(value);
-                wroteValue = true;
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
+            DOUBLE.writeDouble(builder, value);
+            wroteValue = true;
         }
 
         @Override
         public void addInt(int value)
         {
-            try {
-                writeFieldNameIfSet(generator, fieldName);
-                generator.writeNumber(value);
-                wroteValue = true;
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
-        }
-
-        @Override
-        public void close()
-                throws IOException
-        {
+            BIGINT.writeLong(builder, value);
+            wroteValue = true;
         }
     }
 
-    private static class ParquetMapKeyJsonConverter
-            extends PrimitiveConverter
-            implements JsonConverter
+    private static BlockBuilder createBlockBuilder()
     {
-        private JsonGenerator generator;
-        private boolean wroteValue;
-
-        @Override
-        public void beforeValue(JsonGenerator generator)
-        {
-            this.generator = generator;
-            wroteValue = false;
-        }
-
-        @Override
-        public void afterValue()
-        {
-            checkState(wroteValue, "Null map keys are not allowed");
-        }
-
-        @Override
-        public boolean isPrimitive()
-        {
-            return true;
-        }
-
-        @Override
-        public PrimitiveConverter asPrimitiveConverter()
-        {
-            return this;
-        }
-
-        @Override
-        public boolean hasDictionarySupport()
-        {
-            return false;
-        }
-
-        @Override
-        public void setDictionary(Dictionary dictionary)
-        {
-        }
-
-        @Override
-        public void addValueFromDictionary(int dictionaryId)
-        {
-        }
-
-        @Override
-        public void addBoolean(boolean value)
-        {
-            try {
-                generator.writeFieldName(String.valueOf(value));
-                wroteValue = true;
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
-        }
-
-        @Override
-        public void addDouble(double value)
-        {
-            try {
-                generator.writeFieldName(String.valueOf(value));
-                wroteValue = true;
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
-        }
-
-        @Override
-        public void addLong(long value)
-        {
-            try {
-                generator.writeFieldName(String.valueOf(value));
-                wroteValue = true;
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
-        }
-
-        @Override
-        public void addBinary(Binary value)
-        {
-            try {
-                // todo don't assume binary is a utf-8 string
-                generator.writeFieldName(value.toStringUsingUTF8());
-                wroteValue = true;
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
-        }
-
-        @Override
-        public void addFloat(float value)
-        {
-            try {
-                generator.writeFieldName(String.valueOf(value));
-                wroteValue = true;
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
-        }
-
-        @Override
-        public void addInt(int value)
-        {
-            try {
-                generator.writeFieldName(String.valueOf(value));
-                wroteValue = true;
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
-        }
-
-        @Override
-        public void close()
-                throws IOException
-        {
-        }
-    }
-
-    private static void writeFieldNameIfSet(JsonGenerator generator, String fieldName)
-            throws IOException
-    {
-        if (fieldName != null) {
-            generator.writeFieldName(fieldName);
-        }
-    }
-
-    private static void closeQuietly(Closeable closeable)
-    {
-        try {
-            if (closeable != null) {
-                closeable.close();
-            }
-        }
-        catch (IOException ignored) {
-        }
+        return VARBINARY.createBlockBuilder(new BlockBuilderStatus(1000, 1000));
     }
 }

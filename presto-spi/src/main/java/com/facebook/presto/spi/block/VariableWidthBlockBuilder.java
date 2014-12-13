@@ -43,8 +43,13 @@ public class VariableWidthBlockBuilder
 
     public VariableWidthBlockBuilder(BlockBuilderStatus blockBuilderStatus)
     {
+        this(blockBuilderStatus, (int) (blockBuilderStatus.getMaxBlockSizeInBytes() * 1.2));
+    }
+
+    public VariableWidthBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedSizeInBytes)
+    {
         this.blockBuilderStatus = Objects.requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
-        this.sliceOutput = new DynamicSliceOutput((int) (blockBuilderStatus.getMaxBlockSizeInBytes() * 1.2));
+        this.sliceOutput = new DynamicSliceOutput(expectedSizeInBytes);
     }
 
     @Override

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.json;
+package com.facebook.presto.orc.block;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
@@ -19,20 +19,20 @@ import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.ByteStream;
 import com.facebook.presto.orc.stream.StreamSources;
-import com.fasterxml.jackson.core.JsonGenerator;
+import com.facebook.presto.spi.block.BlockBuilder;
 
 import javax.annotation.Nullable;
-
 import java.io.IOException;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class ByteJsonReader
-        implements JsonMapKeyReader
+public class ByteBlockReader
+        implements BlockReader
 {
     private final StreamDescriptor streamDescriptor;
 
@@ -42,17 +42,17 @@ public class ByteJsonReader
     @Nullable
     private ByteStream dataStream;
 
-    public ByteJsonReader(StreamDescriptor streamDescriptor)
+    public ByteBlockReader(StreamDescriptor streamDescriptor)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
     }
 
     @Override
-    public void readNextValueInto(JsonGenerator generator)
+    public void readNextValueInto(BlockBuilder builder)
             throws IOException
     {
         if (presentStream != null && !presentStream.nextBit()) {
-            generator.writeNull();
+            builder.appendNull();
             return;
         }
 
@@ -60,22 +60,7 @@ public class ByteJsonReader
             throw new OrcCorruptionException("Value is not null but data stream is not present");
         }
 
-        generator.writeNumber(dataStream.next());
-    }
-
-    @Override
-    public String nextValueAsMapKey()
-            throws IOException
-    {
-        if (presentStream != null && !presentStream.nextBit()) {
-            return null;
-        }
-
-        if (dataStream == null) {
-            throw new OrcCorruptionException("Value is not null but data stream is not present");
-        }
-
-        return String.valueOf(dataStream.next());
+        BIGINT.writeLong(builder, dataStream.next());
     }
 
     @Override

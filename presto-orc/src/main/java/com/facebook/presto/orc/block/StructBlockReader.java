@@ -11,62 +11,74 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.json;
+package com.facebook.presto.orc.block;
 
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.StreamSources;
-import com.fasterxml.jackson.core.JsonGenerator;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockBuilder;
+import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
-
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.orc.json.JsonReaders.createJsonReader;
+import static com.facebook.presto.orc.block.BlockReaders.createBlockReader;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class StructJsonReader
-        implements JsonReader
+public class StructBlockReader
+        implements BlockReader
 {
+    private final DynamicSliceOutput out = new DynamicSliceOutput(1024);
+
     private final StreamDescriptor streamDescriptor;
     private final boolean checkForNulls;
-    private final JsonReader[] structFields;
+    private final BlockReader[] structFields;
 
     @Nullable
     private BooleanStream presentStream;
 
-    public StructJsonReader(StreamDescriptor streamDescriptor, boolean checkForNulls, DateTimeZone hiveStorageTimeZone)
+    public StructBlockReader(StreamDescriptor streamDescriptor, boolean checkForNulls, DateTimeZone hiveStorageTimeZone)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
         this.checkForNulls = checkForNulls;
 
         List<StreamDescriptor> nestedStreams = streamDescriptor.getNestedStreams();
-        this.structFields = new JsonReader[nestedStreams.size()];
+        this.structFields = new BlockReader[nestedStreams.size()];
         for (int i = 0; i < nestedStreams.size(); i++) {
             StreamDescriptor nestedStream = nestedStreams.get(i);
-            this.structFields[i] = createJsonReader(nestedStream, true, hiveStorageTimeZone);
+            this.structFields[i] = createBlockReader(nestedStream, true, hiveStorageTimeZone);
         }
     }
 
     @Override
-    public void readNextValueInto(JsonGenerator generator)
+    public void readNextValueInto(BlockBuilder builder)
             throws IOException
     {
+        out.reset();
+
         if (presentStream != null && !presentStream.nextBit()) {
-            generator.writeNull();
+            checkNotNull(builder, "parent builder is null").appendNull();
             return;
         }
 
-        generator.writeStartArray();
-        for (JsonReader structField : structFields) {
-            structField.readNextValueInto(generator);
+        BlockBuilder currentBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(1000, 1000));
+        for (BlockReader structField : structFields) {
+            structField.readNextValueInto(currentBuilder);
         }
-        generator.writeEndArray();
+
+        currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
+
+        if (builder != null) {
+            VARBINARY.writeSlice(builder, out.copySlice());
+        }
     }
 
     @Override
@@ -79,7 +91,7 @@ public class StructJsonReader
         }
 
         // skip non-null values
-        for (JsonReader structField : structFields) {
+        for (BlockReader structField : structFields) {
             structField.skip(skipSize);
         }
     }
@@ -90,7 +102,7 @@ public class StructJsonReader
     {
         presentStream = null;
 
-        for (JsonReader structField : structFields) {
+        for (BlockReader structField : structFields) {
             structField.openStripe(dictionaryStreamSources, encoding);
         }
     }
@@ -103,9 +115,15 @@ public class StructJsonReader
             presentStream = dataStreamSources.getStreamSource(streamDescriptor, PRESENT, BooleanStream.class).openStream();
         }
 
-        for (JsonReader structField : structFields) {
+        for (BlockReader structField : structFields) {
             structField.openRowGroup(dataStreamSources);
         }
+    }
+
+    @Override
+    public Slice toSlice()
+    {
+        return out.copySlice();
     }
 
     @Override

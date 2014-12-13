@@ -67,7 +67,7 @@ import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
-import static com.facebook.presto.hive.util.SerDeUtils.getJsonBytes;
+import static com.facebook.presto.hive.util.SerDeUtils.getBlockSlice;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -433,7 +433,7 @@ public class DwrfHiveRecordCursor
 
         HiveType type = hiveTypes[column];
         if (isStructuralType(type)) {
-            slices[column] = Slices.wrappedBuffer(getJsonBytes(sessionTimeZone, lazyObject, fieldInspectors[column]));
+            slices[column] = getBlockSlice(sessionTimeZone, lazyObject, fieldInspectors[column]);
         }
         else if (type.equals(HIVE_STRING)) {
             Text text = checkWritable(value, Text.class);

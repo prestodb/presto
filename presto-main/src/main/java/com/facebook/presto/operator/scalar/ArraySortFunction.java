@@ -17,16 +17,16 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.type.CollectionType;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.ObjectMapperProvider;
+import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
-import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.util.Collections;
 import java.util.Comparator;
@@ -34,9 +34,8 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.type.ArrayType.toStackRepresentation;
-import static com.facebook.presto.type.TypeJsonUtils.createBlock;
+import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
+import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -49,8 +48,6 @@ public final class ArraySortFunction
     private static final String FUNCTION_NAME = "array_sort";
     private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(orderableTypeParameter("E")), "array<E>", ImmutableList.of("array<E>"), false, false);
     private static final MethodHandle METHOD_HANDLE = methodHandle(ArraySortFunction.class, "sort", Type.class, Slice.class);
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
-    private static final CollectionType COLLECTION_TYPE = OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, Object.class);
 
     @Override
     public Signature getSignature()
@@ -88,23 +85,31 @@ public final class ArraySortFunction
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, ImmutableList.of(false));
     }
 
-    public static Slice sort(final Type type, Slice jsonArray)
+    public static Slice sort(Type type, Slice encodedArray)
     {
-        List<Object> elements;
-        try {
-            elements = OBJECT_MAPPER.readValue(jsonArray.getInput(), COLLECTION_TYPE);
+        Block block = readStructuralBlock(encodedArray);
+
+        List<Integer> positions = Ints.asList(new int[block.getPositionCount()]);
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            positions.set(i, i);
         }
-        catch (IOException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
-        }
-        Collections.sort(elements, new Comparator<Object>()
+
+        Collections.sort(positions, new Comparator<Integer>()
         {
             @Override
-            public int compare(Object o1, Object o2)
+            public int compare(Integer p1, Integer p2)
             {
-                return type.compareTo(createBlock(type, o1), 0, createBlock(type, o2), 0);
+                //TODO: This could be quite slow, it should use parametric equals
+                return type.compareTo(block, p1, block, p2);
             }
         });
-        return toStackRepresentation(elements);
+
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
+
+        for (int position : positions) {
+            type.appendTo(block, position, blockBuilder);
+        }
+
+        return buildStructuralSlice(blockBuilder);
     }
 }

@@ -11,13 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.json;
+package com.facebook.presto.orc.block;
 
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.stream.StreamSources;
-import com.fasterxml.jackson.core.JsonGenerator;
+import com.facebook.presto.spi.block.BlockBuilder;
 
 import java.io.IOException;
 import java.util.List;
@@ -26,39 +26,29 @@ import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
-import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class LongJsonReader
-        implements JsonMapKeyReader
+public class SliceBlockReader
+        implements BlockReader
 {
     private final StreamDescriptor streamDescriptor;
+    private final SliceDirectBlockReader directReader;
+    private final SliceDictionaryBlockReader dictionaryReader;
+    private BlockReader currentReader;
 
-    private final LongDirectJsonReader directReader;
-
-    private final LongDictionaryJsonReader dictionaryReader;
-    private JsonMapKeyReader currentReader;
-
-    public LongJsonReader(StreamDescriptor streamDescriptor)
+    public SliceBlockReader(StreamDescriptor streamDescriptor)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
-        directReader = new LongDirectJsonReader(streamDescriptor);
-        dictionaryReader = new LongDictionaryJsonReader(streamDescriptor);
+        directReader = new SliceDirectBlockReader(streamDescriptor);
+        dictionaryReader = new SliceDictionaryBlockReader(streamDescriptor);
     }
 
     @Override
-    public void readNextValueInto(JsonGenerator generator)
+    public void readNextValueInto(BlockBuilder builder)
             throws IOException
     {
-        currentReader.readNextValueInto(generator);
-    }
-
-    @Override
-    public String nextValueAsMapKey()
-            throws IOException
-    {
-        return currentReader.nextValueAsMapKey();
+        currentReader.readNextValueInto(builder);
     }
 
     @Override
@@ -69,18 +59,19 @@ public class LongJsonReader
     }
 
     @Override
-    public void openStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void openStripe(StreamSources dictionaryStreamSources,
+            List<ColumnEncoding> encoding)
             throws IOException
     {
-        ColumnEncodingKind kind = encoding.get(streamDescriptor.getStreamId()).getColumnEncodingKind();
-        if (kind == DIRECT || kind == DIRECT_V2 || kind == DWRF_DIRECT) {
+        ColumnEncodingKind columnEncodingKind = encoding.get(streamDescriptor.getStreamId()).getColumnEncodingKind();
+        if (columnEncodingKind == DIRECT || columnEncodingKind == DIRECT_V2 || columnEncodingKind == ColumnEncodingKind.DWRF_DIRECT) {
             currentReader = directReader;
         }
-        else if (kind == DICTIONARY || kind == DICTIONARY_V2) {
+        else if (columnEncodingKind == DICTIONARY || columnEncodingKind == DICTIONARY_V2) {
             currentReader = dictionaryReader;
         }
         else {
-            throw new IllegalArgumentException("Unsupported encoding " + kind);
+            throw new IllegalArgumentException("Unsupported encoding " + columnEncodingKind);
         }
 
         currentReader.openStripe(dictionaryStreamSources, encoding);

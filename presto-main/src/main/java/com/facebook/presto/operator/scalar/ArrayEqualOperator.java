@@ -15,8 +15,6 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricOperator;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -31,6 +29,7 @@ import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.type.TypeUtils.createBlock;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class ArrayEqualOperator
@@ -56,10 +55,7 @@ public class ArrayEqualOperator
 
     public static boolean equals(Type type, Slice left, Slice right)
     {
-        BlockBuilder leftBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
-        BlockBuilder rightBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
-        leftBlockBuilder.writeBytes(left, 0, left.length());
-        rightBlockBuilder.writeBytes(right, 0, right.length());
-        return type.equalTo(leftBlockBuilder.closeEntry().build(), 0, rightBlockBuilder.closeEntry().build(), 0);
+        //TODO: This could be quite slow, it should use parametric equals
+        return type.equalTo(createBlock(type, left), 0, createBlock(type, right), 0);
     }
 }

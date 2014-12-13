@@ -65,7 +65,8 @@ public class ElementToArrayConcatFunction
     public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type type = types.get("E");
-        MethodHandle methodHandle = methodHandle(ArrayConcatUtils.class, "prependElement", type.getJavaType(), Slice.class);
+        MethodHandle methodHandle = methodHandle(ArrayConcatUtils.class, "prependElement", Type.class, type.getJavaType(), Slice.class);
+        methodHandle = methodHandle.bindTo(type);
         TypeSignature typeSignature = type.getTypeSignature();
         TypeSignature returnType = parameterizedTypeName("array", typeSignature);
         Signature signature = new Signature(FUNCTION_NAME, returnType, typeSignature, returnType);

@@ -17,52 +17,28 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricOperator;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
-import com.facebook.presto.type.RowType;
 import com.google.common.base.Throwables;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.metadata.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.metadata.Signature.typeParameter;
-import static com.facebook.presto.operator.scalar.JsonExtract.BooleanJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.DoubleJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.JsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.JsonValueJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.LongJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.generateExtractor;
+import static com.facebook.presto.type.TypeUtils.castValue;
+import static com.facebook.presto.type.TypeUtils.createBlock;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static java.lang.String.format;
+import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static java.lang.invoke.MethodHandles.lookup;
 
 public class MapSubscriptOperator
         extends ParametricOperator
 {
     public static final MapSubscriptOperator MAP_SUBSCRIPT = new MapSubscriptOperator();
-
-    private static final LoadingCache<CacheKey, JsonExtractor<?>> CACHE = CacheBuilder.newBuilder()
-            .expireAfterAccess(1, TimeUnit.MINUTES)
-            .maximumSize(1000)
-            .build(new CacheLoader<CacheKey, JsonExtractor<?>>()
-            {
-                @Override
-                public JsonExtractor<?> load(CacheKey key)
-                        throws Exception
-                {
-                    return generateExtractor(format("$[\"%s\"]", key.getKey()), key.getType().getExtractor());
-                }
-            });
 
     protected MapSubscriptOperator()
     {
@@ -75,205 +51,129 @@ public class MapSubscriptOperator
         Type keyType = types.get("K");
         Type valueType = types.get("V");
 
+        MethodHandle methodHandle = lookupMethod(keyType, valueType);
+        methodHandle = methodHandle.bindTo(keyType);
+        methodHandle = methodHandle.bindTo(valueType);
+
         Signature signature = new Signature(SUBSCRIPT.name(), valueType.getTypeSignature(), parameterizedTypeName("map", keyType.getTypeSignature(), valueType.getTypeSignature()), keyType.getTypeSignature());
-        return new FunctionInfo(signature, "Map subscript", true, lookupMethod(keyType, valueType), true, true, ImmutableList.of(false, false));
+        return new FunctionInfo(signature, "Map subscript", true, methodHandle, true, true, ImmutableList.of(false, false));
     }
 
     private static MethodHandle lookupMethod(Type keyType, Type valueType)
     {
         String methodName = keyType.getJavaType().getSimpleName();
-        if (valueType instanceof ArrayType || valueType instanceof MapType || valueType instanceof RowType) {
-            methodName += "Structural";
-        }
-        else {
-            methodName += valueType.getJavaType().getSimpleName();
-        }
+        methodName += valueType.getJavaType().getSimpleName();
         methodName += "Subscript";
         try {
-            return lookup().unreflect(MapSubscriptOperator.class.getMethod(methodName, Slice.class, keyType.getJavaType()));
+            return lookup().unreflect(MapSubscriptOperator.class.getMethod(methodName, Type.class, Type.class, Slice.class, keyType.getJavaType()));
         }
         catch (IllegalAccessException | NoSuchMethodException e) {
             throw Throwables.propagate(e);
         }
     }
 
-    public static Long SlicelongSubscript(Slice map, Slice key)
+    public static Long SlicelongSubscript(Type keyType, Type valueType, Slice map, Slice key)
     {
-        return subscript(map, key.toStringUtf8(), ExtractorType.LONG);
+        return subscript(keyType, valueType, map, key);
     }
 
-    public static Boolean SlicebooleanSubscript(Slice map, Slice key)
+    public static Boolean SlicebooleanSubscript(Type keyType, Type valueType, Slice map, Slice key)
     {
-        return subscript(map, key.toStringUtf8(), ExtractorType.BOOLEAN);
+        return subscript(keyType, valueType, map, key);
     }
 
-    public static Double SlicedoubleSubscript(Slice map, Slice key)
+    public static Double SlicedoubleSubscript(Type keyType, Type valueType, Slice map, Slice key)
     {
-        return subscript(map, key.toStringUtf8(), ExtractorType.DOUBLE);
+        return subscript(keyType, valueType, map, key);
     }
 
-    public static Slice SliceSliceSubscript(Slice map, Slice key)
+    public static Slice SliceSliceSubscript(Type keyType, Type valueType, Slice map, Slice key)
     {
-        return subscript(map, key.toStringUtf8(), ExtractorType.SLICE);
+        return subscript(keyType, valueType, map, key);
     }
 
-    public static Slice SliceStructuralSubscript(Slice map, Slice key)
+    public static Long doublelongSubscript(Type keyType, Type valueType, Slice map, double key)
     {
-        return subscript(map, key.toStringUtf8(), ExtractorType.STRUCTURAL);
+        return subscript(keyType, valueType, map, key);
     }
 
-    public static Long doublelongSubscript(Slice map, double key)
+    public static Boolean doublebooleanSubscript(Type keyType, Type valueType, Slice map, double key)
     {
-        return subscript(map, key, ExtractorType.LONG);
+        return subscript(keyType, valueType, map, key);
     }
 
-    public static Boolean doublebooleanSubscript(Slice map, double key)
+    public static Double doubledoubleSubscript(Type keyType, Type valueType, Slice map, double key)
     {
-        return subscript(map, key, ExtractorType.BOOLEAN);
+        return subscript(keyType, valueType, map, key);
     }
 
-    public static Double doubledoubleSubscript(Slice map, double key)
+    public static Slice doubleSliceSubscript(Type keyType, Type valueType, Slice map, double key)
     {
-        return subscript(map, key, ExtractorType.DOUBLE);
+        return subscript(keyType, valueType, map, key);
     }
 
-    public static Slice doubleSliceSubscript(Slice map, double key)
+    public static Long booleanlongSubscript(Type keyType, Type valueType, Slice map, boolean key)
     {
-        return subscript(map, key, ExtractorType.SLICE);
+        return subscript(keyType, valueType, map, key);
     }
 
-    public static Slice doubleStructuralSubscript(Slice map, double key)
+    public static Boolean booleanbooleanSubscript(Type keyType, Type valueType, Slice map, boolean key)
     {
-        return subscript(map, key, ExtractorType.STRUCTURAL);
+        return subscript(keyType, valueType, map, key);
     }
 
-    public static Long booleanlongSubscript(Slice map, boolean key)
+    public static Double booleandoubleSubscript(Type keyType, Type valueType, Slice map, boolean key)
     {
-        return subscript(map, key, ExtractorType.LONG);
+        return subscript(keyType, valueType, map, key);
     }
 
-    public static Boolean booleanbooleanSubscript(Slice map, boolean key)
+    public static Slice booleanSliceSubscript(Type keyType, Type valueType, Slice map, boolean key)
     {
-        return subscript(map, key, ExtractorType.BOOLEAN);
+        return subscript(keyType, valueType, map, key);
     }
 
-    public static Double booleandoubleSubscript(Slice map, boolean key)
+    public static Long longlongSubscript(Type keyType, Type valueType, Slice map, long key)
     {
-        return subscript(map, key, ExtractorType.DOUBLE);
+        return subscript(keyType, valueType, map, key);
     }
 
-    public static Slice booleanSliceSubscript(Slice map, boolean key)
+    public static Boolean longbooleanSubscript(Type keyType, Type valueType, Slice map, long key)
     {
-        return subscript(map, key, ExtractorType.SLICE);
+        return subscript(keyType, valueType, map, key);
     }
 
-    public static Slice booleanStructuralSubscript(Slice map, boolean key)
+    public static Double longdoubleSubscript(Type keyType, Type valueType, Slice map, long key)
     {
-        return subscript(map, key, ExtractorType.STRUCTURAL);
+        return subscript(keyType, valueType, map, key);
     }
 
-    public static Long longlongSubscript(Slice map, long key)
+    public static Slice longSliceSubscript(Type keyType, Type valueType, Slice map, long key)
     {
-        return subscript(map, key, ExtractorType.LONG);
-    }
-
-    public static Boolean longbooleanSubscript(Slice map, long key)
-    {
-        return subscript(map, key, ExtractorType.BOOLEAN);
-    }
-
-    public static Double longdoubleSubscript(Slice map, long key)
-    {
-        return subscript(map, key, ExtractorType.DOUBLE);
-    }
-
-    public static Slice longSliceSubscript(Slice map, long key)
-    {
-        return subscript(map, key, ExtractorType.SLICE);
-    }
-
-    public static Slice longStructuralSubscript(Slice map, long key)
-    {
-        return subscript(map, key, ExtractorType.STRUCTURAL);
+        return subscript(keyType, valueType, map, key);
     }
 
     @SuppressWarnings("unchecked")
-    private static <T> T subscript(Slice map, Object key, ExtractorType type)
+    private static <T> T subscript(Type keyType, Type valueType, Slice map, Object key)
     {
-        JsonExtractor<?> extractor = CACHE.getUnchecked(new CacheKey(key.toString(), type));
-        return (T) JsonExtract.extract(map, extractor);
-    }
+        Block block = readStructuralBlock(map);
 
-    private static class CacheKey
-    {
-        private final String key;
-        private final ExtractorType type;
+        Block keyBlock = createBlock(keyType, key);
 
-        private CacheKey(String key, ExtractorType type)
-        {
-            this.key = key;
-            this.type = type;
-        }
-
-        public String getKey()
-        {
-            return key;
-        }
-
-        public ExtractorType getType()
-        {
-            return type;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
+        int position = 0;
+        //TODO: This could be quite slow, it should use parametric equals
+        for (; position < block.getPositionCount(); position += 2) {
+            if (keyType.equalTo(block, position, keyBlock, 0)) {
+                break;
             }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            CacheKey cacheKey = (CacheKey) o;
-
-            if (!key.equals(cacheKey.key)) {
-                return false;
-            }
-            if (type != cacheKey.type) {
-                return false;
-            }
-
-            return true;
         }
 
-        @Override
-        public int hashCode()
-        {
-            int result = key.hashCode();
-            result = 31 * result + type.hashCode();
-            return result;
-        }
-    }
-
-    private enum ExtractorType
-    {
-        LONG(new LongJsonExtractor()),
-        BOOLEAN(new BooleanJsonExtractor()),
-        DOUBLE(new DoubleJsonExtractor()),
-        SLICE(new ScalarValueJsonExtractor()),
-        STRUCTURAL(new JsonValueJsonExtractor());
-
-        private final JsonExtractor<?> extractor;
-
-        ExtractorType(JsonExtractor<?> extractor)
-        {
-            this.extractor = extractor;
+        if (position == block.getPositionCount()) {
+            // key not found
+            return null;
         }
 
-        public JsonExtractor<?> getExtractor()
-        {
-            return extractor;
-        }
+        position += 1; // value position
+
+        return (T) castValue(valueType, block, position);
     }
 }

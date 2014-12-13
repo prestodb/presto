@@ -37,7 +37,7 @@ import java.util.Map;
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.Signature.withVariadicBound;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
+import static com.facebook.presto.type.TypeUtils.createBlock;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -69,7 +69,7 @@ public class RowToJsonCast
 
     public static Slice toJson(Type rowType, ConnectorSession session, Slice row)
     {
-        Object object = stackRepresentationToObject(session, row, rowType);
+        Object object = rowType.getObjectValue(session, createBlock(rowType, row), 0);
         try {
             return Slices.utf8Slice(OBJECT_MAPPER.writeValueAsString(object));
         }

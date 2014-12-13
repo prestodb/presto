@@ -18,11 +18,11 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.TypeRegistry;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -33,12 +33,12 @@ import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getF
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getIntermediateBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.type.TypeUtils.createBlock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestNumericHistogramAggregation
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
     private final AccumulatorFactory factory;
     private final Page input;
 
@@ -100,7 +100,7 @@ public class TestNumericHistogramAggregation
         finalStep.addIntermediate(intermediate);
         Block actual = getFinalBlock(finalStep);
 
-        Map<String, Double> expected = Maps.transformValues(extractSingleValue(singleStepResult), value -> value * 2);
+        Map<Double, Double> expected = Maps.transformValues(extractSingleValue(singleStepResult), value -> value * 2);
 
         assertEquals(extractSingleValue(actual), expected);
     }
@@ -116,10 +116,11 @@ public class TestNumericHistogramAggregation
         assertTrue(result.isNull(0));
     }
 
-    private static Map<String, Double> extractSingleValue(Block block)
+    private static Map<Double, Double> extractSingleValue(Block block)
             throws IOException
     {
-        String json = block.getSlice(0, 0, block.getLength(0)).toStringUtf8();
-        return OBJECT_MAPPER.readValue(json, Map.class);
+        Slice slice = block.getSlice(0, 0, block.getLength(0));
+        MapType mapType = new MapType(DOUBLE, DOUBLE);
+        return (Map<Double, Double>) mapType.getObjectValue(null, createBlock(mapType, slice), 0);
     }
 }

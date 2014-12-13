@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.json;
+package com.facebook.presto.orc.block;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
@@ -20,28 +20,26 @@ import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.ByteArrayStream;
 import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSources;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.google.common.io.BaseEncoding;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.google.common.primitives.Ints;
+import io.airlift.slice.Slices;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
 import java.io.IOException;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
-public class SliceDirectJsonReader
-        implements JsonMapKeyReader
+public class SliceDirectBlockReader
+        implements BlockReader
 {
     private final StreamDescriptor streamDescriptor;
-    private final boolean writeBinary;
 
     @Nullable
     private BooleanStream presentStream;
@@ -55,47 +53,23 @@ public class SliceDirectJsonReader
     @Nonnull
     private byte[] data = new byte[1024];
 
-    public SliceDirectJsonReader(StreamDescriptor streamDescriptor, boolean writeBinary)
+    public SliceDirectBlockReader(StreamDescriptor streamDescriptor)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
-        this.writeBinary = writeBinary;
     }
 
     @Override
-    public void readNextValueInto(JsonGenerator generator)
+    public void readNextValueInto(BlockBuilder builder)
             throws IOException
     {
         if (presentStream != null && !presentStream.nextBit()) {
-            generator.writeNull();
+            builder.appendNull();
             return;
         }
 
         int length = bufferNextValue();
 
-        if (writeBinary) {
-            generator.writeBinary(data, 0, length);
-        }
-        else {
-            generator.writeUTF8String(data, 0, length);
-        }
-    }
-
-    @Override
-    public String nextValueAsMapKey()
-            throws IOException
-    {
-        if (presentStream != null && !presentStream.nextBit()) {
-            return null;
-        }
-
-        int length = bufferNextValue();
-
-        if (writeBinary) {
-            return BaseEncoding.base64().encode(data, 0, length);
-        }
-        else {
-            return new String(data, 0, length, UTF_8);
-        }
+        VARCHAR.writeSlice(builder, Slices.wrappedBuffer(data, 0, length));
     }
 
     private int bufferNextValue()

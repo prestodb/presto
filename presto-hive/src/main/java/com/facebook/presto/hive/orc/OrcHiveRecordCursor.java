@@ -66,8 +66,8 @@ import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
-import static com.facebook.presto.hive.util.SerDeUtils.getJsonBytes;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.hive.util.SerDeUtils.getBlockSlice;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -431,7 +431,7 @@ public class OrcHiveRecordCursor
 
         HiveType type = hiveTypes[column];
         if (isStructuralType(type)) {
-            slices[column] = Slices.wrappedBuffer(getJsonBytes(sessionTimeZone, object, fieldInspectors[column]));
+            slices[column] = getBlockSlice(sessionTimeZone, object, fieldInspectors[column]);
         }
         else if (type.equals(HIVE_STRING)) {
             Text text = Types.checkType(object, Text.class, "materialized string value");

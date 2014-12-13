@@ -13,15 +13,25 @@
  */
 package com.facebook.presto.hive.util;
 
-import com.fasterxml.jackson.core.Base64Variants;
+import com.facebook.presto.hadoop.shaded.com.google.common.collect.ImmutableList;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
+import com.facebook.presto.spi.type.VarbinaryType;
+import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.MapType;
+import com.facebook.presto.type.RowType;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
+import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.io.BytesWritable;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Type;
@@ -29,9 +39,18 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 
-import static com.facebook.presto.hive.util.SerDeUtils.getJsonBytes;
+import static com.facebook.presto.hive.HiveTestUtils.arraySliceOf;
+import static com.facebook.presto.hive.HiveTestUtils.mapSliceOf;
+import static com.facebook.presto.hive.HiveTestUtils.rowSliceOf;
+import static com.facebook.presto.hive.util.SerDeUtils.getBlockSlice;
+import static com.facebook.presto.hive.util.SerDeUtils.serializeObject;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.ObjectInspectorOptions;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getReflectionObjectInspector;
@@ -41,7 +60,6 @@ import static org.testng.Assert.assertEquals;
 public class TestSerDeUtils
 {
     private static final DateTimeZone SESSION_TIME_ZONE = DateTimeZone.forID("Europe/Berlin");
-    private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(SESSION_TIME_ZONE);
 
     private static class ListHolder
     {
@@ -81,73 +99,77 @@ public class TestSerDeUtils
     }
 
     @Test
-    public void testPrimitiveJsonString()
+    public void testPrimitiveSlice()
     {
         // boolean
-        String expectedBoolean = "true";
-        String actualBoolean = toJsonString(true, getInspector(Boolean.class));
+        Slice expectedBoolean = new DynamicSliceOutput(10).appendByte(1).slice();
+        Slice actualBoolean = toBinarySlice(true, getInspector(Boolean.class));
         assertEquals(actualBoolean, expectedBoolean);
 
         // byte
-        String expectedByte = "5";
-        String actualByte = toJsonString((byte) 5, getInspector(Byte.class));
+        Slice expectedByte = new DynamicSliceOutput(10).appendLong(5).slice();
+        Slice actualByte = toBinarySlice((byte) 5, getInspector(Byte.class));
         assertEquals(actualByte, expectedByte);
         // short
-        String expectedShort = "2";
-        String actualShort = toJsonString((short) 2, getInspector(Short.class));
+        Slice expectedShort = new DynamicSliceOutput(10).appendLong(2).slice();
+        Slice actualShort = toBinarySlice((short) 2, getInspector(Short.class));
         assertEquals(actualShort, expectedShort);
 
         // int
-        String expectedInt = "1";
-        String actualInt = toJsonString(1, getInspector(Integer.class));
+        Slice expectedInt = new DynamicSliceOutput(10).appendLong(1).slice();
+        Slice actualInt = toBinarySlice(1, getInspector(Integer.class));
         assertEquals(actualInt, expectedInt);
 
         // long
-        String expectedLong = "10";
-        String actualLong = toJsonString(10L, getInspector(Long.class));
+        Slice expectedLong = new DynamicSliceOutput(10).appendLong(10).slice();
+        Slice actualLong = toBinarySlice(10L, getInspector(Long.class));
         assertEquals(actualLong, expectedLong);
 
         // float
-        String expectedFloat = "20.0";
-        String actualFloat = toJsonString(20.0f, getInspector(Float.class));
+        Slice expectedFloat = new DynamicSliceOutput(10).appendDouble(20.0).slice();
+        Slice actualFloat = toBinarySlice(20.0f, getInspector(Float.class));
         assertEquals(actualFloat, expectedFloat);
 
         // double
-        String expectedDouble = "30.12";
-        String actualDouble = toJsonString(30.12d, getInspector(Double.class));
+        Slice expectedDouble = new DynamicSliceOutput(10).appendDouble(30.12).slice();
+        Slice actualDouble = toBinarySlice(30.12d, getInspector(Double.class));
         assertEquals(actualDouble, expectedDouble);
 
         // string
-        String expectedString = "\"abdd\"";
-        String actualString = toJsonString("abdd", getInspector(String.class));
+        Slice expectedString = Slices.utf8Slice("abdd");
+        Slice actualString = toBinarySlice("abdd", getInspector(String.class));
         assertEquals(actualString, expectedString);
 
         // timestamp
         DateTime dateTime = new DateTime(2008, 10, 28, 16, 7, 15, 0);
-        String expectedTimestamp = "\"" + TIMESTAMP_FORMAT.print(dateTime) + "\"";
-        String actualTimestamp = toJsonString(new Timestamp(dateTime.getMillis()), getInspector(Timestamp.class));
+        Slice expectedTimestamp = new DynamicSliceOutput(10).appendLong(dateTime.getMillis()).slice();
+        Slice actualTimestamp = toBinarySlice(new Timestamp(dateTime.getMillis()), getInspector(Timestamp.class));
         assertEquals(actualTimestamp, expectedTimestamp);
 
         // binary
         byte[] byteArray = {81, 82, 84, 85};
-        String expectedBinary = "\"UVJUVQ==\"";
-        String actualBinary = toJsonString(byteArray, getInspector(byte[].class));
+        Slice expectedBinary = Slices.wrappedBuffer(byteArray);
+        Slice actualBinary = toBinarySlice(byteArray, getInspector(byte[].class));
         assertEquals(actualBinary, expectedBinary);
     }
 
     @Test
-    public void testListJsonString()
+    public void testListBlock()
     {
-        List<InnerStruct> mArray = new ArrayList<>(2);
-        InnerStruct is1 = new InnerStruct(8, 9L);
-        InnerStruct is2 = new InnerStruct(10, 11L);
-        mArray.add(is1);
-        mArray.add(is2);
+        List<InnerStruct> array = new ArrayList<>(2);
+        array.add(new InnerStruct(8, 9L));
+        array.add(new InnerStruct(10, 11L));
         ListHolder listHolder = new ListHolder();
-        listHolder.array = mArray;
+        listHolder.array = array;
 
-        String actual = toJsonString(listHolder, getInspector(ListHolder.class));
-        String expected = "[[[8,9],[10,11]]]";
+        Slice actual = toBinarySlice(listHolder, getInspector(ListHolder.class));
+
+        com.facebook.presto.spi.type.Type rowType = new RowType(ImmutableList.of(BIGINT, BIGINT), Optional.empty());
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
+        rowType.writeSlice(blockBuilder, rowSliceOf(ImmutableList.of(BIGINT, BIGINT), 8, 9L));
+        rowType.writeSlice(blockBuilder, rowSliceOf(ImmutableList.of(BIGINT, BIGINT), 10, 11L));
+        Slice expected = rowSliceOf(ImmutableList.of(new ArrayType(rowType)), buildStructuralSlice(blockBuilder));
+
         assertEquals(actual, expected);
     }
 
@@ -157,26 +179,33 @@ public class TestSerDeUtils
     }
 
     @Test
-    public void testMapJsonString()
+    public void testMapBlock()
     {
         MapHolder holder = new MapHolder();
         holder.map = new TreeMap<>();
         holder.map.put("twelve", new InnerStruct(13, 14L));
         holder.map.put("fifteen", new InnerStruct(16, 17L));
-        String actual = toJsonString(holder, getInspector(MapHolder.class));
-        String expected = "[{" +
-                "\"fifteen\":[16,17]," +
-                "\"twelve\":[13,14]}]";
+
+        Slice actual = toBinarySlice(holder, getInspector(MapHolder.class));
+
+        com.facebook.presto.spi.type.Type rowType = new RowType(ImmutableList.of(BIGINT, BIGINT), Optional.empty());
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
+        VARCHAR.writeString(blockBuilder, "fifteen");
+        rowType.writeSlice(blockBuilder, rowSliceOf(ImmutableList.of(BIGINT, BIGINT), 16, 17L));
+        VARCHAR.writeString(blockBuilder, "twelve");
+        rowType.writeSlice(blockBuilder, rowSliceOf(ImmutableList.of(BIGINT, BIGINT), 13, 14L));
+        Slice expected = rowSliceOf(ImmutableList.of(new MapType(VARCHAR, rowType)), buildStructuralSlice(blockBuilder));
+
         assertEquals(actual, expected);
     }
 
     @Test
-    public void testStructJsonString()
+    public void testStructBlock()
     {
         // test simple structs
         InnerStruct innerStruct = new InnerStruct(13, 14L);
-        String actual = toJsonString(innerStruct, getInspector(InnerStruct.class));
-        String expected = "[13,14]";
+        Slice actual = toBinarySlice(innerStruct, getInspector(InnerStruct.class));
+        Slice expected = rowSliceOf(ImmutableList.of(BIGINT, BIGINT), 13, 14L);
         assertEquals(actual, expected);
 
         // test complex structs
@@ -199,9 +228,31 @@ public class TestSerDeUtils
         outerStruct.map.put("fifteen", new InnerStruct(-5, -10L));
         outerStruct.innerStruct = new InnerStruct(18, 19L);
 
-        actual = toJsonString(outerStruct, getInspector(OuterStruct.class));
-        expected = "[1,2,3,4,5.01,6.001,\"seven\",\"Mg==\",[[2,-5],[-10,0]],{\"fifteen\":[-5,-10],\"twelve\":[0,5]},[18,19]]";
-        assertEquals(actual, expected);
+        actual = toBinarySlice(outerStruct, getInspector(OuterStruct.class));
+        com.facebook.presto.spi.type.Type innerRowType = new RowType(ImmutableList.of(BIGINT, BIGINT), Optional.empty());
+        com.facebook.presto.spi.type.Type arrayOfInnerRowType = new ArrayType(innerRowType);
+        com.facebook.presto.spi.type.Type mapOfInnerRowType = new MapType(VARCHAR, innerRowType);
+        List<com.facebook.presto.spi.type.Type> outerRowParameterTypes = ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT, DOUBLE, DOUBLE, VARCHAR, VARCHAR, arrayOfInnerRowType, mapOfInnerRowType, innerRowType);
+
+        ImmutableList.Builder<Object> outerRowValues = ImmutableList.builder();
+        outerRowValues.add(1);
+        outerRowValues.add(2);
+        outerRowValues.add(3);
+        outerRowValues.add(4L);
+        outerRowValues.add(5.01f);
+        outerRowValues.add(6.001d);
+        outerRowValues.add("seven");
+        outerRowValues.add(new byte[] {'2'});
+        outerRowValues.add(arraySliceOf(innerRowType, rowSliceOf(ImmutableList.of(BIGINT, BIGINT), 2, -5L), rowSliceOf(ImmutableList.of(BIGINT, BIGINT), -10, 0)));
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
+        VARCHAR.writeString(blockBuilder, "fifteen");
+        innerRowType.writeSlice(blockBuilder, rowSliceOf(ImmutableList.of(BIGINT, BIGINT), -5, -10L));
+        VARCHAR.writeString(blockBuilder, "twelve");
+        innerRowType.writeSlice(blockBuilder, rowSliceOf(ImmutableList.of(BIGINT, BIGINT), 0, 5L));
+        outerRowValues.add(buildStructuralSlice(blockBuilder));
+        outerRowValues.add(rowSliceOf(ImmutableList.of(BIGINT, BIGINT), 18, 19L));
+
+        assertEquals(actual, rowSliceOf(outerRowParameterTypes, outerRowValues.build().toArray()));
     }
 
     @Test
@@ -219,14 +270,28 @@ public class TestSerDeUtils
         Type type = new TypeToken<Map<BytesWritable, Integer>>() {}.getType();
         ObjectInspector inspector = getReflectionObjectInspector(type, ObjectInspectorOptions.JAVA);
 
-        byte[] bytes = getJsonBytes(SESSION_TIME_ZONE, ImmutableMap.of(value, 0), inspector);
+        Slice actual = getBlockSlice(SESSION_TIME_ZONE, ImmutableMap.of(value, 0), inspector);
+        Slice expected = mapSliceOf(VARCHAR, BIGINT, "bye", 0);
 
-        String encoded = Base64Variants.getDefaultVariant().encode(second);
-        assertEquals(new String(bytes, UTF_8), "{\"" + encoded + "\":0}");
+        assertEquals(actual, expected);
     }
 
-    private static String toJsonString(Object object, ObjectInspector inspector)
+    private static Slice toBinarySlice(Object object, ObjectInspector inspector)
     {
-        return new String(getJsonBytes(SESSION_TIME_ZONE, object, inspector), UTF_8);
+        if (inspector.getCategory() == Category.PRIMITIVE) {
+            return getPrimitiveSlice(SESSION_TIME_ZONE, object, inspector);
+        }
+        return getBlockSlice(SESSION_TIME_ZONE, object, inspector);
+    }
+
+    private static Slice getPrimitiveSlice(DateTimeZone sessionTimeZone, Object object, ObjectInspector inspector)
+    {
+        BlockBuilder builder = VarbinaryType.VARBINARY.createBlockBuilder(new BlockBuilderStatus());
+        serializeObject(sessionTimeZone, builder, object, inspector);
+        if (builder.isNull(0)) {
+            return Slices.EMPTY_SLICE;
+        }
+        Block block = builder.build();
+        return VarbinaryType.VARBINARY.getSlice(block, 0);
     }
 }

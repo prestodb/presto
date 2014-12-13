@@ -15,10 +15,14 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordSink;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
@@ -27,6 +31,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
@@ -44,7 +49,10 @@ import java.io.IOException;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.Collection;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
@@ -54,6 +62,7 @@ import static com.facebook.presto.hive.HiveUtil.isMapType;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
 import static org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
@@ -76,6 +85,7 @@ public class HiveRecordSink
     private final SettableStructObjectInspector tableInspector;
     private final List<StructField> structFields;
     private final List<Type> columnTypes;
+    private final List<Boolean> hasDateTimeTypes;
     private final Object row;
     private final int sampleWeightField;
     private final ConnectorSession connectorSession;
@@ -89,6 +99,7 @@ public class HiveRecordSink
         sampleWeightField = handle.getColumnNames().indexOf(SAMPLE_WEIGHT_COLUMN_NAME);
         columnTypes = ImmutableList.copyOf(handle.getColumnTypes());
         connectorSession = handle.getConnectorSession();
+        hasDateTimeTypes = handle.getColumnTypes().stream().map(this::containsDateTime).collect(toList());
 
         Iterable<String> hiveTypeNames = transform(transform(handle.getColumnTypes(), HiveType::toHiveType), HiveType::getHiveTypeName);
 
@@ -173,6 +184,16 @@ public class HiveRecordSink
         if (type == VarbinaryType.VARBINARY) {
             append(value);
         }
+        else if (isMapType(type) || isArrayType(type)) {
+            // Hive expects a List<>/Map<> to write, so decode the value
+            BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+            type.writeSlice(blockBuilder, Slices.wrappedBuffer(value));
+            Object complexValue = type.getObjectValue(connectorSession, blockBuilder.build(), 0);
+            if (hasDateTimeTypes.get(field)) {
+                complexValue = translateDateTime(type, complexValue);
+            }
+            append(complexValue);
+        }
         else {
             append(new String(value, UTF_8));
         }
@@ -217,10 +238,6 @@ public class HiveRecordSink
         checkState(field < fieldCount, "all fields already set");
 
         Type type = columnTypes.get(field);
-        if (isMapType(type) || isArrayType(type)) {
-            // Hive expects a List<>/Map<> to write, so decode the value
-            value = TypeJsonUtils.stackRepresentationToObject(connectorSession, (String) value, type);
-        }
         tableInspector.setStructFieldData(row, structFields.get(field), value);
         field++;
         if (field == sampleWeightField) {
@@ -304,5 +321,50 @@ public class HiveRecordSink
         catch (IllegalArgumentException e) {
             return false;
         }
+    }
+
+    private boolean containsDateTime(Type type)
+    {
+        if (isArrayType(type)) {
+            return containsDateTime(type.getTypeParameters().get(0));
+        }
+        if (isMapType(type)) {
+            return containsDateTime(type.getTypeParameters().get(0)) || containsDateTime(type.getTypeParameters().get(1));
+        }
+        return type.equals(DateType.DATE) || type.equals(TimestampType.TIMESTAMP);
+    }
+
+    private Object translateDateTime(Type type, Object value)
+    {
+        if (value == null) {
+            return null;
+        }
+        if (isArrayType(type)) {
+            List<Object> newValue = new ArrayList<>();
+            Type elementType = type.getTypeParameters().get(0);
+            for (Object val : (List<?>) value) {
+                newValue.add(translateDateTime(elementType, val));
+            }
+            return newValue;
+        }
+        if (isMapType(type)) {
+            Map<Object, Object> newValue = new HashMap<>();
+            Type keyType = type.getTypeParameters().get(0);
+            Type valueType = type.getTypeParameters().get(1);
+            for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
+                newValue.put(
+                        translateDateTime(keyType, entry.getKey()),
+                        translateDateTime(valueType, entry.getValue()));
+            }
+            return newValue;
+        }
+        if (value instanceof SqlDate) {
+            return new Date(TimeUnit.DAYS.toMillis(((SqlDate) value).getDays()));
+        }
+        if (value instanceof SqlTimestamp) {
+            return new Timestamp(((SqlTimestamp) value).getMillisUtc());
+        }
+
+        return value;
     }
 }

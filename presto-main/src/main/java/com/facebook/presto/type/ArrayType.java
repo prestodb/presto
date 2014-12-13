@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.server.SliceSerializer;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
@@ -23,31 +22,24 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.AbstractVariableWidthType;
 import com.facebook.presto.spi.type.Type;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.ObjectMapperProvider;
+import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
-import static com.facebook.presto.type.TypeJsonUtils.createBlock;
-import static com.facebook.presto.type.TypeJsonUtils.getObjectList;
-import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
+import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
+import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ArrayType
         extends AbstractVariableWidthType
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer()));
-    private static final ObjectMapper RAW_SLICE_OBJECT_MAPPER = new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new RawSliceSerializer()));
-
     private final Type elementType;
 
     public ArrayType(Type elementType)
@@ -64,27 +56,13 @@ public class ArrayType
     /**
      * Takes a list of stack types and converts them to the stack representation of an array
      */
-    public static Slice toStackRepresentation(List<?> values)
+    public static Slice toStackRepresentation(List<?> values, Type elementType)
     {
-        try {
-            return Slices.utf8Slice(OBJECT_MAPPER.writeValueAsString(values));
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 0);
+        for (Object element : values) {
+            appendToBlockBuilder(elementType, element, blockBuilder);
         }
-        catch (JsonProcessingException e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    /**
-     * Takes a list of json encoded slices and converts them to the stack representation of an array
-     */
-    public static Slice rawSlicesToStackRepresentation(List<Slice> values)
-    {
-        try {
-            return Slices.utf8Slice(RAW_SLICE_OBJECT_MAPPER.writeValueAsString(values));
-        }
-        catch (JsonProcessingException e) {
-            throw Throwables.propagate(e);
-        }
+        return buildStructuralSlice(blockBuilder);
     }
 
     @Override
@@ -109,11 +87,11 @@ public class ArrayType
     public int hash(Block block, int position)
     {
         Slice value = getSlice(block, position);
-        List<Object> array = getObjectList(value);
-        List<Integer> hashArray = new ArrayList<Integer>();
-        for (Object element : array) {
-            checkElementNotNull(element);
-            hashArray.add(elementType.hash(createBlock(elementType, element), 0));
+        Block array = readStructuralBlock(value);
+        List<Integer> hashArray = new ArrayList<>(array.getPositionCount());
+        for (int i = 0; i < array.getPositionCount(); i++) {
+            checkElementNotNull(array.isNull(i));
+            hashArray.add(elementType.hash(array, i));
         }
         return Objects.hash(hashArray);
     }
@@ -123,16 +101,15 @@ public class ArrayType
     {
         Slice leftSlice = getSlice(leftBlock, leftPosition);
         Slice rightSlice = getSlice(rightBlock, rightPosition);
-        List<Object> leftArray = getObjectList(leftSlice);
-        List<Object> rightArray = getObjectList(rightSlice);
+        Block leftArray = readStructuralBlock(leftSlice);
+        Block rightArray = readStructuralBlock(rightSlice);
 
-        int len = Math.min(leftArray.size(), rightArray.size());
+        int len = Math.min(leftArray.getPositionCount(), rightArray.getPositionCount());
         int index = 0;
         while (index < len) {
-            checkElementNotNull(leftArray.get(index));
-            checkElementNotNull(rightArray.get(index));
-            int comparison = elementType.compareTo(createBlock(elementType, leftArray.get(index)), 0,
-                    createBlock(elementType, rightArray.get(index)), 0);
+            checkElementNotNull(leftArray.isNull(index));
+            checkElementNotNull(rightArray.isNull(index));
+            int comparison = elementType.compareTo(leftArray, index, rightArray, index);
             if (comparison != 0) {
                 return comparison;
             }
@@ -140,15 +117,15 @@ public class ArrayType
         }
 
         if (index == len) {
-            return leftArray.size() - rightArray.size();
+            return leftArray.getPositionCount() - rightArray.getPositionCount();
         }
 
         return 0;
     }
 
-    private static void checkElementNotNull(Object element)
+    private static void checkElementNotNull(boolean isNull)
     {
-        if (element == null) {
+        if (isNull) {
             throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "ARRAY comparison not supported for arrays with null elements");
         }
     }
@@ -161,7 +138,14 @@ public class ArrayType
         }
 
         Slice slice = block.getSlice(position, 0, block.getLength(position));
-        return stackRepresentationToObject(session, slice, this);
+        Block arrayBlock = readStructuralBlock(slice);
+        List<Object> values = Lists.newArrayListWithCapacity(arrayBlock.getPositionCount());
+
+        for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
+            values.add(elementType.getObjectValue(session, arrayBlock, i));
+        }
+
+        return Collections.unmodifiableList(values);
     }
 
     @Override

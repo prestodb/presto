@@ -176,6 +176,7 @@ import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_Z
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
@@ -653,9 +654,17 @@ public class FunctionRegistry
 
     public static Signature getMagicLiteralFunctionSignature(Type type)
     {
+        TypeSignature argumentType;
+        if (type.getJavaType() == Slice.class && !type.equals(VARCHAR)) {
+            argumentType = VARBINARY.getTypeSignature();
+        }
+        else {
+            argumentType = type(type.getJavaType()).getTypeSignature();
+        }
+
         return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getTypeSignature(),
                 type.getTypeSignature(),
-                Lists.transform(ImmutableList.of(type(type.getJavaType())), Type::getTypeSignature));
+                argumentType);
     }
 
     public static boolean isSupportedLiteralType(Type type)

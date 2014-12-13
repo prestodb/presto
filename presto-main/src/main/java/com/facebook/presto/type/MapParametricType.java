@@ -15,26 +15,15 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
-import java.util.Set;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class MapParametricType
         implements ParametricType
 {
     public static final MapParametricType MAP = new MapParametricType();
-    // TODO: support types that don't use == for comparison of the bits in their stack type
-    private static final Set<Type> SUPPORTED_KEY_TYPES = ImmutableSet.<Type>of(VARCHAR, VARBINARY, BIGINT, DOUBLE, BOOLEAN, DATE, TIMESTAMP);
 
     private MapParametricType()
     {
@@ -51,7 +40,6 @@ public final class MapParametricType
     {
         checkArgument(types.size() == 2, "Expected two types");
         checkArgument(literals.isEmpty(), "Unexpected literals: %s", literals);
-        checkArgument(SUPPORTED_KEY_TYPES.contains(types.get(0)), "Unsupported key type; %s", types.get(0));
         return new MapType(types.get(0), types.get(1));
     }
 }

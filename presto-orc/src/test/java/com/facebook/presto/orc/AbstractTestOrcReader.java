@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.spi.type.DateType;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ContiguousSet;
@@ -27,7 +28,6 @@ import org.testng.annotations.Test;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -35,6 +35,11 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Functions.compose;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.cycle;
@@ -73,7 +78,7 @@ public abstract class AbstractTestOrcReader
     public void testBooleanSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaBooleanObjectInspector, limit(cycle(ImmutableList.of(true, false, false)), 30_000));
+        tester.testRoundTrip(javaBooleanObjectInspector, limit(cycle(ImmutableList.of(true, false, false)), 30_000), BOOLEAN);
     }
 
     @Test
@@ -135,70 +140,71 @@ public abstract class AbstractTestOrcReader
     {
         tester.testRoundTrip(javaByteObjectInspector,
                 transform(writeValues, AbstractTestOrcReader::intToByte),
-                AbstractTestOrcReader::byteToLong);
+                AbstractTestOrcReader::byteToLong,
+                BIGINT);
 
         tester.testRoundTrip(javaShortObjectInspector,
                 transform(writeValues, AbstractTestOrcReader::intToShort),
-                AbstractTestOrcReader::shortToLong);
+                AbstractTestOrcReader::shortToLong,
+                BIGINT);
 
-        tester.testRoundTrip(javaIntObjectInspector, writeValues, AbstractTestOrcReader::intToLong);
-        tester.testRoundTrip(javaLongObjectInspector, transform(writeValues, AbstractTestOrcReader::intToLong));
+        tester.testRoundTrip(javaIntObjectInspector, writeValues, AbstractTestOrcReader::intToLong, BIGINT);
+        tester.testRoundTrip(javaLongObjectInspector, transform(writeValues, AbstractTestOrcReader::intToLong), BIGINT);
 
         tester.testRoundTrip(javaTimestampObjectInspector,
                 transform(writeValues, AbstractTestOrcReader::intToTimestamp),
                 AbstractTestOrcReader::timestampToLong,
-                AbstractTestOrcReader::timestampToLong);
+                BIGINT);
 
         // date has three representations
         // normal format: DAYS since 1970
         // json stack: is milliseconds UTC since 1970
-        // json json: ISO 8601 format date
         tester.testRoundTrip(javaDateObjectInspector,
                 transform(writeValues, AbstractTestOrcReader::intToDate),
                 transform(writeValues, AbstractTestOrcReader::intToDays),
-                transform(writeValues, AbstractTestOrcReader::intToDays));
+                DateType.DATE);
     }
 
     @Test
     public void testFloatSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaFloatObjectInspector, floatSequence(0.0f, 0.1f, 30_000), AbstractTestOrcReader::floatToDouble);
+        tester.testRoundTrip(javaFloatObjectInspector, floatSequence(0.0f, 0.1f, 30_000), AbstractTestOrcReader::floatToDouble, DOUBLE);
     }
 
     @Test
     public void testDoubleSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaDoubleObjectInspector, doubleSequence(0, 0.1, 30_000));
+        tester.testRoundTrip(javaDoubleObjectInspector, doubleSequence(0, 0.1, 30_000), DOUBLE);
     }
 
     @Test
     public void testStringDirectSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, transform(intsBetween(0, 30_000), Object::toString));
+        tester.testRoundTrip(javaStringObjectInspector, transform(intsBetween(0, 30_000), Object::toString), VARCHAR);
     }
 
     @Test
     public void testStringDictionarySequence()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), Object::toString)), 30_000));
+        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), Object::toString)), 30_000), VARCHAR);
     }
 
     @Test
     public void testStringStrideDictionary()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, concat(ImmutableList.of("a"), Collections.nCopies(9999, "123"), ImmutableList.of("b"), Collections.nCopies(9999, "123")));
+        tester.testRoundTrip(javaStringObjectInspector, concat(ImmutableList.of("a"), Collections.nCopies(9999, "123"), ImmutableList.of("b"), Collections.nCopies(9999, "123")), VARCHAR);
     }
 
     @Test
     public void testEmptyStringSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(""), 30_000));
+        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(""), 30_000), VARCHAR);
     }
 
     @Test
@@ -208,8 +214,7 @@ public abstract class AbstractTestOrcReader
         Iterable<byte[]> writeValues = transform(intsBetween(0, 30_000), compose(AbstractTestOrcReader::stringToByteArray, Object::toString));
         tester.testRoundTrip(javaByteArrayObjectInspector,
                 writeValues,
-                transform(writeValues, AbstractTestOrcReader::byteArrayToString),
-                transform(writeValues, AbstractTestOrcReader::byteArrayToBase64));
+                transform(writeValues, AbstractTestOrcReader::byteArrayToString), writeValues, VARBINARY);
     }
 
     @Test
@@ -219,15 +224,14 @@ public abstract class AbstractTestOrcReader
         Iterable<byte[]> writeValues = limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), compose(AbstractTestOrcReader::stringToByteArray, Object::toString))), 30_000);
         tester.testRoundTrip(javaByteArrayObjectInspector,
                 writeValues,
-                transform(writeValues, AbstractTestOrcReader::byteArrayToString),
-                transform(writeValues, AbstractTestOrcReader::byteArrayToBase64));
+                transform(writeValues, AbstractTestOrcReader::byteArrayToString), writeValues, VARBINARY);
     }
 
     @Test
     public void testEmptyBinarySequence()
             throws Exception
     {
-        tester.testRoundTrip(javaByteArrayObjectInspector, limit(cycle(new byte[0]), 30_000), AbstractTestOrcReader::byteArrayToString);
+        tester.testRoundTrip(javaByteArrayObjectInspector, limit(cycle(new byte[0]), 30_000), AbstractTestOrcReader::byteArrayToString, VARBINARY);
     }
 
     @Test
@@ -252,7 +256,7 @@ public abstract class AbstractTestOrcReader
             throws Exception
     {
         Iterable<String> values = limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), Object::toString)), 200_000);
-        tester.testRoundTrip(javaStringObjectInspector, values);
+        tester.testRoundTrip(javaStringObjectInspector, values, VARCHAR);
     }
 
     private static <T> Iterable<T> skipEvery(final int n, final Iterable<T> iterable)
@@ -463,14 +467,6 @@ public abstract class AbstractTestOrcReader
     private static byte[] stringToByteArray(String input)
     {
         return input.getBytes(UTF_8);
-    }
-
-    private static String byteArrayToBase64(byte[] input)
-    {
-        if (input == null) {
-            return null;
-        }
-        return Base64.getEncoder().encodeToString(input);
     }
 
     private static String byteArrayToString(byte[] input)

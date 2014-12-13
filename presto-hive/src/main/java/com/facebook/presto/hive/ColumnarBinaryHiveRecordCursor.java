@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.util.SerDeUtils;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -57,6 +56,7 @@ import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
+import static com.facebook.presto.hive.util.SerDeUtils.getBlockSlice;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -546,13 +546,11 @@ class ColumnarBinaryHiveRecordCursor<K>
         else {
             nulls[column] = false;
             if (isStructuralType(hiveTypes[column])) {
-                // temporarily special case MAP, LIST, and STRUCT types as strings
-                // TODO: create a real parser for these complex types when we implement data types
                 LazyBinaryObject<? extends ObjectInspector> lazyObject = LazyBinaryFactory.createLazyBinaryObject(fieldInspectors[column]);
                 ByteArrayRef byteArrayRef = new ByteArrayRef();
                 byteArrayRef.setData(bytes);
                 lazyObject.init(byteArrayRef, start, length);
-                slices[column] = Slices.wrappedBuffer(SerDeUtils.getJsonBytes(sessionTimeZone, lazyObject.getObject(), fieldInspectors[column]));
+                slices[column] = getBlockSlice(sessionTimeZone, lazyObject.getObject(), fieldInspectors[column]);
             }
             else {
                 // TODO: zero length BINARY is not supported. See https://issues.apache.org/jira/browse/HIVE-2483

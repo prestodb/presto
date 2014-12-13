@@ -15,7 +15,6 @@ package com.facebook.presto.hive.rcfile;
 
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.rcfile.RcFilePageSource.RcFileColumnsBatch;
-import com.facebook.presto.hive.util.SerDeUtils;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.LazyFixedWidthBlock;
 import com.facebook.presto.spi.block.LazySliceArrayBlock;
@@ -52,6 +51,7 @@ import static com.facebook.presto.hive.HiveUtil.parseHiveDate;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
+import static com.facebook.presto.hive.util.SerDeUtils.getBlockSlice;
 import static io.airlift.slice.Slices.wrappedBooleanArray;
 import static io.airlift.slice.Slices.wrappedDoubleArray;
 import static io.airlift.slice.Slices.wrappedLongArray;
@@ -518,13 +518,11 @@ public class RcTextBlockLoader
                     int start = writable.getStart();
                     int length = writable.getLength();
                     if (!isNull(bytes, start, length)) {
-                        // temporarily special case MAP, LIST, and STRUCT types as strings
-                        // TODO: create a real parser for these complex types when we implement data types
                         LazyObject<? extends ObjectInspector> lazyObject = LazyFactory.createLazyObject(fieldInspector);
                         ByteArrayRef byteArrayRef = new ByteArrayRef();
                         byteArrayRef.setData(bytes);
                         lazyObject.init(byteArrayRef, start, length);
-                        vector[i] = Slices.wrappedBuffer(SerDeUtils.getJsonBytes(sessionTimeZone, lazyObject.getObject(), fieldInspector));
+                        vector[i] = getBlockSlice(sessionTimeZone, lazyObject.getObject(), fieldInspector);
                     }
                 }
 

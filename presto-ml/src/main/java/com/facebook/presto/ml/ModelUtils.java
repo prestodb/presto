@@ -13,9 +13,7 @@
  */
 package com.facebook.presto.ml;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
+import com.facebook.presto.spi.block.Block;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.BiMap;
@@ -26,7 +24,6 @@ import com.google.common.hash.Hashing;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -34,7 +31,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
+import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -44,9 +43,6 @@ import static java.lang.String.format;
 
 public final class ModelUtils
 {
-    private static final JsonFactory JSON_FACTORY = new JsonFactory()
-            .disable(CANONICALIZE_FIELD_NAMES);
-
     private static final int VERSION_OFFSET = 0;
     private static final int HASH_OFFSET = VERSION_OFFSET + SIZE_OF_INT;
     private static final int ALGORITHM_OFFSET = HASH_OFFSET + 32;
@@ -206,34 +202,16 @@ public final class ModelUtils
     }
 
     //TODO: instead of having this function, we should add feature extractors that extend Model and extract features from Strings
-    public static FeatureVector jsonToFeatures(Slice json)
+    public static FeatureVector toFeatures(Slice map)
     {
         Map<Integer, Double> features = new HashMap<>();
-        try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
-            if (parser.nextToken() != JsonToken.START_OBJECT) {
-                throw new RuntimeException("Bad row. Expected a json object");
-            }
 
-            while (true) {
-                JsonToken token = parser.nextValue();
-                if (token == null) {
-                    throw new RuntimeException("Bad row. Expected a json object");
-                }
-                if (token == JsonToken.END_OBJECT) {
-                    break;
-                }
-                int key = Integer.parseInt(parser.getCurrentName());
-                double value = parser.getDoubleValue();
-                features.put(key, value);
+        if (map != Slices.EMPTY_SLICE) {
+            Block block = readStructuralBlock(map);
+            for (int position = 0; position < block.getPositionCount(); position += 2) {
+                features.put((int) BIGINT.getLong(block, position), DOUBLE.getDouble(block, position + 1));
             }
         }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
-        catch (RuntimeException e) {
-            throw new RuntimeException(format("Bad features: %s", json.toStringUtf8()), e);
-        }
-
         return new FeatureVector(features);
     }
 }
