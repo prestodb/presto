@@ -502,7 +502,7 @@ public class TestSqlStageExecution
             @Override
             public void abort()
             {
-                taskStateMachine.cancel();
+                taskStateMachine.abort();
             }
 
             @Override

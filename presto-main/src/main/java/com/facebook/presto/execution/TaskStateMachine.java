@@ -97,6 +97,11 @@ public class TaskStateMachine
         transitionToDoneState(TaskState.CANCELED);
     }
 
+    public void abort()
+    {
+        transitionToDoneState(TaskState.ABORTED);
+    }
+
     public void failed(Throwable cause)
     {
         failureCauses.add(cause);

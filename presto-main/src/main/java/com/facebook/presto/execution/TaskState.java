@@ -34,13 +34,18 @@ public enum TaskState
      */
     CANCELED(true),
     /**
+     * Task was aborted due to a failure in the query.  The failure
+     * was not in this task.
+     */
+    ABORTED(true),
+    /**
      * Task execution failed.
      */
     FAILED(true);
 
     private final boolean doneState;
 
-    private TaskState(boolean doneState)
+    TaskState(boolean doneState)
     {
         this.doneState = doneState;
     }

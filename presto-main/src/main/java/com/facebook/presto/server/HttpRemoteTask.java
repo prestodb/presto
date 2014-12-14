@@ -404,7 +404,7 @@ public class HttpRemoteTask
             // send cancel to task and ignore response
             final long start = System.nanoTime();
             final Request request = prepareDelete()
-                    .setUri(uriBuilderFrom(uri).addParameter("summarize").build())
+                    .setUri(uriBuilderFrom(uri).addParameter("abort", "false").addParameter("summarize").build())
                     .build();
             Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), new FutureCallback<StatusResponse>()
             {
@@ -453,7 +453,7 @@ public class HttpRemoteTask
             URI uri = taskInfo.getSelf();
             updateTaskInfo(new TaskInfo(taskInfo.getTaskId(),
                     TaskInfo.MAX_VERSION,
-                    TaskState.CANCELED, // todo change to aborted
+                    TaskState.ABORTED,
                     uri,
                     taskInfo.getLastHeartbeat(),
                     taskInfo.getOutputBuffers(),

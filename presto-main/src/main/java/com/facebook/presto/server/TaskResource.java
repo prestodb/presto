@@ -31,12 +31,14 @@ import io.airlift.units.Duration;
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.container.AsyncResponse;
 import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.Context;
@@ -150,11 +152,20 @@ public class TaskResource
     @DELETE
     @Path("{taskId}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response cancelTask(@PathParam("taskId") TaskId taskId, @Context UriInfo uriInfo)
+    public Response deleteTask(@PathParam("taskId") TaskId taskId,
+            @QueryParam("abort") @DefaultValue("true") boolean abort,
+            @Context UriInfo uriInfo)
     {
         checkNotNull(taskId, "taskId is null");
 
-        TaskInfo taskInfo = taskManager.cancelTask(taskId);
+        TaskInfo taskInfo;
+        if (abort) {
+            taskInfo = taskManager.abortTask(taskId);
+        }
+        else {
+            taskInfo = taskManager.cancelTask(taskId);
+        }
+
         if (shouldSummarize(uriInfo)) {
             taskInfo = taskInfo.summarize();
         }

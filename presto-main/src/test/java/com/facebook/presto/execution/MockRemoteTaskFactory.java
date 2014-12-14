@@ -222,7 +222,7 @@ public class MockRemoteTaskFactory
         @Override
         public void abort()
         {
-            taskStateMachine.cancel();
+            taskStateMachine.abort();
         }
 
         @Override

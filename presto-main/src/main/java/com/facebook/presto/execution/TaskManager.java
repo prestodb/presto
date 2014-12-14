@@ -63,6 +63,12 @@ public interface TaskManager
     TaskInfo cancelTask(TaskId taskId);
 
     /**
+     * Aborts a task.  If the task does not already exist, is is created and then
+     * aborted.
+     */
+    TaskInfo abortTask(TaskId taskId);
+
+    /**
      * Gets results from a task either immediately or in the future.  If the
      * task or buffer has not been created yet, an uninitialized task is
      * created and a future is returned.

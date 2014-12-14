@@ -245,6 +245,14 @@ public class SqlTaskManager
         return tasks.getUnchecked(taskId).cancel();
     }
 
+    @Override
+    public TaskInfo abortTask(TaskId taskId)
+    {
+        checkNotNull(taskId, "taskId is null");
+
+        return tasks.getUnchecked(taskId).abort();
+    }
+
     public void removeOldTasks()
     {
         DateTime oldestAllowedTask = DateTime.now().minus(infoCacheTime.toMillis());
