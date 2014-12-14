@@ -405,6 +405,7 @@ public class SqlTaskExecution
 
     public void cancel()
     {
+        // todo this should finish all input sources and let the task finish naturally
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             taskStateMachine.cancel();
         }

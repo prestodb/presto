@@ -100,7 +100,7 @@ public class SqlTask
                 }
 
                 // make sure buffers are cleaned up
-                if (taskState != TaskState.FAILED) {
+                if (taskState != TaskState.FAILED && taskState != TaskState.ABORTED) {
                     // don't close buffers for a failed query
                     // closed buffers signal to upstream tasks that everything finished cleanly
                     sharedBuffer.destroy();
@@ -263,6 +263,14 @@ public class SqlTask
         lastHeartbeat.set(DateTime.now());
 
         taskStateMachine.cancel();
+        return getTaskInfo();
+    }
+
+    public TaskInfo abort()
+    {
+        lastHeartbeat.set(DateTime.now());
+
+        taskStateMachine.abort();
         return getTaskInfo();
     }
 

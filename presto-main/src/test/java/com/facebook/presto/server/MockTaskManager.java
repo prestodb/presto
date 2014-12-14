@@ -188,6 +188,20 @@ public class MockTaskManager
         return task.getTaskInfo();
     }
 
+    @Override
+    public TaskInfo abortTask(TaskId taskId)
+    {
+        checkNotNull(taskId, "taskId is null");
+
+        MockTask task = tasks.get(taskId);
+        if (task == null) {
+            return null;
+        }
+
+        task.abort();
+        return task.getTaskInfo();
+    }
+
     public static class MockTask
     {
         private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskInfo.STARTING_VERSION);
@@ -235,6 +249,11 @@ public class MockTaskManager
         public void cancel()
         {
             taskStateMachine.cancel();
+        }
+
+        public void abort()
+        {
+            taskStateMachine.abort();
         }
 
         public ListenableFuture<BufferResult> getResults(TaskId outputId, long startingSequenceId, DataSize maxSize)

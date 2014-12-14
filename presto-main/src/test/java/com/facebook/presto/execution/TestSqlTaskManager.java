@@ -163,6 +163,34 @@ public class TestSqlTaskManager
             TaskInfo taskInfo = sqlTaskManager.updateTask(TEST_SESSION,
                     taskId,
                     PLAN_FRAGMENT,
+                    ImmutableList.<TaskSource>of(),
+                    INITIAL_EMPTY_OUTPUT_BUFFERS);
+            assertEquals(taskInfo.getState(), TaskState.RUNNING);
+            assertNull(taskInfo.getStats().getEndTime());
+
+            taskInfo = sqlTaskManager.getTaskInfo(taskId);
+            assertEquals(taskInfo.getState(), TaskState.RUNNING);
+            assertNull(taskInfo.getStats().getEndTime());
+
+            taskInfo = sqlTaskManager.abortTask(taskId);
+            assertEquals(taskInfo.getState(), TaskState.ABORTED);
+            assertNotNull(taskInfo.getStats().getEndTime());
+
+            taskInfo = sqlTaskManager.getTaskInfo(taskId);
+            assertEquals(taskInfo.getState(), TaskState.ABORTED);
+            assertNotNull(taskInfo.getStats().getEndTime());
+        }
+    }
+
+    @Test
+    public void testAbortResults()
+            throws Exception
+    {
+        try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
+            TaskId taskId = TASK_ID;
+            TaskInfo taskInfo = sqlTaskManager.updateTask(TEST_SESSION,
+                    taskId,
+                    PLAN_FRAGMENT,
                     ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                     INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, new UnpartitionedPagePartitionFunction()).withNoMoreBufferIds());
             assertEquals(taskInfo.getState(), TaskState.RUNNING);
