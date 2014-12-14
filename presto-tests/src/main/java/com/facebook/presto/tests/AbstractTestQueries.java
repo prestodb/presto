@@ -2663,7 +2663,7 @@ public abstract class AbstractTestQueries
             @Override
             public String apply(MaterializedRow input)
             {
-                assertEquals(input.getFieldCount(), 5);
+                assertEquals(input.getFieldCount(), 6);
                 return (String) input.getField(0);
             }
         });
@@ -2679,9 +2679,11 @@ public abstract class AbstractTestQueries
 
         assertTrue(functions.containsKey("abs"), "Expected function names " + functions + " to contain 'abs'");
         assertEquals(functions.get("abs").asList().get(0).getField(3), "scalar");
+        assertEquals(functions.get("abs").asList().get(0).getField(4), true);
 
         assertTrue(functions.containsKey("rand"), "Expected function names " + functions + " to contain 'rand'");
-        assertEquals(functions.get("rand").asList().get(0).getField(3), "scalar (non-deterministic)");
+        assertEquals(functions.get("rand").asList().get(0).getField(3), "scalar");
+        assertEquals(functions.get("rand").asList().get(0).getField(4), false);
 
         assertTrue(functions.containsKey("rank"), "Expected function names " + functions + " to contain 'rank'");
         assertEquals(functions.get("rank").asList().get(0).getField(3), "window");
