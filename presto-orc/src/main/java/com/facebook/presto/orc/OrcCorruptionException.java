@@ -13,25 +13,26 @@
  */
 package com.facebook.presto.orc;
 
-import java.io.IOException;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 
 import static java.lang.String.format;
 
 public class OrcCorruptionException
-        extends IOException
+        extends PrestoException
 {
     public OrcCorruptionException(String message)
     {
-        super(message);
+        super(StandardErrorCode.CORRUPT_DATA, message);
     }
 
     public OrcCorruptionException(String messageFormat, Object... args)
     {
-        super(format(messageFormat, args));
+        super(StandardErrorCode.CORRUPT_DATA, format(messageFormat, args));
     }
 
     public OrcCorruptionException(Throwable cause, String messageFormat, Object... args)
     {
-        super(format(messageFormat, args), cause);
+        super(StandardErrorCode.CORRUPT_DATA, format(messageFormat, args), cause);
     }
 }

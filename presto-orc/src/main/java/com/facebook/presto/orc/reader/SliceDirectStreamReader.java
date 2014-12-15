@@ -107,6 +107,9 @@ public class SliceDirectStreamReader
             }
         }
 
+        if (!(vector instanceof SliceVector)) {
+            throw new OrcCorruptionException("Expected SliceVector, but got %s", vector.getClass().getName());
+        }
         SliceVector sliceVector = (SliceVector) vector;
         if (presentStream == null) {
             if (lengthStream == null) {

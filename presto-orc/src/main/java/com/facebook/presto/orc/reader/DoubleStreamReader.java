@@ -89,6 +89,9 @@ public class DoubleStreamReader
             }
         }
 
+        if (!(vector instanceof DoubleVector)) {
+            throw new OrcCorruptionException("Expected DoubleVector, but got %s", vector.getClass().getName());
+        }
         DoubleVector doubleVector = (DoubleVector) vector;
         if (presentStream == null) {
             if (dataStream == null) {
