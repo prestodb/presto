@@ -110,6 +110,9 @@ public class LongDictionaryStreamReader
             }
         }
 
+        if (!(vector instanceof LongVector)) {
+            throw new OrcCorruptionException("Expected LongVector, but got %s", vector.getClass().getName());
+        }
         LongVector longVector = (LongVector) vector;
 
         if (presentStream == null) {
