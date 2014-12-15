@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.Vector;
@@ -96,6 +97,9 @@ public class JsonStreamReader
             jsonReader.skip(readOffset);
         }
 
+        if (!(vector instanceof SliceVector)) {
+            throw new OrcCorruptionException("Expected SliceVector, but got %s", vector.getClass().getName());
+        }
         SliceVector sliceVector = (SliceVector) vector;
         if (presentStream != null) {
             presentStream.getUnsetBits(nextBatchSize, isNullVector);
