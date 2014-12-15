@@ -52,6 +52,11 @@ public class HivePartition
         this(tableName, effectivePredicate, UNPARTITIONED_ID, ImmutableMap.of(), bucket);
     }
 
+    public HivePartition(SchemaTableName tableName, TupleDomain<HiveColumnHandle> effectivePredicate, Optional<HiveBucket> bucket)
+    {
+        this(tableName, effectivePredicate, UNPARTITIONED_ID, ImmutableMap.of(), bucket);
+    }
+
     public HivePartition(SchemaTableName tableName,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             String partitionId,
