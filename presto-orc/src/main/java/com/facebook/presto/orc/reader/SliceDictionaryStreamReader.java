@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.facebook.presto.orc.reader.OrcReaderUtils.castOrcVector;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
@@ -133,7 +134,7 @@ public class SliceDictionaryStreamReader
             }
         }
 
-        SliceVector sliceVector = (SliceVector) vector;
+        SliceVector sliceVector = castOrcVector(vector, SliceVector.class);
 
         if (presentStream == null) {
             if (dataStream == null) {

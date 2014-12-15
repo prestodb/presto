@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.facebook.presto.orc.reader.OrcReaderUtils.castOrcVector;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
@@ -109,7 +110,7 @@ public class TimestampStreamReader
             }
         }
 
-        LongVector longVector = (LongVector) vector;
+        LongVector longVector = castOrcVector(vector, LongVector.class);
         if (presentStream == null) {
             if (secondsStream == null) {
                 throw new OrcCorruptionException("Value is not null but seconds stream is not present");

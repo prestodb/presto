@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.facebook.presto.orc.reader.OrcReaderUtils.castOrcVector;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
@@ -110,7 +111,7 @@ public class LongDictionaryStreamReader
             }
         }
 
-        LongVector longVector = (LongVector) vector;
+        LongVector longVector = castOrcVector(vector, LongVector.class);
 
         if (presentStream == null) {
             if (dataStream == null) {
