@@ -88,6 +88,9 @@ public class BooleanStreamReader
             }
         }
 
+        if (!(vector instanceof BooleanVector)) {
+            throw new OrcCorruptionException("Expected BooleanVector, but got %s", vector.getClass().getName());
+        }
         BooleanVector booleanVector = (BooleanVector) vector;
         if (presentStream == null) {
             if (dataStream == null) {
