@@ -19,6 +19,7 @@ import com.facebook.presto.hive.HiveUtil;
 import com.facebook.presto.orc.BooleanVector;
 import com.facebook.presto.orc.DoubleVector;
 import com.facebook.presto.orc.LongVector;
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.SliceVector;
@@ -48,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveBooleanParser.isFalse;
 import static com.facebook.presto.hive.HiveBooleanParser.isTrue;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
@@ -347,6 +349,9 @@ public class OrcPageSource
                 block.setNullVector(vector.isNull);
                 block.setRawSlice(wrappedBooleanArray(vector.vector, 0, batchSize));
             }
+            catch (OrcCorruptionException e) {
+                throw new PrestoException(HIVE_BAD_DATA, e);
+            }
             catch (IOException e) {
                 throw Throwables.propagate(e);
             }
@@ -379,6 +384,9 @@ public class OrcPageSource
                 block.setNullVector(vector.isNull);
                 block.setRawSlice(wrappedLongArray(vector.vector, 0, batchSize));
             }
+            catch (OrcCorruptionException e) {
+                throw new PrestoException(HIVE_BAD_DATA, e);
+            }
             catch (IOException e) {
                 throw Throwables.propagate(e);
             }
@@ -407,6 +415,9 @@ public class OrcPageSource
                 recordReader.readVector(hiveColumnIndex, vector);
                 block.setNullVector(vector.isNull);
                 block.setRawSlice(wrappedLongArray(vector.vector, 0, batchSize));
+            }
+            catch (OrcCorruptionException e) {
+                throw new PrestoException(HIVE_BAD_DATA, e);
             }
             catch (IOException e) {
                 throw Throwables.propagate(e);
@@ -438,6 +449,9 @@ public class OrcPageSource
                 block.setNullVector(vector.isNull);
                 block.setRawSlice(wrappedDoubleArray(vector.vector, 0, batchSize));
             }
+            catch (OrcCorruptionException e) {
+                throw new PrestoException(HIVE_BAD_DATA, e);
+            }
             catch (IOException e) {
                 throw Throwables.propagate(e);
             }
@@ -464,6 +478,9 @@ public class OrcPageSource
                 SliceVector vector = new SliceVector();
                 recordReader.readVector(hiveColumnIndex, vector);
                 block.setValues(vector.vector);
+            }
+            catch (OrcCorruptionException e) {
+                throw new PrestoException(HIVE_BAD_DATA, e);
             }
             catch (IOException e) {
                 throw Throwables.propagate(e);
