@@ -90,6 +90,9 @@ public class FloatStreamReader
         }
 
         // we could add a float vector but Presto currently doesn't support floats
+        if (!(vector instanceof DoubleVector)) {
+            throw new OrcCorruptionException("Expected DoubleVector, but got %s", vector.getClass().getName());
+        }
         DoubleVector floatVector = (DoubleVector) vector;
         if (presentStream == null) {
             if (dataStream == null) {
