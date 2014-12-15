@@ -19,6 +19,7 @@ import com.facebook.presto.hive.HiveUtil;
 import com.facebook.presto.orc.BooleanVector;
 import com.facebook.presto.orc.DoubleVector;
 import com.facebook.presto.orc.LongVector;
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.SliceVector;
@@ -45,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
@@ -337,7 +339,7 @@ public class OrcPageSource
                 block.setRawSlice(wrappedBooleanArray(vector.vector, 0, batchSize));
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                throw propagateException(e);
             }
         }
     }
@@ -369,7 +371,7 @@ public class OrcPageSource
                 block.setRawSlice(wrappedLongArray(vector.vector, 0, batchSize));
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                throw propagateException(e);
             }
         }
     }
@@ -398,7 +400,7 @@ public class OrcPageSource
                 block.setRawSlice(wrappedLongArray(vector.vector, 0, batchSize));
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                throw propagateException(e);
             }
         }
     }
@@ -428,7 +430,7 @@ public class OrcPageSource
                 block.setRawSlice(wrappedDoubleArray(vector.vector, 0, batchSize));
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                throw propagateException(e);
             }
         }
     }
@@ -455,8 +457,16 @@ public class OrcPageSource
                 block.setValues(vector.vector);
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                throw propagateException(e);
             }
         }
+    }
+
+    private static RuntimeException propagateException(IOException e)
+    {
+        if (e instanceof OrcCorruptionException) {
+            throw new PrestoException(HIVE_BAD_DATA, e);
+        }
+        throw new PrestoException(HIVE_CURSOR_ERROR, e);
     }
 }
