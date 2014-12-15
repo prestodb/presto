@@ -14,6 +14,8 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.storage.StorageManager;
+import com.facebook.presto.raptor.storage.StorageManagerConfig;
+import com.facebook.presto.raptor.storage.StorageService;
 import com.facebook.presto.raptor.util.CurrentNodeId;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -21,7 +23,9 @@ import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.RecordSink;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
@@ -34,17 +38,21 @@ public class RaptorRecordSinkProvider
         implements ConnectorRecordSinkProvider
 {
     private final StorageManager storageManager;
+    private final StorageService storageService;
     private final String nodeId;
+    private final StorageManagerConfig storageConfig;
 
     @Inject
-    public RaptorRecordSinkProvider(StorageManager storageManager, CurrentNodeId currentNodeId)
+    public RaptorRecordSinkProvider(StorageManager storageManager, StorageManagerConfig storageConfig, StorageService storageService, CurrentNodeId currentNodeId)
     {
-        this(storageManager, currentNodeId.toString());
+        this(storageManager, storageConfig, storageService, currentNodeId.toString());
     }
 
-    public RaptorRecordSinkProvider(StorageManager storageManager, String nodeId)
+    public RaptorRecordSinkProvider(StorageManager storageManager, StorageManagerConfig storageConfig, StorageService storageService, String nodeId)
     {
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
+        this.storageConfig = checkNotNull(storageConfig, "storageConfig is null");
+        this.storageService = checkNotNull(storageService, "storageService is null");
         this.nodeId = checkNotNull(nodeId, "nodeId is null");
     }
 
@@ -55,9 +63,13 @@ public class RaptorRecordSinkProvider
         return new RaptorRecordSink(
                 nodeId,
                 storageManager,
+                storageService,
                 toColumnIds(handle.getColumnHandles()),
                 handle.getColumnTypes(),
-                optionalColumnId(handle.getSampleWeightColumnHandle()));
+                optionalColumnId(handle.getSampleWeightColumnHandle()),
+                Optional.fromNullable(storageConfig.getRowsPerShard()),
+                Optional.fromNullable(storageConfig.getBucketCount()),
+                ImmutableList.<Long>of());
     }
 
     @Override
@@ -67,9 +79,13 @@ public class RaptorRecordSinkProvider
         return new RaptorRecordSink(
                 nodeId,
                 storageManager,
+                storageService,
                 toColumnIds(handle.getColumnHandles()),
                 handle.getColumnTypes(),
-                Optional.<Long>absent());
+                Optional.<Long>absent(),
+                Optional.fromNullable(storageConfig.getRowsPerShard()),
+                Optional.fromNullable(storageConfig.getBucketCount()),
+                toColumnIds(getBucketKeyColumnHandles(handle.getColumnHandles())));
     }
 
     private static List<Long> toColumnIds(List<RaptorColumnHandle> columnHandles)
@@ -92,5 +108,17 @@ public class RaptorRecordSinkProvider
                 return handle.getColumnId();
             }
         };
+    }
+
+    private static List<RaptorColumnHandle> getBucketKeyColumnHandles(List<RaptorColumnHandle> columnHandles)
+    {
+        return FluentIterable.from(columnHandles).filter(new Predicate<RaptorColumnHandle>()
+        {
+            @Override
+            public boolean apply(RaptorColumnHandle input)
+            {
+                return input.isBucketKey();
+            }
+        }).toList();
     }
 }

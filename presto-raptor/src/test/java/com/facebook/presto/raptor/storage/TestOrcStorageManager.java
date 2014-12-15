@@ -13,13 +13,17 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.orc.LongVector;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.raptor.metadata.DatabaseShardManager;
+import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlVarbinary;
@@ -29,10 +33,12 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import org.joda.time.DateTime;
 import org.joda.time.Days;
 import org.joda.time.chrono.ISOChronology;
+import org.skife.jdbi.v2.DBI;
+import org.skife.jdbi.v2.Handle;
+import org.skife.jdbi.v2.IDBI;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -54,7 +60,9 @@ import static com.facebook.presto.testing.MaterializedResult.materializeSourceDa
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.google.common.io.Files.createTempDir;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.airlift.testing.FileUtils.deleteRecursively;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Locale.ENGLISH;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
@@ -67,74 +75,93 @@ public class TestOrcStorageManager
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstance(UTC);
     private static final DateTime EPOCH = new DateTime(0, UTC_CHRONOLOGY);
     private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
+    private static final DataSize ORC_MERGE_DISTANCE = new DataSize(1, MEGABYTE);
+
+    private final NodeManager nodeManager = new InMemoryNodeManager();
+    private ShardManager shardManager;
+    private Handle dummyHandle;
 
     private File temporary;
     private File directory;
     private File backupDirectory;
+    private ShardRecoveryManager recoveryManager;
 
     @BeforeClass
     public void setup()
+            throws Exception
     {
         temporary = createTempDir();
         directory = new File(temporary, "data");
         backupDirectory = new File(temporary, "backup");
+
+        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        dummyHandle = dbi.open();
+        shardManager = new DatabaseShardManager(dbi);
+
+        StorageService storageService = new StorageService(directory, Optional.of(backupDirectory), ORC_MERGE_DISTANCE);
+        storageService.start();
+        recoveryManager = new ShardRecoveryManager(storageService, nodeManager, shardManager);
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {
+        dummyHandle.close();
         deleteRecursively(temporary);
     }
 
     @Test
     public void testShardFiles()
     {
-        OrcStorageManager manager = new OrcStorageManager(new File("/tmp/data"), Optional.of(new File("/tmp/backup")), new DataSize(1, Unit.MEGABYTE));
+        StorageService storageService = new StorageService(new File("/tmp/data"), Optional.of(new File("/tmp/backup")), ORC_MERGE_DISTANCE);
 
         UUID uuid = UUID.fromString("701e1a79-74f7-4f56-b438-b41e8e7d019d");
 
         assertEquals(
                 new File("/tmp/data/storage/701/e1a/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc"),
-                manager.getStorageFile(uuid));
+                storageService.getStorageFile(uuid));
 
         assertEquals(
                 new File("/tmp/data/staging/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc"),
-                manager.getStagingFile(uuid));
+                storageService.getStagingFile(uuid));
 
         assertEquals(
                 new File("/tmp/backup/701/e1a/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc"),
-                manager.getBackupFile(uuid));
+                storageService.getBackupFile(uuid));
     }
 
     @Test
     public void testWriter()
             throws Exception
     {
-        OrcStorageManager manager = new OrcStorageManager(directory, Optional.of(backupDirectory), new DataSize(1, Unit.MEGABYTE));
+        StorageService storageService = new StorageService(directory, Optional.of(backupDirectory), ORC_MERGE_DISTANCE);
+        storageService.start();
+        OrcStorageManager manager = new OrcStorageManager(storageService, recoveryManager);
 
         List<Long> columnIds = ImmutableList.of(3L, 7L);
         List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR);
 
-        OutputHandle handle = manager.createOutputHandle(columnIds, columnTypes, Optional.<Long>absent());
+        OutputHandle handle = new OutputHandle(columnIds, columnTypes, storageService);
 
-        RowSink sink = handle.getRowSink();
+        TupleBuffer tupleBuffer = new TupleBuffer(columnTypes, -1);
+        try (RowSink sink = handle.getRowSink()) {
+            tupleBuffer.reset();
+            tupleBuffer.appendLong(123);
+            tupleBuffer.appendSlice(utf8Slice(("hello")));
+            sink.appendTuple(tupleBuffer);
 
-        sink.beginRecord(1);
-        sink.appendLong(123);
-        sink.appendString("hello");
-        sink.finishRecord();
-
-        sink.beginRecord(1);
-        sink.appendLong(456);
-        sink.appendString("bye");
-        sink.finishRecord();
+            tupleBuffer.reset();
+            tupleBuffer.appendLong(456);
+            tupleBuffer.appendSlice(utf8Slice(("bye")));
+            sink.appendTuple(tupleBuffer);
+        }
 
         manager.commit(handle);
 
-        UUID shardUuid = handle.getShardUuid();
-        File file = manager.getStorageFile(shardUuid);
-        File backupFile = manager.getBackupFile(shardUuid);
+        UUID shardUuid = handle.getShardUuids().get(0);
+        File file = storageService.getStorageFile(shardUuid);
+        File backupFile = storageService.getBackupFile(shardUuid);
 
         // verify primary and backup shard exist
         assertFile(file, "primary shard");
@@ -144,6 +171,8 @@ public class TestOrcStorageManager
         assertTrue(file.delete());
         assertTrue(file.getParentFile().delete());
         assertFalse(file.exists());
+
+        recoveryManager.restoreFromBackup(shardUuid);
 
         try (OrcDataSource dataSource = manager.openShard(shardUuid)) {
             OrcRecordReader reader = createReader(dataSource, columnIds);
@@ -170,7 +199,9 @@ public class TestOrcStorageManager
     public void testReader()
             throws Exception
     {
-        OrcStorageManager manager = new OrcStorageManager(directory, Optional.<File>absent(), new DataSize(1, Unit.MEGABYTE));
+        StorageService storageService = new StorageService(directory, Optional.<File>absent(), ORC_MERGE_DISTANCE);
+        storageService.start();
+        OrcStorageManager manager = new OrcStorageManager(storageService, new ShardRecoveryManager(storageService, nodeManager, shardManager));
 
         List<Long> columnIds = ImmutableList.of(2L, 4L, 6L, 7L, 8L, 9L);
         List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR, VARBINARY, DATE, BOOLEAN, DOUBLE);
@@ -178,40 +209,41 @@ public class TestOrcStorageManager
         byte[] bytes1 = octets(0x00, 0xFE, 0xFF);
         byte[] bytes3 = octets(0x01, 0x02, 0x19, 0x80);
 
-        OutputHandle handle = manager.createOutputHandle(columnIds, columnTypes, Optional.<Long>absent());
+        OutputHandle handle = new OutputHandle(columnIds, columnTypes, storageService);
+        try (RowSink sink = handle.getRowSink()) {
+            TupleBuffer tupleBuffer = new TupleBuffer(columnTypes, -1);
 
-        RowSink sink = handle.getRowSink();
+            tupleBuffer.reset();
+            tupleBuffer.appendLong(123);
+            tupleBuffer.appendSlice(utf8Slice("hello"));
+            tupleBuffer.appendSlice(wrappedBuffer(bytes1));
+            tupleBuffer.appendLong(dateValue(new DateTime(2001, 8, 22, 0, 0, 0, 0, UTC)));
+            tupleBuffer.appendBoolean(true);
+            tupleBuffer.appendDouble(123.45);
+            sink.appendTuple(tupleBuffer);
 
-        sink.beginRecord(1);
-        sink.appendLong(123);
-        sink.appendString("hello");
-        sink.appendBytes(bytes1);
-        sink.appendLong(dateValue(new DateTime(2001, 8, 22, 0, 0, 0, 0, UTC)));
-        sink.appendBoolean(true);
-        sink.appendDouble(123.45);
-        sink.finishRecord();
+            tupleBuffer.reset();
+            for (int i = 0; i < columnIds.size(); i++) {
+                tupleBuffer.appendNull();
+            }
+            sink.appendTuple(tupleBuffer);
 
-        sink.beginRecord(1);
-        for (int i = 0; i < columnIds.size(); i++) {
-            sink.appendNull();
+            tupleBuffer.reset();
+            tupleBuffer.appendLong(456);
+            tupleBuffer.appendSlice(utf8Slice(("bye")));
+            tupleBuffer.appendSlice(wrappedBuffer((bytes3)));
+            tupleBuffer.appendLong(dateValue(new DateTime(2005, 4, 22, 0, 0, 0, 0, UTC)));
+            tupleBuffer.appendBoolean(false);
+            tupleBuffer.appendDouble(987.65);
+            sink.appendTuple(tupleBuffer);
         }
-        sink.finishRecord();
-
-        sink.beginRecord(1);
-        sink.appendLong(456);
-        sink.appendString("bye");
-        sink.appendBytes(bytes3);
-        sink.appendLong(dateValue(new DateTime(2005, 4, 22, 0, 0, 0, 0, UTC)));
-        sink.appendBoolean(false);
-        sink.appendDouble(987.65);
-        sink.finishRecord();
-
         manager.commit(handle);
 
         // no tuple domain (all)
         TupleDomain<RaptorColumnHandle> tupleDomain = TupleDomain.all();
 
-        try (ConnectorPageSource pageSource = manager.getPageSource(handle.getShardUuid(), columnIds, columnTypes, tupleDomain)) {
+        UUID shardUuid = handle.getShardUuids().get(0);
+        try (ConnectorPageSource pageSource = manager.getPageSource(shardUuid, columnIds, columnTypes, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
             assertEquals(result.getRowCount(), 3);
 
@@ -226,20 +258,20 @@ public class TestOrcStorageManager
 
         // tuple domain within the column range
         tupleDomain = TupleDomain.withFixedValues(ImmutableMap.<RaptorColumnHandle, Comparable<?>>builder()
-                .put(new RaptorColumnHandle("test", "c1", 2, BIGINT), 124L)
+                .put(new RaptorColumnHandle("test", "c1", 2, BIGINT, false), 124L)
                 .build());
 
-        try (ConnectorPageSource pageSource = manager.getPageSource(handle.getShardUuid(), columnIds, columnTypes, tupleDomain)) {
+        try (ConnectorPageSource pageSource = manager.getPageSource(shardUuid, columnIds, columnTypes, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
             assertEquals(result.getRowCount(), 3);
         }
 
         // tuple domain outside the column range
         tupleDomain = TupleDomain.withFixedValues(ImmutableMap.<RaptorColumnHandle, Comparable<?>>builder()
-                .put(new RaptorColumnHandle("test", "c1", 2, BIGINT), 122L)
+                .put(new RaptorColumnHandle("test", "c1", 2, BIGINT, false), 122L)
                 .build());
 
-        try (ConnectorPageSource pageSource = manager.getPageSource(handle.getShardUuid(), columnIds, columnTypes, tupleDomain)) {
+        try (ConnectorPageSource pageSource = manager.getPageSource(shardUuid, columnIds, columnTypes, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
             assertEquals(result.getRowCount(), 0);
         }

@@ -40,6 +40,7 @@ public interface MetadataDao
             "  column_name VARCHAR(255) NOT NULL,\n" +
             "  ordinal_position INT NOT NULL,\n" +
             "  data_type VARCHAR(255) NOT NULL,\n" +
+            "  bucket_key BOOLEAN NOT NULL DEFAULT FALSE,\n" +
             "  PRIMARY KEY (table_id, column_id),\n" +
             "  UNIQUE (table_id, column_name),\n" +
             "  UNIQUE (table_id, ordinal_position),\n" +
@@ -67,7 +68,7 @@ public interface MetadataDao
             @Bind("tableName") String tableName);
 
     @SqlQuery("SELECT t.schema_name, t.table_name,\n" +
-            "  c.column_id, c.column_name, c.ordinal_position, c.data_type\n" +
+            "  c.column_id, c.column_name, c.ordinal_position, c.data_type, c.bucket_key\n" +
             "FROM tables t\n" +
             "JOIN columns c ON (t.table_id = c.table_id)\n" +
             "WHERE t.table_id = :tableId\n" +
@@ -78,7 +79,7 @@ public interface MetadataDao
             @Bind("columnId") long columnId);
 
     @SqlQuery("SELECT t.schema_name, t.table_name,\n" +
-            "  c.column_id, c.column_name, c.ordinal_position, c.data_type\n" +
+            "  c.column_id, c.column_name, c.ordinal_position, c.data_type, c.bucket_key\n" +
             "FROM tables t\n" +
             "JOIN columns c ON (t.table_id = c.table_id)\n" +
             "WHERE t.table_id = :tableId\n" +
@@ -104,12 +105,12 @@ public interface MetadataDao
     List<String> listSchemaNames(@Bind("catalogName") String catalogName);
 
     @SqlQuery("SELECT t.schema_name, t.table_name,\n" +
-            "  c.column_id, c.column_name, c.ordinal_position, c.data_type\n" +
+            "  c.column_id, c.column_name, c.ordinal_position, c.data_type, c.bucket_key\n" +
             "FROM tables t\n" +
             "JOIN columns c ON (t.table_id = c.table_id)\n" +
             "WHERE catalog_name = :catalogName\n" +
             "  AND (schema_name = :schemaName OR :schemaName IS NULL)\n" +
-            "  AND (table_name = :tableName OR :tableName IS NULL)\n" +
+            "  AND (table_name = :tableName OR :tableName  IS NULL)\n" +
             "ORDER BY schema_name, table_name, ordinal_position")
     List<TableColumn> listTableColumns(
             @Bind("catalogName") String catalogName,
@@ -117,7 +118,7 @@ public interface MetadataDao
             @Bind("tableName") String tableName);
 
     @SqlQuery("SELECT t.schema_name, t.table_name,\n" +
-            "  c.column_id, c.column_name, c.ordinal_position, c.data_type\n" +
+            "  c.column_id, c.column_name, c.ordinal_position, c.data_type, c.bucket_key\n" +
             "FROM tables t\n" +
             "JOIN columns c ON (t.table_id = c.table_id)\n" +
             "WHERE t.table_id = :tableId\n" +

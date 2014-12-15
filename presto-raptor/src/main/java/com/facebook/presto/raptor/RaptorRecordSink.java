@@ -13,32 +13,34 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.raptor.storage.RowSink;
 import com.facebook.presto.raptor.storage.OutputHandle;
+import com.facebook.presto.raptor.storage.RowSink;
 import com.facebook.presto.raptor.storage.StorageManager;
+import com.facebook.presto.raptor.storage.StorageService;
+import com.facebook.presto.raptor.storage.TupleBuffer;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import io.airlift.slice.Slices;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.spi.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static com.google.common.base.Preconditions.checkState;
 
 public class RaptorRecordSink
         implements RecordSink
@@ -50,55 +52,82 @@ public class RaptorRecordSink
     private final List<Type> columnTypes;
     private final OutputHandle outputHandle;
     private final RowSink rowSink;
+    private final TupleBuffer tupleBuffer;
 
     public RaptorRecordSink(
             String nodeId,
             StorageManager storageManager,
+            StorageService storageService,
             List<Long> columnIds,
             List<Type> columnTypes,
-            Optional<Long> sampleWeightColumnId)
+            Optional<Long> sampleWeightColumnId,
+            Optional<Integer> rowsPerShard,
+            Optional<Integer> bucketCount,
+            List<Long> bucketColumnIds)
     {
+        checkNotNull(sampleWeightColumnId, "sampleWeightColumnId is null");
+
         this.nodeId = checkNotNull(nodeId, "nodeId is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
-        this.columnTypes = ImmutableList.copyOf(columnTypes);
-        this.outputHandle = storageManager.createOutputHandle(columnIds, columnTypes, sampleWeightColumnId);
-        this.rowSink = outputHandle.getRowSink();
+        this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
+        this.outputHandle = new OutputHandle(columnIds, columnTypes, storageService);
+        List<Integer> bucketFields = toIndex(columnIds, bucketColumnIds);
+        this.rowSink = outputHandle.getRowSink(rowsPerShard, bucketCount, bucketFields);
+        this.tupleBuffer = new TupleBuffer(columnTypes, columnIds.indexOf(sampleWeightColumnId.or(-1L)));
     }
 
     @Override
     public void beginRecord(long sampleWeight)
     {
-        rowSink.beginRecord(sampleWeight);
+        tupleBuffer.reset();
+        tupleBuffer.setSampleWeight(sampleWeight);
     }
 
     @Override
     public void finishRecord()
     {
-        rowSink.finishRecord();
+        checkState(tupleBuffer.isFinalized());
+        rowSink.appendTuple(tupleBuffer);
     }
 
     @Override
     public void appendNull()
     {
-        rowSink.appendNull();
+        tupleBuffer.appendNull();
     }
 
     @Override
     public void appendBoolean(boolean value)
     {
-        Type type = currentType();
-        if (type.equals(BOOLEAN)) {
-            rowSink.appendBoolean(value);
-        }
-        else {
-            throw unsupportedType(type);
-        }
+        tupleBuffer.appendBoolean(value);
     }
 
     @Override
     public void appendLong(long value)
     {
-        rowSink.appendLong(getLongValue(currentType(), value));
+        tupleBuffer.appendLong(getLongValue(currentType(), value));
+    }
+
+    @Override
+    public void appendDouble(double value)
+    {
+        tupleBuffer.appendDouble(value);
+    }
+
+    @Override
+    public void appendString(byte[] value)
+    {
+        tupleBuffer.appendSlice(Slices.wrappedBuffer(value));
+    }
+
+    @Override
+    public String commit()
+    {
+        rowSink.close();
+        List<UUID> uuids = storageManager.commit(outputHandle);
+
+        String shardUuids = Joiner.on(',').join(uuids);
+        return Joiner.on(':').join(nodeId, shardUuids);
     }
 
     private static long getLongValue(Type type, long value)
@@ -116,48 +145,25 @@ public class RaptorRecordSink
         throw unsupportedType(type);
     }
 
-    @Override
-    public void appendDouble(double value)
-    {
-        Type type = currentType();
-        if (type.equals(DOUBLE)) {
-            rowSink.appendDouble(value);
-        }
-        else {
-            throw unsupportedType(type);
-        }
-    }
-
-    @Override
-    public void appendString(byte[] value)
-    {
-        Type type = currentType();
-        if (type.equals(VARCHAR)) {
-            rowSink.appendString(new String(value, UTF_8));
-        }
-        else if (type.equals(VARBINARY)) {
-            rowSink.appendBytes(value);
-        }
-        else {
-            throw unsupportedType(type);
-        }
-    }
-
-    @Override
-    public String commit()
-    {
-        storageManager.commit(outputHandle);
-
-        return Joiner.on(':').join(nodeId, outputHandle.getShardUuid());
-    }
-
     private Type currentType()
     {
-        return columnTypes.get(rowSink.currentField());
+        return columnTypes.get(tupleBuffer.currentField());
     }
 
     private static PrestoException unsupportedType(Type type)
     {
         return new PrestoException(NOT_SUPPORTED, "Type is not supported for writing: " + type);
+    }
+
+    private static List<Integer> toIndex(final List<Long> columnIds, List<Long> hashColumnIds)
+    {
+        return ImmutableList.copyOf(Iterables.transform(hashColumnIds, new Function<Long, Integer>()
+        {
+            @Override
+            public Integer apply(Long input)
+            {
+                return columnIds.indexOf(input);
+            }
+        }));
     }
 }

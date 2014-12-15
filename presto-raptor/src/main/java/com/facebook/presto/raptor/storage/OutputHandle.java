@@ -13,28 +13,51 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.raptor.CappedRowSink;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.UUID;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class OutputHandle
 {
-    private final UUID shardUuid;
-    private final RowSink rowSink;
+    private final RowSinkProvider rowSinkProvider;
 
-    public OutputHandle(UUID shardUuid, RowSink rowSink)
+    public OutputHandle(List<Long> columnIds, List<Type> columnTypes, StorageService storageService)
     {
-        this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
-        this.rowSink = checkNotNull(rowSink, "rowSink is null");
+        checkNotNull(columnIds, "columnIds is null");
+        checkNotNull(columnTypes, "columnTypes is null");
+        checkNotNull(storageService, "storageService is null");
+        this.rowSinkProvider = new OrcRowSinkProvider(columnIds, columnTypes, storageService);
     }
 
-    public UUID getShardUuid()
+    public List<UUID> getShardUuids()
     {
-        return shardUuid;
+        return rowSinkProvider.getShardUuids();
     }
 
     public RowSink getRowSink()
     {
-        return rowSink;
+        return getRowSink(Optional.<Integer>absent(), Optional.<Integer>absent(), ImmutableList.<Integer>of());
+    }
+
+    public RowSink getRowSink(Optional<Integer> rowsPerShard)
+    {
+        return getRowSink(rowsPerShard, Optional.<Integer>absent(), ImmutableList.<Integer>of());
+    }
+
+    public RowSink getRowSink(Optional<Integer> rowsPerShard, Optional<Integer> bucketCount, List<Integer> bucketFields)
+    {
+        if (bucketCount.isPresent() && !bucketFields.isEmpty()) {
+            return OrcShardedRowSink.from(rowSinkProvider, bucketCount.get(), bucketFields, rowsPerShard);
+        }
+        if (rowsPerShard.isPresent()) {
+            return CappedRowSink.from(rowSinkProvider, rowsPerShard.get());
+        }
+        return rowSinkProvider.getRowSink();
     }
 }

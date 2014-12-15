@@ -26,10 +26,12 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class StorageManagerConfig
 {
-    private File dataDirectory = new File("var/data");
+    private File dataDirectory = new File("var/data/storage");
     private File backupDirectory;
+    private Integer rowsPerShard;
 
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
+    private Integer bucketCount;
 
     @NotNull
     public File getDataDirectory()
@@ -69,6 +71,34 @@ public class StorageManagerConfig
     public StorageManagerConfig setOrcMaxMergeDistance(DataSize orcMaxMergeDistance)
     {
         this.orcMaxMergeDistance = orcMaxMergeDistance;
+        return this;
+    }
+
+    @Nullable
+    public Integer getRowsPerShard()
+    {
+        return rowsPerShard;
+    }
+
+    @Config("storage.rows-per-shard")
+    @ConfigDescription("Maximum number of rows per shard")
+    public StorageManagerConfig setRowsPerShard(Integer rowsPerShard)
+    {
+        this.rowsPerShard = rowsPerShard;
+        return this;
+    }
+
+    @Nullable
+    public Integer getBucketCount()
+    {
+        return bucketCount;
+    }
+
+    @Config("storage.bucket-count")
+    @ConfigDescription("Number of buckets to create")
+    public StorageManagerConfig setBucketCount(Integer bucketCount)
+    {
+        this.bucketCount = bucketCount;
         return this;
     }
 }
