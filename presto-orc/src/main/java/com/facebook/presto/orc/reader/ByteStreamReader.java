@@ -89,6 +89,9 @@ public class ByteStreamReader
             }
         }
 
+        if (!(vector instanceof LongVector)) {
+            throw new OrcCorruptionException("Expected LongVector, but got %s", vector.getClass().getName());
+        }
         LongVector byteVector = (LongVector) vector;
         if (presentStream == null) {
             if (dataStream == null) {
