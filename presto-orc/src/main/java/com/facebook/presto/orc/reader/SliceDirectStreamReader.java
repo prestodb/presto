@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.facebook.presto.orc.reader.OrcReaderUtils.castOrcVector;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
@@ -107,7 +108,7 @@ public class SliceDirectStreamReader
             }
         }
 
-        SliceVector sliceVector = (SliceVector) vector;
+        SliceVector sliceVector = castOrcVector(vector, SliceVector.class);
         if (presentStream == null) {
             if (lengthStream == null) {
                 throw new OrcCorruptionException("Value is not null but length stream is not present");
