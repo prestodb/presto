@@ -17,7 +17,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -34,7 +33,6 @@ import java.util.Set;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 @Immutable
 public class PlanFragment
@@ -63,7 +61,7 @@ public class PlanFragment
     private final Set<PlanNodeId> sourceIds;
     private final OutputPartitioning outputPartitioning;
     private final List<Symbol> partitionBy;
-    private final Optional<Integer> hashChannel;
+    private final Optional<Symbol> hash;
 
     @JsonCreator
     public PlanFragment(
@@ -74,7 +72,7 @@ public class PlanFragment
             @JsonProperty("partitionedSource") PlanNodeId partitionedSource,
             @JsonProperty("outputPartitioning") OutputPartitioning outputPartitioning,
             @JsonProperty("partitionBy") List<Symbol> partitionBy,
-            @JsonProperty("hashChannel") Optional<Integer> hashChannel)
+            @JsonProperty("hash") Optional<Symbol> hash)
     {
         this.id = checkNotNull(id, "id is null");
         this.root = checkNotNull(root, "root is null");
@@ -82,7 +80,7 @@ public class PlanFragment
         this.distribution = checkNotNull(distribution, "distribution is null");
         this.partitionedSource = partitionedSource;
         this.partitionBy = ImmutableList.copyOf(checkNotNull(partitionBy, "partitionBy is null"));
-        this.hashChannel = hashChannel;
+        this.hash = hash;
 
         types = root.getOutputSymbols().stream()
                 .map(symbols::get)
@@ -147,19 +145,9 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public Optional<Integer> getHashChannel()
+    public Optional<Symbol> getHash()
     {
-        return hashChannel;
-    }
-
-    public List<Integer> getPartitioningChannels()
-    {
-        checkState(outputPartitioning == OutputPartitioning.HASH, "fragment is not hash partitioned");
-        checkState(root instanceof SinkNode, "root is not an instance of SinkNode");
-        // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
-        return partitionBy.stream()
-                .map(symbol -> root.getOutputSymbols().indexOf(symbol))
-                .collect(toImmutableList());
+        return hash;
     }
 
     public List<Type> getTypes()
@@ -196,7 +184,7 @@ public class PlanFragment
                 .add("distribution", distribution)
                 .add("partitionedSource", partitionedSource)
                 .add("outputPartitioning", outputPartitioning)
-                .add("hashChannel", hashChannel)
+                .add("hash", hash)
                 .toString();
     }
 }

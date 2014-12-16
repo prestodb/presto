@@ -42,7 +42,7 @@ public class SubPlanBuilder
     private List<Symbol> partitionBy = ImmutableList.of();
     private List<SubPlan> children = new ArrayList<>();
     private OutputPartitioning outputPartitioning = OutputPartitioning.NONE;
-    private Optional<Integer> hashChannel = Optional.empty();
+    private Optional<Symbol> hash = Optional.empty();
 
     public SubPlanBuilder(PlanFragmentId id, SymbolAllocator allocator, PlanDistribution distribution, PlanNode root, PlanNodeId partitionedSource)
     {
@@ -98,13 +98,13 @@ public class SubPlanBuilder
         return this;
     }
 
-    public SubPlanBuilder setHashOutputPartitioning(List<Symbol> partitionBy, Optional<Integer> hashChannel)
+    public SubPlanBuilder setHashOutputPartitioning(List<Symbol> partitionBy, Optional<Symbol> hash)
     {
         this.outputPartitioning = OutputPartitioning.HASH;
         checkNotNull(partitionBy, "partitionBy is null");
         checkArgument(!partitionBy.isEmpty(), "partitionBy is empty");
         this.partitionBy = ImmutableList.copyOf(partitionBy);
-        this.hashChannel = hashChannel;
+        this.hash = hash;
         return this;
     }
 
@@ -112,7 +112,7 @@ public class SubPlanBuilder
     {
         Set<Symbol> dependencies = SymbolExtractor.extract(root);
 
-        PlanFragment fragment = new PlanFragment(id, root, Maps.filterKeys(allocator.getTypes(), in(dependencies)), distribution, partitionedSource, outputPartitioning, partitionBy, hashChannel);
+        PlanFragment fragment = new PlanFragment(id, root, Maps.filterKeys(allocator.getTypes(), in(dependencies)), distribution, partitionedSource, outputPartitioning, partitionBy, hash);
 
         return new SubPlan(fragment, children);
     }

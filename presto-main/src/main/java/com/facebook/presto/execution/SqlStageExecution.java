@@ -33,6 +33,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Throwables;
@@ -418,7 +419,7 @@ public class SqlStageExecution
             ImmutableMap.Builder<TaskId, PagePartitionFunction> buffers = ImmutableMap.builder();
             for (int nodeIndex = 0; nodeIndex < parentTasks.size(); nodeIndex++) {
                 TaskId taskId = parentTasks.get(nodeIndex);
-                buffers.put(taskId, new HashPagePartitionFunction(nodeIndex, parentTasks.size(), fragment.getPartitioningChannels(), fragment.getHashChannel(), fragment.getTypes()));
+                buffers.put(taskId, new HashPagePartitionFunction(nodeIndex, parentTasks.size(), getPartitioningChannels(fragment), getHashChannel(fragment), fragment.getTypes()));
             }
 
             newOutputBuffers = startingOutputBuffers
@@ -990,6 +991,21 @@ public class SqlStageExecution
                 .add("location", location)
                 .add("stageState", stageState.get())
                 .toString();
+    }
+
+    private static Optional<Integer> getHashChannel(PlanFragment fragment)
+    {
+        return fragment.getHash().map(symbol -> fragment.getRoot().getOutputSymbols().indexOf(symbol));
+    }
+
+    private static List<Integer> getPartitioningChannels(PlanFragment fragment)
+    {
+        checkState(fragment.getOutputPartitioning() == OutputPartitioning.HASH, "fragment is not hash partitioned");
+        checkState(fragment.getRoot() instanceof SinkNode, "root is not an instance of SinkNode");
+        // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
+        return fragment.getPartitionBy().stream()
+                .map(symbol -> fragment.getRoot().getOutputSymbols().indexOf(symbol))
+                .collect(toImmutableList());
     }
 }
 
