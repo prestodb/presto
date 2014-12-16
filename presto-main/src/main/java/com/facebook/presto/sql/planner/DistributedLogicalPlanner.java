@@ -60,7 +60,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.isBigQueryEnabled;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
@@ -71,7 +70,6 @@ import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -124,7 +122,6 @@ public class DistributedLogicalPlanner
         public SubPlanBuilder visitAggregation(final AggregationNode node, Void context)
         {
             SubPlanBuilder current = node.getSource().accept(this, context);
-            Optional<Symbol> hashSymbol = node.getHashSymbol();
 
             if (!current.isDistributed()) {
                 // add the aggregation node as the root of the current fragment
@@ -137,7 +134,7 @@ public class DistributedLogicalPlanner
                         SINGLE,
                         node.getSampleWeight(),
                         node.getConfidence(),
-                        hashSymbol));
+                        node.getHashSymbol()));
                 return current;
             }
 
@@ -156,9 +153,9 @@ public class DistributedLogicalPlanner
 
             // else, we need to "close" the current fragment and create an unpartitioned fragment for the final aggregation
             if (decomposable) {
-                return addDistributedAggregation(current, aggregations, functions, masks, groupBy, node.getSampleWeight(), node.getConfidence(), hashSymbol);
+                return addDistributedAggregation(current, aggregations, functions, masks, groupBy, node.getSampleWeight(), node.getConfidence(), node.getHashSymbol());
             }
-            return addSingleNodeAggregation(current, aggregations, functions, masks, groupBy, node.getSampleWeight(), node.getConfidence(), hashSymbol);
+            return addSingleNodeAggregation(current, aggregations, functions, masks, groupBy, node.getSampleWeight(), node.getConfidence(), node.getHashSymbol());
         }
 
         @Override
@@ -186,7 +183,7 @@ public class DistributedLogicalPlanner
                 PlanNode sink = new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols());
 
                 current.setRoot(sink)
-                        .setHashOutputPartitioning(node.getDistinctSymbols(), hashSymbol.map(channelGetter(current.getRoot())));
+                        .setHashOutputPartitioning(node.getDistinctSymbols(), hashSymbol);
 
                 PlanNode exchange = new ExchangeNode(idAllocator.getNextId(), current.getId(), sink.getOutputSymbols());
                 MarkDistinctNode markNode = new MarkDistinctNode(idAllocator.getNextId(), exchange, node.getMarkerSymbol(), node.getDistinctSymbols(), hashSymbol);
@@ -241,7 +238,7 @@ public class DistributedLogicalPlanner
                         .addChild(plan.build());
             }
             else {
-                plan.setHashOutputPartitioning(groupBy, hashSymbol.map(channelGetter(plan.getRoot())));
+                plan.setHashOutputPartitioning(groupBy, hashSymbol);
                 plan = createFixedDistributionPlan(finalAggregation)
                         .addChild(plan.build());
             }
@@ -264,7 +261,7 @@ public class DistributedLogicalPlanner
                             .addChild(current.build());
                 }
                 else {
-                    current.setHashOutputPartitioning(partitionedBy, node.getHashSymbol().map(channelGetter(current.getRoot())));
+                    current.setHashOutputPartitioning(partitionedBy, node.getHashSymbol());
                     current = createFixedDistributionPlan(source)
                             .addChild(current.build());
                 }
@@ -288,7 +285,7 @@ public class DistributedLogicalPlanner
                     current = createSingleNodePlan(source).addChild(current.build());
                 }
                 else {
-                    current.setHashOutputPartitioning(partitionedBy, node.getHashSymbol().map(channelGetter(current.getRoot())));
+                    current.setHashOutputPartitioning(partitionedBy, node.getHashSymbol());
                     current = createFixedDistributionPlan(source)
                             .addChild(current.build());
                 }
@@ -328,7 +325,7 @@ public class DistributedLogicalPlanner
                     current = createSingleNodePlan(merge).addChild(current.build());
                 }
                 else {
-                    current.setHashOutputPartitioning(node.getPartitionBy(), node.getHashSymbol().map(channelGetter(current.getRoot())));
+                    current.setHashOutputPartitioning(node.getPartitionBy(), node.getHashSymbol());
                     current = createFixedDistributionPlan(merge)
                             .addChild(current.build());
                 }
@@ -540,7 +537,7 @@ public class DistributedLogicalPlanner
                     case LEFT:
                         right.setRoot(new SinkNode(idAllocator.getNextId(), right.getRoot(), right.getRoot().getOutputSymbols()));
                         if (distributedJoins) {
-                            right.setHashOutputPartitioning(rightSymbols, node.getRightHashSymbol().map(channelGetter(right.getRoot())));
+                            right.setHashOutputPartitioning(rightSymbols, node.getRightHashSymbol());
                             left = hashDistributeSubplan(left, leftSymbols, node.getLeftHashSymbol());
                         }
                         left.setRoot(new JoinNode(node.getId(),
@@ -554,7 +551,7 @@ public class DistributedLogicalPlanner
                     case RIGHT:
                         left.setRoot(new SinkNode(idAllocator.getNextId(), left.getRoot(), left.getRoot().getOutputSymbols()));
                         if (distributedJoins) {
-                            left.setHashOutputPartitioning(leftSymbols, node.getLeftHashSymbol().map(channelGetter(left.getRoot())));
+                            left.setHashOutputPartitioning(leftSymbols, node.getLeftHashSymbol());
                             right = hashDistributeSubplan(right, rightSymbols,  node.getRightHashSymbol());
                         }
                         right.setRoot(new JoinNode(node.getId(),
@@ -579,7 +576,7 @@ public class DistributedLogicalPlanner
         public SubPlanBuilder hashDistributeSubplan(SubPlanBuilder subPlan, List<Symbol> symbols, Optional<Symbol> hashSymbol)
         {
             PlanNode sink = new SinkNode(idAllocator.getNextId(), subPlan.getRoot(), subPlan.getRoot().getOutputSymbols());
-            subPlan.setRoot(sink).setHashOutputPartitioning(symbols, hashSymbol.map(channelGetter(subPlan.getRoot())));
+            subPlan.setRoot(sink).setHashOutputPartitioning(symbols, hashSymbol);
 
             PlanNode exchange = new ExchangeNode(idAllocator.getNextId(), subPlan.getId(), sink.getOutputSymbols());
             subPlan = createFixedDistributionPlan(exchange)
@@ -630,7 +627,7 @@ public class DistributedLogicalPlanner
                 PlanNode sink = new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols());
 
                 current.setRoot(sink)
-                        .setHashOutputPartitioning(Lists.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause::getProbe), node.getProbeHashSymbol().map(channelGetter(current.getRoot())));
+                        .setHashOutputPartitioning(Lists.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause::getProbe), node.getProbeHashSymbol());
 
                 PlanNode exchange = new ExchangeNode(idAllocator.getNextId(), current.getId(), sink.getOutputSymbols());
                 IndexJoinNode indexJoinNode = new IndexJoinNode(node.getId(), node.getType(), exchange, node.getIndexSource(), node.getCriteria(), node.getProbeHashSymbol(), node.getIndexHashSymbol());
@@ -706,13 +703,5 @@ public class DistributedLogicalPlanner
         {
             return String.valueOf(nextFragmentId++);
         }
-    }
-
-    private static Function<Symbol, Integer> channelGetter(final PlanNode node)
-    {
-        return input -> {
-            checkArgument(node.getOutputSymbols().contains(input), "node does not contain symbol");
-            return node.getOutputSymbols().indexOf(input);
-        };
     }
 }
