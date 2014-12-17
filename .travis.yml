@@ -1,6 +1,7 @@
 language: java
 jdk:
   - oraclejdk8
+sudo: false
 before_install: free -m
 script: mvn test -P travis -Dair.check.skip-dependency=true
 env:
