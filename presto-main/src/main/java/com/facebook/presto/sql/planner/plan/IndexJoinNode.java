@@ -112,7 +112,7 @@ public class IndexJoinNode
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of(probeSource);
+        return ImmutableList.of(probeSource, indexSource);
     }
 
     @Override
