@@ -23,7 +23,6 @@ import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
@@ -70,7 +69,7 @@ public class LimitPushDown
     }
 
     private static class Rewriter
-            extends PlanNodeRewriter<LimitContext>
+            extends PlanRewriter<LimitContext>
     {
         private final PlanNodeIdAllocator idAllocator;
 
@@ -80,79 +79,92 @@ public class LimitPushDown
         }
 
         @Override
-        public PlanNode rewriteNode(PlanNode node, LimitContext context, PlanRewriter<LimitContext> planRewriter)
+        public PlanNode visitPlan(PlanNode node, RewriteContext<LimitContext> context)
         {
-            PlanNode rewrittenNode = planRewriter.defaultRewrite(node, null);
-            if (context != null) {
+            PlanNode rewrittenNode = context.defaultRewrite(node);
+
+            LimitContext limit = context.get();
+            if (limit != null) {
                 // Drop in a LimitNode b/c we cannot push our limit down any further
-                rewrittenNode = new LimitNode(idAllocator.getNextId(), rewrittenNode, context.getCount());
+                rewrittenNode = new LimitNode(idAllocator.getNextId(), rewrittenNode, limit.getCount());
             }
             return rewrittenNode;
         }
 
         @Override
-        public PlanNode rewriteLimit(LimitNode node, LimitContext context, PlanRewriter<LimitContext> planRewriter)
+        public PlanNode visitLimit(LimitNode node, RewriteContext<LimitContext> context)
         {
-            if (context != null && context.getCount() < node.getCount()) {
-                return planRewriter.rewrite(node.getSource(), context);
+            LimitContext limit = context.get();
+            if (limit != null && limit.getCount() < node.getCount()) {
+                return context.rewrite(node.getSource(), limit);
             }
             else {
-                return planRewriter.rewrite(node.getSource(), new LimitContext(node.getCount()));
+                return context.rewrite(node.getSource(), new LimitContext(node.getCount()));
             }
         }
 
         @Override
-        public PlanNode rewriteAggregation(AggregationNode node, LimitContext context, PlanRewriter<LimitContext> planRewriter)
+        public PlanNode visitAggregation(AggregationNode node, RewriteContext<LimitContext> context)
         {
-            if (context != null &&
+            LimitContext limit = context.get();
+
+            if (limit != null &&
                     node.getAggregations().isEmpty() &&
                     node.getOutputSymbols().size() == node.getGroupBy().size() &&
                     node.getOutputSymbols().containsAll(node.getGroupBy())) {
                 checkArgument(!node.getSampleWeight().isPresent(), "DISTINCT aggregation has sample weight symbol");
-                PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), null);
-                return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, context.getCount(), Optional.empty());
+                PlanNode rewrittenSource = context.rewrite(node.getSource());
+                return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, limit.getCount(), Optional.empty());
             }
-            PlanNode rewrittenNode = planRewriter.defaultRewrite(node, null);
-            if (context != null) {
+            PlanNode rewrittenNode = context.defaultRewrite(node);
+            if (limit != null) {
                 // Drop in a LimitNode b/c limits cannot be pushed through aggregations
-                rewrittenNode = new LimitNode(idAllocator.getNextId(), rewrittenNode, context.getCount());
+                rewrittenNode = new LimitNode(idAllocator.getNextId(), rewrittenNode, limit.getCount());
             }
             return rewrittenNode;
         }
 
         @Override
-        public PlanNode rewriteMarkDistinct(MarkDistinctNode node, LimitContext context, PlanRewriter<LimitContext> planRewriter)
+        public PlanNode visitMarkDistinct(MarkDistinctNode node, RewriteContext<LimitContext> context)
         {
-            return planRewriter.defaultRewrite(node, context);
+            // the fallback logic (in visitPlan) for node types we don't know about introduces a limit node,
+            // so we need this here to push the limit through this trivial node type
+            return context.defaultRewrite(node, context.get());
         }
 
         @Override
-        public PlanNode rewriteProject(ProjectNode node, LimitContext context, PlanRewriter<LimitContext> planRewriter)
+        public PlanNode visitProject(ProjectNode node, RewriteContext<LimitContext> context)
         {
-            return planRewriter.defaultRewrite(node, context);
+            // the fallback logic (in visitPlan) for node types we don't know about introduces a limit node,
+            // so we need this here to push the limit through this trivial node type
+            return context.defaultRewrite(node, context.get());
         }
 
         @Override
-        public PlanNode rewriteTopN(TopNNode node, LimitContext context, PlanRewriter<LimitContext> planRewriter)
+        public PlanNode visitTopN(TopNNode node, RewriteContext<LimitContext> context)
         {
-            PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), null);
-            if (rewrittenSource == node.getSource() && context == null) {
+            LimitContext limit = context.get();
+
+            PlanNode rewrittenSource = context.rewrite(node.getSource());
+            if (rewrittenSource == node.getSource() && limit == null) {
                 return node;
             }
 
             long count = node.getCount();
-            if (context != null) {
-                count = Math.min(count, context.getCount());
+            if (limit != null) {
+                count = Math.min(count, limit.getCount());
             }
             return new TopNNode(node.getId(), rewrittenSource, count, node.getOrderBy(), node.getOrderings(), node.isPartial());
         }
 
         @Override
-        public PlanNode rewriteSort(SortNode node, LimitContext context, PlanRewriter<LimitContext> planRewriter)
+        public PlanNode visitSort(SortNode node, RewriteContext<LimitContext> context)
         {
-            PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), null);
-            if (context != null) {
-                return new TopNNode(node.getId(), rewrittenSource, context.getCount(), node.getOrderBy(), node.getOrderings(), false);
+            LimitContext limit = context.get();
+
+            PlanNode rewrittenSource = context.rewrite(node.getSource());
+            if (limit != null) {
+                return new TopNNode(node.getId(), rewrittenSource, limit.getCount(), node.getOrderBy(), node.getOrderings(), false);
             }
             else if (rewrittenSource != node.getSource()) {
                 return new SortNode(node.getId(), rewrittenSource, node.getOrderBy(), node.getOrderings());
@@ -161,24 +173,26 @@ public class LimitPushDown
         }
 
         @Override
-        public PlanNode rewriteUnion(UnionNode node, LimitContext context, PlanRewriter<LimitContext> planRewriter)
+        public PlanNode visitUnion(UnionNode node, RewriteContext<LimitContext> context)
         {
+            LimitContext limit = context.get();
+
             List<PlanNode> sources = new ArrayList<>();
             for (int i = 0; i < node.getSources().size(); i++) {
-                sources.add(planRewriter.rewrite(node.getSources().get(i), context));
+                sources.add(context.rewrite(node.getSources().get(i), limit));
             }
 
             PlanNode output = new UnionNode(node.getId(), sources, node.getSymbolMapping());
-            if (context != null) {
-                output = new LimitNode(idAllocator.getNextId(), output, context.getCount());
+            if (limit != null) {
+                output = new LimitNode(idAllocator.getNextId(), output, limit.getCount());
             }
             return output;
         }
 
         @Override
-        public PlanNode rewriteSemiJoin(SemiJoinNode node, LimitContext context, PlanRewriter<LimitContext> planRewriter)
+        public PlanNode visitSemiJoin(SemiJoinNode node, RewriteContext<LimitContext> context)
         {
-            PlanNode source = planRewriter.rewrite(node.getSource(), context);
+            PlanNode source = context.rewrite(node.getSource(), context.get());
             if (source != node.getSource()) {
                 return new SemiJoinNode(node.getId(), source, node.getFilteringSource(), node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput(), node.getSourceHashSymbol(), node.getFilteringSourceHashSymbol());
             }

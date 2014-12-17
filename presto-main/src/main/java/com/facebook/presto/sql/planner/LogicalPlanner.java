@@ -28,7 +28,6 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -39,6 +38,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class LogicalPlanner
@@ -55,10 +55,10 @@ public class LogicalPlanner
             PlanNodeIdAllocator idAllocator,
             Metadata metadata)
     {
-        Preconditions.checkNotNull(session, "session is null");
-        Preconditions.checkNotNull(planOptimizers, "planOptimizers is null");
-        Preconditions.checkNotNull(idAllocator, "idAllocator is null");
-        Preconditions.checkNotNull(metadata, "metadata is null");
+        checkNotNull(session, "session is null");
+        checkNotNull(planOptimizers, "planOptimizers is null");
+        checkNotNull(idAllocator, "idAllocator is null");
+        checkNotNull(metadata, "metadata is null");
 
         this.session = session;
         this.planOptimizers = planOptimizers;
@@ -86,6 +86,7 @@ public class LogicalPlanner
 
         for (PlanOptimizer optimizer : planOptimizers) {
             root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator);
+            checkNotNull(root, "%s returned a null plan", optimizer.getClass().getName());
         }
 
         // make sure we produce a valid plan after optimizations run. This is mainly to catch programming errors

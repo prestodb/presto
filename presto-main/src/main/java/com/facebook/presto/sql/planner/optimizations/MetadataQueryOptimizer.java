@@ -31,7 +31,6 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
@@ -80,7 +79,7 @@ public class MetadataQueryOptimizer
     }
 
     private static class Optimizer
-            extends PlanNodeRewriter<Void>
+            extends PlanRewriter<Void>
     {
         private final PlanNodeIdAllocator idAllocator;
         private final Metadata metadata;
@@ -94,7 +93,7 @@ public class MetadataQueryOptimizer
         }
 
         @Override
-        public PlanNode rewriteAggregation(AggregationNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode visitAggregation(AggregationNode node, RewriteContext<Void> context)
         {
             // supported functions are only MIN/MAX/APPROX_DISTINCT or distinct aggregates
             for (FunctionCall call : node.getAggregations().values()) {
@@ -199,7 +198,7 @@ public class MetadataQueryOptimizer
     }
 
     private static class Replacer
-            extends PlanNodeRewriter<Void>
+            extends PlanRewriter<Void>
     {
         private final ValuesNode replacement;
 
@@ -209,7 +208,7 @@ public class MetadataQueryOptimizer
         }
 
         @Override
-        public PlanNode rewriteTableScan(TableScanNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
         {
             return replacement;
         }
