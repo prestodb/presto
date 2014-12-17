@@ -28,13 +28,13 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDe
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 
-public class TestDatabaseStorageManagerConfig
+public class TestStorageManagerConfig
 {
     @Test
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(StorageManagerConfig.class)
-                .setDataDirectory(new File("var/data"))
+                .setDataDirectory(null)
                 .setBackupDirectory(null)
                 .setOrcMaxMergeDistance(new DataSize(1, Unit.MEGABYTE)));
     }
