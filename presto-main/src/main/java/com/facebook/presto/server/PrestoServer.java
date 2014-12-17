@@ -45,7 +45,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.server.CodeCacheGcTrigger.installCodeCacheGcTrigger;
 import static com.facebook.presto.server.PrestoJvmRequirements.verifyJvmRequirements;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -117,8 +116,6 @@ public class PrestoServer
             injector.getInstance(Announcer.class).start();
 
             log.info("======== SERVER STARTED ========");
-
-            installCodeCacheGcTrigger();
         }
         catch (Throwable e) {
             log.error(e);
