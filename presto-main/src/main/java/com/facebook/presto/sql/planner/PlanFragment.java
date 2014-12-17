@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -171,7 +172,7 @@ public class PlanFragment
             findSources(source, builder, partitionedSource);
         }
 
-        if (node.getSources().isEmpty() || node.getId().equals(partitionedSource)) {
+        if ((node.getSources().isEmpty() && !(node instanceof IndexSourceNode)) || node.getId().equals(partitionedSource)) {
             builder.add(node);
         }
     }
