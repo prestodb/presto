@@ -24,7 +24,6 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
@@ -65,7 +64,7 @@ public class WindowFilterPushDown
     }
 
     private static class Rewriter
-            extends PlanNodeRewriter<Constraint>
+            extends PlanRewriter<Constraint>
     {
         private final PlanNodeIdAllocator idAllocator;
 
@@ -75,11 +74,11 @@ public class WindowFilterPushDown
         }
 
         @Override
-        public PlanNode rewriteWindow(WindowNode node, Constraint filter, PlanRewriter<Constraint> planRewriter)
+        public PlanNode visitWindow(WindowNode node, RewriteContext<Constraint> context)
         {
             if (canOptimizeWindowFunction(node)) {
-                PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), null);
-                Optional<Integer> limit = getLimit(node, filter);
+                PlanNode rewrittenSource = context.rewrite(node.getSource(), null);
+                Optional<Integer> limit = getLimit(node, context.get());
                 if (node.getOrderBy().isEmpty()) {
                     return new RowNumberNode(idAllocator.getNextId(),
                             rewrittenSource,
@@ -100,7 +99,7 @@ public class WindowFilterPushDown
                             Optional.empty());
                 }
             }
-            return planRewriter.defaultRewrite(node, null);
+            return context.defaultRewrite(node);
         }
 
         private static Optional<Integer> getLimit(WindowNode node, Constraint filter)
@@ -136,33 +135,33 @@ public class WindowFilterPushDown
         }
 
         @Override
-        public PlanNode rewriteLimit(LimitNode node, Constraint filter, PlanRewriter<Constraint> planRewriter)
+        public PlanNode visitLimit(LimitNode node, RewriteContext<Constraint> context)
         {
             // Operators can handle MAX_VALUE rows per page, so do not optimize if count is greater than this value
             if (node.getCount() >= Integer.MAX_VALUE) {
-                return planRewriter.defaultRewrite(node, null);
+                return context.defaultRewrite(node);
             }
             Constraint constraint = new Constraint(Optional.of((int) node.getCount()), Optional.empty());
-            PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), constraint);
+            PlanNode rewrittenSource = context.rewrite(node.getSource(), constraint);
 
             if (rewrittenSource != node.getSource()) {
                 return rewrittenSource;
             }
 
-            return planRewriter.defaultRewrite(node, null);
+            return context.defaultRewrite(node);
         }
 
         @Override
-        public PlanNode rewriteFilter(FilterNode node, Constraint filter, PlanRewriter<Constraint> planRewriter)
+        public PlanNode visitFilter(FilterNode node, RewriteContext<Constraint> context)
         {
-            PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), new Constraint(Optional.empty(), Optional.of(node.getPredicate())));
+            PlanNode rewrittenSource = context.rewrite(node.getSource(), new Constraint(Optional.empty(), Optional.of(node.getPredicate())));
             if (rewrittenSource != node.getSource()) {
                 if (rewrittenSource instanceof TopNRowNumberNode) {
                     return rewrittenSource;
                 }
                 return new FilterNode(idAllocator.getNextId(), rewrittenSource, node.getPredicate());
             }
-            return planRewriter.defaultRewrite(node, null);
+            return context.defaultRewrite(node);
         }
     }
 

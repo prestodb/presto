@@ -20,7 +20,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -50,13 +49,13 @@ public class ImplementSampleAsFilter
     }
 
     private static class Rewriter
-            extends PlanNodeRewriter<Void>
+            extends PlanRewriter<Void>
     {
         @Override
-        public PlanNode rewriteSample(SampleNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode visitSample(SampleNode node, RewriteContext<Void> context)
         {
             if (node.getSampleType() == SampleNode.Type.BERNOULLI) {
-                PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), context);
+                PlanNode rewrittenSource = context.rewrite(node.getSource());
 
                 ComparisonExpression expression = new ComparisonExpression(
                         ComparisonExpression.Type.LESS_THAN,
@@ -64,11 +63,9 @@ public class ImplementSampleAsFilter
                         new DoubleLiteral(Double.toString(node.getSampleRatio())));
                 return new FilterNode(node.getId(), rewrittenSource, expression);
             }
-            else if (node.getSampleType() == SampleNode.Type.POISSONIZED) {
-                return rewriteNode(node, context, planRewriter);
-            }
-            else if (node.getSampleType() == SampleNode.Type.SYSTEM) {
-                return rewriteNode(node, context, planRewriter);
+            else if (node.getSampleType() == SampleNode.Type.POISSONIZED ||
+                    node.getSampleType() == SampleNode.Type.SYSTEM) {
+                return context.defaultRewrite(node);
             }
             throw new UnsupportedOperationException("not yet implemented");
         }

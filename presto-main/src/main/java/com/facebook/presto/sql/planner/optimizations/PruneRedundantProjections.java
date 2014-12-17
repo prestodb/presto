@@ -19,11 +19,11 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.google.common.collect.ImmutableList;
 
 import java.util.Map;
 
@@ -48,16 +48,16 @@ public class PruneRedundantProjections
     }
 
     private static class Rewriter
-            extends PlanNodeRewriter<Void>
+            extends PlanRewriter<Void>
     {
         @Override
-        public PlanNode rewriteProject(ProjectNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
         {
-            PlanNode source = planRewriter.rewrite(node.getSource(), context);
+            PlanNode source = context.rewrite(node.getSource());
 
             if (node.getOutputSymbols().size() != source.getOutputSymbols().size()) {
                 // Can't get rid of this projection. It constrains the output tuple from the underlying operator
-                return new ProjectNode(node.getId(), source, node.getAssignments());
+                return context.replaceChildren(node, ImmutableList.of(source));
             }
 
             boolean canElide = true;
@@ -74,7 +74,7 @@ public class PruneRedundantProjections
                 return source;
             }
 
-            return new ProjectNode(node.getId(), source, node.getAssignments());
+            return context.replaceChildren(node, ImmutableList.of(source));
         }
     }
 }

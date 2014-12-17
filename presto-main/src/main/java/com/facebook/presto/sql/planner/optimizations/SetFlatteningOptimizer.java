@@ -20,7 +20,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.collect.ImmutableList;
@@ -49,22 +48,22 @@ public class SetFlatteningOptimizer
 
     // TODO: remove expectation that UNION DISTINCT => distinct aggregation directly above union node
     private static class Rewriter
-            extends PlanNodeRewriter<Boolean>
+            extends PlanRewriter<Boolean>
     {
         @Override
-        public PlanNode rewriteNode(PlanNode node, Boolean upstreamDistinct, PlanRewriter<Boolean> planRewriter)
+        public PlanNode visitPlan(PlanNode node, RewriteContext<Boolean> context)
         {
-            return super.rewriteNode(node, false, planRewriter);
+            return context.defaultRewrite(node, false);
         }
 
         @Override
-        public PlanNode rewriteUnion(UnionNode node, Boolean upstreamDistinct, PlanRewriter<Boolean> planRewriter)
+        public PlanNode visitUnion(UnionNode node, RewriteContext<Boolean> context)
         {
             ImmutableList.Builder<PlanNode> flattenedSources = ImmutableList.builder();
             ImmutableListMultimap.Builder<Symbol, Symbol> flattenedSymbolMap = ImmutableListMultimap.builder();
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanNode subplan = node.getSources().get(i);
-                PlanNode rewrittenSource = planRewriter.rewrite(subplan, upstreamDistinct);
+                PlanNode rewrittenSource = context.rewrite(subplan, context.get());
 
                 if (rewrittenSource instanceof UnionNode) {
                     // Absorb source's subplans if it is also a UnionNode
@@ -86,13 +85,13 @@ public class SetFlatteningOptimizer
         }
 
         @Override
-        public PlanNode rewriteAggregation(AggregationNode node, Boolean upstreamDistinct, PlanRewriter<Boolean> planRewriter)
+        public PlanNode visitAggregation(AggregationNode node, RewriteContext<Boolean> context)
         {
             boolean distinct = isDistinctOperator(node);
 
-            PlanNode rewrittenNode = planRewriter.rewrite(node.getSource(), distinct);
+            PlanNode rewrittenNode = context.rewrite(node.getSource(), distinct);
 
-            if (upstreamDistinct && distinct) {
+            if (context.get() && distinct) {
                 // Assumes underlying node has same output symbols as this distinct node
                 return rewrittenNode;
             }
