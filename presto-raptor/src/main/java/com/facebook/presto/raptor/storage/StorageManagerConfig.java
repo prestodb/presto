@@ -26,7 +26,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class StorageManagerConfig
 {
-    private File dataDirectory = new File("var/data");
+    private File dataDirectory;
     private File backupDirectory;
 
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
