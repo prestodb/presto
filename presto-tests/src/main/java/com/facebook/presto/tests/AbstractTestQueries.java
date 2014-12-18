@@ -2776,6 +2776,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testUnionArray()
+            throws Exception
+    {
+        assertQuery("SELECT a[1] FROM (SELECT ARRAY[1] UNION ALL SELECT ARRAY[1]) t(a) LIMIT 1", "SELECT 1");
+    }
+
+    @Test
     public void testChainedUnionsWithOrder()
             throws Exception
     {

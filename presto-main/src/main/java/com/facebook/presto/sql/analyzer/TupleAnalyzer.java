@@ -382,7 +382,7 @@ public class TupleAnalyzer
             for (int i = 0; i < descriptor.getVisibleFields().size(); i++) {
                 Type outputFieldType = outputDescriptor.getFieldByIndex(i).getType();
                 Type descFieldType = descriptor.getFieldByIndex(i).getType();
-                if (outputFieldType != descFieldType) {
+                if (!outputFieldType.equals(descFieldType)) {
                     throw new SemanticException(TYPE_MISMATCH,
                                                 node,
                                                 "column %d in union query has incompatible types: %s, %s",
