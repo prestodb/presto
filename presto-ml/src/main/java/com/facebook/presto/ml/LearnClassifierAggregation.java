@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.ml;
 
-import com.facebook.presto.ml.type.ClassifierType;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.CombineFunction;
 import com.facebook.presto.operator.aggregation.InputFunction;
@@ -55,7 +54,7 @@ public final class LearnClassifierAggregation
         throw new UnsupportedOperationException("LEARN must run on a single machine");
     }
 
-    @OutputFunction(ClassifierType.NAME)
+    @OutputFunction("Classifier<bigint>")
     public static void output(LearnState state, BlockBuilder out)
     {
         LearnLibSvmClassifierAggregation.output(state, out);

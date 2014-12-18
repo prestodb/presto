@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.ml;
 
-public interface Classifier
+public interface Classifier<T>
         extends Model
 {
-    int classify(FeatureVector features);
+    T classify(FeatureVector features);
 }

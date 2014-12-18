@@ -61,12 +61,12 @@ public final class LearnLibSvmClassifierAggregation
         throw new UnsupportedOperationException("LEARN must run on a single machine");
     }
 
-    @OutputFunction(ClassifierType.NAME)
+    @OutputFunction("Classifier<bigint>")
     public static void output(LearnState state, BlockBuilder out)
     {
         Dataset dataset = new Dataset(state.getLabels(), state.getFeatureVectors());
         Model model = new ClassifierFeatureTransformer(new SvmClassifier(state.getParameters()), new FeatureUnitNormalizer());
         model.train(dataset);
-        ClassifierType.CLASSIFIER.writeSlice(out, ModelUtils.serialize(model));
+        ClassifierType.BIGINT_CLASSIFIER.writeSlice(out, ModelUtils.serialize(model));
     }
 }

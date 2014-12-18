@@ -16,7 +16,7 @@ package com.facebook.presto.ml;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.ml.type.ClassifierType;
+import com.facebook.presto.ml.type.ClassifierParametricType;
 import com.facebook.presto.ml.type.ModelType;
 import com.facebook.presto.ml.type.RegressorType;
 import com.facebook.presto.operator.RowPageBuilder;
@@ -49,7 +49,7 @@ public class TestEvaluateClassifierPredictions
             throws Exception
     {
         TypeRegistry typeRegistry = new TypeRegistry();
-        typeRegistry.addType(ClassifierType.CLASSIFIER);
+        typeRegistry.addParametricType(new ClassifierParametricType());
         typeRegistry.addType(RegressorType.REGRESSOR);
         typeRegistry.addType(ModelType.MODEL);
         metadata.addFunctions(new MLFunctionFactory(typeRegistry).listFunctions());

@@ -22,12 +22,12 @@ import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ClassifierFeatureTransformer
-        implements Classifier
+        implements Classifier<Integer>
 {
-    private final Classifier classifier;
+    private final Classifier<Integer> classifier;
     private final FeatureTransformation transformation;
 
-    public ClassifierFeatureTransformer(Classifier classifier, FeatureTransformation transformation)
+    public ClassifierFeatureTransformer(Classifier<Integer> classifier, FeatureTransformation transformation)
     {
         this.classifier = checkNotNull(classifier, "classifier is is null");
         this.transformation = checkNotNull(transformation, "transformation is null");
@@ -36,7 +36,7 @@ public class ClassifierFeatureTransformer
     @Override
     public ModelType getType()
     {
-        return ClassifierType.CLASSIFIER;
+        return ClassifierType.BIGINT_CLASSIFIER;
     }
 
     @Override
@@ -53,7 +53,7 @@ public class ClassifierFeatureTransformer
     }
 
     @Override
-    public int classify(FeatureVector features)
+    public Integer classify(FeatureVector features)
     {
         return classifier.classify(transformation.transform(features));
     }

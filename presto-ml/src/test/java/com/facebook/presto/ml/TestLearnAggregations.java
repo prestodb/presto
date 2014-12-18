@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.ml;
 
+import com.facebook.presto.ml.type.ClassifierParametricType;
 import com.facebook.presto.ml.type.ClassifierType;
 import com.facebook.presto.ml.type.ModelType;
 import com.facebook.presto.ml.type.RegressorType;
@@ -50,8 +51,8 @@ public class TestLearnAggregations
 
     static {
         TypeRegistry typeRegistry = new TypeRegistry();
+        typeRegistry.addParametricType(new ClassifierParametricType());
         typeRegistry.addType(ModelType.MODEL);
-        typeRegistry.addType(ClassifierType.CLASSIFIER);
         typeRegistry.addType(RegressorType.REGRESSOR);
         typeManager = typeRegistry;
     }
@@ -61,7 +62,7 @@ public class TestLearnAggregations
             throws Exception
     {
         Type mapType = typeManager.getParameterizedType("map", ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.DOUBLE)), ImmutableList.of());
-        InternalAggregationFunction aggregation = new AggregationCompiler(typeManager).generateAggregationFunction(LearnClassifierAggregation.class, ClassifierType.CLASSIFIER, ImmutableList.of(BigintType.BIGINT, mapType));
+        InternalAggregationFunction aggregation = new AggregationCompiler(typeManager).generateAggregationFunction(LearnClassifierAggregation.class, ClassifierType.BIGINT_CLASSIFIER, ImmutableList.of(BigintType.BIGINT, mapType));
         assertLearnClassifer(aggregation.bind(ImmutableList.of(0, 1), Optional.empty(), Optional.empty(), 1.0).createAccumulator());
     }
 
@@ -70,7 +71,7 @@ public class TestLearnAggregations
             throws Exception
     {
         Type mapType = typeManager.getParameterizedType("map", ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.DOUBLE)), ImmutableList.of());
-        InternalAggregationFunction aggregation = new AggregationCompiler(typeManager).generateAggregationFunction(LearnLibSvmClassifierAggregation.class, ClassifierType.CLASSIFIER, ImmutableList.of(BigintType.BIGINT, mapType, VarcharType.VARCHAR));
+        InternalAggregationFunction aggregation = new AggregationCompiler(typeManager).generateAggregationFunction(LearnLibSvmClassifierAggregation.class, ClassifierType.BIGINT_CLASSIFIER, ImmutableList.of(BigintType.BIGINT, mapType, VarcharType.VARCHAR));
         assertLearnClassifer(aggregation.bind(ImmutableList.of(0, 1, 2), Optional.empty(), Optional.empty(), 1.0).createAccumulator());
     }
 

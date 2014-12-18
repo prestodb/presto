@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.ml;
 
-import com.facebook.presto.ml.type.ClassifierType;
 import com.facebook.presto.ml.type.RegressorType;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -30,7 +29,7 @@ import io.airlift.slice.Slices;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.facebook.presto.ml.type.ClassifierType.CLASSIFIER;
+import static com.facebook.presto.ml.type.ClassifierType.BIGINT_CLASSIFIER;
 import static com.facebook.presto.ml.type.RegressorType.REGRESSOR;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -46,12 +45,12 @@ public final class MLFunctions
 
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
-    public static long classify(@SqlType(MAP_BIGINT_DOUBLE) Slice featuresMap, @SqlType(ClassifierType.NAME) Slice modelSlice)
+    public static long classify(@SqlType(MAP_BIGINT_DOUBLE) Slice featuresMap, @SqlType("Classifier<bigint>") Slice modelSlice)
     {
         FeatureVector features = ModelUtils.jsonToFeatures(featuresMap);
         Model model = getOrLoadModel(modelSlice);
-        checkArgument(model instanceof Classifier && model.getType().equals(CLASSIFIER), "model is not a classifier");
-        return ((Classifier) model).classify(features);
+        checkArgument(model instanceof Classifier && model.getType().equals(BIGINT_CLASSIFIER), "model is not a classifier");
+        return ((Classifier<Integer>) model).classify(features);
     }
 
     @ScalarFunction
