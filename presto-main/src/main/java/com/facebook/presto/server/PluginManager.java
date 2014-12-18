@@ -24,6 +24,7 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.ParametricType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -193,6 +194,11 @@ public class PluginManager
         for (Type type : plugin.getServices(Type.class)) {
             log.info("Registering type %s", type.getTypeSignature());
             typeRegistry.addType(type);
+        }
+
+        for (ParametricType parametricType : plugin.getServices(ParametricType.class)) {
+            log.info("Registering parametric type %s", parametricType.getName());
+            typeRegistry.addParametricType(parametricType);
         }
 
         for (ConnectorFactory connectorFactory : plugin.getServices(ConnectorFactory.class)) {
