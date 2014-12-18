@@ -84,7 +84,7 @@ public class AggregationCompiler
         checkNotNull(returnType, "returnType is null");
         checkNotNull(argumentTypes, "argumentTypes is null");
         for (InternalAggregationFunction aggregation : generateAggregationFunctions(clazz)) {
-            if (aggregation.getFinalType() == returnType && aggregation.getParameterTypes().equals(argumentTypes)) {
+            if (aggregation.getFinalType().equals(returnType) && aggregation.getParameterTypes().equals(argumentTypes)) {
                 return aggregation;
             }
         }
