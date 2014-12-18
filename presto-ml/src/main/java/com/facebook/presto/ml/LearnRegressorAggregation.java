@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.ml;
 
-import com.facebook.presto.ml.type.ClassifierType;
+import com.facebook.presto.ml.type.RegressorType;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.CombineFunction;
 import com.facebook.presto.operator.aggregation.InputFunction;
@@ -55,7 +55,7 @@ public final class LearnRegressorAggregation
         throw new UnsupportedOperationException("LEARN must run on a single machine");
     }
 
-    @OutputFunction(ClassifierType.NAME)
+    @OutputFunction(RegressorType.NAME)
     public static void output(LearnState state, BlockBuilder out)
     {
         LearnLibSvmRegressorAggregation.output(state, out);
