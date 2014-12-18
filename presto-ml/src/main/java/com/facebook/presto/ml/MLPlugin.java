@@ -14,12 +14,13 @@
 package com.facebook.presto.ml;
 
 import com.facebook.presto.metadata.FunctionFactory;
-import com.facebook.presto.ml.type.ClassifierType;
+import com.facebook.presto.ml.type.ClassifierParametricType;
 import com.facebook.presto.ml.type.ModelType;
 import com.facebook.presto.ml.type.RegressorType;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.type.ParametricType;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -52,7 +53,10 @@ public class MLPlugin
             return ImmutableList.of(type.cast(new MLFunctionFactory(typeManager)));
         }
         else if (type == Type.class) {
-            return ImmutableList.of(type.cast(ModelType.MODEL), type.cast(ClassifierType.CLASSIFIER), type.cast(RegressorType.REGRESSOR));
+            return ImmutableList.of(type.cast(ModelType.MODEL), type.cast(RegressorType.REGRESSOR));
+        }
+        else if (type == ParametricType.class) {
+            return ImmutableList.of(type.cast(new ClassifierParametricType()));
         }
         return ImmutableList.of();
     }

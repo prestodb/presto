@@ -13,7 +13,14 @@
  */
 package com.facebook.presto.ml.type;
 
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import static com.google.common.base.Preconditions.checkArgument;
 
 // Layout is <size>:<model>, where
 //   size: is an int describing the length of the model bytes
@@ -21,11 +28,20 @@ import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 public class ClassifierType
         extends ModelType
 {
-    public static final ClassifierType CLASSIFIER = new ClassifierType();
-    public static final String NAME = "Classifier";
+    public static final ClassifierType BIGINT_CLASSIFIER = new ClassifierType(BigintType.BIGINT);
 
-    private ClassifierType()
+    private final Type labelType;
+
+    public ClassifierType(Type type)
     {
-        super(parameterizedTypeName(NAME));
+        super(parameterizedTypeName(ClassifierParametricType.NAME, type.getTypeSignature()));
+        checkArgument(type.isComparable(), "type must be comparable");
+        labelType = type;
+    }
+
+    @Override
+    public List<Type> getTypeParameters()
+    {
+        return ImmutableList.of(labelType);
     }
 }
