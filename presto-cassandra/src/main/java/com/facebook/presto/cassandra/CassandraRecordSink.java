@@ -148,6 +148,12 @@ public class CassandraRecordSink
         return "";
     }
 
+    @Override
+    public List<Type> getColumnTypes()
+    {
+        return columnTypes;
+    }
+
     private void append(Object value)
     {
         checkState(field != -1, "not in record");

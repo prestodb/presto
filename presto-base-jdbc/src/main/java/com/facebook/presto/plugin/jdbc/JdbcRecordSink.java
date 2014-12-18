@@ -171,6 +171,12 @@ public class JdbcRecordSink
         return ""; // the committer does not need any additional info
     }
 
+    @Override
+    public List<Type> getColumnTypes()
+    {
+        return columnTypes;
+    }
+
     private int next()
     {
         checkState(field != -1, "not in record");

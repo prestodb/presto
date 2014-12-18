@@ -151,6 +151,12 @@ public class RaptorRecordSink
         return Joiner.on(':').join(nodeId, outputHandle.getShardUuid());
     }
 
+    @Override
+    public List<Type> getColumnTypes()
+    {
+        return columnTypes;
+    }
+
     private Type currentType()
     {
         return columnTypes.get(rowSink.currentField());
