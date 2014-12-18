@@ -27,6 +27,7 @@ import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.optimizations.LimitPushDown;
 import com.facebook.presto.sql.planner.optimizations.MergeProjections;
 import com.facebook.presto.sql.planner.optimizations.MetadataQueryOptimizer;
+import com.facebook.presto.sql.planner.optimizations.NormalizeJoinOrder;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
 import com.facebook.presto.sql.planner.optimizations.PruneRedundantProjections;
@@ -76,6 +77,7 @@ public class PlanOptimizersFactory
             builder.add(new MetadataQueryOptimizer(metadata, splitManager));
         }
 
+        builder.add(new NormalizeJoinOrder());
         builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite
 
         // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging
