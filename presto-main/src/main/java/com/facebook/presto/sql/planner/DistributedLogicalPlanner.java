@@ -65,13 +65,7 @@ import static com.facebook.presto.SystemSessionProperties.isBigQueryEnabled;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
-import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
-import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
-import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
-import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
-import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Splits a logical plan into fragments that can be shipped and executed on distributed nodes
@@ -479,35 +473,15 @@ public class DistributedLogicalPlanner
         @Override
         public SubPlanBuilder visitTableWriter(TableWriterNode node, Void context)
         {
-            // TODO: begin create table or insert in pre-execution step, not here
-            // Part of the plan should be an Optional<StateChangeListener<QueryState>> and this
-            // callback can create the table and abort the table creation if the query fails.
-            WriterTarget target = createWriterTarget(node.getTarget());
-
             SubPlanBuilder current = node.getSource().accept(this, context);
-            current.setRoot(new TableWriterNode(node.getId(), current.getRoot(), target, node.getColumns(), node.getColumnNames(), node.getOutputSymbols(), node.getSampleWeightSymbol()));
+            current.setRoot(new TableWriterNode(node.getId(), current.getRoot(), node.getTarget(), node.getColumns(), node.getColumnNames(), node.getOutputSymbols(), node.getSampleWeightSymbol()));
             return current;
-        }
-
-        private WriterTarget createWriterTarget(WriterTarget target)
-        {
-            if (target instanceof CreateName) {
-                CreateName create = (CreateName) target;
-                return new CreateHandle(metadata.beginCreateTable(session, create.getCatalog(), create.getTableMetadata()));
-            }
-            if (target instanceof InsertReference) {
-                InsertReference insert = (InsertReference) target;
-                return new InsertHandle(metadata.beginInsert(session, insert.getHandle()));
-            }
-            throw new AssertionError("Unhandled target type: " + target.getClass().getName());
         }
 
         @Override
         public SubPlanBuilder visitTableCommit(TableCommitNode node, Void context)
         {
             SubPlanBuilder current = node.getSource().accept(this, context);
-            checkState(current.getRoot() instanceof TableWriterNode, "table commit node must be preceeded by table writer node");
-            WriterTarget target = ((TableWriterNode) current.getRoot()).getTarget();
 
             if (current.getDistribution() != PlanDistribution.COORDINATOR_ONLY && !createSingleNodePlan) {
                 current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
@@ -517,7 +491,7 @@ public class DistributedLogicalPlanner
                         .addChild(current.build());
             }
 
-            current.setRoot(new TableCommitNode(node.getId(), current.getRoot(), target, node.getOutputSymbols()));
+            current.setRoot(new TableCommitNode(node.getId(), current.getRoot(), node.getTarget(), node.getOutputSymbols()));
 
             return current;
         }
