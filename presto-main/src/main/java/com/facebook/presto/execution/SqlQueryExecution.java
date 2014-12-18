@@ -248,14 +248,7 @@ public class SqlQueryExecution
                 nodeTaskMap,
                 ROOT_OUTPUT_BUFFERS);
         this.outputStage.set(outputStage);
-        outputStage.addStateChangeListener(new StateChangeListener<StageInfo>()
-        {
-            @Override
-            public void stateChanged(StageInfo stageInfo)
-            {
-                doUpdateState(stageInfo);
-            }
-        });
+        outputStage.addStateChangeListener(this::doUpdateState);
 
         // record planning time
         stateMachine.recordDistributedPlanningTime(distributedPlanningStart);

@@ -225,14 +225,7 @@ public class SqlStageExecution
                         executor,
                         nodeTaskMap);
 
-                subStage.addStateChangeListener(new StateChangeListener<StageInfo>()
-                {
-                    @Override
-                    public void stateChanged(StageInfo stageInfo)
-                    {
-                        doUpdateState();
-                    }
-                });
+                subStage.addStateChangeListener(stageInfo -> doUpdateState());
 
                 subStages.put(subStageFragmentId, subStage);
             }
@@ -242,14 +235,7 @@ public class SqlStageExecution
             this.nodeSelector = nodeScheduler.createNodeSelector(dataSourceName);
             this.nodeTaskMap = nodeTaskMap;
             stageState = new StateMachine<>("stage " + stageId, this.executor, StageState.PLANNED);
-            stageState.addStateChangeListener(new StateChangeListener<StageState>()
-            {
-                @Override
-                public void stateChanged(StageState newValue)
-                {
-                    log.debug("Stage %s is %s", stageId, newValue);
-                }
-            });
+            stageState.addStateChangeListener(state -> log.debug("Stage %s is %s", stageId, state));
         }
     }
 
@@ -533,14 +519,7 @@ public class SqlStageExecution
             for (StageExecutionNode subStage : subStages.values()) {
                 subStage.scheduleStartTasks();
             }
-            return executor.submit(new Runnable()
-            {
-                @Override
-                public void run()
-                {
-                    startTasks();
-                }
-            });
+            return executor.submit(this::startTasks);
         }
     }
 
@@ -764,14 +743,7 @@ public class SqlStageExecution
                 initialSplits.build(),
                 getCurrentOutputBuffers());
 
-        task.addStateChangeListener(new StateChangeListener<TaskInfo>()
-        {
-            @Override
-            public void stateChanged(TaskInfo taskInfo)
-            {
-                doUpdateState();
-            }
-        });
+        task.addStateChangeListener(taskInfo -> doUpdateState());
 
         // create and update task
         task.start();
