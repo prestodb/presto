@@ -17,7 +17,7 @@ import com.facebook.presto.ml.type.ClassifierParametricType;
 import com.facebook.presto.ml.type.ClassifierType;
 import com.facebook.presto.ml.type.ModelType;
 import com.facebook.presto.ml.type.RegressorType;
-import com.facebook.presto.operator.RowPageBuilder;
+import com.facebook.presto.RowPageBuilder;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AggregationCompiler;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;

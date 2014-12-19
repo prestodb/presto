@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.SequencePageBuilder;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TestingSplit;
 import com.facebook.presto.metadata.ColumnHandle;

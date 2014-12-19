@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -24,7 +24,7 @@ import com.google.common.collect.Iterables;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.operator.RowPageBuilder.rowPageBuilder;
+import static com.facebook.presto.RowPageBuilder.rowPageBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -127,7 +127,7 @@ public class RowPagesBuilder
             return ImmutableList.copyOf(Iterables.concat(types, ImmutableList.of(BigintType.BIGINT)));
         }
         return types;
-     }
+    }
 
     public Optional<Integer> getHashChannel()
     {
