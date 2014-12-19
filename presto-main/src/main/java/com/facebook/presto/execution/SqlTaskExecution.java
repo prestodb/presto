@@ -150,9 +150,7 @@ public class SqlTaskExecution
             catch (Throwable e) {
                 // planning failed
                 taskStateMachine.failed(e);
-                Throwables.propagateIfInstanceOf(e, Error.class);
-
-                driverFactories = ImmutableList.of();
+                throw Throwables.propagate(e);
             }
 
             // index driver factories

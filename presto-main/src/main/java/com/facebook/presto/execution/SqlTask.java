@@ -208,16 +208,23 @@ public class SqlTask
             }
             taskExecution = taskHolder.getTaskExecution();
             if (taskExecution == null) {
-                taskExecution = sqlTaskExecutionFactory.create(session, taskStateMachine, sharedBuffer, fragment, sources);
-                taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
+                try {
+                    taskExecution = sqlTaskExecutionFactory.create(session, taskStateMachine, sharedBuffer, fragment, sources);
+                    taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
+                }
+                catch (RuntimeException e) {
+                    failed(e);
+                }
             }
         }
 
         lastHeartbeat.set(DateTime.now());
 
-        // addSources checks for task completion, so update the buffers first and the task might complete earlier
-        sharedBuffer.setOutputBuffers(outputBuffers);
-        taskExecution.addSources(sources);
+        if (taskExecution != null) {
+            // addSources checks for task completion, so update the buffers first and the task might complete earlier
+            sharedBuffer.setOutputBuffers(outputBuffers);
+            taskExecution.addSources(sources);
+        }
 
         return getTaskInfo();
     }
