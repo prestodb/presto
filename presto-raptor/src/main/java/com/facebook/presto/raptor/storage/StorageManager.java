@@ -25,9 +25,11 @@ public interface StorageManager
 {
     ConnectorPageSource getPageSource(UUID shardUuid, List<Long> columnIds, List<Type> columnTypes, TupleDomain<RaptorColumnHandle> effectivePredicate);
 
-    OutputHandle createOutputHandle(List<Long> columnIds, List<Type> columnTypes);
+    StorageOutputHandle createStorageOutputHandle(List<Long> columnIds, List<Type> columnTypes);
 
-    void commit(OutputHandle outputHandle);
+    UUID commit(StorageOutputHandle storageOutputHandle);
 
     boolean isBackupAvailable();
+
+    StoragePageSink getStoragePageSink(StorageOutputHandle storageOutputHandle);
 }

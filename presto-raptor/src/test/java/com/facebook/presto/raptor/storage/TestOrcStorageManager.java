@@ -132,7 +132,7 @@ public class TestOrcStorageManager
         List<Long> columnIds = ImmutableList.of(3L, 7L);
         List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR);
 
-        OutputHandle handle = manager.createOutputHandle(columnIds, columnTypes);
+        StorageOutputHandle handle = manager.createStorageOutputHandle(columnIds, columnTypes);
         List<Page> pages = RowPagesBuilder.rowPagesBuilder(columnTypes)
                 .row(123, "hello")
                 .row(456, "bye")
@@ -187,7 +187,7 @@ public class TestOrcStorageManager
         byte[] bytes1 = octets(0x00, 0xFE, 0xFF);
         byte[] bytes3 = octets(0x01, 0x02, 0x19, 0x80);
 
-        OutputHandle handle = manager.createOutputHandle(columnIds, columnTypes);
+        StorageOutputHandle handle = manager.createStorageOutputHandle(columnIds, columnTypes);
 
         List<Page> pages = RowPagesBuilder.rowPagesBuilder(columnTypes)
                 .row(123, "hello", wrappedBuffer(bytes1), dateValue(new DateTime(2001, 8, 22, 0, 0, 0, 0, UTC)), true, 123.45)

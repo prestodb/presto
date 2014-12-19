@@ -116,21 +116,22 @@ public class OrcStorageManager
 
     @SuppressWarnings("resource")
     @Override
-    public OutputHandle createOutputHandle(List<Long> columnIds, List<Type> columnTypes)
+    public StorageOutputHandle createStorageOutputHandle(List<Long> columnIds, List<Type> columnTypes)
     {
         UUID shardUuid = UUID.randomUUID();
         File stagingFile = storageService.getStagingFile(shardUuid);
         storageService.createParents(stagingFile);
-        return new OutputHandle(shardUuid, new OrcStoragePageSink(columnIds, columnTypes, stagingFile));
+        return new StorageOutputHandle(shardUuid, new OrcStoragePageSink(columnIds, columnTypes, stagingFile));
     }
 
     @Override
-    public void commit(OutputHandle outputHandle)
+    public UUID commit(StorageOutputHandle storageOutputHandle)
     {
-        outputHandle.getStoragePageSink().close();
+        storageOutputHandle.getStoragePageSink().close();
 
-        File stagingFile = storageService.getStagingFile(outputHandle.getShardUuid());
-        File storageFile = storageService.getStorageFile(outputHandle.getShardUuid());
+        UUID shardUuid = storageOutputHandle.getShardUuid();
+        File stagingFile = storageService.getStagingFile(shardUuid);
+        File storageFile = storageService.getStorageFile(shardUuid);
 
         storageService.createParents(storageFile);
 
@@ -142,7 +143,7 @@ public class OrcStorageManager
         }
 
         if (isBackupAvailable()) {
-            File backupFile = storageService.getBackupFile(outputHandle.getShardUuid());
+            File backupFile = storageService.getBackupFile(shardUuid);
             storageService.createParents(backupFile);
             try {
                 Files.copy(storageFile.toPath(), backupFile.toPath());
@@ -151,6 +152,7 @@ public class OrcStorageManager
                 throw new PrestoException(RAPTOR_ERROR, "Failed to create backup shard file", e);
             }
         }
+        return shardUuid;
     }
 
     private static File temporarySuffix(File file)
@@ -162,6 +164,12 @@ public class OrcStorageManager
     public boolean isBackupAvailable()
     {
         return storageService.isBackupAvailable();
+    }
+
+    @Override
+    public StoragePageSink getStoragePageSink(StorageOutputHandle storageOutputHandle)
+    {
+        return storageOutputHandle.getStoragePageSink();
     }
 
     @VisibleForTesting
