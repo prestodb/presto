@@ -682,7 +682,10 @@ public class SqlStageExecution
             // waiting for the "noMoreBuffers" call
             nodeSelector.lockDownNodes();
             for (Node node : Sets.difference(new HashSet<>(nodeSelector.allNodes()), localNodeTaskMap.keySet())) {
-                scheduleTask(nextTaskId.getAndIncrement(), node);
+                RemoteTask remoteTask = scheduleTask(nextTaskId.getAndIncrement(), node);
+
+                // tell the sub stages to create a buffer for this task
+                addStageNode(remoteTask.getTaskInfo().getTaskId());
             }
             // tell sub stages there will be no more output buffers
             setNoMoreStageNodes();
