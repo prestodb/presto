@@ -99,7 +99,7 @@ public class RowPageBuilder
             type.writeDouble(builder, (Double) value);
         }
         else if (javaType == Slice.class) {
-            Slice slice = Slices.utf8Slice((String) value);
+            Slice slice = value instanceof Slice ? (Slice) value : Slices.utf8Slice((String) value);
             type.writeSlice(builder, slice, 0, slice.length());
         }
         else {

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.orc.LongVector;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
@@ -20,6 +21,7 @@ import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlVarbinary;
@@ -56,6 +58,7 @@ import static com.facebook.presto.testing.MaterializedResult.materializeSourceDa
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.google.common.io.Files.createTempDir;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.airlift.testing.FileUtils.deleteRecursively;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Locale.ENGLISH;
@@ -74,7 +77,6 @@ public class TestOrcStorageManager
 
     private Handle dummyHandle;
     private File temporary;
-    private File directory;
     private StorageService storageService;
 
     @BeforeClass
@@ -82,7 +84,7 @@ public class TestOrcStorageManager
             throws Exception
     {
         temporary = createTempDir();
-        directory = new File(temporary, "data");
+        File directory = new File(temporary, "data");
         File backupDirectory = new File(temporary, "backup");
         storageService = new FileStorageService(directory, Optional.of(backupDirectory));
         storageService.start();
@@ -130,20 +132,13 @@ public class TestOrcStorageManager
         List<Long> columnIds = ImmutableList.of(3L, 7L);
         List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR);
 
-        OutputHandle handle = manager.createOutputHandle(columnIds, columnTypes, Optional.<Long>absent());
-
-        RowSink sink = handle.getRowSink();
-
-        sink.beginRecord(1);
-        sink.appendLong(123);
-        sink.appendString("hello");
-        sink.finishRecord();
-
-        sink.beginRecord(1);
-        sink.appendLong(456);
-        sink.appendString("bye");
-        sink.finishRecord();
-
+        OutputHandle handle = manager.createOutputHandle(columnIds, columnTypes);
+        List<Page> pages = RowPagesBuilder.rowPagesBuilder(columnTypes)
+                .row(123, "hello")
+                .row(456, "bye")
+                .build();
+        StoragePageSink storagePageSink = handle.getStoragePageSink();
+        pages.forEach(storagePageSink::appendPage);
         manager.commit(handle);
 
         UUID shardUuid = handle.getShardUuid();
@@ -192,34 +187,16 @@ public class TestOrcStorageManager
         byte[] bytes1 = octets(0x00, 0xFE, 0xFF);
         byte[] bytes3 = octets(0x01, 0x02, 0x19, 0x80);
 
-        OutputHandle handle = manager.createOutputHandle(columnIds, columnTypes, Optional.<Long>absent());
+        OutputHandle handle = manager.createOutputHandle(columnIds, columnTypes);
 
-        RowSink sink = handle.getRowSink();
+        List<Page> pages = RowPagesBuilder.rowPagesBuilder(columnTypes)
+                .row(123, "hello", wrappedBuffer(bytes1), dateValue(new DateTime(2001, 8, 22, 0, 0, 0, 0, UTC)), true, 123.45)
+                .row(null, null, null, null, null, null)
+                .row(456, "bye", wrappedBuffer(bytes3), dateValue(new DateTime(2005, 4, 22, 0, 0, 0, 0, UTC)), false, 987.65)
+                .build();
 
-        sink.beginRecord(1);
-        sink.appendLong(123);
-        sink.appendString("hello");
-        sink.appendBytes(bytes1);
-        sink.appendLong(dateValue(new DateTime(2001, 8, 22, 0, 0, 0, 0, UTC)));
-        sink.appendBoolean(true);
-        sink.appendDouble(123.45);
-        sink.finishRecord();
-
-        sink.beginRecord(1);
-        for (int i = 0; i < columnIds.size(); i++) {
-            sink.appendNull();
-        }
-        sink.finishRecord();
-
-        sink.beginRecord(1);
-        sink.appendLong(456);
-        sink.appendString("bye");
-        sink.appendBytes(bytes3);
-        sink.appendLong(dateValue(new DateTime(2005, 4, 22, 0, 0, 0, 0, UTC)));
-        sink.appendBoolean(false);
-        sink.appendDouble(987.65);
-        sink.finishRecord();
-
+        StoragePageSink storagePageSink = handle.getStoragePageSink();
+        pages.forEach(storagePageSink::appendPage);
         manager.commit(handle);
 
         // no tuple domain (all)

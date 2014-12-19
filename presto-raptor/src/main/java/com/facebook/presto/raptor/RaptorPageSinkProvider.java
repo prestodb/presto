@@ -17,8 +17,8 @@ import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.util.CurrentNodeId;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
-import com.facebook.presto.spi.RecordSink;
+import com.facebook.presto.spi.ConnectorPageSink;
+import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
@@ -30,29 +30,29 @@ import java.util.List;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class RaptorRecordSinkProvider
-        implements ConnectorRecordSinkProvider
+public class RaptorPageSinkProvider
+        implements ConnectorPageSinkProvider
 {
     private final StorageManager storageManager;
     private final String nodeId;
 
     @Inject
-    public RaptorRecordSinkProvider(StorageManager storageManager, CurrentNodeId currentNodeId)
+    public RaptorPageSinkProvider(StorageManager storageManager, CurrentNodeId currentNodeId)
     {
         this(storageManager, currentNodeId.toString());
     }
 
-    public RaptorRecordSinkProvider(StorageManager storageManager, String nodeId)
+    public RaptorPageSinkProvider(StorageManager storageManager, String nodeId)
     {
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
         this.nodeId = checkNotNull(nodeId, "nodeId is null");
     }
 
     @Override
-    public RecordSink getRecordSink(ConnectorOutputTableHandle tableHandle)
+    public ConnectorPageSink createPageSink(ConnectorOutputTableHandle tableHandle)
     {
         RaptorOutputTableHandle handle = checkType(tableHandle, RaptorOutputTableHandle.class, "tableHandle");
-        return new RaptorRecordSink(
+        return new RaptorPageSink(
                 nodeId,
                 storageManager,
                 toColumnIds(handle.getColumnHandles()),
@@ -61,10 +61,10 @@ public class RaptorRecordSinkProvider
     }
 
     @Override
-    public RecordSink getRecordSink(ConnectorInsertTableHandle tableHandle)
+    public ConnectorPageSink createPageSink(ConnectorInsertTableHandle tableHandle)
     {
         RaptorInsertTableHandle handle = checkType(tableHandle, RaptorInsertTableHandle.class, "tableHandle");
-        return new RaptorRecordSink(
+        return new RaptorPageSink(
                 nodeId,
                 storageManager,
                 toColumnIds(handle.getColumnHandles()),
@@ -84,13 +84,6 @@ public class RaptorRecordSinkProvider
 
     private static Function<RaptorColumnHandle, Long> columnIdGetter()
     {
-        return new Function<RaptorColumnHandle, Long>()
-        {
-            @Override
-            public Long apply(RaptorColumnHandle handle)
-            {
-                return handle.getColumnId();
-            }
-        };
+        return RaptorColumnHandle::getColumnId;
     }
 }

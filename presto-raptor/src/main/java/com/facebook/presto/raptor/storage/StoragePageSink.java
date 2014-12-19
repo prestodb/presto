@@ -13,28 +13,14 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.spi.Page;
+
 import java.io.Closeable;
 
-public interface RowSink
+public interface StoragePageSink
         extends Closeable
 {
-    void beginRecord(long sampleWeight);
-
-    void finishRecord();
-
-    int currentField();
-
-    void appendNull();
-
-    void appendBoolean(boolean value);
-
-    void appendLong(long value);
-
-    void appendDouble(double value);
-
-    void appendString(String value);
-
-    void appendBytes(byte[] value);
+    void appendPage(Page page);
 
     @Override
     void close();
