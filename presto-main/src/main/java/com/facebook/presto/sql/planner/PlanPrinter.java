@@ -42,7 +42,6 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -126,7 +125,7 @@ public class PlanPrinter
 
     public static String graphvizLogicalPlan(PlanNode plan, Map<Symbol, Type> types)
     {
-        PlanFragment fragment = new PlanFragment(new PlanFragmentId("graphviz_plan"), plan, types, PlanDistribution.NONE, plan.getId(), OutputPartitioning.NONE, ImmutableList.<Symbol>of(), Optional.empty());
+        PlanFragment fragment = new PlanFragment(new PlanFragmentId("graphviz_plan"), plan, types, plan.getOutputSymbols(), PlanDistribution.NONE, plan.getId(), OutputPartitioning.NONE, ImmutableList.<Symbol>of(), Optional.empty());
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
     }
 
@@ -430,14 +429,6 @@ public class PlanPrinter
             print(indent, "- Exchange[%s] => [%s]", node.getSourceFragmentIds(), formatOutputs(node.getOutputSymbols()));
 
             return processExchange(node, indent + 1);
-        }
-
-        @Override
-        public Void visitSink(SinkNode node, Integer indent)
-        {
-            print(indent, "- Sink[%s] => [%s]", node.getId(), formatOutputs(node.getOutputSymbols()));
-
-            return processChildren(node, indent + 1);
         }
 
         @Override

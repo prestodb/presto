@@ -30,7 +30,6 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -399,17 +398,6 @@ public final class PlanSanityChecker
         @Override
         public Void visitExchange(ExchangeNode node, Void context)
         {
-            verifyUniqueId(node);
-
-            return null;
-        }
-
-        @Override
-        public Void visitSink(SinkNode node, Void context)
-        {
-            PlanNode source = node.getSource();
-            source.accept(this, context); // visit child
-
             verifyUniqueId(node);
 
             return null;

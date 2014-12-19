@@ -81,6 +81,7 @@ public class MockRemoteTaskFactory
                         null,
                         Optional.empty()),
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
+                ImmutableList.of(symbol),
                 PlanFragment.PlanDistribution.SOURCE,
                 tableScanNodeId,
                 PlanFragment.OutputPartitioning.NONE,

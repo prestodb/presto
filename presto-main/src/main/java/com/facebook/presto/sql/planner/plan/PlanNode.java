@@ -43,7 +43,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
         @JsonSubTypes.Type(value = SampleNode.class, name = "sample"),
         @JsonSubTypes.Type(value = SortNode.class, name = "sort"),
         @JsonSubTypes.Type(value = ExchangeNode.class, name = "exchange"),
-        @JsonSubTypes.Type(value = SinkNode.class, name = "sink"),
         @JsonSubTypes.Type(value = JoinNode.class, name = "join"),
         @JsonSubTypes.Type(value = SemiJoinNode.class, name = "semijoin"),
         @JsonSubTypes.Type(value = IndexJoinNode.class, name = "indexjoin"),

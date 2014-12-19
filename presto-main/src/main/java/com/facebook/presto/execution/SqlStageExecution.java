@@ -35,7 +35,6 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Throwables;
@@ -1000,7 +999,6 @@ public class SqlStageExecution
     private static List<Integer> getPartitioningChannels(PlanFragment fragment)
     {
         checkState(fragment.getOutputPartitioning() == OutputPartitioning.HASH, "fragment is not hash partitioned");
-        checkState(fragment.getRoot() instanceof SinkNode, "root is not an instance of SinkNode");
         // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
         return fragment.getPartitionBy().stream()
                 .map(symbol -> fragment.getRoot().getOutputSymbols().indexOf(symbol))

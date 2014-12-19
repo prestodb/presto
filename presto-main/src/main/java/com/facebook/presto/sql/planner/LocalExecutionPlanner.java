@@ -92,7 +92,6 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -213,12 +212,13 @@ public class LocalExecutionPlanner
 
     public LocalExecutionPlan plan(Session session,
             PlanNode plan,
+            List<Symbol> outputLayout,
             Map<Symbol, Type> types,
             OutputFactory outputOperatorFactory)
     {
         LocalExecutionPlanContext context = new LocalExecutionPlanContext(session, types);
 
-        PhysicalOperation physicalOperation = plan.accept(new Visitor(session), context);
+        PhysicalOperation physicalOperation = enforceLayout(outputLayout, context, plan.accept(new Visitor(session), context));
 
         DriverFactory driverFactory = new DriverFactory(
                 context.isInputDriver(),
@@ -231,6 +231,30 @@ public class LocalExecutionPlanner
         context.addDriverFactory(driverFactory);
 
         return new LocalExecutionPlan(context.getDriverFactories());
+    }
+
+    private PhysicalOperation enforceLayout(List<Symbol> outputLayout, LocalExecutionPlanContext context, PhysicalOperation physicalOperation)
+    {
+        // are the symbols of the source in the same order as the sink expects?
+        boolean projectionMatchesOutput = physicalOperation.getLayout()
+                .entrySet().stream()
+                .sorted(Ordering.<Integer>natural().onResultOf(Map.Entry::getValue))
+                .map(Map.Entry::getKey)
+                .collect(toImmutableList())
+                .equals(outputLayout);
+
+        if (!projectionMatchesOutput) {
+            IdentityProjectionInfo mappings = computeIdentityMapping(outputLayout, physicalOperation.getLayout(), context.getTypes());
+            OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+                    context.getNextOperatorId(),
+                    new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, mappings.getProjections()),
+                    toTypes(mappings.getProjections()));
+            // NOTE: the generated output layout may not be completely accurate if the same field was projected as multiple inputs.
+            // However, this should not affect the operation of the sink.
+            physicalOperation = new PhysicalOperation(operatorFactory, mappings.getOutputLayout(), physicalOperation);
+        }
+
+        return physicalOperation;
     }
 
     private static class LocalExecutionPlanContext
@@ -373,34 +397,7 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitOutput(OutputNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().accept(this, context);
-
-            // see if we need to introduce a projection
-            //   1. verify that there's one symbol per channel
-            //   2. verify that symbols from "source" match the expected order of columns according to OutputNode
-            Ordering<Integer> comparator = Ordering.natural();
-
-            List<Symbol> sourceSymbols = source.getLayout()
-                    .entrySet().stream()
-                    .sorted(comparator.onResultOf(Map.Entry::getValue))
-                    .map(Map.Entry::getKey)
-                    .collect(toImmutableList());
-
-            List<Symbol> resultSymbols = node.getOutputSymbols();
-            if (resultSymbols.equals(sourceSymbols) && resultSymbols.size() == source.getTypes().size()) {
-                // no projection needed
-                return source;
-            }
-
-            // otherwise, introduce a projection to match the expected output
-            IdentityProjectionInfo mappings = computeIdentityMapping(resultSymbols, source.getLayout(), context.getTypes());
-
-            OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
-                    context.getNextOperatorId(),
-                    new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, mappings.getProjections()),
-                    toTypes(mappings.getProjections()));
-
-            return new PhysicalOperation(operatorFactory, mappings.getOutputLayout(), source);
+            return node.getSource().accept(this, context);
         }
 
         @Override
@@ -549,17 +546,17 @@ public class LocalExecutionPlanner
             }
 
             OperatorFactory operatorFactory = new WindowOperatorFactory(
-                        context.getNextOperatorId(),
-                        source.getTypes(),
-                        outputChannels.build(),
-                        windowFunctions,
-                        partitionChannels,
-                        sortChannels,
-                        sortOrder,
-                        node.getFrame().getType(),
-                        node.getFrame().getStartType(), frameStartChannel,
-                        node.getFrame().getEndType(), frameEndChannel,
-                        1_000_000);
+                    context.getNextOperatorId(),
+                    source.getTypes(),
+                    outputChannels.build(),
+                    windowFunctions,
+                    partitionChannels,
+                    sortChannels,
+                    sortOrder,
+                    node.getFrame().getType(),
+                    node.getFrame().getStartType(), frameStartChannel,
+                    node.getFrame().getEndType(), frameEndChannel,
+                    1_000_000);
 
             return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
         }
@@ -1275,33 +1272,6 @@ public class LocalExecutionPlanner
 
             HashSemiJoinOperatorFactory operator = new HashSemiJoinOperatorFactory(context.getNextOperatorId(), setProvider, probeSource.getTypes(), probeChannel, probeHashChannel);
             return new PhysicalOperation(operator, outputMappings, probeSource);
-        }
-
-        @Override
-        public PhysicalOperation visitSink(SinkNode node, LocalExecutionPlanContext context)
-        {
-            PhysicalOperation source = node.getSource().accept(this, context);
-
-            // are the symbols of the source in the same order as the sink expects?
-            boolean projectionMatchesOutput = source.getLayout()
-                    .entrySet().stream()
-                    .sorted(Ordering.<Integer>natural().onResultOf(Map.Entry::getValue))
-                    .map(Map.Entry::getKey)
-                    .collect(toImmutableList())
-                    .equals(node.getOutputSymbols());
-
-            if (!projectionMatchesOutput) {
-                IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), context.getTypes());
-                OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
-                        context.getNextOperatorId(),
-                        new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, mappings.getProjections()),
-                        toTypes(mappings.getProjections()));
-                // NOTE: the generated output layout may not be completely accurate if the same field was projected as multiple inputs.
-                // However, this should not affect the operation of the sink.
-                return new PhysicalOperation(operatorFactory, mappings.getOutputLayout(), source);
-            }
-
-            return source;
         }
 
         @Override

@@ -33,6 +33,7 @@ import java.util.Set;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 @Immutable
@@ -55,6 +56,7 @@ public class PlanFragment
     private final PlanFragmentId id;
     private final PlanNode root;
     private final Map<Symbol, Type> symbols;
+    private final List<Symbol> outputLayout;
     private final PlanDistribution distribution;
     private final PlanNodeId partitionedSource;
     private final List<Type> types;
@@ -69,6 +71,7 @@ public class PlanFragment
             @JsonProperty("id") PlanFragmentId id,
             @JsonProperty("root") PlanNode root,
             @JsonProperty("symbols") Map<Symbol, Type> symbols,
+            @JsonProperty("outputLayout") List<Symbol> outputLayout,
             @JsonProperty("distribution") PlanDistribution distribution,
             @JsonProperty("partitionedSource") PlanNodeId partitionedSource,
             @JsonProperty("outputPartitioning") OutputPartitioning outputPartitioning,
@@ -78,10 +81,14 @@ public class PlanFragment
         this.id = checkNotNull(id, "id is null");
         this.root = checkNotNull(root, "root is null");
         this.symbols = checkNotNull(symbols, "symbols is null");
+        this.outputLayout = checkNotNull(outputLayout, "outputLayout is null");
         this.distribution = checkNotNull(distribution, "distribution is null");
         this.partitionedSource = partitionedSource;
         this.partitionBy = ImmutableList.copyOf(checkNotNull(partitionBy, "partitionBy is null"));
         this.hash = hash;
+
+        checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(outputLayout),
+                "Root node outputs (%s) don't include all fragment outputs (%s)", root.getOutputSymbols(), outputLayout);
 
         types = root.getOutputSymbols().stream()
                 .map(symbols::get)
@@ -119,6 +126,12 @@ public class PlanFragment
     public Map<Symbol, Type> getSymbols()
     {
         return symbols;
+    }
+
+    @JsonProperty
+    public List<Symbol> getOutputLayout()
+    {
+        return outputLayout;
     }
 
     @JsonProperty

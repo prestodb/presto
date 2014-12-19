@@ -73,6 +73,7 @@ public final class TaskTestUtils
                     null,
                     Optional.empty()),
             ImmutableMap.<Symbol, Type>of(SYMBOL, VARCHAR),
+            ImmutableList.of(SYMBOL),
             PlanDistribution.SOURCE,
             TABLE_SCAN_NODE_ID,
             OutputPartitioning.NONE,

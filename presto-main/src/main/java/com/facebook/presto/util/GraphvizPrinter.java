@@ -33,7 +33,6 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -239,13 +238,6 @@ public final class GraphvizPrinter
         public Void visitMarkDistinct(MarkDistinctNode node, Void context)
         {
             printNode(node, format("MarkDistinct[%s]", node.getMarkerSymbol()), format("%s => %s", node.getDistinctSymbols(), node.getMarkerSymbol()), NODE_COLORS.get(NodeType.MARK_DISTINCT));
-            return node.getSource().accept(this, context);
-        }
-
-        @Override
-        public Void visitSink(SinkNode node, Void context)
-        {
-            printNode(node, "Sink", NODE_COLORS.get(NodeType.SINK));
             return node.getSource().accept(this, context);
         }
 

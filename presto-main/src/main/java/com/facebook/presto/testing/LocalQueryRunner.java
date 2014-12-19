@@ -392,6 +392,7 @@ public class LocalQueryRunner
         // plan query
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(session,
                 subplan.getFragment().getRoot(),
+                subplan.getFragment().getOutputLayout(),
                 plan.getTypes(),
                 outputFactory);
 
