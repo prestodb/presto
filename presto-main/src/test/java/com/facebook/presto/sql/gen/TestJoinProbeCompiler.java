@@ -130,6 +130,7 @@ public class TestJoinProbeCompiler
         for (int position = 0; position < page.getPositionCount(); position++) {
             assertTrue(joinProbe.advanceNextPosition());
 
+            pageBuilder.declarePosition();
             joinProbe.appendTo(pageBuilder);
 
             assertEquals(joinProbe.getCurrentJoinPosition(), lookupSource.getJoinPosition(position, page));

@@ -307,6 +307,8 @@ public class TopNRowNumberOperator
             while (!pageBuilder.isFull() && currentFlushingPartition.hasNext()) {
                 Block[] next = currentFlushingPartition.next();
                 sizeDelta += sizeOfRow(next);
+
+                pageBuilder.declarePosition();
                 for (int i = 0; i < outputChannels.length; i++) {
                     int channel = outputChannels[i];
                     Type type = types.get(channel);

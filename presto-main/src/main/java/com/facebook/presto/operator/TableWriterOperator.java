@@ -209,6 +209,7 @@ public class TableWriterOperator
         String fragment = recordSink.commit();
 
         PageBuilder page = new PageBuilder(TYPES);
+        page.declarePosition();
         BIGINT.writeLong(page.getBlockBuilder(0), rowCount);
         VARCHAR.writeSlice(page.getBlockBuilder(1), Slices.utf8Slice(fragment));
         return page.build();

@@ -260,6 +260,7 @@ public class HandTpchQuery1
                     //     extendedprice * (1 - discount) * (1 + tax)
                     //     discount
 
+                    pageBuilder.declarePosition();
                     if (returnFlagBlock.isNull(position)) {
                         pageBuilder.getBlockBuilder(0).appendNull();
                     }

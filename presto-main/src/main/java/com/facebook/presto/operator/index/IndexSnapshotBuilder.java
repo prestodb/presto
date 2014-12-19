@@ -139,6 +139,7 @@ public class IndexSnapshotBuilder
             Page page = indexKeysRecordCursor.getPage();
             int position = indexKeysRecordCursor.getPosition();
             if (lookupSource.getJoinPosition(position, page) < 0) {
+                missingKeysPageBuilder.declarePosition();
                 for (int i = 0; i < blocks.length; i++) {
                     Block block = blocks[i];
                     Type type = indexKeysRecordCursor.getType(i);

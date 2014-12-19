@@ -115,6 +115,7 @@ public class TestJoinCompiler
                 }
 
                 // write position to output block
+                pageBuilder.declarePosition();
                 hashStrategy.appendTo(leftBlockIndex, leftBlockPosition, pageBuilder, 0);
             }
 
@@ -217,6 +218,7 @@ public class TestJoinCompiler
                 }
 
                 // write position to output block
+                pageBuilder.declarePosition();
                 hashStrategy.appendTo(leftBlockIndex, leftBlockPosition, pageBuilder, 0);
             }
 

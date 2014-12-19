@@ -225,6 +225,7 @@ public class TopNOperator
         pageBuilder.reset();
         while (!pageBuilder.isFull() && outputIterator.hasNext()) {
             Block[] next = outputIterator.next();
+            pageBuilder.declarePosition();
             for (int i = 0; i < next.length; i++) {
                 Type type = types.get(i);
                 type.appendTo(next[i], 0, pageBuilder.getBlockBuilder(i));

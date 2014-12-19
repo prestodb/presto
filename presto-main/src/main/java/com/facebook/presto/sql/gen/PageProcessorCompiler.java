@@ -159,36 +159,34 @@ public class PageProcessorCompiler
                                 .build()))
                 .ifTrue(trueBlock);
 
-        if (projections.size() == 0) {
-            trueBlock.getVariable(pageBuilderVariable)
-                    .invokeVirtual(PageBuilder.class, "declarePosition", void.class);
+        trueBlock.getVariable(pageBuilderVariable)
+                .invokeVirtual(PageBuilder.class, "declarePosition", void.class);
+
+        for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
+            List<Integer> inputChannels = getInputChannels(projections.get(projectionIndex));
+
+            trueBlock.pushThis()
+                    .getVariable(sessionVariable)
+                    .append(pushBlockVariables(context, inputChannels))
+                    .getVariable(positionVariable);
+
+            trueBlock.comment("pageBuilder.getBlockBuilder(" + projectionIndex + ")")
+                    .getVariable(pageBuilderVariable)
+                    .push(projectionIndex)
+                    .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class);
+
+            trueBlock.comment("project_" + projectionIndex + "(session, block_" + inputChannels + ", position, blockBuilder)")
+                    .invokeVirtual(classDefinition.getType(),
+                            "project_" + projectionIndex,
+                            type(void.class),
+                            ImmutableList.<ParameterizedType>builder()
+                                    .add(type(ConnectorSession.class))
+                                    .addAll(nCopies(inputChannels.size(), type(com.facebook.presto.spi.block.Block.class)))
+                                    .add(type(int.class))
+                                    .add(type(BlockBuilder.class))
+                                    .build());
         }
-        else {
-            for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
-                List<Integer> inputChannels = getInputChannels(projections.get(projectionIndex));
 
-                trueBlock.pushThis()
-                        .getVariable(sessionVariable)
-                        .append(pushBlockVariables(context, inputChannels))
-                        .getVariable(positionVariable);
-
-                trueBlock.comment("pageBuilder.getBlockBuilder(" + projectionIndex + ")")
-                        .getVariable(pageBuilderVariable)
-                        .push(projectionIndex)
-                        .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class);
-
-                trueBlock.comment("project_" + projectionIndex + "(session, block_" + inputChannels + ", position, blockBuilder)")
-                        .invokeVirtual(classDefinition.getType(),
-                                "project_" + projectionIndex,
-                                type(void.class),
-                                ImmutableList.<ParameterizedType>builder()
-                                        .add(type(ConnectorSession.class))
-                                        .addAll(nCopies(inputChannels.size(), type(com.facebook.presto.spi.block.Block.class)))
-                                        .add(type(int.class))
-                                        .add(type(BlockBuilder.class))
-                                        .build());
-            }
-        }
         loopBody.append(filterBlock.build());
 
         method.getBody()

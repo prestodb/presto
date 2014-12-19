@@ -122,6 +122,8 @@ public class BenchmarkPageProcessor
         LineItemGenerator lineItemGenerator = new LineItemGenerator(1, 1, 1);
         Iterator<LineItem> iterator = lineItemGenerator.iterator();
         for (int i = 0; i < 10_000; i++) {
+            pageBuilder.declarePosition();
+
             LineItem lineItem = iterator.next();
             DOUBLE.writeDouble(pageBuilder.getBlockBuilder(EXTENDED_PRICE), lineItem.getExtendedPrice());
             DOUBLE.writeDouble(pageBuilder.getBlockBuilder(DISCOUNT), lineItem.getDiscount());
@@ -155,6 +157,7 @@ public class BenchmarkPageProcessor
 
         private static void project(int position, PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock)
         {
+            pageBuilder.declarePosition();
             if (discountBlock.isNull(position) || extendedPriceBlock.isNull(position)) {
                 pageBuilder.getBlockBuilder(0).appendNull();
             }

@@ -321,6 +321,7 @@ public class WindowOperator
             }
 
             // copy output channels
+            pageBuilder.declarePosition();
             int channel = 0;
             while (channel < outputChannels.length) {
                 pagesIndex.appendTo(outputChannels[channel], currentPosition, pageBuilder.getBlockBuilder(channel));
