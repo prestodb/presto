@@ -18,12 +18,20 @@ import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
+import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
 import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
 
 public final class JsonOperators
 {
     private JsonOperators()
     {
+    }
+
+    @ScalarOperator(HASH_CODE)
+    @SqlType(StandardTypes.BIGINT)
+    public static long hashCode(@SqlType(StandardTypes.JSON) Slice value)
+    {
+        return value.hashCode();
     }
 
     @ScalarOperator(EQUAL)
