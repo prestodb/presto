@@ -356,7 +356,7 @@ public class PlanPrinter
         {
             print(indent, "- Values => [%s]", formatOutputs(node.getOutputSymbols()));
             for (List<Expression> row : node.getRows()) {
-                print(indent + 2, Joiner.on(", ").join(row));
+                print(indent + 2, "(" + Joiner.on(", ").join(row) + ")");
             }
             return null;
         }
