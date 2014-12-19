@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.raptor.storage.OutputHandle;
 import com.facebook.presto.raptor.storage.StoragePageSink;
+import com.facebook.presto.raptor.storage.StorageOutputHandle;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
@@ -24,6 +24,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 
 import java.util.List;
+import java.util.UUID;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -33,8 +34,8 @@ public class RaptorPageSink
 {
     private final String nodeId;
     private final StorageManager storageManager;
-    private final OutputHandle outputHandle;
     private final StoragePageSink storagePageSink;
+    private final StorageOutputHandle storageOutputHandle;
     private final int sampleWeightField;
 
     public RaptorPageSink(
@@ -46,10 +47,11 @@ public class RaptorPageSink
     {
         this.nodeId = checkNotNull(nodeId, "nodeId is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
-        this.outputHandle = storageManager.createOutputHandle(columnIds, columnTypes);
+        this.storageOutputHandle = storageManager.createStorageOutputHandle(columnIds, columnTypes);
+        this.storagePageSink = storageManager.getStoragePageSink(storageOutputHandle);
+
         checkNotNull(sampleWeightColumnId, "sampleWeightColumnId is null");
         this.sampleWeightField = columnIds.indexOf(sampleWeightColumnId.or(-1L));
-        this.storagePageSink = outputHandle.getStoragePageSink();
     }
 
     @Override
@@ -80,8 +82,7 @@ public class RaptorPageSink
     @Override
     public String commit()
     {
-        storageManager.commit(outputHandle);
-
-        return Joiner.on(':').join(nodeId, outputHandle.getShardUuid());
+        UUID shardUuid = storageManager.commit(storageOutputHandle);
+        return Joiner.on(':').join(nodeId, shardUuid);
     }
 }

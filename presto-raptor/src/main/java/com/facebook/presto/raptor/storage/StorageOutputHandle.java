@@ -17,12 +17,12 @@ import java.util.UUID;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class OutputHandle
+public class StorageOutputHandle
 {
     private final UUID shardUuid;
     private final StoragePageSink storagePageSink;
 
-    public OutputHandle(UUID shardUuid, StoragePageSink storagePageSink)
+    public StorageOutputHandle(UUID shardUuid, StoragePageSink storagePageSink)
     {
         this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
         this.storagePageSink = checkNotNull(storagePageSink, "pageSink is null");
