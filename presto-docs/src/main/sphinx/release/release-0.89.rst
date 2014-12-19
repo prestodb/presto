@@ -16,4 +16,5 @@ General Changes
 ---------------
 
 * ``USE CATALOG`` and ``USE SCHEMA`` have been replaced with :doc:`/sql/use`.
-* Fix issue where ``SELECT NULL`` incorrectly returns 0 rows
+* Fix issue where ``SELECT NULL`` incorrectly returns 0 rows.
+* Fix rare condition where ``JOIN`` queries could produce incorrect results.
