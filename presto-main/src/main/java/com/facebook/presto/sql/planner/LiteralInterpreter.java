@@ -48,6 +48,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
 import static com.facebook.presto.util.DateTimeUtils.parseTime;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestamp;
@@ -91,6 +92,9 @@ public final class LiteralInterpreter
         }
 
         if (object == null) {
+            if (type == UNKNOWN) {
+                return new NullLiteral();
+            }
             return new Cast(new NullLiteral(), type.getTypeSignature().toString());
         }
 

@@ -675,6 +675,10 @@ public class ExpressionAnalyzer
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
 
+            if (type == UNKNOWN) {
+                throw new SemanticException(TYPE_MISMATCH, node, "UNKNOWN is not a valid type");
+            }
+
             Type value = process(node.getExpression(), context);
             if (value != UNKNOWN) {
                 try {
