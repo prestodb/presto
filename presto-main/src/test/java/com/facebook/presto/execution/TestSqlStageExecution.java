@@ -312,10 +312,12 @@ public class TestSqlStageExecution
                 ImmutableList.copyOf(probe.getFragment().getSymbols().keySet()));
 
         // join build and probe
+        JoinNode joinNode = new JoinNode(new PlanNodeId(planId), JoinNode.Type.INNER, probeExchange, buildExchange, ImmutableList.<EquiJoinClause>of(), Optional.empty(), Optional.empty());
         PlanFragment joinPlan = new PlanFragment(
                 new PlanFragmentId(planId),
-                new JoinNode(new PlanNodeId(planId), JoinNode.Type.INNER, probeExchange, buildExchange, ImmutableList.<EquiJoinClause>of(), Optional.empty(), Optional.empty()),
+                joinNode,
                 probe.getFragment().getSymbols(), // this is wrong, but it works
+                joinNode.getOutputSymbols(),
                 PlanDistribution.SOURCE,
                 new PlanNodeId(planId),
                 OutputPartitioning.NONE,
@@ -344,6 +346,7 @@ public class TestSqlStageExecution
                         null,
                         Optional.empty()),
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
+                ImmutableList.of(symbol),
                 PlanDistribution.SOURCE,
                 tableScanNodeId,
                 OutputPartitioning.NONE,

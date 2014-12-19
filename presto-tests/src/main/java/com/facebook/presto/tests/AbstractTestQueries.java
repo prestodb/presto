@@ -573,6 +573,15 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testRepeatedOutputs2()
+            throws Exception
+    {
+        // this test exposed a bug that wasn't caught by other tests that resulted in the execution engine
+        // trying to read orderkey as the second field, causing a type mismatch
+        assertQuery("SELECT orderdate, orderdate, orderkey FROM orders");
+    }
+
+    @Test
     public void testLimit()
             throws Exception
     {

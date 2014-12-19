@@ -37,7 +37,6 @@ import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -248,12 +247,6 @@ public final class JsonPlanPrinter
         public Void visitExchange(ExchangeNode node, Void context)
         {
             return null;
-        }
-
-        @Override
-        public Void visitSink(SinkNode node, Void context)
-        {
-            return processChildren(node);
         }
 
         @Override

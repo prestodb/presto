@@ -39,6 +39,7 @@ public class SubPlanBuilder
     private final PlanNodeId partitionedSource;
 
     private PlanNode root;
+    private List<Symbol> outputLayout;
     private List<Symbol> partitionBy = ImmutableList.of();
     private List<SubPlan> children = new ArrayList<>();
     private OutputPartitioning outputPartitioning = OutputPartitioning.NONE;
@@ -50,6 +51,7 @@ public class SubPlanBuilder
         this.allocator = checkNotNull(allocator, "allocator is null");
         this.distribution = checkNotNull(distribution, "distribution is null");
         this.root = checkNotNull(root, "root is null");
+        this.outputLayout = root.getOutputSymbols();
         this.partitionedSource = partitionedSource;
     }
 
@@ -78,6 +80,13 @@ public class SubPlanBuilder
     {
         checkNotNull(root, "root is null");
         this.root = root;
+        this.outputLayout = root.getOutputSymbols();
+        return this;
+    }
+
+    public SubPlanBuilder setOutputLayout(List<Symbol> outputLayout)
+    {
+        this.outputLayout = outputLayout;
         return this;
     }
 
@@ -112,7 +121,7 @@ public class SubPlanBuilder
     {
         Set<Symbol> dependencies = SymbolExtractor.extract(root);
 
-        PlanFragment fragment = new PlanFragment(id, root, Maps.filterKeys(allocator.getTypes(), in(dependencies)), distribution, partitionedSource, outputPartitioning, partitionBy, hash);
+        PlanFragment fragment = new PlanFragment(id, root, Maps.filterKeys(allocator.getTypes(), in(dependencies)), outputLayout, distribution, partitionedSource, outputPartitioning, partitionBy, hash);
 
         return new SubPlan(fragment, children);
     }

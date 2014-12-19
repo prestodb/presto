@@ -33,7 +33,6 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -242,12 +241,6 @@ public class DistributedExecutionPlanner
 
         @Override
         public Optional<SplitSource> visitSort(SortNode node, Void context)
-        {
-            return node.getSource().accept(this, context);
-        }
-
-        @Override
-        public Optional<SplitSource> visitSink(SinkNode node, Void context)
         {
             return node.getSource().accept(this, context);
         }

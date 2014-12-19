@@ -100,11 +100,6 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
-    public R visitSink(SinkNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
     public R visitWindow(WindowNode node, C context)
     {
         return visitPlan(node, context);
