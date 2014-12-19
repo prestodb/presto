@@ -17,6 +17,7 @@ import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
@@ -32,7 +33,7 @@ public class RaptorConnector
     private final RaptorMetadata metadata;
     private final RaptorSplitManager splitManager;
     private final RaptorPageSourceProvider pageSourceProvider;
-    private final RaptorRecordSinkProvider recordSinkProvider;
+    private final RaptorPageSinkProvider pageSinkProvider;
     private final RaptorHandleResolver handleResolver;
 
     @Inject
@@ -40,13 +41,13 @@ public class RaptorConnector
             RaptorMetadata metadata,
             RaptorSplitManager splitManager,
             RaptorPageSourceProvider pageSourceProvider,
-            RaptorRecordSinkProvider recordSinkProvider,
+            RaptorPageSinkProvider pageSinkProvider,
             RaptorHandleResolver handleResolver)
     {
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
         this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceProvider is null");
-        this.recordSinkProvider = checkNotNull(recordSinkProvider, "recordSinkProvider is null");
+        this.pageSinkProvider = checkNotNull(pageSinkProvider, "pageSinkProvider is null");
         this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
     }
 
@@ -54,6 +55,12 @@ public class RaptorConnector
     public ConnectorPageSourceProvider getPageSourceProvider()
     {
         return pageSourceProvider;
+    }
+
+    @Override
+    public ConnectorPageSinkProvider getPageSinkProvider()
+    {
+        return pageSinkProvider;
     }
 
     @Override
@@ -77,7 +84,7 @@ public class RaptorConnector
     @Override
     public ConnectorRecordSinkProvider getRecordSinkProvider()
     {
-        return recordSinkProvider;
+        throw new UnsupportedOperationException();
     }
 
     @Override

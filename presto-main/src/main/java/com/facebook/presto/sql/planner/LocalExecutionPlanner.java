@@ -1316,7 +1316,6 @@ public class LocalExecutionPlanner
             // create the table writer
             ConnectorPageSink pageSink = getPageSink(node);
 
-
             // Set table writer count
             context.setDriverInstanceCount(writerCount);
 

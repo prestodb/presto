@@ -48,7 +48,7 @@ public class RaptorModule
         binder.bind(RaptorMetadata.class).in(Scopes.SINGLETON);
         binder.bind(RaptorSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(RaptorPageSourceProvider.class).in(Scopes.SINGLETON);
-        binder.bind(RaptorRecordSinkProvider.class).in(Scopes.SINGLETON);
+        binder.bind(RaptorPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(RaptorHandleResolver.class).in(Scopes.SINGLETON);
 
         binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);

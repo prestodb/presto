@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.orc.BooleanVector;
 import com.facebook.presto.orc.DoubleVector;
 import com.facebook.presto.orc.FileOrcDataSource;
@@ -20,7 +21,9 @@ import com.facebook.presto.orc.LongVector;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
-import com.google.common.base.Optional;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -34,11 +37,9 @@ import java.util.List;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.createReader;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.createReaderNoRows;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.octets;
-import static com.facebook.presto.raptor.storage.StorageType.BOOLEAN;
-import static com.facebook.presto.raptor.storage.StorageType.BYTES;
-import static com.facebook.presto.raptor.storage.StorageType.DOUBLE;
-import static com.facebook.presto.raptor.storage.StorageType.LONG;
-import static com.facebook.presto.raptor.storage.StorageType.STRING;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.io.Files.createTempDir;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -46,7 +47,7 @@ import static io.airlift.testing.FileUtils.deleteRecursively;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
-public class TestOrcRowSink
+public class TestOrcPageSink
 {
     private File directory;
 
@@ -68,39 +69,20 @@ public class TestOrcRowSink
             throws Exception
     {
         List<Long> columnIds = ImmutableList.of(1L, 2L, 4L, 6L, 7L);
-        List<StorageType> columnTypes = ImmutableList.of(LONG, STRING, BYTES, DOUBLE, BOOLEAN);
-        Optional<Long> sampleWeightColumnId = Optional.absent();
-
+        List<Type> columnTypes = ImmutableList.of(BIGINT, VARCHAR, VARBINARY, DoubleType.DOUBLE, BooleanType.BOOLEAN);
         File file = new File(directory, System.nanoTime() + ".orc");
 
         byte[] bytes1 = octets(0x00, 0xFE, 0xFF);
         byte[] bytes3 = octets(0x01, 0x02, 0x19, 0x80);
 
+        RowPagesBuilder rowPagesBuilder = RowPagesBuilder.rowPagesBuilder(columnTypes)
+                .row(123, "hello", wrappedBuffer(bytes1), 123.456, true)
+                .row(null, "world", null, Double.POSITIVE_INFINITY, null)
+                .row(456, "bye", wrappedBuffer(bytes3), Double.NaN, false);
+
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(new EmptyClassLoader());
-                RowSink sink = new OrcRowSink(columnIds, columnTypes, sampleWeightColumnId, file)) {
-            sink.beginRecord(1);
-            sink.appendLong(123);
-            sink.appendString("hello");
-            sink.appendBytes(bytes1);
-            sink.appendDouble(123.456);
-            sink.appendBoolean(true);
-            sink.finishRecord();
-
-            sink.beginRecord(1);
-            sink.appendNull();
-            sink.appendString("world");
-            sink.appendNull();
-            sink.appendDouble(Double.POSITIVE_INFINITY);
-            sink.appendNull();
-            sink.finishRecord();
-
-            sink.beginRecord(1);
-            sink.appendLong(456);
-            sink.appendString("bye");
-            sink.appendBytes(bytes3);
-            sink.appendDouble(Double.NaN);
-            sink.appendBoolean(false);
-            sink.finishRecord();
+             StoragePageSink sink = new OrcStoragePageSink(columnIds, columnTypes, file)) {
+            rowPagesBuilder.build().forEach(sink::appendPage);
         }
 
         try (FileOrcDataSource dataSource = new FileOrcDataSource(file, new DataSize(1, Unit.MEGABYTE))) {
@@ -161,12 +143,11 @@ public class TestOrcRowSink
             throws Exception
     {
         List<Long> columnIds = ImmutableList.of(1L);
-        List<StorageType> columnTypes = ImmutableList.of(LONG);
-        Optional<Long> sampleWeightColumnId = Optional.absent();
+        List<Type> columnTypes = ImmutableList.of(BIGINT);
 
         File file = new File(directory, System.nanoTime() + ".orc");
 
-        try (RowSink ignored = new OrcRowSink(columnIds, columnTypes, sampleWeightColumnId, file)) {
+        try (StoragePageSink ignored = new OrcStoragePageSink(columnIds, columnTypes, file)) {
             // no rows
         }
 

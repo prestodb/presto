@@ -13,17 +13,20 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
-import com.google.common.base.Function;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
@@ -39,16 +42,18 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Functions.toStringFunction;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.FluentIterable.from;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
+import static org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.SNAPPY;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
@@ -57,31 +62,28 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 
-public class OrcRowSink
-        implements RowSink
+public class OrcStoragePageSink
+        implements StoragePageSink
 {
     private static final JobConf JOB_CONF = createJobConf();
     private static final Constructor<? extends RecordWriter> WRITER_CONSTRUCTOR = getOrcWriterConstructor();
 
-    private final int fieldCount;
+    private final List<Type> columnTypes;
+
     private final OrcSerde serializer;
     private final RecordWriter recordWriter;
     private final SettableStructObjectInspector tableInspector;
     private final List<StructField> structFields;
     private final Object row;
-    private final int sampleWeightField;
 
-    private int field = -1;
-
-    public OrcRowSink(List<Long> columnIds, List<StorageType> columnTypes, Optional<Long> sampleWeightColumnId, File target)
+    public OrcStoragePageSink(List<Long> columnIds, List<Type> columnTypes, File target)
     {
+        this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
         checkArgument(columnIds.size() == columnTypes.size(), "ids and types mismatch");
         checkArgument(isUnique(columnIds), "ids must be unique");
 
-        fieldCount = columnIds.size();
-        sampleWeightField = columnIds.indexOf(sampleWeightColumnId.or(-1L));
-
-        Iterable<String> hiveTypeNames = ImmutableList.copyOf(transform(columnTypes, hiveTypeName()));
+        List<StorageType> storageTypes = ImmutableList.copyOf(toStorageTypes(columnTypes));
+        Iterable<String> hiveTypeNames = storageTypes.stream().map(StorageType::getHiveTypeName).collect(Collectors.toList());
         List<String> columnNames = ImmutableList.copyOf(transform(columnIds, toStringFunction()));
 
         Properties properties = new Properties();
@@ -91,101 +93,38 @@ public class OrcRowSink
         serializer = createSerializer(JOB_CONF, properties);
         recordWriter = createRecordWriter(new Path(target.toURI()), JOB_CONF);
 
-        tableInspector = getStandardStructObjectInspector(columnNames, getJavaObjectInspectors(columnTypes));
+        tableInspector = getStandardStructObjectInspector(columnNames, getJavaObjectInspectors(storageTypes));
         structFields = ImmutableList.copyOf(tableInspector.getAllStructFieldRefs());
         row = tableInspector.create();
     }
 
     @Override
-    public void beginRecord(long sampleWeight)
+    public void appendPage(Page page)
     {
-        checkState(field == -1, "already in record");
-        if (sampleWeightField >= 0) {
-            tableInspector.setStructFieldData(row, structFields.get(sampleWeightField), sampleWeight);
+        checkArgument(page.getChannelCount() == columnTypes.size(), "channelCount does not match");
+
+        for (int position = 0; position < page.getPositionCount(); position++) {
+            for (int channel = 0; channel < page.getChannelCount(); channel++) {
+                Object value = getValue(position, page.getBlock(channel), columnTypes.get(channel));
+                tableInspector.setStructFieldData(row, structFields.get(channel), value);
+            }
+            try {
+                recordWriter.write(serializer.serialize(row, tableInspector));
+            }
+            catch (IOException e) {
+                throw new PrestoException(RAPTOR_ERROR, "Failed to write record", e);
+            }
         }
-        field = (sampleWeightField == 0) ? 1 : 0;
-    }
-
-    @Override
-    public void finishRecord()
-    {
-        checkState(field != -1, "not in record");
-        checkState(field == fieldCount, "not all fields set");
-        field = -1;
-
-        try {
-            recordWriter.write(serializer.serialize(row, tableInspector));
-        }
-        catch (IOException e) {
-            throw new PrestoException(RAPTOR_ERROR, "Failed to write record", e);
-        }
-    }
-
-    @Override
-    public int currentField()
-    {
-        checkState(field != -1, "not in record");
-        return field;
-    }
-
-    @Override
-    public void appendNull()
-    {
-        append(null);
-    }
-
-    @Override
-    public void appendBoolean(boolean value)
-    {
-        append(value);
-    }
-
-    @Override
-    public void appendLong(long value)
-    {
-        append(value);
-    }
-
-    @Override
-    public void appendDouble(double value)
-    {
-        append(value);
-    }
-
-    @Override
-    public void appendString(String value)
-    {
-        append(value);
-    }
-
-    @Override
-    public void appendBytes(byte[] value)
-    {
-        append(value);
     }
 
     @Override
     public void close()
     {
-        checkState(field == -1, "record not finished");
-
         try {
             recordWriter.close(false);
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to close writer", e);
-        }
-    }
-
-    private void append(Object value)
-    {
-        checkState(field != -1, "not in record");
-        checkState(field < fieldCount, "all fields already set");
-
-        tableInspector.setStructFieldData(row, structFields.get(field), value);
-        field++;
-        if (field == sampleWeightField) {
-            field++;
         }
     }
 
@@ -235,16 +174,7 @@ public class OrcRowSink
 
     private static List<ObjectInspector> getJavaObjectInspectors(List<StorageType> types)
     {
-        return from(types)
-                .transform(new Function<StorageType, ObjectInspector>()
-                {
-                    @Override
-                    public ObjectInspector apply(StorageType type)
-                    {
-                        return getJavaObjectInspector(type);
-                    }
-                })
-                .toList();
+        return types.stream().map(OrcStoragePageSink::getJavaObjectInspector).collect(Collectors.toList());
     }
 
     private static ObjectInspector getJavaObjectInspector(StorageType type)
@@ -264,20 +194,59 @@ public class OrcRowSink
         throw new PrestoException(INTERNAL_ERROR, "Unhandled storage type: " + type);
     }
 
-    private static Function<StorageType, String> hiveTypeName()
-    {
-        return new Function<StorageType, String>()
-        {
-            @Override
-            public String apply(StorageType type)
-            {
-                return type.getHiveTypeName();
-            }
-        };
-    }
-
     private static <T> boolean isUnique(Collection<T> items)
     {
         return new HashSet<>(items).size() == items.size();
+    }
+
+    private static List<StorageType> toStorageTypes(List<Type> columnTypes)
+    {
+        return columnTypes.stream().map(OrcStoragePageSink::toStorageType).collect(Collectors.toList());
+    }
+
+    private static StorageType toStorageType(Type type)
+    {
+        Class<?> javaType = type.getJavaType();
+        if (javaType == boolean.class) {
+            return StorageType.BOOLEAN;
+        }
+        if (javaType == long.class) {
+            return StorageType.LONG;
+        }
+        if (javaType == double.class) {
+            return StorageType.DOUBLE;
+        }
+        if (javaType == Slice.class) {
+            if (type.equals(VarcharType.VARCHAR)) {
+                return StorageType.STRING;
+            }
+            if (type.equals(VarbinaryType.VARBINARY)) {
+                return StorageType.BYTES;
+            }
+        }
+        throw new PrestoException(NOT_SUPPORTED, "No storage type for type: " + type);
+    }
+
+    private static Object getValue(int position, Block block, Type type)
+    {
+        if (block.isNull(position)) {
+            return null;
+        }
+        if (type.getJavaType() == boolean.class) {
+            return type.getBoolean(block, position);
+        }
+        if (type.getJavaType() == long.class) {
+            return type.getLong(block, position);
+        }
+        if (type.getJavaType() == double.class) {
+            return type.getDouble(block, position);
+        }
+        if (type.getJavaType() == Slice.class) {
+            if (type.equals(VarcharType.VARCHAR)) {
+                return new String(type.getSlice(block, position).getBytes());
+            }
+            return type.getSlice(block, position).getBytes();
+        }
+        throw new AssertionError("unimplemented type: " + type);
     }
 }

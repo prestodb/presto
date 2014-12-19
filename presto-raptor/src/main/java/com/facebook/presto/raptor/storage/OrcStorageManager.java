@@ -26,18 +26,12 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarbinaryType;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
-import com.google.common.base.Optional;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
-import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -50,7 +44,6 @@ import java.util.Map;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.Duration.nanosSince;
@@ -123,23 +116,18 @@ public class OrcStorageManager
 
     @SuppressWarnings("resource")
     @Override
-    public OutputHandle createOutputHandle(List<Long> columnIds, List<Type> columnTypes, Optional<Long> sampleWeightColumnId)
+    public OutputHandle createOutputHandle(List<Long> columnIds, List<Type> columnTypes)
     {
-        List<StorageType> storageTypes = toStorageTypes(columnTypes);
-
         UUID shardUuid = UUID.randomUUID();
         File stagingFile = storageService.getStagingFile(shardUuid);
         storageService.createParents(stagingFile);
-
-        RowSink rowSink = new OrcRowSink(columnIds, storageTypes, sampleWeightColumnId, stagingFile);
-
-        return new OutputHandle(shardUuid, rowSink);
+        return new OutputHandle(shardUuid, new OrcStoragePageSink(columnIds, columnTypes, stagingFile));
     }
 
     @Override
     public void commit(OutputHandle outputHandle)
     {
-        outputHandle.getRowSink().close();
+        outputHandle.getStoragePageSink().close();
 
         File stagingFile = storageService.getStagingFile(outputHandle.getShardUuid());
         File storageFile = storageService.getStorageFile(outputHandle.getShardUuid());
@@ -249,43 +237,6 @@ public class OrcStorageManager
             map.put(Long.valueOf(columnNames.get(i)), i);
         }
         return map.build();
-    }
-
-    private static List<StorageType> toStorageTypes(List<Type> columnTypes)
-    {
-        return FluentIterable.from(columnTypes)
-                .transform(new Function<Type, StorageType>()
-                {
-                    @Override
-                    public StorageType apply(Type type)
-                    {
-                        return toStorageType(type);
-                    }
-                })
-                .toList();
-    }
-
-    private static StorageType toStorageType(Type type)
-    {
-        Class<?> javaType = type.getJavaType();
-        if (javaType == boolean.class) {
-            return StorageType.BOOLEAN;
-        }
-        if (javaType == long.class) {
-            return StorageType.LONG;
-        }
-        if (javaType == double.class) {
-            return StorageType.DOUBLE;
-        }
-        if (javaType == Slice.class) {
-            if (type.equals(VarcharType.VARCHAR)) {
-                return StorageType.STRING;
-            }
-            if (type.equals(VarbinaryType.VARBINARY)) {
-                return StorageType.BYTES;
-            }
-        }
-        throw new PrestoException(NOT_SUPPORTED, "No storage type for type: " + type);
     }
 
     private static DataSize dataRate(DataSize size, Duration duration)

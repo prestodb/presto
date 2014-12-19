@@ -20,12 +20,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class OutputHandle
 {
     private final UUID shardUuid;
-    private final RowSink rowSink;
+    private final StoragePageSink storagePageSink;
 
-    public OutputHandle(UUID shardUuid, RowSink rowSink)
+    public OutputHandle(UUID shardUuid, StoragePageSink storagePageSink)
     {
         this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
-        this.rowSink = checkNotNull(rowSink, "rowSink is null");
+        this.storagePageSink = checkNotNull(storagePageSink, "pageSink is null");
     }
 
     public UUID getShardUuid()
@@ -33,8 +33,8 @@ public class OutputHandle
         return shardUuid;
     }
 
-    public RowSink getRowSink()
+    public StoragePageSink getStoragePageSink()
     {
-        return rowSink;
+        return storagePageSink;
     }
 }
