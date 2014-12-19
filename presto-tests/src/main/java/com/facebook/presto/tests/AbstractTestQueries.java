@@ -85,6 +85,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void selectNull()
+            throws Exception
+    {
+        assertQuery("SELECT NULL", "SELECT NULL FROM (SELECT * FROM ORDERS LIMIT 1)");
+    }
+
+    @Test
     public void testRowFieldAccessor()
             throws Exception
     {

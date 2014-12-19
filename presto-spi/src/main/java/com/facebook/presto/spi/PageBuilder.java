@@ -85,7 +85,7 @@ public class PageBuilder
 
     public boolean isEmpty()
     {
-        return blockBuilders.length == 0 ? declaredPositions == 0 : blockBuilderStatus.isEmpty();
+        return declaredPositions == 0;
     }
 
     public int getPositionCount()
