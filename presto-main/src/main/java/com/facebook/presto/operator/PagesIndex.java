@@ -108,7 +108,7 @@ public class PagesIndex
     {
         positionCount += page.getPositionCount();
 
-        int pageIndex = channels[0].size();
+        int pageIndex = (channels.length > 0) ? channels[0].size() : 0;
         for (int i = 0; i < channels.length; i++) {
             Block block = page.getBlock(i);
             channels[i].add(block);
@@ -130,7 +130,8 @@ public class PagesIndex
 
     private long calculateEstimatedSize()
     {
-        long channelsArraySize = sizeOf(channels[0].elements()) * channels.length;
+        long elementsSize = (channels.length > 0) ? sizeOf(channels[0].elements()) : 0;
+        long channelsArraySize = elementsSize * channels.length;
         long addressesArraySize = sizeOf(valueAddresses.elements());
         return pagesMemorySize + channelsArraySize + addressesArraySize;
     }

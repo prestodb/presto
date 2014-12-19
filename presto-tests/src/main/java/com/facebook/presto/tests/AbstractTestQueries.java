@@ -2150,6 +2150,22 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testWindowNoChannels()
+    {
+        MaterializedResult actual = computeActual("SELECT rank() OVER ()\n" +
+                "FROM (SELECT * FROM orders LIMIT 10)\n" +
+                "LIMIT 3");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
+                .row(1)
+                .row(1)
+                .row(1)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
     public void testScalarFunction()
             throws Exception
     {
