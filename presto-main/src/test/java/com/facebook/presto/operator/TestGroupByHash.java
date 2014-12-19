@@ -82,6 +82,7 @@ public class TestGroupByHash
 
         PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
         for (int i = 0; i < groupByHash.getGroupCount(); i++) {
+            pageBuilder.declarePosition();
             groupByHash.appendValuesTo(i, pageBuilder, 0);
         }
         Page page = pageBuilder.build();
@@ -111,6 +112,7 @@ public class TestGroupByHash
 
         PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
         for (int i = 0; i < groupByHash.getGroupCount(); i++) {
+            pageBuilder.declarePosition();
             groupByHash.appendValuesTo(i, pageBuilder, 0);
         }
         Page outputPage = pageBuilder.build();

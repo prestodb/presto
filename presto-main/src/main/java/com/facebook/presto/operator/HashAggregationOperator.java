@@ -332,6 +332,7 @@ public class HashAggregationOperator
                     while (!pageBuilder.isFull() && groupId < groupCount) {
                         groupByHash.appendValuesTo(groupId, pageBuilder, 0);
 
+                        pageBuilder.declarePosition();
                         for (int i = 0; i < aggregators.size(); i++) {
                             Aggregator aggregator = aggregators.get(i);
                             BlockBuilder output = pageBuilder.getBlockBuilder(types.size() + i);

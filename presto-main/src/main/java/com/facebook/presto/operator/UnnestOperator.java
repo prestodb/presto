@@ -221,6 +221,8 @@ public class UnnestOperator
                     type.appendTo(currentPage.getBlock(channel), currentPosition, pageBuilder.getBlockBuilder(replicateChannel));
                 }
                 int offset = replicateTypes.size();
+
+                pageBuilder.declarePosition();
                 for (Unnester unnester : unnesters) {
                     if (unnester.hasNext()) {
                         unnester.appendNext(pageBuilder, offset);

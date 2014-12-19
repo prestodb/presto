@@ -53,6 +53,8 @@ public class TestNumericHistogramAggregation
         PageBuilder builder = new PageBuilder(ImmutableList.of(BIGINT, DOUBLE, DOUBLE));
 
         for (int i = 0; i < 100; i++) {
+            builder.declarePosition();
+
             BIGINT.writeLong(builder.getBlockBuilder(0), numberOfBuckets);
             DOUBLE.writeDouble(builder.getBlockBuilder(1), i); // value
             DOUBLE.writeDouble(builder.getBlockBuilder(2), 1); // weight

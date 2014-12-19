@@ -174,6 +174,8 @@ public class LookupJoinOperator
     {
         // while we have a position to join against...
         while (joinPosition >= 0) {
+            pageBuilder.declarePosition();
+
             // write probe columns
             probe.appendTo(pageBuilder);
 
@@ -205,6 +207,7 @@ public class LookupJoinOperator
     {
         if (enableOuterJoin && joinPosition < 0) {
             // write probe columns
+            pageBuilder.declarePosition();
             probe.appendTo(pageBuilder);
 
             // write nulls into build columns

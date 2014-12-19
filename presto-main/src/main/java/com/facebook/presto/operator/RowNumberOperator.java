@@ -261,6 +261,7 @@ public class RowNumberOperator
             if (rowCount == maxRowsPerPartition.get()) {
                 continue;
             }
+            pageBuilder.declarePosition();
             for (int i = 0; i < outputChannels.length; i++) {
                 int channel = outputChannels[i];
                 Type type = types.get(channel);

@@ -158,6 +158,7 @@ public class PagesIndex
             int blockPosition = decodePosition(pageAddress);
 
             // append the row
+            pageBuilder.declarePosition();
             for (int i = 0; i < outputChannels.length; i++) {
                 int outputChannel = outputChannels[i];
                 Type type = types.get(outputChannel);

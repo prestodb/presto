@@ -166,6 +166,8 @@ public class AggregationOperator
         List<Type> types = aggregates.stream().map(Aggregator::getType).collect(toImmutableList());
 
         PageBuilder pageBuilder = new PageBuilder(types);
+
+        pageBuilder.declarePosition();
         for (int i = 0; i < aggregates.size(); i++) {
             Aggregator aggregator = aggregates.get(i);
             BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
