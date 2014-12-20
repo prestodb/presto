@@ -21,6 +21,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.optimizations.BeginTableWrite;
 import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
 import com.facebook.presto.sql.planner.optimizations.CountConstantOptimizer;
+import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.sql.planner.optimizations.ImplementSampleAsFilter;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
@@ -51,6 +52,11 @@ public class PlanOptimizersFactory
     @Inject
     public PlanOptimizersFactory(Metadata metadata, SqlParser sqlParser, SplitManager splitManager, IndexManager indexManager, FeaturesConfig featuresConfig)
     {
+        this(metadata, sqlParser, splitManager, indexManager, featuresConfig, false);
+    }
+
+    public PlanOptimizersFactory(Metadata metadata, SqlParser sqlParser, SplitManager splitManager, IndexManager indexManager, FeaturesConfig featuresConfig, boolean forceSingleNode)
+    {
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
         builder.add(new ImplementSampleAsFilter(),
@@ -79,6 +85,10 @@ public class PlanOptimizersFactory
 
         builder.add(new NormalizeJoinOrder());
         builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite
+
+        if (!forceSingleNode) {
+            builder.add(new AddExchanges(metadata, featuresConfig.isDistributedIndexJoinsEnabled(), featuresConfig.isDistributedJoinsEnabled()));
+        }
 
         // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging
         // TODO: figure out how to improve the set flattening optimizer so that it can run at any point

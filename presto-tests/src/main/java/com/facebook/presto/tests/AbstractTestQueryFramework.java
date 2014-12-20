@@ -170,8 +170,6 @@ public abstract class AbstractTestQueryFramework
                 optimizers,
                 metadata,
                 sqlParser,
-                featuresConfig.isExperimentalSyntaxEnabled(),
-                featuresConfig.isDistributedIndexJoinsEnabled(),
-                featuresConfig.isDistributedJoinsEnabled());
+                featuresConfig.isExperimentalSyntaxEnabled());
     }
 }

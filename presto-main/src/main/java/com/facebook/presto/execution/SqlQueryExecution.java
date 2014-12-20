@@ -27,10 +27,10 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedExecutionPlanner;
-import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.InputExtractor;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.SubPlan;
@@ -135,7 +135,7 @@ public class SqlQueryExecution
             checkNotNull(self, "self is null");
             this.stateMachine = new QueryStateMachine(queryId, query, session, self, queryExecutor);
 
-            this.queryExplainer = new QueryExplainer(session, planOptimizers, metadata, sqlParser, experimentalSyntaxEnabled, distributedIndexJoinsEnabled, distributedJoinsEnabled);
+            this.queryExplainer = new QueryExplainer(session, planOptimizers, metadata, sqlParser, experimentalSyntaxEnabled);
         }
     }
 
@@ -215,7 +215,7 @@ public class SqlQueryExecution
         stateMachine.setInputs(inputs);
 
         // fragment the plan
-        SubPlan subplan = new DistributedLogicalPlanner(session, metadata, idAllocator).createSubPlans(plan, false, distributedIndexJoinsEnabled, distributedJoinsEnabled);
+        SubPlan subplan = new PlanFragmenter().createSubPlans(plan);
 
         stateMachine.recordAnalysisTime(analysisStart);
         return subplan;

@@ -27,6 +27,7 @@ import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
@@ -492,6 +493,14 @@ public class PlanPrinter
         public Void visitSample(SampleNode node, Integer indent)
         {
             print(indent, "- Sample[%s: %s] => [%s]", node.getSampleType(), node.getSampleRatio(), formatOutputs(node.getOutputSymbols()));
+
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
+        public Void visitExchange(ExchangeNode node, Integer indent)
+        {
+            print(indent, "- Exchange[%s] => %s", node.getType(), formatOutputs(node.getOutputSymbols()));
 
             return processChildren(node, indent + 1);
         }
