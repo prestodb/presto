@@ -516,7 +516,7 @@ public class PlanPrinter
         }
 
         try {
-            ColumnMetadata columnMetadata  = metadata.getColumnMetadata(table, column);
+            ColumnMetadata columnMetadata = metadata.getColumnMetadata(table, column);
             MethodHandle method = metadata.getFunctionRegistry().getCoercion(columnMetadata.getType(), VARCHAR)
                     .getMethodHandle();
 
