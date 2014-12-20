@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
@@ -68,9 +68,9 @@ public class SubPlan
     public void sanityCheck()
     {
         Multiset<PlanFragmentId> exchangeIds = fragment.getSources().stream()
-                .filter(ExchangeNode.class::isInstance)
-                .map(ExchangeNode.class::cast)
-                .map(ExchangeNode::getSourceFragmentIds)
+                .filter(RemoteSourceNode.class::isInstance)
+                .map(RemoteSourceNode.class::cast)
+                .map(RemoteSourceNode::getSourceFragmentIds)
                 .flatMap(List::stream)
                 .collect(toImmutableMultiset());
 

@@ -27,7 +27,7 @@ import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
@@ -424,11 +424,11 @@ public class PlanPrinter
         }
 
         @Override
-        public Void visitExchange(ExchangeNode node, Integer indent)
+        public Void visitRemoteSource(RemoteSourceNode node, Integer indent)
         {
-            print(indent, "- Exchange[%s] => [%s]", node.getSourceFragmentIds(), formatOutputs(node.getOutputSymbols()));
+            print(indent, "- RemoteSource[%s] => [%s]", node.getSourceFragmentIds(), formatOutputs(node.getOutputSymbols()));
 
-            return processExchange(node, indent + 1);
+            return processRemoteSource(node, indent + 1);
         }
 
         @Override
@@ -483,7 +483,7 @@ public class PlanPrinter
             return null;
         }
 
-        private Void processExchange(ExchangeNode node, int indent)
+        private Void processRemoteSource(RemoteSourceNode node, int indent)
         {
             for (PlanFragmentId planFragmentId : node.getSourceFragmentIds()) {
                 PlanFragment target = fragmentsById.get().get(planFragmentId);
