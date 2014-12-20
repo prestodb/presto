@@ -621,7 +621,7 @@ public class DistributedLogicalPlanner
 
         public SubPlanBuilder createSingleNodePlan(PlanNode root)
         {
-            return new SubPlanBuilder(new PlanFragmentId(nextSubPlanId()), allocator, PlanDistribution.NONE, root, null);
+            return new SubPlanBuilder(new PlanFragmentId(nextSubPlanId()), allocator, PlanDistribution.SINGLE, root, null);
         }
 
         public SubPlanBuilder createFixedDistributionPlan(PlanNode root)
@@ -634,7 +634,7 @@ public class DistributedLogicalPlanner
             if (createSingleNodePlan) {
                 // when creating a single node plan, we tell the planner that the table is not partitioned,
                 // but we still need to set the source id for the execution engine
-                return new SubPlanBuilder(new PlanFragmentId(nextSubPlanId()), allocator, PlanDistribution.NONE, root, partitionedSourceId);
+                return new SubPlanBuilder(new PlanFragmentId(nextSubPlanId()), allocator, PlanDistribution.SINGLE, root, partitionedSourceId);
             }
             else {
                 return new SubPlanBuilder(new PlanFragmentId(nextSubPlanId()), allocator, PlanDistribution.SOURCE, root, partitionedSourceId);

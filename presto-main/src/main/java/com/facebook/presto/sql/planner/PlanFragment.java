@@ -41,7 +41,7 @@ public class PlanFragment
 {
     public enum PlanDistribution
     {
-        NONE,
+        SINGLE,
         FIXED,
         SOURCE,
         COORDINATOR_ONLY
