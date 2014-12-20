@@ -27,9 +27,11 @@ public interface StorageManager
 
     StorageOutputHandle createStorageOutputHandle(List<Long> columnIds, List<Type> columnTypes);
 
-    UUID commit(StorageOutputHandle storageOutputHandle);
+    StoragePageSink createStoragePageSink(StorageOutputHandle storageOutputHandle);
 
     boolean isBackupAvailable();
 
-    StoragePageSink getStoragePageSink(StorageOutputHandle storageOutputHandle);
+    List<UUID> commit(StorageOutputHandle storageOutputHandle);
+
+    long getMaxRowCount();
 }

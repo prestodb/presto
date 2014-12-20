@@ -74,6 +74,9 @@ import static com.google.common.base.Predicates.not;
 public class RaptorMetadata
         implements ConnectorMetadata
 {
+    private static final Splitter NODE_SHARD_SPLITTER = Splitter.on(':').limit(2);
+    private static final Splitter SHARD_SPLITTER = Splitter.on(',');
+
     private final IDBI dbi;
     private final MetadataDao dao;
     private final ShardManager shardManager;
@@ -434,12 +437,17 @@ public class RaptorMetadata
 
     private static List<ShardNode> parseFragments(Collection<String> fragments)
     {
+        // Format of each fragment: nodeId:shardUuid1,shardUuid2,shardUuid3
         ImmutableList.Builder<ShardNode> shards = ImmutableList.builder();
         for (String fragment : fragments) {
-            Iterator<String> split = Splitter.on(':').split(fragment).iterator();
+            Iterator<String> split = NODE_SHARD_SPLITTER.split(fragment).iterator();
             String nodeId = split.next();
-            UUID shardUuid = UUID.fromString(split.next());
-            shards.add(new ShardNode(shardUuid, nodeId));
+            checkArgument(split.hasNext(), "fragment not formatted correctly");
+            String uuids = split.next();
+            for (String uuidString : SHARD_SPLITTER.trimResults().omitEmptyStrings().split(uuids)) {
+                UUID shardUuid = UUID.fromString(uuidString);
+                shards.add(new ShardNode(shardUuid, nodeId));
+            }
         }
         return shards.build();
     }

@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.raptor.storage.StoragePageSink;
-import com.facebook.presto.raptor.storage.StorageOutputHandle;
 import com.facebook.presto.raptor.storage.StorageManager;
+import com.facebook.presto.raptor.storage.StorageOutputHandle;
+import com.facebook.presto.raptor.storage.StoragePageSink;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
-import java.util.Optional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -34,9 +34,12 @@ public class RaptorPageSink
 {
     private final String nodeId;
     private final StorageManager storageManager;
-    private final StoragePageSink storagePageSink;
     private final StorageOutputHandle storageOutputHandle;
     private final int sampleWeightField;
+    private final long maxRowCount;
+
+    private StoragePageSink storagePageSink;
+    private int rowCount;
 
     public RaptorPageSink(
             String nodeId,
@@ -48,17 +51,25 @@ public class RaptorPageSink
         this.nodeId = checkNotNull(nodeId, "nodeId is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
         this.storageOutputHandle = storageManager.createStorageOutputHandle(columnIds, columnTypes);
-        this.storagePageSink = storageManager.getStoragePageSink(storageOutputHandle);
-
+        this.maxRowCount = storageManager.getMaxRowCount();
         checkNotNull(sampleWeightColumnId, "sampleWeightColumnId is null");
         this.sampleWeightField = columnIds.indexOf(sampleWeightColumnId.orElse(-1L));
+
+        this.storagePageSink = createPageSink(storageManager, storageOutputHandle);
+        this.rowCount = 0;
     }
 
     @Override
     public void appendPage(Page page, Block sampleWeightBlock)
     {
+        if (rowCount >= maxRowCount) {
+            storagePageSink.close();
+            storagePageSink = createPageSink(storageManager, storageOutputHandle);
+            rowCount = 0;
+        }
+
         if (sampleWeightField < 0) {
-            storagePageSink.appendPage(page);
+            appendPage(page);
             return;
         }
 
@@ -76,13 +87,27 @@ public class RaptorPageSink
             blocks[channel] = page.getBlock(pageChannel);
             pageChannel++;
         }
-        storagePageSink.appendPage(new Page(blocks));
+        appendPage(new Page(blocks));
+    }
+
+    private void appendPage(Page page)
+    {
+        storagePageSink.appendPage(page);
+        rowCount += page.getPositionCount();
     }
 
     @Override
     public String commit()
     {
-        UUID shardUuid = storageManager.commit(storageOutputHandle);
-        return Joiner.on(':').join(nodeId, shardUuid);
+        storagePageSink.close();
+        List<UUID> shardUuids = storageManager.commit(storageOutputHandle);
+        // Format of each fragment: nodeId:shardUuid1,shardUuid2,shardUuid3
+        return Joiner.on(':').join(nodeId, Joiner.on(",").join(shardUuids));
+
+    }
+
+    private static StoragePageSink createPageSink(StorageManager storageManager, StorageOutputHandle storageOutputHandle)
+    {
+        return storageManager.createStoragePageSink(storageOutputHandle);
     }
 }
