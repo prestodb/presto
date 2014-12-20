@@ -20,7 +20,7 @@ public class PlanVisitor<C, R>
         return null;
     }
 
-    public R visitExchange(ExchangeNode node, C context)
+    public R visitRemoteSource(RemoteSourceNode node, C context)
     {
         return visitPlan(node, context);
     }

@@ -39,11 +39,11 @@ import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TestingColumnHandle;
 import com.facebook.presto.sql.planner.TestingTableHandle;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.base.Supplier;
 import com.google.common.collect.HashMultimap;
@@ -299,7 +299,7 @@ public class TestSqlStageExecution
         StageExecutionPlan build = createTableScanPlan("build", 1, splitFactory);
 
         // create an exchange to read the build data
-        ExchangeNode buildExchange = new ExchangeNode(new PlanNodeId(planId + "-build"),
+        RemoteSourceNode buildSource = new RemoteSourceNode(new PlanNodeId(planId + "-build"),
                 build.getFragment().getId(),
                 ImmutableList.copyOf(build.getFragment().getSymbols().keySet()));
 
@@ -307,12 +307,12 @@ public class TestSqlStageExecution
         StageExecutionPlan probe = createTableScanPlan("probe", 10, splitFactory);
 
         // create an exchange to read the probe data
-        ExchangeNode probeExchange = new ExchangeNode(new PlanNodeId(planId + "-probe"),
+        RemoteSourceNode probeSource = new RemoteSourceNode(new PlanNodeId(planId + "-probe"),
                 probe.getFragment().getId(),
                 ImmutableList.copyOf(probe.getFragment().getSymbols().keySet()));
 
         // join build and probe
-        JoinNode joinNode = new JoinNode(new PlanNodeId(planId), JoinNode.Type.INNER, probeExchange, buildExchange, ImmutableList.<EquiJoinClause>of(), Optional.empty(), Optional.empty());
+        JoinNode joinNode = new JoinNode(new PlanNodeId(planId), JoinNode.Type.INNER, probeSource, buildSource, ImmutableList.<EquiJoinClause>of(), Optional.empty(), Optional.empty());
         PlanFragment joinPlan = new PlanFragment(
                 new PlanFragmentId(planId),
                 joinNode,

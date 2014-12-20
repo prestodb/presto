@@ -31,10 +31,10 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Throwables;
@@ -460,16 +460,16 @@ public class SqlStageExecution
 
         ImmutableMultimap.Builder<PlanNodeId, URI> newExchangeLocations = ImmutableMultimap.builder();
         for (PlanNode planNode : fragment.getSources()) {
-            if (planNode instanceof ExchangeNode) {
-                ExchangeNode exchangeNode = (ExchangeNode) planNode;
-                for (PlanFragmentId planFragmentId : exchangeNode.getSourceFragmentIds()) {
+            if (planNode instanceof RemoteSourceNode) {
+                RemoteSourceNode remoteSourceNode = (RemoteSourceNode) planNode;
+                for (PlanFragmentId planFragmentId : remoteSourceNode.getSourceFragmentIds()) {
                     StageExecutionNode subStage = subStages.get(planFragmentId);
                     checkState(subStage != null, "Unknown sub stage %s, known stages %s", planFragmentId, subStages.keySet());
 
                     // add new task locations
                     for (URI taskLocation : subStage.getTaskLocations()) {
-                        if (!exchangeLocations.containsEntry(exchangeNode.getId(), taskLocation)) {
-                            newExchangeLocations.putAll(exchangeNode.getId(), taskLocation);
+                        if (!exchangeLocations.containsEntry(remoteSourceNode.getId(), taskLocation)) {
+                            newExchangeLocations.putAll(remoteSourceNode.getId(), taskLocation);
                         }
                     }
                 }
@@ -847,10 +847,10 @@ public class SqlStageExecution
     private Set<PlanNodeId> updateCompleteSources()
     {
         for (PlanNode planNode : fragment.getSources()) {
-            if (!completeSources.contains(planNode.getId()) && planNode instanceof ExchangeNode) {
-                ExchangeNode exchangeNode = (ExchangeNode) planNode;
+            if (!completeSources.contains(planNode.getId()) && planNode instanceof RemoteSourceNode) {
+                RemoteSourceNode remoteSourceNode = (RemoteSourceNode) planNode;
                 boolean exchangeFinished = true;
-                for (PlanFragmentId planFragmentId : exchangeNode.getSourceFragmentIds()) {
+                for (PlanFragmentId planFragmentId : remoteSourceNode.getSourceFragmentIds()) {
                     StageExecutionNode subStage = subStages.get(planFragmentId);
                     switch (subStage.getState()) {
                         case PLANNED:

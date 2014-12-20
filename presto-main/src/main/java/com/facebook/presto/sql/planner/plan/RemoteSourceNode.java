@@ -24,14 +24,15 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 
 @Immutable
-public class ExchangeNode
+public class RemoteSourceNode
         extends PlanNode
 {
     private final List<PlanFragmentId> sourceFragmentIds;
     private final List<Symbol> outputs;
 
     @JsonCreator
-    public ExchangeNode(@JsonProperty("id") PlanNodeId id,
+    public RemoteSourceNode(
+            @JsonProperty("id") PlanNodeId id,
             @JsonProperty("sourceFragmentIds") List<PlanFragmentId> sourceFragmentIds,
             @JsonProperty("outputs") List<Symbol> outputs)
     {
@@ -43,7 +44,7 @@ public class ExchangeNode
         this.outputs = ImmutableList.copyOf(outputs);
     }
 
-    public ExchangeNode(PlanNodeId id, PlanFragmentId sourceFragmentId, List<Symbol> outputs)
+    public RemoteSourceNode(PlanNodeId id, PlanFragmentId sourceFragmentId, List<Symbol> outputs)
     {
         this(id, ImmutableList.of(sourceFragmentId), outputs);
     }
@@ -70,6 +71,6 @@ public class ExchangeNode
     @Override
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
-        return visitor.visitExchange(this, context);
+        return visitor.visitRemoteSource(this, context);
     }
 }

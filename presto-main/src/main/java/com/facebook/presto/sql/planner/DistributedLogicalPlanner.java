@@ -21,7 +21,7 @@ import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -175,8 +175,8 @@ public class DistributedLogicalPlanner
             else {
                 current.setHashOutputPartitioning(node.getDistinctSymbols(), hashSymbol);
 
-                PlanNode exchange = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
-                MarkDistinctNode markNode = new MarkDistinctNode(idAllocator.getNextId(), exchange, node.getMarkerSymbol(), node.getDistinctSymbols(), hashSymbol);
+                PlanNode source = new RemoteSourceNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
+                MarkDistinctNode markNode = new MarkDistinctNode(idAllocator.getNextId(), source, node.getMarkerSymbol(), node.getDistinctSymbols(), hashSymbol);
 
                 return createFixedDistributionPlan(markNode)
                         .addChild(current.build());
@@ -186,7 +186,7 @@ public class DistributedLogicalPlanner
         private SubPlanBuilder addSingleNodeAggregation(SubPlanBuilder plan, Map<Symbol, FunctionCall> aggregations, Map<Symbol, Signature> functions, Map<Symbol, Symbol> masks, List<Symbol> groupBy, Optional<Symbol> sampleWeight, double confidence, Optional<Symbol> hashSymbol)
         {
             // create aggregation plan
-            ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), plan.getId(), plan.getRoot().getOutputSymbols());
+            RemoteSourceNode source = new RemoteSourceNode(idAllocator.getNextId(), plan.getId(), plan.getRoot().getOutputSymbols());
             AggregationNode aggregation = new AggregationNode(idAllocator.getNextId(), source, groupBy, aggregations, functions, masks, SINGLE, sampleWeight, confidence, hashSymbol);
             plan = createSingleNodePlan(aggregation).addChild(plan.build());
 
@@ -219,7 +219,7 @@ public class DistributedLogicalPlanner
             plan.setRoot(partialAggregation);
 
             // create final aggregation plan
-            ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), plan.getId(), plan.getRoot().getOutputSymbols());
+            RemoteSourceNode source = new RemoteSourceNode(idAllocator.getNextId(), plan.getId(), plan.getRoot().getOutputSymbols());
             AggregationNode finalAggregation = new AggregationNode(idAllocator.getNextId(), source, groupBy, finalCalls, functions, ImmutableMap.of(), FINAL, Optional.empty(), confidence, hashSymbol);
 
             if (groupBy.isEmpty()) {
@@ -241,7 +241,7 @@ public class DistributedLogicalPlanner
 
             if (current.isDistributed()) {
                 List<Symbol> partitionedBy = node.getPartitionBy();
-                ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
+                RemoteSourceNode source = new RemoteSourceNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
                 if (partitionedBy.isEmpty()) {
                     // create a new non-partitioned fragment
                     current = createSingleNodePlan(source)
@@ -265,7 +265,7 @@ public class DistributedLogicalPlanner
             SubPlanBuilder current = node.getSource().accept(this, context);
             if (current.isDistributed()) {
                 List<Symbol> partitionedBy = node.getPartitionBy();
-                ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
+                RemoteSourceNode source = new RemoteSourceNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
                 if (node.getPartitionBy().isEmpty()) {
                     current = createSingleNodePlan(source).addChild(current.build());
                 }
@@ -295,7 +295,7 @@ public class DistributedLogicalPlanner
                         node.getMaxRowCountPerPartition(),
                         true,
                         node.getHashSymbol()));
-                ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
+                RemoteSourceNode source = new RemoteSourceNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
                 TopNRowNumberNode merge = new TopNRowNumberNode(node.getId(),
                         source,
                         node.getPartitionBy(),
@@ -364,7 +364,7 @@ public class DistributedLogicalPlanner
 
             if (current.isDistributed()) {
                 // create merge plan fragment
-                PlanNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
+                PlanNode source = new RemoteSourceNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
                 TopNNode merge = new TopNNode(idAllocator.getNextId(), source, node.getCount(), node.getOrderBy(), node.getOrderings(), false);
                 current = createSingleNodePlan(merge)
                         .addChild(current.build());
@@ -380,7 +380,7 @@ public class DistributedLogicalPlanner
 
             if (current.isDistributed()) {
                 // create a new non-partitioned fragment
-                current = createSingleNodePlan(new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols()))
+                current = createSingleNodePlan(new RemoteSourceNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols()))
                         .addChild(current.build());
             }
 
@@ -396,7 +396,7 @@ public class DistributedLogicalPlanner
 
             if (current.isDistributed()) {
                 // create a new non-partitioned fragment
-                current = createSingleNodePlan(new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols()))
+                current = createSingleNodePlan(new RemoteSourceNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols()))
                         .addChild(current.build());
             }
 
@@ -414,7 +414,7 @@ public class DistributedLogicalPlanner
 
             if (current.isDistributed()) {
                 // create merge plan fragment
-                PlanNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
+                PlanNode source = new RemoteSourceNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
                 LimitNode merge = new LimitNode(idAllocator.getNextId(), source, node.getCount());
                 current = createSingleNodePlan(merge)
                         .addChild(current.build());
@@ -431,7 +431,7 @@ public class DistributedLogicalPlanner
             current.setRoot(new DistinctLimitNode(node.getId(), current.getRoot(), node.getLimit(), node.getHashSymbol()));
 
             if (current.isDistributed()) {
-                PlanNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
+                PlanNode source = new RemoteSourceNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
                 DistinctLimitNode merge = new DistinctLimitNode(idAllocator.getNextId(), source, node.getLimit(), node.getHashSymbol());
                 current = createSingleNodePlan(merge).addChild(current.build());
             }
@@ -465,7 +465,7 @@ public class DistributedLogicalPlanner
 
             if (current.getDistribution() != PlanDistribution.COORDINATOR_ONLY && !createSingleNodePlan) {
                 // create a new non-partitioned fragment to run on the coordinator
-                current = createCoordinatorOnlyPlan(new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols()))
+                current = createCoordinatorOnlyPlan(new RemoteSourceNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols()))
                         .addChild(current.build());
             }
 
@@ -494,7 +494,7 @@ public class DistributedLogicalPlanner
                         left.setRoot(new JoinNode(node.getId(),
                                 node.getType(),
                                 left.getRoot(),
-                                new ExchangeNode(idAllocator.getNextId(), right.getId(), right.getRoot().getOutputSymbols()),
+                                new RemoteSourceNode(idAllocator.getNextId(), right.getId(), right.getRoot().getOutputSymbols()),
                                 node.getCriteria(), node.getLeftHashSymbol(), node.getRightHashSymbol()));
                         left.addChild(right.build());
 
@@ -506,7 +506,7 @@ public class DistributedLogicalPlanner
                         }
                         right.setRoot(new JoinNode(node.getId(),
                                 node.getType(),
-                                new ExchangeNode(idAllocator.getNextId(), left.getId(), left.getRoot().getOutputSymbols()),
+                                new RemoteSourceNode(idAllocator.getNextId(), left.getId(), left.getRoot().getOutputSymbols()),
                                 right.getRoot(),
                                 node.getCriteria(), node.getLeftHashSymbol(), node.getRightHashSymbol()));
                         right.addChild(left.build());
@@ -527,8 +527,8 @@ public class DistributedLogicalPlanner
         {
             subPlan.setHashOutputPartitioning(symbols, hashSymbol);
 
-            PlanNode exchange = new ExchangeNode(idAllocator.getNextId(), subPlan.getId(), subPlan.getRoot().getOutputSymbols());
-            return createFixedDistributionPlan(exchange)
+            PlanNode source = new RemoteSourceNode(idAllocator.getNextId(), subPlan.getId(), subPlan.getRoot().getOutputSymbols());
+            return createFixedDistributionPlan(source)
                     .addChild(subPlan.build());
         }
 
@@ -541,7 +541,7 @@ public class DistributedLogicalPlanner
             if (source.isDistributed() || filteringSource.isDistributed()) {
                 source.setRoot(new SemiJoinNode(node.getId(),
                         source.getRoot(),
-                        new ExchangeNode(idAllocator.getNextId(), filteringSource.getId(), filteringSource.getRoot().getOutputSymbols()),
+                        new RemoteSourceNode(idAllocator.getNextId(), filteringSource.getId(), filteringSource.getRoot().getOutputSymbols()),
                         node.getSourceJoinSymbol(),
                         node.getFilteringSourceJoinSymbol(),
                         node.getSemiJoinOutput(),
@@ -573,8 +573,8 @@ public class DistributedLogicalPlanner
             if (distributedIndexJoins && current.isDistributed()) {
                 current.setHashOutputPartitioning(Lists.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause::getProbe), node.getProbeHashSymbol());
 
-                PlanNode exchange = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
-                IndexJoinNode indexJoinNode = new IndexJoinNode(node.getId(), node.getType(), exchange, node.getIndexSource(), node.getCriteria(), node.getProbeHashSymbol(), node.getIndexHashSymbol());
+                PlanNode source = new RemoteSourceNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
+                IndexJoinNode indexJoinNode = new IndexJoinNode(node.getId(), node.getType(), source, node.getIndexSource(), node.getCriteria(), node.getProbeHashSymbol(), node.getIndexHashSymbol());
                 return createFixedDistributionPlan(indexJoinNode).addChild(current.build());
             }
             else {
@@ -607,8 +607,8 @@ public class DistributedLogicalPlanner
                     fragmentIdBuilder.add(child.getFragment().getId());
                     sourceBuilder.add(child);
                 }
-                ExchangeNode exchangeNode = new ExchangeNode(idAllocator.getNextId(), fragmentIdBuilder.build(), node.getOutputSymbols());
-                return createSingleNodePlan(exchangeNode)
+                RemoteSourceNode remoteSourceNode = new RemoteSourceNode(idAllocator.getNextId(), fragmentIdBuilder.build(), node.getOutputSymbols());
+                return createSingleNodePlan(remoteSourceNode)
                         .setChildren(sourceBuilder.build());
             }
         }

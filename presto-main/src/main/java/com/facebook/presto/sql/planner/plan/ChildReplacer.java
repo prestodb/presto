@@ -55,7 +55,7 @@ public class ChildReplacer
     }
 
     @Override
-    public PlanNode visitExchange(ExchangeNode node, List<PlanNode> newChildren)
+    public PlanNode visitRemoteSource(RemoteSourceNode node, List<PlanNode> newChildren)
     {
         checkArgument(newChildren.isEmpty(), "newChildren is not empty");
         return node;
