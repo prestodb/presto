@@ -66,7 +66,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
@@ -86,17 +85,21 @@ public class PlanPrinter
     private final StringBuilder output = new StringBuilder();
     private final Metadata metadata;
 
-    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, Optional<Map<PlanFragmentId, PlanFragment>> fragmentsById)
+    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata)
+    {
+        this(plan, types, metadata, 0);
+    }
+
+    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, int indent)
     {
         checkNotNull(plan, "plan is null");
         checkNotNull(types, "types is null");
-        checkNotNull(fragmentsById, "fragmentsById is null");
         checkNotNull(metadata, "metadata is null");
 
         this.metadata = metadata;
 
-        Visitor visitor = new Visitor(types, fragmentsById);
-        plan.accept(visitor, 0);
+        Visitor visitor = new Visitor(types);
+        plan.accept(visitor, indent);
     }
 
     @Override
@@ -107,7 +110,12 @@ public class PlanPrinter
 
     public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata)
     {
-        return new PlanPrinter(plan, types, metadata, Optional.empty()).toString();
+        return new PlanPrinter(plan, types, metadata).toString();
+    }
+
+    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, int indent)
+    {
+        return new PlanPrinter(plan, types, metadata, indent).toString();
     }
 
     public static String getJsonPlanSource(PlanNode plan, Metadata metadata)
@@ -117,10 +125,27 @@ public class PlanPrinter
 
     public static String textDistributedPlan(SubPlan plan, Metadata metadata)
     {
-        List<PlanFragment> fragments = plan.getAllFragments();
-        Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, PlanFragment::getId);
-        PlanFragment fragment = plan.getFragment();
-        return new PlanPrinter(fragment.getRoot(), fragment.getSymbols(), metadata, Optional.of(fragmentsById)).toString();
+        StringBuilder builder = new StringBuilder();
+        for (PlanFragment fragment : plan.getAllFragments()) {
+            builder.append(String.format("Fragment %s [%s]\n",
+                    fragment.getId(),
+                    fragment.getDistribution()));
+
+            builder.append(indentString(1))
+                    .append(String.format("Output layout: [%s]\n",
+                            Joiner.on(", ").join(fragment.getOutputLayout())));
+
+            if (fragment.getOutputPartitioning() == OutputPartitioning.HASH) {
+                builder.append(indentString(1))
+                        .append(String.format("Output partitioning: [%s]\n",
+                                Joiner.on(", ").join(fragment.getPartitionBy())));
+            }
+
+            builder.append(textLogicalPlan(fragment.getRoot(), fragment.getSymbols(), metadata, 1))
+                    .append("\n");
+        }
+
+        return builder.toString();
     }
 
     public static String graphvizLogicalPlan(PlanNode plan, Map<Symbol, Type> types)
@@ -144,19 +169,22 @@ public class PlanPrinter
         else {
             value = format(format, args);
         }
-        output.append(Strings.repeat("    ", indent)).append(value).append('\n');
+        output.append(indentString(indent)).append(value).append('\n');
+    }
+
+    private static String indentString(int indent)
+    {
+        return Strings.repeat("    ", indent);
     }
 
     private class Visitor
             extends PlanVisitor<Integer, Void>
     {
         private final Map<Symbol, Type> types;
-        private final Optional<Map<PlanFragmentId, PlanFragment>> fragmentsById;
 
-        public Visitor(Map<Symbol, Type> types, Optional<Map<PlanFragmentId, PlanFragment>> fragmentsById)
+        public Visitor(Map<Symbol, Type> types)
         {
             this.types = types;
-            this.fragmentsById = fragmentsById;
         }
 
         @Override
@@ -426,9 +454,9 @@ public class PlanPrinter
         @Override
         public Void visitRemoteSource(RemoteSourceNode node, Integer indent)
         {
-            print(indent, "- RemoteSource[%s] => [%s]", node.getSourceFragmentIds(), formatOutputs(node.getOutputSymbols()));
+            print(indent, "- RemoteSource[%s] => [%s]", Joiner.on(',').join(node.getSourceFragmentIds()), formatOutputs(node.getOutputSymbols()));
 
-            return processRemoteSource(node, indent + 1);
+            return null;
         }
 
         @Override
@@ -480,15 +508,6 @@ public class PlanPrinter
                 child.accept(this, indent);
             }
 
-            return null;
-        }
-
-        private Void processRemoteSource(RemoteSourceNode node, int indent)
-        {
-            for (PlanFragmentId planFragmentId : node.getSourceFragmentIds()) {
-                PlanFragment target = fragmentsById.get().get(planFragmentId);
-                target.getRoot().accept(new Visitor(target.getSymbols(), fragmentsById), indent);
-            }
             return null;
         }
 
