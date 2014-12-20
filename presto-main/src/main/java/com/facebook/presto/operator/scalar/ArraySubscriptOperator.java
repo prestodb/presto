@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricOperator;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.server.SliceSerializer;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -24,14 +25,21 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.RowType;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.type.CollectionType;
+import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 
+import java.io.IOException;
 import java.lang.invoke.MethodHandle;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -56,10 +64,13 @@ public class ArraySubscriptOperator
         extends ParametricOperator
 {
     public static final ArraySubscriptOperator ARRAY_SUBSCRIPT = new ArraySubscriptOperator();
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer()));
+    private static final CollectionType COLLECTION_TYPE = OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, Object.class);
 
     private static final Map<Class<?>, MethodHandle> METHOD_HANDLES = ImmutableMap.<Class<?>, MethodHandle>builder()
             .put(boolean.class, methodHandle(ArraySubscriptOperator.class, "booleanSubscript", Slice.class, long.class))
             .put(long.class, methodHandle(ArraySubscriptOperator.class, "longSubscript", Slice.class, long.class))
+            .put(void.class, methodHandle(ArraySubscriptOperator.class, "arrayWithUnknownType", Slice.class, long.class))
             .put(double.class, methodHandle(ArraySubscriptOperator.class, "doubleSubscript", Slice.class, long.class))
             .put(Slice.class, methodHandle(ArraySubscriptOperator.class, "sliceSubscript", Slice.class, long.class))
             .build();
@@ -98,6 +109,19 @@ public class ArraySubscriptOperator
         }
         checkNotNull(methodHandle, "methodHandle is null");
         return new FunctionInfo(Signature.internalOperator(SUBSCRIPT.name(), elementType.getTypeSignature(), parameterizedTypeName("array", elementType.getTypeSignature()), parseTypeSignature(StandardTypes.BIGINT)), "Array subscript", true, methodHandle, true, true, ImmutableList.of(false, false));
+    }
+
+    public static void arrayWithUnknownType(Slice json, long index)
+    {
+        try {
+            List<Object> array = OBJECT_MAPPER.readValue(json.getInput(), COLLECTION_TYPE);
+            if (index <= 0 || index > array.size()) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Index out of bounds");
+            }
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     public static Long longSubscript(Slice array, long index)

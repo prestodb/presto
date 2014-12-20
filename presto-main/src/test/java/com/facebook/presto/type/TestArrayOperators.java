@@ -193,6 +193,22 @@ public class TestArrayOperators
             throws Exception
     {
         try {
+            assertFunction("ARRAY [][1]", null);
+            fail("Access to any element of an empty array should fail");
+        }
+        catch (PrestoException e) {
+            // Expected
+        }
+
+        try {
+            assertFunction("ARRAY [null][-1]", null);
+            fail("Out of bounds array access should fail");
+        }
+        catch (PrestoException e) {
+            // Expected
+        }
+
+        try {
             assertFunction("ARRAY [1, 2, 3][0]", null);
             fail("Access to array element zero should fail");
         }
@@ -220,6 +236,9 @@ public class TestArrayOperators
         catch (SemanticException e) {
             assertTrue(e.getCode() == SemanticErrorCode.TYPE_MISMATCH);
         }
+
+        assertFunction("ARRAY[NULL][1]", null);
+        assertFunction("ARRAY[NULL, NULL, NULL][3]", null);
         assertFunction("1 + ARRAY [2, 1, 3][2]", 2);
         assertFunction("ARRAY [2, 1, 3][2]", 1);
         assertFunction("ARRAY [2, NULL, 3][2]", null);
