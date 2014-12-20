@@ -421,7 +421,7 @@ public class PlanPrinter
         @Override
         public Void visitOutput(OutputNode node, Integer indent)
         {
-            print(indent, "- Output[%s]", Joiner.on(", ").join(node.getColumnNames()));
+            print(indent, "- Output[%s] => [%s]", Joiner.on(", ").join(node.getColumnNames()), formatOutputs(node.getOutputSymbols()));
             for (int i = 0; i < node.getColumnNames().size(); i++) {
                 String name = node.getColumnNames().get(i);
                 Symbol symbol = node.getOutputSymbols().get(i);
