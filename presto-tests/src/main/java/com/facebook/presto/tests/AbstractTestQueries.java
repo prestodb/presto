@@ -959,6 +959,12 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testNestedGroupByWithSameKey()
+            throws Exception
+    {
+        assertQuery("SELECT custkey, sum(t) FROM (SELECT custkey, count(*) t FROM orders GROUP BY custkey) GROUP BY custkey");
+    }
+    @Test
     public void testGroupByWithNulls()
             throws Exception
     {

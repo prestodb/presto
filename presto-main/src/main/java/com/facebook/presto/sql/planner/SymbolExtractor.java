@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
@@ -295,6 +296,14 @@ public final class SymbolExtractor
             for (PlanNode subPlanNode : node.getSources()) {
                 subPlanNode.accept(this, context);
             }
+
+            return null;
+        }
+
+        @Override
+        public Void visitExchange(ExchangeNode node, Void context)
+        {
+            builder.addAll(node.getOutputSymbols());
 
             return null;
         }
