@@ -99,10 +99,12 @@ import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.util.Types.checkType;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -1091,6 +1093,22 @@ public abstract class AbstractTestHiveClient
             }
             catch (RuntimeException e) {
                 // this usually occurs because the view was not created
+            }
+        }
+    }
+
+    @Test
+    public void testCreateTableUnsupportedType()
+    {
+        for (HiveStorageFormat storageFormat : createTableFormats) {
+            try {
+                List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", HYPER_LOG_LOG, 1, false));
+                ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(invalidTable, columns, SESSION.getUser());
+                metadata.beginCreateTable(SESSION, tableMetadata);
+                fail("create table with unsupported type should fail for storage format " + storageFormat);
+            }
+            catch (PrestoException e) {
+                assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
             }
         }
     }

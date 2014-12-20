@@ -294,4 +294,15 @@ public class HiveRecordSink
         }
         throw new IllegalArgumentException("unsupported type: " + type);
     }
+
+    public static boolean isTypeSupported(Type type)
+    {
+        try {
+            getJavaObjectInspector(type);
+            return true;
+        }
+        catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
 }
