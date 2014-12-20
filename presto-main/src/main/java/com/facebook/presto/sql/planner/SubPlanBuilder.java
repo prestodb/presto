@@ -62,7 +62,7 @@ public class SubPlanBuilder
 
     public boolean isDistributed()
     {
-        return (distribution != PlanDistribution.NONE) &&
+        return (distribution != PlanDistribution.SINGLE) &&
                 (distribution != PlanDistribution.COORDINATOR_ONLY);
     }
 

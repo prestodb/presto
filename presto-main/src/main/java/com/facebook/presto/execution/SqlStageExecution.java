@@ -538,7 +538,7 @@ public class SqlStageExecution
                 }
 
                 // schedule tasks
-                if (fragment.getDistribution() == PlanDistribution.NONE) {
+                if (fragment.getDistribution() == PlanDistribution.SINGLE) {
                     scheduleFixedNodeCount(1);
                 }
                 else if (fragment.getDistribution() == PlanDistribution.FIXED) {
