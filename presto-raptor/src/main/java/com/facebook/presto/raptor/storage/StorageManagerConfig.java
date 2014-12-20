@@ -19,6 +19,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
+import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -35,6 +36,7 @@ public class StorageManagerConfig
     private Duration missingShardDiscoveryInterval = new Duration(5, TimeUnit.MINUTES);
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private int recoveryThreads = 10;
+    private long rowsPerShard = 1_000_000;
 
     @NotNull
     public File getDataDirectory()
@@ -114,6 +116,22 @@ public class StorageManagerConfig
     public StorageManagerConfig setRecoveryThreads(int recoveryThreads)
     {
         this.recoveryThreads = recoveryThreads;
+        return this;
+    }
+
+    @Min(1)
+    @Max(1_000_000_000)
+    @Nullable
+    public long getRowsPerShard()
+    {
+        return rowsPerShard;
+    }
+
+    @Config("storage.rows-per-shard")
+    @ConfigDescription("Approximate maximum number of rows per shard")
+    public StorageManagerConfig setRowsPerShard(long rowsPerShard)
+    {
+        this.rowsPerShard = rowsPerShard;
         return this;
     }
 }

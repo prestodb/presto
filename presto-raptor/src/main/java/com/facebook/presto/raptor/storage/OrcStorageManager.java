@@ -48,6 +48,7 @@ import java.util.concurrent.TimeoutException;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static org.joda.time.DateTimeZone.UTC;
@@ -59,19 +60,22 @@ public class OrcStorageManager
     private final DataSize orcMaxMergeDistance;
     private final ShardRecoveryManager recoveryManager;
     private final Duration recoveryTimeout;
+    private final long rowsPerShard;
 
     @Inject
     public OrcStorageManager(StorageService storageService, StorageManagerConfig config, ShardRecoveryManager recoveryManager)
     {
-        this(storageService, config.getOrcMaxMergeDistance(), recoveryManager, config.getShardRecoveryTimeout());
+        this(storageService, config.getOrcMaxMergeDistance(), recoveryManager, config.getShardRecoveryTimeout(), config.getRowsPerShard());
     }
 
-    public OrcStorageManager(StorageService storageService, DataSize orcMaxMergeDistance, ShardRecoveryManager recoveryManager, Duration shardRecoveryTimeout)
+    public OrcStorageManager(StorageService storageService, DataSize orcMaxMergeDistance, ShardRecoveryManager recoveryManager, Duration shardRecoveryTimeout, long rowsPerShard)
     {
         this.storageService = checkNotNull(storageService, "storageService is null");
         this.orcMaxMergeDistance = checkNotNull(orcMaxMergeDistance, "orcMaxMergeDistance is null");
         this.recoveryManager = checkNotNull(recoveryManager, "recoveryManager is null");
         this.recoveryTimeout = checkNotNull(shardRecoveryTimeout, "shardRecoveryTimeout is null");
+        checkArgument(rowsPerShard > 0, "rowsPerShard must be > 0");
+        this.rowsPerShard = rowsPerShard;
     }
 
     @Override
@@ -122,18 +126,25 @@ public class OrcStorageManager
     @Override
     public StorageOutputHandle createStorageOutputHandle(List<Long> columnIds, List<Type> columnTypes)
     {
-        UUID shardUuid = UUID.randomUUID();
-        File stagingFile = storageService.getStagingFile(shardUuid);
-        storageService.createParents(stagingFile);
-        return new StorageOutputHandle(shardUuid, new OrcStoragePageSink(columnIds, columnTypes, stagingFile));
+        return new StorageOutputHandle(new OrcStoragePageSinkProvider(columnIds, columnTypes, storageService));
     }
 
     @Override
-    public UUID commit(StorageOutputHandle storageOutputHandle)
+    public StoragePageSink createStoragePageSink(StorageOutputHandle storageOutputHandle)
     {
-        storageOutputHandle.getStoragePageSink().close();
+        return storageOutputHandle.createStoragePageSink();
+    }
 
-        UUID shardUuid = storageOutputHandle.getShardUuid();
+    @Override
+    public List<UUID> commit(StorageOutputHandle storageOutputHandle)
+    {
+        List<UUID> shardUuids = storageOutputHandle.getShardUuids();
+        shardUuids.forEach(this::writeShard);
+        return shardUuids;
+    }
+
+    private void writeShard(UUID shardUuid)
+    {
         File stagingFile = storageService.getStagingFile(shardUuid);
         File storageFile = storageService.getStorageFile(shardUuid);
 
@@ -156,19 +167,18 @@ public class OrcStorageManager
                 throw new PrestoException(RAPTOR_ERROR, "Failed to create backup shard file", e);
             }
         }
-        return shardUuid;
+    }
+
+    @Override
+    public long getMaxRowCount()
+    {
+        return rowsPerShard;
     }
 
     @Override
     public boolean isBackupAvailable()
     {
         return storageService.isBackupAvailable();
-    }
-
-    @Override
-    public StoragePageSink getStoragePageSink(StorageOutputHandle storageOutputHandle)
-    {
-        return storageOutputHandle.getStoragePageSink();
     }
 
     @VisibleForTesting
