@@ -22,8 +22,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public abstract class PlanRewriter<C>
         extends PlanVisitor<PlanRewriter.RewriteContext<C>, PlanNode>
 {
-    private static final ChildReplacer CHILD_REPLACER = new ChildReplacer();
-
     public static <C> PlanNode rewriteWith(PlanRewriter<C> rewriter, PlanNode node)
     {
         return node.accept(rewriter, new RewriteContext<>(rewriter, null));
@@ -85,7 +83,7 @@ public abstract class PlanRewriter<C>
         {
             for (int i = 0; i < node.getSources().size(); i++) {
                 if (newChildren.get(i) != node.getSources().get(i)) {
-                    return node.accept(CHILD_REPLACER, newChildren);
+                    return ChildReplacer.replaceChildren(node, newChildren);
                 }
             }
 
