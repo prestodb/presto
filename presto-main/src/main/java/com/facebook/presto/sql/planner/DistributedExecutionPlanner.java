@@ -39,6 +39,7 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
+import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -255,6 +256,25 @@ public class DistributedExecutionPlanner
         public Optional<SplitSource> visitTableCommit(TableCommitNode node, Void context)
         {
             return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Optional<SplitSource> visitUnion(UnionNode node, Void context)
+        {
+            Optional<SplitSource> result = Optional.empty();
+            for (PlanNode child : node.getSources()) {
+                Optional<SplitSource> source = child.accept(this, context);
+
+                if (result.isPresent() && source.isPresent()) {
+                    throw new IllegalArgumentException("Multiple children are source-distributed");
+                }
+
+                if (source.isPresent()) {
+                    result = source;
+                }
+            }
+
+            return result;
         }
 
         @Override
