@@ -394,7 +394,7 @@
             <dependency>
                 <groupId>io.airlift.tpch</groupId>
                 <artifactId>tpch</artifactId>
-                <version>0.4-SNAPSHOT</version>
+                <version>0.4</version>
             </dependency>
 
             <dependency>
