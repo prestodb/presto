@@ -297,6 +297,7 @@ public final class SymbolExtractor
                 subPlanNode.accept(this, context);
             }
 
+            builder.addAll(node.getOutputSymbols());
             return null;
         }
 
