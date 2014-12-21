@@ -47,10 +47,12 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -375,26 +377,57 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitUnion(UnionNode node, Void context)
         {
-            ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
-            for (PlanNode child : node.getSources()) {
-                builder.add(child.accept(this, context).getNode());
+            // first, classify children into partitioned and unpartitioned
+            List<PlanNode> unpartitionedChildren = new ArrayList<>();
+            List<List<Symbol>> unpartitionedOutputLayouts = new ArrayList<>();
+
+            List<PlanNode> partitionedChildren = new ArrayList<>();
+            List<List<Symbol>> partitionedOutputLayouts = new ArrayList<>();
+
+            List<PlanNode> sources = node.getSources();
+            for (int i = 0; i < sources.size(); i++) {
+                PlanWithProperties child = sources.get(i).accept(this, context);
+                if (child.getProperties().isUnpartitioned()) {
+                    unpartitionedChildren.add(child.getNode());
+                    unpartitionedOutputLayouts.add(node.sourceOutputLayout(i));
+                }
+                else {
+                    partitionedChildren.add(child.getNode());
+                    partitionedOutputLayouts.add(node.sourceOutputLayout(i));
+                }
             }
 
-            ImmutableList.Builder<List<Symbol>> sourceOutputLayouts = ImmutableList.<List<Symbol>>builder();
-            for (int i = 0; i < node.getSources().size(); i++) {
-                sourceOutputLayouts.add(node.sourceOutputLayout(i));
+            PlanNode result = null;
+            if (!partitionedChildren.isEmpty()) {
+                // add an exchange above partitioned inputs and fold it into the
+                // set of unpartitioned inputs
+                result = new ExchangeNode(
+                        idAllocator.getNextId(),
+                        ExchangeNode.Type.GATHER,
+                        ImmutableList.of(),
+                        Optional.<Symbol>empty(),
+                        partitionedChildren,
+                        node.getOutputSymbols(),
+                        partitionedOutputLayouts);
+
+                unpartitionedChildren.add(result);
+                unpartitionedOutputLayouts.add(result.getOutputSymbols());
             }
 
-            return new PlanWithProperties(
-                    new ExchangeNode(
-                            idAllocator.getNextId(),
-                            ExchangeNode.Type.GATHER,
-                            ImmutableList.of(),
-                            Optional.<Symbol>empty(),
-                            builder.build(),
-                            node.getOutputSymbols(),
-                            sourceOutputLayouts.build()),
-                    ActualProperties.of(PartitioningProperties.unpartitioned(), PlacementProperties.anywhere()));
+            // if there's at least one unpartitioned input (including the exchange that might have been added in the
+            // previous step), add a local union
+            if (unpartitionedChildren.size() > 1) {
+                ImmutableListMultimap.Builder<Symbol, Symbol> mappings = ImmutableListMultimap.builder();
+                for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                    for (List<Symbol> outputLayout : unpartitionedOutputLayouts) {
+                        mappings.put(node.getOutputSymbols().get(i), outputLayout.get(i));
+                    }
+                }
+
+                result = new UnionNode(node.getId(), unpartitionedChildren, mappings.build());
+            }
+
+            return new PlanWithProperties(result, ActualProperties.of(PartitioningProperties.unpartitioned(), PlacementProperties.anywhere()));
         }
 
         private Requirements computePartitioningRequirements(List<Symbol> partitionKeys, Optional<Symbol> hashSymbol)
