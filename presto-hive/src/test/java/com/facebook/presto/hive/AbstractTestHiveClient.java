@@ -1102,9 +1102,10 @@ public abstract class AbstractTestHiveClient
     {
         for (HiveStorageFormat storageFormat : createTableFormats) {
             try {
+                ConnectorSession session = createSession(storageFormat);
                 List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", HYPER_LOG_LOG, 1, false));
-                ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(invalidTable, columns, SESSION.getUser());
-                metadata.beginCreateTable(SESSION, tableMetadata);
+                ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(invalidTable, columns, session.getUser());
+                metadata.beginCreateTable(session, tableMetadata);
                 fail("create table with unsupported type should fail for storage format " + storageFormat);
             }
             catch (PrestoException e) {
@@ -1258,12 +1259,7 @@ public abstract class AbstractTestHiveClient
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateTable, columns, SESSION.getUser());
 
-        ConnectorSession session = new ConnectorSession(
-                SESSION.getUser(),
-                SESSION.getTimeZoneKey(),
-                SESSION.getLocale(),
-                SESSION.getStartTime(),
-                ImmutableMap.of(STORAGE_FORMAT_PROPERTY, storageFormat.name().toLowerCase()));
+        ConnectorSession session = createSession(storageFormat);
 
         ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata);
 
@@ -1722,6 +1718,16 @@ public abstract class AbstractTestHiveClient
             i++;
         }
         return index.build();
+    }
+
+    private static ConnectorSession createSession(HiveStorageFormat storageFormat)
+    {
+        return new ConnectorSession(
+                SESSION.getUser(),
+                SESSION.getTimeZoneKey(),
+                SESSION.getLocale(),
+                SESSION.getStartTime(),
+                ImmutableMap.of(STORAGE_FORMAT_PROPERTY, storageFormat.name().toLowerCase()));
     }
 
     private static String randomName()
