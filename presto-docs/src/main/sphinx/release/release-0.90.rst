@@ -5,7 +5,8 @@ Release 0.90
 
 General Changes
 ---------------
-* Add ConnectorPageSink which is a more efficient interface for column-oriented sources
+* Add ConnectorPageSink which is a more efficient interface for column-oriented sources.
+* Add property ``task.writer-count`` to configure the number of writers per task.
 
 SPI Changes
 -----------
