@@ -110,9 +110,12 @@ import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
 import static com.facebook.presto.hive.HiveUtil.encodeViewData;
 import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
+import static com.facebook.presto.hive.HiveUtil.isArrayType;
+import static com.facebook.presto.hive.HiveUtil.isMapType;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
 import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_PARTITION;
 import static com.facebook.presto.hive.util.Types.checkType;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -523,6 +526,19 @@ public class HiveClient
         }
     }
 
+    private boolean isTypeSupported(Type type)
+    {
+        return  type.equals(BOOLEAN) ||
+                type.equals(BIGINT) ||
+                type.equals(DOUBLE) ||
+                type.equals(VARCHAR) ||
+                type.equals(VARBINARY) ||
+                type.equals(DATE) ||
+                type.equals(TIMESTAMP) ||
+                isArrayType(type) ||
+                isMapType(type);
+    }
+
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
@@ -613,6 +629,9 @@ public class HiveClient
         ImmutableList.Builder<String> columnNames = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
+            if (!isTypeSupported(column.getType())) {
+                throw new PrestoException(NOT_SUPPORTED, format("Could not create table with unsupported type: %s", column.getType().getDisplayName()));
+            }
             columnNames.add(column.getName());
             columnTypes.add(column.getType());
         }
