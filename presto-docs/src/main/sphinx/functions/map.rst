@@ -30,3 +30,5 @@ Map Functions
 .. function:: map_values(x<K,V>) -> array<V>
 
     Returns all the values in the map ``x``.
+
+See also :func:`map_agg` for creating a map as an aggregation.

@@ -54,9 +54,12 @@ General Aggregate Functions
 
     Returns the sum of all input values.
 
-.. function:: map_agg(K,V) -> map<K,V>
+Map Aggregate Functions
+-----------------------
 
-    Returns a map created from the input key/value pairs.
+.. function:: map_agg(key, value) -> map<K,V>
+
+    Returns a map created from the input ``key`` / ``value`` pairs.
 
 Approximate Aggregate Functions
 -------------------------------
