@@ -471,16 +471,11 @@ public class FunctionRegistry
 
     public FunctionInfo getCoercion(Type fromType, Type toType)
     {
-        return getExactOperator(OperatorType.CAST, ImmutableList.of(fromType), toType);
-    }
-
-    private FunctionInfo getExactOperator(OperatorType operatorType, List<? extends Type> argumentTypes, Type returnType)
-            throws OperatorNotFoundException
-    {
-        FunctionInfo functionInfo = getExactFunction(Signature.internalOperator(operatorType.name(), returnType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature)));
+        List<? extends Type> argumentTypes = ImmutableList.of(fromType);
+        FunctionInfo functionInfo = getExactFunction(Signature.internalOperator(OperatorType.CAST.name(), toType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature)));
 
         if (functionInfo == null) {
-            throw new OperatorNotFoundException(operatorType, argumentTypes, returnType);
+            throw new OperatorNotFoundException(OperatorType.CAST, argumentTypes, toType);
         }
         return functionInfo;
     }
