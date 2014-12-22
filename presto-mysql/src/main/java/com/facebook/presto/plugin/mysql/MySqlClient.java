@@ -35,11 +35,18 @@ public class MySqlClient
         extends BaseJdbcClient
 {
     @Inject
-    public MySqlClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
+    public MySqlClient(JdbcConnectorId connectorId, BaseJdbcConfig config, MySqlConfig mySqlConfig)
             throws SQLException
     {
         super(connectorId, config, "`", new Driver());
         connectionProperties.setProperty("nullCatalogMeansCurrent", "false");
+        if (mySqlConfig.isAutoReconnect()) {
+            connectionProperties.setProperty("autoReconnect", String.valueOf(mySqlConfig.isAutoReconnect()));
+            connectionProperties.setProperty("maxReconnects", String.valueOf(mySqlConfig.getMaxReconnects()));
+        }
+        if (mySqlConfig.getConnectionTimeout() != null) {
+            connectionProperties.setProperty("connectTimeout", String.valueOf(mySqlConfig.getConnectionTimeout().toMillis()));
+        }
     }
 
     @Override
