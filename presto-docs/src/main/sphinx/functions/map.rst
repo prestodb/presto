@@ -1,5 +1,3 @@
-.. _map_functions:
-
 ===========================
 Map Functions and Operators
 ===========================

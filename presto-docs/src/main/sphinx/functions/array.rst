@@ -1,5 +1,3 @@
-.. _array_functions:
-
 =============================
 Array Functions and Operators
 =============================
