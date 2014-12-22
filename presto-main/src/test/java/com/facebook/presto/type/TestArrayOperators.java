@@ -23,6 +23,7 @@ import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
@@ -34,6 +35,8 @@ import static com.facebook.presto.type.ArrayType.toStackRepresentation;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static java.util.Arrays.asList;
+import static java.util.Collections.singletonList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -111,7 +114,7 @@ public class TestArrayOperators
         assertFunction("ARRAY [from_unixtime(1)] || ARRAY[from_unixtime(100)]", ImmutableList.of(
                 new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()),
                 new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey())));
-        assertFunction("ARRAY [ARRAY[ARRAY[1]]] || ARRAY [ARRAY[ARRAY[2]]]", ImmutableList.of(ImmutableList.of(ImmutableList.of(1L)), ImmutableList.of(ImmutableList.of(2L))));
+        assertFunction("ARRAY [ARRAY[ARRAY[1]]] || ARRAY [ARRAY[ARRAY[2]]]", asList(singletonList(Longs.asList(1)), singletonList(Longs.asList(2))));
         assertFunction("ARRAY [] || ARRAY []", ImmutableList.of());
         assertFunction("ARRAY [TRUE] || ARRAY [FALSE] || ARRAY [TRUE]", ImmutableList.of(true, false, true));
         assertFunction("ARRAY [1] || ARRAY [2] || ARRAY [3] || ARRAY [4]", ImmutableList.of(1L, 2L, 3L, 4L));
