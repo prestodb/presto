@@ -23,6 +23,7 @@ ARTIFACTS = {
     'cli': ('presto-cli', 'jar', 'executable'),
     'jdbc': ('presto-jdbc', 'jar', None),
     'verifier': ('presto-verifier', 'jar', 'executable'),
+    'benchmark-driver': ('presto-benchmark-driver', 'jar', 'executable'),
 }
 
 
