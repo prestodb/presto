@@ -29,5 +29,6 @@ public class MySqlClientModule
     {
         binder.bind(JdbcClient.class).to(MySqlClient.class).in(Scopes.SINGLETON);
         bindConfig(binder).to(BaseJdbcConfig.class);
+        bindConfig(binder).to(MySqlConfig.class);
     }
 }
