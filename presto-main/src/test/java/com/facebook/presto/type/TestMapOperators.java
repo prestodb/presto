@@ -59,6 +59,11 @@ public class TestMapOperators
         }
     }
 
+    private void assertInvalidFunction(String projection)
+    {
+        functionAssertions.assertInvalidFunction(projection);
+    }
+
     @Test
     public void testStackRepresentation()
             throws Exception
@@ -122,6 +127,19 @@ public class TestMapOperators
         assertFunction("CAST(MAP(ARRAY[TRUE], ARRAY[2]) AS JSON)", "{\"true\":2}");
         assertFunction("CAST(MAP(ARRAY['1'], ARRAY[from_unixtime(1)]) AS JSON)", "{\"1\":\"" + new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()).toString() + "\"}");
         assertFunction("CAST(MAP(ARRAY[from_unixtime(1)], ARRAY[1.0]) AS JSON)", "{\"" + new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()).toString() + "\":1.0}");
+    }
+
+    @Test
+    public void testJsonToMap()
+            throws Exception
+    {
+        assertFunction("CAST(CAST('{\"1\":2, \"3\": 4}' AS JSON) AS MAP<BIGINT, BIGINT>)", ImmutableMap.of(1L, 2L, 3L, 4L));
+        assertFunction("CAST(CAST('{\"1\":2.0, \"3\": 4.0}' AS JSON) AS MAP<BIGINT, DOUBLE>)", ImmutableMap.of(1L, 2.0, 3L, 4.0));
+        assertFunction("CAST(CAST('{\"1\":[2, 3], \"4\": [5]}' AS JSON) AS MAP<BIGINT, ARRAY<BIGINT>>)", ImmutableMap.of(1L, ImmutableList.of(2L, 3L), 4L, ImmutableList.of(5L)));
+        assertFunction("CAST(CAST('{\"puppies\":\"kittens\"}' AS JSON) AS MAP<VARCHAR, VARCHAR>)", ImmutableMap.of("puppies", "kittens"));
+        assertFunction("CAST(CAST('{\"true\":\"kittens\"}' AS JSON) AS MAP<BOOLEAN, VARCHAR>)", ImmutableMap.of(true, "kittens"));
+        assertFunction("CAST(CAST('null' AS JSON) AS MAP<BOOLEAN, VARCHAR>)", null);
+        assertInvalidFunction("CAST(CAST('{\"true\":\"kittens\"}' AS JSON) AS MAP<BOOLEAN, VARBINARY>)");
     }
 
     @Test
