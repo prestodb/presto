@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.79</version>
+    <version>0.80-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -30,7 +30,7 @@
     <scm>
         <connection>scm:git:git://github.com/facebook/presto.git</connection>
         <url>https://github.com/facebook/presto</url>
-        <tag>0.79</tag>
+        <tag>HEAD</tag>
     </scm>
 
     <properties>
@@ -44,7 +44,7 @@
 
         <dep.antlr.version>3.4</dep.antlr.version>
         <dep.slice.version>0.7</dep.slice.version>
-        <dep.airlift.version>0.95</dep.airlift.version>
+        <dep.airlift.version>0.96-SNAPSHOT</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
 
         <cli.skip-execute>true</cli.skip-execute>
@@ -58,6 +58,7 @@
         <module>presto-spi</module>
         <module>presto-kafka</module>
         <module>presto-cassandra</module>
+        <module>presto-orc</module>
         <module>presto-hive</module>
         <module>presto-hive-hadoop1</module>
         <module>presto-hive-hadoop2</module>
@@ -87,6 +88,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-spi</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-orc</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -258,6 +265,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.google.protobuf</groupId>
+                <artifactId>protobuf-java</artifactId>
+                <version>2.4.1</version>
+            </dependency>
+
+            <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>log</artifactId>
                 <version>${dep.airlift.version}</version>
@@ -410,7 +423,13 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>floatingdecimal</artifactId>
-                <version>0.1</version>
+                <version>0.2</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.iq80.snappy</groupId>
+                <artifactId>snappy</artifactId>
+                <version>0.3</version>
             </dependency>
 
             <dependency>
@@ -420,9 +439,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.intellij</groupId>
+                <groupId>org.jetbrains</groupId>
                 <artifactId>annotations</artifactId>
-                <version>9.0.4</version>
+                <version>13.0</version>
             </dependency>
 
             <dependency>
@@ -482,13 +501,7 @@
             <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi</artifactId>
-                <version>2.43</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.iq80.snappy</groupId>
-                <artifactId>snappy</artifactId>
-                <version>0.3</version>
+                <version>2.55</version>
             </dependency>
 
             <dependency>
@@ -616,7 +629,7 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <configuration combine.children="append">
-                        <argLine>-Duser.timezone=${test.timezone} -Xmx2g -Xms2g -XX:MaxPermSize=512m</argLine>
+                        <argLine>${argLine} -Duser.timezone=${test.timezone} -Xmx2g -Xms2g -XX:MaxPermSize=512m</argLine>
                         <parallel>methods</parallel>
                         <threadCount>8</threadCount>
                         <systemPropertyVariables>

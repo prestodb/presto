@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
@@ -37,6 +36,7 @@ import java.util.Set;
 import static com.facebook.presto.hive.HiveUtil.isArrayType;
 import static com.facebook.presto.hive.HiveUtil.isMapType;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
@@ -162,7 +162,7 @@ public final class HiveType
             HiveType hiveValueType = toHiveType(type.getTypeParameters().get(1));
             return new HiveType(format("map<%s,%s>", hiveKeyType.getHiveTypeName(), hiveValueType.getHiveTypeName()));
         }
-        throw new PrestoException(StandardErrorCode.NOT_SUPPORTED.toErrorCode(), "unsupported type: " + type);
+        throw new PrestoException(NOT_SUPPORTED, "unsupported type: " + type);
     }
 
     public static Function<Type, HiveType> columnTypeToHiveType()

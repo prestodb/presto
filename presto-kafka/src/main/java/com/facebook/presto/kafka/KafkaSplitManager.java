@@ -48,6 +48,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -163,7 +164,7 @@ public class KafkaSplitManager
         if (offsetResponse.hasError()) {
             short errorCode = offsetResponse.errorCode(partition.getTopicName(), partition.getPartitionIdAsInt());
             log.warn("Offset response has error: %d", errorCode);
-            throw new PrestoException(KafkaErrorCode.KAFKA_SPLIT_ERROR.toErrorCode(), "could not fetch data from Kafka, error code is '" + errorCode + "'");
+            throw new PrestoException(KAFKA_SPLIT_ERROR, "could not fetch data from Kafka, error code is '" + errorCode + "'");
         }
 
         return offsetResponse.offsets(partition.getTopicName(), partition.getPartitionIdAsInt());

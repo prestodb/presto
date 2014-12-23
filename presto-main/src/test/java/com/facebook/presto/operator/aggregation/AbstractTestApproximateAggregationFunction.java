@@ -58,7 +58,7 @@ public abstract class AbstractTestApproximateAggregationFunction
     @Override
     protected List<String> getFunctionParameterTypes()
     {
-        return ImmutableList.of(getType().getName());
+        return ImmutableList.of(getType().getTypeSignature().toString());
     }
 
     @Override

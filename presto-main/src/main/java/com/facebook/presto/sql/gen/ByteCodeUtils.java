@@ -281,7 +281,7 @@ public final class ByteCodeUtils
                                 .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
                                 .pop())
                         .ifFalse(new Block(context)
-                                .comment(type.getName() + "." + methodName + "(output, " + type.getJavaType().getSimpleName() + ")")
+                                .comment(type.getTypeSignature() + "." + methodName + "(output, " + type.getJavaType().getSimpleName() + ")")
                                 .putVariable(tempValue)
                                 .putVariable(tempOutput)
                                 .append(loadConstant(context, callSiteBinder.bind(type, Type.class)))

@@ -139,7 +139,7 @@ public class RcFilePageSource
             HiveColumnHandle column = columns.get(columnIndex);
 
             String name = column.getName();
-            Type type = typeManager.getType(column.getTypeName());
+            Type type = typeManager.getType(column.getTypeSignature());
 
             namesBuilder.add(name);
             typesBuilder.add(type);
@@ -316,7 +316,7 @@ public class RcFilePageSource
         }
         catch (IOException | RuntimeException e) {
             closeWithSuppression(e);
-            throw new PrestoException(HIVE_CURSOR_ERROR.toErrorCode(), e);
+            throw new PrestoException(HIVE_CURSOR_ERROR, e);
         }
     }
 

@@ -26,9 +26,7 @@ import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
-import com.facebook.presto.sql.planner.plan.RowNumberLimitNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -38,9 +36,9 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import java.util.Map;
@@ -66,30 +64,8 @@ public class WindowFilterPushDown
         return PlanRewriter.rewriteWith(new Rewriter(idAllocator), plan, null);
     }
 
-    private static class WindowContext
-    {
-        private final Optional<WindowNode> windowNode;
-        private final Expression expression;
-
-        private WindowContext(Optional<WindowNode> windowNode, Expression expression)
-        {
-            this.windowNode = checkNotNull(windowNode, "windowNode is null");
-            this.expression = checkNotNull(expression, "expression is null");
-        }
-
-        public Optional<WindowNode> getWindowNode()
-        {
-            return windowNode;
-        }
-
-        public Expression getExpression()
-        {
-            return expression;
-        }
-    }
-
     private static class Rewriter
-            extends PlanNodeRewriter<WindowContext>
+            extends PlanNodeRewriter<Constraint>
     {
         private final PlanNodeIdAllocator idAllocator;
 
@@ -99,57 +75,54 @@ public class WindowFilterPushDown
         }
 
         @Override
-        public PlanNode rewriteWindow(WindowNode node, WindowContext context, PlanRewriter<WindowContext> planRewriter)
+        public PlanNode rewriteWindow(WindowNode node, Constraint filter, PlanRewriter<Constraint> planRewriter)
         {
-            if (context != null && canOptimizeWindowFunction(node, context)) {
-                int limit = extractLimitOptional(node, context.getExpression()).get();
-                if (node.getPartitionBy().isEmpty()) {
-                    WindowContext windowContext = new WindowContext(Optional.of(node), new LongLiteral(String.valueOf(limit)));
-                    PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), windowContext);
-                    return new WindowNode(idAllocator.getNextId(),
-                            rewrittenSource,
-                            node.getPartitionBy(),
-                            node.getOrderBy(),
-                            node.getOrderings(),
-                            node.getWindowFunctions(),
-                            node.getSignatures());
-                }
+            if (canOptimizeWindowFunction(node)) {
+                PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), null);
+                Optional<Integer> limit = getLimit(node, filter);
                 if (node.getOrderBy().isEmpty()) {
-                    PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), null);
-                    return new RowNumberLimitNode(idAllocator.getNextId(),
+                    return new RowNumberNode(idAllocator.getNextId(),
                             rewrittenSource,
                             node.getPartitionBy(),
                             getOnlyElement(node.getWindowFunctions().keySet()),
                             limit);
                 }
-                PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), null);
-                return new TopNRowNumberNode(idAllocator.getNextId(),
-                        rewrittenSource,
-                        node.getPartitionBy(),
-                        node.getOrderBy(),
-                        node.getOrderings(),
-                        getOnlyElement(node.getWindowFunctions().keySet()),
-                        limit);
+                if (limit.isPresent()) {
+                    return new TopNRowNumberNode(idAllocator.getNextId(),
+                            rewrittenSource,
+                            node.getPartitionBy(),
+                            node.getOrderBy(),
+                            node.getOrderings(),
+                            getOnlyElement(node.getWindowFunctions().keySet()),
+                            limit.get(),
+                            false);
+                }
             }
             return planRewriter.defaultRewrite(node, null);
         }
 
-        private static boolean canOptimizeWindowFunction(WindowNode node, WindowContext context)
+        private static Optional<Integer> getLimit(WindowNode node, Constraint filter)
+        {
+            if (filter == null || (!filter.getLimit().isPresent() && !filter.getFilterExpression().isPresent())) {
+                return Optional.absent();
+            }
+            if (filter.getLimit().isPresent()) {
+                return filter.getLimit();
+            }
+            if (filterContainsWindowFunctions(node, filter.getFilterExpression().get())) {
+                Symbol rowNumberSymbol = Iterables.getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
+                return WindowLimitExtractor.extract(filter.getFilterExpression().get(), rowNumberSymbol);
+            }
+            return Optional.absent();
+        }
+
+        private static boolean canOptimizeWindowFunction(WindowNode node)
         {
             if (node.getWindowFunctions().size() != 1) {
                 return false;
             }
             Symbol rowNumberSymbol = getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
-            if (!isRowNumberSignature(node.getSignatures().get(rowNumberSymbol))) {
-                return false;
-            }
-
-            if (!filterContainsWindowFunctions(node, context.getExpression())) {
-                return false;
-            }
-
-            Optional<Integer> limit = extractLimitOptional(node, context.getExpression());
-            return limit.isPresent() && limit.get() < Integer.MAX_VALUE;
+            return isRowNumberSignature(node.getSignatures().get(rowNumberSymbol));
         }
 
         private static boolean filterContainsWindowFunctions(WindowNode node, Expression filterPredicate)
@@ -160,69 +133,64 @@ public class WindowFilterPushDown
         }
 
         @Override
-        public PlanNode rewriteLimit(LimitNode node, WindowContext context, PlanRewriter<WindowContext> planRewriter)
+        public PlanNode rewriteLimit(LimitNode node, Constraint filter, PlanRewriter<Constraint> planRewriter)
         {
-            if (context != null && context.getExpression() instanceof LongLiteral &&
-                    ((LongLiteral) context.getExpression()).getValue() < node.getCount()) {
-                PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), context);
-                if (rewrittenSource != node.getSource()) {
-                    return rewrittenSource;
-                }
+            // Operators can handle MAX_VALUE rows per page, so do not optimize if count is greater than this value
+            if (node.getCount() >= Integer.MAX_VALUE) {
+                return planRewriter.defaultRewrite(node, null);
             }
-            return planRewriter.defaultRewrite(node, null);
-        }
+            Constraint constraint = new Constraint(Optional.of((int) node.getCount()), Optional.<Expression>absent());
+            PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), constraint);
 
-        @Override
-        public PlanNode rewriteTopN(TopNNode node, WindowContext context, PlanRewriter<WindowContext> planRewriter)
-        {
-            return planRewriter.defaultRewrite(node, null);
-        }
-
-        @Override
-        public PlanNode rewriteTableScan(TableScanNode node, WindowContext context, PlanRewriter<WindowContext> planRewriter)
-        {
-            if (context != null && context.getExpression() instanceof LongLiteral && context.getWindowNode().isPresent()) {
-                PlanNode rewrittenNode = planRewriter.rewrite(node, null);
-                WindowNode windowNode = context.getWindowNode().get();
-                if (windowNode.getOrderBy().isEmpty()) {
-                    return new LimitNode(idAllocator.getNextId(), rewrittenNode, ((LongLiteral) context.getExpression()).getValue());
-                }
-                return new TopNNode(
-                        idAllocator.getNextId(),
-                        rewrittenNode,
-                        ((LongLiteral) context.getExpression()).getValue(),
-                        windowNode.getOrderBy(),
-                        windowNode.getOrderings(),
-                        false);
-            }
-            return planRewriter.defaultRewrite(node, null);
-        }
-
-        @Override
-        public PlanNode rewriteFilter(FilterNode node, WindowContext context, PlanRewriter<WindowContext> planRewriter)
-        {
-            WindowContext sourceContext = new WindowContext(Optional.<WindowNode>absent(), node.getPredicate());
-            PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), sourceContext);
             if (rewrittenSource != node.getSource()) {
                 return rewrittenSource;
             }
+
+            return planRewriter.defaultRewrite(node, null);
+        }
+
+        @Override
+        public PlanNode rewriteFilter(FilterNode node, Constraint filter, PlanRewriter<Constraint> planRewriter)
+        {
+            PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), new Constraint(Optional.<Integer>absent(), Optional.of(node.getPredicate())));
+            if (rewrittenSource != node.getSource()) {
+                if (rewrittenSource instanceof TopNRowNumberNode) {
+                    return rewrittenSource;
+                }
+                return new FilterNode(idAllocator.getNextId(), rewrittenSource, node.getPredicate());
+            }
             return planRewriter.defaultRewrite(node, null);
         }
     }
 
-    private static Optional<Integer> extractLimitOptional(WindowNode node, Expression filterPredicate)
-    {
-        Symbol rowNumberSymbol = getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
-        return WindowLimitExtractor.extract(filterPredicate, rowNumberSymbol);
-    }
-
-    @VisibleForTesting
-    static boolean isRowNumberSignature(Signature signature)
+    private static boolean isRowNumberSignature(Signature signature)
     {
         return signature.equals(ROW_NUMBER_SIGNATURE);
     }
 
-    public static final class WindowLimitExtractor
+    private static class Constraint
+    {
+        private final Optional<Integer> limit;
+        private final Optional<Expression> filterExpression;
+
+        private Constraint(Optional<Integer> limit, Optional<Expression> filterExpression)
+        {
+            this.limit = limit;
+            this.filterExpression = filterExpression;
+        }
+
+        public Optional<Integer> getLimit()
+        {
+            return limit;
+        }
+
+        public Optional<Expression> getFilterExpression()
+        {
+            return filterExpression;
+        }
+    }
+
+    private static final class WindowLimitExtractor
     {
         private WindowLimitExtractor() {}
 

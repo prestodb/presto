@@ -31,7 +31,6 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
-import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
@@ -104,9 +103,9 @@ public class TreePrinter
 
                 process(node.getSelect(), indentLevel);
 
-                print(indentLevel, "From");
-                for (Relation relation : node.getFrom()) {
-                    process(relation, indentLevel + 1);
+                if (node.getFrom().isPresent()) {
+                    print(indentLevel, "From");
+                    process(node.getFrom().get(), indentLevel + 1);
                 }
 
                 if (node.getWhere().isPresent()) {

@@ -49,9 +49,9 @@ public final class MetadataDaoUtils
 
     public static void createMetadataTables(MetadataDao dao)
     {
-        dao.createTablesTable();
-        dao.createColumnsTable();
-        dao.createViewsTable();
+        dao.createTableTables();
+        dao.createTableColumns();
+        dao.createTableViews();
     }
 
     private static void sleep(Duration duration)

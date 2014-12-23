@@ -22,6 +22,6 @@ public class PageTooLargeException
 {
     public PageTooLargeException()
     {
-        super(PAGE_TOO_LARGE.toErrorCode(), "Remote page is too large");
+        super(PAGE_TOO_LARGE, "Remote page is too large");
     }
 }

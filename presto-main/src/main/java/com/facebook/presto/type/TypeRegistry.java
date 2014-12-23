@@ -16,9 +16,6 @@ package com.facebook.presto.type;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -54,13 +51,12 @@ import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.Locale.ENGLISH;
 
 @ThreadSafe
 public final class TypeRegistry
         implements TypeManager
 {
-    private final ConcurrentMap<String, Type> types = new ConcurrentHashMap<>();
+    private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
 
     public TypeRegistry()
@@ -74,7 +70,7 @@ public final class TypeRegistry
         checkNotNull(types, "types is null");
 
         // Manually register UNKNOWN type without a verifyTypeClass call since it is a special type that can not be used by functions
-        this.types.put(UNKNOWN.getName().toLowerCase(ENGLISH), UNKNOWN);
+        this.types.put(UNKNOWN.getTypeSignature(), UNKNOWN);
 
         // always add the built-in types; Presto will not function without these
         addType(BOOLEAN);
@@ -104,40 +100,30 @@ public final class TypeRegistry
     }
 
     @Override
-    public Type getType(String typeName)
+    public Type getType(TypeSignature signature)
     {
-        String key = typeName.toLowerCase(ENGLISH);
-        Type type = types.get(key);
+        Type type = types.get(signature);
         if (type == null) {
-            instantiateParametricType(key);
-            return types.get(key);
+            instantiateParametricType(signature);
+            return types.get(signature);
         }
         return type;
     }
 
     @Override
-    public Type getParameterizedType(String parametricTypeName, List<String> typeNames)
+    public Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters)
     {
-        List<String> lowerCaseTypeNames = FluentIterable.from(typeNames).transform(new Function<String, String>() {
-            @Override
-            public String apply(String input)
-            {
-                return input.toLowerCase(ENGLISH);
-            }
-        }).toList();
-
-        return getType(parametricTypeName.toLowerCase(ENGLISH) + "<" + Joiner.on(",").join(lowerCaseTypeNames) + ">");
+        return getType(new TypeSignature(baseTypeName, typeParameters));
     }
 
-    private synchronized void instantiateParametricType(String typeName)
+    private synchronized void instantiateParametricType(TypeSignature signature)
     {
-        if (types.containsKey(typeName)) {
+        if (types.containsKey(signature)) {
             return;
         }
-        TypeSignature signature = TypeSignature.parseTypeSignature(typeName);
         ImmutableList.Builder<Type> parameterTypes = ImmutableList.builder();
         for (TypeSignature parameter : signature.getParameters()) {
-            parameterTypes.add(getType(parameter.toString()));
+            parameterTypes.add(getType(parameter));
         }
 
         ParametricType parametricType = parametricTypes.get(signature.getBase());
@@ -145,7 +131,7 @@ public final class TypeRegistry
             return;
         }
         Type instantiatedType = parametricType.createType(parameterTypes.build());
-        checkState(instantiatedType.getName().equalsIgnoreCase(typeName), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType.getName(), typeName);
+        checkState(instantiatedType.getTypeSignature().equals(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
         addType(instantiatedType);
     }
 
@@ -158,8 +144,8 @@ public final class TypeRegistry
     public void addType(Type type)
     {
         verifyTypeClass(type);
-        Type existingType = types.putIfAbsent(type.getName().toLowerCase(ENGLISH), type);
-        checkState(existingType == null || existingType.equals(type), "Type %s is already registered", type.getName());
+        Type existingType = types.putIfAbsent(type.getTypeSignature(), type);
+        checkState(existingType == null || existingType.equals(type), "Type %s is already registered", type);
     }
 
     public void addParametricType(ParametricType parametricType)

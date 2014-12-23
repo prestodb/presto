@@ -89,6 +89,13 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testNonComparableGroupBy()
+            throws Exception
+    {
+        assertFails(TYPE_MISMATCH, "SELECT * FROM (SELECT ARRAY[1,2]) GROUP BY 1");
+    }
+
+    @Test
     public void testHavingReferencesOutputAlias()
             throws Exception
     {
@@ -164,6 +171,7 @@ public class TestAnalyzer
     public void testNonAggregate()
             throws Exception
     {
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT 'a', array[b][1] FROM t1 GROUP BY 1");
         assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT a, sum(b) FROM t1");
         assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT sum(b) / a FROM t1");
         assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT sum(b) / a FROM t1 GROUP BY c");
@@ -312,9 +320,10 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testImplicitCrossJoinNotSupported()
+    public void testImplicitCrossJoin()
     {
-        assertFails(NOT_SUPPORTED, "SELECT * FROM a, b");
+        // TODO: validate output
+        analyze("SELECT * FROM t1, t2");
     }
 
     @Test

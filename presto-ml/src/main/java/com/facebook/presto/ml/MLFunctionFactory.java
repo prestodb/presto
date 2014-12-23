@@ -20,11 +20,6 @@ import com.facebook.presto.spi.type.TypeManager;
 
 import java.util.List;
 
-import static com.facebook.presto.ml.type.ClassifierType.CLASSIFIER;
-import static com.facebook.presto.ml.type.RegressorType.REGRESSOR;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-
 public class MLFunctionFactory
         implements FunctionFactory
 {
@@ -39,14 +34,10 @@ public class MLFunctionFactory
     public List<ParametricFunction> listFunctions()
     {
         return new FunctionListBuilder(typeManager)
-                .aggregate(new LearnAggregation(CLASSIFIER, BIGINT))
-                .aggregate(new LearnAggregation(CLASSIFIER, DOUBLE))
-                .aggregate(new LearnAggregation(REGRESSOR, BIGINT))
-                .aggregate(new LearnAggregation(REGRESSOR, DOUBLE))
-                .aggregate(new LearnLibSvmAggregation(CLASSIFIER, BIGINT))
-                .aggregate(new LearnLibSvmAggregation(CLASSIFIER, DOUBLE))
-                .aggregate(new LearnLibSvmAggregation(REGRESSOR, BIGINT))
-                .aggregate(new LearnLibSvmAggregation(REGRESSOR, DOUBLE))
+                .aggregate(LearnClassifierAggregation.class)
+                .aggregate(LearnRegressorAggregation.class)
+                .aggregate(LearnLibSvmClassifierAggregation.class)
+                .aggregate(LearnLibSvmRegressorAggregation.class)
                 .aggregate(EvaluateClassifierPredictionsAggregation.class)
                 .scalar(MLFunctions.class)
                 .getFunctions();

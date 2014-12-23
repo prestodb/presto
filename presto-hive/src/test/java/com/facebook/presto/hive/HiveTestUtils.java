@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
+import com.facebook.presto.hive.orc.DwrfRecordCursorProvider;
+import com.facebook.presto.hive.orc.OrcPageSourceFactory;
+import com.facebook.presto.hive.orc.OrcRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.type.Type;
@@ -32,6 +36,8 @@ public final class HiveTestUtils
 
     public static final ImmutableSet<HivePageSourceFactory> DEFAULT_HIVE_DATA_STREAM_FACTORIES = ImmutableSet.<HivePageSourceFactory>builder()
             .add(new RcFilePageSourceFactory(TYPE_MANAGER))
+            .add(new OrcPageSourceFactory(TYPE_MANAGER))
+            .add(new DwrfPageSourceFactory(TYPE_MANAGER))
             .build();
 
     public static final ImmutableSet<HiveRecordCursorProvider> DEFAULT_HIVE_RECORD_CURSOR_PROVIDER = ImmutableSet.<HiveRecordCursorProvider>builder()
@@ -47,7 +53,7 @@ public final class HiveTestUtils
     {
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (ConnectorColumnHandle columnHandle : columnHandles) {
-            types.add(TYPE_MANAGER.getType(((HiveColumnHandle) columnHandle).getTypeName()));
+            types.add(TYPE_MANAGER.getType(((HiveColumnHandle) columnHandle).getTypeSignature()));
         }
         return types.build();
     }

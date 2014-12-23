@@ -77,9 +77,9 @@ public class MaxBy
     {
         Type keyType = types.get("K");
         Type valueType = types.get("V");
-        Signature signature = new Signature(NAME, valueType.getName(), valueType.getName(), keyType.getName());
+        Signature signature = new Signature(NAME, valueType.getTypeSignature(), valueType.getTypeSignature(), keyType.getTypeSignature());
         InternalAggregationFunction aggregation = generateAggregation(valueType, keyType);
-        return new FunctionInfo(signature, getDescription(), aggregation.getIntermediateType().getName(), aggregation, false);
+        return new FunctionInfo(signature, getDescription(), aggregation.getIntermediateType().getTypeSignature(), aggregation, false);
     }
 
     private static InternalAggregationFunction generateAggregation(Type valueType, Type keyType)
@@ -107,7 +107,7 @@ public class MaxBy
                 false);
 
         GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new GenericAggregationFunction(NAME, inputTypes, intermediateType, valueType, true, false, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, valueType, true, false, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type value, Type key)

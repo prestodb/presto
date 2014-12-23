@@ -14,14 +14,15 @@
 package com.facebook.presto;
 
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import io.airlift.units.DataSize;
+
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_MEMORY_LIMIT;
 
 public class ExceededMemoryLimitException
         extends PrestoException
 {
     public ExceededMemoryLimitException(DataSize maxMemory)
     {
-        super(StandardErrorCode.EXCEEDED_MEMORY_LIMIT.toErrorCode(), String.format("Task exceeded max memory size of %s", maxMemory));
+        super(EXCEEDED_MEMORY_LIMIT, String.format("Task exceeded max memory size of %s", maxMemory));
     }
 }

@@ -114,7 +114,7 @@ public final class VarcharOperators
                 (toUpperCase(value.getByte(4)) == 'E')) {
             return false;
         }
-        throw new PrestoException(INVALID_CAST_ARGUMENT.toErrorCode(), format("Cannot cast '%s' to BOOLEAN", value.toString(UTF_8)));
+        throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to BOOLEAN", value.toString(UTF_8)));
     }
 
     private static byte toUpperCase(byte b)
@@ -135,7 +135,7 @@ public final class VarcharOperators
             return Double.parseDouble(slice.toString(UTF_8));
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT.toErrorCode(), format("Can not cast '%s' to DOUBLE", slice.toString(UTF_8)));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Can not cast '%s' to DOUBLE", slice.toString(UTF_8)));
         }
     }
 
@@ -147,7 +147,7 @@ public final class VarcharOperators
             return Long.parseLong(slice.toString(UTF_8));
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT.toErrorCode(), format("Can not cast '%s' to BIGINT", slice.toString(UTF_8)));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Can not cast '%s' to BIGINT", slice.toString(UTF_8)));
         }
     }
 

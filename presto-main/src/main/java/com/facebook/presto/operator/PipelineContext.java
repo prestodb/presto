@@ -118,11 +118,6 @@ public class PipelineContext
         return driverContext;
     }
 
-    public List<DriverContext> getDrivers()
-    {
-        return ImmutableList.copyOf(drivers);
-    }
-
     public Session getSession()
     {
         return taskContext.getSession();
@@ -219,6 +214,11 @@ public class PipelineContext
         checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
         taskContext.freeMemory(bytes);
         memoryReservation.getAndAdd(-bytes);
+    }
+
+    public boolean isVerboseStats()
+    {
+        return taskContext.isVerboseStats();
     }
 
     public boolean isCpuTimerEnabled()

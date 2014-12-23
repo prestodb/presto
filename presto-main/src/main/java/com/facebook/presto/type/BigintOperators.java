@@ -15,7 +15,6 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -35,6 +34,7 @@ import static com.facebook.presto.metadata.OperatorType.MULTIPLY;
 import static com.facebook.presto.metadata.OperatorType.NEGATION;
 import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.metadata.OperatorType.SUBTRACT;
+import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class BigintOperators
@@ -72,7 +72,7 @@ public final class BigintOperators
             return left / right;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(StandardErrorCode.DIVISION_BY_ZERO.toErrorCode(), e);
+            throw new PrestoException(DIVISION_BY_ZERO, e);
         }
     }
 
@@ -84,7 +84,7 @@ public final class BigintOperators
             return left % right;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(StandardErrorCode.DIVISION_BY_ZERO.toErrorCode(), e);
+            throw new PrestoException(DIVISION_BY_ZERO, e);
         }
     }
 

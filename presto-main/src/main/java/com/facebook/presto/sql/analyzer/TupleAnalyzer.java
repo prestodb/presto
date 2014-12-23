@@ -24,8 +24,8 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -88,6 +88,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.Field.typeGetter;
@@ -163,7 +164,7 @@ class TupleAnalyzer
                 outputFields.add(Field.newUnqualified(Optional.<String>absent(), ((MapType) expressionType).getValueType()));
             }
             else {
-                throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT.toErrorCode(), "Cannot unnest type: " + expressionType);
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot unnest type: " + expressionType);
             }
         }
         TupleDescriptor descriptor = new TupleDescriptor(outputFields.build());
@@ -413,7 +414,7 @@ class TupleAnalyzer
 
         TupleDescriptor output = left.joinWith(right);
 
-        if (node.getType() == Join.Type.CROSS) {
+        if (node.getType() == Join.Type.CROSS || node.getType() == Join.Type.IMPLICIT) {
             analysis.setOutputDescriptor(node, output);
             return output;
         }
@@ -631,12 +632,12 @@ class TupleAnalyzer
                 throw new SemanticException(NOT_SUPPORTED, node, "Window frames not yet supported");
             }
 
-            List<String> argumentTypes = Lists.transform(windowFunction.getArguments(), new Function<Expression, String>()
+            List<TypeSignature> argumentTypes = Lists.transform(windowFunction.getArguments(), new Function<Expression, TypeSignature>()
             {
                 @Override
-                public String apply(Expression input)
+                public TypeSignature apply(Expression input)
                 {
-                    return analysis.getType(input).getName();
+                    return analysis.getType(input).getTypeSignature();
                 }
             });
 
@@ -781,8 +782,16 @@ class TupleAnalyzer
                     groupByExpression = new FieldOrExpression(expression);
                 }
 
+                Type type;
                 if (groupByExpression.isExpression()) {
                     Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, groupByExpression.getExpression(), "GROUP BY");
+                    type = analysis.getType(groupByExpression.getExpression());
+                }
+                else {
+                    type = tupleDescriptor.getFieldByIndex(groupByExpression.getFieldIndex()).getType();
+                }
+                if (!type.isComparable()) {
+                    throw new SemanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in GROUP BY", type);
                 }
 
                 groupByExpressionsBuilder.add(groupByExpression);
@@ -907,13 +916,11 @@ class TupleAnalyzer
     {
         TupleDescriptor fromDescriptor = new TupleDescriptor();
 
-        if (node.getFrom() != null && !node.getFrom().isEmpty()) {
+        if (node.getFrom().isPresent()) {
             TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata, sqlParser, experimentalSyntaxEnabled);
-            if (node.getFrom().size() != 1) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Implicit cross joins are not yet supported; use CROSS JOIN");
-            }
-            fromDescriptor = analyzer.process(Iterables.getOnlyElement(node.getFrom()), context);
+            fromDescriptor = analyzer.process(node.getFrom().get(), context);
         }
+
         return fromDescriptor;
     }
 

@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_OFFLINE;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TableOfflineException
@@ -30,7 +31,7 @@ public class TableOfflineException
 
     public TableOfflineException(SchemaTableName tableName, String message)
     {
-        super(HiveErrorCode.HIVE_TABLE_OFFLINE.toErrorCode(), message);
+        super(HIVE_TABLE_OFFLINE, message);
         this.tableName = checkNotNull(tableName, "tableName is null");
     }
 

@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.79</version>
+        <version>0.80-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-hive</artifactId>
@@ -25,6 +25,11 @@
         <dependency>
             <groupId>com.facebook.hive</groupId>
             <artifactId>hive-dwrf-shims</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-orc</artifactId>
         </dependency>
 
         <dependency>
@@ -179,6 +184,13 @@
         </dependency>
 
         <dependency>
+            <groupId>org.iq80.snappy</groupId>
+            <artifactId>snappy</artifactId>
+            <version>0.3</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-jdk14</artifactId>
             <scope>runtime</scope>
@@ -210,9 +222,9 @@
         </dependency>
 
         <dependency>
-            <groupId>com.intellij</groupId>
+            <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
-            <scope>test</scope>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>

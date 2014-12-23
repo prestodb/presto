@@ -16,6 +16,7 @@ package com.facebook.presto.spi.type;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class TypeSerde
@@ -33,7 +34,7 @@ public final class TypeSerde
             throw new NullPointerException("type is null");
         }
 
-        writeLengthPrefixedString(sliceOutput, type.getName());
+        writeLengthPrefixedString(sliceOutput, type.getTypeSignature().toString());
     }
 
     public static Type readType(TypeManager typeManager, SliceInput sliceInput)
@@ -43,7 +44,7 @@ public final class TypeSerde
         }
 
         String name = readLengthPrefixedString(sliceInput);
-        Type type = typeManager.getType(name);
+        Type type = typeManager.getType(parseTypeSignature(name));
         if (type == null) {
             throw new IllegalArgumentException("Unknown type " + name);
         }

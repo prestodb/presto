@@ -13,13 +13,10 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import com.facebook.presto.raptor.RaptorColumnHandle;
-import com.facebook.presto.raptor.RaptorTableHandle;
-import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.PrestoException;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
 import com.google.common.io.Files;
 import io.airlift.testing.FileUtils;
 import org.skife.jdbi.v2.DBI;
@@ -30,16 +27,14 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.util.Collection;
-import java.util.Map.Entry;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestDatabaseShardManager
@@ -50,7 +45,6 @@ public class TestDatabaseShardManager
 
     @BeforeMethod
     public void setup()
-            throws Exception
     {
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
@@ -66,34 +60,44 @@ public class TestDatabaseShardManager
     }
 
     @Test
-    public void testPartitionShardCommit()
+    public void testCommit()
             throws Exception
     {
         long tableId = 1;
-        ConnectorTableHandle tableHandle = new RaptorTableHandle("test", "demo", "test", tableId, new RaptorColumnHandle("test", "foo", 1, BIGINT), null);
-        UUID shardId1 = UUID.randomUUID();
-        UUID shardId2 = UUID.randomUUID();
 
-        assertNotEquals(shardId2, shardId1);
+        List<ShardNode> shards = ImmutableList.<ShardNode>builder()
+                .add(new ShardNode(UUID.randomUUID(), "node1"))
+                .add(new ShardNode(UUID.randomUUID(), "node1"))
+                .add(new ShardNode(UUID.randomUUID(), "node2"))
+                .build();
 
-        Set<String> nodes = shardManager.getTableNodes(tableHandle);
-        assertTrue(nodes.isEmpty());
+        shardManager.commitTable(tableId, shards, Optional.<String>absent());
 
-        shardManager.commitPartition(tableId, "some-partition", ImmutableList.<PartitionKey>of(), ImmutableMap.of(shardId1, "some-node"));
-        shardManager.commitPartition(tableId, "some-other-partition", ImmutableList.<PartitionKey>of(), ImmutableMap.of(shardId2, "some-node"));
+        Set<ShardNode> actual = ImmutableSet.copyOf(shardManager.getShardNodes(tableId));
+        for (ShardNode shard : shards) {
+            assertTrue(actual.contains(shard));
+        }
+    }
 
-        nodes = shardManager.getTableNodes(tableHandle);
-        assertEquals(nodes, ImmutableSet.of("some-node"));
+    @Test
+    public void testExternalBatches()
+            throws Exception
+    {
+        long tableId = 1;
+        Optional<String> externalBatchId = Optional.of("foo");
 
-        Set<TablePartition> partitions = shardManager.getPartitions(tableHandle);
-        assertEquals(partitions.size(), 2);
+        List<ShardNode> shards = ImmutableList.of(new ShardNode(UUID.randomUUID(), "node1"));
 
-        long partitionId = partitions.iterator().next().getPartitionId();
+        shardManager.commitTable(tableId, shards, externalBatchId);
 
-        Multimap<Long, Entry<UUID, String>> allShardNodes = shardManager.getShardNodesByPartition(tableHandle);
-        assertNotNull(allShardNodes);
-        assertEquals(allShardNodes.size(), 2);
-        Collection<Entry<UUID, String>> partitionShards = allShardNodes.get(partitionId);
-        assertEquals(partitionShards.size(), 1);
+        shards = ImmutableList.of(new ShardNode(UUID.randomUUID(), "node1"));
+
+        try {
+            shardManager.commitTable(tableId, shards, externalBatchId);
+            fail("expected external batch exception");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS.toErrorCode());
+        }
     }
 }

@@ -19,6 +19,7 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.SqlType;
 import com.facebook.presto.type.TypeRegistry;
+import com.google.common.base.Functions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -28,11 +29,12 @@ import java.util.List;
 
 import static com.facebook.presto.metadata.FunctionRegistry.getMagicLiteralFunctionSignature;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
-import static com.facebook.presto.metadata.FunctionRegistry.resolveTypes;
 import static com.facebook.presto.metadata.FunctionRegistry.unmangleOperator;
 import static com.facebook.presto.metadata.ParametricFunctionUtils.nameGetter;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.google.common.collect.Lists.transform;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -46,8 +48,8 @@ public class TestFunctionRegistry
         FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
         FunctionInfo exactOperator = registry.getCoercion(HYPER_LOG_LOG, HYPER_LOG_LOG);
         assertEquals(exactOperator.getSignature().getName(), mangleOperatorName(OperatorType.CAST.name()));
-        assertEquals(exactOperator.getArgumentTypes(), ImmutableList.of(StandardTypes.HYPER_LOG_LOG));
-        assertEquals(exactOperator.getReturnType(), StandardTypes.HYPER_LOG_LOG);
+        assertEquals(transform(exactOperator.getArgumentTypes(), Functions.toStringFunction()), ImmutableList.of(StandardTypes.HYPER_LOG_LOG));
+        assertEquals(exactOperator.getReturnType().getBase(), StandardTypes.HYPER_LOG_LOG);
     }
 
     @Test
@@ -76,13 +78,13 @@ public class TestFunctionRegistry
     {
         Signature signature = getMagicLiteralFunctionSignature(TIMESTAMP_WITH_TIME_ZONE);
         assertEquals(signature.getName(), "$literal$timestamp with time zone");
-        assertEquals(signature.getArgumentTypes(), ImmutableList.of(StandardTypes.BIGINT));
-        assertEquals(signature.getReturnType(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
+        assertEquals(signature.getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
+        assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
 
         FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
         FunctionInfo function = registry.resolveFunction(QualifiedName.of(signature.getName()), signature.getArgumentTypes(), false);
-        assertEquals(function.getArgumentTypes(), ImmutableList.of(StandardTypes.BIGINT));
-        assertEquals(signature.getReturnType(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
+        assertEquals(function.getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
+        assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QFunction already registered: custom_add(bigint,bigint):bigint\\E")

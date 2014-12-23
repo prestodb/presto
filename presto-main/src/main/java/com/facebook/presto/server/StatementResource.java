@@ -412,7 +412,7 @@ public class StatementResource
             ImmutableList.Builder<Column> list = ImmutableList.builder();
             for (int i = 0; i < names.size(); i++) {
                 String name = names.get(i);
-                String type = types.get(i).getName();
+                String type = types.get(i).getTypeSignature().toString();
                 list.add(new Column(name, type));
             }
             return list.build();

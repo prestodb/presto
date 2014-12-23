@@ -15,17 +15,17 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.connector.system.SystemSplitManager;
 import com.facebook.presto.connector.system.SystemTablesManager;
-import com.facebook.presto.execution.ConnectorAwareSplitSource;
-import com.facebook.presto.execution.SplitSource;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Partition;
 import com.facebook.presto.metadata.PartitionResult;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -76,6 +76,9 @@ public class SplitManager
 
     public SplitSource getPartitionSplits(TableHandle handle, List<Partition> partitions)
     {
+        if (partitions.isEmpty()) {
+            return new ConnectorAwareSplitSource(handle.getConnectorId(), new FixedSplitSource(handle.getConnectorId(), ImmutableList.<ConnectorSplit>of()));
+        }
         ConnectorTableHandle table = handle.getConnectorHandle();
         ConnectorSplitSource source = getConnectorSplitManager(handle).getPartitionSplits(table, Lists.transform(partitions, connectorPartitionGetter()));
         return new ConnectorAwareSplitSource(handle.getConnectorId(), source);

@@ -14,7 +14,6 @@
 package com.facebook.presto.kafka.decoder.raw;
 
 import com.facebook.presto.kafka.KafkaColumnHandle;
-import com.facebook.presto.kafka.KafkaErrorCode;
 import com.facebook.presto.kafka.KafkaFieldValueProvider;
 import com.facebook.presto.kafka.decoder.KafkaFieldDecoder;
 import com.facebook.presto.spi.PrestoException;
@@ -29,6 +28,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_CONVERSION_NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -172,7 +172,7 @@ public class RawKafkaFieldDecoder
                 case LONG:
                     return value.getLong() != 0;
                 default:
-                    throw new PrestoException(KafkaErrorCode.KAFKA_CONVERSION_NOT_SUPPORTED.toErrorCode(), format("conversion %s to boolean not supported", fieldType));
+                    throw new PrestoException(KAFKA_CONVERSION_NOT_SUPPORTED, format("conversion %s to boolean not supported", fieldType));
             }
         }
 
@@ -192,7 +192,7 @@ public class RawKafkaFieldDecoder
                 case LONG:
                     return value.getLong();
                 default:
-                    throw new PrestoException(KafkaErrorCode.KAFKA_CONVERSION_NOT_SUPPORTED.toErrorCode(), format("conversion %s to long not supported", fieldType));
+                    throw new PrestoException(KAFKA_CONVERSION_NOT_SUPPORTED, format("conversion %s to long not supported", fieldType));
             }
         }
 
@@ -208,7 +208,7 @@ public class RawKafkaFieldDecoder
                 case DOUBLE:
                     return value.getDouble();
                 default:
-                    throw new PrestoException(KafkaErrorCode.KAFKA_CONVERSION_NOT_SUPPORTED.toErrorCode(), format("conversion %s to double not supported", fieldType));
+                    throw new PrestoException(KAFKA_CONVERSION_NOT_SUPPORTED, format("conversion %s to double not supported", fieldType));
             }
         }
 
@@ -223,7 +223,7 @@ public class RawKafkaFieldDecoder
                 return Slices.wrappedBuffer(value.slice());
             }
 
-            throw new PrestoException(KafkaErrorCode.KAFKA_CONVERSION_NOT_SUPPORTED.toErrorCode(), format("conversion %s to Slice not supported", fieldType));
+            throw new PrestoException(KAFKA_CONVERSION_NOT_SUPPORTED, format("conversion %s to Slice not supported", fieldType));
         }
     }
 }

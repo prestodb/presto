@@ -14,8 +14,8 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.Description;
-import com.facebook.presto.operator.aggregation.GenericAggregationFunctionFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.operator.aggregation.GenericAggregationFunctionFactory;
 import com.facebook.presto.operator.scalar.JsonPath;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.ScalarOperator;
@@ -25,6 +25,7 @@ import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.SqlType;
 import com.google.common.base.Throwables;
 import com.google.common.collect.FluentIterable;
@@ -50,8 +51,9 @@ import java.util.regex.Pattern;
 
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.type.TypeUtils.nameGetter;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
+import static com.facebook.presto.type.TypeUtils.typeSignatureGetter;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -96,7 +98,7 @@ public class FunctionListBuilder
     public FunctionListBuilder window(String name, Type returnType, List<? extends Type> argumentTypes, Class<? extends WindowFunction> functionClass)
     {
         WindowFunctionSupplier windowFunctionSupplier = new ReflectionWindowFunctionSupplier<>(
-                new Signature(name, returnType.getName(), Lists.transform(ImmutableList.copyOf(argumentTypes), nameGetter())),
+                new Signature(name, returnType.getTypeSignature(), Lists.transform(ImmutableList.copyOf(argumentTypes), typeSignatureGetter())),
                 functionClass);
 
         functions.add(new FunctionInfo(windowFunctionSupplier.getSignature(), windowFunctionSupplier.getDescription(), windowFunctionSupplier));
@@ -117,8 +119,8 @@ public class FunctionListBuilder
         name = name.toLowerCase(ENGLISH);
 
         String description = getDescription(function.getClass());
-        Signature signature = new Signature(name, function.getFinalType().getName(), Lists.transform(ImmutableList.copyOf(function.getParameterTypes()), nameGetter()));
-        functions.add(new FunctionInfo(signature, description, function.getIntermediateType().getName(), function, function.isApproximate()));
+        Signature signature = new Signature(name, function.getFinalType().getTypeSignature(), Lists.transform(ImmutableList.copyOf(function.getParameterTypes()), typeSignatureGetter()));
+        functions.add(new FunctionInfo(signature, description, function.getIntermediateType().getTypeSignature(), function, function.isApproximate()));
         return this;
     }
 
@@ -136,7 +138,7 @@ public class FunctionListBuilder
 
     private FunctionListBuilder operator(OperatorType operatorType, Type returnType, List<Type> parameterTypes, MethodHandle function, boolean nullable, List<Boolean> nullableArguments)
     {
-        FunctionInfo operatorInfo = operatorInfo(operatorType, returnType.getName(), Lists.transform(parameterTypes, nameGetter()), function, nullable, nullableArguments);
+        FunctionInfo operatorInfo = operatorInfo(operatorType, returnType.getTypeSignature(), Lists.transform(parameterTypes, typeSignatureGetter()), function, nullable, nullableArguments);
         functions.add(operatorInfo);
         return this;
     }
@@ -180,7 +182,7 @@ public class FunctionListBuilder
         SqlType returnTypeAnnotation = method.getAnnotation(SqlType.class);
         checkArgument(returnTypeAnnotation != null, "Method %s return type does not have a @SqlType annotation", method);
         Type returnType = type(typeManager, returnTypeAnnotation);
-        Signature signature = new Signature(name.toLowerCase(ENGLISH), returnType.getName(), Lists.transform(parameterTypes(typeManager, method), nameGetter()));
+        Signature signature = new Signature(name.toLowerCase(ENGLISH), returnType.getTypeSignature(), Lists.transform(parameterTypes(typeManager, method), typeSignatureGetter()));
 
         verifyMethodSignature(method, signature.getReturnType(), signature.getArgumentTypes(), typeManager);
 
@@ -195,7 +197,7 @@ public class FunctionListBuilder
 
     private static Type type(TypeManager typeManager, SqlType explicitType)
     {
-        Type type = typeManager.getType(explicitType.value());
+        Type type = typeManager.getType(parseTypeSignature(explicitType.value()));
         checkNotNull(type, "No type found for '%s'", explicitType.value());
         return type;
     }
@@ -226,7 +228,7 @@ public class FunctionListBuilder
         return types.build();
     }
 
-    private static void verifyMethodSignature(Method method, String returnTypeName, List<String> argumentTypeNames, TypeManager typeManager)
+    private static void verifyMethodSignature(Method method, TypeSignature returnTypeName, List<TypeSignature> argumentTypeNames, TypeManager typeManager)
     {
         Type returnType = typeManager.getType(returnTypeName);
         checkNotNull(returnType, "returnType is null");
@@ -310,7 +312,7 @@ public class FunctionListBuilder
             checkArgument(explicitType != null, "Method %s return type does not have a @SqlType annotation", method);
             returnType = type(typeManager, explicitType);
 
-            verifyMethodSignature(method, returnType.getName(), Lists.transform(parameterTypes, nameGetter()), typeManager);
+            verifyMethodSignature(method, returnType.getTypeSignature(), Lists.transform(parameterTypes, typeSignatureGetter()), typeManager);
         }
 
         List<Boolean> nullableArguments = getNullableArguments(method);

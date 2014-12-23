@@ -17,7 +17,6 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.ParametricOperator;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -44,6 +43,8 @@ import static com.facebook.presto.operator.scalar.JsonExtract.JsonValueJsonExtra
 import static com.facebook.presto.operator.scalar.JsonExtract.LongJsonExtractor;
 import static com.facebook.presto.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
 import static com.facebook.presto.operator.scalar.JsonExtract.generateExtractor;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -101,7 +102,7 @@ public class ArraySubscriptOperator
             methodHandle = METHOD_HANDLES.get(elementType.getJavaType());
         }
         checkNotNull(methodHandle, "methodHandle is null");
-        return new FunctionInfo(Signature.internalOperator(SUBSCRIPT.name(), elementType.getName(), parameterizedTypeName("array", elementType.getName()), StandardTypes.BIGINT), "Array subscript", true, methodHandle, true, true, ImmutableList.of(false, false));
+        return new FunctionInfo(Signature.internalOperator(SUBSCRIPT.name(), elementType.getTypeSignature(), parameterizedTypeName("array", elementType.getTypeSignature()), parseTypeSignature(StandardTypes.BIGINT)), "Array subscript", true, methodHandle, true, true, ImmutableList.of(false, false));
     }
 
     public static Long longSubscript(Slice array, long index)
@@ -132,7 +133,7 @@ public class ArraySubscriptOperator
     private static <T> T subscript(Slice array, long index, ExtractorType type)
     {
         if (index == 0) {
-            throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT.toErrorCode(), "Index out of bounds");
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Index out of bounds");
         }
         JsonExtractor<?> extractor = cache.getUnchecked(new CacheKey(index, type));
         return (T) JsonExtract.extract(array, extractor);

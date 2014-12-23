@@ -63,9 +63,9 @@ import java.util.concurrent.Callable;
 import static com.facebook.presto.hive.HiveClient.getType;
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnIndexGetter;
 import static com.facebook.presto.hive.HiveColumnHandle.isPartitionKeyPredicate;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveType.getSupportedHiveType;
 import static com.facebook.presto.hive.RetryDriver.retry;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
@@ -142,7 +142,7 @@ public final class HiveUtil
             });
         }
         catch (Exception e) {
-            throw new PrestoException(HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT.toErrorCode(), String.format("Error opening Hive split %s (offset=%s, length=%s) using %s: %s",
+            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, String.format("Error opening Hive split %s (offset=%s, length=%s) using %s: %s",
                     path,
                     start,
                     length,
@@ -172,7 +172,7 @@ public final class HiveUtil
 
     private static HiveColumnHandle createHiveColumnHandle(String clientId, int index, StructField field, ObjectInspector inspector, TypeManager typeManager)
     {
-        return new HiveColumnHandle(clientId, field.getFieldName(), index, getSupportedHiveType(inspector), getType(inspector, typeManager).getName(), index, false);
+        return new HiveColumnHandle(clientId, field.getFieldName(), index, getSupportedHiveType(inspector), getType(inspector, typeManager).getTypeSignature(), index, false);
     }
 
     static InputFormat<?, ?> getInputFormat(Configuration configuration, Properties schema, boolean symlinkTarget)
@@ -357,12 +357,12 @@ public final class HiveUtil
 
     public static boolean isArrayType(Type type)
     {
-        return parseTypeSignature(type.getName()).getBase().equals(StandardTypes.ARRAY);
+        return type.getTypeSignature().getBase().equals(StandardTypes.ARRAY);
     }
 
     public static boolean isMapType(Type type)
     {
-        return parseTypeSignature(type.getName()).getBase().equals(StandardTypes.MAP);
+        return type.getTypeSignature().getBase().equals(StandardTypes.MAP);
     }
 
     public static boolean isArrayOrMap(HiveType hiveType)

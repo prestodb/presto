@@ -114,10 +114,10 @@ public class CreateViewTask
             parsed = sqlParser.createStatement(sql);
         }
         catch (ParsingException e) {
-            throw new PrestoException(INTERNAL_ERROR.toErrorCode(), "Formatted query does not parse: " + query);
+            throw new PrestoException(INTERNAL_ERROR, "Formatted query does not parse: " + query);
         }
         if (!query.equals(parsed)) {
-            throw new PrestoException(INTERNAL_ERROR.toErrorCode(), "Query does not round-trip: " + query);
+            throw new PrestoException(INTERNAL_ERROR, "Query does not round-trip: " + query);
         }
 
         return sql;

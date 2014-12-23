@@ -147,7 +147,7 @@ class ColumnarTextHiveRecordCursor<K>
             HiveColumnHandle column = columns.get(i);
 
             names[i] = column.getName();
-            types[i] = typeManager.getType(column.getTypeName());
+            types[i] = typeManager.getType(column.getTypeSignature());
             hiveTypes[i] = column.getHiveType();
 
             if (!column.isPartitionKey()) {
@@ -260,7 +260,7 @@ class ColumnarTextHiveRecordCursor<K>
         }
         catch (IOException | RuntimeException e) {
             closeWithSuppression(e);
-            throw new PrestoException(HIVE_CURSOR_ERROR.toErrorCode(), e);
+            throw new PrestoException(HIVE_CURSOR_ERROR, e);
         }
     }
 

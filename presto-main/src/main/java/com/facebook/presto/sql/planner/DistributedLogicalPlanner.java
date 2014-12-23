@@ -33,7 +33,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.RowNumberLimitNode;
+import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
@@ -264,7 +264,7 @@ public class DistributedLogicalPlanner
         }
 
         @Override
-        public SubPlanBuilder visitRowNumberLimit(RowNumberLimitNode node, Void context)
+        public SubPlanBuilder visitRowNumber(RowNumberNode node, Void context)
         {
             SubPlanBuilder current = node.getSource().accept(this, context);
             if (current.isDistributed()) {
@@ -272,12 +272,17 @@ public class DistributedLogicalPlanner
                 current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
 
                 ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
-                current.setHashOutputPartitioning(partitionedBy);
-                current = createFixedDistributionPlan(source)
-                        .addChild(current.build());
+                if (node.getPartitionBy().isEmpty()) {
+                    current = createSingleNodePlan(source).addChild(current.build());
+                }
+                else {
+                    current.setHashOutputPartitioning(partitionedBy);
+                    current = createFixedDistributionPlan(source)
+                            .addChild(current.build());
+                }
             }
 
-            current.setRoot(new RowNumberLimitNode(node.getId(), current.getRoot(), node.getPartitionBy(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition()));
+            current.setRoot(new RowNumberNode(node.getId(), current.getRoot(), node.getPartitionBy(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition()));
 
             return current;
         }
@@ -287,17 +292,36 @@ public class DistributedLogicalPlanner
         {
             SubPlanBuilder current = node.getSource().accept(this, context);
             if (current.isDistributed()) {
-                List<Symbol> partitionedBy = node.getPartitionBy();
+                current.setRoot(new TopNRowNumberNode(node.getId(),
+                        current.getRoot(),
+                        node.getPartitionBy(),
+                        node.getOrderBy(),
+                        node.getOrderings(),
+                        node.getRowNumberSymbol(),
+                        node.getMaxRowCountPerPartition(),
+                        true));
                 current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
-
                 ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
-                current.setHashOutputPartitioning(partitionedBy);
-                current = createFixedDistributionPlan(source)
-                        .addChild(current.build());
+                TopNRowNumberNode merge = new TopNRowNumberNode(node.getId(),
+                        source,
+                        node.getPartitionBy(),
+                        node.getOrderBy(),
+                        node.getOrderings(),
+                        node.getRowNumberSymbol(),
+                        node.getMaxRowCountPerPartition(),
+                        false);
+                if (node.getPartitionBy().isEmpty()) {
+                    current = createSingleNodePlan(merge).addChild(current.build());
+                }
+                else {
+                    current.setHashOutputPartitioning(node.getPartitionBy());
+                    current = createFixedDistributionPlan(merge)
+                            .addChild(current.build());
+                }
             }
-
-            current.setRoot(new TopNRowNumberNode(node.getId(), current.getRoot(), node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition()));
-
+            else {
+                current.setRoot(new TopNRowNumberNode(node.getId(), current.getRoot(), node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition(), false));
+            }
             return current;
         }
 

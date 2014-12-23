@@ -26,5 +26,7 @@ public @interface AggregationFunction
 
     boolean approximate() default false;
 
+    boolean decomposable() default true;
+
     String[] alias() default {};
 }

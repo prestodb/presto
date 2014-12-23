@@ -13,30 +13,27 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import com.google.common.base.Objects;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Objects;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.util.UuidArguments.uuidFromBytes;
+import static com.google.common.base.Objects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ShardNode
 {
     private final UUID shardUuid;
     private final String nodeIdentifier;
-    private final long tableId;
-    private final long partitionId;
 
-    public ShardNode(UUID shardUuid, String nodeIdentifier, long tableId, long partitionId)
+    public ShardNode(UUID shardUuid, String nodeIdentifier)
     {
         this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
         this.nodeIdentifier = checkNotNull(nodeIdentifier, "nodeIdentifier is null");
-        this.tableId = tableId;
-        this.partitionId = partitionId;
     }
 
     public UUID getShardUuid()
@@ -49,24 +46,32 @@ public class ShardNode
         return nodeIdentifier;
     }
 
-    public long getTableId()
+    @Override
+    public boolean equals(Object obj)
     {
-        return tableId;
+        if (this == obj) {
+            return true;
+        }
+        if ((obj == null) || (getClass() != obj.getClass())) {
+            return false;
+        }
+        ShardNode other = (ShardNode) obj;
+        return Objects.equals(this.shardUuid, other.shardUuid) &&
+                Objects.equals(this.nodeIdentifier, other.nodeIdentifier);
     }
 
-    public long getPartitionId()
+    @Override
+    public int hashCode()
     {
-        return partitionId;
+        return Objects.hash(shardUuid, nodeIdentifier);
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("shardUuid", shardUuid)
                 .add("nodeIdentifier", nodeIdentifier)
-                .add("tableId", tableId)
-                .add("partitionId", partitionId)
                 .toString();
     }
 
@@ -79,9 +84,7 @@ public class ShardNode
         {
             return new ShardNode(
                     uuidFromBytes(r.getBytes("shard_uuid")),
-                    r.getString("node_identifier"),
-                    r.getLong("table_id"),
-                    r.getLong("partition_id"));
+                    r.getString("node_identifier"));
         }
     }
 }

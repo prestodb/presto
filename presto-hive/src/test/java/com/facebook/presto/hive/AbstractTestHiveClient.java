@@ -15,6 +15,11 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastore;
+import com.facebook.presto.hive.orc.DwrfHiveRecordCursor;
+import com.facebook.presto.hive.orc.DwrfRecordCursorProvider;
+import com.facebook.presto.hive.orc.OrcHiveRecordCursor;
+import com.facebook.presto.hive.orc.OrcPageSource;
+import com.facebook.presto.hive.orc.OrcRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSource;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
@@ -61,6 +66,8 @@ import com.google.common.net.HostAndPort;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hive.serde2.ReaderWriterProfiler;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
@@ -77,7 +84,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
-import static com.facebook.presto.hive.HiveClient.STORAGE_FORMAT_PROPERTY;
+import static com.facebook.presto.hive.HiveSessionProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
@@ -99,6 +106,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
@@ -209,11 +217,11 @@ public abstract class AbstractTestHiveClient
 
         invalidTableHandle = new HiveTableHandle("hive", database, INVALID_TABLE, SESSION);
 
-        dsColumn = new HiveColumnHandle(connectorId, "ds", 0, HIVE_STRING, StandardTypes.VARCHAR, -1, true);
-        fileFormatColumn = new HiveColumnHandle(connectorId, "file_format", 1, HIVE_STRING, StandardTypes.VARCHAR, -1, true);
-        dummyColumn = new HiveColumnHandle(connectorId, "dummy", 2, HIVE_INT, StandardTypes.BIGINT, -1, true);
-        intColumn = new HiveColumnHandle(connectorId, "t_int", 0, HIVE_INT, StandardTypes.BIGINT, -1, true);
-        invalidColumnHandle = new HiveColumnHandle(connectorId, INVALID_COLUMN, 0, HIVE_STRING, StandardTypes.VARCHAR, 0, false);
+        dsColumn = new HiveColumnHandle(connectorId, "ds", 0, HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), -1, true);
+        fileFormatColumn = new HiveColumnHandle(connectorId, "file_format", 1, HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), -1, true);
+        dummyColumn = new HiveColumnHandle(connectorId, "dummy", 2, HIVE_INT, parseTypeSignature(StandardTypes.BIGINT), -1, true);
+        intColumn = new HiveColumnHandle(connectorId, "t_int", 0, HIVE_INT, parseTypeSignature(StandardTypes.BIGINT), -1, true);
+        invalidColumnHandle = new HiveColumnHandle(connectorId, INVALID_COLUMN, 0, HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), 0, false);
 
         partitions = ImmutableSet.<ConnectorPartition>builder()
                 .add(new HivePartition(tablePartitionFormat,
@@ -942,6 +950,30 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
+    public void testTypesOrcRecordCursor()
+            throws Exception
+    {
+        if (metadata.getTableHandle(SESSION, new SchemaTableName(database, "presto_test_types_orc")) == null) {
+            return;
+        }
+
+        ConnectorTableHandle tableHandle = getTableHandle(new SchemaTableName(database, "presto_test_types_orc"));
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
+        HiveSplit hiveSplit = getHiveSplit(tableHandle);
+        List<ConnectorColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+
+        ConnectorPageSourceProvider pageSourceProvider = new HivePageSourceProvider(
+                new HiveClientConfig().setTimeZone(timeZone.getID()),
+                hdfsEnvironment,
+                ImmutableSet.<HiveRecordCursorProvider>of(new OrcRecordCursorProvider()),
+                ImmutableSet.<HivePageSourceFactory>of(),
+                TYPE_MANAGER);
+
+        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(hiveSplit, columnHandles);
+        assertGetRecords(ORC, tableMetadata, hiveSplit, pageSource, columnHandles);
+    }
+
+    @Test
     public void testTypesParquet()
             throws Exception
     {
@@ -953,6 +985,32 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         assertGetRecordsOptional("presto_test_types_dwrf", DWRF);
+    }
+
+    @Test
+    public void testTypesDwrfRecordCursor()
+            throws Exception
+    {
+        if (metadata.getTableHandle(SESSION, new SchemaTableName(database, "presto_test_types_dwrf")) == null) {
+            return;
+        }
+
+        ConnectorTableHandle tableHandle = getTableHandle(new SchemaTableName(database, "presto_test_types_dwrf"));
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
+        HiveSplit hiveSplit = getHiveSplit(tableHandle);
+        List<ConnectorColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+
+        ReaderWriterProfiler.setProfilerOptions(new Configuration());
+
+        ConnectorPageSourceProvider pageSourceProvider = new HivePageSourceProvider(
+                new HiveClientConfig().setTimeZone(timeZone.getID()),
+                hdfsEnvironment,
+                ImmutableSet.<HiveRecordCursorProvider>of(new DwrfRecordCursorProvider()),
+                ImmutableSet.<HivePageSourceFactory>of(),
+                TYPE_MANAGER);
+
+        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(hiveSplit, columnHandles);
+        assertGetRecords(DWRF, tableMetadata, hiveSplit, pageSource, columnHandles);
     }
 
     @Test
@@ -1565,6 +1623,9 @@ public abstract class AbstractTestHiveClient
             case RCTEXT:
             case RCBINARY:
                 return RcFilePageSource.class;
+            case ORC:
+            case DWRF:
+                return OrcPageSource.class;
             default:
                 throw new AssertionError("Filed type " + hiveStorageFormat + " does not use a page source");
         }

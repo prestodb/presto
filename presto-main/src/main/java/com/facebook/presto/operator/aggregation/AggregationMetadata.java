@@ -19,6 +19,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.SqlType;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Predicate;
@@ -40,6 +41,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.SAMPLE_WEIGHT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -182,7 +184,7 @@ public class AggregationMetadata
         verifyStaticAndPublic(method);
         Class<?>[] parameters = method.getParameterTypes();
         checkArgument(stateInterface == parameters[0], "First argument of aggregation input function must be %s", stateInterface.getSimpleName());
-        checkArgument(parameters.length > 1, "Aggregation input function must have at least one parameter");
+        checkArgument(parameters.length > 0, "Aggregation input function must have at least one parameter");
         checkArgument(parameterMetadatas.get(0).getParameterType() == ParameterMetadata.ParameterType.STATE, "First parameter must be state");
         for (int i = 1; i < parameters.length; i++) {
             ParameterMetadata metadata = parameterMetadatas.get(i);
@@ -280,11 +282,12 @@ public class AggregationMetadata
             Annotation annotation = baseTypes.get(0);
             checkArgument(!nullable || (annotation instanceof SqlType), "%s contains a parameters with @Nullable that is not @SqlType", methodName);
             if (annotation instanceof SqlType) {
+                TypeSignature signature = parseTypeSignature(((SqlType) annotation).value());
                 if (nullable) {
-                    return new ParameterMetadata(NULLABLE_INPUT_CHANNEL, typeManager.getType(((SqlType) annotation).value()));
+                    return new ParameterMetadata(NULLABLE_INPUT_CHANNEL, typeManager.getType(signature));
                 }
                 else {
-                    return new ParameterMetadata(INPUT_CHANNEL, typeManager.getType(((SqlType) annotation).value()));
+                    return new ParameterMetadata(INPUT_CHANNEL, typeManager.getType(signature));
                 }
             }
             else if (annotation instanceof BlockIndex) {

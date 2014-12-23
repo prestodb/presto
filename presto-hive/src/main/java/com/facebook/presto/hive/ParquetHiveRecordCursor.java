@@ -136,7 +136,7 @@ class ParquetHiveRecordCursor
             HiveColumnHandle column = columns.get(i);
 
             names[i] = column.getName();
-            types[i] = typeManager.getType(column.getTypeName());
+            types[i] = typeManager.getType(column.getTypeSignature());
 
             isPartitionColumn[i] = column.isPartitionKey();
             nullsRowDefault[i] = !column.isPartitionKey();
@@ -243,7 +243,7 @@ class ParquetHiveRecordCursor
             }
 
             closeWithSuppression(e);
-            throw new PrestoException(HIVE_CURSOR_ERROR.toErrorCode(), e);
+            throw new PrestoException(HIVE_CURSOR_ERROR, e);
         }
     }
 

@@ -60,7 +60,7 @@ public class TestMaxByAggregation
 
         for (Type keyType : orderableTypes) {
             for (Type valueType : metadata.getTypeManager().getTypes()) {
-                assertNotNull(metadata.getExactFunction(new Signature("max_by", valueType.getName(), valueType.getName(), keyType.getName())));
+                assertNotNull(metadata.getExactFunction(new Signature("max_by", valueType.getTypeSignature(), valueType.getTypeSignature(), keyType.getTypeSignature())));
             }
         }
     }

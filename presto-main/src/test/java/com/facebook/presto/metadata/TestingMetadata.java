@@ -196,7 +196,7 @@ public class TestingMetadata
             views.put(viewName, viewData);
         }
         else if (views.putIfAbsent(viewName, viewData) != null) {
-            throw new PrestoException(ALREADY_EXISTS.toErrorCode(), "View already exists: " + viewName);
+            throw new PrestoException(ALREADY_EXISTS, "View already exists: " + viewName);
         }
     }
 

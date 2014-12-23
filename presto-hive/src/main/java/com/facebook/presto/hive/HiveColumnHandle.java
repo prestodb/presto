@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
@@ -42,7 +43,7 @@ public class HiveColumnHandle
     private final String name;
     private final int ordinalPosition;
     private final HiveType hiveType;
-    private final String typeName;
+    private final TypeSignature typeName;
     private final int hiveColumnIndex;
     private final boolean partitionKey;
 
@@ -52,7 +53,7 @@ public class HiveColumnHandle
             @JsonProperty("name") String name,
             @JsonProperty("ordinalPosition") int ordinalPosition,
             @JsonProperty("hiveType") HiveType hiveType,
-            @JsonProperty("typeName") String typeName,
+            @JsonProperty("typeSignature") TypeSignature typeSignature,
             @JsonProperty("hiveColumnIndex") int hiveColumnIndex,
             @JsonProperty("partitionKey") boolean partitionKey)
     {
@@ -63,7 +64,7 @@ public class HiveColumnHandle
         checkArgument(hiveColumnIndex >= 0 || partitionKey, "hiveColumnIndex is negative");
         this.hiveColumnIndex = hiveColumnIndex;
         this.hiveType = checkNotNull(hiveType, "hiveType is null");
-        this.typeName = checkNotNull(typeName, "type is null");
+        this.typeName = checkNotNull(typeSignature, "type is null");
         this.partitionKey = partitionKey;
     }
 
@@ -109,7 +110,7 @@ public class HiveColumnHandle
     }
 
     @JsonProperty
-    public String getTypeName()
+    public TypeSignature getTypeSignature()
     {
         return typeName;
     }
@@ -203,7 +204,7 @@ public class HiveColumnHandle
             {
                 return new ColumnMetadata(
                         input.getName(),
-                        typeManager.getType(input.getTypeName()),
+                        typeManager.getType(input.getTypeSignature()),
                         input.getOrdinalPosition(),
                         input.isPartitionKey(),
                         columnComment.get(input.getName()),
@@ -219,7 +220,7 @@ public class HiveColumnHandle
             @Override
             public Type apply(HiveColumnHandle input)
             {
-                return typeManager.getType(input.getTypeName());
+                return typeManager.getType(input.getTypeSignature());
             }
         };
     }

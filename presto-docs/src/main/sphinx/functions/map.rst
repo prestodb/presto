@@ -18,3 +18,11 @@ Map Functions
     :noindex:
 
     Returns the cardinality (size) of the map ``x``.
+
+.. function:: map_keys(x<K,V>) -> array<K>
+
+    Returns all the keys in the map ``x``.
+
+.. function:: map_values(x<K,V>) -> array<V>
+
+    Returns all the values in the map ``x``.

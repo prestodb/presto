@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.execution.SampledSplitSource;
-import com.facebook.presto.execution.SplitSource;
+import com.facebook.presto.split.SampledSplitSource;
+import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Partition;
 import com.facebook.presto.metadata.PartitionResult;
@@ -32,7 +32,7 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.RowNumberLimitNode;
+import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
@@ -195,7 +195,7 @@ public class DistributedExecutionPlanner
         }
 
         @Override
-        public Optional<SplitSource> visitRowNumberLimit(RowNumberLimitNode node, Void context)
+        public Optional<SplitSource> visitRowNumber(RowNumberNode node, Void context)
         {
             return node.getSource().accept(this, context);
         }

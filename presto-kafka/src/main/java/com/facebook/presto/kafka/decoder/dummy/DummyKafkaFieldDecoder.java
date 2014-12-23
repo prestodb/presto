@@ -14,7 +14,6 @@
 package com.facebook.presto.kafka.decoder.dummy;
 
 import com.facebook.presto.kafka.KafkaColumnHandle;
-import com.facebook.presto.kafka.KafkaErrorCode;
 import com.facebook.presto.kafka.KafkaFieldValueProvider;
 import com.facebook.presto.kafka.decoder.KafkaFieldDecoder;
 import com.facebook.presto.spi.PrestoException;
@@ -23,6 +22,7 @@ import io.airlift.slice.Slice;
 
 import java.util.Set;
 
+import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_CONVERSION_NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
@@ -66,7 +66,7 @@ public class DummyKafkaFieldDecoder
             @Override
             public boolean isNull()
             {
-                throw new PrestoException(KafkaErrorCode.KAFKA_CONVERSION_NOT_SUPPORTED.toErrorCode(), "is null check not supported");
+                throw new PrestoException(KAFKA_CONVERSION_NOT_SUPPORTED, "is null check not supported");
             }
         };
     }

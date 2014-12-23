@@ -41,6 +41,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.fromAnnotations;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -127,8 +128,7 @@ public class AggregationCompiler
                                 aggregationAnnotation.approximate());
 
                         GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
-                        // TODO: support un-decomposable aggregations
-                        builder.add(new GenericAggregationFunction(name, inputTypes, intermediateType, outputType, true, aggregationAnnotation.approximate(), factory));
+                        builder.add(new InternalAggregationFunction(name, inputTypes, intermediateType, outputType, aggregationAnnotation.decomposable(), aggregationAnnotation.approximate(), factory));
                     }
                 }
             }
@@ -234,13 +234,13 @@ public class AggregationCompiler
         for (Annotation[] annotations : parameterAnnotations) {
             for (Annotation annotation : annotations) {
                 if (annotation instanceof SqlType) {
-                    builder.add(typeManager.getType(((SqlType) annotation).value()));
+                    String typeName = ((SqlType) annotation).value();
+                    builder.add(typeManager.getType(parseTypeSignature(typeName)));
                 }
             }
         }
 
         ImmutableList<Type> types = builder.build();
-        checkArgument(!types.isEmpty(), "Input function has no parameters");
         return types;
     }
 

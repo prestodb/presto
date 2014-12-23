@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.google.common.base.Throwables;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.exceptions.UnableToObtainConnectionException;
@@ -26,7 +27,6 @@ public final class ShardManagerDaoUtils
     private ShardManagerDaoUtils() {}
 
     public static void createShardTablesWithRetry(ShardManagerDao dao)
-            throws InterruptedException
     {
         Duration delay = new Duration(10, TimeUnit.SECONDS);
         while (true) {
@@ -36,7 +36,7 @@ public final class ShardManagerDaoUtils
             }
             catch (UnableToObtainConnectionException e) {
                 log.warn("Failed to connect to database. Will retry again in %s. Exception: %s", delay, e.getMessage());
-                Thread.sleep(delay.toMillis());
+                sleep(delay);
             }
         }
     }
@@ -46,8 +46,18 @@ public final class ShardManagerDaoUtils
         dao.createTableNodes();
         dao.createTableShards();
         dao.createTableShardNodes();
-        dao.createTablePartitions();
-        dao.createPartitionKeys();
-        dao.createPartitionShards();
+        dao.createTableTableShards();
+        dao.createTableExternalBatches();
+    }
+
+    private static void sleep(Duration duration)
+    {
+        try {
+            Thread.sleep(duration.toMillis());
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw Throwables.propagate(e);
+        }
     }
 }

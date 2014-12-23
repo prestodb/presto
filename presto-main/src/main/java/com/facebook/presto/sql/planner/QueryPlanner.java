@@ -156,12 +156,12 @@ class QueryPlanner
     {
         RelationPlan relationPlan;
 
-        if (node.getFrom() == null || node.getFrom().isEmpty()) {
-            relationPlan = planImplicitTable();
+        if (node.getFrom().isPresent()) {
+            relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session)
+                    .process(node.getFrom().get(), null);
         }
         else {
-            relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session)
-                    .process(Iterables.getOnlyElement(node.getFrom()), null);
+            relationPlan = planImplicitTable();
         }
 
         TranslationMap translations = new TranslationMap(relationPlan, analysis);
@@ -231,7 +231,7 @@ class QueryPlanner
             Symbol symbol = symbolAllocator.newSymbol(expression, Objects.firstNonNull(coercion, analysis.getType(expression)));
             Expression rewritten = subPlan.rewrite(expression);
             if (coercion != null) {
-                rewritten = new Cast(rewritten, coercion.getName());
+                rewritten = new Cast(rewritten, coercion.getTypeSignature().toString());
             }
             projections.put(symbol, rewritten);
             translations.put(expression, symbol);

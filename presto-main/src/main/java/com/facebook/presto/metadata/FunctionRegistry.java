@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.aggregation.ApproximateAverageAggregations;
+import com.facebook.presto.operator.aggregation.ApproximateCountAggregation;
 import com.facebook.presto.operator.aggregation.ApproximateCountColumnAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations;
@@ -23,6 +24,7 @@ import com.facebook.presto.operator.aggregation.ApproximateSumAggregations;
 import com.facebook.presto.operator.aggregation.AverageAggregations;
 import com.facebook.presto.operator.aggregation.BooleanMaxAggregation;
 import com.facebook.presto.operator.aggregation.BooleanMinAggregation;
+import com.facebook.presto.operator.aggregation.CountAggregation;
 import com.facebook.presto.operator.aggregation.CountIfAggregation;
 import com.facebook.presto.operator.aggregation.DoubleMaxAggregation;
 import com.facebook.presto.operator.aggregation.DoubleMinAggregation;
@@ -31,6 +33,7 @@ import com.facebook.presto.operator.aggregation.LongMaxAggregation;
 import com.facebook.presto.operator.aggregation.LongMinAggregation;
 import com.facebook.presto.operator.aggregation.LongSumAggregation;
 import com.facebook.presto.operator.aggregation.MergeHyperLogLogAggregation;
+import com.facebook.presto.operator.aggregation.NumericHistogramAggregation;
 import com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation;
 import com.facebook.presto.operator.aggregation.VarBinaryMinAggregation;
 import com.facebook.presto.operator.aggregation.VarianceAggregation;
@@ -70,9 +73,9 @@ import com.facebook.presto.operator.window.PercentRankFunction;
 import com.facebook.presto.operator.window.RankFunction;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
@@ -119,8 +122,6 @@ import java.util.Set;
 
 import static com.facebook.presto.metadata.ParametricFunctionUtils.isAggregationPredicate;
 import static com.facebook.presto.metadata.ParametricFunctionUtils.isHiddenPredicate;
-import static com.facebook.presto.operator.aggregation.ApproximateCountAggregation.APPROXIMATE_COUNT_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.CountColumn.COUNT_COLUMN;
 import static com.facebook.presto.operator.aggregation.MaxBy.MAX_BY;
 import static com.facebook.presto.operator.scalar.ArrayCardinalityFunction.ARRAY_CARDINALITY;
@@ -131,6 +132,9 @@ import static com.facebook.presto.operator.scalar.IdentityCast.IDENTITY_CAST;
 import static com.facebook.presto.operator.scalar.MapCardinalityFunction.MAP_CARDINALITY;
 import static com.facebook.presto.operator.scalar.MapSubscriptOperator.MAP_SUBSCRIPT;
 import static com.facebook.presto.operator.scalar.MapToJsonCast.MAP_TO_JSON;
+import static com.facebook.presto.operator.scalar.MapKeys.MAP_KEYS;
+import static com.facebook.presto.operator.scalar.MapValues.MAP_VALUES;
+import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -139,11 +143,13 @@ import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.RegexpType.REGEXP;
-import static com.facebook.presto.type.TypeUtils.nameGetter;
+import static com.facebook.presto.type.TypeUtils.resolveTypes;
+import static com.facebook.presto.type.TypeUtils.typeSignatureGetter;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -209,7 +215,7 @@ public class FunctionRegistry
                 .window("lead", VARCHAR, ImmutableList.<Type>of(VARCHAR), VarcharLeadFunction.class)
                 .window("lead", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT), VarcharLeadFunction.class)
                 .window("lead", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT, VARCHAR), VarcharLeadFunction.class)
-                .aggregate(COUNT)
+                .aggregate(CountAggregation.class)
                 .aggregate(VarianceAggregation.class)
                 .aggregate(ApproximateLongPercentileAggregations.class)
                 .aggregate(ApproximateDoublePercentileAggregations.class)
@@ -228,6 +234,7 @@ public class FunctionRegistry
                 .aggregate(ApproximateCountDistinctAggregations.class)
                 .aggregate(MergeHyperLogLogAggregation.class)
                 .aggregate(ApproximateSetAggregation.class)
+                .aggregate(NumericHistogramAggregation.class)
                 .scalar(StringFunctions.class)
                 .scalar(VarbinaryFunctions.class)
                 .scalar(RegexpFunctions.class)
@@ -262,12 +269,14 @@ public class FunctionRegistry
                 .function(MAX_BY)
                 .function(COUNT_COLUMN)
                 .function(ARRAY_TO_JSON)
-                .function(MAP_TO_JSON);
+                .function(MAP_TO_JSON)
+                .function(MAP_KEYS)
+                .function(MAP_VALUES);
 
         if (experimentalSyntaxEnabled) {
             builder.aggregate(ApproximateAverageAggregations.class)
                     .aggregate(ApproximateSumAggregations.class)
-                    .aggregate(APPROXIMATE_COUNT_AGGREGATION)
+                    .aggregate(ApproximateCountAggregation.class)
                     .aggregate(ApproximateCountColumnAggregations.class);
         }
 
@@ -296,7 +305,7 @@ public class FunctionRegistry
         return Iterables.any(functions.get(name), isAggregationPredicate());
     }
 
-    public FunctionInfo resolveFunction(QualifiedName name, List<String> parameterTypes, final boolean approximate)
+    public FunctionInfo resolveFunction(QualifiedName name, List<TypeSignature> parameterTypes, final boolean approximate)
     {
         List<ParametricFunction> candidates = IterableTransformer.on(functions.get(name)).select(new Predicate<ParametricFunction>() {
             @Override
@@ -346,13 +355,13 @@ public class FunctionRegistry
             String typeName = name.getSuffix().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
 
             // lookup the type
-            Type type = typeManager.getType(typeName);
+            Type type = typeManager.getType(parseTypeSignature(typeName));
             checkNotNull(type, "Type %s not registered", typeName);
 
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
             Type parameterType = typeManager.getType(parameterTypes.get(0));
-            checkNotNull(parameterType, "Type %s not foudn", parameterTypes.get(0));
+            checkNotNull(parameterType, "Type %s not found", parameterTypes.get(0));
             checkArgument(parameterType.getJavaType() == type.getJavaType(),
                     "Expected type %s to use Java type %s, but Java type is %s",
                     type,
@@ -370,7 +379,7 @@ public class FunctionRegistry
                     ImmutableList.of(false));
         }
 
-        throw new PrestoException(StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode(), message);
+        throw new PrestoException(FUNCTION_NOT_FOUND, message);
     }
 
     public FunctionInfo getExactFunction(Signature signature)
@@ -411,27 +420,16 @@ public class FunctionRegistry
             throws OperatorNotFoundException
     {
         try {
-            return resolveFunction(QualifiedName.of(mangleOperatorName(operatorType)), Lists.transform(argumentTypes, nameGetter()), false);
+            return resolveFunction(QualifiedName.of(mangleOperatorName(operatorType)), Lists.transform(argumentTypes, typeSignatureGetter()), false);
         }
         catch (PrestoException e) {
-            if (e.getErrorCode().getCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
+            if (e.getErrorCode().getCode() == FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
                 throw new OperatorNotFoundException(operatorType, argumentTypes);
             }
             else {
                 throw e;
             }
         }
-    }
-
-    public static List<Type> resolveTypes(List<String> typeNames, final TypeManager typeManager)
-    {
-        return FluentIterable.from(typeNames).transform(new Function<String, Type>() {
-            @Override
-            public Type apply(String type)
-            {
-                return checkNotNull(typeManager.getType(type), "Type '%s' not found", type);
-            }
-        }).toList();
     }
 
     public FunctionInfo getCoercion(Type fromType, Type toType)
@@ -442,7 +440,7 @@ public class FunctionRegistry
     private FunctionInfo getExactOperator(OperatorType operatorType, List<? extends Type> argumentTypes, Type returnType)
             throws OperatorNotFoundException
     {
-        FunctionInfo functionInfo = getExactFunction(Signature.internalOperator(operatorType.name(), returnType.getName(), Lists.transform(argumentTypes, nameGetter())));
+        FunctionInfo functionInfo = getExactFunction(Signature.internalOperator(operatorType.name(), returnType.getTypeSignature(), Lists.transform(argumentTypes, typeSignatureGetter())));
 
         if (functionInfo == null) {
             throw new OperatorNotFoundException(operatorType, argumentTypes, returnType);
@@ -560,9 +558,9 @@ public class FunctionRegistry
 
     public static Signature getMagicLiteralFunctionSignature(Type type)
     {
-        return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getName(),
-                type.getName(),
-                Lists.transform(ImmutableList.of(type(type.getJavaType())), nameGetter()));
+        return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getTypeSignature(),
+                type.getTypeSignature(),
+                Lists.transform(ImmutableList.of(type(type.getJavaType())), typeSignatureGetter()));
     }
 
     public static boolean isSupportedLiteralType(Type type)
@@ -570,9 +568,9 @@ public class FunctionRegistry
         return SUPPORTED_LITERAL_TYPES.contains(type.getJavaType());
     }
 
-    public static FunctionInfo operatorInfo(OperatorType operatorType, String returnType, List<String> argumentTypes, MethodHandle method, boolean nullable, List<Boolean> nullableArguments)
+    public static FunctionInfo operatorInfo(OperatorType operatorType, TypeSignature returnType, List<TypeSignature> argumentTypes, MethodHandle method, boolean nullable, List<Boolean> nullableArguments)
     {
-        operatorType.validateSignature(returnType, ImmutableList.copyOf(argumentTypes));
+        operatorType.validateSignature(returnType, argumentTypes);
 
         Signature signature = Signature.internalOperator(operatorType.name(), returnType, argumentTypes);
         return new FunctionInfo(signature, operatorType.getOperator(), true, method, true, nullable, nullableArguments);

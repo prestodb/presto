@@ -30,6 +30,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeDeserializer;
@@ -135,13 +136,13 @@ public class MetadataManager
     }
 
     @Override
-    public Type getType(String typeName)
+    public Type getType(TypeSignature signature)
     {
-        return typeManager.getType(typeName);
+        return typeManager.getType(signature);
     }
 
     @Override
-    public FunctionInfo resolveFunction(QualifiedName name, List<String> parameterTypes, boolean approximate)
+    public FunctionInfo resolveFunction(QualifiedName name, List<TypeSignature> parameterTypes, boolean approximate)
     {
         return functions.resolveFunction(name, parameterTypes, approximate);
     }
@@ -324,10 +325,10 @@ public class MetadataManager
         String catalogName = newTableName.getCatalogName();
         ConnectorMetadataEntry target = connectorsByCatalog.get(catalogName);
         if (target == null) {
-            throw new PrestoException(NOT_FOUND.toErrorCode(), format("Target catalog '%s' does not exist", catalogName));
+            throw new PrestoException(NOT_FOUND, format("Target catalog '%s' does not exist", catalogName));
         }
         if (!tableHandle.getConnectorId().equals(target.getConnectorId())) {
-            throw new PrestoException(SYNTAX_ERROR.toErrorCode(), "Cannot rename tables across catalogs");
+            throw new PrestoException(SYNTAX_ERROR, "Cannot rename tables across catalogs");
         }
 
         lookupConnectorFor(tableHandle).renameTable(tableHandle.getConnectorHandle(), newTableName.asSchemaTableName());
@@ -465,7 +466,7 @@ public class MetadataManager
             return viewCodec.fromJson(data);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_VIEW.toErrorCode(), "Invalid view JSON: " + data, e);
+            throw new PrestoException(INVALID_VIEW, "Invalid view JSON: " + data, e);
         }
     }
 

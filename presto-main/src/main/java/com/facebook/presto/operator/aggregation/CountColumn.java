@@ -39,6 +39,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 
 public class CountColumn
         extends ParametricAggregation
@@ -75,9 +76,9 @@ public class CountColumn
     public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager)
     {
         Type type = types.get("T");
-        Signature signature = new Signature(NAME, StandardTypes.BIGINT, type.getName());
+        Signature signature = new Signature(NAME, parseTypeSignature(StandardTypes.BIGINT), type.getTypeSignature());
         InternalAggregationFunction aggregation = generateAggregation(type);
-        return new FunctionInfo(signature, getDescription(), aggregation.getIntermediateType().getName(), aggregation, false);
+        return new FunctionInfo(signature, getDescription(), aggregation.getIntermediateType().getTypeSignature(), aggregation, false);
     }
 
     private static InternalAggregationFunction generateAggregation(Type type)
@@ -105,7 +106,7 @@ public class CountColumn
                 false);
 
         GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new GenericAggregationFunction(NAME, inputTypes, intermediateType, BIGINT, true, false, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, BIGINT, true, false, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)

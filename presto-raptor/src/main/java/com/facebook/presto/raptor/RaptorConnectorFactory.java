@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.raptor.metadata.MetadataModule;
 import com.facebook.presto.raptor.storage.StorageModule;
 import com.facebook.presto.raptor.util.CurrentNodeId;
 import com.facebook.presto.raptor.util.RebindSafeMBeanServer;
@@ -33,23 +32,32 @@ import javax.management.MBeanServer;
 
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
 
 public class RaptorConnectorFactory
         implements ConnectorFactory
 {
+    private final String name;
+    private final Module module;
     private final Map<String, String> optionalConfig;
     private final NodeManager nodeManager;
     private final BlockEncodingSerde blockEncodingSerde;
     private final TypeManager typeManager;
 
     public RaptorConnectorFactory(
+            String name,
+            Module module,
             Map<String, String> optionalConfig,
             NodeManager nodeManager,
             BlockEncodingSerde blockEncodingSerde,
             TypeManager typeManager)
     {
+        checkArgument(!isNullOrEmpty(name), "name is null or empty");
+        this.name = name;
+        this.module = checkNotNull(module, "module is null");
         this.optionalConfig = checkNotNull(optionalConfig, "optionalConfig is null");
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
         this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingSerde is null");
@@ -59,7 +67,7 @@ public class RaptorConnectorFactory
     @Override
     public String getName()
     {
-        return "raptor";
+        return name;
     }
 
     @Override
@@ -83,7 +91,7 @@ public class RaptorConnectorFactory
                             binder.bind(TypeManager.class).toInstance(typeManager);
                         }
                     },
-                    new MetadataModule(),
+                    module,
                     new StorageModule(),
                     new RaptorModule(connectorId));
 

@@ -15,15 +15,13 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.RaptorPageSource;
-import com.facebook.presto.serde.BlocksFileEncoding;
-import com.facebook.presto.serde.BlocksFileReader;
-import com.facebook.presto.serde.BlocksFileStats;
+import com.facebook.presto.raptor.block.BlocksFileReader;
+import com.facebook.presto.raptor.util.KeyBoundedExecutor;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.util.KeyBoundedExecutor;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.cache.CacheBuilder;
@@ -67,11 +65,6 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 public class DatabaseLocalStorageManager
         implements LocalStorageManager
 {
-    private static final boolean ENABLE_OPTIMIZATION = false;
-
-    private static final int RUN_LENGTH_AVERAGE_CUTOFF = 3;
-    private static final int DICTIONARY_CARDINALITY_CUTOFF = 1000;
-
     private static final Logger log = Logger.get(DatabaseLocalStorageManager.class);
 
     private final ExecutorService executor;
@@ -98,7 +91,6 @@ public class DatabaseLocalStorageManager
             return Slices.mapFileReadOnly(file);
         }
     });
-    private final BlocksFileEncoding defaultEncoding;
 
     @Inject
     public DatabaseLocalStorageManager(@ForLocalStorageManager IDBI dbi, BlockEncodingSerde blockEncodingSerde, DatabaseLocalStorageManagerConfig config)
@@ -118,13 +110,6 @@ public class DatabaseLocalStorageManager
         this.shardBoundedExecutor = new KeyBoundedExecutor<>(executor);
 
         dao.createTableColumns();
-
-        if (config.isCompressed()) {
-            defaultEncoding = BlocksFileEncoding.SNAPPY;
-        }
-        else {
-            defaultEncoding = BlocksFileEncoding.RAW;
-        }
     }
 
     @PreDestroy
@@ -149,9 +134,9 @@ public class DatabaseLocalStorageManager
         ColumnFileHandle.Builder builder = ColumnFileHandle.builder(shardUuid, blockEncodingSerde);
 
         for (RaptorColumnHandle columnHandle : columnHandles) {
-            File file = getColumnFile(shardPath, columnHandle, defaultEncoding);
+            File file = getColumnFile(shardPath, columnHandle);
             Files.createParentDirs(file);
-            builder.addColumn(columnHandle, file, defaultEncoding);
+            builder.addColumn(columnHandle, file);
         }
 
         return builder.build();
@@ -191,47 +176,17 @@ public class DatabaseLocalStorageManager
             if (file.length() > 0) {
                 Slice slice = mappedFileCache.getUnchecked(file.getAbsoluteFile());
                 checkState(file.length() == slice.length(), "File %s, length %s was mapped to Slice length %s", file.getAbsolutePath(), file.length(), slice.length());
-                // Compute optimal encoding from stats
-                BlocksFileReader blocks = BlocksFileReader.readBlocks(blockEncodingSerde, slice);
-                BlocksFileStats stats = blocks.getStats();
-                boolean rleEncode = stats.getAvgRunLength() > RUN_LENGTH_AVERAGE_CUTOFF;
-                boolean dicEncode = stats.getUniqueCount() < DICTIONARY_CARDINALITY_CUTOFF;
 
-                BlocksFileEncoding encoding = defaultEncoding;
-
-                if (ENABLE_OPTIMIZATION) {
-                    if (dicEncode && rleEncode) {
-                        encoding = BlocksFileEncoding.DIC_RLE;
-                    }
-                    else if (dicEncode) {
-                        encoding = BlocksFileEncoding.DIC_RAW;
-                    }
-                    else if (rleEncode) {
-                        encoding = BlocksFileEncoding.RLE;
-                    }
-                }
-
-                File outputFile = getColumnFile(shardPath, columnHandle, encoding);
+                File outputFile = getColumnFile(shardPath, columnHandle);
                 Files.createParentDirs(outputFile);
 
-                if (encoding == defaultEncoding) {
-                    // Optimization: source is already raw, so just move.
-                    Files.move(file, outputFile);
-                    // still register the file with the builder so that it can
-                    // be committed correctly.
-                    builder.addColumn(columnHandle, outputFile);
-                }
-                else {
-                    // source builder and output builder move in parallel if the
-                    // column gets written
-                    sourcesBuilder.add(blocks);
-                    builder.addColumn(columnHandle, outputFile, encoding);
-                }
+                Files.move(file, outputFile);
+                builder.addExistingColumn(columnHandle, outputFile);
             }
             else {
                 // fake file
-                File outputFile = getColumnFile(shardPath, columnHandle, defaultEncoding);
-                builder.addColumn(columnHandle, outputFile);
+                File outputFile = getColumnFile(shardPath, columnHandle);
+                builder.addExistingColumn(columnHandle, outputFile);
             }
         }
 
@@ -296,10 +251,10 @@ public class DatabaseLocalStorageManager
                 .toFile();
     }
 
-    private static File getColumnFile(File shardPath, ConnectorColumnHandle columnHandle, BlocksFileEncoding encoding)
+    private static File getColumnFile(File shardPath, ConnectorColumnHandle columnHandle)
     {
         long columnId = checkType(columnHandle, RaptorColumnHandle.class, "columnHandle").getColumnId();
-        return new File(shardPath, format("%s.%s.column", columnId, encoding.getName()));
+        return new File(shardPath, format("%s.%s.column", columnId, "raw"));
     }
 
     private void commitShardColumns(final ColumnFileHandle columnFileHandle)

@@ -38,6 +38,7 @@ public final class MLFunctions
 {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final Cache<HashCode, Model> MODEL_CACHE = CacheBuilder.newBuilder().maximumSize(5).build();
+    private static final String MAP_BIGINT_DOUBLE = "map<bigint,double>";
 
     private MLFunctions()
     {
@@ -45,7 +46,7 @@ public final class MLFunctions
 
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
-    public static long classify(@SqlType(StandardTypes.VARCHAR) Slice featuresMap, @SqlType(ClassifierType.NAME) Slice modelSlice)
+    public static long classify(@SqlType(MAP_BIGINT_DOUBLE) Slice featuresMap, @SqlType(ClassifierType.NAME) Slice modelSlice)
     {
         FeatureVector features = ModelUtils.jsonToFeatures(featuresMap);
         Model model = getOrLoadModel(modelSlice);
@@ -55,7 +56,7 @@ public final class MLFunctions
 
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double regress(@SqlType(StandardTypes.VARCHAR) Slice featuresMap, @SqlType(RegressorType.NAME) Slice modelSlice)
+    public static double regress(@SqlType(MAP_BIGINT_DOUBLE) Slice featuresMap, @SqlType(RegressorType.NAME) Slice modelSlice)
     {
         FeatureVector features = ModelUtils.jsonToFeatures(featuresMap);
         Model model = getOrLoadModel(modelSlice);
@@ -77,70 +78,70 @@ public final class MLFunctions
     }
 
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
+    @SqlType(MAP_BIGINT_DOUBLE)
     public static Slice features(@SqlType(StandardTypes.DOUBLE) double f1)
     {
         return featuresHelper(f1);
     }
 
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
+    @SqlType(MAP_BIGINT_DOUBLE)
     public static Slice features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2)
     {
         return featuresHelper(f1, f2);
     }
 
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
+    @SqlType(MAP_BIGINT_DOUBLE)
     public static Slice features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3)
     {
         return featuresHelper(f1, f2, f3);
     }
 
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
+    @SqlType(MAP_BIGINT_DOUBLE)
     public static Slice features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4)
     {
         return featuresHelper(f1, f2, f3, f4);
     }
 
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
+    @SqlType(MAP_BIGINT_DOUBLE)
     public static Slice features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5)
     {
         return featuresHelper(f1, f2, f3, f4, f5);
     }
 
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
+    @SqlType(MAP_BIGINT_DOUBLE)
     public static Slice features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6)
     {
         return featuresHelper(f1, f2, f3, f4, f5, f6);
     }
 
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
+    @SqlType(MAP_BIGINT_DOUBLE)
     public static Slice features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6, @SqlType(StandardTypes.DOUBLE) double f7)
     {
         return featuresHelper(f1, f2, f3, f4, f5, f6, f7);
     }
 
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
+    @SqlType(MAP_BIGINT_DOUBLE)
     public static Slice features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6, @SqlType(StandardTypes.DOUBLE) double f7, @SqlType(StandardTypes.DOUBLE) double f8)
     {
         return featuresHelper(f1, f2, f3, f4, f5, f6, f7, f8);
     }
 
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
+    @SqlType(MAP_BIGINT_DOUBLE)
     public static Slice features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6, @SqlType(StandardTypes.DOUBLE) double f7, @SqlType(StandardTypes.DOUBLE) double f8, @SqlType(StandardTypes.DOUBLE) double f9)
     {
         return featuresHelper(f1, f2, f3, f4, f5, f6, f7, f8, f9);
     }
 
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
+    @SqlType(MAP_BIGINT_DOUBLE)
     public static Slice features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6, @SqlType(StandardTypes.DOUBLE) double f7, @SqlType(StandardTypes.DOUBLE) double f8, @SqlType(StandardTypes.DOUBLE) double f9, @SqlType(StandardTypes.DOUBLE) double f10)
     {
         return featuresHelper(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10);

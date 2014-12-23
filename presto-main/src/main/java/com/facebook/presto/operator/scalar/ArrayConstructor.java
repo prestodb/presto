@@ -24,6 +24,7 @@ import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.gen.ByteCodeUtils;
 import com.facebook.presto.sql.gen.CompilerUtils;
 import com.facebook.presto.type.ArrayType;
@@ -52,6 +53,7 @@ import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.relational.Signatures.arrayConstructorSignature;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
@@ -106,7 +108,7 @@ public final class ArrayConstructor
     {
         // Check to see if we're creating an empty, un-specialized array
         if (types.isEmpty()) {
-            return new FunctionInfo(arrayConstructorSignature(parameterizedTypeName("array", UnknownType.NAME), ImmutableList.<String>of()), "", true, EMPTY_ARRAY_CONSTRUCTOR, true, false, ImmutableList.<Boolean>of());
+            return new FunctionInfo(arrayConstructorSignature(parameterizedTypeName("array", parseTypeSignature(UnknownType.NAME)), ImmutableList.<TypeSignature>of()), "", true, EMPTY_ARRAY_CONSTRUCTOR, true, false, ImmutableList.<Boolean>of());
         }
 
         checkArgument(types.size() == 1, "Can only construct arrays from exactly matching types");
@@ -131,7 +133,7 @@ public final class ArrayConstructor
             throw Throwables.propagate(e);
         }
         List<Boolean> nullableParameters = ImmutableList.copyOf(Collections.nCopies(stackTypes.size(), true));
-        return new FunctionInfo(arrayConstructorSignature(parameterizedTypeName("array", type.getName()), Collections.nCopies(arity, type.getName())), "Constructs an array of the given elements", true, methodHandle, true, false, nullableParameters);
+        return new FunctionInfo(arrayConstructorSignature(parameterizedTypeName("array", type.getTypeSignature()), Collections.nCopies(arity, type.getTypeSignature())), "Constructs an array of the given elements", true, methodHandle, true, false, nullableParameters);
     }
 
     public static Slice emptyArrayConstructor()

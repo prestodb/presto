@@ -17,9 +17,9 @@ import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.MetadataDaoUtils;
 import com.facebook.presto.raptor.metadata.ShardManager;
+import com.facebook.presto.raptor.metadata.ShardNode;
 import com.facebook.presto.raptor.metadata.Table;
 import com.facebook.presto.raptor.metadata.TableColumn;
-import com.facebook.presto.raptor.metadata.TablePartition;
 import com.facebook.presto.raptor.metadata.ViewResult;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
@@ -33,7 +33,9 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.ViewNotFoundException;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Splitter;
 import com.google.common.collect.FluentIterable;
@@ -55,7 +57,6 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 
@@ -64,7 +65,6 @@ import static com.facebook.presto.raptor.metadata.MetadataDaoUtils.createMetadat
 import static com.facebook.presto.raptor.metadata.SqlUtils.runIgnoringConstraintViolation;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -234,11 +234,11 @@ public class RaptorMetadata
                         int ordinalPosition = 0;
                         for (ColumnMetadata column : tableMetadata.getColumns()) {
                             long columnId = ordinalPosition + 1;
-                            dao.insertColumn(tableId, columnId, column.getName(), ordinalPosition, column.getType().getName());
+                            dao.insertColumn(tableId, columnId, column.getName(), ordinalPosition, column.getType().getTypeSignature().toString());
                             ordinalPosition++;
                         }
                         if (tableMetadata.isSampled()) {
-                            dao.insertColumn(tableId, ordinalPosition + 1, SAMPLE_WEIGHT_COLUMN_NAME, ordinalPosition, BIGINT.getName());
+                            dao.insertColumn(tableId, ordinalPosition + 1, SAMPLE_WEIGHT_COLUMN_NAME, ordinalPosition, StandardTypes.BIGINT);
                         }
                         return tableId;
                     }
@@ -274,11 +274,7 @@ public class RaptorMetadata
             protected void execute(Handle handle, TransactionStatus status)
                     throws Exception
             {
-                Set<TablePartition> partitions = shardManager.getPartitions(raptorHandle);
-                for (TablePartition partition : partitions) {
-                    shardManager.dropPartition(raptorHandle, partition.getPartitionName());
-                }
-
+                shardManager.dropTableShards(raptorHandle.getTableId());
                 MetadataDaoUtils.dropTable(dao, raptorHandle.getTableId());
             }
         });
@@ -342,22 +338,18 @@ public class RaptorMetadata
                 for (int i = 0; i < table.getColumnTypes().size(); i++) {
                     RaptorColumnHandle column = table.getColumnHandles().get(i);
                     Type columnType = table.getColumnTypes().get(i);
-                    dao.insertColumn(tableId, i + 1, column.getColumnName(), i, columnType.getName());
+                    dao.insertColumn(tableId, i + 1, column.getColumnName(), i, columnType.getTypeSignature().toString());
                 }
                 return tableId;
             }
         });
 
-        shardManager.commitUnpartitionedTable(tableId, parseFragments(fragments));
+        shardManager.commitTable(tableId, parseFragments(fragments), Optional.<String>absent());
     }
 
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        if (!shardManager.getAllPartitionKeys(tableHandle).isEmpty()) {
-            throw new PrestoException(NOT_SUPPORTED.toErrorCode(), "Inserting into partitioned tables is yet not supported");
-        }
-
         long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
 
         ImmutableList.Builder<RaptorColumnHandle> columnHandles = ImmutableList.builder();
@@ -367,14 +359,19 @@ public class RaptorMetadata
             columnTypes.add(column.getDataType());
         }
 
-        return new RaptorInsertTableHandle(connectorId, tableId, columnHandles.build(), columnTypes.build());
+        String externalBatchId = session.getProperties().get("external_batch_id");
+
+        return new RaptorInsertTableHandle(connectorId, tableId, columnHandles.build(), columnTypes.build(), externalBatchId);
     }
 
     @Override
     public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
     {
-        long tableId = checkType(insertHandle, RaptorInsertTableHandle.class, "insertHandle").getTableId();
-        shardManager.commitUnpartitionedTable(tableId, parseFragments(fragments));
+        RaptorInsertTableHandle handle = checkType(insertHandle, RaptorInsertTableHandle.class, "insertHandle");
+        long tableId = handle.getTableId();
+        Optional<String> externalBatchId = Optional.fromNullable(handle.getExternalBatchId());
+
+        shardManager.commitTable(tableId, parseFragments(fragments), externalBatchId);
     }
 
     @Override
@@ -403,7 +400,7 @@ public class RaptorMetadata
         }
         catch (UnableToExecuteStatementException e) {
             if (viewExists(session, viewName)) {
-                throw new PrestoException(ALREADY_EXISTS.toErrorCode(), "View already exists: " + viewName);
+                throw new PrestoException(ALREADY_EXISTS, "View already exists: " + viewName);
             }
             throw e;
         }
@@ -444,14 +441,14 @@ public class RaptorMetadata
         return new RaptorColumnHandle(connectorId, tableColumn.getColumnName(), tableColumn.getColumnId(), tableColumn.getDataType());
     }
 
-    private static Map<UUID, String> parseFragments(Collection<String> fragments)
+    private static List<ShardNode> parseFragments(Collection<String> fragments)
     {
-        ImmutableMap.Builder<UUID, String> shards = ImmutableMap.builder();
+        ImmutableList.Builder<ShardNode> shards = ImmutableList.builder();
         for (String fragment : fragments) {
             Iterator<String> split = Splitter.on(':').split(fragment).iterator();
             String nodeId = split.next();
             UUID shardUuid = UUID.fromString(split.next());
-            shards.put(shardUuid, nodeId);
+            shards.add(new ShardNode(shardUuid, nodeId));
         }
         return shards.build();
     }

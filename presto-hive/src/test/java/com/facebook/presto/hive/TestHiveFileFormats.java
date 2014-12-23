@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
+import com.facebook.presto.hive.orc.DwrfRecordCursorProvider;
+import com.facebook.presto.hive.orc.OrcPageSourceFactory;
+import com.facebook.presto.hive.orc.OrcRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -181,6 +185,26 @@ public class TestHiveFileFormats
     }
 
     @Test
+    public void testOrcDataStream()
+            throws Exception
+    {
+        HiveOutputFormat<?, ?> outputFormat = new org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat();
+        InputFormat<?, ?> inputFormat = new org.apache.hadoop.hive.ql.io.orc.OrcInputFormat();
+        @SuppressWarnings("deprecation")
+        SerDe serde = new org.apache.hadoop.hive.ql.io.orc.OrcSerde();
+        File file = File.createTempFile("presto_test", "orc");
+        file.delete();
+        try {
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS);
+            testPageSourceFactory(new OrcPageSourceFactory(TYPE_MANAGER), split, inputFormat, serde, TEST_COLUMNS);
+        }
+        finally {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
+    @Test
     public void testParquet()
             throws Exception
     {
@@ -241,6 +265,37 @@ public class TestHiveFileFormats
         try {
             FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, testColumns);
             testCursorProvider(new DwrfRecordCursorProvider(), split, inputFormat, serde, testColumns);
+        }
+        finally {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
+    @Test
+    public void testDwrfDataStream()
+            throws Exception
+    {
+        List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, new Predicate<TestColumn>()
+        {
+            @Override
+            public boolean apply(TestColumn testColumn)
+            {
+                ObjectInspector objectInspector = testColumn.getObjectInspector();
+                return !hasType(objectInspector, PrimitiveCategory.DATE);
+            }
+
+        }));
+
+        HiveOutputFormat<?, ?> outputFormat = new com.facebook.hive.orc.OrcOutputFormat();
+        InputFormat<?, ?> inputFormat = new com.facebook.hive.orc.OrcInputFormat();
+        @SuppressWarnings("deprecation")
+        SerDe serde = new com.facebook.hive.orc.OrcSerde();
+        File file = File.createTempFile("presto_test", "dwrf");
+        file.delete();
+        try {
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, testColumns);
+            testPageSourceFactory(new DwrfPageSourceFactory(TYPE_MANAGER), split, inputFormat, serde, testColumns);
         }
         finally {
             //noinspection ResultOfMethodCallIgnored
@@ -322,7 +377,7 @@ public class TestHiveFileFormats
         checkPageSource(pageSource, testColumns, getTypes(columnHandles));
     }
 
-    private static boolean hasType(ObjectInspector objectInspector, PrimitiveCategory... types)
+    public static boolean hasType(ObjectInspector objectInspector, PrimitiveCategory... types)
     {
         if (objectInspector instanceof PrimitiveObjectInspector) {
             PrimitiveObjectInspector primitiveInspector = (PrimitiveObjectInspector) objectInspector;

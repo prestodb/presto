@@ -21,7 +21,6 @@ import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
@@ -74,9 +73,11 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpressions;
-import static com.facebook.presto.type.TypeUtils.nameGetter;
+import static com.facebook.presto.type.TypeUtils.typeSignatureGetter;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
@@ -624,7 +625,7 @@ public class ExpressionInterpreter
                 argumentValues.add(value);
                 argumentTypes.add(type);
             }
-            FunctionInfo function = metadata.resolveFunction(node.getName(), Lists.transform(argumentTypes, nameGetter()), false);
+            FunctionInfo function = metadata.resolveFunction(node.getName(), Lists.transform(argumentTypes, typeSignatureGetter()), false);
             for (int i = 0; i < argumentValues.size(); i++) {
                 Object value = argumentValues.get(i);
                 if (value == null && !function.getNullableArguments().get(i)) {
@@ -745,7 +746,7 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            Type type = metadata.getType(node.getType());
+            Type type = metadata.getType(parseTypeSignature(node.getType()));
             if (type == null) {
                 throw new IllegalArgumentException("Unsupported type: " + node.getType());
             }
@@ -791,7 +792,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitExpression(Expression node, Object context)
         {
-            throw new PrestoException(StandardErrorCode.NOT_SUPPORTED.toErrorCode(), "not yet implemented: " + node.getClass().getName());
+            throw new PrestoException(NOT_SUPPORTED, "not yet implemented: " + node.getClass().getName());
         }
 
         @Override

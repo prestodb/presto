@@ -27,7 +27,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.RowNumberLimitNode;
+import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
@@ -145,7 +145,7 @@ public final class PlanSanityChecker
         }
 
         @Override
-        public Void visitRowNumberLimit(RowNumberLimitNode node, Void context)
+        public Void visitRowNumber(RowNumberNode node, Void context)
         {
             PlanNode source = node.getSource();
             source.accept(this, context); // visit child

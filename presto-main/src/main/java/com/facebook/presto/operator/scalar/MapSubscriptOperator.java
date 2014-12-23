@@ -73,7 +73,7 @@ public class MapSubscriptOperator
         Type keyType = types.get("K");
         Type valueType = types.get("V");
 
-        Signature signature = new Signature(SUBSCRIPT.name(), valueType.getName(), parameterizedTypeName("map", keyType.getName(), valueType.getName()), keyType.getName());
+        Signature signature = new Signature(SUBSCRIPT.name(), valueType.getTypeSignature(), parameterizedTypeName("map", keyType.getTypeSignature(), valueType.getTypeSignature()), keyType.getTypeSignature());
         return new FunctionInfo(signature, "Map subscript", true, lookupMethod(keyType, valueType), true, true, ImmutableList.of(false, false));
     }
 

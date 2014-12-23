@@ -16,13 +16,13 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.type.TypeUtils;
 import com.facebook.presto.type.UnknownType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 
 import javax.annotation.Nullable;
 
@@ -50,35 +50,30 @@ public final class Signature
     public Signature(
             @JsonProperty("name") String name,
             @JsonProperty("typeParameters") List<TypeParameter> typeParameters,
-            @JsonProperty("returnType") String returnType,
-            @JsonProperty("argumentTypes") List<String> argumentTypes,
+            @JsonProperty("returnType") TypeSignature returnType,
+            @JsonProperty("argumentTypes") List<TypeSignature> argumentTypes,
             @JsonProperty("variableArity") boolean variableArity,
             @JsonProperty("internal") boolean internal)
     {
         checkNotNull(name, "name is null");
         checkNotNull(typeParameters, "typeParameters is null");
-        checkNotNull(returnType, "returnType is null");
-        checkNotNull(argumentTypes, "argumentTypes is null");
 
         this.name = name;
         this.typeParameters = ImmutableList.copyOf(typeParameters);
-        this.returnType = parseTypeSignature(checkNotNull(returnType, "returnType is null"));
-        this.argumentTypes = FluentIterable.from(argumentTypes).transform(new Function<String, TypeSignature>()
-        {
-            @Override
-            public TypeSignature apply(String input)
-            {
-                checkNotNull(input, "input is null");
-                return parseTypeSignature(input);
-            }
-        }).toList();
+        this.returnType = checkNotNull(returnType, "returnType is null");
+        this.argumentTypes = ImmutableList.copyOf(checkNotNull(argumentTypes, "argumentTypes is null"));
         this.variableArity = variableArity;
         this.internal = internal;
     }
 
+    public Signature(String name, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes, boolean variableArity, boolean internal)
+    {
+        this(name, typeParameters, parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeUtils.typeSignatureParser()), variableArity, internal);
+    }
+
     public Signature(String name, String returnType, List<String> argumentTypes)
     {
-        this(name, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, false, false);
+        this(name, ImmutableList.<TypeParameter>of(), parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeUtils.typeSignatureParser()), false, false);
     }
 
     public Signature(String name, String returnType, String... argumentTypes)
@@ -86,12 +81,22 @@ public final class Signature
         this(name, returnType, ImmutableList.copyOf(argumentTypes));
     }
 
-    public static Signature internalOperator(String name, String returnType, List<String> argumentTypes)
+    public Signature(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
+    {
+        this(name, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, false, false);
+    }
+
+    public Signature(String name, TypeSignature returnType, TypeSignature... argumentTypes)
+    {
+        this(name, returnType, ImmutableList.copyOf(argumentTypes));
+    }
+
+    public static Signature internalOperator(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
         return internalFunction(mangleOperatorName(name), returnType, argumentTypes);
     }
 
-    public static Signature internalOperator(String name, String returnType, String... argumentTypes)
+    public static Signature internalOperator(String name, TypeSignature returnType, TypeSignature... argumentTypes)
     {
         return internalFunction(mangleOperatorName(name), returnType, ImmutableList.copyOf(argumentTypes));
     }
@@ -106,6 +111,16 @@ public final class Signature
         return new Signature(name, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, false, true);
     }
 
+    public static Signature internalFunction(String name, TypeSignature returnType, TypeSignature... argumentTypes)
+    {
+        return internalFunction(name, returnType, ImmutableList.copyOf(argumentTypes));
+    }
+
+    public static Signature internalFunction(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
+    {
+        return new Signature(name, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, false, true);
+    }
+
     @JsonProperty
     public String getName()
     {
@@ -113,21 +128,15 @@ public final class Signature
     }
 
     @JsonProperty
-    public String getReturnType()
+    public TypeSignature getReturnType()
     {
-        return returnType.toString();
+        return returnType;
     }
 
     @JsonProperty
-    public List<String> getArgumentTypes()
+    public List<TypeSignature> getArgumentTypes()
     {
-        return FluentIterable.from(argumentTypes).transform(new Function<TypeSignature, String>() {
-            @Override
-            public String apply(TypeSignature input)
-            {
-                return input.toString();
-            }
-        }).toList();
+        return argumentTypes;
     }
 
     @JsonProperty
@@ -296,14 +305,14 @@ public final class Signature
 
         // We've already checked all the components, so just match the base type
         if (!signature.getParameters().isEmpty()) {
-            return parseTypeSignature(type.getName()).getBase().equals(signature.getBase());
+            return type.getTypeSignature().getBase().equals(signature.getBase());
         }
 
         if (allowCoercion) {
-            return canCoerce(type, typeManager.getType(signature.getBase()));
+            return canCoerce(type, typeManager.getType(parseTypeSignature(signature.getBase())));
         }
         else {
-            return type.equals(typeManager.getType(signature.getBase()));
+            return type.equals(typeManager.getType(parseTypeSignature(signature.getBase())));
         }
     }
 

@@ -14,9 +14,6 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.block.dictionary.DictionaryBlockEncoding;
-import com.facebook.presto.block.rle.RunLengthBlockEncoding;
-import com.facebook.presto.block.snappy.SnappyBlockEncoding;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.informationSchema.InformationSchemaModule;
@@ -36,7 +33,6 @@ import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
-import com.facebook.presto.guice.AbstractConfigurationAwareModule;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.CatalogManagerConfig;
@@ -88,6 +84,7 @@ import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
 import com.google.inject.multibindings.Multibinder;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.slice.Slice;
 
@@ -264,9 +261,6 @@ public class ServerMainModule
         Multibinder<BlockEncodingFactory<?>> blockEncodingFactoryBinder = newSetBinder(binder, new TypeLiteral<BlockEncodingFactory<?>>() {});
         blockEncodingFactoryBinder.addBinding().toInstance(VariableWidthBlockEncoding.FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(FixedWidthBlockEncoding.FACTORY);
-        blockEncodingFactoryBinder.addBinding().toInstance(RunLengthBlockEncoding.FACTORY);
-        blockEncodingFactoryBinder.addBinding().toInstance(DictionaryBlockEncoding.FACTORY);
-        blockEncodingFactoryBinder.addBinding().toInstance(SnappyBlockEncoding.FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(SliceArrayBlockEncoding.FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(LazySliceArrayBlockEncoding.FACTORY);
 
