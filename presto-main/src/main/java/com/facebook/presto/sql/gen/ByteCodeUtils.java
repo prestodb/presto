@@ -181,7 +181,7 @@ public final class ByteCodeUtils
         block.append(invoke(context, binding, function.getSignature()));
 
         if (function.isNullable()) {
-            if (unboxedReturnType.isPrimitive()) {
+            if (unboxedReturnType.isPrimitive() && unboxedReturnType != void.class) {
                 LabelNode notNull = new LabelNode("notNull");
                 block.dup(methodType.returnType())
                         .ifNotNullGoto(notNull)
