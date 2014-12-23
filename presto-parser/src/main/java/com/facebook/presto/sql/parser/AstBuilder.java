@@ -1219,7 +1219,11 @@ class AstBuilder
         }
 
         if (type.ARRAY() != null) {
-            return "ARRAY<" + getType(type.type()) + ">";
+            return "ARRAY<" + getType(type.type(0)) + ">";
+        }
+
+        if (type.MAP() != null) {
+            return "MAP<" + getType(type.type(0)) + "," + getType(type.type(1)) + ">";
         }
 
         throw new IllegalArgumentException("Unsupported type specification: " + type.getText());
