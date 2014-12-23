@@ -21,7 +21,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
+import java.util.Optional;
 
 import java.util.List;
 import java.util.UUID;
@@ -51,7 +51,7 @@ public class RaptorPageSink
         this.storagePageSink = storageManager.getStoragePageSink(storageOutputHandle);
 
         checkNotNull(sampleWeightColumnId, "sampleWeightColumnId is null");
-        this.sampleWeightField = columnIds.indexOf(sampleWeightColumnId.or(-1L));
+        this.sampleWeightField = columnIds.indexOf(sampleWeightColumnId.orElse(-1L));
     }
 
     @Override

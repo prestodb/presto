@@ -14,7 +14,6 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.spi.PrestoException;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -30,6 +29,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -72,7 +72,7 @@ public class TestDatabaseShardManager
                 .add(new ShardNode(UUID.randomUUID(), "node2"))
                 .build();
 
-        shardManager.commitTable(tableId, shards, Optional.<String>absent());
+        shardManager.commitTable(tableId, shards, Optional.empty());
 
         Set<ShardNodes> actual = ImmutableSet.copyOf(shardManager.getShardNodes(tableId));
 
@@ -91,7 +91,7 @@ public class TestDatabaseShardManager
         UUID shard = UUID.randomUUID();
         List<ShardNode> shardNodes = ImmutableList.of(new ShardNode(shard, "node1"));
 
-        shardManager.commitTable(tableId, shardNodes, Optional.<String>absent());
+        shardManager.commitTable(tableId, shardNodes, Optional.empty());
 
         ShardNodes actual = Iterables.getOnlyElement(shardManager.getShardNodes(tableId));
         assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node1")));
