@@ -31,7 +31,6 @@ import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
@@ -48,6 +47,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 

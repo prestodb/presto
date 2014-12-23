@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import com.google.common.base.Optional;
-
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 

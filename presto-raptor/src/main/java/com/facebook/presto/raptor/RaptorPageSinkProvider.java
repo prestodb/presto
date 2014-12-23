@@ -19,13 +19,12 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
-import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -69,21 +68,16 @@ public class RaptorPageSinkProvider
                 storageManager,
                 toColumnIds(handle.getColumnHandles()),
                 handle.getColumnTypes(),
-                Optional.<Long>absent());
+                Optional.empty());
     }
 
     private static List<Long> toColumnIds(List<RaptorColumnHandle> columnHandles)
     {
-        return FluentIterable.from(columnHandles).transform(columnIdGetter()).toList();
+        return FluentIterable.from(columnHandles).transform(RaptorColumnHandle::getColumnId).toList();
     }
 
     private static Optional<Long> optionalColumnId(RaptorColumnHandle handle)
     {
-        return Optional.fromNullable(handle).transform(columnIdGetter());
-    }
-
-    private static Function<RaptorColumnHandle, Long> columnIdGetter()
-    {
-        return RaptorColumnHandle::getColumnId;
+        return Optional.ofNullable(handle).map(RaptorColumnHandle::getColumnId);
     }
 }

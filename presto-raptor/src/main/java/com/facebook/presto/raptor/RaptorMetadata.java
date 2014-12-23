@@ -35,7 +35,6 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Splitter;
 import com.google.common.collect.FluentIterable;
@@ -57,6 +56,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 
@@ -335,7 +335,7 @@ public class RaptorMetadata
             }
         });
 
-        shardManager.commitTable(tableId, parseFragments(fragments), Optional.<String>absent());
+        shardManager.commitTable(tableId, parseFragments(fragments), Optional.empty());
     }
 
     @Override
@@ -360,7 +360,7 @@ public class RaptorMetadata
     {
         RaptorInsertTableHandle handle = checkType(insertHandle, RaptorInsertTableHandle.class, "insertHandle");
         long tableId = handle.getTableId();
-        Optional<String> externalBatchId = Optional.fromNullable(handle.getExternalBatchId());
+        Optional<String> externalBatchId = Optional.ofNullable(handle.getExternalBatchId());
 
         shardManager.commitTable(tableId, parseFragments(fragments), externalBatchId);
     }
