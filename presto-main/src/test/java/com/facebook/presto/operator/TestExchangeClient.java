@@ -28,7 +28,6 @@ import java.net.URI;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.operator.PageBufferClientStatus.uriGetter;
 import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
@@ -156,7 +155,7 @@ public class TestExchangeClient
         exchangeClient.noMoreLocations();
         assertEquals(exchangeClient.isClosed(), true);
 
-        ImmutableMap<URI, PageBufferClientStatus> statuses = uniqueIndex(exchangeClient.getStatus().getPageBufferClientStatuses(), uriGetter());
+        ImmutableMap<URI, PageBufferClientStatus> statuses = uniqueIndex(exchangeClient.getStatus().getPageBufferClientStatuses(), PageBufferClientStatus::getUri);
         assertStatus(statuses.get(location1), location1, "closed", 3, 2, 2, "not scheduled");
         assertStatus(statuses.get(location2), location2, "closed", 3, 2, 2, "not scheduled");
     }
@@ -168,6 +167,14 @@ public class TestExchangeClient
         DataSize maxResponseSize = new DataSize(1, Unit.BYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
+        URI location = URI.create("http://localhost:8080");
+
+        // add a pages
+        processor.addPage(location, createPage(1));
+        processor.addPage(location, createPage(2));
+        processor.addPage(location, createPage(3));
+        processor.setComplete(location);
+
         @SuppressWarnings("resource")
         ExchangeClient exchangeClient = new ExchangeClient(createTestingBlockEncodingManager(),
                 new DataSize(1, Unit.BYTE),
@@ -177,18 +184,11 @@ public class TestExchangeClient
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
                 executor);
 
-        URI location = URI.create("http://localhost:8080");
         exchangeClient.addLocation(location);
         exchangeClient.noMoreLocations();
         assertEquals(exchangeClient.isClosed(), false);
 
         long start = System.nanoTime();
-
-        // add a pages
-        processor.addPage(location, createPage(1));
-        processor.addPage(location, createPage(2));
-        processor.addPage(location, createPage(3));
-        processor.setComplete(location);
 
         // start fetching pages
         exchangeClient.scheduleRequestIfNecessary();

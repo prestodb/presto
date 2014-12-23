@@ -13,17 +13,13 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.plan.SinkNode;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.util.IterableTransformer;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
-import com.google.common.base.Functions;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
@@ -32,10 +28,12 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 @Immutable
 public class PlanFragment
@@ -64,6 +62,7 @@ public class PlanFragment
     private final Set<PlanNodeId> sourceIds;
     private final OutputPartitioning outputPartitioning;
     private final List<Symbol> partitionBy;
+    private final Optional<Symbol> hash;
 
     @JsonCreator
     public PlanFragment(
@@ -73,7 +72,8 @@ public class PlanFragment
             @JsonProperty("distribution") PlanDistribution distribution,
             @JsonProperty("partitionedSource") PlanNodeId partitionedSource,
             @JsonProperty("outputPartitioning") OutputPartitioning outputPartitioning,
-            @JsonProperty("partitionBy") List<Symbol> partitionBy)
+            @JsonProperty("partitionBy") List<Symbol> partitionBy,
+            @JsonProperty("hash") Optional<Symbol> hash)
     {
         this.id = checkNotNull(id, "id is null");
         this.root = checkNotNull(root, "root is null");
@@ -81,10 +81,11 @@ public class PlanFragment
         this.distribution = checkNotNull(distribution, "distribution is null");
         this.partitionedSource = partitionedSource;
         this.partitionBy = ImmutableList.copyOf(checkNotNull(partitionBy, "partitionBy is null"));
+        this.hash = hash;
 
-        types = ImmutableList.copyOf(IterableTransformer.on(root.getOutputSymbols())
-                .transform(Functions.forMap(symbols))
-                .list());
+        types = root.getOutputSymbols().stream()
+                .map(symbols::get)
+                .collect(toImmutableList());
 
         ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
         findSources(root, sources, partitionedSource);
@@ -144,19 +145,10 @@ public class PlanFragment
         return partitionBy;
     }
 
-    public List<Integer> getPartitioningChannels()
+    @JsonProperty
+    public Optional<Symbol> getHash()
     {
-        checkState(outputPartitioning == OutputPartitioning.HASH, "fragment is not hash partitioned");
-        checkState(root instanceof SinkNode, "root is not an instance of SinkNode");
-        // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
-        return IterableTransformer.on(partitionBy).transform(new Function<Symbol, Integer>()
-        {
-            @Override
-            public Integer apply(Symbol input)
-            {
-                return root.getOutputSymbols().indexOf(input);
-            }
-        }).list();
+        return hash;
     }
 
     public List<Type> getTypes()
@@ -180,7 +172,7 @@ public class PlanFragment
             findSources(source, builder, partitionedSource);
         }
 
-        if (node.getSources().isEmpty() || node.getId().equals(partitionedSource)) {
+        if ((node.getSources().isEmpty() && !(node instanceof IndexSourceNode)) || node.getId().equals(partitionedSource)) {
             builder.add(node);
         }
     }
@@ -188,23 +180,12 @@ public class PlanFragment
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("id", id)
                 .add("distribution", distribution)
                 .add("partitionedSource", partitionedSource)
                 .add("outputPartitioning", outputPartitioning)
+                .add("hash", hash)
                 .toString();
-    }
-
-    public static Function<PlanFragment, PlanFragmentId> idGetter()
-    {
-        return new Function<PlanFragment, PlanFragmentId>()
-        {
-            @Override
-            public PlanFragmentId apply(PlanFragment input)
-            {
-                return input.getId();
-            }
-        };
     }
 }

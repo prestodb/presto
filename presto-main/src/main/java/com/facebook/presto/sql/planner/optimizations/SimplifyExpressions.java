@@ -25,13 +25,11 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
@@ -66,7 +64,7 @@ public class SimplifyExpressions
     }
 
     private static class Rewriter
-            extends PlanNodeRewriter<Void>
+            extends PlanRewriter<Void>
     {
         private final Metadata metadata;
         private final SqlParser sqlParser;
@@ -82,17 +80,17 @@ public class SimplifyExpressions
         }
 
         @Override
-        public PlanNode rewriteProject(ProjectNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
         {
-            PlanNode source = planRewriter.rewrite(node.getSource(), context);
-            Map<Symbol, Expression> assignments = ImmutableMap.copyOf(Maps.transformValues(node.getOutputMap(), simplifyExpressionFunction()));
+            PlanNode source = context.rewrite(node.getSource());
+            Map<Symbol, Expression> assignments = ImmutableMap.copyOf(Maps.transformValues(node.getAssignments(), this::simplifyExpression));
             return new ProjectNode(node.getId(), source, assignments);
         }
 
         @Override
-        public PlanNode rewriteFilter(FilterNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode visitFilter(FilterNode node, RewriteContext<Void> context)
         {
-            PlanNode source = planRewriter.rewrite(node.getSource(), context);
+            PlanNode source = context.rewrite(node.getSource());
             Expression simplified = simplifyExpression(node.getPredicate());
             if (simplified.equals(BooleanLiteral.TRUE_LITERAL)) {
                 return source;
@@ -101,25 +99,13 @@ public class SimplifyExpressions
         }
 
         @Override
-        public PlanNode rewriteTableScan(TableScanNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
         {
             Expression originalConstraint = null;
             if (node.getOriginalConstraint() != null) {
                 originalConstraint = simplifyExpression(node.getOriginalConstraint());
             }
             return new TableScanNode(node.getId(), node.getTable(), node.getOutputSymbols(), node.getAssignments(), originalConstraint, node.getSummarizedPartition());
-        }
-
-        private Function<Expression, Expression> simplifyExpressionFunction()
-        {
-            return new Function<Expression, Expression>()
-            {
-                @Override
-                public Expression apply(Expression input)
-                {
-                    return simplifyExpression(input);
-                }
-            };
         }
 
         private Expression simplifyExpression(Expression input)

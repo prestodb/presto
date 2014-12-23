@@ -17,7 +17,6 @@ import com.facebook.presto.spi.NotFoundException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
@@ -35,7 +34,6 @@ import javax.inject.Inject;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -186,14 +184,9 @@ public class CachingCassandraSchemaProvider
     private Map<String, String> loadAllSchemas()
             throws Exception
     {
-        return retry().stopOnIllegalExceptions().run("getAllSchemas", new Callable<Map<String, String>>()
-        {
-            @Override
-            public Map<String, String> call()
-            {
-                return Maps.uniqueIndex(session.getAllSchemas(), toLowerCase());
-            }
-        });
+        return retry()
+                .stopOnIllegalExceptions()
+                .run("getAllSchemas", () -> Maps.uniqueIndex(session.getAllSchemas(), CachingCassandraSchemaProvider::toLowerCase));
     }
 
     public List<String> getAllTables(String databaseName)
@@ -206,25 +199,19 @@ public class CachingCassandraSchemaProvider
             throws Exception
     {
         return retry().stopOn(NotFoundException.class).stopOnIllegalExceptions()
-                .run("getAllTables", new Callable<Map<String, String>>()
-                {
-                    @Override
-                    public Map<String, String> call()
-                            throws SchemaNotFoundException
-                    {
-                        String caseSensitiveDatabaseName = getCaseSensitiveSchemaName(databaseName);
-                        if (caseSensitiveDatabaseName == null) {
-                            caseSensitiveDatabaseName = databaseName;
-                        }
-                        List<String> tables = session.getAllTables(caseSensitiveDatabaseName);
-                        Map<String, String> nameMap = Maps.uniqueIndex(tables, toLowerCase());
-
-                        if (tables.isEmpty()) {
-                            // Check to see if the database exists
-                            session.getSchema(databaseName);
-                        }
-                        return nameMap;
+                .run("getAllTables", () -> {
+                    String caseSensitiveDatabaseName = getCaseSensitiveSchemaName(databaseName);
+                    if (caseSensitiveDatabaseName == null) {
+                        caseSensitiveDatabaseName = databaseName;
                     }
+                    List<String> tables = session.getAllTables(caseSensitiveDatabaseName);
+                    Map<String, String> nameMap = Maps.uniqueIndex(tables, CachingCassandraSchemaProvider::toLowerCase);
+
+                    if (tables.isEmpty()) {
+                        // Check to see if the database exists
+                        session.getSchema(databaseName);
+                    }
+                    return nameMap;
                 });
     }
 
@@ -278,17 +265,10 @@ public class CachingCassandraSchemaProvider
     private CassandraTable loadTable(final SchemaTableName tableName)
             throws Exception
     {
-        return retry().stopOn(NotFoundException.class).stopOnIllegalExceptions()
-                .run("getTable", new Callable<CassandraTable>()
-                {
-                    @Override
-                    public CassandraTable call()
-                            throws TableNotFoundException
-                    {
-                        CassandraTable table = session.getTable(tableName);
-                        return table;
-                    }
-                });
+        return retry()
+                .stopOn(NotFoundException.class)
+                .stopOnIllegalExceptions()
+                .run("getTable", () -> session.getTable(tableName));
     }
 
     public List<CassandraPartition> getAllPartitions(CassandraTable table)
@@ -310,15 +290,9 @@ public class CachingCassandraSchemaProvider
     private List<CassandraPartition> loadPartitions(final PartitionListKey key)
             throws Exception
     {
-        return retry().stopOnIllegalExceptions()
-                .run("getPartitions", new Callable<List<CassandraPartition>>()
-                {
-                    @Override
-                    public List<CassandraPartition> call()
-                    {
-                        return session.getPartitions(key.getTable(), key.getFilterPrefix());
-                    }
-                });
+        return retry()
+                .stopOnIllegalExceptions()
+                .run("getPartitions", () -> session.getPartitions(key.getTable(), key.getFilterPrefix()));
     }
 
     private static <K, V, E extends Exception> V getCacheValue(LoadingCache<K, V> cache, K key, Class<E> exceptionClass)
@@ -334,16 +308,9 @@ public class CachingCassandraSchemaProvider
         }
     }
 
-    private static Function<String, String> toLowerCase()
+    private static String toLowerCase(String value)
     {
-        return new Function<String, String>()
-        {
-            @Override
-            public String apply(String str)
-            {
-                return str.toLowerCase(ENGLISH);
-            }
-        };
+        return value.toLowerCase(ENGLISH);
     }
 
     private static final class PartitionListKey

@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.client.ClientTypeSignature;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.QueryError;
@@ -34,10 +35,10 @@ import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.util.IterableTransformer;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -83,9 +84,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.execution.QueryInfo.queryIdGetter;
-import static com.facebook.presto.execution.StageInfo.getAllStages;
-import static com.facebook.presto.execution.StageInfo.stageStateGetter;
 import static com.facebook.presto.server.ResourceUtil.assertRequest;
 import static com.facebook.presto.server.ResourceUtil.createSessionForRequest;
 import static com.facebook.presto.util.Failures.toFailure;
@@ -283,7 +281,7 @@ public class StatementResource
                     // so statements without results produce an error in the client otherwise.
                     //
                     // TODO: add support to the API for non-query statements.
-                    columns = ImmutableList.of(new Column("result", "boolean"));
+                    columns = ImmutableList.of(new Column("result", "boolean", new ClientTypeSignature(StandardTypes.BOOLEAN, ImmutableList.<ClientTypeSignature>of(), ImmutableList.<Object>of())));
                     data = ImmutableSet.<List<Object>>of(ImmutableList.<Object>of(true));
                 }
             }
@@ -412,8 +410,9 @@ public class StatementResource
             ImmutableList.Builder<Column> list = ImmutableList.builder();
             for (int i = 0; i < names.size(); i++) {
                 String name = names.get(i);
-                String type = types.get(i).getTypeSignature().toString();
-                list.add(new Column(name, type));
+                TypeSignature typeSignature = types.get(i).getTypeSignature();
+                String type = typeSignature.toString();
+                list.add(new Column(name, type, new ClientTypeSignature(typeSignature)));
             }
             return list.build();
         }
@@ -424,7 +423,7 @@ public class StatementResource
 
             return StatementStats.builder()
                     .setState(queryInfo.getState().toString())
-                    .setScheduled(isScheduled(queryInfo))
+                    .setScheduled(queryInfo.isScheduled())
                     .setNodes(globalUniqueNodes(queryInfo.getOutputStage()).size())
                     .setTotalSplits(queryStats.getTotalDrivers())
                     .setQueuedSplits(queryStats.getQueuedDrivers())
@@ -493,29 +492,6 @@ public class StatementResource
                 nodes.addAll(globalUniqueNodes(subStage));
             }
             return nodes.build();
-        }
-
-        private static boolean isScheduled(QueryInfo queryInfo)
-        {
-            StageInfo stage = queryInfo.getOutputStage();
-            if (stage == null) {
-                return false;
-            }
-            return IterableTransformer.on(getAllStages(stage))
-                    .transform(stageStateGetter())
-                    .all(isStageRunningOrDone());
-        }
-
-        private static Predicate<StageState> isStageRunningOrDone()
-        {
-            return new Predicate<StageState>()
-            {
-                @Override
-                public boolean apply(StageState state)
-                {
-                    return (state == StageState.RUNNING) || state.isDone();
-                }
-            };
         }
 
         private static URI findCancelableLeafStage(QueryInfo queryInfo)
@@ -642,7 +618,7 @@ public class StatementResource
 
                 Set<QueryId> queryIdsSnapshot = ImmutableSet.copyOf(queries.keySet());
                 // do not call queryManager.getQueryInfo() since it updates the heartbeat time
-                Set<QueryId> liveQueries = ImmutableSet.copyOf(transform(queryManager.getAllQueryInfo(), queryIdGetter()));
+                Set<QueryId> liveQueries = ImmutableSet.copyOf(transform(queryManager.getAllQueryInfo(), QueryInfo::getQueryId));
 
                 Set<QueryId> deadQueries = Sets.difference(queryIdsSnapshot, liveQueries);
                 for (QueryId deadQueryId : deadQueries) {

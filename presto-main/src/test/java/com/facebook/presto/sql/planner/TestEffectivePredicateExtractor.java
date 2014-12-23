@@ -40,13 +40,14 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.type.UnknownType;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -63,6 +64,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -124,7 +126,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 null,
-                Optional.<GeneratedPartitions>absent()
+                Optional.empty()
         );
 
         expressionNormalizer = new ExpressionIdentityNormalizer();
@@ -149,8 +151,9 @@ public class TestEffectivePredicateExtractor
                 ImmutableMap.of(C, fakeFunctionHandle("test"), D, fakeFunctionHandle("test")),
                 ImmutableMap.<Symbol, Symbol>of(),
                 AggregationNode.Step.FINAL,
-                Optional.<Symbol>absent(),
-                1.0);
+                Optional.empty(),
+                1.0,
+                Optional.empty());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
@@ -279,8 +282,11 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.of(A),
                 ImmutableList.of(A),
                 ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST),
+                new WindowNode.Frame(WindowFrame.Type.RANGE,
+                        FrameBound.Type.UNBOUNDED_PRECEDING, Optional.empty(),
+                        FrameBound.Type.CURRENT_ROW, Optional.empty()),
                 ImmutableMap.<Symbol, FunctionCall>of(),
-                ImmutableMap.<Symbol, Signature>of());
+                ImmutableMap.<Symbol, Signature>of(), Optional.empty());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
@@ -304,7 +310,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 null,
-                Optional.<GeneratedPartitions>absent());
+                Optional.empty());
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
         Assert.assertEquals(effectivePredicate, BooleanLiteral.TRUE_LITERAL);
 
@@ -465,7 +471,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(leftAssignments.keySet()),
                 leftAssignments,
                 null,
-                Optional.<GeneratedPartitions>absent()
+                Optional.empty()
         );
 
         Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
@@ -475,7 +481,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(rightAssignments.keySet()),
                 rightAssignments,
                 null,
-                Optional.<GeneratedPartitions>absent()
+                Optional.empty()
         );
 
         PlanNode node = new JoinNode(newId(),
@@ -488,7 +494,9 @@ public class TestEffectivePredicateExtractor
                         and(
                                 equals(DE, EE),
                                 lessThan(FE, number(100)))),
-                criteria);
+                criteria,
+                Optional.empty(),
+                Optional.empty());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
@@ -518,7 +526,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(leftAssignments.keySet()),
                 leftAssignments,
                 null,
-                Optional.<GeneratedPartitions>absent()
+                Optional.empty()
         );
 
         Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
@@ -528,7 +536,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(rightAssignments.keySet()),
                 rightAssignments,
                 null,
-                Optional.<GeneratedPartitions>absent()
+                Optional.empty()
         );
 
         PlanNode node = new JoinNode(newId(),
@@ -541,7 +549,9 @@ public class TestEffectivePredicateExtractor
                         and(
                                 equals(DE, EE),
                                 lessThan(FE, number(100)))),
-                criteria);
+                criteria,
+                Optional.empty(),
+                Optional.empty());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
@@ -571,7 +581,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(leftAssignments.keySet()),
                 leftAssignments,
                 null,
-                Optional.<GeneratedPartitions>absent()
+                Optional.empty()
         );
 
         Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
@@ -581,7 +591,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(rightAssignments.keySet()),
                 rightAssignments,
                 null,
-                Optional.<GeneratedPartitions>absent()
+                Optional.empty()
         );
 
         PlanNode node = new JoinNode(newId(),
@@ -594,7 +604,9 @@ public class TestEffectivePredicateExtractor
                         and(
                                 equals(DE, EE),
                                 lessThan(FE, number(100)))),
-                criteria);
+                criteria,
+                Optional.empty(),
+                Optional.empty());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
@@ -615,8 +627,9 @@ public class TestEffectivePredicateExtractor
         PlanNode node = new SemiJoinNode(newId(),
                 filter(baseTableScan, and(greaterThan(AE, number(10)), lessThan(AE, number(100)))),
                 filter(baseTableScan, greaterThan(AE, number(5))),
-                A, B, C
-        );
+                A, B, C,
+                Optional.empty(),
+                Optional.empty());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 

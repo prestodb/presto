@@ -48,14 +48,15 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
 import static com.facebook.presto.util.DateTimeUtils.parseTime;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestamp;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
-import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class LiteralInterpreter
 {
@@ -91,6 +92,9 @@ public final class LiteralInterpreter
         }
 
         if (object == null) {
+            if (type == UNKNOWN) {
+                return new NullLiteral();
+            }
             return new Cast(new NullLiteral(), type.getTypeSignature().toString());
         }
 
@@ -100,13 +104,15 @@ public final class LiteralInterpreter
 
         if (type.equals(DOUBLE)) {
             Double value = (Double) object;
+            // WARNING: the ORC predicate code depends on NaN and infinity not appearing in a tuple domain, so
+            // if you remove this, you will need to update the TupleDomainOrcPredicate
             if (value.isNaN()) {
                 return new FunctionCall(new QualifiedName("nan"), ImmutableList.<Expression>of());
             }
-            else if (value == Double.NEGATIVE_INFINITY) {
+            else if (value.equals(Double.NEGATIVE_INFINITY)) {
                 return new NegativeExpression(new FunctionCall(new QualifiedName("infinity"), ImmutableList.<Expression>of()));
             }
-            else if (value == Double.POSITIVE_INFINITY) {
+            else if (value.equals(Double.POSITIVE_INFINITY)) {
                 return new FunctionCall(new QualifiedName("infinity"), ImmutableList.<Expression>of());
             }
             else {

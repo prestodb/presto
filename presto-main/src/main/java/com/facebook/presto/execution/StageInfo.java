@@ -17,8 +17,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
@@ -27,6 +25,8 @@ import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
 import java.util.List;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 @Immutable
 public class StageInfo
@@ -130,7 +130,7 @@ public class StageInfo
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("stageId", stageId)
                 .add("state", state)
                 .toString();
@@ -151,17 +151,5 @@ public class StageInfo
         for (StageInfo subStage : stageInfo.getSubStages()) {
             addAllStages(subStage, collector);
         }
-    }
-
-    public static Function<StageInfo, StageState> stageStateGetter()
-    {
-        return new Function<StageInfo, StageState>()
-        {
-            @Override
-            public StageState apply(StageInfo stageInfo)
-            {
-                return stageInfo.getState();
-            }
-        };
     }
 }

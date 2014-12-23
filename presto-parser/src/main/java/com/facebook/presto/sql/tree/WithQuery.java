@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class WithQuery
@@ -28,7 +29,7 @@ public class WithQuery
 
     public WithQuery(String name, Query query, List<String> columnNames)
     {
-        this.name = checkNotNull(name, "name is null");
+        this.name = QualifiedName.of(checkNotNull(name, "name is null")).getParts().get(0);
         this.query = checkNotNull(query, "query is null");
         this.columnNames = columnNames;
     }
@@ -57,7 +58,7 @@ public class WithQuery
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("name", name)
                 .add("query", query)
                 .add("columnNames", columnNames)
@@ -68,7 +69,7 @@ public class WithQuery
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(name, query, columnNames);
+        return Objects.hash(name, query, columnNames);
     }
 
     @Override
@@ -81,8 +82,8 @@ public class WithQuery
             return false;
         }
         WithQuery o = (WithQuery) obj;
-        return Objects.equal(name, o.name) &&
-                Objects.equal(query, o.query) &&
-                Objects.equal(columnNames, o.columnNames);
+        return Objects.equals(name, o.name) &&
+                Objects.equals(query, o.query) &&
+                Objects.equals(columnNames, o.columnNames);
     }
 }

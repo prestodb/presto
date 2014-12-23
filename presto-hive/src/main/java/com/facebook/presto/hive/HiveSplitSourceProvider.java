@@ -14,9 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.util.AsyncWalker;
-import com.facebook.presto.hive.util.BoundedExecutor;
 import com.facebook.presto.hive.util.FileStatusCallback;
-import com.facebook.presto.hive.util.SetThreadName;
 import com.facebook.presto.hive.util.SuspendingExecutor;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -26,12 +24,13 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.concurrent.SetThreadName;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
@@ -58,6 +57,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executor;
@@ -196,7 +196,7 @@ class HiveSplitSourceProvider
                 final String partitionName = partition.getHivePartition().getPartitionId();
                 final Properties schema = getPartitionSchema(table, partition.getPartition());
                 final List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition());
-                final TupleDomain<HiveColumnHandle> tupleDomain = (TupleDomain<HiveColumnHandle>) (Object) partition.getHivePartition().getTupleDomain();
+                final TupleDomain<HiveColumnHandle> effectivePredicate = partition.getHivePartition().getEffectivePredicate();
 
                 Path path = new Path(getPartitionLocation(table, partition.getPartition()));
                 Configuration configuration = hdfsEnvironment.getConfiguration(path);
@@ -222,7 +222,7 @@ class HiveSplitSourceProvider
                                 partitionKeys,
                                 false,
                                 session,
-                                tupleDomain));
+                                effectivePredicate));
                     }
                     continue;
                 }
@@ -236,7 +236,18 @@ class HiveSplitSourceProvider
                         BlockLocation[] blockLocations = fs.getFileBlockLocations(file, 0, file.getLen());
                         boolean splittable = isSplittable(inputFormat, fs, file.getPath());
 
-                        hiveSplitSource.addToQueue(createHiveSplits(partitionName, file, blockLocations, 0, file.getLen(), schema, partitionKeys, splittable, session, tupleDomain));
+                        hiveSplitSource.addToQueue(createHiveSplits(
+                                partitionName,
+                                file,
+                                blockLocations,
+                                0,
+                                file.getLen(),
+                                schema,
+                                partitionKeys,
+                                splittable,
+                                session,
+                                effectivePredicate));
+
                         continue;
                     }
                 }
@@ -270,7 +281,7 @@ class HiveSplitSourceProvider
                                     partitionKeys,
                                     splittable,
                                     session,
-                                    tupleDomain));
+                                    effectivePredicate));
                         }
                         catch (IOException e) {
                             hiveSplitSource.fail(e);
@@ -329,14 +340,14 @@ class HiveSplitSourceProvider
         FileStatus[] statuses = listStatus(fs, path);
 
         if (statuses.length != bucket.getBucketCount()) {
-            return Optional.absent();
+            return Optional.empty();
         }
 
         Map<String, FileStatus> map = new HashMap<>();
         List<String> paths = new ArrayList<>();
         for (FileStatus status : statuses) {
             if (!isFile(status)) {
-                return Optional.absent();
+                return Optional.empty();
             }
             String pathString = status.getPath().toString();
             map.put(pathString, status);
@@ -370,7 +381,7 @@ class HiveSplitSourceProvider
             List<HivePartitionKey> partitionKeys,
             boolean splittable,
             ConnectorSession session,
-            TupleDomain<HiveColumnHandle> tupleDomain)
+            TupleDomain<HiveColumnHandle> effectivePredicate)
             throws IOException
     {
         ImmutableList.Builder<HiveSplit> builder = ImmutableList.builder();
@@ -410,7 +421,7 @@ class HiveSplitSourceProvider
                             addresses,
                             forceLocalScheduling,
                             session,
-                            tupleDomain));
+                            effectivePredicate));
 
                     chunkOffset += chunkLength;
                     remainingInitialSplits--;
@@ -437,7 +448,7 @@ class HiveSplitSourceProvider
                     addresses,
                     forceLocalScheduling,
                     session,
-                    tupleDomain));
+                    effectivePredicate));
         }
         return builder.build();
     }

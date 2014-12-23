@@ -31,10 +31,13 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
+import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
@@ -45,7 +48,6 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -79,8 +81,10 @@ public final class GraphvizPrinter
         WINDOW,
         UNION,
         SORT,
+        SAMPLE,
         MARK_DISTINCT,
-        MATERIALIZE_SAMPLE,
+        TABLE_WRITER,
+        TABLE_COMMIT,
         INDEX_SOURCE,
         UNNEST
     }
@@ -101,9 +105,11 @@ public final class GraphvizPrinter
             .put(NodeType.WINDOW, "darkolivegreen4")
             .put(NodeType.UNION, "turquoise4")
             .put(NodeType.MARK_DISTINCT, "violet")
-            .put(NodeType.MATERIALIZE_SAMPLE, "hotpink")
+            .put(NodeType.TABLE_WRITER, "cyan")
+            .put(NodeType.TABLE_COMMIT, "hotpink")
             .put(NodeType.INDEX_SOURCE, "dodgerblue3")
             .put(NodeType.UNNEST, "crimson")
+            .put(NodeType.SAMPLE, "goldenrod4")
             .build());
 
     static {
@@ -114,14 +120,7 @@ public final class GraphvizPrinter
 
     public static String printLogical(List<PlanFragment> fragments)
     {
-        Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, new Function<PlanFragment, PlanFragmentId>()
-        {
-            @Override
-            public PlanFragmentId apply(PlanFragment input)
-            {
-                return input.getId();
-            }
-        });
+        Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, PlanFragment::getId);
         PlanNodeIdGenerator idGenerator = new PlanNodeIdGenerator();
 
         StringBuilder output = new StringBuilder();
@@ -143,7 +142,7 @@ public final class GraphvizPrinter
     public static String printDistributed(SubPlan plan)
     {
         List<PlanFragment> fragments = plan.getAllFragments();
-        Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, PlanFragment.idGetter());
+        Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, PlanFragment::getId);
         PlanNodeIdGenerator idGenerator = new PlanNodeIdGenerator();
 
         StringBuilder output = new StringBuilder();
@@ -202,6 +201,31 @@ public final class GraphvizPrinter
         protected Void visitPlan(PlanNode node, Void context)
         {
             throw new UnsupportedOperationException(format("Node %s does not have a Graphviz visitor", node.getClass().getName()));
+        }
+
+        @Override
+        public Void visitTableWriter(TableWriterNode node, Void context)
+        {
+            List<String> columns = new ArrayList<>();
+            for (int i = 0; i < node.getColumnNames().size(); i++) {
+                columns.add(node.getColumnNames().get(i) + " := " + node.getColumns().get(i));
+            }
+            printNode(node, format("TableWriter[%s]", Joiner.on(", ").join(columns)), NODE_COLORS.get(NodeType.TABLE_WRITER));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitTableCommit(TableCommitNode node, Void context)
+        {
+            printNode(node, format("TableCommit[%s]", Joiner.on(", ").join(node.getOutputSymbols())), NODE_COLORS.get(NodeType.TABLE_COMMIT));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitSample(SampleNode node, Void context)
+        {
+            printNode(node, format("Sample[type=%s, ratio=%f, rescaled=%s]", node.getSampleType(), node.getSampleRatio(), node.isRescaled()), NODE_COLORS.get(NodeType.SAMPLE));
+            return node.getSource().accept(this, context);
         }
 
         @Override
@@ -299,7 +323,7 @@ public final class GraphvizPrinter
         public Void visitProject(ProjectNode node, Void context)
         {
             StringBuilder builder = new StringBuilder();
-            for (Map.Entry<Symbol, Expression> entry : node.getOutputMap().entrySet()) {
+            for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
                 if ((entry.getValue() instanceof QualifiedNameReference) &&
                         ((QualifiedNameReference) entry.getValue()).getName().equals(entry.getKey().toQualifiedName())) {
                     // skip identity assignments
@@ -322,14 +346,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitTopN(final TopNNode node, Void context)
         {
-            Iterable<String> keys = Iterables.transform(node.getOrderBy(), new Function<Symbol, String>()
-            {
-                @Override
-                public String apply(Symbol input)
-                {
-                    return input + " " + node.getOrderings().get(input);
-                }
-            });
+            Iterable<String> keys = Iterables.transform(node.getOrderBy(), input -> input + " " + node.getOrderings().get(input));
             printNode(node, format("TopN[%s]", node.getCount()), Joiner.on(", ").join(keys), NODE_COLORS.get(NodeType.TOPN));
             return node.getSource().accept(this, context);
         }

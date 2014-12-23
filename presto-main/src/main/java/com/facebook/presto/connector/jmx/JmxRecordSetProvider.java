@@ -20,8 +20,6 @@ import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -33,6 +31,7 @@ import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -41,6 +40,7 @@ import java.util.Set;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.stream.Collectors.toMap;
 
 public class JmxRecordSetProvider
         implements ConnectorRecordSetProvider
@@ -116,7 +116,39 @@ public class JmxRecordSetProvider
                             }
                         }
                         else if (javaType == Slice.class) {
-                            row.add(value.toString());
+                            if (value.getClass().isArray()) {
+                                // return a string representation of the array
+                                if (value.getClass().getComponentType() == String.class) {
+                                    row.add(Arrays.toString((String[]) value));
+                                }
+                                else if (value.getClass().getComponentType() == boolean.class) {
+                                    row.add(Arrays.toString((boolean[]) value));
+                                }
+                                else if (value.getClass().getComponentType() == byte.class) {
+                                    row.add(Arrays.toString((byte[]) value));
+                                }
+                                else if (value.getClass().getComponentType() == char.class) {
+                                    row.add(Arrays.toString((char[]) value));
+                                }
+                                else if (value.getClass().getComponentType() == double.class) {
+                                    row.add(Arrays.toString((double[]) value));
+                                }
+                                else if (value.getClass().getComponentType() == float.class) {
+                                    row.add(Arrays.toString((float[]) value));
+                                }
+                                else if (value.getClass().getComponentType() == int.class) {
+                                    row.add(Arrays.toString((int[]) value));
+                                }
+                                else if (value.getClass().getComponentType() == long.class) {
+                                    row.add(Arrays.toString((long[]) value));
+                                }
+                                else if (value.getClass().getComponentType() == short.class) {
+                                    row.add(Arrays.toString((short[]) value));
+                                }
+                            }
+                            else {
+                                row.add(value.toString());
+                            }
                         }
                     }
                 }
@@ -137,33 +169,8 @@ public class JmxRecordSetProvider
 
         String[] columnNamesArray = uniqueColumnNames.toArray(new String[uniqueColumnNames.size()]);
 
-        return IterableTransformer.on(mbeanServer.getAttributes(objectName, columnNamesArray).asList())
-                .uniqueIndex(attributeNameGetter())
-                .transformValues(attributeValueGetter())
-                .map();
-    }
-
-    private static Function<Attribute, String> attributeNameGetter()
-    {
-        return new Function<Attribute, String>()
-        {
-            @Override
-            public String apply(Attribute attribute)
-            {
-                return attribute.getName();
-            }
-        };
-    }
-
-    private static Function<Attribute, Object> attributeValueGetter()
-    {
-        return new Function<Attribute, Object>()
-        {
-            @Override
-            public Object apply(Attribute attribute)
-            {
-                return attribute.getValue();
-            }
-        };
+        return mbeanServer.getAttributes(objectName, columnNamesArray)
+                .asList().stream()
+                .collect(toMap(Attribute::getName, Attribute::getValue));
     }
 }

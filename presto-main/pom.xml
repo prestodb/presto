@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.80-SNAPSHOT</version>
+        <version>0.90-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-main</artifactId>
@@ -95,11 +95,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>event</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>floatingdecimal</artifactId>
         </dependency>
 
         <dependency>

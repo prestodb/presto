@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -30,17 +31,21 @@ public class MarkDistinctNode
 {
     private final PlanNode source;
     private final Symbol markerSymbol;
+
+    private final Optional<Symbol> hashSymbol;
     private final List<Symbol> distinctSymbols;
 
     @JsonCreator
     public MarkDistinctNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("markerSymbol") Symbol markerSymbol,
-            @JsonProperty("distinctSymbols") List<Symbol> distinctSymbols)
+            @JsonProperty("distinctSymbols") List<Symbol> distinctSymbols,
+            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
     {
         super(id);
         this.source = source;
         this.markerSymbol = markerSymbol;
+        this.hashSymbol = checkNotNull(hashSymbol, "hashSymbol is null");
         this.distinctSymbols = ImmutableList.copyOf(checkNotNull(distinctSymbols, "distinctSymbols is null"));
     }
 
@@ -75,6 +80,12 @@ public class MarkDistinctNode
     public List<Symbol> getDistinctSymbols()
     {
         return distinctSymbols;
+    }
+
+    @JsonProperty
+    public Optional<Symbol> getHashSymbol()
+    {
+        return hashSymbol;
     }
 
     @Override

@@ -21,13 +21,15 @@ import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-import org.joda.time.LocalDate;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.util.Locale.ENGLISH;
+import static org.joda.time.DateTimeZone.UTC;
 
 public class TestDate
 {
@@ -59,7 +61,8 @@ public class TestDate
     public void testLiteral()
             throws Exception
     {
-        assertFunction("DATE '2001-1-22'", new SqlDate(new LocalDate(2001, 1, 22).toDateMidnight(getDateTimeZone(TIME_ZONE_KEY)).getMillis(), TIME_ZONE_KEY));
+        long millis = new DateTime(2001, 1, 22, 0, 0, UTC).getMillis();
+        assertFunction("DATE '2001-1-22'", new SqlDate((int) TimeUnit.MILLISECONDS.toDays(millis)));
     }
 
     @Test
@@ -171,13 +174,17 @@ public class TestDate
     public void testGreatest()
             throws Exception
     {
-        assertFunction("greatest(DATE '2013-03-30', DATE '2012-05-23')", new SqlDate(new LocalDate(2013, 3, 30).toDateMidnight(getDateTimeZone(TIME_ZONE_KEY)).getMillis(), TIME_ZONE_KEY));
+        int days = (int) TimeUnit.MILLISECONDS.toDays(new DateTime(2013, 3, 30, 0, 0, UTC).getMillis());
+        assertFunction("greatest(DATE '2013-03-30', DATE '2012-05-23')", new SqlDate(days));
+        assertFunction("greatest(DATE '2013-03-30', DATE '2012-05-23', DATE '2012-06-01')", new SqlDate(days));
     }
 
     @Test
     public void testLeast()
             throws Exception
     {
-        assertFunction("least(DATE '2013-03-30', DATE '2012-05-23')", new SqlDate(new LocalDate(2012, 5, 23).toDateMidnight(getDateTimeZone(TIME_ZONE_KEY)).getMillis(), TIME_ZONE_KEY));
+        int days = (int) TimeUnit.MILLISECONDS.toDays(new DateTime(2012, 5, 23, 0, 0, UTC).getMillis());
+        assertFunction("least(DATE '2013-03-30', DATE '2012-05-23')", new SqlDate(days));
+        assertFunction("least(DATE '2013-03-30', DATE '2012-05-23', DATE '2012-06-01')", new SqlDate(days));
     }
 }

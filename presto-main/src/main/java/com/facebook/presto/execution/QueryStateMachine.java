@@ -19,10 +19,13 @@ import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -40,7 +43,6 @@ import java.util.concurrent.Executor;
 import static com.facebook.presto.execution.QueryState.CANCELED;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
-import static com.facebook.presto.execution.QueryState.inDoneState;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
@@ -187,7 +189,7 @@ public class QueryStateMachine
                 totalUserTime += stageStats.getTotalUserTime().roundTo(NANOSECONDS);
                 totalBlockedTime += stageStats.getTotalBlockedTime().roundTo(NANOSECONDS);
 
-                if (stageInfo.getSubStages().isEmpty()) {
+                if (Iterables.any(stageInfo.getPlan().getSources(), Predicates.instanceOf(TableScanNode.class))) {
                     rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
                     rawInputPositions += stageStats.getRawInputPositions();
 
@@ -237,6 +239,7 @@ public class QueryStateMachine
         return new QueryInfo(queryId,
                 session,
                 state,
+                isScheduled(rootStage),
                 self,
                 outputFieldNames,
                 query,
@@ -297,7 +300,7 @@ public class QueryStateMachine
     public synchronized boolean running()
     {
         // transition to running if not already done
-        return queryState.setIf(QueryState.RUNNING, Predicates.not(inDoneState()));
+        return queryState.setIf(QueryState.RUNNING, Predicates.not(QueryState::isDone));
     }
 
     public boolean finished()
@@ -307,7 +310,7 @@ public class QueryStateMachine
                 endTime = DateTime.now();
             }
         }
-        return queryState.setIf(FINISHED, Predicates.not(inDoneState()));
+        return queryState.setIf(FINISHED, Predicates.not(QueryState::isDone));
     }
 
     public boolean cancel()
@@ -322,7 +325,7 @@ public class QueryStateMachine
                 failureCause = new PrestoException(USER_CANCELED, "Query was canceled");
             }
         }
-        return queryState.setIf(CANCELED, Predicates.not(inDoneState()));
+        return queryState.setIf(CANCELED, Predicates.not(QueryState::isDone));
     }
 
     public boolean fail(@Nullable Throwable cause)
@@ -342,7 +345,7 @@ public class QueryStateMachine
                 }
             }
         }
-        return queryState.setIf(FAILED, Predicates.not(inDoneState()));
+        return queryState.setIf(FAILED, Predicates.not(QueryState::isDone));
     }
 
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
@@ -376,5 +379,15 @@ public class QueryStateMachine
     public synchronized void recordDistributedPlanningTime(long distributedPlanningStart)
     {
         distributedPlanningTime = Duration.nanosSince(distributedPlanningStart).convertToMostSuccinctTimeUnit();
+    }
+
+    private static boolean isScheduled(StageInfo rootStage)
+    {
+        if (rootStage == null) {
+            return false;
+        }
+        return FluentIterable.from(getAllStages(rootStage))
+                .transform(StageInfo::getState)
+                .allMatch(state -> (state == StageState.RUNNING) || state.isDone());
     }
 }

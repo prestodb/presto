@@ -26,7 +26,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.type.TypeRegistry;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -41,7 +40,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
-import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.hive.ql.io.RCFileInputFormat;
 import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
@@ -74,7 +72,6 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveClient.getType;
-import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnIndexGetter;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
@@ -96,6 +93,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDateObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDoubleObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
@@ -137,22 +135,22 @@ public final class BenchmarkHiveFileFormats
     private static final ImmutableList<? extends TpchColumn<?>> COLUMNS = ImmutableList.copyOf(LineItemColumn.values());
 
     private static final List<HiveColumnHandle> BIGINT_COLUMN = getHiveColumnHandles(ORDER_KEY);
-    private static final List<Integer> BIGINT_COLUMN_INDEX = ImmutableList.copyOf(transform(BIGINT_COLUMN, hiveColumnIndexGetter()));
+    private static final List<Integer> BIGINT_COLUMN_INDEX = ImmutableList.copyOf(transform(BIGINT_COLUMN, HiveColumnHandle::getHiveColumnIndex));
 
     private static final List<HiveColumnHandle> DOUBLE_COLUMN = getHiveColumnHandles(EXTENDED_PRICE);
-    private static final List<Integer> DOUBLE_COLUMN_INDEX = ImmutableList.copyOf(transform(DOUBLE_COLUMN, hiveColumnIndexGetter()));
+    private static final List<Integer> DOUBLE_COLUMN_INDEX = ImmutableList.copyOf(transform(DOUBLE_COLUMN, HiveColumnHandle::getHiveColumnIndex));
 
     private static final List<HiveColumnHandle> VARCHAR_COLUMN = getHiveColumnHandles(SHIP_INSTRUCTIONS);
-    private static final List<Integer> VARCHAR_COLUMN_INDEX = ImmutableList.copyOf(transform(VARCHAR_COLUMN, hiveColumnIndexGetter()));
+    private static final List<Integer> VARCHAR_COLUMN_INDEX = ImmutableList.copyOf(transform(VARCHAR_COLUMN, HiveColumnHandle::getHiveColumnIndex));
 
     private static final List<HiveColumnHandle> TPCH_6_COLUMNS = getHiveColumnHandles(QUANTITY, EXTENDED_PRICE, DISCOUNT, SHIP_DATE);
-    private static final List<Integer> TPCH_6_COLUMN_INDEXES = ImmutableList.copyOf(transform(TPCH_6_COLUMNS, hiveColumnIndexGetter()));
+    private static final List<Integer> TPCH_6_COLUMN_INDEXES = ImmutableList.copyOf(transform(TPCH_6_COLUMNS, HiveColumnHandle::getHiveColumnIndex));
 
     private static final List<HiveColumnHandle> TPCH_1_COLUMNS = getHiveColumnHandles(QUANTITY, EXTENDED_PRICE, DISCOUNT, TAX, RETURN_FLAG, STATUS, SHIP_DATE);
-    private static final List<Integer> TPCH_1_COLUMN_INDEXES = ImmutableList.copyOf(transform(TPCH_1_COLUMNS, hiveColumnIndexGetter()));
+    private static final List<Integer> TPCH_1_COLUMN_INDEXES = ImmutableList.copyOf(transform(TPCH_1_COLUMNS, HiveColumnHandle::getHiveColumnIndex));
 
     private static final List<HiveColumnHandle> ALL_COLUMNS = getHiveColumnHandles(LineItemColumn.values());
-    private static final List<Integer> ALL_COLUMN_INDEXES = ImmutableList.copyOf(transform(ALL_COLUMNS, hiveColumnIndexGetter()));
+    private static final List<Integer> ALL_COLUMN_INDEXES = ImmutableList.copyOf(transform(ALL_COLUMNS, HiveColumnHandle::getHiveColumnIndex));
 
     private static final int LOOPS = 1;
     private static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
@@ -173,7 +171,6 @@ public final class BenchmarkHiveFileFormats
     {
         HadoopNative.requireHadoopNative();
         ReaderWriterProfiler.setProfilerOptions(JOB_CONF);
-        JOB_CONF.set(IOConstants.COLUMNS, Joiner.on(',').join(transform(COLUMNS, columnNameGetter())));
         DATA_DIR.mkdirs();
 
         List<BenchmarkFile> benchmarkFiles = ImmutableList.<BenchmarkFile>builder()
@@ -1411,7 +1408,7 @@ public final class BenchmarkHiveFileFormats
     {
         RecordWriter recordWriter = createRecordWriter(columns, outputFile, outputFormat, compressionType);
 
-        SettableStructObjectInspector objectInspector = getStandardStructObjectInspector(transform(columns, columnNameGetter()), transform(columns, objectInspectorGetter()));
+        SettableStructObjectInspector objectInspector = getStandardStructObjectInspector(transform(columns, input -> input.getColumnName()), transform(columns, input -> getObjectInspector(input)));
 
         Object row = objectInspector.create();
 
@@ -1448,10 +1445,10 @@ public final class BenchmarkHiveFileFormats
         Properties orderTableProperties = new Properties();
         orderTableProperties.setProperty(
                 "columns",
-                Joiner.on(',').join(transform(columns, columnNameGetter())));
+                Joiner.on(',').join(transform(columns, input -> input.getColumnName())));
         orderTableProperties.setProperty(
                 "columns.types",
-                Joiner.on(':').join(transform(columns, columnTypeGetter())));
+                Joiner.on(':').join(transform(columns, BenchmarkHiveFileFormats::getColumnType)));
         return orderTableProperties;
     }
 
@@ -1517,65 +1514,34 @@ public final class BenchmarkHiveFileFormats
         return new DataSize(outputFile.length(), Unit.BYTE).convertToMostSuccinctDataSize();
     }
 
-    private static Function<TpchColumn<?>, String> columnNameGetter()
+    private static String getColumnType(TpchColumn<?> input)
     {
-        return new Function<TpchColumn<?>, String>()
-        {
-            @Override
-            public String apply(TpchColumn<?> input)
-            {
-                return input.getColumnName();
-            }
-        };
-    }
-
-    private static Function<TpchColumn<?>, String> columnTypeGetter()
-    {
-        return new Function<TpchColumn<?>, String>()
-        {
-            @Override
-            public String apply(TpchColumn<?> input)
-            {
-                Class<?> type = input.getType();
-                if (type == Long.class) {
-                    return "bigint";
-                }
-                if (type == Double.class) {
-                    return "double";
-                }
-                if (type == String.class) {
-                    return "string";
-                }
-                throw new IllegalArgumentException("Unsupported type " + type.getName());
-            }
-        };
-    }
-
-    private static Function<TpchColumn<?>, ObjectInspector> objectInspectorGetter()
-    {
-        return new Function<TpchColumn<?>, ObjectInspector>()
-        {
-            @Override
-            public ObjectInspector apply(TpchColumn<?> input)
-            {
-                return getObjectInspector(input);
-            }
-        };
+        switch (input.getType()) {
+            case BIGINT:
+                return "bigint";
+            case DATE:
+                return "date";
+            case DOUBLE:
+                return "double";
+            case VARCHAR:
+                return "string";
+        }
+        throw new IllegalArgumentException("Unsupported type " + input.getType());
     }
 
     private static ObjectInspector getObjectInspector(TpchColumn<?> input)
     {
-        Class<?> type = input.getType();
-        if (type == Long.class) {
-            return javaLongObjectInspector;
+        switch (input.getType()) {
+            case BIGINT:
+                return javaLongObjectInspector;
+            case DATE:
+                return javaDateObjectInspector;
+            case DOUBLE:
+                return javaDoubleObjectInspector;
+            case VARCHAR:
+                return javaStringObjectInspector;
         }
-        if (type == Double.class) {
-            return javaDoubleObjectInspector;
-        }
-        if (type == String.class) {
-            return javaStringObjectInspector;
-        }
-        throw new IllegalArgumentException("Unsupported type " + type.getName());
+        throw new IllegalArgumentException("Unsupported type " + input.getType());
     }
 
     private static String getCursorType(HiveRecordCursorProvider recordCursorProvider)

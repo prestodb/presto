@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
-import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
@@ -26,7 +25,6 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SerializableNativeValue;
 import com.facebook.presto.spi.TupleDomain;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -38,6 +36,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import static com.facebook.presto.util.Types.checkType;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class InformationSchemaSplitManager
@@ -70,7 +69,7 @@ public class InformationSchemaSplitManager
     {
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
-            return new FixedSplitSource(SystemTablesManager.CONNECTOR_ID, ImmutableList.<ConnectorSplit>of());
+            return new FixedSplitSource(null, ImmutableList.<ConnectorSplit>of());
         }
 
         ConnectorPartition partition = Iterables.getOnlyElement(partitions);
@@ -86,7 +85,7 @@ public class InformationSchemaSplitManager
 
         ConnectorSplit split = new InformationSchemaSplit(informationSchemaPartition.getTable(), filters.build(), localAddress);
 
-        return new FixedSplitSource(SystemTablesManager.CONNECTOR_ID, ImmutableList.of(split));
+        return new FixedSplitSource(null, ImmutableList.of(split));
     }
 
     public static class InformationSchemaPartition
@@ -126,7 +125,7 @@ public class InformationSchemaSplitManager
         @Override
         public String toString()
         {
-            return Objects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("table", table)
                     .add("filters", filters)
                     .toString();

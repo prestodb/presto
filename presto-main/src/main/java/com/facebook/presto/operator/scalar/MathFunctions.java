@@ -14,14 +14,11 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.Description;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Doubles;
 
 import java.util.concurrent.ThreadLocalRandom;
-
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
 public final class MathFunctions
 {
@@ -329,45 +326,5 @@ public final class MathFunctions
     public static double infinity()
     {
         return Double.POSITIVE_INFINITY;
-    }
-
-    @Description("get the largest of the given values")
-    @ScalarFunction
-    @SqlType(StandardTypes.BIGINT)
-    public static long greatest(@SqlType(StandardTypes.BIGINT) long value1, @SqlType(StandardTypes.BIGINT) long value2)
-    {
-        return value1 > value2 ? value1 : value2;
-    }
-
-    @Description("get the largest of the given values")
-    @ScalarFunction
-    @SqlType(StandardTypes.DOUBLE)
-    public static double greatest(@SqlType(StandardTypes.DOUBLE) double value1, @SqlType(StandardTypes.DOUBLE) double value2)
-    {
-        if (Double.isNaN(value1) || Double.isNaN(value2)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid argument to greatest(): NaN");
-        }
-
-        return value1 > value2 ? value1 : value2;
-    }
-
-    @Description("get the smallest of the given values")
-    @ScalarFunction
-    @SqlType(StandardTypes.BIGINT)
-    public static long least(@SqlType(StandardTypes.BIGINT) long value1, @SqlType(StandardTypes.BIGINT) long value2)
-    {
-        return value1 < value2 ? value1 : value2;
-    }
-
-    @Description("get the smallest of the given values")
-    @ScalarFunction
-    @SqlType(StandardTypes.DOUBLE)
-    public static double least(@SqlType(StandardTypes.DOUBLE) double value1, @SqlType(StandardTypes.DOUBLE) double value2)
-    {
-        if (Double.isNaN(value1) || Double.isNaN(value2)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid argument to least(): NaN");
-        }
-
-        return value1 < value2 ? value1 : value2;
     }
 }

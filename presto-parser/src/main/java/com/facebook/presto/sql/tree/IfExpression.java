@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
+import java.util.Objects;
+
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -32,7 +33,7 @@ public class IfExpression
     {
         this.condition = checkNotNull(condition, "condition is null");
         this.trueValue = checkNotNull(trueValue, "trueValue is null");
-        this.falseValue = Optional.fromNullable(falseValue);
+        this.falseValue = Optional.ofNullable(falseValue);
     }
 
     public Expression getCondition()
@@ -66,14 +67,14 @@ public class IfExpression
             return false;
         }
         IfExpression o = (IfExpression) obj;
-        return Objects.equal(condition, o.condition) &&
-                Objects.equal(trueValue, o.trueValue) &&
-                Objects.equal(falseValue, o.falseValue);
+        return Objects.equals(condition, o.condition) &&
+                Objects.equals(trueValue, o.trueValue) &&
+                Objects.equals(falseValue, o.falseValue);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(condition, trueValue, falseValue);
+        return Objects.hash(condition, trueValue, falseValue);
     }
 }

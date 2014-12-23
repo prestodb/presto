@@ -20,16 +20,17 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertApproximateAggregation;
+import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static org.testng.Assert.assertTrue;
@@ -181,10 +182,10 @@ public abstract class AbstractTestApproximateAggregationFunction
             }
             Page page = new Page(builder.build());
             page = OperatorAssertion.appendSampleWeight(ImmutableList.of(page), WEIGHT).get(0);
-            Accumulator accumulator = getFunction().bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.of(page.getChannelCount() - 1), getConfidence()).createAccumulator();
+            Accumulator accumulator = getFunction().bind(ImmutableList.of(0), Optional.empty(), Optional.of(page.getChannelCount() - 1), getConfidence()).createAccumulator();
 
             accumulator.addInput(page);
-            Block result = accumulator.evaluateFinal();
+            Block result = getFinalBlock(accumulator);
 
             String approxValue = BlockAssertions.toValues(accumulator.getFinalType(), result).get(0).toString();
             double approx = Double.parseDouble(approxValue.split(" ")[0]);

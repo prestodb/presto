@@ -22,7 +22,6 @@ import com.facebook.presto.hive.util.Types;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -43,16 +42,12 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.hive.HiveBooleanParser.isFalse;
-import static com.facebook.presto.hive.HiveBooleanParser.isTrue;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveType.HIVE_BINARY;
 import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
@@ -64,13 +59,15 @@ import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
+import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
+import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
-import static com.facebook.presto.hive.HiveUtil.isArrayOrMap;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
-import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
-import static com.facebook.presto.hive.NumberParser.parseDouble;
-import static com.facebook.presto.hive.NumberParser.parseLong;
+import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
 import static com.facebook.presto.hive.util.SerDeUtils.getJsonBytes;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -84,13 +81,13 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.ql.io.orc.OrcUtil.getFieldValue;
 
 public class OrcHiveRecordCursor
         extends HiveRecordCursor
 {
-    private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
-
     private final RecordReader recordReader;
     private final DateTimeZone sessionTimeZone;
 
@@ -186,53 +183,40 @@ public class OrcHiveRecordCursor
         }
 
         // parse requested partition columns
-        Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey.nameGetter());
+        Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::getName);
         for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
             HiveColumnHandle column = columns.get(columnIndex);
             if (column.isPartitionKey()) {
                 HivePartitionKey partitionKey = partitionKeysByName.get(column.getName());
                 checkArgument(partitionKey != null, "Unknown partition key %s", column.getName());
 
-                byte[] bytes = partitionKey.getValue().getBytes(Charsets.UTF_8);
+                byte[] bytes = partitionKey.getValue().getBytes(UTF_8);
 
+                String name = names[columnIndex];
+                Type type = types[columnIndex];
                 if (HiveUtil.isHiveNull(bytes)) {
                     nulls[columnIndex] = true;
                 }
-                else if (types[columnIndex].equals(BOOLEAN)) {
-                    if (isTrue(bytes, 0, bytes.length)) {
-                        booleans[columnIndex] = true;
-                    }
-                    else if (isFalse(bytes, 0, bytes.length)) {
-                        booleans[columnIndex] = false;
-                    }
-                    else {
-                        String valueString = new String(bytes, Charsets.UTF_8);
-                        throw new IllegalArgumentException(String.format("Invalid partition value '%s' for BOOLEAN partition key %s", valueString, names[columnIndex]));
-                    }
+                else if (type.equals(BOOLEAN)) {
+                    booleans[columnIndex] = booleanPartitionKey(partitionKey.getValue(), name);
                 }
-                else if (types[columnIndex].equals(BIGINT)) {
-                    if (bytes.length == 0) {
-                        throw new IllegalArgumentException(String.format("Invalid partition value '' for BIGINT partition key %s", names[columnIndex]));
-                    }
-                    longs[columnIndex] = parseLong(bytes, 0, bytes.length);
+                else if (type.equals(BIGINT)) {
+                    longs[columnIndex] = bigintPartitionKey(partitionKey.getValue(), name);
                 }
-                else if (types[columnIndex].equals(DOUBLE)) {
-                    if (bytes.length == 0) {
-                        throw new IllegalArgumentException(String.format("Invalid partition value '' for DOUBLE partition key %s", names[columnIndex]));
-                    }
-                    doubles[columnIndex] = parseDouble(bytes, 0, bytes.length);
+                else if (type.equals(DOUBLE)) {
+                    doubles[columnIndex] = doublePartitionKey(partitionKey.getValue(), name);
                 }
-                else if (types[columnIndex].equals(VARCHAR)) {
+                else if (type.equals(VARCHAR)) {
                     slices[columnIndex] = Slices.wrappedBuffer(bytes);
                 }
-                else if (types[columnIndex].equals(DATE)) {
-                    longs[columnIndex] = ISODateTimeFormat.date().withZone(DateTimeZone.UTC).parseMillis(partitionKey.getValue());
+                else if (type.equals(DATE)) {
+                    longs[columnIndex] = datePartitionKey(partitionKey.getValue(), name);
                 }
-                else if (types[columnIndex].equals(TIMESTAMP)) {
-                    longs[columnIndex] = parseHiveTimestamp(partitionKey.getValue(), hiveStorageTimeZone);
+                else if (type.equals(TIMESTAMP)) {
+                    longs[columnIndex] = timestampPartitionKey(partitionKey.getValue(), hiveStorageTimeZone, name);
                 }
                 else {
-                    throw new UnsupportedOperationException("Unsupported column type: " + types[columnIndex]);
+                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for partition key: %s", type.getDisplayName(), name));
                 }
             }
         }
@@ -353,7 +337,7 @@ public class OrcHiveRecordCursor
                 longs[column] = shortWritable.get();
             }
             else if (hiveTypes[column].equals(HIVE_DATE)) {
-                longs[column] = ((DateWritable) object).getDays() * MILLIS_IN_DAY;
+                longs[column] = ((DateWritable) object).getDays();
             }
             else if (hiveTypes[column].equals(HIVE_TIMESTAMP)) {
                 TimestampWritable timestampWritable = (TimestampWritable) object;
@@ -484,7 +468,7 @@ public class OrcHiveRecordCursor
         else if (types[column].equals(DOUBLE)) {
             parseDoubleColumn(column);
         }
-        else if (types[column].equals(VARCHAR) || types[column].equals(VARBINARY) || isArrayOrMap(hiveTypes[column])) {
+        else if (types[column].equals(VARCHAR) || types[column].equals(VARBINARY) || isStructuralType(hiveTypes[column])) {
             parseStringColumn(column);
         }
         else if (types[column].equals(TIMESTAMP)) {

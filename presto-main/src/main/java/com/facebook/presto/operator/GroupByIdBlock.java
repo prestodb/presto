@@ -16,10 +16,10 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockEncoding;
-import com.google.common.base.Objects;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class GroupByIdBlock
@@ -173,7 +173,7 @@ public class GroupByIdBlock
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("groupCount", groupCount)
                 .add("positionCount", getPositionCount())
                 .toString();

@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.80-SNAPSHOT</version>
+        <version>0.90-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-ml</artifactId>
@@ -72,6 +72,12 @@
         <dependency>
             <groupId>it.unimi.dsi</groupId>
             <artifactId>fastutil</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>json</artifactId>
             <scope>provided</scope>
         </dependency>
 

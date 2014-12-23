@@ -54,17 +54,13 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.LikeFunctions;
-import com.google.common.base.Charsets;
 import com.google.common.base.Functions;
-import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import org.joni.Regex;
-
-import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -77,11 +73,11 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpressions;
-import static com.facebook.presto.type.TypeUtils.typeSignatureGetter;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.collect.Iterables.any;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class ExpressionInterpreter
 {
@@ -355,7 +351,7 @@ public class ExpressionInterpreter
             // the analysis below. If the value is null, it means that we can't apply the HashSet
             // optimization
             if (!inListCache.containsKey(valueList)) {
-                if (Iterables.all(valueList.getValues(), isNonNullLiteralPredicate())) {
+                if (Iterables.all(valueList.getValues(), ExpressionInterpreter::isNullLiteral)) {
                     // if all elements are constant, create a set with them
                     set = new HashSet<>();
                     for (Expression expression : valueList.getValues()) {
@@ -625,7 +621,7 @@ public class ExpressionInterpreter
                 argumentValues.add(value);
                 argumentTypes.add(type);
             }
-            FunctionInfo function = metadata.resolveFunction(node.getName(), Lists.transform(argumentTypes, typeSignatureGetter()), false);
+            FunctionInfo function = metadata.resolveFunction(node.getName(), Lists.transform(argumentTypes, Type::getTypeSignature), false);
             for (int i = 0; i < argumentValues.size(); i++) {
                 Object value = argumentValues.get(i);
                 if (value == null && !function.getNullableArguments().get(i)) {
@@ -635,7 +631,7 @@ public class ExpressionInterpreter
 
             // do not optimize non-deterministic functions
             if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues))) {
-                return new FunctionCall(node.getName(), node.getWindow().orNull(), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
+                return new FunctionCall(node.getName(), node.getWindow().orElse(null), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
             }
             return invoke(session, function.getMethodHandle(), argumentValues);
         }
@@ -687,7 +683,7 @@ public class ExpressionInterpreter
 
             // if pattern is a constant without % or _ replace with a comparison
             if (pattern instanceof Slice && escape == null) {
-                String stringPattern = ((Slice) pattern).toString(Charsets.UTF_8);
+                String stringPattern = ((Slice) pattern).toString(UTF_8);
                 if (!stringPattern.contains("%") && !stringPattern.contains("_")) {
                     return new ComparisonExpression(ComparisonExpression.Type.EQUAL,
                             toExpression(value, expressionTypes.get(node.getValue())),
@@ -821,17 +817,6 @@ public class ExpressionInterpreter
             FunctionInfo operatorInfo = metadata.resolveOperator(operatorType, argumentTypes);
             return invoke(session, operatorInfo.getMethodHandle(), argumentValues);
         }
-
-        private Object optimize(Node node, Object context)
-        {
-            checkState(optimize, "not optimizing");
-            try {
-                return process(node, context);
-            }
-            catch (RuntimeException e) {
-                return node;
-            }
-        }
     }
 
     private static class PagePositionContext
@@ -872,15 +857,8 @@ public class ExpressionInterpreter
         }
     }
 
-    private static Predicate<Expression> isNonNullLiteralPredicate()
+    private static boolean isNullLiteral(Expression entry)
     {
-        return new Predicate<Expression>()
-        {
-            @Override
-            public boolean apply(@Nullable Expression input)
-            {
-                return input instanceof Literal && !(input instanceof NullLiteral);
-            }
-        };
+        return entry instanceof Literal && !(entry instanceof NullLiteral);
     }
 }

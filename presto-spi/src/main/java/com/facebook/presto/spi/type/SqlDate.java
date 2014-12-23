@@ -18,34 +18,29 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.TimeZoneIndex.getTimeZoneForKey;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 
 public final class SqlDate
 {
-    private final long millisAtMidnight;
-    private final TimeZoneKey sessionTimeZoneKey;
+    private final int days;
 
-    public SqlDate(long millisAtMidnight, TimeZoneKey sessionTimeZoneKey)
+    public SqlDate(int days)
     {
-        this.millisAtMidnight = millisAtMidnight;
-        this.sessionTimeZoneKey = sessionTimeZoneKey;
+        this.days = days;
     }
 
-    public long getMillisAtMidnight()
+    public int getDays()
     {
-        return millisAtMidnight;
-    }
-
-    public TimeZoneKey getSessionTimeZoneKey()
-    {
-        return sessionTimeZoneKey;
+        return days;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(millisAtMidnight, sessionTimeZoneKey);
+        return days;
     }
 
     @Override
@@ -58,8 +53,7 @@ public final class SqlDate
             return false;
         }
         SqlDate other = (SqlDate) obj;
-        return Objects.equals(this.millisAtMidnight, other.millisAtMidnight) &&
-                Objects.equals(this.sessionTimeZoneKey, other.sessionTimeZoneKey);
+        return Objects.equals(days, other.days);
     }
 
     @JsonValue
@@ -67,7 +61,7 @@ public final class SqlDate
     public String toString()
     {
         SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
-        format.setTimeZone(getTimeZoneForKey(sessionTimeZoneKey));
-        return format.format(new Date(millisAtMidnight));
+        format.setTimeZone(getTimeZoneForKey(UTC_KEY));
+        return format.format(new Date(TimeUnit.DAYS.toMillis(days)));
     }
 }

@@ -16,7 +16,6 @@ package com.facebook.presto.byteCode.instruction;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.facebook.presto.byteCode.ParameterizedType;
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
@@ -44,6 +43,7 @@ import static com.facebook.presto.byteCode.OpCode.SIPUSH;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.instruction.FieldInstruction.getStaticInstruction;
 import static com.facebook.presto.byteCode.instruction.InvokeInstruction.invokeStatic;
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public abstract class Constant
         implements InstructionNode
@@ -162,7 +162,7 @@ public abstract class Constant
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("value", getValue())
                 .toString();
     }

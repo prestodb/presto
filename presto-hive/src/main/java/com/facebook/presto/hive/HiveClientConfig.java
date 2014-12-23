@@ -72,6 +72,7 @@ public class HiveClientConfig
     private int s3MaxClientRetries = 3;
     private int s3MaxErrorRetries = 10;
     private Duration s3MaxBackoffTime = new Duration(10, TimeUnit.MINUTES);
+    private Duration s3MaxRetryTime = new Duration(10, TimeUnit.MINUTES);
     private Duration s3ConnectTimeout = new Duration(5, TimeUnit.SECONDS);
     private Duration s3SocketTimeout = new Duration(5, TimeUnit.SECONDS);
     private int s3MaxConnections = 500;
@@ -83,7 +84,9 @@ public class HiveClientConfig
 
     private List<String> resourceConfigFiles;
 
-    private boolean optimizedReaderEnabled;
+    private boolean optimizedReaderEnabled = true;
+
+    private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
 
     public int getMaxInitialSplits()
     {
@@ -499,6 +502,20 @@ public class HiveClientConfig
 
     @MinDuration("1ms")
     @NotNull
+    public Duration getS3MaxRetryTime()
+    {
+        return s3MaxRetryTime;
+    }
+
+    @Config("hive.s3.max-retry-time")
+    public HiveClientConfig setS3MaxRetryTime(Duration s3MaxRetryTime)
+    {
+        this.s3MaxRetryTime = s3MaxRetryTime;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    @NotNull
     public Duration getS3ConnectTimeout()
     {
         return s3ConnectTimeout;
@@ -593,6 +610,19 @@ public class HiveClientConfig
     public HiveClientConfig setOptimizedReaderEnabled(boolean optimizedReaderEnabled)
     {
         this.optimizedReaderEnabled = optimizedReaderEnabled;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getOrcMaxMergeDistance()
+    {
+        return orcMaxMergeDistance;
+    }
+
+    @Config("hive.orc.max-merge-distance")
+    public HiveClientConfig setOrcMaxMergeDistance(DataSize orcMaxMergeDistance)
+    {
+        this.orcMaxMergeDistance = orcMaxMergeDistance;
         return this;
     }
 }

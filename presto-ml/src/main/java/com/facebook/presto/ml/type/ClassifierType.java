@@ -13,10 +13,15 @@
  */
 package com.facebook.presto.ml.type;
 
-import com.facebook.presto.spi.type.TypeSignature;
-import com.fasterxml.jackson.annotation.JsonCreator;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import java.util.List;
+
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import static com.google.common.base.Preconditions.checkArgument;
 
 // Layout is <size>:<model>, where
 //   size: is an int describing the length of the model bytes
@@ -24,18 +29,21 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 public class ClassifierType
         extends ModelType
 {
-    public static final ClassifierType CLASSIFIER = new ClassifierType();
-    public static final String NAME = "Classifier";
-    private static final TypeSignature SIGNATURE = parseTypeSignature(NAME);
+    public static final ClassifierType BIGINT_CLASSIFIER = new ClassifierType(BIGINT);
+    public static final ClassifierType VARCHAR_CLASSIFIER = new ClassifierType(VARCHAR);
 
-    @JsonCreator
-    public ClassifierType()
+    private final Type labelType;
+
+    public ClassifierType(Type type)
     {
+        super(parameterizedTypeName(ClassifierParametricType.NAME, type.getTypeSignature()));
+        checkArgument(type.isComparable(), "type must be comparable");
+        labelType = type;
     }
 
     @Override
-    public TypeSignature getTypeSignature()
+    public List<Type> getTypeParameters()
     {
-        return SIGNATURE;
+        return ImmutableList.of(labelType);
     }
 }

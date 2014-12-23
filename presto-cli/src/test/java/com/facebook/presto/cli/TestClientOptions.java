@@ -16,9 +16,10 @@ package com.facebook.presto.cli;
 import com.facebook.presto.cli.ClientOptions.ClientSessionProperty;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static io.airlift.command.SingleCommand.singleCommand;
 import static org.testng.Assert.assertEquals;
@@ -93,14 +94,14 @@ public class TestClientOptions
 
         ClientOptions options = console.clientOptions;
         assertEquals(options.sessionProperties, ImmutableList.of(
-                new ClientSessionProperty(Optional.<String>absent(), "system", "system-value"),
+                new ClientSessionProperty(Optional.empty(), "system", "system-value"),
                 new ClientSessionProperty(Optional.of("catalog"), "name", "catalog-property")));
 
         // special characters are allowed in the value
-        assertEquals(new ClientSessionProperty("foo=bar:=baz"), new ClientSessionProperty(Optional.<String>absent(), "foo", "bar:=baz"));
+        assertEquals(new ClientSessionProperty("foo=bar:=baz"), new ClientSessionProperty(Optional.empty(), "foo", "bar:=baz"));
 
         // empty values are allowed
-        assertEquals(new ClientSessionProperty("foo="), new ClientSessionProperty(Optional.<String>absent(), "foo", ""));
+        assertEquals(new ClientSessionProperty("foo="), new ClientSessionProperty(Optional.empty(), "foo", ""));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
@@ -140,9 +141,17 @@ public class TestClientOptions
         ClientOptions options = new ClientOptions();
         ClientSession session = options.toClientSession();
         SqlParser sqlParser = new SqlParser();
-        session = Console.processSessionParameterChange(sqlParser.createStatement("USE CATALOG test_catalog"), session);
+
+        session = Console.processSessionParameterChange(sqlParser.createStatement("USE test_catalog.test_schema"), session);
         assertEquals(session.getCatalog(), "test_catalog");
-        session = Console.processSessionParameterChange(sqlParser.createStatement("USE SCHEMA test_schema"), session);
+        assertEquals(session.getSchema(), "test_schema");
+
+        session = Console.processSessionParameterChange(sqlParser.createStatement("USE test_schema_b"), session);
+        assertEquals(session.getCatalog(), "test_catalog");
+        assertEquals(session.getSchema(), "test_schema_b");
+
+        session = Console.processSessionParameterChange(sqlParser.createStatement("USE test_catalog_2.test_schema"), session);
+        assertEquals(session.getCatalog(), "test_catalog_2");
         assertEquals(session.getSchema(), "test_schema");
     }
 }

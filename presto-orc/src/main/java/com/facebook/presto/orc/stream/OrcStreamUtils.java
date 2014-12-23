@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.OrcCorruptionException;
+
 import java.io.IOException;
 import java.io.InputStream;
 
-import static com.facebook.presto.orc.OrcCorruptionException.verifyFormat;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
-public final class OrcStreamUtils
+final class OrcStreamUtils
 {
     public static final int MIN_REPEAT_SIZE = 3;
 
@@ -31,7 +34,9 @@ public final class OrcStreamUtils
     {
         while (length > 0) {
             long result = input.skip(length);
-            verifyFormat(result >= 0, "Unexpected end of stream");
+            if (result < 0) {
+                throw new OrcCorruptionException("Unexpected end of stream");
+            }
             length -= result;
         }
     }
@@ -41,8 +46,21 @@ public final class OrcStreamUtils
     {
         while (offset < length) {
             int result = input.read(buffer, offset, length - offset);
-            verifyFormat(result >= 0, "Unexpected end of stream");
+            if (result < 0) {
+                throw new OrcCorruptionException("Unexpected end of stream");
+            }
             offset += result;
         }
+    }
+
+    static <A, B extends A> B checkType(A value, Class<B> target, String name)
+    {
+        checkNotNull(value, "%s is null", name);
+        checkArgument(target.isInstance(value),
+                "%s must be of type %s, not %s",
+                name,
+                target.getName(),
+                value.getClass().getName());
+        return target.cast(value);
     }
 }

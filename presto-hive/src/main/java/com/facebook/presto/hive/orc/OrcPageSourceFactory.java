@@ -17,25 +17,30 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
 import com.facebook.presto.hive.HivePartitionKey;
-import com.facebook.presto.hive.orc.TupleDomainOrcPredicate.ColumnReference;
+import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcRecordReader;
+import com.facebook.presto.orc.TupleDomainOrcPredicate;
+import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.joda.time.DateTimeZone;
@@ -44,34 +49,41 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedReaderEnabled;
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Strings.nullToEmpty;
 
 public class OrcPageSourceFactory
         implements HivePageSourceFactory
 {
     private final TypeManager typeManager;
     private final boolean enabled;
+    private final DataSize orcMaxMergeDistance;
 
     @Inject
     public OrcPageSourceFactory(TypeManager typeManager, HiveClientConfig config)
     {
         //noinspection deprecation
-        this(typeManager, config.isOptimizedReaderEnabled());
+        this(typeManager, config.isOptimizedReaderEnabled(), config.getOrcMaxMergeDistance());
     }
 
     public OrcPageSourceFactory(TypeManager typeManager)
     {
-        this(typeManager, true);
+        this(typeManager, true, new DataSize(1, Unit.MEGABYTE));
     }
 
-    public OrcPageSourceFactory(TypeManager typeManager, boolean enabled)
+    public OrcPageSourceFactory(TypeManager typeManager, boolean enabled, DataSize orcMaxMergeDistance)
     {
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
         this.enabled = enabled;
+        this.orcMaxMergeDistance = checkNotNull(orcMaxMergeDistance, "orcMaxMergeDistance is null");
     }
 
     @Override
@@ -84,53 +96,56 @@ public class OrcPageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             List<HivePartitionKey> partitionKeys,
-            TupleDomain<HiveColumnHandle> tupleDomain,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
         if (!isOptimizedReaderEnabled(session, enabled)) {
-            return Optional.absent();
+            return Optional.empty();
         }
 
         @SuppressWarnings("deprecation")
         Deserializer deserializer = getDeserializer(schema);
         if (!(deserializer instanceof OrcSerde)) {
-            return Optional.absent();
+            return Optional.empty();
         }
 
         return Optional.of(createOrcPageSource(
                 new OrcMetadataReader(),
                 configuration,
-                session,
                 path,
                 start,
                 length,
                 columns,
                 partitionKeys,
-                tupleDomain,
+                effectivePredicate,
                 hiveStorageTimeZone,
-                typeManager));
+                typeManager,
+                getOrcMaxMergeDistance(session, orcMaxMergeDistance)));
     }
 
     public static OrcPageSource createOrcPageSource(MetadataReader metadataReader,
             Configuration configuration,
-            ConnectorSession session,
             Path path,
             long start,
             long length,
             List<HiveColumnHandle> columns,
             List<HivePartitionKey> partitionKeys,
-            TupleDomain<HiveColumnHandle> tupleDomain,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            DataSize maxMergeDistance)
     {
-        HdfsOrcDataSource orcDataSource;
+        OrcDataSource orcDataSource;
         try {
             FileSystem fileSystem = path.getFileSystem(configuration);
             long size = fileSystem.getFileStatus(path).getLen();
             FSDataInputStream inputStream = fileSystem.open(path);
-            orcDataSource = new HdfsOrcDataSource(path.toString(), inputStream, size);
+            orcDataSource = new HdfsOrcDataSource(path.toString(), inputStream, size, maxMergeDistance);
         }
         catch (Exception e) {
+            if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed")) {
+                throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, e);
+            }
             throw Throwables.propagate(e);
         }
 
@@ -144,7 +159,7 @@ public class OrcPageSourceFactory
             }
         }
 
-        OrcPredicate predicate = new TupleDomainOrcPredicate<>(tupleDomain, columnReferences.build());
+        OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build());
 
         try {
             OrcReader reader = new OrcReader(orcDataSource, metadataReader);
@@ -153,8 +168,7 @@ public class OrcPageSourceFactory
                     predicate,
                     start,
                     length,
-                    hiveStorageTimeZone,
-                    DateTimeZone.forID(session.getTimeZoneKey().getId()));
+                    hiveStorageTimeZone);
 
             return new OrcPageSource(
                     recordReader,
@@ -169,6 +183,9 @@ public class OrcPageSourceFactory
                 orcDataSource.close();
             }
             catch (IOException ignored) {
+            }
+            if (e instanceof BlockMissingException) {
+                throw new PrestoException(HIVE_MISSING_DATA, e);
             }
             throw Throwables.propagate(e);
         }

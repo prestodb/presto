@@ -24,7 +24,7 @@ import static com.facebook.presto.operator.scalar.ColorFunctions.getRed;
 import static com.facebook.presto.operator.scalar.ColorFunctions.parseRgb;
 import static com.facebook.presto.operator.scalar.ColorFunctions.render;
 import static com.facebook.presto.operator.scalar.ColorFunctions.rgb;
-import static com.google.common.base.Charsets.UTF_8;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 
 public class TestColorFunctions

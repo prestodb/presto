@@ -16,10 +16,10 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -47,13 +47,14 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
-import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkState;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.SECONDS)
@@ -121,10 +122,12 @@ public class BenchmarkPageProcessor
         LineItemGenerator lineItemGenerator = new LineItemGenerator(1, 1, 1);
         Iterator<LineItem> iterator = lineItemGenerator.iterator();
         for (int i = 0; i < 10_000; i++) {
+            pageBuilder.declarePosition();
+
             LineItem lineItem = iterator.next();
             DOUBLE.writeDouble(pageBuilder.getBlockBuilder(EXTENDED_PRICE), lineItem.getExtendedPrice());
             DOUBLE.writeDouble(pageBuilder.getBlockBuilder(DISCOUNT), lineItem.getDiscount());
-            VARCHAR.writeSlice(pageBuilder.getBlockBuilder(SHIP_DATE), Slices.utf8Slice(lineItem.getShipDate()));
+            DATE.writeLong(pageBuilder.getBlockBuilder(SHIP_DATE), lineItem.getShipDate());
             BIGINT.writeLong(pageBuilder.getBlockBuilder(QUANTITY), lineItem.getQuantity());
         }
         return pageBuilder.build();
@@ -154,6 +157,7 @@ public class BenchmarkPageProcessor
 
         private static void project(int position, PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock)
         {
+            pageBuilder.declarePosition();
             if (discountBlock.isNull(position) || extendedPriceBlock.isNull(position)) {
                 pageBuilder.getBlockBuilder(0).appendNull();
             }

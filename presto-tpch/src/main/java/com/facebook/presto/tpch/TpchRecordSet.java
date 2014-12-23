@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.tpch.TpchColumn;
+import io.airlift.tpch.TpchColumnType;
 import io.airlift.tpch.TpchEntity;
 import io.airlift.tpch.TpchTable;
 
@@ -137,7 +138,11 @@ public class TpchRecordSet<E extends TpchEntity>
         public long getLong(int field)
         {
             checkState(row != null, "No current row");
-            return getTpchColumn(field).getLong(row);
+            TpchColumn<E> tpchColumn = getTpchColumn(field);
+            if (tpchColumn.getType() == TpchColumnType.DATE) {
+                return tpchColumn.getDate(row);
+            }
+            return tpchColumn.getLong(row);
         }
 
         @Override

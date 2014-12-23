@@ -16,7 +16,6 @@ package com.facebook.presto.example;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 
 import java.net.URI;
@@ -74,17 +73,5 @@ public class ExampleTable
     public List<ColumnMetadata> getColumnsMetadata()
     {
         return columnsMetadata;
-    }
-
-    public static Function<ExampleTable, String> nameGetter()
-    {
-        return new Function<ExampleTable, String>()
-        {
-            @Override
-            public String apply(ExampleTable table)
-            {
-                return table.getName();
-            }
-        };
     }
 }

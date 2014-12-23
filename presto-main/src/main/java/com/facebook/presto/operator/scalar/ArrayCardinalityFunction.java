@@ -14,12 +14,12 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -29,26 +29,15 @@ import java.util.Map;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.invoke.MethodHandles.lookup;
 
 public final class ArrayCardinalityFunction
         extends ParametricScalar
 {
     public static final ArrayCardinalityFunction ARRAY_CARDINALITY = new ArrayCardinalityFunction();
     private static final Signature SIGNATURE = new Signature("cardinality", ImmutableList.of(typeParameter("E")), "bigint", ImmutableList.of("array<E>"), false, false);
-    private static final MethodHandle METHOD_HANDLE;
-
-    static {
-        MethodHandle result;
-        try {
-            result = lookup().unreflect(JsonFunctions.class.getMethod("jsonArrayLength", Slice.class));
-        }
-        catch (IllegalAccessException | NoSuchMethodException e) {
-            throw Throwables.propagate(e);
-        }
-        METHOD_HANDLE = result;
-    }
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonFunctions.class, "jsonArrayLength", Slice.class);
 
     @Override
     public Signature getSignature()
@@ -75,7 +64,7 @@ public final class ArrayCardinalityFunction
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager)
+    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         checkArgument(types.size() == 1, "Cardinality expects only one argument");
         Type type = types.get("E");

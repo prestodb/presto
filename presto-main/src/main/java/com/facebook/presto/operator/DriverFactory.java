@@ -32,6 +32,7 @@ public class DriverFactory
     private final boolean outputDriver;
     private final List<OperatorFactory> operatorFactories;
     private final Set<PlanNodeId> sourceIds;
+    private final int driverInstances;
     private boolean closed;
 
     public DriverFactory(boolean inputDriver, boolean outputDriver, OperatorFactory firstOperatorFactory, OperatorFactory... otherOperatorFactories)
@@ -41,16 +42,22 @@ public class DriverFactory
                 ImmutableList.<OperatorFactory>builder()
                         .add(checkNotNull(firstOperatorFactory, "firstOperatorFactory is null"))
                         .add(checkNotNull(otherOperatorFactories, "otherOperatorFactories is null"))
-                        .build()
-        );
+                        .build(),
+                1);
     }
 
     public DriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories)
+    {
+        this(inputDriver, outputDriver, operatorFactories, 1);
+    }
+
+    public DriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, int driverInstances)
     {
         this.inputDriver = inputDriver;
         this.outputDriver = outputDriver;
         this.operatorFactories = ImmutableList.copyOf(checkNotNull(operatorFactories, "operatorFactories is null"));
         checkArgument(!operatorFactories.isEmpty(), "There must be at least one operator");
+        this.driverInstances = driverInstances;
 
         ImmutableSet.Builder<PlanNodeId> sourceIds = ImmutableSet.builder();
         for (OperatorFactory operatorFactory : operatorFactories) {
@@ -98,5 +105,10 @@ public class DriverFactory
                 operatorFactory.close();
             }
         }
+    }
+
+    public int getDriverInstances()
+    {
+        return driverInstances;
     }
 }

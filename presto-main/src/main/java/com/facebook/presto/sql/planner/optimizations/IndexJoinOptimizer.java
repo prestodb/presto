@@ -28,7 +28,6 @@ import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -36,10 +35,7 @@ import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.google.common.base.Function;
 import com.google.common.base.Functions;
-import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
@@ -50,11 +46,10 @@ import com.google.common.collect.Maps;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
-import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -84,7 +79,7 @@ public class IndexJoinOptimizer
     }
 
     private static class Rewriter
-            extends PlanNodeRewriter<Void>
+            extends PlanRewriter<Void>
     {
         private final IndexManager indexManager;
         private final SymbolAllocator symbolAllocator;
@@ -98,14 +93,14 @@ public class IndexJoinOptimizer
         }
 
         @Override
-        public PlanNode rewriteJoin(JoinNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode visitJoin(JoinNode node, RewriteContext<Void> context)
         {
-            PlanNode leftRewritten = planRewriter.rewrite(node.getLeft(), context);
-            PlanNode rightRewritten = planRewriter.rewrite(node.getRight(), context);
+            PlanNode leftRewritten = context.rewrite(node.getLeft());
+            PlanNode rightRewritten = context.rewrite(node.getRight());
 
             if (!node.getCriteria().isEmpty()) { // Index join only possible with JOIN criteria
-                List<Symbol> leftJoinSymbols = Lists.transform(node.getCriteria(), leftGetter());
-                List<Symbol> rightJoinSymbols = Lists.transform(node.getCriteria(), rightGetter());
+                List<Symbol> leftJoinSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft);
+                List<Symbol> rightJoinSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight);
 
                 Optional<PlanNode> leftIndexCandidate = IndexSourceRewriter.rewriteWithIndex(
                         leftRewritten,
@@ -135,22 +130,22 @@ public class IndexJoinOptimizer
                     case INNER:
                         // Prefer the right candidate over the left candidate
                         if (rightIndexCandidate.isPresent()) {
-                            return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols));
+                            return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), Optional.empty(), Optional.empty());
                         }
                         else if (leftIndexCandidate.isPresent()) {
-                            return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols));
+                            return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), Optional.empty(), Optional.empty());
                         }
                         break;
 
                     case LEFT:
                         if (rightIndexCandidate.isPresent()) {
-                            return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols));
+                            return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), Optional.empty(), Optional.empty());
                         }
                         break;
 
                     case RIGHT:
                         if (leftIndexCandidate.isPresent()) {
-                            return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols));
+                            return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), Optional.empty(), Optional.empty());
                         }
                         break;
 
@@ -160,7 +155,7 @@ public class IndexJoinOptimizer
             }
 
             if (leftRewritten != node.getLeft() || rightRewritten != node.getRight()) {
-                return new JoinNode(node.getId(), node.getType(), leftRewritten, rightRewritten, node.getCriteria());
+                return new JoinNode(node.getId(), node.getType(), leftRewritten, rightRewritten, node.getCriteria(), node.getLeftHashSymbol(), node.getRightHashSymbol());
             }
             return node;
         }
@@ -176,36 +171,17 @@ public class IndexJoinOptimizer
         }
     }
 
-    private static Function<Expression, Symbol> symbolFromReferenceGetter()
+    private static Symbol referenceToSymbol(Expression expression)
     {
-        return new Function<Expression, Symbol>()
-        {
-            @Override
-            public Symbol apply(Expression expression)
-            {
-                checkArgument(expression instanceof QualifiedNameReference);
-                return Symbol.fromQualifiedName(((QualifiedNameReference) expression).getName());
-            }
-        };
-    }
-
-    private static Predicate<Expression> instanceOfQualifiedNameReference()
-    {
-        return new Predicate<Expression>()
-        {
-            @Override
-            public boolean apply(Expression expression)
-            {
-                return expression instanceof QualifiedNameReference;
-            }
-        };
+        checkArgument(expression instanceof QualifiedNameReference);
+        return Symbol.fromQualifiedName(((QualifiedNameReference) expression).getName());
     }
 
     /**
      * Tries to rewrite a PlanNode tree with an IndexSource instead of a TableScan
      */
     private static class IndexSourceRewriter
-            extends PlanNodeRewriter<IndexSourceRewriter.Context>
+            extends PlanRewriter<IndexSourceRewriter.Context>
     {
         private final IndexManager indexManager;
         private final SymbolAllocator symbolAllocator;
@@ -231,22 +207,22 @@ public class IndexJoinOptimizer
             if (success.get()) {
                 return Optional.of(rewritten);
             }
-            return Optional.absent();
+            return Optional.empty();
         }
 
         @Override
-        public PlanNode rewriteNode(PlanNode node, Context context, PlanRewriter<Context> planRewriter)
+        public PlanNode visitPlan(PlanNode node, RewriteContext<Context> context)
         {
             // We don't know how to process this PlanNode in the context of an IndexJoin, so just give up by returning something
             return node;
         }
 
         @Override
-        public PlanNode rewriteTableScan(TableScanNode node, Context context, PlanRewriter<Context> planRewriter)
+        public PlanNode visitTableScan(TableScanNode node, RewriteContext<Context> context)
         {
-            checkState(node.getOutputSymbols().containsAll(context.getLookupSymbols()));
+            checkState(node.getOutputSymbols().containsAll(context.get().getLookupSymbols()));
 
-            Set<ColumnHandle> lookupColumns = FluentIterable.from(context.getLookupSymbols())
+            Set<ColumnHandle> lookupColumns = FluentIterable.from(context.get().getLookupSymbols())
                     .transform(Functions.forMap(node.getAssignments()))
                     .toSet();
 
@@ -266,7 +242,7 @@ public class IndexJoinOptimizer
                     idAllocator.getNextId(),
                     resolvedIndex.getIndexHandle(),
                     node.getTable(),
-                    context.getLookupSymbols(),
+                    context.get().getLookupSymbols(),
                     node.getOutputSymbols(),
                     node.getAssignments(),
                     tupleDomain);
@@ -275,44 +251,44 @@ public class IndexJoinOptimizer
                 // todo it is likely we end up with redundant filters here because the predicate push down has already been run... the fix is to run predicate push down again
                 source = new FilterNode(idAllocator.getNextId(), source, unresolvedExpression);
             }
-            context.markSuccess();
+            context.get().markSuccess();
             return source;
         }
 
         @Override
-        public PlanNode rewriteProject(ProjectNode node, Context context, PlanRewriter<Context> planRewriter)
+        public PlanNode visitProject(ProjectNode node, RewriteContext<Context> context)
         {
             // Rewrite the lookup symbols in terms of only the pre-projected symbols that have direct translations
-            Set<Symbol> newLookupSymbols = FluentIterable.from(context.getLookupSymbols())
-                    .transform(Functions.forMap(node.getOutputMap()))
-                    .filter(instanceOfQualifiedNameReference())
-                    .transform(symbolFromReferenceGetter())
+            Set<Symbol> newLookupSymbols = FluentIterable.from(context.get().getLookupSymbols())
+                    .transform(Functions.forMap(node.getAssignments()))
+                    .filter(QualifiedNameReference.class::isInstance)
+                    .transform(IndexJoinOptimizer::referenceToSymbol)
                     .toSet();
 
             if (newLookupSymbols.isEmpty()) {
                 return node;
             }
 
-            return planRewriter.defaultRewrite(node, new Context(newLookupSymbols, context.getSuccess()));
+            return context.defaultRewrite(node, new Context(newLookupSymbols, context.get().getSuccess()));
         }
 
         @Override
-        public PlanNode rewriteFilter(FilterNode node, Context context, PlanRewriter<Context> planRewriter)
+        public PlanNode visitFilter(FilterNode node, RewriteContext<Context> context)
         {
-            return planRewriter.defaultRewrite(node, new Context(context.getLookupSymbols(), context.getSuccess()));
+            return context.defaultRewrite(node, new Context(context.get().getLookupSymbols(), context.get().getSuccess()));
         }
 
         @Override
-        public PlanNode rewriteIndexSource(IndexSourceNode node, Context context, PlanRewriter<Context> planRewriter)
+        public PlanNode visitIndexSource(IndexSourceNode node, RewriteContext<Context> context)
         {
             throw new IllegalStateException("Should not be trying to generate an Index on something that has already been determined to use an Index");
         }
 
         @Override
-        public PlanNode rewriteIndexJoin(IndexJoinNode node, Context context, PlanRewriter<Context> planRewriter)
+        public PlanNode visitIndexJoin(IndexJoinNode node, RewriteContext<Context> context)
         {
             // Lookup symbols can only be passed through the probe side of an index join
-            Set<Symbol> probeLookupSymbols = FluentIterable.from(context.getLookupSymbols())
+            Set<Symbol> probeLookupSymbols = FluentIterable.from(context.get().getLookupSymbols())
                     .filter(in(node.getProbeSource().getOutputSymbols()))
                     .toSet();
 
@@ -320,21 +296,21 @@ public class IndexJoinOptimizer
                 return node;
             }
 
-            PlanNode rewrittenProbeSource = planRewriter.rewrite(node.getProbeSource(), new Context(probeLookupSymbols, context.getSuccess()));
+            PlanNode rewrittenProbeSource = context.rewrite(node.getProbeSource(), new Context(probeLookupSymbols, context.get().getSuccess()));
 
             PlanNode source = node;
             if (rewrittenProbeSource != node.getProbeSource()) {
-                source = new IndexJoinNode(node.getId(), node.getType(), rewrittenProbeSource, node.getIndexSource(), node.getCriteria());
+                source = new IndexJoinNode(node.getId(), node.getType(), rewrittenProbeSource, node.getIndexSource(), node.getCriteria(), node.getProbeHashSymbol(), node.getIndexHashSymbol());
             }
 
             return source;
         }
 
         @Override
-        public PlanNode rewriteAggregation(AggregationNode node, Context context, PlanRewriter<Context> planRewriter)
+        public PlanNode visitAggregation(AggregationNode node, RewriteContext<Context> context)
         {
             // Lookup symbols can only be passed through if they are part of the group by columns
-            Set<Symbol> groupByLookupSymbols = FluentIterable.from(context.getLookupSymbols())
+            Set<Symbol> groupByLookupSymbols = FluentIterable.from(context.get().getLookupSymbols())
                     .filter(in(node.getGroupBy()))
                     .toSet();
 
@@ -342,14 +318,14 @@ public class IndexJoinOptimizer
                 return node;
             }
 
-            return planRewriter.defaultRewrite(node, new Context(groupByLookupSymbols, context.getSuccess()));
+            return context.defaultRewrite(node, new Context(groupByLookupSymbols, context.get().getSuccess()));
         }
 
         @Override
-        public PlanNode rewriteSort(SortNode node, Context context, PlanRewriter<Context> planRewriter)
+        public PlanNode visitSort(SortNode node, RewriteContext<Context> context)
         {
             // Sort has no bearing when building an index, so just ignore the sort
-            return planRewriter.rewrite(node.getSource(), context);
+            return context.rewrite(node.getSource(), context.get());
         }
 
         public static class Context
@@ -407,7 +383,7 @@ public class IndexJoinOptimizer
             public Map<Symbol, Symbol> visitProject(ProjectNode node, Set<Symbol> lookupSymbols)
             {
                 // Map from output Symbols to source Symbols
-                Map<Symbol, Symbol> directSymbolTranslationOutputMap = Maps.transformValues(Maps.filterValues(node.getOutputMap(), instanceOfQualifiedNameReference()), symbolFromReferenceGetter());
+                Map<Symbol, Symbol> directSymbolTranslationOutputMap = Maps.transformValues(Maps.filterValues(node.getAssignments(), QualifiedNameReference.class::isInstance), IndexJoinOptimizer::referenceToSymbol);
                 Map<Symbol, Symbol> outputToSourceMap = FluentIterable.from(lookupSymbols)
                         .filter(in(directSymbolTranslationOutputMap.keySet()))
                         .toMap(Functions.forMap(directSymbolTranslationOutputMap));

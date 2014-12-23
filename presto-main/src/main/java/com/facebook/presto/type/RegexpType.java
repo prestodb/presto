@@ -22,7 +22,8 @@ import com.facebook.presto.spi.type.AbstractType;
 
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL;
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 
 public class RegexpType
         extends AbstractType
@@ -32,7 +33,7 @@ public class RegexpType
 
     public RegexpType()
     {
-        super(NAME, Pattern.class);
+        super(parameterizedTypeName(NAME), Pattern.class);
     }
 
     @Override
@@ -50,6 +51,6 @@ public class RegexpType
     @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
     {
-        throw new PrestoException(INTERNAL, "RegExp type cannot be serialized");
+        throw new PrestoException(INTERNAL_ERROR, "RegExp type cannot be serialized");
     }
 }

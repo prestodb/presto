@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.execution.Column;
 import com.facebook.presto.execution.Input;
-import com.facebook.presto.execution.SimpleDomain;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
@@ -26,7 +25,6 @@ import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import java.util.HashMap;
@@ -34,6 +32,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 public class InputExtractor
@@ -61,7 +60,7 @@ public class InputExtractor
 
     private static Column createColumnEntry(ColumnMetadata columnMetadata)
     {
-        return new Column(columnMetadata.getName(), columnMetadata.getType().toString(), Optional.<SimpleDomain>absent());
+        return new Column(columnMetadata.getName(), columnMetadata.getType().toString(), Optional.empty());
     }
 
     private static TableEntry createTableEntry(TableMetadata table)
@@ -88,7 +87,7 @@ public class InputExtractor
 
             Set<Column> columns = new HashSet<>();
             for (ColumnHandle columnHandle : node.getAssignments().values()) {
-                if (!columnHandle.equals(sampleWeightColumn.orNull())) {
+                if (!columnHandle.equals(sampleWeightColumn.orElse(null))) {
                     columns.add(createColumnEntry(metadata.getColumnMetadata(tableHandle, columnHandle)));
                 }
             }
@@ -106,7 +105,7 @@ public class InputExtractor
 
             Set<Column> columns = new HashSet<>();
             for (ColumnHandle columnHandle : node.getAssignments().values()) {
-                if (!columnHandle.equals(sampleWeightColumn.orNull())) {
+                if (!columnHandle.equals(sampleWeightColumn.orElse(null))) {
                     columns.add(createColumnEntry(metadata.getColumnMetadata(tableHandle, columnHandle)));
                 }
             }

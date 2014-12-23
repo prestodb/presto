@@ -16,16 +16,21 @@ package com.facebook.presto.raptor;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.TupleDomain;
-import com.google.common.base.Objects;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class RaptorPartition
         implements ConnectorPartition
 {
     private final long tableId;
+    private final TupleDomain<ConnectorColumnHandle> effectivePredicate;
 
-    public RaptorPartition(long tableId)
+    public RaptorPartition(long tableId, TupleDomain<ConnectorColumnHandle> effectivePredicate)
     {
         this.tableId = tableId;
+        this.effectivePredicate = checkNotNull(effectivePredicate, "effectivePredicate is null");
     }
 
     @Override
@@ -40,10 +45,15 @@ public class RaptorPartition
         return TupleDomain.all();
     }
 
+    public TupleDomain<ConnectorColumnHandle> getEffectivePredicate()
+    {
+        return effectivePredicate;
+    }
+
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("tableId", tableId)
                 .toString();
     }

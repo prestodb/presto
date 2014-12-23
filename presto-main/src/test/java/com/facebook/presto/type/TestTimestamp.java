@@ -23,13 +23,15 @@ import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-import org.joda.time.LocalDate;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.util.Locale.ENGLISH;
+import static org.joda.time.DateTimeZone.UTC;
 
 public class TestTimestamp
 {
@@ -160,7 +162,8 @@ public class TestTimestamp
     public void testCastToDate()
             throws Exception
     {
-        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as date)", new SqlDate(new LocalDate(2001, 1, 22).toDateMidnight(DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        long millis = new DateTime(2001, 1, 22, 0, 0, UTC).getMillis();
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as date)", new SqlDate((int) TimeUnit.MILLISECONDS.toDays(millis)));
     }
 
     @Test
@@ -208,6 +211,7 @@ public class TestTimestamp
             throws Exception
     {
         assertFunction("greatest(TIMESTAMP '2013-03-30 01:05', TIMESTAMP '2012-03-30 01:05')", new SqlTimestamp(new DateTime(2013, 3, 30, 1, 5, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("greatest(TIMESTAMP '2013-03-30 01:05', TIMESTAMP '2012-03-30 01:05', TIMESTAMP '2012-05-01 01:05')", new SqlTimestamp(new DateTime(2013, 3, 30, 1, 5, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
     }
 
     @Test
@@ -215,5 +219,6 @@ public class TestTimestamp
             throws Exception
     {
         assertFunction("least(TIMESTAMP '2013-03-30 01:05', TIMESTAMP '2012-03-30 01:05')", new SqlTimestamp(new DateTime(2012, 3, 30, 1, 5, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("least(TIMESTAMP '2013-03-30 01:05', TIMESTAMP '2012-03-30 01:05', TIMESTAMP '2012-05-01 01:05')", new SqlTimestamp(new DateTime(2012, 3, 30, 1, 5, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
     }
 }

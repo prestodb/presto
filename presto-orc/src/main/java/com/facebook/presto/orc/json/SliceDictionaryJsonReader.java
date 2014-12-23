@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.json;
 
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
@@ -21,7 +22,6 @@ import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.RowGroupDictionaryLengthStream;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.google.common.base.Objects;
 import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Ints;
 
@@ -31,7 +31,6 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.orc.OrcCorruptionException.verifyFormat;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
@@ -39,6 +38,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -121,7 +121,9 @@ public class SliceDictionaryJsonReader
     private DictionaryEntry getNextValue()
             throws IOException
     {
-        verifyFormat(dataStream != null, "Value is not null but data stream is not present");
+        if (dataStream == null) {
+            throw new OrcCorruptionException("Value is not null but data stream is not present");
+        }
 
         int dictionaryIndex = Ints.checkedCast(dataStream.next());
 
@@ -148,7 +150,9 @@ public class SliceDictionaryJsonReader
             return;
         }
 
-        verifyFormat(dataStream != null, "Value is not null but data stream is not present");
+        if (dataStream == null) {
+            throw new OrcCorruptionException("Value is not null but data stream is not present");
+        }
 
         // skip non-null length
         if (inDictionaryStream != null) {
@@ -170,7 +174,9 @@ public class SliceDictionaryJsonReader
             }
 
             LongStream lengthStream = dictionaryStreamSources.getStreamSource(streamDescriptor, LENGTH, LongStream.class).openStream();
-            verifyFormat(lengthStream != null, "Dictionary is not empty but length stream is not present");
+            if (lengthStream == null) {
+                throw new OrcCorruptionException("Dictionary is not empty but length stream is not present");
+            }
             lengthStream.nextIntVector(dictionarySize, dictionaryLength);
 
             ByteArrayStream dictionaryDataStream = dictionaryStreamSources.getStreamSource(streamDescriptor, DICTIONARY_DATA, ByteArrayStream.class).openStream();
@@ -179,6 +185,7 @@ public class SliceDictionaryJsonReader
 
         presentStream = null;
         dataStream = null;
+        inDictionaryStream = null;
     }
 
     @Override
@@ -190,7 +197,10 @@ public class SliceDictionaryJsonReader
                 ROW_GROUP_DICTIONARY_LENGTH,
                 RowGroupDictionaryLengthStream.class).openStream();
 
-        if (lengthStream != null) {
+        if (lengthStream == null) {
+            inDictionaryStream = null;
+        }
+        else {
             inDictionaryStream = dataStreamSources.getStreamSource(streamDescriptor, IN_DICTIONARY, BooleanStream.class).openStream();
 
             int dictionaryEntryCount = lengthStream.getEntryCount();
@@ -224,7 +234,9 @@ public class SliceDictionaryJsonReader
         // read dictionary data
         byte[] dictionaryData = new byte[0];
         if (totalLength > 0) {
-            verifyFormat(dictionaryDataStream != null, "Dictionary length is not zero but dictionary data stream is not present");
+            if (dictionaryDataStream == null) {
+                throw new OrcCorruptionException("Dictionary length is not zero but dictionary data stream is not present");
+            }
             dictionaryData = dictionaryDataStream.next(totalLength);
         }
 
@@ -240,7 +252,7 @@ public class SliceDictionaryJsonReader
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
     }

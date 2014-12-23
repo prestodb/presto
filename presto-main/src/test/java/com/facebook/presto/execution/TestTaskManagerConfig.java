@@ -38,9 +38,12 @@ public class TestTaskManagerConfig
                 .setInfoMaxAge(new Duration(15, TimeUnit.MINUTES))
                 .setClientTimeout(new Duration(5, TimeUnit.MINUTES))
                 .setMaxTaskMemoryUsage(new DataSize(256, Unit.MEGABYTE))
+                .setBigQueryMaxTaskMemoryUsage(null)
                 .setMaxTaskIndexMemoryUsage(new DataSize(64, Unit.MEGABYTE))
                 .setOperatorPreAllocatedMemory(new DataSize(16, Unit.MEGABYTE))
-                .setSinkMaxBufferSize(new DataSize(32, Unit.MEGABYTE)));
+                .setMaxPartialAggregationMemoryUsage(new DataSize(16, Unit.MEGABYTE))
+                .setSinkMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
+                .setWriterCount(1));
     }
 
     @Test
@@ -50,24 +53,30 @@ public class TestTaskManagerConfig
                 .put("task.verbose-stats", "true")
                 .put("task.cpu-timer-enabled", "false")
                 .put("task.max-memory", "2GB")
+                .put("experimental.big-query-max-task-memory", "4GB")
                 .put("task.max-index-memory", "512MB")
                 .put("task.operator-pre-allocated-memory", "2MB")
+                .put("task.max-partial-aggregation-memory", "32MB")
                 .put("task.shard.max-threads", "3")
                 .put("task.info.max-age", "22m")
                 .put("task.client.timeout", "10s")
                 .put("sink.max-buffer-size", "42MB")
+                .put("task.writer-count", "3")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
                 .setVerboseStats(true)
                 .setTaskCpuTimerEnabled(false)
                 .setMaxTaskMemoryUsage(new DataSize(2, Unit.GIGABYTE))
+                .setBigQueryMaxTaskMemoryUsage(new DataSize(4, Unit.GIGABYTE))
                 .setMaxTaskIndexMemoryUsage(new DataSize(512, Unit.MEGABYTE))
                 .setOperatorPreAllocatedMemory(new DataSize(2, Unit.MEGABYTE))
+                .setMaxPartialAggregationMemoryUsage(new DataSize(32, Unit.MEGABYTE))
                 .setMaxShardProcessorThreads(3)
                 .setInfoMaxAge(new Duration(22, TimeUnit.MINUTES))
                 .setClientTimeout(new Duration(10, TimeUnit.SECONDS))
-                .setSinkMaxBufferSize(new DataSize(42, Unit.MEGABYTE));
+                .setSinkMaxBufferSize(new DataSize(42, Unit.MEGABYTE))
+                .setWriterCount(3);
 
         assertFullMapping(properties, expected);
     }

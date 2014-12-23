@@ -24,7 +24,6 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
@@ -36,12 +35,12 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -65,7 +64,7 @@ public class WindowFilterPushDown
     }
 
     private static class Rewriter
-            extends PlanNodeRewriter<Constraint>
+            extends PlanRewriter<Constraint>
     {
         private final PlanNodeIdAllocator idAllocator;
 
@@ -75,17 +74,18 @@ public class WindowFilterPushDown
         }
 
         @Override
-        public PlanNode rewriteWindow(WindowNode node, Constraint filter, PlanRewriter<Constraint> planRewriter)
+        public PlanNode visitWindow(WindowNode node, RewriteContext<Constraint> context)
         {
             if (canOptimizeWindowFunction(node)) {
-                PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), null);
-                Optional<Integer> limit = getLimit(node, filter);
+                PlanNode rewrittenSource = context.rewrite(node.getSource(), null);
+                Optional<Integer> limit = getLimit(node, context.get());
                 if (node.getOrderBy().isEmpty()) {
                     return new RowNumberNode(idAllocator.getNextId(),
                             rewrittenSource,
                             node.getPartitionBy(),
                             getOnlyElement(node.getWindowFunctions().keySet()),
-                            limit);
+                            limit,
+                            Optional.empty());
                 }
                 if (limit.isPresent()) {
                     return new TopNRowNumberNode(idAllocator.getNextId(),
@@ -95,25 +95,27 @@ public class WindowFilterPushDown
                             node.getOrderings(),
                             getOnlyElement(node.getWindowFunctions().keySet()),
                             limit.get(),
-                            false);
+                            false,
+                            Optional.empty());
                 }
             }
-            return planRewriter.defaultRewrite(node, null);
+            return context.defaultRewrite(node);
         }
 
         private static Optional<Integer> getLimit(WindowNode node, Constraint filter)
         {
             if (filter == null || (!filter.getLimit().isPresent() && !filter.getFilterExpression().isPresent())) {
-                return Optional.absent();
+                return Optional.empty();
             }
             if (filter.getLimit().isPresent()) {
                 return filter.getLimit();
             }
-            if (filterContainsWindowFunctions(node, filter.getFilterExpression().get())) {
+            if (filterContainsWindowFunctions(node, filter.getFilterExpression().get()) &&
+                    filter.getFilterExpression().get() instanceof ComparisonExpression) {
                 Symbol rowNumberSymbol = Iterables.getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
                 return WindowLimitExtractor.extract(filter.getFilterExpression().get(), rowNumberSymbol);
             }
-            return Optional.absent();
+            return Optional.empty();
         }
 
         private static boolean canOptimizeWindowFunction(WindowNode node)
@@ -133,33 +135,33 @@ public class WindowFilterPushDown
         }
 
         @Override
-        public PlanNode rewriteLimit(LimitNode node, Constraint filter, PlanRewriter<Constraint> planRewriter)
+        public PlanNode visitLimit(LimitNode node, RewriteContext<Constraint> context)
         {
             // Operators can handle MAX_VALUE rows per page, so do not optimize if count is greater than this value
             if (node.getCount() >= Integer.MAX_VALUE) {
-                return planRewriter.defaultRewrite(node, null);
+                return context.defaultRewrite(node);
             }
-            Constraint constraint = new Constraint(Optional.of((int) node.getCount()), Optional.<Expression>absent());
-            PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), constraint);
+            Constraint constraint = new Constraint(Optional.of((int) node.getCount()), Optional.empty());
+            PlanNode rewrittenSource = context.rewrite(node.getSource(), constraint);
 
             if (rewrittenSource != node.getSource()) {
                 return rewrittenSource;
             }
 
-            return planRewriter.defaultRewrite(node, null);
+            return context.defaultRewrite(node);
         }
 
         @Override
-        public PlanNode rewriteFilter(FilterNode node, Constraint filter, PlanRewriter<Constraint> planRewriter)
+        public PlanNode visitFilter(FilterNode node, RewriteContext<Constraint> context)
         {
-            PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), new Constraint(Optional.<Integer>absent(), Optional.of(node.getPredicate())));
+            PlanNode rewrittenSource = context.rewrite(node.getSource(), new Constraint(Optional.empty(), Optional.of(node.getPredicate())));
             if (rewrittenSource != node.getSource()) {
                 if (rewrittenSource instanceof TopNRowNumberNode) {
                     return rewrittenSource;
                 }
                 return new FilterNode(idAllocator.getNextId(), rewrittenSource, node.getPredicate());
             }
-            return planRewriter.defaultRewrite(node, null);
+            return context.defaultRewrite(node);
         }
     }
 
@@ -199,7 +201,7 @@ public class WindowFilterPushDown
             Visitor visitor = new Visitor();
             Long limit = visitor.process(expression, rowNumberSymbol);
             if (limit == null || limit >= Integer.MAX_VALUE) {
-                return Optional.absent();
+                return Optional.empty();
             }
 
             return Optional.of(limit.intValue());
@@ -211,52 +213,56 @@ public class WindowFilterPushDown
             @Override
             protected Long visitComparisonExpression(ComparisonExpression node, Symbol rowNumberSymbol)
             {
-                QualifiedNameReference reference = extractReference(node);
-                Literal literal = extractLiteral(node);
-                if (!Symbol.fromQualifiedName(reference.getName()).equals(rowNumberSymbol)) {
+                Optional<QualifiedNameReference> reference = extractReference(node);
+                Optional<Literal> literal = extractLiteral(node);
+                if (!reference.isPresent() || !literal.isPresent()) {
+                    return null;
+                }
+                if (!Symbol.fromQualifiedName(reference.get().getName()).equals(rowNumberSymbol)) {
                     return null;
                 }
 
+                long literalValue = extractValue(literal.get());
                 if (node.getLeft() instanceof QualifiedNameReference && node.getRight() instanceof Literal) {
                     if (node.getType() == ComparisonExpression.Type.LESS_THAN_OR_EQUAL) {
-                        return extractValue(literal);
+                        return literalValue;
                     }
                     if (node.getType() == ComparisonExpression.Type.LESS_THAN) {
-                        return extractValue(literal) - 1;
+                        return literalValue - 1;
                     }
                 }
                 else if (node.getLeft() instanceof Literal && node.getRight() instanceof QualifiedNameReference) {
                     if (node.getType() == ComparisonExpression.Type.GREATER_THAN_OR_EQUAL) {
-                        return extractValue(literal);
+                        return literalValue;
                     }
                     if (node.getType() == ComparisonExpression.Type.GREATER_THAN) {
-                        return extractValue(literal) - 1;
+                        return literalValue - 1;
                     }
                 }
                 return null;
             }
         }
 
-        private static QualifiedNameReference extractReference(ComparisonExpression expression)
+        private static Optional<QualifiedNameReference> extractReference(ComparisonExpression expression)
         {
             if (expression.getLeft() instanceof QualifiedNameReference) {
-                return (QualifiedNameReference) expression.getLeft();
+                return Optional.of((QualifiedNameReference) expression.getLeft());
             }
             if (expression.getRight() instanceof QualifiedNameReference) {
-                return (QualifiedNameReference) expression.getRight();
+                return Optional.of((QualifiedNameReference) expression.getRight());
             }
-            throw new IllegalArgumentException("Comparison does not have a child of type QualifiedNameReference");
+            return Optional.empty();
         }
 
-        private static Literal extractLiteral(ComparisonExpression expression)
+        private static Optional<Literal> extractLiteral(ComparisonExpression expression)
         {
             if (expression.getLeft() instanceof Literal) {
-                return (Literal) expression.getLeft();
+                return Optional.of((Literal) expression.getLeft());
             }
             if (expression.getRight() instanceof Literal) {
-                return (Literal) expression.getRight();
+                return Optional.of((Literal) expression.getRight());
             }
-            throw new IllegalArgumentException("Comparison does not have a child of type Literal");
+            return Optional.empty();
         }
 
         private static long extractValue(Literal literal)

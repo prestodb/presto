@@ -73,7 +73,7 @@ public class TestKafkaPlugin
         }
 
         @Override
-        public Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters)
+        public Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters, List<Object> literalParameters)
         {
             return null;
         }

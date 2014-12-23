@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -62,20 +63,20 @@ public class With
             return false;
         }
         With o = (With) obj;
-        return Objects.equal(recursive, o.recursive) &&
-                Objects.equal(queries, o.queries);
+        return Objects.equals(recursive, o.recursive) &&
+                Objects.equals(queries, o.queries);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(recursive, queries);
+        return Objects.hash(recursive, queries);
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("recursive", recursive)
                 .add("queries", queries)
                 .toString();

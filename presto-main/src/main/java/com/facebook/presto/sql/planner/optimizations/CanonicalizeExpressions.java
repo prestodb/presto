@@ -20,7 +20,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -38,7 +37,6 @@ import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.WhenClause;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -68,20 +66,20 @@ public class CanonicalizeExpressions
     }
 
     private static class Rewriter
-            extends PlanNodeRewriter<Void>
+            extends PlanRewriter<Void>
     {
         @Override
-        public PlanNode rewriteProject(ProjectNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
         {
-            PlanNode source = planRewriter.rewrite(node.getSource(), context);
-            Map<Symbol, Expression> assignments = ImmutableMap.copyOf(Maps.transformValues(node.getOutputMap(), canonicalizeExpressionFunction()));
+            PlanNode source = context.rewrite(node.getSource());
+            Map<Symbol, Expression> assignments = ImmutableMap.copyOf(Maps.transformValues(node.getAssignments(), CanonicalizeExpressions::canonicalizeExpression));
             return new ProjectNode(node.getId(), source, assignments);
         }
 
         @Override
-        public PlanNode rewriteFilter(FilterNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode visitFilter(FilterNode node, RewriteContext<Void> context)
         {
-            PlanNode source = planRewriter.rewrite(node.getSource(), context);
+            PlanNode source = context.rewrite(node.getSource());
             Expression canonicalized = canonicalizeExpression(node.getPredicate());
             if (canonicalized.equals(BooleanLiteral.TRUE_LITERAL)) {
                 return source;
@@ -90,7 +88,7 @@ public class CanonicalizeExpressions
         }
 
         @Override
-        public PlanNode rewriteTableScan(TableScanNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
         {
             Expression originalConstraint = null;
             if (node.getOriginalConstraint() != null) {
@@ -98,19 +96,6 @@ public class CanonicalizeExpressions
             }
             return new TableScanNode(node.getId(), node.getTable(), node.getOutputSymbols(), node.getAssignments(), originalConstraint, node.getGeneratedPartitions());
         }
-
-        private Function<Expression, Expression> canonicalizeExpressionFunction()
-        {
-            return new Function<Expression, Expression>()
-            {
-                @Override
-                public Expression apply(Expression input)
-                {
-                    return canonicalizeExpression(input);
-                }
-            };
-        }
-
     }
 
     private static class CanonicalizeExpressionRewriter

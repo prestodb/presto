@@ -22,7 +22,6 @@ import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchRecordSetProvider;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -40,6 +39,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -88,7 +88,7 @@ class TpchIndexedData
         Set<TpchScaledColumn> indexColumns = FluentIterable.from(indexColumnNames)
                 .transform(TpchScaledColumn.columnFunction(table))
                 .toSet();
-        return Optional.fromNullable(indexedTables.get(indexColumns));
+        return Optional.ofNullable(indexedTables.get(indexColumns));
     }
 
     private static <T> List<T> extractPositionValues(final List<T> values, List<Integer> positions)

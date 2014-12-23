@@ -13,9 +13,7 @@
  */
 package com.facebook.presto.spi.type;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -23,6 +21,7 @@ import java.util.List;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Locale.ENGLISH;
+import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -41,9 +40,21 @@ public class TestTypeSignature
         assertSignature("map", ImmutableList.of("bigint", "array<bigint>"));
         assertSignature("map", ImmutableList.of("bigint", "map<bigint,map<varchar,bigint>>"));
         assertSignature("array", ImmutableList.of("timestamp with time zone"));
+        assertSignature("row", ImmutableList.of("bigint", "varchar"), ImmutableList.<Object>of("a", "b"));
+        assertSignature("row", ImmutableList.of("bigint", "array<bigint>", "row<bigint>('a')"), ImmutableList.<Object>of("a", "b", "c"));
+        assertSignature("row", ImmutableList.of("varchar(10)", "row<bigint>('a')"), ImmutableList.<Object>of("a", "b"));
+        assertSignature("foo", ImmutableList.<String>of(), ImmutableList.<Object>of("a"));
+        assertSignature("varchar", ImmutableList.<String>of(), ImmutableList.<Object>of(10L));
         try {
             parseTypeSignature("blah<>");
             fail("Type signatures with zero parameters should fail to parse");
+        }
+        catch (RuntimeException e) {
+            // Expected
+        }
+        try {
+            parseTypeSignature("blah()");
+            fail("Type signatures with zero literal parameters should fail to parse");
         }
         catch (RuntimeException e) {
             // Expected
@@ -52,17 +63,24 @@ public class TestTypeSignature
 
     private static void assertSignature(String base, List<String> parameters)
     {
-        List<String> lowerCaseTypeNames = FluentIterable.from(parameters).transform(new Function<String, String>() {
-            @Override
-            public String apply(String input)
-            {
-                return input.toLowerCase(ENGLISH);
-            }
-        }).toList();
+        assertSignature(base, parameters, ImmutableList.of());
+    }
+
+    private static void assertSignature(String base, List<String> parameters, List<Object> literalParameters)
+    {
+        List<String> lowerCaseTypeNames = parameters.stream()
+                .map(value -> value.toLowerCase(ENGLISH))
+                .collect(toList());
 
         String typeName = base.toLowerCase(ENGLISH);
         if (!parameters.isEmpty()) {
             typeName += "<" + Joiner.on(",").join(lowerCaseTypeNames) + ">";
+        }
+        if (!literalParameters.isEmpty()) {
+            List<String> transform = literalParameters.stream()
+                    .map(TestTypeSignature::convertParameter)
+                    .collect(toList());
+            typeName += "(" + Joiner.on(",").join(transform) + ")";
         }
         TypeSignature signature = parseTypeSignature(typeName);
         assertEquals(signature.getBase(), base);
@@ -70,6 +88,15 @@ public class TestTypeSignature
         for (int i = 0; i < signature.getParameters().size(); i++) {
             assertEquals(signature.getParameters().get(i).toString(), parameters.get(i));
         }
+        assertEquals(signature.getLiteralParameters(), literalParameters);
         assertEquals(typeName, signature.toString());
+    }
+
+    private static String convertParameter(Object value)
+    {
+        if (value instanceof String) {
+            return "'" + value + "'";
+        }
+        return value.toString();
     }
 }

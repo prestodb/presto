@@ -13,6 +13,10 @@ The ``coalesce`` function can be used to convert null into zero.
 General Aggregate Functions
 ---------------------------
 
+.. function:: arbitrary(x) -> [same as input]
+
+    Returns an arbitrary non-null value of ``x``, if one exists.
+
 .. function:: avg(x) -> double
 
     Returns the average (arithmetic mean) of all input values.
@@ -34,6 +38,10 @@ General Aggregate Functions
 
     Returns the value of ``x`` associated with the maximum value of ``y`` over all input values.
 
+.. function:: min_by(x, y) -> [same as x]
+
+    Returns the value of ``x`` associated with the minimum value of ``y`` over all input values.
+
 .. function:: max(x) -> [same as input]
 
     Returns the maximum value of all input values.
@@ -46,6 +54,13 @@ General Aggregate Functions
 
     Returns the sum of all input values.
 
+Map Aggregate Functions
+-----------------------
+
+.. function:: map_agg(key, value) -> map<K,V>
+
+    Returns a map created from the input ``key`` / ``value`` pairs.
+
 Approximate Aggregate Functions
 -------------------------------
 
@@ -55,10 +70,22 @@ Approximate Aggregate Functions
     This function provides an approximation of ``count(DISTINCT x)``.
     Zero is returned if all input values are null.
 
-    This function uses HyperLogLog configured with 2048 buckets. It should
-    produce a standard error of 2.3%, which is the standard deviation of the
-    (approximately normal) error distribution over all possible sets. It does
-    not guarantee an upper bound on the error for any specific input set.
+    This function should produce a standard error of 2.3%, which is the
+    standard deviation of the (approximately normal) error distribution over
+    all possible sets. It does not guarantee an upper bound on the error for
+    any specific input set.
+
+.. function:: approx_distinct(x, e) -> bigint
+
+    Returns the approximate number of distinct input values.
+    This function provides an approximation of ``count(DISTINCT x)``.
+    Zero is returned if all input values are null.
+
+    This function should produce a standard error of no more than ``e``, which
+    is the standard deviation of the (approximately normal) error distribution
+    over all possible sets. It does not guarantee an upper bound on the error
+    for any specific input set. The current implementation of this function
+    requires that ``e`` be in the range: [0.01149, 0.26000].
 
 .. function:: approx_percentile(x, p) -> [same as input]
 
@@ -73,6 +100,25 @@ Approximate Aggregate Functions
     an integer value of at least one. It is effectively a replication count for
     the value ``x`` in the percentile set. The value of ``p`` must be between
     zero and one and must be constant for all input rows.
+
+.. function:: numeric_histogram(buckets, value, weight) -> map<double, double>
+
+    Computes an approximate histogram with up to ``buckets`` number of buckets
+    for all ``value``\ s with a per-item weight of ``weight``. The algorithm
+    is based loosely on:
+
+    .. code-block:: none
+
+        Yael Ben-Haim and Elad Tom-Tov, "A streaming parallel decision tree algorithm",
+        J. Machine Learning Research 11 (2010), pp. 849--872.
+
+    ``buckets`` must be a ``bigint``. ``value`` and ``weight`` must be numeric.
+
+.. function:: numeric_histogram(buckets, value) -> map<double, double>
+
+    Computes an approximate histogram with up to ``buckets`` number of buckets
+    for all ``value``\ s. This function is equivalent to the variant of
+    :func:`numeric_histogram` that takes a ``weight``, with a per-item weight of ``1``.
 
 Statistical Aggregate Functions
 -------------------------------

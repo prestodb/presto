@@ -42,29 +42,25 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
-import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Optional;
 
-import static com.facebook.presto.sql.analyzer.FieldOrExpression.expressionGetter;
-import static com.facebook.presto.sql.analyzer.FieldOrExpression.fieldIndexGetter;
-import static com.facebook.presto.sql.analyzer.FieldOrExpression.isExpressionPredicate;
-import static com.facebook.presto.sql.analyzer.FieldOrExpression.isFieldReferencePredicate;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.instanceOf;
 
@@ -90,17 +86,17 @@ public class AggregationAnalyzer
         this.tupleDescriptor = tupleDescriptor;
         this.metadata = metadata;
 
-        this.expressions = IterableTransformer.on(groupByExpressions)
-                .select(isExpressionPredicate())
-                .transform(expressionGetter())
-                .list();
+        this.expressions = groupByExpressions.stream()
+                .filter(FieldOrExpression::isExpression)
+                .map(FieldOrExpression::getExpression)
+                .collect(toImmutableList());
 
         ImmutableList.Builder<Integer> fieldIndexes = ImmutableList.builder();
 
-        fieldIndexes.addAll(IterableTransformer.on(groupByExpressions)
-                .select(isFieldReferencePredicate())
-                .transform(fieldIndexGetter())
-                .all());
+        fieldIndexes.addAll(groupByExpressions.stream()
+                .filter(FieldOrExpression::isFieldReference)
+                .map(FieldOrExpression::getFieldIndex)
+                .iterator());
 
         // For a query like "SELECT * FROM T GROUP BY a", groupByExpressions will contain "a",
         // and the '*' will be expanded to Field references. Therefore we translate all simple name expressions
@@ -136,22 +132,16 @@ public class AggregationAnalyzer
     private class Visitor
             extends AstVisitor<Boolean, Void>
     {
-        private Predicate<Expression> isConstantPredicate()
-        {
-            return new Predicate<Expression>()
-            {
-                @Override
-                public boolean apply(Expression input)
-                {
-                    return process(input, null);
-                }
-            };
-        }
-
         @Override
         protected Boolean visitExpression(Expression node, Void context)
         {
             throw new UnsupportedOperationException("aggregation analysis not yet implemented for: " + node.getClass().getName());
+        }
+
+        @Override
+        protected Boolean visitSubqueryExpression(SubqueryExpression node, Void context)
+        {
+            throw new SemanticException(NOT_SUPPORTED, node, "Scalar subqueries not yet supported");
         }
 
         @Override
@@ -164,7 +154,7 @@ public class AggregationAnalyzer
         @Override
         protected Boolean visitArrayConstructor(ArrayConstructor node, Void context)
         {
-            return Iterables.all(node.getValues(), isConstantPredicate());
+            return node.getValues().stream().allMatch(expression -> process(expression, context));
         }
 
         @Override
@@ -176,7 +166,7 @@ public class AggregationAnalyzer
         @Override
         protected Boolean visitCoalesceExpression(CoalesceExpression node, Void context)
         {
-            return Iterables.all(node.getOperands(), isConstantPredicate());
+            return node.getOperands().stream().allMatch(expression -> process(expression, context));
         }
 
         @Override
@@ -208,13 +198,13 @@ public class AggregationAnalyzer
         @Override
         protected Boolean visitArithmeticExpression(ArithmeticExpression node, Void context)
         {
-            return Iterables.all(ImmutableList.of(node.getLeft(), node.getRight()), isConstantPredicate());
+            return process(node.getLeft(), context) && process(node.getRight(), context);
         }
 
         @Override
         protected Boolean visitComparisonExpression(ComparisonExpression node, Void context)
         {
-            return Iterables.all(ImmutableList.of(node.getLeft(), node.getRight()), isConstantPredicate());
+            return process(node.getLeft(), context) && process(node.getRight(), context);
         }
 
         @Override
@@ -244,7 +234,7 @@ public class AggregationAnalyzer
         @Override
         protected Boolean visitInListExpression(InListExpression node, Void context)
         {
-            return Iterables.all(node.getValues(), isConstantPredicate());
+            return node.getValues().stream().allMatch(expression -> process(expression, context));
         }
 
         @Override
@@ -288,7 +278,7 @@ public class AggregationAnalyzer
                 return false;
             }
 
-            return Iterables.all(node.getArguments(), isConstantPredicate());
+            return node.getArguments().stream().allMatch(expression -> process(expression, context));
         }
 
         @Override
@@ -367,7 +357,7 @@ public class AggregationAnalyzer
         @Override
         protected Boolean visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
         {
-            return Iterables.all(ImmutableList.of(node.getLeft(), node.getRight()), isConstantPredicate());
+            return process(node.getLeft(), context) && process(node.getRight(), context);
         }
 
         @Override
@@ -381,7 +371,7 @@ public class AggregationAnalyzer
                 expressions.add(node.getFalseValue().get());
             }
 
-            return Iterables.all(expressions.build(), isConstantPredicate());
+            return expressions.build().stream().allMatch(expression -> process(expression, context));
         }
 
         @Override
@@ -423,7 +413,7 @@ public class AggregationAnalyzer
         @Override
         public Boolean process(Node node, @Nullable Void context)
         {
-            if (Iterables.any(expressions, Predicates.<Node>equalTo(node))) {
+            if (expressions.stream().anyMatch(node::equals)) {
                 return true;
             }
 

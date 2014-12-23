@@ -1,5 +1,3 @@
-.. _map_functions:
-
 ===========================
 Map Functions and Operators
 ===========================
@@ -14,6 +12,12 @@ The ``[]`` operator is used to retrieve the value corresponding to a given key f
 Map Functions
 -------------
 
+.. function:: map(array<K>, array<V>) -> map<K,V>
+
+    Returns a map created using the given key/value arrays. ::
+
+        SELECT MAP(ARRAY[1,3], ARRAY[2,4]); => {1 -> 2, 3 -> 4}
+
 .. function:: cardinality(x) -> bigint
     :noindex:
 
@@ -26,3 +30,5 @@ Map Functions
 .. function:: map_values(x<K,V>) -> array<V>
 
     Returns all the values in the map ``x``.
+
+See also :func:`map_agg` for creating a map as an aggregation.

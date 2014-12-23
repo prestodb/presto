@@ -16,23 +16,25 @@ package com.facebook.presto.ml;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.ml.type.ClassifierType;
+import com.facebook.presto.ml.type.ClassifierParametricType;
 import com.facebook.presto.ml.type.ModelType;
 import com.facebook.presto.ml.type.RegressorType;
+import com.facebook.presto.RowPageBuilder;
+import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.operator.RowPageBuilder;
-import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -47,21 +49,21 @@ public class TestEvaluateClassifierPredictions
             throws Exception
     {
         TypeRegistry typeRegistry = new TypeRegistry();
-        typeRegistry.addType(new ClassifierType());
-        typeRegistry.addType(new RegressorType());
-        typeRegistry.addType(new ModelType());
+        typeRegistry.addParametricType(new ClassifierParametricType());
+        typeRegistry.addType(RegressorType.REGRESSOR);
+        typeRegistry.addType(ModelType.MODEL);
         metadata.addFunctions(new MLFunctionFactory(typeRegistry).listFunctions());
         InternalAggregationFunction aggregation = metadata.getExactFunction(new Signature("evaluate_classifier_predictions", StandardTypes.VARCHAR, StandardTypes.BIGINT, StandardTypes.BIGINT)).getAggregationFunction();
-        Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0).createAccumulator();
+        Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.empty(), Optional.empty(), 1.0).createAccumulator();
         accumulator.addInput(getPage());
-        Block block = accumulator.evaluateFinal();
+        BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus());
+        accumulator.evaluateFinal(finalOut);
+        Block block = finalOut.build();
 
         String output = VARCHAR.getSlice(block, 0).toStringUtf8();
-        List<String> parts = ImmutableList.copyOf(Splitter.on('\n').split(output));
-        assertEquals(parts.size(), 3);
+        List<String> parts = ImmutableList.copyOf(Splitter.on('\n').omitEmptyStrings().split(output));
+        assertEquals(parts.size(), 7, output);
         assertEquals(parts.get(0), "Accuracy: 1/2 (50.00%)");
-        assertEquals(parts.get(1), "Precision: 1/1 (100.00%)");
-        assertEquals(parts.get(2), "Recall: 1/2 (50.00%)");
     }
 
     private static Page getPage()

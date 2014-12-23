@@ -13,14 +13,13 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class RankFunction
-        implements WindowFunction
+        extends RankingWindowFunction
 {
     private long rank;
     private long count;
@@ -32,14 +31,14 @@ public class RankFunction
     }
 
     @Override
-    public void reset(int partitionRowCount, PagesIndex pagesIndex)
+    public void reset()
     {
         rank = 0;
         count = 1;
     }
 
     @Override
-    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
+    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount, int currentPosition)
     {
         if (newPeerGroup) {
             rank += count;

@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
+import java.util.Objects;
 
 import java.util.List;
+import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Query
@@ -83,12 +84,12 @@ public class Query
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
-                .add("with", with.orNull())
+        return toStringHelper(this)
+                .add("with", with.orElse(null))
                 .add("queryBody", queryBody)
                 .add("orderBy", orderBy)
-                .add("limit", limit.orNull())
-                .add("approximate", approximate.orNull())
+                .add("limit", limit.orElse(null))
+                .add("approximate", approximate.orElse(null))
                 .omitNullValues()
                 .toString();
     }
@@ -103,16 +104,16 @@ public class Query
             return false;
         }
         Query o = (Query) obj;
-        return Objects.equal(with, o.with) &&
-                Objects.equal(queryBody, o.queryBody) &&
-                Objects.equal(orderBy, o.orderBy) &&
-                Objects.equal(limit, o.limit) &&
-                Objects.equal(approximate, o.approximate);
+        return Objects.equals(with, o.with) &&
+                Objects.equals(queryBody, o.queryBody) &&
+                Objects.equals(orderBy, o.orderBy) &&
+                Objects.equals(limit, o.limit) &&
+                Objects.equals(approximate, o.approximate);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(with, queryBody, orderBy, limit, approximate);
+        return Objects.hash(with, queryBody, orderBy, limit, approximate);
     }
 }

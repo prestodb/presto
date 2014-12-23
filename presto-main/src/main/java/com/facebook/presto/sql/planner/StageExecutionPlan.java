@@ -15,12 +15,12 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.plan.OutputNode;
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -39,7 +39,7 @@ public class StageExecutionPlan
 
         fieldNames = (fragment.getRoot() instanceof OutputNode) ?
                 Optional.<List<String>>of(ImmutableList.copyOf(((OutputNode) fragment.getRoot()).getColumnNames())) :
-                Optional.<List<String>>absent();
+                Optional.empty();
     }
 
     public List<String> getFieldNames()
@@ -66,7 +66,7 @@ public class StageExecutionPlan
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("fragment", fragment)
                 .add("dataSource", dataSource)
                 .add("subStages", subStages)

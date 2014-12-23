@@ -25,7 +25,6 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -104,7 +103,7 @@ public class KafkaSplitManager
                         builder.add(new KafkaPartition(metadata.topic(),
                                 part.partitionId(),
                                 HostAddress.fromParts(leader.host(), leader.port()),
-                                ImmutableList.copyOf(Lists.transform(part.isr(), brokerToHostAddress()))));
+                                ImmutableList.copyOf(Lists.transform(part.isr(), KafkaSplitManager::brokerToHostAddress))));
                     }
                 }
             }
@@ -170,15 +169,8 @@ public class KafkaSplitManager
         return offsetResponse.offsets(partition.getTopicName(), partition.getPartitionIdAsInt());
     }
 
-    private static Function<Broker, HostAddress> brokerToHostAddress()
+    private static HostAddress brokerToHostAddress(Broker broker)
     {
-        return new Function<Broker, HostAddress>()
-        {
-            @Override
-            public HostAddress apply(Broker broker)
-            {
-                return HostAddress.fromParts(broker.host(), broker.port());
-            }
-        };
+        return HostAddress.fromParts(broker.host(), broker.port());
     }
 }

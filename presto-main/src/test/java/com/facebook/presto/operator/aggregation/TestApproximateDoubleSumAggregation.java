@@ -14,12 +14,12 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Predicates;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 
 public class TestApproximateDoubleSumAggregation
         extends AbstractTestApproximateAggregationFunction
@@ -33,9 +33,10 @@ public class TestApproximateDoubleSumAggregation
     @Override
     protected Double getExpectedValue(List<Number> values)
     {
-        List<Number> nonNull = IterableTransformer.on(values)
-                .select(Predicates.notNull())
-                .list();
+        List<Number> nonNull = values.stream()
+                .filter(Objects::nonNull)
+                .collect(toImmutableList());
+
         if (nonNull.isEmpty()) {
             return null;
         }

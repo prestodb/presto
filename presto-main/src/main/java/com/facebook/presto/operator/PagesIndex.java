@@ -20,7 +20,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
-import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
@@ -34,10 +33,12 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
+import static com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.sizeOf;
 
@@ -107,7 +108,7 @@ public class PagesIndex
     {
         positionCount += page.getPositionCount();
 
-        int pageIndex = channels[0].size();
+        int pageIndex = (channels.length > 0) ? channels[0].size() : 0;
         for (int i = 0; i < channels.length; i++) {
             Block block = page.getBlock(i);
             channels[i].add(block);
@@ -129,7 +130,8 @@ public class PagesIndex
 
     private long calculateEstimatedSize()
     {
-        long channelsArraySize = sizeOf(channels[0].elements()) * channels.length;
+        long elementsSize = (channels.length > 0) ? sizeOf(channels[0].elements()) : 0;
+        long channelsArraySize = elementsSize * channels.length;
         long addressesArraySize = sizeOf(valueAddresses.elements());
         return pagesMemorySize + channelsArraySize + addressesArraySize;
     }
@@ -156,6 +158,7 @@ public class PagesIndex
             int blockPosition = decodePosition(pageAddress);
 
             // append the row
+            pageBuilder.declarePosition();
             for (int i = 0; i < outputChannels.length; i++) {
                 int outputChannel = outputChannels[i];
                 Type type = types.get(outputChannel);
@@ -245,6 +248,11 @@ public class PagesIndex
 
     public LookupSource createLookupSource(List<Integer> joinChannels)
     {
+        return createLookupSource(joinChannels, Optional.empty());
+    }
+
+    public LookupSource createLookupSource(List<Integer> joinChannels, Optional<Integer> hashChannel)
+    {
         try {
             LookupSourceFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels);
 
@@ -256,6 +264,7 @@ public class PagesIndex
                     valueAddresses,
                     joinChannelTypes.build(),
                     ImmutableList.<List<Block>>copyOf(channels),
+                    hashChannel,
                     operatorContext);
 
             return lookupSource;
@@ -264,10 +273,12 @@ public class PagesIndex
             log.error(e, "Lookup source compile failed for types=%s error=%s", types, e);
         }
 
+        // if compilation fails
         PagesHashStrategy hashStrategy = new SimplePagesHashStrategy(
                 types,
                 ImmutableList.<List<Block>>copyOf(channels),
-                joinChannels);
+                joinChannels,
+                hashChannel);
 
         ImmutableList.Builder<Type> hashTypes = ImmutableList.builder();
         for (Integer channel : joinChannels) {

@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.facebook.presto.metadata.MetadataUtil.columnNameGetter;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -52,11 +51,10 @@ public class SystemRecordSetProvider
         SchemaTableName tableName = checkType(split, SystemSplit.class, "split").getTableHandle().getSchemaTableName();
 
         checkNotNull(columns, "columns is null");
-        checkArgument(!columns.isEmpty(), "must provide at least one column");
 
         SystemTable systemTable = tables.get(tableName);
         checkArgument(systemTable != null, "Table %s does not exist", tableName);
-        Map<String, ColumnMetadata> columnsByName = Maps.uniqueIndex(systemTable.getTableMetadata().getColumns(), columnNameGetter());
+        Map<String, ColumnMetadata> columnsByName = Maps.uniqueIndex(systemTable.getTableMetadata().getColumns(), ColumnMetadata::getName);
 
         ImmutableList.Builder<Integer> userToSystemFieldIndex = ImmutableList.builder();
         for (ConnectorColumnHandle column : columns) {

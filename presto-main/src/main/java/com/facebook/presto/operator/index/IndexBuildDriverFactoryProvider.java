@@ -17,10 +17,10 @@ import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.operator.index.PageBufferOperator.PageBufferOperatorFactory;
 import static com.facebook.presto.operator.index.PagesIndexBuilderOperator.PagesIndexBuilderOperatorFactory;

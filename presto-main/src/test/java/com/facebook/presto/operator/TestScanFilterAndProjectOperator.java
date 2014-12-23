@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.SequencePageBuilder;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TestingSplit;
 import com.facebook.presto.metadata.ColumnHandle;
@@ -73,7 +74,7 @@ public class TestScanFilterAndProjectOperator
                 ImmutableList.<Type>of(VARCHAR));
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split("test", new TestingSplit()));
+        operator.addSplit(new Split("test", TestingSplit.createLocalSplit()));
         operator.noMoreSplits();
 
         MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.<Type>of(VARCHAR), ImmutableList.of(input));
@@ -106,7 +107,7 @@ public class TestScanFilterAndProjectOperator
                 ImmutableList.<Type>of(VARCHAR));
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split("test", new TestingSplit()));
+        operator.addSplit(new Split("test", TestingSplit.createLocalSplit()));
         operator.noMoreSplits();
 
         MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.<Type>of(VARCHAR), ImmutableList.of(input));

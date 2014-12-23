@@ -19,6 +19,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public class TestingColumnHandle
         implements ConnectorColumnHandle
 {
@@ -58,7 +60,7 @@ public class TestingColumnHandle
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("name", name)
                 .toString();
     }

@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class RenameTable
@@ -48,7 +49,7 @@ public final class RenameTable
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(source, target);
+        return Objects.hash(source, target);
     }
 
     @Override
@@ -61,14 +62,14 @@ public final class RenameTable
             return false;
         }
         RenameTable o = (RenameTable) obj;
-        return Objects.equal(source, o.source) &&
-                Objects.equal(target, o.target);
+        return Objects.equals(source, o.source) &&
+                Objects.equals(target, o.target);
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("source", source)
                 .add("target", target)
                 .toString();

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.json;
 
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
@@ -20,7 +21,6 @@ import com.facebook.presto.orc.stream.ByteArrayStream;
 import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.google.common.base.Objects;
 import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Ints;
 
@@ -30,10 +30,10 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.orc.OrcCorruptionException.verifyFormat;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -101,7 +101,9 @@ public class SliceDirectJsonReader
     private int bufferNextValue()
             throws IOException
     {
-        verifyFormat(lengthStream != null, "Value is not null but length stream is not present");
+        if (lengthStream == null) {
+            throw new OrcCorruptionException("Value is not null but length stream is not present");
+        }
 
         int length = Ints.checkedCast(lengthStream.next());
         if (data.length < length) {
@@ -109,7 +111,9 @@ public class SliceDirectJsonReader
         }
 
         if (length > 0) {
-            verifyFormat(dataStream != null, "Length is not zero but data stream is not present");
+            if (dataStream == null) {
+                throw new OrcCorruptionException("Length is not zero but data stream is not present");
+            }
             dataStream.next(length, data);
         }
         return length;
@@ -128,7 +132,9 @@ public class SliceDirectJsonReader
             return;
         }
 
-        verifyFormat(lengthStream != null, "Value is not null but length stream is not present");
+        if (lengthStream == null) {
+            throw new OrcCorruptionException("Value is not null but length stream is not present");
+        }
 
         // skip non-null length
         long dataSkipSize = lengthStream.sum(skipSize);
@@ -137,10 +143,12 @@ public class SliceDirectJsonReader
             return;
         }
 
-        verifyFormat(dataStream != null, "Length is not zero but data stream is not present");
+        if (dataStream == null) {
+            throw new OrcCorruptionException("Length is not zero but data stream is not present");
+        }
 
         // skip data bytes
-        dataStream.skip(dataSkipSize);
+        dataStream.skip(Ints.checkedCast(dataSkipSize));
     }
 
     @Override
@@ -164,7 +172,7 @@ public class SliceDirectJsonReader
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
     }

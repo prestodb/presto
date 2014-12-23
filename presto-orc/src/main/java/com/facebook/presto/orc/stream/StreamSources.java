@@ -36,7 +36,7 @@ public class StreamSources
     }
 
     @Nonnull
-    public <T> StreamSource<T> getStreamSource(StreamDescriptor streamDescriptor, StreamKind streamKind, Class<T> streamType)
+    public <S extends ValueStream<?>> StreamSource<S> getStreamSource(StreamDescriptor streamDescriptor, StreamKind streamKind, Class<S> streamType)
     {
         checkNotNull(streamDescriptor, "streamDescriptor is null");
         checkNotNull(streamType, "streamType is null");
@@ -46,12 +46,12 @@ public class StreamSources
             streamSource = missingStreamSource(streamType);
         }
 
-        checkArgument(streamType.equals(streamSource.getStreamType()),
+        checkArgument(streamType.isAssignableFrom(streamSource.getStreamType()),
                 "%s must be of type %s, not %s",
                 streamDescriptor,
                 streamType.getName(),
                 streamSource.getStreamType().getName());
 
-        return (StreamSource<T>) streamSource;
+        return (StreamSource<S>) streamSource;
     }
 }

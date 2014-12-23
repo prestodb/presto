@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
 import com.google.common.collect.ImmutableList;
 import io.airlift.tpch.TpchColumn;
+import io.airlift.tpch.TpchColumnType;
 import io.airlift.tpch.TpchEntity;
 import io.airlift.tpch.TpchTable;
 
@@ -26,6 +27,7 @@ import java.util.List;
 
 import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
 import static com.facebook.presto.tpch.Types.checkType;
+import static io.airlift.tpch.TpchColumnType.BIGINT;
 
 public class TpchRecordSetProvider
         implements ConnectorRecordSetProvider
@@ -73,9 +75,9 @@ public class TpchRecordSetProvider
         }
 
         @Override
-        public Class<?> getType()
+        public TpchColumnType getType()
         {
-            return Long.class;
+            return BIGINT;
         }
 
         @Override
@@ -92,6 +94,12 @@ public class TpchRecordSetProvider
 
         @Override
         public String getString(E entity)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int getDate(E entity)
         {
             throw new UnsupportedOperationException();
         }

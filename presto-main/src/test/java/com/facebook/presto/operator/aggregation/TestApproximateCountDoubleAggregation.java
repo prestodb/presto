@@ -14,10 +14,9 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Predicates;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
@@ -33,10 +32,9 @@ public class TestApproximateCountDoubleAggregation
     @Override
     protected Double getExpectedValue(List<Number> values)
     {
-        return (double) IterableTransformer.on(values)
-                .select(Predicates.notNull())
-                .list()
-                .size();
+        return (double) values.stream()
+                .filter(Objects::nonNull)
+                .count();
     }
 
     @Override

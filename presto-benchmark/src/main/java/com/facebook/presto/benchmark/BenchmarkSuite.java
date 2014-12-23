@@ -25,13 +25,14 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.testing.LocalQueryRunner.createHashEnabledQueryRunner;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class BenchmarkSuite
 {
     private static final Logger LOGGER = Logger.get(BenchmarkSuite.class);
 
-    public static List<AbstractBenchmark> createBenchmarks(LocalQueryRunner localQueryRunner)
+    public static List<AbstractBenchmark> createBenchmarks(LocalQueryRunner localQueryRunner, LocalQueryRunner hashEnabledLocalQueryRunner)
     {
         return ImmutableList.<AbstractBenchmark>of(
                 // hand built benchmarks
@@ -45,6 +46,7 @@ public class BenchmarkSuite
                 new HashBuildBenchmark(localQueryRunner),
                 new HashJoinBenchmark(localQueryRunner),
                 new HashBuildAndJoinBenchmark(localQueryRunner),
+                new HashBuildAndJoinBenchmark(hashEnabledLocalQueryRunner),
                 new HandTpchQuery1(localQueryRunner),
                 new HandTpchQuery6(localQueryRunner),
 
@@ -88,11 +90,13 @@ public class BenchmarkSuite
     }
 
     private final LocalQueryRunner localQueryRunner;
+    private final LocalQueryRunner hashEnabledLocalQueryRunner;
     private final String outputDirectory;
 
     public BenchmarkSuite(LocalQueryRunner localQueryRunner, String outputDirectory)
     {
         this.localQueryRunner = localQueryRunner;
+        this.hashEnabledLocalQueryRunner = createHashEnabledQueryRunner(localQueryRunner);
         this.outputDirectory = checkNotNull(outputDirectory, "outputDirectory is null");
     }
 
@@ -107,7 +111,7 @@ public class BenchmarkSuite
     public void runAllBenchmarks()
             throws IOException
     {
-        List<AbstractBenchmark> benchmarks = createBenchmarks(localQueryRunner);
+        List<AbstractBenchmark> benchmarks = createBenchmarks(localQueryRunner, hashEnabledLocalQueryRunner);
 
         LOGGER.info("=== Pre-running all benchmarks for JVM warmup ===");
         for (AbstractBenchmark benchmark : benchmarks) {

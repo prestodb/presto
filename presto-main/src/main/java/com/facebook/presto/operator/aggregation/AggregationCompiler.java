@@ -22,8 +22,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.SqlType;
 import com.facebook.presto.type.TypeRegistry;
-import com.google.common.base.Predicate;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -42,6 +40,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.fromAnnotations;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -85,7 +84,7 @@ public class AggregationCompiler
         checkNotNull(returnType, "returnType is null");
         checkNotNull(argumentTypes, "argumentTypes is null");
         for (InternalAggregationFunction aggregation : generateAggregationFunctions(clazz)) {
-            if (aggregation.getFinalType() == returnType && aggregation.getParameterTypes().equals(argumentTypes)) {
+            if (aggregation.getFinalType().equals(returnType) && aggregation.getParameterTypes().equals(argumentTypes)) {
                 return aggregation;
             }
         }
@@ -193,16 +192,11 @@ public class AggregationCompiler
 
     private static List<Method> getOutputFunctions(Class<?> clazz, final Class<?> stateClass)
     {
-        ImmutableList<Method> methods = FluentIterable.from(findPublicStaticMethodsWithAnnotation(clazz, OutputFunction.class))
-                .filter(new Predicate<Method>()
-                {
-                    @Override
-                    public boolean apply(Method method)
-                    {
-                        // Filter out methods that don't match this state class
-                        return method.getParameterTypes()[0] == stateClass;
-                    }
-                }).toList();
+        // Only include methods that match this state class
+        List<Method> methods = findPublicStaticMethodsWithAnnotation(clazz, OutputFunction.class).stream()
+                .filter(method -> method.getParameterTypes()[0] == stateClass)
+                .collect(toImmutableList());
+
         if (methods.isEmpty()) {
             List<Method> noOutputFunction = new ArrayList<>();
             noOutputFunction.add(null);
@@ -213,16 +207,11 @@ public class AggregationCompiler
 
     private static List<Method> getInputFunctions(Class<?> clazz, final Class<?> stateClass)
     {
-        List<Method> inputFunctions = FluentIterable.from(findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class))
-                .filter(new Predicate<Method>()
-                {
-                    @Override
-                    public boolean apply(Method method)
-                    {
-                        // Filter out methods that don't match this state class
-                        return method.getParameterTypes()[0] == stateClass;
-                    }
-                }).toList();
+        // Only include methods that match this state class
+        List<Method> inputFunctions = findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class).stream()
+                .filter(method -> method.getParameterTypes()[0] == stateClass)
+                .collect(toImmutableList());
+
         checkArgument(!inputFunctions.isEmpty(), "Aggregation has no input functions");
         return inputFunctions;
     }

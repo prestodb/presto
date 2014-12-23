@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
@@ -109,14 +108,7 @@ public class TestNumericHistogram
             histogram.add(i);
         }
 
-        Map<Double, Double> expected = Maps.transformValues(histogram.getBuckets(), new Function<Double, Double>()
-        {
-            @Override
-            public Double apply(Double input)
-            {
-                return input * 2;
-            }
-        });
+        Map<Double, Double> expected = Maps.transformValues(histogram.getBuckets(), value -> value * 2);
 
         histogram.mergeWith(histogram);
 

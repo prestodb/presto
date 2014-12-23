@@ -68,6 +68,7 @@ public class QueryCompletionEvent
     private final String failuresJson;
 
     private final String inputsJson;
+    private final String sessionPropertiesJson;
 
     public QueryCompletionEvent(
             QueryId queryId,
@@ -98,7 +99,8 @@ public class QueryCompletionEvent
             String failureMessage,
             String outputStageJson,
             String failuresJson,
-            String inputsJson)
+            String inputsJson,
+            String sessionPropertiesJson)
     {
         this.queryId = queryId;
         this.user = user;
@@ -129,6 +131,7 @@ public class QueryCompletionEvent
         this.outputStageJson = outputStageJson;
         this.failuresJson = failuresJson;
         this.inputsJson = inputsJson;
+        this.sessionPropertiesJson = sessionPropertiesJson;
     }
 
     @Nullable
@@ -374,5 +377,11 @@ public class QueryCompletionEvent
     public String getInputsJson()
     {
         return inputsJson;
+    }
+
+    @EventField
+    public String getSessionPropertiesJson()
+    {
+        return sessionPropertiesJson;
     }
 }

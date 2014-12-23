@@ -14,11 +14,12 @@
 package com.facebook.presto.byteCode;
 
 import com.facebook.presto.byteCode.instruction.InstructionNode;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
 
 import java.util.List;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class Comment
         implements InstructionNode
@@ -43,7 +44,7 @@ public class Comment
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .addValue(comment)
                 .toString();
     }

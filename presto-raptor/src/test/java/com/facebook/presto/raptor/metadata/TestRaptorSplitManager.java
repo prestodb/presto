@@ -21,6 +21,11 @@ import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.RaptorMetadata;
 import com.facebook.presto.raptor.RaptorSplitManager;
 import com.facebook.presto.raptor.RaptorTableHandle;
+import com.facebook.presto.raptor.storage.FileStorageService;
+import com.facebook.presto.raptor.storage.OrcStorageManager;
+import com.facebook.presto.raptor.storage.ShardRecoveryManager;
+import com.facebook.presto.raptor.storage.StorageManager;
+import com.facebook.presto.raptor.storage.StorageService;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
@@ -28,14 +33,16 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.type.TypeRegistry;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import io.airlift.testing.FileUtils;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.testng.annotations.AfterMethod;
@@ -45,11 +52,14 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -80,6 +90,9 @@ public class TestRaptorSplitManager
         dataDir = Files.createTempDir();
         ShardManager shardManager = new DatabaseShardManager(dbi);
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        StorageService storageService = new FileStorageService(dataDir, Optional.empty());
+        ShardRecoveryManager recoveryManager = new ShardRecoveryManager(storageService, new InMemoryNodeManager(), shardManager, new Duration(5, TimeUnit.MINUTES), 10);
+        StorageManager storageManager = new OrcStorageManager(storageService, new DataSize(1, MEGABYTE), recoveryManager, new Duration(30, TimeUnit.SECONDS));
 
         String nodeName = UUID.randomUUID().toString();
         nodeManager.addNode("raptor", new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN));
@@ -98,9 +111,9 @@ public class TestRaptorSplitManager
 
         long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
 
-        shardManager.commitTable(tableId, shardNodes, Optional.<String>absent());
+        shardManager.commitTable(tableId, shardNodes, Optional.empty());
 
-        raptorSplitManager = new RaptorSplitManager(connectorId, nodeManager, shardManager);
+        raptorSplitManager = new RaptorSplitManager(connectorId, nodeManager, shardManager, storageManager);
     }
 
     @AfterMethod
@@ -121,7 +134,7 @@ public class TestRaptorSplitManager
         List<ConnectorPartition> partitions = partitionResult.getPartitions();
         ConnectorPartition partition = Iterables.getOnlyElement(partitions);
         TupleDomain<ConnectorColumnHandle> columnUnionedTupleDomain = TupleDomain.columnWiseUnion(partition.getTupleDomain(), partition.getTupleDomain());
-        assertEquals(columnUnionedTupleDomain, TupleDomain.all());
+        assertEquals(columnUnionedTupleDomain, TupleDomain.<ConnectorColumnHandle>all());
 
         ConnectorSplitSource splitSource = raptorSplitManager.getPartitionSplits(tableHandle, partitions);
         int splitCount = 0;
@@ -129,5 +142,16 @@ public class TestRaptorSplitManager
             splitCount += splitSource.getNextBatch(1000).size();
         }
         assertEquals(splitCount, 4);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "no host for shard .* found: \\[\\]")
+    public void testNoHostForShard()
+            throws InterruptedException
+    {
+        dummyHandle.execute("DELETE FROM shard_nodes");
+
+        ConnectorPartitionResult result = raptorSplitManager.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
+
+        raptorSplitManager.getPartitionSplits(tableHandle, result.getPartitions());
     }
 }

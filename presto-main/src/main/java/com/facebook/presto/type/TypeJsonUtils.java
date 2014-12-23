@@ -14,13 +14,19 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.type.CollectionType;
 import com.google.common.base.Throwables;
+import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -31,12 +37,17 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 
 public final class TypeJsonUtils
 {
     private static final JsonFactory JSON_FACTORY = new JsonFactory().disable(CANONICALIZE_FIELD_NAMES);
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final CollectionType COLLECTION_TYPE = OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, Object.class);
 
     private TypeJsonUtils() {}
 
@@ -84,6 +95,22 @@ public final class TypeJsonUtils
             return Collections.unmodifiableMap(map);
         }
 
+        if (type instanceof RowType) {
+            List<Object> list = new ArrayList<>();
+            checkState(parser.getCurrentToken() == JsonToken.START_ARRAY, "Expected a json array");
+            int field = 0;
+            RowType rowType = (RowType) type;
+            while (parser.nextValue() != JsonToken.END_ARRAY) {
+                checkArgument(field < rowType.getFields().size(), "Unexpected field for type %s", type);
+                Object value = stackRepresentationToObjectHelper(session, parser, rowType.getFields().get(field).getType());
+                list.add(value);
+                field++;
+            }
+            checkArgument(field == rowType.getFields().size(), "Expected %d fields for type %s", rowType.getFields().size(), type);
+
+            return Collections.unmodifiableList(list);
+        }
+
         BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
         if (type.getJavaType() == boolean.class) {
             type.writeBoolean(blockBuilder, parser.getBooleanValue());
@@ -92,7 +119,7 @@ public final class TypeJsonUtils
             type.writeLong(blockBuilder, parser.getLongValue());
         }
         else if (type.getJavaType() == double.class) {
-            type.writeDouble(blockBuilder, parser.getDoubleValue());
+            type.writeDouble(blockBuilder, getDoubleValue(parser));
         }
         else if (type.getJavaType() == Slice.class) {
             type.writeSlice(blockBuilder, Slices.utf8Slice(parser.getValueAsString()));
@@ -116,5 +143,77 @@ public final class TypeJsonUtils
             type.writeSlice(blockBuilder, Slices.utf8Slice(jsonKey));
         }
         return type.getObjectValue(session, blockBuilder.build(), 0);
+    }
+
+    public static List<Object> getObjectList(Slice slice)
+    {
+        try {
+            return OBJECT_MAPPER.readValue(slice.getInput(), COLLECTION_TYPE);
+        }
+        catch (IOException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
+    }
+
+    public static Block createBlock(Type type, Object element)
+    {
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+        Class<?> javaType = type.getJavaType();
+
+        if (element == null) {
+            blockBuilder.appendNull();
+        }
+        else if (javaType == boolean.class) {
+            type.writeBoolean(blockBuilder, (Boolean) element);
+        }
+        else if (javaType == long.class) {
+            type.writeLong(blockBuilder, ((Number) element).longValue());
+        }
+        else if (javaType == double.class) {
+            type.writeDouble(blockBuilder, (Double) element);
+        }
+        else if (javaType == Slice.class) {
+            type.writeSlice(blockBuilder, Slices.utf8Slice(element.toString()));
+        }
+        else {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unexpected type %s", javaType.getName()));
+        }
+        return blockBuilder.build();
+    }
+
+    public static Object getValue(Block input, Type type, int position)
+    {
+        if (input.isNull(position)) {
+            return null;
+        }
+
+        if (type.getJavaType() == long.class) {
+            return type.getLong(input, position);
+        }
+        else if (type.getJavaType() == double.class) {
+            return type.getDouble(input, position);
+        }
+        else if (type.getJavaType() == Slice.class) {
+            return type.getObjectValue(null, input, position);
+        }
+        else if (type.getJavaType() == boolean.class) {
+            return type.getBoolean(input, position);
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported type: " + type.getJavaType().getSimpleName());
+        }
+    }
+
+    public static double getDoubleValue(JsonParser parser) throws IOException
+    {
+        double value;
+        try {
+            value = parser.getDoubleValue();
+        }
+        catch (JsonParseException e) {
+            //handle non-numeric numbers (inf/nan)
+            value = Double.parseDouble(parser.getValueAsString());
+        }
+        return value;
     }
 }

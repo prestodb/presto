@@ -13,17 +13,22 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.operator.HashGenerator;
+import com.facebook.presto.operator.InterpretedHashGenerator;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.google.common.base.Function;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class TypeUtils
@@ -50,41 +55,58 @@ public final class TypeUtils
         return type.equalTo(leftBlock, leftPosition, rightBlock, rightPosition);
     }
 
-    public static Function<Type, TypeSignature> typeSignatureGetter()
-    {
-        return new Function<Type, TypeSignature>() {
-            @Override
-            public TypeSignature apply(Type input)
-            {
-                return input.getTypeSignature();
-            }
-        };
-    }
-
-    public static Function<String, TypeSignature> typeSignatureParser()
-    {
-        return new Function<String, TypeSignature>() {
-            @Override
-            public TypeSignature apply(String input)
-            {
-                return parseTypeSignature(input);
-            }
-        };
-    }
-
     public static List<Type> resolveTypes(List<TypeSignature> typeNames, final TypeManager typeManager)
     {
-        return FluentIterable.from(typeNames).transform(new Function<TypeSignature, Type>() {
-            @Override
-            public Type apply(TypeSignature type)
-            {
-                return checkNotNull(typeManager.getType(type), "Type '%s' not found", type);
-            }
-        }).toList();
+        return typeNames.stream()
+                .map((TypeSignature type) -> checkNotNull(typeManager.getType(type), "Type '%s' not found", type))
+                .collect(toImmutableList());
     }
 
     public static TypeSignature parameterizedTypeName(String base, TypeSignature... argumentNames)
     {
-        return new TypeSignature(base, ImmutableList.copyOf(argumentNames));
+        return new TypeSignature(base, ImmutableList.copyOf(argumentNames), ImmutableList.of());
+    }
+
+    public static int getHashPosition(List<? extends Type> hashTypes, Block[] hashBlocks, int position)
+    {
+        int[] hashChannels = new int[hashBlocks.length];
+        for (int i = 0; i < hashBlocks.length; i++) {
+            hashChannels[i] = i;
+        }
+        HashGenerator hashGenerator = new InterpretedHashGenerator(ImmutableList.copyOf(hashTypes), hashChannels);
+        Page page = new Page(hashBlocks);
+        return hashGenerator.hashPosition(position, page);
+    }
+
+    public static Block getHashBlock(List<? extends Type> hashTypes, Block... hashBlocks)
+    {
+        checkArgument(hashTypes.size() == hashBlocks.length);
+        int[] hashChannels = new int[hashBlocks.length];
+        for (int i = 0; i < hashBlocks.length; i++) {
+            hashChannels[i] = i;
+        }
+        HashGenerator hashGenerator = new InterpretedHashGenerator(ImmutableList.copyOf(hashTypes), hashChannels);
+        int positionCount = hashBlocks[0].getPositionCount();
+        BlockBuilder builder = BigintType.BIGINT.createFixedSizeBlockBuilder(positionCount);
+        Page page = new Page(hashBlocks);
+        for (int i = 0; i < positionCount; i++) {
+            BigintType.BIGINT.writeLong(builder, hashGenerator.hashPosition(i, page));
+        }
+        return builder.build();
+    }
+
+    public static Page getHashPage(Page page, List<? extends Type> types, List<Integer> hashChannels)
+    {
+        Block[] blocks = Arrays.copyOf(page.getBlocks(), page.getChannelCount() + 1);
+        ImmutableList.Builder<Type> hashTypes = ImmutableList.builder();
+        Block[] hashBlocks = new Block[hashChannels.size()];
+        int hashBlockIndex = 0;
+
+        for (int channel : hashChannels) {
+            hashTypes.add(types.get(channel));
+            hashBlocks[hashBlockIndex++] = blocks[channel];
+        }
+        blocks[page.getChannelCount()] = getHashBlock(hashTypes.build(), hashBlocks);
+        return new Page(blocks);
     }
 }

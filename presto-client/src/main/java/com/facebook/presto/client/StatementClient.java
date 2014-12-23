@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.client;
 
-import com.google.common.base.Charsets;
 import com.google.common.base.Objects;
 import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.HttpClient;
@@ -25,10 +24,10 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
 import java.net.URI;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -46,6 +45,7 @@ import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerat
 import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -88,7 +88,7 @@ public class StatementClient
     {
         Request.Builder builder = preparePost()
                 .setUri(uriBuilderFrom(session.getServer()).replacePath("/v1/statement").build())
-                .setBodyGenerator(createStaticBodyGenerator(query, Charsets.UTF_8));
+                .setBodyGenerator(createStaticBodyGenerator(query, UTF_8));
 
         if (session.getUser() != null) {
             builder.setHeader(PrestoHeaders.PRESTO_USER, session.getUser());

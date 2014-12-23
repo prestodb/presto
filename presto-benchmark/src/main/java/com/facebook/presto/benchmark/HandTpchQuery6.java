@@ -16,27 +16,25 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.testing.LocalQueryRunner;
-import com.google.common.base.Optional;
+import com.facebook.presto.util.DateTimeUtils;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Charsets.UTF_8;
 
 public class HandTpchQuery6
         extends AbstractSimpleOperatorBenchmark
@@ -64,7 +62,7 @@ public class HandTpchQuery6
                 2,
                 Step.SINGLE,
                 ImmutableList.of(
-                        DOUBLE_SUM.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)
+                        DOUBLE_SUM.bind(ImmutableList.of(0), Optional.empty(), Optional.empty(), 1.0)
                 ));
 
         return ImmutableList.of(tableScanOperator, tpchQuery6Operator, aggregationOperator);
@@ -73,8 +71,8 @@ public class HandTpchQuery6
     public static class TpchQuery6Processor
             implements PageProcessor
     {
-        private static final Slice MIN_SHIP_DATE = Slices.copiedBuffer("1994-01-01", UTF_8);
-        private static final Slice MAX_SHIP_DATE = Slices.copiedBuffer("1995-01-01", UTF_8);
+        private static final int MIN_SHIP_DATE = DateTimeUtils.parseDate("1994-01-01");
+        private static final int MAX_SHIP_DATE = DateTimeUtils.parseDate("1995-01-01");
 
         @Override
         public int process(ConnectorSession session, Page page, int start, int end, PageBuilder pageBuilder)
@@ -106,8 +104,8 @@ public class HandTpchQuery6
 
         private static boolean filter(int position, Block discountBlock, Block shipDateBlock, Block quantityBlock)
         {
-            return !shipDateBlock.isNull(position) && VARCHAR.getSlice(shipDateBlock, position).compareTo(MIN_SHIP_DATE) >= 0 &&
-                    !shipDateBlock.isNull(position) && VARCHAR.getSlice(shipDateBlock, position).compareTo(MAX_SHIP_DATE) < 0 &&
+            return !shipDateBlock.isNull(position) && DATE.getLong(shipDateBlock, position) >= MIN_SHIP_DATE &&
+                    !shipDateBlock.isNull(position) && DATE.getLong(shipDateBlock, position) < MAX_SHIP_DATE &&
                     !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) >= 0.05 &&
                     !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) <= 0.07 &&
                     !quantityBlock.isNull(position) && BIGINT.getLong(quantityBlock, position) < 24;

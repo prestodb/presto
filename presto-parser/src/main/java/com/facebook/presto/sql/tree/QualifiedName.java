@@ -13,19 +13,15 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
-import javax.annotation.Nullable;
-
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Locale.ENGLISH;
 
@@ -80,7 +76,7 @@ public class QualifiedName
         Preconditions.checkNotNull(parts, "parts");
         Preconditions.checkArgument(!Iterables.isEmpty(parts), "parts is empty");
 
-        this.parts = ImmutableList.copyOf(Iterables.transform(parts, toLowerCase()));
+        this.parts = ImmutableList.copyOf(Iterables.transform(parts, s -> s.toLowerCase(ENGLISH)));
     }
 
     public List<String> getParts()
@@ -101,7 +97,7 @@ public class QualifiedName
     public Optional<QualifiedName> getPrefix()
     {
         if (parts.size() == 1) {
-            return Optional.absent();
+            return Optional.empty();
         }
 
         return Optional.of(QualifiedName.of(parts.subList(0, parts.size() - 1)));
@@ -118,45 +114,9 @@ public class QualifiedName
         return parts.subList(start, parts.size()).equals(suffix.getParts());
     }
 
-    public static Predicate<QualifiedName> hasSuffixPredicate(final QualifiedName suffix)
-    {
-        return new Predicate<QualifiedName>()
-        {
-            @Override
-            public boolean apply(QualifiedName name)
-            {
-                return name.hasSuffix(suffix);
-            }
-        };
-    }
-
-    public static Function<String, QualifiedName> addPrefixFunction(final QualifiedName prefix)
-    {
-        return new Function<String, QualifiedName>()
-        {
-            @Override
-            public QualifiedName apply(@Nullable String suffix)
-            {
-                return QualifiedName.of(prefix, suffix);
-            }
-        };
-    }
-
     public String getSuffix()
     {
         return Iterables.getLast(parts);
-    }
-
-    public static Function<String, QualifiedName> fromStringFunction()
-    {
-        return new Function<String, QualifiedName>()
-        {
-            @Override
-            public QualifiedName apply(String input)
-            {
-                return new QualifiedName(input);
-            }
-        };
     }
 
     @Override
@@ -182,17 +142,5 @@ public class QualifiedName
     public int hashCode()
     {
         return parts.hashCode();
-    }
-
-    private static Function<String, String> toLowerCase()
-    {
-        return new Function<String, String>()
-        {
-            @Override
-            public String apply(String s)
-            {
-                return s.toLowerCase(ENGLISH);
-            }
-        };
     }
 }

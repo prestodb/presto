@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 
@@ -26,7 +25,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
 public class FirstValueFunction
-        implements WindowFunction
+        extends ValueWindowFunction
 {
     public static class BigintFirstValueFunction
             extends FirstValueFunction
@@ -36,6 +35,7 @@ public class FirstValueFunction
             super(BIGINT, argumentChannels);
         }
     }
+
     public static class BooleanFirstValueFunction
             extends FirstValueFunction
     {
@@ -44,6 +44,7 @@ public class FirstValueFunction
             super(BOOLEAN, argumentChannels);
         }
     }
+
     public static class DoubleFirstValueFunction
             extends FirstValueFunction
     {
@@ -52,6 +53,7 @@ public class FirstValueFunction
             super(DOUBLE, argumentChannels);
         }
     }
+
     public static class VarcharFirstValueFunction
             extends FirstValueFunction
     {
@@ -63,9 +65,6 @@ public class FirstValueFunction
 
     private final Type type;
     private final int argumentChannel;
-    private int rowCount;
-    private PagesIndex pagesIndex;
-    private int valuePosition;
 
     protected FirstValueFunction(Type type, List<Integer> argumentChannels)
     {
@@ -80,16 +79,13 @@ public class FirstValueFunction
     }
 
     @Override
-    public void reset(int partitionRowCount, PagesIndex pagesIndex)
+    public void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition)
     {
-        this.pagesIndex = pagesIndex;
-        valuePosition = rowCount;
-        rowCount += partitionRowCount;
-    }
+        if (frameStart < 0) {
+            output.appendNull();
+            return;
+        }
 
-    @Override
-    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
-    {
-        pagesIndex.appendTo(argumentChannel, valuePosition, output);
+        windowIndex.appendTo(argumentChannel, frameStart, output);
     }
 }

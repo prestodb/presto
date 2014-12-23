@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
@@ -28,7 +27,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.checkCondition;
 
 public class NthValueFunction
-        implements WindowFunction
+        extends ValueWindowFunction
 {
     public static class BigintNthValueFunction
             extends NthValueFunction
@@ -70,11 +69,6 @@ public class NthValueFunction
     private final int valueChannel;
     private final int offsetChannel;
 
-    private int partitionStartPosition;
-    private int partitionRowCount;
-    private int currentPosition = -1;
-    private PagesIndex pagesIndex;
-
     protected NthValueFunction(Type type, List<Integer> argumentChannels)
     {
         this.type = type;
@@ -89,38 +83,24 @@ public class NthValueFunction
     }
 
     @Override
-    public void reset(int partitionRowCount, PagesIndex pagesIndex)
+    public void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition)
     {
-        this.partitionStartPosition += this.partitionRowCount;
-        // start before the first row of the partition
-        this.currentPosition = partitionStartPosition - 1;
-
-        this.partitionRowCount = partitionRowCount;
-        this.pagesIndex = pagesIndex;
-    }
-
-    @Override
-    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
-    {
-        currentPosition++;
-
-        if (pagesIndex.isNull(offsetChannel, currentPosition)) {
+        if ((frameStart < 0) || windowIndex.isNull(offsetChannel, currentPosition)) {
             output.appendNull();
-            return;
         }
+        else {
+            long offset = windowIndex.getLong(offsetChannel, currentPosition);
+            checkCondition(offset >= 1, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 1");
 
-        int offset = Ints.checkedCast(pagesIndex.getLong(offsetChannel, currentPosition));
-        checkCondition(offset >= 1, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 1");
+            // offset is base 1
+            long valuePosition = frameStart + (offset - 1);
 
-        // offset is base 1
-        int valuePosition = partitionStartPosition + offset - 1;
-
-        // if the value is out of range, result is null
-        if (valuePosition >= partitionStartPosition + partitionRowCount) {
-            output.appendNull();
-            return;
+            if ((valuePosition >= frameStart) && (valuePosition <= frameEnd)) {
+                windowIndex.appendTo(valueChannel, Ints.checkedCast(valuePosition), output);
+            }
+            else {
+                output.appendNull();
+            }
         }
-
-        pagesIndex.appendTo(valueChannel, valuePosition, output);
     }
 }

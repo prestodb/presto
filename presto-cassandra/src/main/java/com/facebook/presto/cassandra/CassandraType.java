@@ -20,7 +20,9 @@ import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.annotations.VisibleForTesting;
@@ -57,7 +59,7 @@ public enum CassandraType
     INET(VarcharType.VARCHAR, InetAddress.class),
     INT(BigintType.BIGINT, Integer.class),
     TEXT(VarcharType.VARCHAR, String.class),
-    TIMESTAMP(BigintType.BIGINT, Date.class),
+    TIMESTAMP(TimestampType.TIMESTAMP, Date.class),
     UUID(VarcharType.VARCHAR, java.util.UUID.class),
     TIMEUUID(VarcharType.VARCHAR, java.util.UUID.class),
     VARCHAR(VarcharType.VARCHAR, String.class),
@@ -467,6 +469,9 @@ public enum CassandraType
             return DOUBLE;
         }
         else if (type.equals(VarcharType.VARCHAR)) {
+            return TEXT;
+        }
+        else if (type.equals(DateType.DATE)) {
             return TEXT;
         }
         throw new IllegalArgumentException("unsupported type: " + type);

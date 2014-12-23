@@ -59,13 +59,12 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.util.GraphvizPrinter;
 import com.facebook.presto.util.JsonPlanPrinter;
-import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -75,6 +74,8 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.DomainUtils.simplifyDomain;
@@ -107,7 +108,7 @@ public class PlanPrinter
 
     public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata)
     {
-        return new PlanPrinter(plan, types, metadata, Optional.<Map<PlanFragmentId, PlanFragment>>absent()).toString();
+        return new PlanPrinter(plan, types, metadata, Optional.empty()).toString();
     }
 
     public static String getJsonPlanSource(PlanNode plan, Metadata metadata)
@@ -118,14 +119,14 @@ public class PlanPrinter
     public static String textDistributedPlan(SubPlan plan, Metadata metadata)
     {
         List<PlanFragment> fragments = plan.getAllFragments();
-        Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, PlanFragment.idGetter());
+        Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, PlanFragment::getId);
         PlanFragment fragment = plan.getFragment();
         return new PlanPrinter(fragment.getRoot(), fragment.getSymbols(), metadata, Optional.of(fragmentsById)).toString();
     }
 
     public static String graphvizLogicalPlan(PlanNode plan, Map<Symbol, Type> types)
     {
-        PlanFragment fragment = new PlanFragment(new PlanFragmentId("graphviz_plan"), plan, types, PlanDistribution.NONE, plan.getId(), OutputPartitioning.NONE, ImmutableList.<Symbol>of());
+        PlanFragment fragment = new PlanFragment(new PlanFragmentId("graphviz_plan"), plan, types, PlanDistribution.NONE, plan.getId(), OutputPartitioning.NONE, ImmutableList.<Symbol>of(), Optional.empty());
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
     }
 
@@ -271,14 +272,7 @@ public class PlanPrinter
         {
             List<String> partitionBy = Lists.transform(node.getPartitionBy(), Functions.toStringFunction());
 
-            List<String> orderBy = Lists.transform(node.getOrderBy(), new Function<Symbol, String>()
-            {
-                @Override
-                public String apply(Symbol input)
-                {
-                    return input + " " + node.getOrderings().get(input);
-                }
-            });
+            List<String> orderBy = Lists.transform(node.getOrderBy(), input -> input + " " + node.getOrderings().get(input));
 
             List<String> args = new ArrayList<>();
             if (!partitionBy.isEmpty()) {
@@ -301,14 +295,7 @@ public class PlanPrinter
         {
             List<String> partitionBy = Lists.transform(node.getPartitionBy(), Functions.toStringFunction());
 
-            List<String> orderBy = Lists.transform(node.getOrderBy(), new Function<Symbol, String>()
-            {
-                @Override
-                public String apply(Symbol input)
-                {
-                    return input + " " + node.getOrderings().get(input);
-                }
-            });
+            List<String> orderBy = Lists.transform(node.getOrderBy(), input -> input + " " + node.getOrderings().get(input));
 
             List<String> args = new ArrayList<>();
             args.add(format("partition by (%s)", Joiner.on(", ").join(partitionBy)));
@@ -344,8 +331,10 @@ public class PlanPrinter
         {
             TupleDomain<ColumnHandle> partitionsDomainSummary = node.getPartitionsDomainSummary();
             print(indent, "- TableScan[%s, original constraint=%s] => [%s]", node.getTable(), node.getOriginalConstraint(), formatOutputs(node.getOutputSymbols()));
+
+            Set<Symbol> outputs = ImmutableSet.copyOf(node.getOutputSymbols());
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
-                boolean isOutputSymbol = node.getOutputSymbols().contains(entry.getKey());
+                boolean isOutputSymbol = outputs.contains(entry.getKey());
                 boolean isInOriginalConstraint = node.getOriginalConstraint() == null ? false : DependencyExtractor.extractUnique(node.getOriginalConstraint()).contains(entry.getKey());
                 boolean isInDomainSummary = !partitionsDomainSummary.isNone() && partitionsDomainSummary.getDomains().keySet().contains(entry.getValue());
 
@@ -367,7 +356,7 @@ public class PlanPrinter
         {
             print(indent, "- Values => [%s]", formatOutputs(node.getOutputSymbols()));
             for (List<Expression> row : node.getRows()) {
-                print(indent + 2, Joiner.on(", ").join(row));
+                print(indent + 2, "(" + Joiner.on(", ").join(row) + ")");
             }
             return null;
         }
@@ -383,7 +372,7 @@ public class PlanPrinter
         public Void visitProject(ProjectNode node, Integer indent)
         {
             print(indent, "- Project => [%s]", formatOutputs(node.getOutputSymbols()));
-            for (Map.Entry<Symbol, Expression> entry : node.getOutputMap().entrySet()) {
+            for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
                 if (entry.getValue() instanceof QualifiedNameReference && ((QualifiedNameReference) entry.getValue()).getName().equals(entry.getKey().toQualifiedName())) {
                     // skip identity assignments
                     continue;
@@ -420,14 +409,7 @@ public class PlanPrinter
         @Override
         public Void visitTopN(final TopNNode node, Integer indent)
         {
-            Iterable<String> keys = Iterables.transform(node.getOrderBy(), new Function<Symbol, String>()
-            {
-                @Override
-                public String apply(Symbol input)
-                {
-                    return input + " " + node.getOrderings().get(input);
-                }
-            });
+            Iterable<String> keys = Iterables.transform(node.getOrderBy(), input -> input + " " + node.getOrderings().get(input));
 
             print(indent, "- TopN[%s by (%s)] => [%s]", node.getCount(), Joiner.on(", ").join(keys), formatOutputs(node.getOutputSymbols()));
             return processChildren(node, indent + 1);
@@ -436,14 +418,7 @@ public class PlanPrinter
         @Override
         public Void visitSort(final SortNode node, Integer indent)
         {
-            Iterable<String> keys = Iterables.transform(node.getOrderBy(), new Function<Symbol, String>()
-            {
-                @Override
-                public String apply(Symbol input)
-                {
-                    return input + " " + node.getOrderings().get(input);
-                }
-            });
+            Iterable<String> keys = Iterables.transform(node.getOrderBy(), input -> input + " " + node.getOrderings().get(input));
 
             print(indent, "- Sort[%s] => [%s]", Joiner.on(", ").join(keys), formatOutputs(node.getOutputSymbols()));
             return processChildren(node, indent + 1);
@@ -528,14 +503,7 @@ public class PlanPrinter
 
         private String formatOutputs(Iterable<Symbol> symbols)
         {
-            return Joiner.on(", ").join(Iterables.transform(symbols, new Function<Symbol, String>()
-            {
-                @Override
-                public String apply(Symbol input)
-                {
-                    return input + ":" + types.get(input);
-                }
-            }));
+            return Joiner.on(", ").join(Iterables.transform(symbols, input -> input + ":" + types.get(input)));
         }
     }
 

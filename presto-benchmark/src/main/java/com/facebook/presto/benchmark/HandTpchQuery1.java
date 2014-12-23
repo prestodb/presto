@@ -25,14 +25,14 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.testing.LocalQueryRunner;
-import com.google.common.base.Optional;
+import com.facebook.presto.util.DateTimeUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.operator.aggregation.AverageAggregations.DOUBLE_AVERAGE;
@@ -41,11 +41,12 @@ import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class HandTpchQuery1
         extends AbstractSimpleOperatorBenchmark
@@ -98,15 +99,17 @@ public class HandTpchQuery1
                 Ints.asList(0, 1),
                 Step.SINGLE,
                 ImmutableList.of(
-                        LONG_SUM.bind(ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        DOUBLE_SUM.bind(ImmutableList.of(3), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        DOUBLE_SUM.bind(ImmutableList.of(4), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        LONG_AVERAGE.bind(ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        DOUBLE_AVERAGE.bind(ImmutableList.of(5), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        DOUBLE_AVERAGE.bind(ImmutableList.of(6), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        COUNT.bind(ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)
+                        LONG_SUM.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0),
+                        DOUBLE_SUM.bind(ImmutableList.of(3), Optional.empty(), Optional.empty(), 1.0),
+                        DOUBLE_SUM.bind(ImmutableList.of(4), Optional.empty(), Optional.empty(), 1.0),
+                        LONG_AVERAGE.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0),
+                        DOUBLE_AVERAGE.bind(ImmutableList.of(5), Optional.empty(), Optional.empty(), 1.0),
+                        DOUBLE_AVERAGE.bind(ImmutableList.of(6), Optional.empty(), Optional.empty(), 1.0),
+                        COUNT.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0)
                         ),
-                10_000);
+                Optional.empty(),
+                10_000,
+                new DataSize(16, MEGABYTE));
 
         return ImmutableList.of(tableScanOperator, tpchQuery1Operator, aggregationOperator);
     }
@@ -227,7 +230,7 @@ public class HandTpchQuery1
             return null;
         }
 
-        private static final Slice MAX_SHIP_DATE = Slices.copiedBuffer("1998-09-02", UTF_8);
+        private static final int MAX_SHIP_DATE = DateTimeUtils.parseDate("1998-09-02");
 
         private static void filterAndProjectRowOriented(PageBuilder pageBuilder,
                 Block returnFlagBlock,
@@ -244,11 +247,11 @@ public class HandTpchQuery1
                     continue;
                 }
 
-                Slice shipDate = VARCHAR.getSlice(shipDateBlock, position);
+                int shipDate = (int) DATE.getLong(shipDateBlock, position);
 
                 // where
                 //     shipdate <= '1998-09-02'
-                if (shipDate.compareTo(MAX_SHIP_DATE) <= 0) {
+                if (shipDate <= MAX_SHIP_DATE) {
                     //     returnflag,
                     //     linestatus
                     //     quantity
@@ -257,6 +260,7 @@ public class HandTpchQuery1
                     //     extendedprice * (1 - discount) * (1 + tax)
                     //     discount
 
+                    pageBuilder.declarePosition();
                     if (returnFlagBlock.isNull(position)) {
                         pageBuilder.getBlockBuilder(0).appendNull();
                     }

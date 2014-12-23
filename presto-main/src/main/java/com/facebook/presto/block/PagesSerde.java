@@ -26,6 +26,12 @@ import java.util.Iterator;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Arrays.asList;
 
+// layout is:
+//   - position count (int)
+//   - number of blocks (int)
+//   - sequence of:
+//       - block encoding
+//       - block
 public final class PagesSerde
 {
     private PagesSerde() {}
@@ -55,36 +61,27 @@ public final class PagesSerde
 
     private static class PagesWriter
     {
-        private final BlockEncodingSerde blockEncodingSerde;
-        private final SliceOutput sliceOutput;
-        private BlockEncoding[] blockEncodings;
+        private final BlockEncodingSerde serde;
+        private final SliceOutput output;
 
-        private PagesWriter(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput)
+        private PagesWriter(BlockEncodingSerde serde, SliceOutput output)
         {
-            this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingSerde is null");
-            this.sliceOutput = checkNotNull(sliceOutput, "sliceOutput is null");
+            this.serde = checkNotNull(serde, "serde is null");
+            this.output = checkNotNull(output, "output is null");
         }
 
         public PagesWriter append(Page page)
         {
             checkNotNull(page, "page is null");
 
-            if (blockEncodings == null) {
-                Block[] blocks = page.getBlocks();
-                blockEncodings = new BlockEncoding[blocks.length];
-                sliceOutput.writeInt(blocks.length);
-                for (int i = 0; i < blocks.length; i++) {
-                    Block block = blocks[i];
-                    BlockEncoding blockEncoding = block.getEncoding();
-                    blockEncodings[i] = blockEncoding;
-                    blockEncodingSerde.writeBlockEncoding(sliceOutput, blockEncoding);
-                }
-            }
-
-            sliceOutput.writeInt(page.getPositionCount());
             Block[] blocks = page.getBlocks();
+
+            output.writeInt(page.getPositionCount());
+            output.writeInt(blocks.length);
             for (int i = 0; i < blocks.length; i++) {
-                blockEncodings[i].writeBlock(sliceOutput, blocks[i]);
+                BlockEncoding encoding = blocks[i].getEncoding();
+                serde.writeBlockEncoding(output, encoding);
+                encoding.writeBlock(output, blocks[i]);
             }
 
             return this;
@@ -94,38 +91,28 @@ public final class PagesSerde
     private static class PagesReader
             extends AbstractIterator<Page>
     {
-        private final BlockEncoding[] blockEncodings;
-        private final SliceInput sliceInput;
+        private final BlockEncodingSerde serde;
+        private final SliceInput input;
 
-        public PagesReader(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
+        public PagesReader(BlockEncodingSerde serde, SliceInput input)
         {
-            this.sliceInput = sliceInput;
-
-            if (!sliceInput.isReadable()) {
-                endOfData();
-                blockEncodings = new BlockEncoding[0];
-                return;
-            }
-
-            int channelCount = sliceInput.readInt();
-
-            blockEncodings = new BlockEncoding[channelCount];
-            for (int i = 0; i < blockEncodings.length; i++) {
-                blockEncodings[i] = blockEncodingSerde.readBlockEncoding(sliceInput);
-            }
+            this.serde = checkNotNull(serde, "serde is null");
+            this.input = checkNotNull(input, "input is null");
         }
 
         @Override
         protected Page computeNext()
         {
-            if (!sliceInput.isReadable()) {
+            if (!input.isReadable()) {
                 return endOfData();
             }
 
-            int positions = sliceInput.readInt();
-            Block[] blocks = new Block[blockEncodings.length];
+            int positions = input.readInt();
+            int numberOfBlocks = input.readInt();
+            Block[] blocks = new Block[numberOfBlocks];
             for (int i = 0; i < blocks.length; i++) {
-                blocks[i] = blockEncodings[i].readBlock(sliceInput);
+                BlockEncoding encoding = serde.readBlockEncoding(input);
+                blocks[i] = encoding.readBlock(input);
             }
 
             @SuppressWarnings("UnnecessaryLocalVariable")

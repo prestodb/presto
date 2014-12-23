@@ -17,16 +17,20 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.RowPagesBuilder;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
@@ -54,16 +58,23 @@ public class TestMarkDistinctOperator
         executor.shutdownNow();
     }
 
-    @Test
-    public void testMarkDistinct()
+    @DataProvider(name = "hashEnabledValues")
+    public static Object[][] hashEnabledValuesProvider()
+    {
+        return new Object[][] { { true }, { false } };
+    }
+
+    @Test(dataProvider = "hashEnabledValues")
+    public void testMarkDistinct(boolean hashEnabled)
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(BIGINT)
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
+        List<Page> input = rowPagesBuilder
                 .addSequencePage(100, 0)
                 .addSequencePage(100, 0)
                 .build();
 
-        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, ImmutableList.of(BIGINT), ImmutableList.of(0));
+        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, rowPagesBuilder.getTypes(), ImmutableList.of(0), rowPagesBuilder.getHashChannel());
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult.Builder expected = resultBuilder(driverContext.getSession(), BIGINT, BOOLEAN);
@@ -72,6 +83,6 @@ public class TestMarkDistinctOperator
             expected.row(i, false);
         }
 
-        OperatorAssertion.assertOperatorEqualsIgnoreOrder(operator, input, expected.build());
+        OperatorAssertion.assertOperatorEqualsIgnoreOrder(operator, input, expected.build(), hashEnabled, Optional.of(1));
     }
 }

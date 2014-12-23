@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+
+import java.util.Objects;
 
 import static java.util.Locale.ENGLISH;
 
@@ -48,7 +49,7 @@ public class BooleanLiteral
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(value);
+        return Objects.hash(value);
     }
 
     @Override
@@ -61,6 +62,6 @@ public class BooleanLiteral
             return false;
         }
         final BooleanLiteral other = (BooleanLiteral) obj;
-        return Objects.equal(this.value, other.value);
+        return Objects.equals(this.value, other.value);
     }
 }

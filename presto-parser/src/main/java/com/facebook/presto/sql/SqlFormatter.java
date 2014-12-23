@@ -16,17 +16,17 @@ package com.facebook.presto.sql;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AstVisitor;
-import com.facebook.presto.sql.tree.CreateView;
-import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Except;
-import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
@@ -63,7 +63,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.sql.ExpressionFormatter.expressionFormatterFunction;
 import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.ExpressionFormatter.formatSortItems;
 import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
@@ -180,7 +179,7 @@ public final class SqlFormatter
             }
 
             if (!node.getGroupBy().isEmpty()) {
-                append(indent, "GROUP BY " + Joiner.on(", ").join(transform(node.getGroupBy(), expressionFormatterFunction())))
+                append(indent, "GROUP BY " + Joiner.on(", ").join(transform(node.getGroupBy(), ExpressionFormatter::formatExpression)))
                         .append('\n');
             }
 
@@ -262,7 +261,7 @@ public final class SqlFormatter
         @Override
         protected Void visitJoin(Join node, Integer indent)
         {
-            JoinCriteria criteria = node.getCriteria().orNull();
+            JoinCriteria criteria = node.getCriteria().orElse(null);
             String type = node.getType().toString();
             if (criteria instanceof NaturalJoin) {
                 type = "NATURAL " + type;
@@ -364,7 +363,7 @@ public final class SqlFormatter
         protected Void visitRow(Row node, Integer indent)
         {
             builder.append('(')
-                    .append(Joiner.on(", ").join(transform(node.getItems(), expressionFormatterFunction())))
+                    .append(Joiner.on(", ").join(transform(node.getItems(), ExpressionFormatter::formatExpression)))
                     .append(')');
 
             return null;

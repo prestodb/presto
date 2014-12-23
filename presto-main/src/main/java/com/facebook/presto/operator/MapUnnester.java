@@ -18,6 +18,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
+import com.facebook.presto.type.RowType;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -32,6 +33,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.type.TypeJsonUtils.getDoubleValue;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class MapUnnester
@@ -87,7 +89,7 @@ public class MapUnnester
             if (jsonParser.getCurrentToken() == JsonToken.VALUE_NULL) {
                 valueBlockBuilder.appendNull();
             }
-            else if (valueType instanceof ArrayType || valueType instanceof MapType) {
+            else if (valueType instanceof ArrayType || valueType instanceof MapType || valueType instanceof RowType) {
                 DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(ESTIMATED_JSON_OUTPUT_SIZE);
                 try (JsonGenerator jsonGenerator = JSON_FACTORY.createJsonGenerator(dynamicSliceOutput)) {
                     jsonGenerator.copyCurrentStructure(jsonParser);
@@ -98,7 +100,7 @@ public class MapUnnester
                 valueType.writeLong(valueBlockBuilder, jsonParser.getLongValue());
             }
             else if (valueType.getJavaType() == double.class) {
-                valueType.writeDouble(valueBlockBuilder, jsonParser.getDoubleValue());
+                valueType.writeDouble(valueBlockBuilder, getDoubleValue(jsonParser));
             }
             else if (valueType.getJavaType() == boolean.class) {
                 valueType.writeBoolean(valueBlockBuilder, jsonParser.getBooleanValue());

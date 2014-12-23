@@ -13,13 +13,17 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
+import com.facebook.presto.operator.scalar.TestingRowConstructor;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
@@ -28,6 +32,11 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.type.ArrayType.rawSlicesToStackRepresentation;
 import static com.facebook.presto.type.ArrayType.toStackRepresentation;
+import static java.lang.Double.NEGATIVE_INFINITY;
+import static java.lang.Double.NaN;
+import static java.lang.Double.POSITIVE_INFINITY;
+import static java.util.Arrays.asList;
+import static java.util.Collections.singletonList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -40,6 +49,7 @@ public class TestArrayOperators
     public void setUp()
     {
         functionAssertions = new FunctionAssertions();
+        functionAssertions.getMetadata().getFunctionRegistry().addFunctions(new FunctionListBuilder(functionAssertions.getMetadata().getTypeManager()).scalar(TestingRowConstructor.class).getFunctions());
     }
 
     private void assertFunction(String projection, Object expected)
@@ -86,6 +96,66 @@ public class TestArrayOperators
         assertFunction("ARRAY [from_unixtime(1), from_unixtime(100)]", ImmutableList.of(
                 new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()),
                 new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey())));
+        assertFunction("ARRAY [sqrt(-1)]", ImmutableList.of(NaN));
+        assertFunction("ARRAY [pow(infinity(), 2)]", ImmutableList.of(POSITIVE_INFINITY));
+        assertFunction("ARRAY [pow(-infinity(), 1)]", ImmutableList.of(NEGATIVE_INFINITY));
+    }
+
+    @Test
+    public void testArrayToArrayConcat()
+            throws Exception
+    {
+        assertFunction("ARRAY [1, NULL] || ARRAY [3]", Lists.newArrayList(1L, null, 3L));
+        assertFunction("ARRAY [1, 2] || ARRAY[3, 4]", ImmutableList.of(1L, 2L, 3L, 4L));
+        assertFunction("ARRAY [NULL] || ARRAY[NULL]", Lists.newArrayList(null, null));
+        assertFunction("ARRAY ['puppies'] || ARRAY ['kittens']", ImmutableList.of("puppies", "kittens"));
+        assertFunction("ARRAY [TRUE] || ARRAY [FALSE]", ImmutableList.of(true, false));
+        assertFunction("concat(ARRAY [1] , ARRAY[2,3])", ImmutableList.of(1L, 2L, 3L));
+        assertFunction("ARRAY [from_unixtime(1)] || ARRAY[from_unixtime(100)]", ImmutableList.of(
+                new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()),
+                new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey())));
+        assertFunction("ARRAY [ARRAY[ARRAY[1]]] || ARRAY [ARRAY[ARRAY[2]]]", asList(singletonList(Longs.asList(1)), singletonList(Longs.asList(2))));
+        assertFunction("ARRAY [] || ARRAY []", ImmutableList.of());
+        assertFunction("ARRAY [TRUE] || ARRAY [FALSE] || ARRAY [TRUE]", ImmutableList.of(true, false, true));
+        assertFunction("ARRAY [1] || ARRAY [2] || ARRAY [3] || ARRAY [4]", ImmutableList.of(1L, 2L, 3L, 4L));
+
+        try {
+            assertFunction("ARRAY [ARRAY[1]] || ARRAY[ARRAY[true], ARRAY[false]]", null);
+            fail("arrays must be of the same type");
+        }
+        catch (RuntimeException e) {
+            // Expected
+        }
+
+        try {
+            assertFunction("ARRAY [ARRAY[1]] || ARRAY[NULL]", null);
+            fail("arrays must be of the same type");
+        }
+        catch (RuntimeException e) {
+            // Expected
+        }
+    }
+
+    @Test
+    public void testElementArrayConcat()
+            throws Exception
+    {
+        assertFunction("CAST (ARRAY [DATE '2001-08-22'] || DATE '2001-08-23' AS JSON)", "[\"2001-08-22\",\"2001-08-23\"]");
+        assertFunction("CAST (DATE '2001-08-23' || ARRAY [DATE '2001-08-22'] AS JSON)", "[\"2001-08-23\",\"2001-08-22\"]");
+        assertFunction("1 || ARRAY [2]", Lists.newArrayList(1L, 2L));
+        assertFunction("ARRAY [2] || 1", Lists.newArrayList(2L, 1L));
+        assertFunction("TRUE || ARRAY [FALSE]", Lists.newArrayList(true, false));
+        assertFunction("ARRAY [FALSE] || TRUE", Lists.newArrayList(false, true));
+        assertFunction("1.0 || ARRAY [2.0]", Lists.newArrayList(1.0, 2.0));
+        assertFunction("ARRAY [2.0] || 1.0", Lists.newArrayList(2.0, 1.0));
+        assertFunction("'puppies' || ARRAY ['kittens']", Lists.newArrayList("puppies", "kittens"));
+        assertFunction("ARRAY ['kittens'] || 'puppies'", Lists.newArrayList("kittens", "puppies"));
+        assertFunction("ARRAY [from_unixtime(1)] || from_unixtime(100)", ImmutableList.of(
+                new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()),
+                new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey())));
+        assertFunction("from_unixtime(100) || ARRAY [from_unixtime(1)]", ImmutableList.of(
+                new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey()),
+                new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey())));
     }
 
     @Test
@@ -161,5 +231,108 @@ public class TestArrayOperators
         assertFunction("ARRAY ['puppies', 'kittens', NULL][3]", null);
         assertFunction("ARRAY [TRUE, FALSE][2]", false);
         assertFunction("ARRAY [from_unixtime(1), from_unixtime(100)][1]", new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()));
+        assertFunction("ARRAY [infinity()][1]", POSITIVE_INFINITY);
+        assertFunction("ARRAY [-infinity()][1]", NEGATIVE_INFINITY);
+        assertFunction("ARRAY [sqrt(-1)][1]", NaN);
     }
+
+    @Test
+    public void testSort()
+            throws Exception
+    {
+        assertFunction("ARRAY_SORT(ARRAY[2, 3, 4, 1])", ImmutableList.of(1L, 2L, 3L, 4L));
+        assertFunction("ARRAY_SORT(ARRAY['z', 'f', 's', 'd', 'g'])", ImmutableList.of("d", "f", "g", "s", "z"));
+        assertFunction("ARRAY_SORT(ARRAY[TRUE, FALSE])", ImmutableList.of(false, true));
+        assertFunction("ARRAY_SORT(ARRAY[22.1, 11.1, 1.1, 44.1])", ImmutableList.of(1.1, 11.1, 22.1, 44.1));
+        assertFunction("ARRAY_SORT(ARRAY [from_unixtime(100), from_unixtime(1), from_unixtime(200)])",
+                ImmutableList.of(new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()), new SqlTimestamp(100 * 1000, TEST_SESSION.getTimeZoneKey()), new SqlTimestamp(200 * 1000, TEST_SESSION.getTimeZoneKey())));
+        assertFunction("ARRAY_SORT(ARRAY [ARRAY [1], ARRAY [2]])", ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(2L)));
+
+        try {
+            assertFunction("ARRAY_SORT(ARRAY[NULL, NULL, NULL])", null);
+            fail("ARRAY_SORT is not supported for arrays with incomparable elements");
+        }
+        catch (RuntimeException e) {
+            // Expected
+        }
+    }
+
+    @Test
+    public void testComparison()
+            throws Exception
+    {
+        assertFunction("ARRAY [1, 2, 3] = ARRAY [1, 2, 3]", true);
+        assertFunction("ARRAY [TRUE, FALSE] = ARRAY [TRUE, FALSE]", true);
+        assertFunction("ARRAY [1.1, 2.2, 3.3, 4.4] = ARRAY [1.1, 2.2, 3.3, 4.4]", true);
+        assertFunction("ARRAY ['puppies', 'kittens'] = ARRAY ['puppies', 'kittens']", true);
+        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] = ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", true);
+        assertFunction("ARRAY [timestamp '2012-10-31 08:00 UTC'] = ARRAY [timestamp '2012-10-31 01:00 America/Los_Angeles']", true);
+
+        assertFunction("ARRAY [1, 2, 3] = ARRAY [3, 2, 1]", false);
+        assertFunction("ARRAY [TRUE, FALSE] = ARRAY [FALSE, FALSE]", false);
+        assertFunction("ARRAY [1.1, 2.2, 3.3] = ARRAY [11.1, 22.1, 1.1, 44.1]", false);
+        assertFunction("ARRAY ['puppies', 'kittens'] = ARRAY ['z', 'f', 's', 'd', 'g']", false);
+        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] = ARRAY [TIME '04:05:06.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", false);
+
+        assertFunction("ARRAY [10, 20, 30] < ARRAY [10, 20, 40, 50]", true);
+        assertFunction("ARRAY [10, 20, 30] < ARRAY [10, 40]", true);
+        assertFunction("ARRAY [10, 20] < ARRAY [10, 20, 30]", true);
+        assertFunction("ARRAY [TRUE, FALSE] < ARRAY [TRUE, TRUE, TRUE]", true);
+        assertFunction("ARRAY [TRUE, FALSE, FALSE] < ARRAY [TRUE, TRUE]", true);
+        assertFunction("ARRAY [TRUE, FALSE] < ARRAY [TRUE, FALSE, FALSE]", true);
+        assertFunction("ARRAY[1.1, 2.2, 3.3, 4.4] < ARRAY[1.1, 2.2, 4.4, 4.4]", true);
+        assertFunction("ARRAY[1.1, 2.2, 3.3, 4.4] < ARRAY[1.1, 2.2, 5.5]", true);
+        assertFunction("ARRAY[1.1, 2.2] < ARRAY[1.1, 2.2, 5.5]", true);
+        assertFunction("ARRAY['puppies', 'kittens', 'lizards'] < ARRAY ['puppies', 'lizards', 'lizards']", true);
+        assertFunction("ARRAY['puppies', 'kittens', 'lizards'] < ARRAY ['puppies', 'lizards']", true);
+        assertFunction("ARRAY['puppies', 'kittens'] < ARRAY ['puppies', 'kittens', 'lizards']", true);
+        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] < ARRAY [TIME '04:05:06.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", true);
+        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] < ARRAY [TIME '04:05:06.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", true);
+        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] < ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", true);
+
+        assertFunction("ARRAY [10, 20, 30] > ARRAY [10, 20, 20]", true);
+        assertFunction("ARRAY [10, 20, 30] > ARRAY [10, 20]", true);
+        assertFunction("ARRAY [TRUE, TRUE, TRUE] > ARRAY [TRUE, TRUE, FALSE]", true);
+        assertFunction("ARRAY [TRUE, TRUE, FALSE] > ARRAY [TRUE, TRUE]", true);
+        assertFunction("ARRAY[1.1, 2.2, 3.3, 4.4] > ARRAY[1.1, 2.2, 2.2, 4.4]", true);
+        assertFunction("ARRAY[1.1, 2.2, 3.3, 4.4] > ARRAY[1.1, 2.2, 3.3]", true);
+        assertFunction("ARRAY['puppies', 'kittens', 'lizards'] > ARRAY ['puppies', 'kittens', 'kittens']", true);
+        assertFunction("ARRAY['puppies', 'kittens', 'lizards'] > ARRAY ['puppies', 'kittens']", true);
+        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] > ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", true);
+        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] > ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:20.456 America/Los_Angeles']", true);
+
+        assertFunction("ARRAY [10, 20, 30] <= ARRAY [50]", true);
+        assertFunction("ARRAY [10, 20, 30] <= ARRAY [10, 20, 30]", true);
+        assertFunction("ARRAY [TRUE, FALSE] <= ARRAY [TRUE, FALSE, true]", true);
+        assertFunction("ARRAY [TRUE, FALSE] <= ARRAY [TRUE, FALSE]", true);
+        assertFunction("ARRAY[1.1, 2.2, 3.3, 4.4] <= ARRAY[2.2, 5.5]", true);
+        assertFunction("ARRAY[1.1, 2.2, 3.3, 4.4] <= ARRAY[1.1, 2.2, 3.3, 4.4]", true);
+        assertFunction("ARRAY['puppies', 'kittens', 'lizards'] <= ARRAY ['puppies', 'lizards']", true);
+        assertFunction("ARRAY['puppies', 'kittens'] <= ARRAY['puppies', 'kittens']", true);
+        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] <= ARRAY [TIME '04:05:06.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", true);
+        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] <= ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", true);
+
+        assertFunction("ARRAY [10, 20, 30] >= ARRAY [10, 20, 30]", true);
+        assertFunction("ARRAY [TRUE, FALSE, TRUE] >= ARRAY [TRUE, FALSE, TRUE]", true);
+        assertFunction("ARRAY [TRUE, FALSE, TRUE] >= ARRAY [TRUE]", true);
+        assertFunction("ARRAY[1.1, 2.2, 3.3, 4.4] >= ARRAY[1.1, 2.2]", true);
+        assertFunction("ARRAY[1.1, 2.2, 3.3, 4.4] >= ARRAY[1.1, 2.2, 3.3, 4.4]", true);
+        assertFunction("ARRAY['puppies', 'kittens', 'lizards'] >= ARRAY ['puppies', 'kittens', 'kittens']", true);
+        assertFunction("ARRAY['puppies', 'kittens'] >= ARRAY['puppies', 'kittens']", true);
+        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] >= ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", true);
+
+        assertFunction("ARRAY [10, 20, 30] != ARRAY [5]", true);
+        assertFunction("ARRAY [TRUE, FALSE, TRUE] != ARRAY [TRUE]", true);
+        assertFunction("ARRAY[1.1, 2.2, 3.3, 4.4] != ARRAY[1.1, 2.2]", true);
+        assertFunction("ARRAY['puppies', 'kittens', 'lizards'] != ARRAY ['puppies', 'kittens']", true);
+        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] != ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", true);
+
+        try {
+            assertFunction("ARRAY[1, NULL] = ARRAY[1, 2]", false);
+            fail("ARRAY comparison not implemented for NULL values");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode().getCode(), StandardErrorCode.NOT_SUPPORTED.toErrorCode().getCode());
+        }
+   }
 }

@@ -18,7 +18,6 @@ import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 import com.google.inject.Binder;
@@ -31,6 +30,7 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 

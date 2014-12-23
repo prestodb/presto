@@ -28,9 +28,7 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -54,6 +52,7 @@ import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.util.Progressable;
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.testng.annotations.Test;
 
@@ -64,11 +63,8 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.hive.AbstractTestHiveFileFormats.TestColumn.nameGetter;
-import static com.facebook.presto.hive.AbstractTestHiveFileFormats.TestColumn.objectInspectorGetter;
-import static com.facebook.presto.hive.AbstractTestHiveFileFormats.TestColumn.partitionKeyFilter;
-import static com.facebook.presto.hive.AbstractTestHiveFileFormats.TestColumn.typeGetter;
 import static com.facebook.presto.hive.HiveClient.getType;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.HiveUtil.isArrayType;
@@ -81,11 +77,11 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
-import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardMapObjectInspector;
@@ -116,8 +112,11 @@ public abstract class AbstractTestHiveFileFormats
     private static final double EPSILON = 0.001;
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
 
-    public static final long DATE = new DateTime(2011, 5, 6, 0, 0, UTC).getMillis();
-    public static final String DATE_STRING = DateTimeFormat.forPattern("yyyy-MM-dd").withZone(UTC).print(DATE);
+    private static final long DATE_MILLIS_UTC = new DateTime(2011, 5, 6, 0, 0, UTC).getMillis();
+    private static final long DATE_DAYS = TimeUnit.MILLISECONDS.toDays(DATE_MILLIS_UTC);
+    private static final String DATE_STRING = DateTimeFormat.forPattern("yyyy-MM-dd").withZoneUTC().print(DATE_MILLIS_UTC);
+    private static final Date SQL_DATE = new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), DATE_MILLIS_UTC));
+
     public static final long TIMESTAMP = new DateTime(2011, 5, 6, 7, 8, 9, 123).getMillis();
     public static final String TIMESTAMP_STRING = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS").print(TIMESTAMP);
 
@@ -132,7 +131,7 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("p_float", javaFloatObjectInspector, "5.1", 5.1, true))
             .add(new TestColumn("p_double", javaDoubleObjectInspector, "6.2", 6.2, true))
             .add(new TestColumn("p_boolean", javaBooleanObjectInspector, "true", true, true))
-            .add(new TestColumn("p_date", javaDateObjectInspector, DATE_STRING, DATE, true))
+            .add(new TestColumn("p_date", javaDateObjectInspector, DATE_STRING, DATE_DAYS, true))
             .add(new TestColumn("p_timestamp", javaTimestampObjectInspector, TIMESTAMP_STRING, TIMESTAMP, true))
 //            .add(new TestColumn("p_binary", javaByteArrayObjectInspector, "test2", Slices.utf8Slice("test2"), true))
             .add(new TestColumn("p_null_string", javaStringObjectInspector, HIVE_DEFAULT_DYNAMIC_PARTITION, null, true))
@@ -156,8 +155,9 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_bigint", javaLongObjectInspector, 4L, 4L))
             .add(new TestColumn("t_float", javaFloatObjectInspector, 5.1f, 5.1))
             .add(new TestColumn("t_double", javaDoubleObjectInspector, 6.2, 6.2))
-            .add(new TestColumn("t_boolean", javaBooleanObjectInspector, true, true))
-            .add(new TestColumn("t_date", javaDateObjectInspector, new Date(DATE), DATE))
+            .add(new TestColumn("t_boolean_true", javaBooleanObjectInspector, true, true))
+            .add(new TestColumn("t_boolean_false", javaBooleanObjectInspector, false, false))
+            .add(new TestColumn("t_date", javaDateObjectInspector, SQL_DATE, DATE_DAYS))
             .add(new TestColumn("t_timestamp", javaTimestampObjectInspector, new Timestamp(TIMESTAMP), TIMESTAMP))
             .add(new TestColumn("t_binary", javaByteArrayObjectInspector, Slices.utf8Slice("test2"), Slices.utf8Slice("test2")))
             .add(new TestColumn("t_map_string",
@@ -179,8 +179,8 @@ public abstract class AbstractTestHiveFileFormats
                     "{\"true\":true}"))
             .add(new TestColumn("t_map_date",
                     getStandardMapObjectInspector(javaDateObjectInspector, javaDateObjectInspector),
-                    ImmutableMap.of(new Date(DATE), new Date(DATE)),
-                    String.format("{\"%d\":%d}", DATE, DATE)))
+                    ImmutableMap.of(SQL_DATE, SQL_DATE),
+                    String.format("{\"%d\":%d}", DATE_DAYS, DATE_DAYS)))
             .add(new TestColumn("t_map_timestamp",
                     getStandardMapObjectInspector(javaTimestampObjectInspector, javaTimestampObjectInspector),
                     ImmutableMap.of(new Timestamp(TIMESTAMP), new Timestamp(TIMESTAMP)),
@@ -195,8 +195,8 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_array_boolean", getStandardListObjectInspector(javaBooleanObjectInspector), ImmutableList.of(true), "[true]"))
             .add(new TestColumn("t_array_date",
                     getStandardListObjectInspector(javaDateObjectInspector),
-                    ImmutableList.of(new Date(DATE)),
-                    String.format("[%d]", DATE)))
+                    ImmutableList.of(SQL_DATE),
+                    String.format("[%d]", DATE_DAYS)))
             .add(new TestColumn("t_array_timestamp",
                     getStandardListObjectInspector(javaTimestampObjectInspector),
                     ImmutableList.of(new Timestamp(TIMESTAMP)),
@@ -212,7 +212,7 @@ public abstract class AbstractTestHiveFileFormats
                             )
                     ),
                     ImmutableMap.of("test", ImmutableList.<Object>of(new Integer[] {1})),
-                    "{\"test\":[\"{\\\"s_int\\\":1}\"]}"
+                    "{\"test\":[[1]]}"
             ))
             .build();
 
@@ -241,14 +241,14 @@ public abstract class AbstractTestHiveFileFormats
             throws Exception
     {
         // filter out partition keys, which are not written to the file
-        testColumns = ImmutableList.copyOf(filter(testColumns, not(partitionKeyFilter())));
+        testColumns = ImmutableList.copyOf(filter(testColumns, not(TestColumn::isPartitionKey)));
 
         JobConf jobConf = new JobConf();
         ReaderWriterProfiler.setProfilerOptions(jobConf);
 
         Properties tableProperties = new Properties();
-        tableProperties.setProperty("columns", Joiner.on(',').join(transform(testColumns, nameGetter())));
-        tableProperties.setProperty("columns.types", Joiner.on(',').join(transform(testColumns, typeGetter())));
+        tableProperties.setProperty("columns", Joiner.on(',').join(transform(testColumns, TestColumn::getName)));
+        tableProperties.setProperty("columns.types", Joiner.on(',').join(transform(testColumns, TestColumn::getType)));
         serDe.initialize(new Configuration(), tableProperties);
 
         if (compressionCodec != null) {
@@ -278,8 +278,8 @@ public abstract class AbstractTestHiveFileFormats
             serDe.initialize(new Configuration(), tableProperties);
 
             SettableStructObjectInspector objectInspector = getStandardStructObjectInspector(
-                    ImmutableList.copyOf(transform(testColumns, nameGetter())),
-                    ImmutableList.copyOf(transform(testColumns, objectInspectorGetter())));
+                    ImmutableList.copyOf(transform(testColumns, TestColumn::getName)),
+                    ImmutableList.copyOf(transform(testColumns, TestColumn::getObjectInspector)));
 
             Object row = objectInspector.create();
 
@@ -394,7 +394,7 @@ public abstract class AbstractTestHiveFileFormats
                         assertEquals((double) actualValue, (double) expectedValue, EPSILON);
                     }
                     else if (testColumn.getObjectInspector().getTypeName().equals("date")) {
-                        SqlDate expectedDate = new SqlDate((Long) expectedValue, SESSION.getTimeZoneKey());
+                        SqlDate expectedDate = new SqlDate(((Long) expectedValue).intValue());
                         assertEquals(actualValue, expectedDate);
                     }
                     else if (testColumn.getObjectInspector().getTypeName().equals("timestamp")) {
@@ -485,54 +485,6 @@ public abstract class AbstractTestHiveFileFormats
             sb.append(", partitionKey=").append(partitionKey);
             sb.append('}');
             return sb.toString();
-        }
-
-        public static Function<TestColumn, String> nameGetter()
-        {
-            return new Function<TestColumn, String>()
-            {
-                @Override
-                public String apply(TestColumn input)
-                {
-                    return input.getName();
-                }
-            };
-        }
-
-        public static Function<TestColumn, String> typeGetter()
-        {
-            return new Function<TestColumn, String>()
-            {
-                @Override
-                public String apply(TestColumn input)
-                {
-                    return input.getType();
-                }
-            };
-        }
-
-        public static Predicate<TestColumn> partitionKeyFilter()
-        {
-            return new Predicate<TestColumn>()
-            {
-                @Override
-                public boolean apply(TestColumn input)
-                {
-                    return input.isPartitionKey();
-                }
-            };
-        }
-
-        public static Function<TestColumn, ObjectInspector> objectInspectorGetter()
-        {
-            return new Function<TestColumn, ObjectInspector>()
-            {
-                @Override
-                public ObjectInspector apply(TestColumn input)
-                {
-                    return input.getObjectInspector();
-                }
-            };
         }
     }
 }

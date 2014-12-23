@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
-import static java.lang.String.format;
+import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 
 public class MapType
         extends AbstractVariableWidthType
@@ -48,7 +48,7 @@ public class MapType
 
     public MapType(Type keyType, Type valueType)
     {
-        super(format("map<%s,%s>", keyType, valueType), Slice.class);
+        super(parameterizedTypeName("map", keyType.getTypeSignature(), valueType.getTypeSignature()), Slice.class);
         this.keyType = keyType;
         this.valueType = valueType;
     }

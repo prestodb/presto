@@ -13,39 +13,32 @@
  */
 package com.facebook.presto.orc.json;
 
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.google.common.base.Objects;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.orc.OrcCorruptionException.verifyFormat;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
 import static com.facebook.presto.orc.reader.TimestampStreamReader.decodeTimestamp;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TimestampJsonReader
         implements JsonMapKeyReader
 {
-    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
-
     private final StreamDescriptor streamDescriptor;
-    private final boolean writeStackType;
-
-    private final DateTimeFormatter timestampFormatter;
 
     private final long baseTimestampInSeconds;
 
@@ -58,11 +51,9 @@ public class TimestampJsonReader
     @Nullable
     private LongStream nanosStream;
 
-    public TimestampJsonReader(StreamDescriptor streamDescriptor, boolean writeStackType, DateTimeZone hiveStorageTimeZone, DateTimeZone sessionTimeZone)
+    public TimestampJsonReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
-        this.writeStackType = writeStackType;
-        this.timestampFormatter = TIMESTAMP_FORMATTER.withZone(sessionTimeZone);
         this.baseTimestampInSeconds = new DateTime(2015, 1, 1, 0, 0, checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null")).getMillis() / 1000;
     }
 
@@ -75,17 +66,15 @@ public class TimestampJsonReader
             return;
         }
 
-        verifyFormat(secondsStream != null, "Value is not null but seconds stream is not present");
-        verifyFormat(nanosStream != null, "Value is not null but nanos stream is not present");
+        if (secondsStream == null) {
+            throw new OrcCorruptionException("Value is not null but seconds stream is not present");
+        }
+        if (nanosStream == null) {
+            throw new OrcCorruptionException("Value is not null but nanos stream is not present");
+        }
 
         long timestamp = decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds);
-        if (writeStackType) {
-            generator.writeNumber(timestamp);
-        }
-        else {
-            String formattedTimestamp = timestampFormatter.print(timestamp);
-            generator.writeString(formattedTimestamp);
-        }
+        generator.writeNumber(timestamp);
     }
 
     @Override
@@ -96,14 +85,15 @@ public class TimestampJsonReader
             return null;
         }
 
-        verifyFormat(secondsStream != null, "Value is not null but seconds stream is not present");
-        verifyFormat(nanosStream != null, "Value is not null but nanos stream is not present");
+        if (secondsStream == null) {
+            throw new OrcCorruptionException("Value is not null but seconds stream is not present");
+        }
+        if (nanosStream == null) {
+            throw new OrcCorruptionException("Value is not null but nanos stream is not present");
+        }
 
         long timestamp = decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds);
-        if (writeStackType) {
-            return String.valueOf(timestamp);
-        }
-        return timestampFormatter.print(timestamp);
+        return String.valueOf(timestamp);
     }
 
     @Override
@@ -119,8 +109,12 @@ public class TimestampJsonReader
             return;
         }
 
-        verifyFormat(secondsStream != null, "Value is not null but seconds stream is not present");
-        verifyFormat(nanosStream != null, "Value is not null but nanos stream is not present");
+        if (secondsStream == null) {
+            throw new OrcCorruptionException("Value is not null but seconds stream is not present");
+        }
+        if (nanosStream == null) {
+            throw new OrcCorruptionException("Value is not null but nanos stream is not present");
+        }
 
         // skip non-null values
         secondsStream.skip(skipSize);
@@ -148,7 +142,7 @@ public class TimestampJsonReader
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
     }

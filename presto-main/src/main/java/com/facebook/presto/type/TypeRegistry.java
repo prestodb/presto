@@ -23,6 +23,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -47,6 +48,7 @@ import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.MapParametricType.MAP;
 import static com.facebook.presto.type.RegexpType.REGEXP;
+import static com.facebook.presto.type.RowParametricType.ROW;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -91,6 +93,7 @@ public final class TypeRegistry
         addType(JSON_PATH);
         addType(COLOR);
         addType(JSON);
+        addParametricType(ROW);
         addParametricType(ARRAY);
         addParametricType(MAP);
 
@@ -104,35 +107,31 @@ public final class TypeRegistry
     {
         Type type = types.get(signature);
         if (type == null) {
-            instantiateParametricType(signature);
-            return types.get(signature);
+            return instantiateParametricType(signature);
         }
         return type;
     }
 
     @Override
-    public Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters)
+    public Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters, List<Object> literalParameters)
     {
-        return getType(new TypeSignature(baseTypeName, typeParameters));
+        return getType(new TypeSignature(baseTypeName, typeParameters, literalParameters));
     }
 
-    private synchronized void instantiateParametricType(TypeSignature signature)
+    private Type instantiateParametricType(TypeSignature signature)
     {
-        if (types.containsKey(signature)) {
-            return;
-        }
         ImmutableList.Builder<Type> parameterTypes = ImmutableList.builder();
         for (TypeSignature parameter : signature.getParameters()) {
             parameterTypes.add(getType(parameter));
         }
 
-        ParametricType parametricType = parametricTypes.get(signature.getBase());
+        ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
         if (parametricType == null) {
-            return;
+            return null;
         }
-        Type instantiatedType = parametricType.createType(parameterTypes.build());
+        Type instantiatedType = parametricType.createType(parameterTypes.build(), signature.getLiteralParameters());
         checkState(instantiatedType.getTypeSignature().equals(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
-        addType(instantiatedType);
+        return instantiatedType;
     }
 
     @Override
@@ -150,9 +149,9 @@ public final class TypeRegistry
 
     public void addParametricType(ParametricType parametricType)
     {
-        checkArgument(!parametricTypes.containsKey(parametricType.getName()),
-                "Parametric type already registered: %s", parametricType.getName());
-        parametricTypes.putIfAbsent(parametricType.getName(), parametricType);
+        String name = parametricType.getName().toLowerCase(Locale.ENGLISH);
+        checkArgument(!parametricTypes.containsKey(name), "Parametric type already registered: %s", name);
+        parametricTypes.putIfAbsent(name, parametricType);
     }
 
     public static void verifyTypeClass(Type type)

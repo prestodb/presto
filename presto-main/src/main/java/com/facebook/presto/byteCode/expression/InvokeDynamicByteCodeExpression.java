@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import java.lang.reflect.Method;
 import java.util.List;
 
-import static com.facebook.presto.byteCode.expression.ConstantByteCodeExpression.constantRenderer;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 
@@ -75,7 +74,7 @@ class InvokeDynamicByteCodeExpression
         StringBuilder builder = new StringBuilder();
         builder.append("[").append(bootstrapMethod.getName());
         if (!bootstrapArgs.isEmpty()) {
-            builder.append("(").append(Joiner.on(", ").join(transform(bootstrapArgs, constantRenderer()))).append(")");
+            builder.append("(").append(Joiner.on(", ").join(transform(bootstrapArgs, ConstantByteCodeExpression::renderConstant))).append(")");
         }
         builder.append("]=>");
 

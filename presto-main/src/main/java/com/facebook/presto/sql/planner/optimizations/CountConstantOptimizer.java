@@ -22,7 +22,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -55,15 +54,15 @@ public class CountConstantOptimizer
     }
 
     private static class Rewriter
-            extends PlanNodeRewriter<Void>
+            extends PlanRewriter<Void>
     {
         @Override
-        public PlanNode rewriteAggregation(AggregationNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode visitAggregation(AggregationNode node, RewriteContext<Void> context)
         {
             Map<Symbol, FunctionCall> aggregations = new LinkedHashMap<>(node.getAggregations());
             Map<Symbol, Signature> functions = new LinkedHashMap<>(node.getFunctions());
 
-            PlanNode source = planRewriter.rewrite(node.getSource(), context);
+            PlanNode source = context.rewrite(node.getSource());
             if (source instanceof ProjectNode) {
                 ProjectNode projectNode = (ProjectNode) source;
                 for (Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
@@ -85,7 +84,9 @@ public class CountConstantOptimizer
                     functions,
                     node.getMasks(),
                     node.getStep(),
-                    node.getSampleWeight(), node.getConfidence());
+                    node.getSampleWeight(),
+                    node.getConfidence(),
+                    node.getHashSymbol());
         }
 
         public static boolean isCountConstant(ProjectNode projectNode, FunctionCall functionCall, Signature signature)
@@ -105,7 +106,7 @@ public class CountConstantOptimizer
                 QualifiedNameReference qualifiedNameReference = (QualifiedNameReference) argument;
                 QualifiedName qualifiedName = qualifiedNameReference.getName();
                 Symbol argumentSymbol = Symbol.fromQualifiedName(qualifiedName);
-                Expression argumentExpression = projectNode.getOutputMap().get(argumentSymbol);
+                Expression argumentExpression = projectNode.getAssignments().get(argumentSymbol);
                 return (argumentExpression instanceof Literal) && (!(argumentExpression instanceof NullLiteral));
             }
 

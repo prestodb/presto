@@ -145,7 +145,7 @@ public class ClassDefinition
     {
         // Generic signature if super class or any interface is generic
         String signature = null;
-        if (superClass.isGeneric() || any(interfaces, ParameterizedType.isGenericType())) {
+        if (superClass.isGeneric() || any(interfaces, ParameterizedType::isGeneric)) {
             signature = genericClassSignature(superClass, interfaces);
         }
 

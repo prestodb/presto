@@ -13,15 +13,13 @@
  */
 package com.facebook.presto.orc.json;
 
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.google.common.base.Objects;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 
 import javax.annotation.Nullable;
 
@@ -29,19 +27,17 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.orc.OrcCorruptionException.verifyFormat;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class DateJsonReader
         implements JsonMapKeyReader
 {
     private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
-    private static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date().withZoneUTC();
 
     private final StreamDescriptor streamDescriptor;
-    private final boolean writeStackType;
 
     @Nullable
     private BooleanStream presentStream;
@@ -49,10 +45,9 @@ public class DateJsonReader
     @Nullable
     private LongStream dataStream;
 
-    public DateJsonReader(StreamDescriptor streamDescriptor, boolean writeStackType)
+    public DateJsonReader(StreamDescriptor streamDescriptor)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
-        this.writeStackType = writeStackType;
     }
 
     @Override
@@ -64,15 +59,12 @@ public class DateJsonReader
             return;
         }
 
-        verifyFormat(dataStream != null, "Value is not null but data stream is not present");
+        if (dataStream == null) {
+            throw new OrcCorruptionException("Value is not null but data stream is not present");
+        }
 
-        long millis = dataStream.next() * MILLIS_IN_DAY;
-        if (writeStackType) {
-            generator.writeNumber(millis);
-        }
-        else {
-            generator.writeString(DATE_FORMATTER.print(millis));
-        }
+        long days = dataStream.next();
+        generator.writeNumber(days);
     }
 
     @Override
@@ -83,15 +75,12 @@ public class DateJsonReader
             return null;
         }
 
-        verifyFormat(dataStream != null, "Value is not null but data stream is not present");
+        if (dataStream == null) {
+            throw new OrcCorruptionException("Value is not null but data stream is not present");
+        }
 
-        long millis = dataStream.next() * MILLIS_IN_DAY;
-        if (writeStackType) {
-            return String.valueOf(millis);
-        }
-        else {
-            return DATE_FORMATTER.print(millis);
-        }
+        long days = dataStream.next();
+        return String.valueOf(days);
     }
 
     @Override
@@ -107,7 +96,9 @@ public class DateJsonReader
             return;
         }
 
-        verifyFormat(dataStream != null, "Value is not null but data stream is not present");
+        if (dataStream == null) {
+            throw new OrcCorruptionException("Value is not null but data stream is not present");
+        }
 
         // skip non-null values
         dataStream.skip(skipSize);
@@ -132,7 +123,7 @@ public class DateJsonReader
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
     }

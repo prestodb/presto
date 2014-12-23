@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
@@ -28,7 +27,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.checkCondition;
 
 public class LagFunction
-        implements WindowFunction
+        extends ValueWindowFunction
 {
     public static class BigintLagFunction
             extends LagFunction
@@ -71,27 +70,12 @@ public class LagFunction
     private final int offsetChannel;
     private final int defaultChannel;
 
-    private int partitionStartPosition;
-    private int partitionRowCount;
-    private int currentPosition = -1;
-    private PagesIndex pagesIndex;
-
     protected LagFunction(Type type, List<Integer> argumentChannels)
     {
         this.type = type;
         this.valueChannel = argumentChannels.get(0);
-        if (argumentChannels.size() > 1) {
-            this.offsetChannel = argumentChannels.get(1);
-        }
-        else {
-            this.offsetChannel = -1;
-        }
-        if (argumentChannels.size() > 2) {
-            this.defaultChannel = argumentChannels.get(2);
-        }
-        else {
-            this.defaultChannel = -1;
-        }
+        this.offsetChannel = (argumentChannels.size() > 1) ? argumentChannels.get(1) : -1;
+        this.defaultChannel = (argumentChannels.size() > 2) ? argumentChannels.get(2) : -1;
     }
 
     @Override
@@ -101,35 +85,25 @@ public class LagFunction
     }
 
     @Override
-    public void reset(int partitionRowCount, PagesIndex pagesIndex)
+    public void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition)
     {
-        this.pagesIndex = pagesIndex;
-        this.partitionStartPosition += this.partitionRowCount;
-        // start before the first row of the partition
-        this.currentPosition = partitionStartPosition - 1;
-
-        this.partitionRowCount = partitionRowCount;
-    }
-
-    @Override
-    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
-    {
-        currentPosition++;
-
-        int offset = offsetChannel < 0 ? 1 : Ints.checkedCast(pagesIndex.getLong(offsetChannel, currentPosition));
-        checkCondition(offset >= 0, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 0");
-
-        int valuePosition = currentPosition - offset;
-
-        if (valuePosition >= partitionStartPosition) {
-            pagesIndex.appendTo(valueChannel, valuePosition, output);
+        if ((offsetChannel >= 0) && windowIndex.isNull(offsetChannel, currentPosition)) {
+            output.appendNull();
         }
         else {
-            if (defaultChannel < 0) {
-                output.appendNull();
+            long offset = (offsetChannel < 0) ? 1 : windowIndex.getLong(offsetChannel, currentPosition);
+            checkCondition(offset >= 0, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 0");
+
+            long valuePosition = currentPosition - offset;
+
+            if ((valuePosition >= 0) && (valuePosition <= currentPosition)) {
+                windowIndex.appendTo(valueChannel, Ints.checkedCast(valuePosition), output);
+            }
+            else if (defaultChannel >= 0) {
+                windowIndex.appendTo(defaultChannel, currentPosition, output);
             }
             else {
-                pagesIndex.appendTo(defaultChannel, currentPosition, output);
+                output.appendNull();
             }
         }
     }

@@ -18,7 +18,6 @@ import com.facebook.hive.orc.OrcProto.ColumnEncoding.Kind;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
@@ -32,6 +31,7 @@ import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
 public class DwrfMetadataReader
         implements MetadataReader
@@ -69,19 +69,12 @@ public class DwrfMetadataReader
                 footer.getRowIndexStride(),
                 toStripeInformation(footer.getStripesList()),
                 toType(footer.getTypesList()),
-                toColumnStatistics(footer.getStatisticsList()));
+                toColumnStatistics(footer.getStatisticsList(), false));
     }
 
     private static List<StripeInformation> toStripeInformation(List<OrcProto.StripeInformation> types)
     {
-        return ImmutableList.copyOf(Iterables.transform(types, new Function<OrcProto.StripeInformation, StripeInformation>()
-        {
-            @Override
-            public StripeInformation apply(OrcProto.StripeInformation type)
-            {
-                return toStripeInformation(type);
-            }
-        }));
+        return ImmutableList.copyOf(Iterables.transform(types, DwrfMetadataReader::toStripeInformation));
     }
 
     private static StripeInformation toStripeInformation(OrcProto.StripeInformation stripeInformation)
@@ -110,14 +103,7 @@ public class DwrfMetadataReader
 
     private static List<Stream> toStream(List<OrcProto.Stream> streams)
     {
-        return ImmutableList.copyOf(Iterables.transform(streams, new Function<OrcProto.Stream, Stream>()
-        {
-            @Override
-            public Stream apply(OrcProto.Stream stream)
-            {
-                return toStream(stream);
-            }
-        }));
+        return ImmutableList.copyOf(Iterables.transform(streams, DwrfMetadataReader::toStream));
     }
 
     private static ColumnEncoding toColumnEncoding(OrcTypeKind type, OrcProto.ColumnEncoding columnEncoding)
@@ -143,54 +129,58 @@ public class DwrfMetadataReader
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         OrcProto.RowIndex rowIndex = OrcProto.RowIndex.parseFrom(input);
-        return ImmutableList.copyOf(Iterables.transform(rowIndex.getEntryList(), new Function<OrcProto.RowIndexEntry, RowGroupIndex>()
-        {
-            @Override
-            public RowGroupIndex apply(OrcProto.RowIndexEntry rowIndexEntry)
-            {
-                return toRowGroupIndex(rowIndexEntry);
-            }
-        }));
+        return ImmutableList.copyOf(Iterables.transform(rowIndex.getEntryList(), DwrfMetadataReader::toRowGroupIndex));
     }
 
     private static RowGroupIndex toRowGroupIndex(OrcProto.RowIndexEntry rowIndexEntry)
     {
-        return new RowGroupIndex(rowIndexEntry.getPositionsList(), toColumnStatistics(rowIndexEntry.getStatistics()));
+        List<Long> positionsList = rowIndexEntry.getPositionsList();
+        ImmutableList.Builder<Integer> positions = ImmutableList.builder();
+        for (int index = 0; index < positionsList.size(); index++) {
+            long longPosition = positionsList.get(index);
+            int intPosition = (int) longPosition;
+
+            checkState(intPosition == longPosition, "Expected checkpoint position %s, to be an integer", index);
+
+            positions.add(intPosition);
+        }
+        return new RowGroupIndex(positions.build(), toColumnStatistics(rowIndexEntry.getStatistics(), true));
     }
 
-    private static List<ColumnStatistics> toColumnStatistics(List<OrcProto.ColumnStatistics> columnStatistics)
+    private static List<ColumnStatistics> toColumnStatistics(List<OrcProto.ColumnStatistics> columnStatistics, final boolean isRowGroup)
     {
         if (columnStatistics == null) {
             return ImmutableList.of();
         }
-        return ImmutableList.copyOf(Iterables.transform(columnStatistics, new Function<OrcProto.ColumnStatistics, ColumnStatistics>()
-        {
-            @Override
-            public ColumnStatistics apply(OrcProto.ColumnStatistics columnStatistics)
-            {
-                return toColumnStatistics(columnStatistics);
-            }
-        }));
+        return ImmutableList.copyOf(Iterables.transform(columnStatistics, statistics -> toColumnStatistics(statistics, isRowGroup)));
     }
 
-    private static ColumnStatistics toColumnStatistics(OrcProto.ColumnStatistics statistics)
+    private static ColumnStatistics toColumnStatistics(OrcProto.ColumnStatistics statistics, boolean isRowGroup)
     {
         return new ColumnStatistics(
                 statistics.getNumberOfValues(),
-                toBucketStatistics(statistics.getBucketStatistics()),
+                toBooleanStatistics(statistics.getBucketStatistics()),
                 toIntegerStatistics(statistics.getIntStatistics()),
                 toDoubleStatistics(statistics.getDoubleStatistics()),
-                toStringStatistics(statistics.getStringStatistics()),
-                new DateStatistics(null, null));
+                toStringStatistics(statistics.getStringStatistics(), isRowGroup),
+                null);
     }
 
-    private static BucketStatistics toBucketStatistics(OrcProto.BucketStatistics bucketStatistics)
+    private static BooleanStatistics toBooleanStatistics(OrcProto.BucketStatistics bucketStatistics)
     {
-        return new BucketStatistics(bucketStatistics.getCountList());
+        if (bucketStatistics.getCountCount() == 0) {
+            return null;
+        }
+
+        return new BooleanStatistics(bucketStatistics.getCount(0));
     }
 
     private static IntegerStatistics toIntegerStatistics(OrcProto.IntegerStatistics integerStatistics)
     {
+        if (!integerStatistics.hasMinimum() && !integerStatistics.hasMaximum()) {
+            return null;
+        }
+
         return new IntegerStatistics(
                 integerStatistics.hasMinimum() ? integerStatistics.getMinimum() : null,
                 integerStatistics.hasMaximum() ? integerStatistics.getMaximum() : null);
@@ -198,13 +188,39 @@ public class DwrfMetadataReader
 
     private static DoubleStatistics toDoubleStatistics(OrcProto.DoubleStatistics doubleStatistics)
     {
+        if (!doubleStatistics.hasMinimum() && !doubleStatistics.hasMaximum()) {
+            return null;
+        }
+
+        // TODO remove this when double statistics are changed to correctly deal with NaNs
+        // if either min or max is NaN, ignore the stat
+        if ((doubleStatistics.hasMinimum() && Double.isNaN(doubleStatistics.getMinimum())) ||
+                (doubleStatistics.hasMaximum() && Double.isNaN(doubleStatistics.getMaximum()))) {
+            return null;
+        }
+
         return new DoubleStatistics(
                 doubleStatistics.hasMinimum() ? doubleStatistics.getMinimum() : null,
                 doubleStatistics.hasMaximum() ? doubleStatistics.getMaximum() : null);
     }
 
-    private static StringStatistics toStringStatistics(OrcProto.StringStatistics stringStatistics)
+    private static StringStatistics toStringStatistics(OrcProto.StringStatistics stringStatistics, boolean isRowGroup)
     {
+        // TODO remove this when string statistics in ORC are fixed https://issues.apache.org/jira/browse/HIVE-8732
+        if (!isRowGroup) {
+            return null;
+        }
+
+        if (!stringStatistics.hasMinimum() && !stringStatistics.hasMaximum()) {
+            return null;
+        }
+
+        // temporarily disable string statistics until we figure out the implications of how UTF-16
+        // strings are compared when they contain surrogate pairs and replacement characters
+        if (true) {
+            return null;
+        }
+
         return new StringStatistics(
                 stringStatistics.hasMinimum() ? stringStatistics.getMinimum() : null,
                 stringStatistics.hasMaximum() ? stringStatistics.getMaximum() : null);
@@ -217,14 +233,7 @@ public class DwrfMetadataReader
 
     private static List<OrcType> toType(List<OrcProto.Type> types)
     {
-        return ImmutableList.copyOf(Iterables.transform(types, new Function<OrcProto.Type, OrcType>()
-        {
-            @Override
-            public OrcType apply(OrcProto.Type type)
-            {
-                return toType(type);
-            }
-        }));
+        return ImmutableList.copyOf(Iterables.transform(types, DwrfMetadataReader::toType));
     }
 
     private static OrcTypeKind toTypeKind(OrcProto.Type.Kind kind)

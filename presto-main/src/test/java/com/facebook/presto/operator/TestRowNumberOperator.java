@@ -20,28 +20,29 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Function;
-import com.google.common.base.Optional;
+import com.facebook.presto.RowPagesBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
-import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -63,6 +64,12 @@ public class TestRowNumberOperator
     public void tearDown()
     {
         executor.shutdownNow();
+    }
+
+    @DataProvider(name = "hashEnabledValues")
+    public static Object[][] hashEnabledValuesProvider()
+    {
+        return new Object[][] { { true }, { false } };
     }
 
     private DriverContext getDriverContext()
@@ -98,7 +105,8 @@ public class TestRowNumberOperator
                 Ints.asList(1, 0),
                 Ints.asList(),
                 ImmutableList.<Type>of(),
-                Optional.<Integer>absent(),
+                Optional.empty(),
+                Optional.empty(),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -125,12 +133,13 @@ public class TestRowNumberOperator
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expectedResult.getMaterializedRows());
     }
 
-    @Test
-    public void testRowNumberPartitioned()
+    @Test(dataProvider = "hashEnabledValues")
+    public void testRowNumberPartitioned(boolean hashEnabled)
             throws Exception
     {
         DriverContext driverContext = getDriverContext();
-        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT, DOUBLE);
+        List<Page> input = rowPagesBuilder
                 .row(1, 0.3)
                 .row(2, 0.2)
                 .row(3, 0.1)
@@ -152,6 +161,7 @@ public class TestRowNumberOperator
                 Ints.asList(0),
                 ImmutableList.of(BIGINT),
                 Optional.of(10),
+                rowPagesBuilder.getHashChannel(),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -190,12 +200,13 @@ public class TestRowNumberOperator
         assertEquals(Sets.intersection(expectedPartition3Set, actualSet).size(), 2);
     }
 
-    @Test
-    public void testRowNumberPartitionedLimit()
+    @Test(dataProvider = "hashEnabledValues")
+    public void testRowNumberPartitionedLimit(boolean hashEnabled)
             throws Exception
     {
         DriverContext driverContext = getDriverContext();
-        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT, DOUBLE);
+        List<Page> input = rowPagesBuilder
                 .row(1, 0.3)
                 .row(2, 0.2)
                 .row(3, 0.1)
@@ -217,6 +228,7 @@ public class TestRowNumberOperator
                 Ints.asList(0),
                 ImmutableList.of(BIGINT),
                 Optional.of(3),
+                Optional.empty(),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -286,6 +298,7 @@ public class TestRowNumberOperator
                 Ints.asList(),
                 ImmutableList.<Type>of(),
                 Optional.of(3),
+                Optional.empty(),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -329,14 +342,11 @@ public class TestRowNumberOperator
 
     private static List<Page> stripRowNumberColumn(List<Page> input)
     {
-        return IterableTransformer.on(input).transform(new Function<Page, Page>()
-        {
-            @Override
-            public Page apply(Page page)
-            {
-                Block[] blocks = Arrays.copyOf(page.getBlocks(), page.getChannelCount() - 1);
-                return new Page(blocks);
-            }
-        }).list();
+        return input.stream()
+                .map(page -> {
+                    Block[] blocks = Arrays.copyOf(page.getBlocks(), page.getChannelCount() - 1);
+                    return new Page(blocks);
+                })
+                .collect(toImmutableList());
     }
 }

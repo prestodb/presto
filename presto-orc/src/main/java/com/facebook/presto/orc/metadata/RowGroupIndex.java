@@ -21,16 +21,16 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class RowGroupIndex
 {
-    private final List<Long> positions;
+    private final List<Integer> positions;
     private final ColumnStatistics statistics;
 
-    public RowGroupIndex(List<Long> positions, ColumnStatistics statistics)
+    public RowGroupIndex(List<Integer> positions, ColumnStatistics statistics)
     {
         this.positions = ImmutableList.copyOf(checkNotNull(positions, "positions is null"));
         this.statistics = checkNotNull(statistics, "statistics is null");
     }
 
-    public List<Long> getPositions()
+    public List<Integer> getPositions()
     {
         return positions;
     }

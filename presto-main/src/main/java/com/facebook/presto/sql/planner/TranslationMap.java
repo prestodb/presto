@@ -13,20 +13,24 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static com.facebook.presto.metadata.FunctionRegistry.mangleFieldAccessor;
 
 /**
  * Keeps track of fields and expressions and their mapping to symbols in the current plan
@@ -193,6 +197,11 @@ class TranslationMap
                 Preconditions.checkState(symbol != null, "No symbol mapping for name '%s' (%s)", name, fieldIndex);
 
                 Expression rewrittenExpression = new QualifiedNameReference(symbol.toQualifiedName());
+
+                if (analysis.isRowFieldAccessor(node)) {
+                    QualifiedName mangledName = QualifiedName.of(mangleFieldAccessor(node.getName().getSuffix()));
+                    rewrittenExpression = new FunctionCall(mangledName, ImmutableList.of(rewrittenExpression));
+                }
 
                 // cast expression if coercion is registered
                 Type coercion = analysis.getCoercion(node);

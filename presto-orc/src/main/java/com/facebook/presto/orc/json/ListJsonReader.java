@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.orc.json;
 
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.google.common.base.Objects;
 import com.google.common.primitives.Ints;
 import org.joda.time.DateTimeZone;
 
@@ -28,10 +28,10 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.orc.OrcCorruptionException.verifyFormat;
 import static com.facebook.presto.orc.json.JsonReaders.createJsonReader;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ListJsonReader
@@ -48,12 +48,12 @@ public class ListJsonReader
     @Nullable
     private LongStream lengthStream;
 
-    public ListJsonReader(StreamDescriptor streamDescriptor, boolean writeStackType, boolean checkForNulls, DateTimeZone hiveStorageTimeZone, DateTimeZone sessionTimeZone)
+    public ListJsonReader(StreamDescriptor streamDescriptor, boolean checkForNulls, DateTimeZone hiveStorageTimeZone)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
         this.checkForNulls = checkForNulls;
 
-        elementReader = createJsonReader(streamDescriptor.getNestedStreams().get(0), true, writeStackType, hiveStorageTimeZone, sessionTimeZone);
+        elementReader = createJsonReader(streamDescriptor.getNestedStreams().get(0), true, hiveStorageTimeZone);
     }
 
     @Override
@@ -65,7 +65,9 @@ public class ListJsonReader
             return;
         }
 
-        verifyFormat(lengthStream != null, "Value is not null but length stream is not present");
+        if (lengthStream == null) {
+            throw new OrcCorruptionException("Value is not null but length stream is not present");
+        }
 
         long length = lengthStream.next();
         generator.writeStartArray();
@@ -88,7 +90,9 @@ public class ListJsonReader
             return;
         }
 
-        verifyFormat(lengthStream != null, "Value is not null but length stream is not present");
+        if (lengthStream == null) {
+            throw new OrcCorruptionException("Value is not null but length stream is not present");
+        }
 
         long elementSkipSize = lengthStream.sum(skipSize);
         elementReader.skip(Ints.checkedCast(elementSkipSize));
@@ -119,7 +123,7 @@ public class ListJsonReader
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
     }

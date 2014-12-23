@@ -13,23 +13,40 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
+import com.facebook.presto.orc.checkpoint.RowGroupDictionaryLengthStreamCheckpoint;
+
 import java.io.IOException;
-import java.io.InputStream;
+
+import static com.facebook.presto.orc.stream.OrcStreamUtils.checkType;
 
 public class RowGroupDictionaryLengthStream
         extends LongStreamV1
 {
-    private final int entryCount;
+    private int entryCount = -1;
 
-    public RowGroupDictionaryLengthStream(InputStream input, boolean signed, int entryCount)
-            throws IOException
+    public RowGroupDictionaryLengthStream(OrcInputStream input, boolean signed)
     {
         super(input, signed);
-        this.entryCount = entryCount;
     }
 
     public int getEntryCount()
     {
         return entryCount;
+    }
+
+    @Override
+    public Class<RowGroupDictionaryLengthStreamCheckpoint> getCheckpointType()
+    {
+        return RowGroupDictionaryLengthStreamCheckpoint.class;
+    }
+
+    @Override
+    public void seekToCheckpoint(LongStreamCheckpoint checkpoint)
+            throws IOException
+    {
+        super.seekToCheckpoint(checkpoint);
+        RowGroupDictionaryLengthStreamCheckpoint rowGroupDictionaryLengthStreamCheckpoint = checkType(checkpoint, RowGroupDictionaryLengthStreamCheckpoint.class, "Checkpoint");
+        entryCount = rowGroupDictionaryLengthStreamCheckpoint.getRowGroupDictionarySize();
     }
 }

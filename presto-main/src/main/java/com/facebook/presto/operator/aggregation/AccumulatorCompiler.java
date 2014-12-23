@@ -23,17 +23,14 @@ import com.facebook.presto.byteCode.NamedParameterDefinition;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.ForLoop;
 import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.CompilerOperations;
 import com.facebook.presto.sql.gen.SqlTypeByteCodeExpression;
-import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -43,6 +40,8 @@ import javax.annotation.Nullable;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Function;
 
 import static com.facebook.presto.byteCode.Access.FINAL;
 import static com.facebook.presto.byteCode.Access.PRIVATE;
@@ -228,23 +227,24 @@ public class AccumulatorCompiler
             sampleWeightsBlock = context.declareVariable(com.facebook.presto.spi.block.Block.class, "sampleWeightsBlock");
         }
 
-        body.comment("masksBlock = maskChannel.transform(page.blockGetter()).orNull();")
+        body.comment("masksBlock = maskChannel.map(page.blockGetter()).orElse(null);")
                 .pushThis()
                 .getField(maskChannelField)
                 .getVariable("page")
                 .invokeStatic(type(AggregationUtils.class), "pageBlockGetter", type(Function.class, Integer.class, com.facebook.presto.spi.block.Block.class), type(Page.class))
-                .invokeVirtual(Optional.class, "transform", Optional.class, Function.class)
-                .invokeVirtual(Optional.class, "orNull", Object.class)
+                .invokeVirtual(Optional.class, "map", Optional.class, Function.class)
+                .pushNull()
+                .invokeVirtual(Optional.class, "orElse", Object.class, Object.class)
                 .checkCast(com.facebook.presto.spi.block.Block.class)
                 .putVariable(masksBlock);
 
         if (sampleWeightChannelField != null) {
-            body.comment("sampleWeightsBlock = sampleWeightChannel.transform(page.blockGetter()).get();")
+            body.comment("sampleWeightsBlock = sampleWeightChannel.map(page.blockGetter()).get();")
                     .pushThis()
                     .getField(sampleWeightChannelField)
                     .getVariable("page")
                     .invokeStatic(type(AggregationUtils.class), "pageBlockGetter", type(Function.class, Integer.class, com.facebook.presto.spi.block.Block.class), type(Page.class))
-                    .invokeVirtual(Optional.class, "transform", Optional.class, Function.class)
+                    .invokeVirtual(Optional.class, "map", Optional.class, Function.class)
                     .invokeVirtual(Optional.class, "get", Object.class)
                     .checkCast(com.facebook.presto.spi.block.Block.class)
                     .putVariable(sampleWeightsBlock);
@@ -643,36 +643,21 @@ public class AccumulatorCompiler
     private static void generateEvaluateIntermediate(ClassDefinition definition, MethodDefinition getIntermediateType, FieldDefinition stateSerializerField, FieldDefinition stateField)
     {
         CompilerContext context = new CompilerContext();
-        Block body = definition.declareMethod(
+        definition.declareMethod(
                 context,
                 a(PUBLIC),
                 "evaluateIntermediate",
-                type(com.facebook.presto.spi.block.Block.class))
-                .getBody();
-
-        context.declareVariable(BlockBuilder.class, "out");
-
-        body.comment("out = getIntermediateType().createBlockBuilder(new BlockBuilderStatus());")
-                .pushThis()
-                .invokeVirtual(getIntermediateType)
-                .newObject(BlockBuilderStatus.class)
-                .dup()
-                .invokeConstructor(BlockBuilderStatus.class)
-                .invokeInterface(Type.class, "createBlockBuilder", BlockBuilder.class, BlockBuilderStatus.class)
-                .putVariable("out");
-
-        body.comment("stateSerializer.serialize(state, out)")
+                type(void.class),
+                arg("out", BlockBuilder.class))
+                .getBody()
+                .comment("stateSerializer.serialize(state, out)")
                 .pushThis()
                 .getField(stateSerializerField)
                 .pushThis()
                 .getField(stateField)
                 .getVariable("out")
-                .invokeInterface(AccumulatorStateSerializer.class, "serialize", void.class, Object.class, BlockBuilder.class);
-
-        body.comment("return out.build();")
-                .getVariable("out")
-                .invokeInterface(BlockBuilder.class, "build", com.facebook.presto.spi.block.Block.class)
-                .retObject();
+                .invokeInterface(AccumulatorStateSerializer.class, "serialize", void.class, Object.class, BlockBuilder.class)
+                .ret();
     }
 
     private static void generateGroupedEvaluateFinal(
@@ -731,23 +716,12 @@ public class AccumulatorCompiler
             Method outputFunction,
             boolean approximate)
     {
-        CompilerContext context = new CompilerContext();
         Block body = definition.declareMethod(
-                context,
                 a(PUBLIC),
                 "evaluateFinal",
-                type(com.facebook.presto.spi.block.Block.class))
+                type(void.class),
+                arg("out", BlockBuilder.class))
                 .getBody();
-
-        context.declareVariable(BlockBuilder.class, "out");
-
-        body.pushThis()
-                .invokeVirtual(getFinalType)
-                .newObject(BlockBuilderStatus.class)
-                .dup()
-                .invokeConstructor(BlockBuilderStatus.class)
-                .invokeInterface(Type.class, "createBlockBuilder", BlockBuilder.class, BlockBuilderStatus.class)
-                .putVariable("out");
 
         if (outputFunction != null) {
             body.comment("output(state, out)")
@@ -771,9 +745,7 @@ public class AccumulatorCompiler
                     .invokeInterface(AccumulatorStateSerializer.class, "serialize", void.class, Object.class, BlockBuilder.class);
         }
 
-        body.getVariable("out")
-                .invokeInterface(BlockBuilder.class, "build", com.facebook.presto.spi.block.Block.class)
-                .retObject();
+        body.ret();
     }
 
     private static void generateConstructor(

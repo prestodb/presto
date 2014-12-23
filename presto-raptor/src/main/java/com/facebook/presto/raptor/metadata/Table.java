@@ -20,6 +20,8 @@ import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public final class Table
 {
     private final long tableId;
@@ -56,7 +58,7 @@ public final class Table
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("tableId", tableId)
                 .toString();
     }

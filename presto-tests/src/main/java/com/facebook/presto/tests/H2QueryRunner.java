@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
@@ -28,6 +29,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.intellij.lang.annotations.Language;
+import org.joda.time.DateTimeZone;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.PreparedBatch;
@@ -42,6 +44,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -55,6 +58,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
@@ -76,7 +80,7 @@ public class H2QueryRunner
                 "  custkey BIGINT NOT NULL,\n" +
                 "  orderstatus CHAR(1) NOT NULL,\n" +
                 "  totalprice DOUBLE NOT NULL,\n" +
-                "  orderdate CHAR(10) NOT NULL,\n" +
+                "  orderdate DATE NOT NULL,\n" +
                 "  orderpriority CHAR(15) NOT NULL,\n" +
                 "  clerk CHAR(15) NOT NULL,\n" +
                 "  shippriority BIGINT NOT NULL,\n" +
@@ -97,9 +101,9 @@ public class H2QueryRunner
                 "  tax DOUBLE NOT NULL,\n" +
                 "  returnflag CHAR(1) NOT NULL,\n" +
                 "  linestatus CHAR(1) NOT NULL,\n" +
-                "  shipdate CHAR(10) NOT NULL,\n" +
-                "  commitdate CHAR(10) NOT NULL,\n" +
-                "  receiptdate CHAR(10) NOT NULL,\n" +
+                "  shipdate DATE NOT NULL,\n" +
+                "  commitdate DATE NOT NULL,\n" +
+                "  receiptdate DATE NOT NULL,\n" +
                 "  shipinstruct VARCHAR(25) NOT NULL,\n" +
                 "  shipmode VARCHAR(10) NOT NULL,\n" +
                 "  comment VARCHAR(44) NOT NULL,\n" +
@@ -114,14 +118,19 @@ public class H2QueryRunner
         handle.close();
     }
 
-    public MaterializedResult execute(@Language("SQL") String sql, List<? extends Type> resultTypes)
+    public MaterializedResult execute(Session session, @Language("SQL") String sql, List<? extends Type> resultTypes)
     {
-        return new MaterializedResult(
+        MaterializedResult materializedRows = new MaterializedResult(
                 handle.createQuery(sql)
                         .map(rowMapper(resultTypes))
                         .list(),
                 resultTypes
         );
+
+        // H2 produces dates in the JVM time zone instead of the session timezone
+        materializedRows = materializedRows.toTimeZone(DateTimeZone.getDefault(), getDateTimeZone(session.getTimeZoneKey()));
+
+        return materializedRows;
     }
 
     private static ResultSetMapper<MaterializedRow> rowMapper(final List<? extends Type> types)
@@ -251,6 +260,15 @@ public class H2QueryRunner
                     }
                     else if (VARCHAR.equals(type)) {
                         part.bind(column, cursor.getSlice(column).toStringUtf8());
+                    }
+                    else if (DATE.equals(type)) {
+                        long millisUtc = TimeUnit.DAYS.toMillis(cursor.getLong(column));
+                        // H2 expects dates in to be millis at midnight in the JVM timezone
+                        long localMillis = DateTimeZone.UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millisUtc);
+                        part.bind(column, new Date(localMillis));
+                    }
+                    else {
+                        throw new IllegalArgumentException("Unsupported type " + type);
                     }
                 }
             }

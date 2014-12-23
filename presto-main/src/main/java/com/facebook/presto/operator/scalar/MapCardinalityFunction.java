@@ -14,12 +14,12 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -29,27 +29,16 @@ import java.util.Map;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.invoke.MethodHandles.lookup;
 
 public final class MapCardinalityFunction
         extends ParametricScalar
 {
     public static final MapCardinalityFunction MAP_CARDINALITY = new MapCardinalityFunction();
     private static final Signature SIGNATURE = new Signature("cardinality", ImmutableList.of(typeParameter("K"), typeParameter("V")), "bigint", ImmutableList.of("map<K,V>"), false, false);
-    private static final MethodHandle METHOD_HANDLE;
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapCardinalityFunction.class, "mapCardinality", Slice.class);
     public static final JsonPath JSON_PATH = new JsonPath("$");
-
-    static {
-        MethodHandle result;
-        try {
-            result = lookup().unreflect(MapCardinalityFunction.class.getMethod("mapCardinality", Slice.class));
-        }
-        catch (IllegalAccessException | NoSuchMethodException e) {
-            throw Throwables.propagate(e);
-        }
-        METHOD_HANDLE = result;
-    }
 
     @Override
     public Signature getSignature()
@@ -76,7 +65,7 @@ public final class MapCardinalityFunction
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager)
+    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         checkArgument(arity == 1, "Cardinality expects only one argument");
         Type keyType = types.get("K");

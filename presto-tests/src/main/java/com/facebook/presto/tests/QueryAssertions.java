@@ -47,7 +47,7 @@ public final class QueryAssertions
     }
 
     public static void assertQuery(QueryRunner actualQueryRunner,
-            Session actualSession,
+            Session session,
             @Language("SQL") String actual,
             H2QueryRunner h2QueryRunner,
             @Language("SQL") String expected,
@@ -55,18 +55,22 @@ public final class QueryAssertions
             throws Exception
     {
         long start = System.nanoTime();
-        MaterializedResult actualResults = actualQueryRunner.execute(actualSession, actual).toJdbcTypes();
+        MaterializedResult actualResults = actualQueryRunner.execute(session, actual).toJdbcTypes();
         Duration actualTime = nanosSince(start);
 
         long expectedStart = System.nanoTime();
-        MaterializedResult expectedResults = h2QueryRunner.execute(expected, actualResults.getTypes());
+        MaterializedResult expectedResults = h2QueryRunner.execute(session, expected, actualResults.getTypes());
         log.info("FINISHED in presto: %s, h2: %s, total: %s", actualTime, nanosSince(expectedStart), nanosSince(start));
 
+        List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
+        List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
         if (ensureOrdering) {
-            assertEquals(actualResults.getMaterializedRows(), expectedResults.getMaterializedRows());
+            if (!actualRows.equals(expectedRows)) {
+                assertEquals(actualRows, expectedRows);
+            }
         }
         else {
-            assertEqualsIgnoreOrder(actualResults.getMaterializedRows(), expectedResults.getMaterializedRows());
+            assertEqualsIgnoreOrder(actualRows, expectedRows);
         }
     }
 
@@ -98,7 +102,7 @@ public final class QueryAssertions
         MaterializedResult actualResults = queryRunner.execute(session, actual);
         log.info("FINISHED in %s", nanosSince(start));
 
-        MaterializedResult expectedResults = h2QueryRunner.execute(expected, actualResults.getTypes());
+        MaterializedResult expectedResults = h2QueryRunner.execute(session, expected, actualResults.getTypes());
         assertApproximatelyEqual(actualResults.getMaterializedRows(), expectedResults.getMaterializedRows());
     }
 

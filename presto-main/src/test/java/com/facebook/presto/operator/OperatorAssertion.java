@@ -20,15 +20,16 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -41,21 +42,18 @@ public final class OperatorAssertion
 
     public static List<Page> appendSampleWeight(List<Page> input, final int sampleWeight)
     {
-        return IterableTransformer.on(input).transform(new Function<Page, Page>()
-        {
-            @Override
-            public Page apply(Page page)
-            {
-                BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
-                for (int i = 0; i < page.getPositionCount(); i++) {
-                    BIGINT.writeLong(builder, sampleWeight);
-                }
-                Block[] blocks = new Block[page.getChannelCount() + 1];
-                System.arraycopy(page.getBlocks(), 0, blocks, 0, page.getChannelCount());
-                blocks[blocks.length - 1] = builder.build();
-                return new Page(blocks);
-            }
-        }).list();
+        return input.stream()
+                .map(page -> {
+                    BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
+                    for (int i = 0; i < page.getPositionCount(); i++) {
+                        BIGINT.writeLong(builder, sampleWeight);
+                    }
+                    Block[] blocks = new Block[page.getChannelCount() + 1];
+                    System.arraycopy(page.getBlocks(), 0, blocks, 0, page.getChannelCount());
+                    blocks[blocks.length - 1] = builder.build();
+                    return new Page(blocks);
+                })
+                .collect(toImmutableList());
     }
 
     public static List<Page> toPages(Operator operator, Iterator<Page> input)
@@ -179,17 +177,86 @@ public final class OperatorAssertion
 
     public static void assertOperatorEquals(Operator operator, List<Page> input, MaterializedResult expected)
     {
+        assertOperatorEquals(operator, input, expected, false, ImmutableList.<Integer>of());
+    }
+
+    public static void assertOperatorEquals(Operator operator, List<Page> input, MaterializedResult expected, boolean hashEnabled, List<Integer> hashChannels)
+    {
         List<Page> pages = toPages(operator, input);
-        MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
+        MaterializedResult actual;
+        if (hashEnabled && !hashChannels.isEmpty()) {
+            // Drop the hashChannel for all pages
+            List<Page> actualPages = dropChannel(pages, hashChannels);
+            List<Type> expectedTypes = without(operator.getTypes(), hashChannels);
+            actual = toMaterializedResult(operator.getOperatorContext().getSession(), expectedTypes, actualPages);
+        }
+        else {
+            actual = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
+        }
         assertEquals(actual, expected);
     }
 
     public static void assertOperatorEqualsIgnoreOrder(Operator operator, List<Page> input, MaterializedResult expected)
     {
+        assertOperatorEqualsIgnoreOrder(operator, input, expected, false, Optional.empty());
+    }
+
+    public static void assertOperatorEqualsIgnoreOrder(Operator operator, List<Page> input, MaterializedResult expected, boolean hashEnabled, Optional<Integer> hashChannel)
+    {
         List<Page> pages = toPages(operator, input);
-        MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
+        MaterializedResult actual;
+        if (hashEnabled && hashChannel.isPresent()) {
+            // Drop the hashChannel for all pages
+            List<Page> actualPages = dropChannel(pages, ImmutableList.of(hashChannel.get()));
+            List<Type> expectedTypes = without(operator.getTypes(), ImmutableList.of(hashChannel.get()));
+            actual = toMaterializedResult(operator.getOperatorContext().getSession(), expectedTypes, actualPages);
+        }
+        else {
+            actual = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
+        }
+
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    public static void assertOperatorEqualsIgnoreOrderWithoutHashes(Operator operator, List<Page> input, MaterializedResult expected, List<Integer> hashChannels)
+    {
+        List<Page> pages = toPages(operator, input);
+
+        // Drop the hashChannel for all pages
+        List<Page> actualPages = dropChannel(pages, hashChannels);
+        List<Type> expectedTypes = without(operator.getTypes(), hashChannels);
+
+        MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), expectedTypes, actualPages);
 
         assertEquals(actual.getTypes(), expected.getTypes());
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    static <T> List<T> without(List<T> types, List<Integer> channels)
+    {
+        types = new ArrayList<>(types);
+        int removed = 0;
+        for (int hashChannel : channels) {
+            types.remove(hashChannel - removed);
+            removed++;
+        }
+        return ImmutableList.copyOf(types);
+    }
+
+    static List<Page> dropChannel(List<Page> pages, List<Integer> channels)
+    {
+        List<Page> actualPages = new ArrayList<>();
+        for (Page page : pages) {
+            int channel = 0;
+            Block[] blocks = new Block[page.getChannelCount() - channels.size()];
+            for (int i = 0; i < page.getChannelCount(); i++) {
+                if (channels.contains(i)) {
+                    continue;
+                }
+                blocks[channel++] = page.getBlock(i);
+            }
+            actualPages.add(new Page(blocks));
+        }
+        return actualPages;
     }
 }

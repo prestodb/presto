@@ -19,19 +19,21 @@ import com.facebook.presto.connector.informationSchema.InformationSchemaSplitMan
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
+import com.facebook.presto.split.RecordPageSinkProvider;
 import com.facebook.presto.split.RecordPageSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.google.inject.Inject;
@@ -53,7 +55,7 @@ public class ConnectorManager
     private final PageSourceManager pageSourceManager;
     private final IndexManager indexManager;
 
-    private final RecordSinkManager recordSinkManager;
+    private final PageSinkManager pageSinkManager;
     private final HandleResolver handleResolver;
     private final NodeManager nodeManager;
 
@@ -66,7 +68,7 @@ public class ConnectorManager
             SplitManager splitManager,
             PageSourceManager pageSourceManager,
             IndexManager indexManager,
-            RecordSinkManager recordSinkManager,
+            PageSinkManager pageSinkManager,
             HandleResolver handleResolver,
             Map<String, ConnectorFactory> connectorFactories,
             NodeManager nodeManager)
@@ -75,7 +77,7 @@ public class ConnectorManager
         this.splitManager = splitManager;
         this.pageSourceManager = pageSourceManager;
         this.indexManager = indexManager;
-        this.recordSinkManager = recordSinkManager;
+        this.pageSinkManager = pageSinkManager;
         this.handleResolver = handleResolver;
         this.nodeManager = nodeManager;
         this.connectorFactories.putAll(connectorFactories);
@@ -147,12 +149,23 @@ public class ConnectorManager
         ConnectorHandleResolver connectorHandleResolver = connector.getHandleResolver();
         checkNotNull(connectorHandleResolver, "Connector %s does not have a handle resolver", connectorId);
 
-        ConnectorRecordSinkProvider connectorRecordSinkProvider = null;
+        ConnectorPageSinkProvider connectorPageSinkProvider = null;
         try {
-            connectorRecordSinkProvider = connector.getRecordSinkProvider();
-            checkNotNull(connectorRecordSinkProvider, "Connector %s returned a null record sink provider", connectorId);
+            connectorPageSinkProvider = connector.getPageSinkProvider();
+            checkNotNull(connectorPageSinkProvider, "Connector %s returned a null page sink provider", connectorId);
         }
         catch (UnsupportedOperationException ignored) {
+        }
+
+        if (connectorPageSinkProvider == null) {
+            ConnectorRecordSinkProvider connectorRecordSinkProvider = null;
+            try {
+                connectorRecordSinkProvider = connector.getRecordSinkProvider();
+                checkNotNull(connectorRecordSinkProvider, "Connector %s returned a null record sink provider", connectorId);
+                connectorPageSinkProvider = new RecordPageSinkProvider(connectorRecordSinkProvider);
+            }
+            catch (UnsupportedOperationException ignored) {
+            }
         }
 
         ConnectorIndexResolver indexResolver = null;
@@ -176,8 +189,8 @@ public class ConnectorManager
         handleResolver.addHandleResolver(connectorId, connectorHandleResolver);
         pageSourceManager.addConnectorPageSourceProvider(connectorId, connectorPageSourceProvider);
 
-        if (connectorRecordSinkProvider != null) {
-            recordSinkManager.addConnectorRecordSinkProvider(connectorId, connectorRecordSinkProvider);
+        if (connectorPageSinkProvider != null) {
+            pageSinkManager.addConnectorPageSinkProvider(connectorId, connectorPageSinkProvider);
         }
 
         if (indexResolver != null) {

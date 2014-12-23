@@ -20,7 +20,6 @@ import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.util.MoreFutures;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
 import com.google.common.util.concurrent.Futures;
@@ -48,7 +47,6 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
@@ -56,7 +54,6 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
-import static com.facebook.presto.execution.TaskInfo.summarizeTaskInfo;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
@@ -88,7 +85,7 @@ public class TaskResource
     {
         List<TaskInfo> allTaskInfo = taskManager.getAllTaskInfo();
         if (shouldSummarize(uriInfo)) {
-            allTaskInfo = ImmutableList.copyOf(transform(allTaskInfo, summarizeTaskInfo()));
+            allTaskInfo = ImmutableList.copyOf(transform(allTaskInfo, TaskInfo::summarize));
         }
         return allTaskInfo;
     }
@@ -126,32 +123,22 @@ public class TaskResource
         checkNotNull(taskId, "taskId is null");
 
         if (currentState == null || maxWait == null) {
-            asyncResponse.resume(taskManager.getTaskInfo(taskId));
+            TaskInfo taskInfo = taskManager.getTaskInfo(taskId);
+            if (shouldSummarize(uriInfo)) {
+                taskInfo = taskInfo.summarize();
+            }
+            asyncResponse.resume(taskInfo);
             return;
         }
 
         ListenableFuture<TaskInfo> futureTaskInfo = MoreFutures.addTimeout(
                 taskManager.getTaskInfo(taskId, currentState),
-                new Callable<TaskInfo>()
-                {
-                    @Override
-                    public TaskInfo call()
-                    {
-                        return taskManager.getTaskInfo(taskId);
-                    }
-                },
+                () -> taskManager.getTaskInfo(taskId),
                 maxWait,
                 executor);
 
         if (shouldSummarize(uriInfo)) {
-            futureTaskInfo = Futures.transform(futureTaskInfo, new Function<TaskInfo, TaskInfo>()
-            {
-                @Override
-                public TaskInfo apply(TaskInfo taskInfo)
-                {
-                    return taskInfo.summarize();
-                }
-            });
+            futureTaskInfo = Futures.transform(futureTaskInfo, TaskInfo::summarize);
         }
 
         // For hard timeout, add an additional 5 seconds to max wait for thread scheduling contention and GC
@@ -189,43 +176,31 @@ public class TaskResource
         ListenableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, outputId, token, DEFAULT_MAX_SIZE);
         bufferResultFuture = MoreFutures.addTimeout(
                 bufferResultFuture,
-                new Callable<BufferResult>()
-                {
-                    @Override
-                    public BufferResult call()
-                    {
-                        return BufferResult.emptyResults(token, false);
-                    }
-                },
+                () -> BufferResult.emptyResults(token, false),
                 DEFAULT_MAX_WAIT_TIME,
                 executor);
 
-        ListenableFuture<Response> responseFuture = Futures.transform(bufferResultFuture, new Function<BufferResult, Response>()
-        {
-            @Override
-            public Response apply(BufferResult result)
-            {
-                List<Page> pages = result.getPages();
+        ListenableFuture<Response> responseFuture = Futures.transform(bufferResultFuture, (BufferResult result) -> {
+            List<Page> pages = result.getPages();
 
-                GenericEntity<?> entity = null;
-                Status status;
-                if (!pages.isEmpty()) {
-                    entity = new GenericEntity<>(pages, new TypeToken<List<Page>>() {}.getType());
-                    status = Status.OK;
-                }
-                else if (result.isBufferClosed()) {
-                    status = Status.GONE;
-                }
-                else {
-                    status = Status.NO_CONTENT;
-                }
-
-                return Response.status(status)
-                        .entity(entity)
-                        .header(PRESTO_PAGE_TOKEN, result.getToken())
-                        .header(PRESTO_PAGE_NEXT_TOKEN, result.getNextToken())
-                        .build();
+            GenericEntity<?> entity = null;
+            Status status;
+            if (!pages.isEmpty()) {
+                entity = new GenericEntity<>(pages, new TypeToken<List<Page>>() {}.getType());
+                status = Status.OK;
             }
+            else if (result.isBufferClosed()) {
+                status = Status.GONE;
+            }
+            else {
+                status = Status.NO_CONTENT;
+            }
+
+            return Response.status(status)
+                    .entity(entity)
+                    .header(PRESTO_PAGE_TOKEN, result.getToken())
+                    .header(PRESTO_PAGE_NEXT_TOKEN, result.getNextToken())
+                    .build();
         });
 
         // For hard timeout, add an additional 5 seconds to max wait for thread scheduling contention and GC

@@ -20,6 +20,7 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
@@ -28,14 +29,14 @@ public class MarkDistinctHash
     private final GroupByHash groupByHash;
     private long nextDistinctId;
 
-    public MarkDistinctHash(List<Type> types, int[] channels)
+    public MarkDistinctHash(List<Type> types, int[] channels, Optional<Integer> hashChannel)
     {
-        this(types, channels, 10_000);
+        this(types, channels, hashChannel, 10_000);
     }
 
-    public MarkDistinctHash(List<Type> types, int[] channels, int expectedDistinctValues)
+    public MarkDistinctHash(List<Type> types, int[] channels, Optional<Integer> hashChannel, int expectedDistinctValues)
     {
-        this.groupByHash = new GroupByHash(types, channels, expectedDistinctValues);
+        this.groupByHash = new GroupByHash(types, channels, hashChannel, expectedDistinctValues);
     }
 
     public long getEstimatedSize()

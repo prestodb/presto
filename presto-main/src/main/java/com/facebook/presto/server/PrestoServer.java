@@ -29,7 +29,6 @@ import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.discovery.client.ServiceAnnouncement;
 import io.airlift.event.client.HttpEventModule;
 import io.airlift.event.client.JsonEventModule;
-import io.airlift.floatingdecimal.FloatingDecimal;
 import io.airlift.http.server.HttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.JmxHttpModule;
@@ -46,7 +45,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.server.CodeCacheGcTrigger.installCodeCacheGcTrigger;
 import static com.facebook.presto.server.PrestoJvmRequirements.verifyJvmRequirements;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -104,10 +102,6 @@ public class PrestoServer
         try {
             Injector injector = app.strictConfig().initialize();
 
-            if (!FloatingDecimal.isPatchInstalled()) {
-                log.warn("FloatingDecimal patch not installed. Parallelism will be diminished when parsing/formatting doubles");
-            }
-
             injector.getInstance(PluginManager.class).loadPlugins();
 
             injector.getInstance(CatalogManager.class).loadCatalogs();
@@ -122,8 +116,6 @@ public class PrestoServer
             injector.getInstance(Announcer.class).start();
 
             log.info("======== SERVER STARTED ========");
-
-            installCodeCacheGcTrigger();
         }
         catch (Throwable e) {
             log.error(e);

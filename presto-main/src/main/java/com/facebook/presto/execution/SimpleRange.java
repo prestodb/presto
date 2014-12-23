@@ -17,10 +17,12 @@ import com.facebook.presto.spi.Range;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Optional;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 @Immutable
@@ -54,8 +56,8 @@ public final class SimpleRange
     {
         checkNotNull(range, "range is null");
         return new SimpleRange(
-                Optional.fromNullable(SimpleMarker.fromMarker(range.getLow())),
-                Optional.fromNullable(SimpleMarker.fromMarker(range.getHigh())));
+                Optional.ofNullable(SimpleMarker.fromMarker(range.getLow())),
+                Optional.ofNullable(SimpleMarker.fromMarker(range.getHigh())));
     }
 
     @Override
@@ -83,7 +85,7 @@ public final class SimpleRange
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .addValue(low)
                 .addValue(high)
                 .toString();

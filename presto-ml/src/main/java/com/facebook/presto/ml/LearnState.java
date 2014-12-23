@@ -15,7 +15,8 @@ package com.facebook.presto.ml;
 
 import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateMetadata;
-import libsvm.svm_parameter;
+import com.google.common.collect.BiMap;
+import io.airlift.slice.Slice;
 
 import javax.validation.constraints.NotNull;
 
@@ -25,15 +26,21 @@ import java.util.List;
 public interface LearnState
         extends AccumulatorState
 {
+    // Mapping of string labels for classifiers that use strings instead of doubles
+    @NotNull
+    BiMap<String, Integer> getLabelEnumeration();
+
+    int enumerateLabel(String label);
+
     @NotNull
     List<Double> getLabels();
 
     @NotNull
     List<FeatureVector> getFeatureVectors();
 
-    svm_parameter getParameters();
+    Slice getParameters();
 
-    void setParameters(svm_parameter parameters);
+    void setParameters(Slice parameters);
 
     void addMemoryUsage(long value);
 }

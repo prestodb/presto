@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.Vector;
@@ -22,7 +23,7 @@ import com.facebook.presto.orc.stream.ByteArrayStream;
 import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSource;
 import com.facebook.presto.orc.stream.StreamSources;
-import com.google.common.base.Objects;
+import com.google.common.primitives.Ints;
 import io.airlift.slice.Slices;
 
 import javax.annotation.Nonnull;
@@ -32,11 +33,12 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.orc.OrcCorruptionException.verifyFormat;
+import static com.facebook.presto.orc.reader.OrcReaderUtils.castOrcVector;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SliceDirectStreamReader
@@ -93,24 +95,32 @@ public class SliceDirectStreamReader
                 readOffset = presentStream.countBitsSet(readOffset);
             }
             if (readOffset > 0) {
-                verifyFormat(lengthStream != null, "Value is not null but length stream is not present");
+                if (lengthStream == null) {
+                    throw new OrcCorruptionException("Value is not null but length stream is not present");
+                }
                 long dataSkipSize = lengthStream.sum(readOffset);
                 if (dataSkipSize > 0) {
-                    verifyFormat(dataStream != null, "Value is not null but data stream is not present");
-                    dataStream.skip(dataSkipSize);
+                    if (dataStream == null) {
+                        throw new OrcCorruptionException("Value is not null but data stream is not present");
+                    }
+                    dataStream.skip(Ints.checkedCast(dataSkipSize));
                 }
             }
         }
 
-        SliceVector sliceVector = (SliceVector) vector;
+        SliceVector sliceVector = castOrcVector(vector, SliceVector.class);
         if (presentStream == null) {
-            verifyFormat(lengthStream != null, "Value is not null but length stream is not present");
+            if (lengthStream == null) {
+                throw new OrcCorruptionException("Value is not null but length stream is not present");
+            }
             lengthStream.nextIntVector(nextBatchSize, lengthVector);
         }
         else {
-            int nonNullValues = presentStream.getUnsetBits(nextBatchSize, isNullVector);
-            if (nonNullValues != nextBatchSize) {
-                verifyFormat(lengthStream != null, "Value is not null but length stream is not present");
+            int nullValues = presentStream.getUnsetBits(nextBatchSize, isNullVector);
+            if (nullValues != nextBatchSize) {
+                if (lengthStream == null) {
+                    throw new OrcCorruptionException("Value is not null but length stream is not present");
+                }
                 lengthStream.nextIntVector(nextBatchSize, lengthVector, isNullVector);
             }
         }
@@ -124,7 +134,9 @@ public class SliceDirectStreamReader
 
         byte[] data = new byte[0];
         if (totalLength > 0) {
-            verifyFormat(dataStream != null, "Value is not null but data stream is not present");
+            if (dataStream == null) {
+                throw new OrcCorruptionException("Value is not null but data stream is not present");
+            }
             data = dataStream.next(totalLength);
         }
 
@@ -197,7 +209,7 @@ public class SliceDirectStreamReader
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
     }

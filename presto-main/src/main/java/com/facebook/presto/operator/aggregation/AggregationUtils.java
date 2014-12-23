@@ -21,12 +21,12 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.CaseFormat;
-import com.google.common.base.Function;
 
 import javax.annotation.Nullable;
 
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Locale.ENGLISH;
@@ -90,13 +90,6 @@ public final class AggregationUtils
     @SuppressWarnings("UnusedDeclaration")
     public static Function<Integer, Block> pageBlockGetter(final Page page)
     {
-        return new Function<Integer, Block>()
-        {
-            @Override
-            public Block apply(Integer input)
-            {
-                return page.getBlock(input);
-            }
-        };
+        return page::getBlock;
     }
 }

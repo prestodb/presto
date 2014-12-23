@@ -36,6 +36,7 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -45,29 +46,25 @@ import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SortItem.NullOrdering;
 import com.facebook.presto.sql.tree.SortItem.Ordering;
 import com.facebook.presto.sql.tree.SubqueryExpression;
-import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Function;
+import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nullable;
-
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.sql.tree.FunctionCall.argumentsGetter;
-import static com.facebook.presto.sql.tree.FunctionCall.distinctPredicate;
-import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkState;
 
 class QueryPlanner
@@ -180,7 +177,7 @@ class QueryPlanner
                 new ValuesNode(idAllocator.getNextId(), ImmutableList.<Symbol>of(), ImmutableList.of(emptyRow)),
                 new TupleDescriptor(),
                 ImmutableList.<Symbol>of(),
-                Optional.<Symbol>absent());
+                Optional.empty());
     }
 
     private PlanBuilder filter(PlanBuilder subPlan, Expression predicate)
@@ -284,10 +281,11 @@ class QueryPlanner
             return subPlan;
         }
 
-        Set<FieldOrExpression> arguments = IterableTransformer.on(analysis.getAggregates(node))
-                .transformAndFlatten(argumentsGetter())
-                .transform(toFieldOrExpression())
-                .set();
+        Set<FieldOrExpression> arguments = analysis.getAggregates(node).stream()
+                .map(FunctionCall::getArguments)
+                .flatMap(List::stream)
+                .map(FieldOrExpression::new)
+                .collect(toImmutableSet());
 
         // 1. Pre-project all scalar inputs (arguments and non-trivial group by expressions)
         Iterable<FieldOrExpression> inputs = Iterables.concat(analysis.getGroupByExpressions(node), arguments);
@@ -331,7 +329,7 @@ class QueryPlanner
         Map<Set<Expression>, Symbol> argumentMarkers = new HashMap<>();
         // Map from aggregate functions to marker symbols
         Map<Symbol, Symbol> masks = new HashMap<>();
-        for (FunctionCall aggregate : Iterables.filter(analysis.getAggregates(node), distinctPredicate())) {
+        for (FunctionCall aggregate : Iterables.filter(analysis.getAggregates(node), FunctionCall::isDistinct)) {
             Set<Expression> args = ImmutableSet.copyOf(aggregate.getArguments());
             Symbol marker = argumentMarkers.get(args);
             Symbol aggregateSymbol = translations.get(aggregate);
@@ -357,7 +355,8 @@ class QueryPlanner
             MarkDistinctNode markDistinct = new MarkDistinctNode(idAllocator.getNextId(),
                     subPlan.getRoot(),
                     entry.getValue(),
-                    builder.build());
+                    builder.build(),
+                    Optional.empty());
             subPlan = new PlanBuilder(subPlan.getTranslations(), markDistinct, subPlan.getSampleWeight());
         }
 
@@ -366,8 +365,8 @@ class QueryPlanner
             confidence = Double.valueOf(analysis.getQuery().getApproximate().get().getConfidence()) / 100.0;
         }
 
-        AggregationNode aggregationNode = new AggregationNode(idAllocator.getNextId(), subPlan.getRoot(), ImmutableList.copyOf(groupBySymbols), aggregationAssignments.build(), functions.build(), new ImmutableMap.Builder<Symbol, Symbol>().putAll(masks).build(), subPlan.getSampleWeight(), confidence);
-        subPlan = new PlanBuilder(translations, aggregationNode, Optional.<Symbol>absent());
+        AggregationNode aggregationNode = new AggregationNode(idAllocator.getNextId(), subPlan.getRoot(), ImmutableList.copyOf(groupBySymbols), aggregationAssignments.build(), functions.build(), new ImmutableMap.Builder<Symbol, Symbol>().putAll(masks).build(), subPlan.getSampleWeight(), confidence, Optional.empty());
+        subPlan = new PlanBuilder(translations, aggregationNode, Optional.empty());
 
         // 3. Post-projection
         // Add back the implicit casts that we removed in 2.a
@@ -386,29 +385,71 @@ class QueryPlanner
         }
 
         for (FunctionCall windowFunction : windowFunctions) {
-            // Pre-project inputs
-            ImmutableList<Expression> inputs = ImmutableList.<Expression>builder()
-                    .addAll(windowFunction.getArguments())
-                    .addAll(windowFunction.getWindow().get().getPartitionBy())
-                    .addAll(Iterables.transform(windowFunction.getWindow().get().getOrderBy(), sortKeyGetter()))
-                    .build();
+            Window window = windowFunction.getWindow().get();
 
-            subPlan = appendProjections(subPlan, inputs);
+            // Extract frame
+            WindowFrame.Type frameType = WindowFrame.Type.RANGE;
+            FrameBound.Type frameStartType = FrameBound.Type.UNBOUNDED_PRECEDING;
+            FrameBound.Type frameEndType = FrameBound.Type.CURRENT_ROW;
+            Expression frameStart = null;
+            Expression frameEnd = null;
+
+            if (window.getFrame().isPresent()) {
+                WindowFrame frame = window.getFrame().get();
+                frameType = frame.getType();
+
+                frameStartType = frame.getStart().getType();
+                frameStart = frame.getStart().getValue().orElse(null);
+
+                if (frame.getEnd().isPresent()) {
+                    frameEndType = frame.getEnd().get().getType();
+                    frameEnd = frame.getEnd().get().getValue().orElse(null);
+                }
+            }
+
+            // Pre-project inputs
+            ImmutableList.Builder<Expression> inputs = ImmutableList.<Expression>builder()
+                    .addAll(windowFunction.getArguments())
+                    .addAll(window.getPartitionBy())
+                    .addAll(Iterables.transform(window.getOrderBy(), SortItem::getSortKey));
+
+            if (frameStart != null) {
+                inputs.add(frameStart);
+            }
+            if (frameEnd != null) {
+                inputs.add(frameEnd);
+            }
+
+            subPlan = appendProjections(subPlan, inputs.build());
 
             // Rewrite PARTITION BY in terms of pre-projected inputs
             ImmutableList.Builder<Symbol> partitionBySymbols = ImmutableList.builder();
-            for (Expression expression : windowFunction.getWindow().get().getPartitionBy()) {
+            for (Expression expression : window.getPartitionBy()) {
                 partitionBySymbols.add(subPlan.translate(expression));
             }
 
             // Rewrite ORDER BY in terms of pre-projected inputs
             ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
             Map<Symbol, SortOrder> orderings = new HashMap<>();
-            for (SortItem item : windowFunction.getWindow().get().getOrderBy()) {
+            for (SortItem item : window.getOrderBy()) {
                 Symbol symbol = subPlan.translate(item.getSortKey());
                 orderBySymbols.add(symbol);
                 orderings.put(symbol, toSortOrder(item));
             }
+
+            // Rewrite frame bounds in terms of pre-projected inputs
+            Optional<Symbol> frameStartSymbol = Optional.empty();
+            Optional<Symbol> frameEndSymbol = Optional.empty();
+            if (frameStart != null) {
+                frameStartSymbol = Optional.of(subPlan.translate(frameStart));
+            }
+            if (frameEnd != null) {
+                frameEndSymbol = Optional.of(subPlan.translate(frameEnd));
+            }
+
+            WindowNode.Frame frame = new WindowNode.Frame(frameType,
+                    frameStartType, frameStartSymbol,
+                    frameEndType, frameEndSymbol);
 
             TranslationMap outputTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis);
             outputTranslations.copyMappingsFrom(subPlan.getTranslations());
@@ -434,7 +475,16 @@ class QueryPlanner
 
             // create window node
             subPlan = new PlanBuilder(outputTranslations,
-                    new WindowNode(idAllocator.getNextId(), subPlan.getRoot(), partitionBySymbols.build(), orderBySymbols.build(), orderings, assignments.build(), signatures),
+                    new WindowNode(
+                            idAllocator.getNextId(),
+                            subPlan.getRoot(),
+                            partitionBySymbols.build(),
+                            orderBySymbols.build(),
+                            orderings,
+                            frame,
+                            assignments.build(),
+                            signatures,
+                            Optional.empty()),
                     subPlan.getSampleWeight());
 
             if (needCoercion) {
@@ -517,7 +567,9 @@ class QueryPlanner
                         valueListRelation.getRoot(),
                         sourceJoinSymbol,
                         filteringSourceJoinSymbol,
-                        semiJoinOutputSymbol),
+                        semiJoinOutputSymbol,
+                        Optional.empty(),
+                        Optional.empty()),
                 subPlan.getSampleWeight());
     }
 
@@ -532,8 +584,9 @@ class QueryPlanner
                     ImmutableMap.<Symbol, FunctionCall>of(),
                     ImmutableMap.<Symbol, Signature>of(),
                     ImmutableMap.<Symbol, Symbol>of(),
-                    Optional.<Symbol>absent(),
-                    1.0);
+                    Optional.empty(),
+                    1.0,
+                    Optional.empty());
 
             return new PlanBuilder(subPlan.getTranslations(), aggregation, subPlan.getSampleWeight());
         }
@@ -617,18 +670,5 @@ class QueryPlanner
                 return SortOrder.DESC_NULLS_LAST;
             }
         }
-    }
-
-    public static Function<Expression, FieldOrExpression> toFieldOrExpression()
-    {
-        return new Function<Expression, FieldOrExpression>()
-        {
-            @Nullable
-            @Override
-            public FieldOrExpression apply(Expression input)
-            {
-                return new FieldOrExpression(input);
-            }
-        };
     }
 }

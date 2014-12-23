@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import org.testng.annotations.AfterMethod;
@@ -85,16 +86,35 @@ public class TestNodeScheduler
     }
 
     @Test
+    public void testLocationAwareSchedulingDisabledScheduleLocal()
+            throws Exception
+    {
+        NodeSchedulerConfig config = new NodeSchedulerConfig()
+                .setMaxSplitsPerNode(20)
+                .setIncludeCoordinator(false)
+                .setLocationAwareSchedulingEnabled(false)
+                .setMaxPendingSplitsPerNodePerTask(10);
+
+        NodeScheduler scheduler = new NodeScheduler(this.nodeManager, config, this.nodeTaskMap);
+        NodeScheduler.NodeSelector selector = scheduler.createNodeSelector("foo");
+        Split split = new Split("foo", new TestSplitLocal());
+        Set<Split> splits = ImmutableSet.of(split);
+
+        Map.Entry<Node, Split> assignment = Iterables.getOnlyElement(selector.computeAssignments(splits, taskMap.values()).entries());
+        assertEquals(assignment.getKey().getHostAndPort(), split.getAddresses().get(0));
+        assertEquals(assignment.getValue(), split);
+    }
+
+    @Test
     public void testScheduleLocal()
             throws Exception
     {
-        Set<Split> splits = new HashSet<>();
-        Split localSplit = new Split("foo", new TestSplitLocal());
-        splits.add(localSplit);
-        Multimap<Node, Split> assignments = nodeSelector.computeAssignments(splits, taskMap.values());
-        Map.Entry<Node, Split> onlyEntry = Iterables.getOnlyElement(assignments.entries());
-        assertEquals(onlyEntry.getKey().getHostAndPort(), localSplit.getAddresses().get(0));
-        assertEquals(onlyEntry.getValue(), localSplit);
+        Split split = new Split("foo", new TestSplitLocal());
+        Set<Split> splits = ImmutableSet.of(split);
+
+        Map.Entry<Node, Split> assignment = Iterables.getOnlyElement(nodeSelector.computeAssignments(splits, taskMap.values()).entries());
+        assertEquals(assignment.getKey().getHostAndPort(), split.getAddresses().get(0));
+        assertEquals(assignment.getValue(), split);
     }
 
     @Test

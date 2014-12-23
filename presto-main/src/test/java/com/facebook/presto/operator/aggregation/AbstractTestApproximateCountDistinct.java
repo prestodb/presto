@@ -22,16 +22,19 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static org.testng.Assert.assertEquals;
 
@@ -43,42 +46,55 @@ public abstract class AbstractTestApproximateCountDistinct
 
     public abstract Object randomValue();
 
-    @Test
-    public void testNoPositions()
-            throws Exception
+    @DataProvider(name = "provideStandardErrors")
+    public Object[][] provideStandardErrors()
     {
-        assertCount(ImmutableList.of(), 0);
+        return new Object[][] {
+                { 0.0230 }, // 2k buckets
+                { 0.0115 }, // 8k buckets
+        };
     }
 
-    @Test
-    public void testSinglePosition()
+    @Test(dataProvider = "provideStandardErrors")
+    public void testNoPositions(double maxStandardError)
             throws Exception
     {
-        assertCount(ImmutableList.of(randomValue()), 1);
+        assertCount(ImmutableList.of(), maxStandardError, 0);
     }
 
-    @Test
-    public void testAllPositionsNull()
+    @Test(dataProvider = "provideStandardErrors")
+    public void testSinglePosition(double maxStandardError)
             throws Exception
     {
-        assertCount(Collections.nCopies(100, null), 0);
+        assertCount(ImmutableList.of(randomValue()), maxStandardError, 1);
     }
 
-    @Test
-    public void testMixedNullsAndNonNulls()
+    @Test(dataProvider = "provideStandardErrors")
+    public void testAllPositionsNull(double maxStandardError)
+            throws Exception
+    {
+        assertCount(Collections.nCopies(100, null), maxStandardError, 0);
+    }
+
+    @Test(dataProvider = "provideStandardErrors")
+    public void testMixedNullsAndNonNulls(double maxStandardError)
             throws Exception
     {
         List<Object> baseline = createRandomSample(10000, 15000);
 
-        List<Object> mixed = new ArrayList<>(baseline);
-        mixed.addAll(Collections.<Long>nCopies(baseline.size(), null));
-        Collections.shuffle(mixed);
+        // Randomly insert nulls
+        // We need to retain the preexisting order to ensure that the HLL can generate the same estimates.
+        Iterator<Object> iterator = baseline.iterator();
+        List<Object> mixed = new ArrayList<>();
+        while (iterator.hasNext()) {
+            mixed.add(ThreadLocalRandom.current().nextBoolean() ? null : iterator.next());
+        }
 
-        assertCount(mixed, estimateGroupByCount(baseline));
+        assertCount(mixed, maxStandardError, estimateGroupByCount(baseline, maxStandardError));
     }
 
-    @Test
-    public void testMultiplePositions()
+    @Test(dataProvider = "provideStandardErrors")
+    public void testMultiplePositions(double maxStandardError)
             throws Exception
     {
         DescriptiveStatistics stats = new DescriptiveStatistics();
@@ -88,72 +104,71 @@ public abstract class AbstractTestApproximateCountDistinct
 
             List<Object> values = createRandomSample(uniques, (int) (uniques * 1.5));
 
-            long actual = estimateGroupByCount(values);
+            long actual = estimateGroupByCount(values, maxStandardError);
             double error = (actual - uniques) * 1.0 / uniques;
 
             stats.addValue(error);
         }
 
         assertLessThan(stats.getMean(), 1.0e-2);
-        assertLessThan(Math.abs(stats.getStandardDeviation() - ApproximateCountDistinctAggregations.getStandardError()), 1.0e-2);
+        assertLessThan(Math.abs(stats.getStandardDeviation() - maxStandardError), 1.0e-2);
     }
 
-    @Test
-    public void testMultiplePositionsPartial()
+    @Test(dataProvider = "provideStandardErrors")
+    public void testMultiplePositionsPartial(double maxStandardError)
             throws Exception
     {
         for (int i = 0; i < 100; ++i) {
             int uniques = ThreadLocalRandom.current().nextInt(20000) + 1;
             List<Object> values = createRandomSample(uniques, (int) (uniques * 1.5));
-            assertEquals(estimateCountPartial(values), estimateGroupByCount(values));
+            assertEquals(estimateCountPartial(values, maxStandardError), estimateGroupByCount(values, maxStandardError));
         }
     }
 
-    private void assertCount(List<Object> values, long expectedCount)
+    private void assertCount(List<Object> values, double maxStandardError, long expectedCount)
     {
         if (!values.isEmpty()) {
-            assertEquals(estimateGroupByCount(values), expectedCount);
+            assertEquals(estimateGroupByCount(values, maxStandardError), expectedCount);
         }
-        assertEquals(estimateCount(values), expectedCount);
-        assertEquals(estimateCountPartial(values), expectedCount);
+        assertEquals(estimateCount(values, maxStandardError), expectedCount);
+        assertEquals(estimateCountPartial(values, maxStandardError), expectedCount);
     }
 
-    private long estimateGroupByCount(List<Object> values)
+    private long estimateGroupByCount(List<Object> values, double maxStandardError)
     {
-        Object result = AggregationTestUtils.groupedAggregation(getAggregationFunction(), 1.0, createPage(values));
+        Object result = AggregationTestUtils.groupedAggregation(getAggregationFunction(), 1.0, createPage(values, maxStandardError));
         return (long) result;
     }
 
-    private long estimateCount(List<Object> values)
+    private long estimateCount(List<Object> values, double maxStandardError)
     {
-        Object result = AggregationTestUtils.aggregation(getAggregationFunction(), 1.0, createPage(values));
+        Object result = AggregationTestUtils.aggregation(getAggregationFunction(), 1.0, createPage(values, maxStandardError));
         return (long) result;
     }
 
-    private long estimateCountPartial(List<Object> values)
+    private long estimateCountPartial(List<Object> values, double maxStandardError)
     {
-        Object result = AggregationTestUtils.partialAggregation(getAggregationFunction(), 1.0, createPage(values));
+        Object result = AggregationTestUtils.partialAggregation(getAggregationFunction(), 1.0, createPage(values, maxStandardError));
         return (long) result;
     }
 
-    private Page createPage(List<Object> values)
+    private Page createPage(List<Object> values, double maxStandardError)
     {
-        Page page;
         if (values.isEmpty()) {
-            page = new Page(0);
+            return new Page(0);
         }
         else {
-            page = new Page(values.size(), createBlock(values));
+            return new Page(values.size(),
+                    createBlock(getValueType(), values),
+                    createBlock(DOUBLE, ImmutableList.copyOf(Collections.nCopies(values.size(), maxStandardError))));
         }
-        return page;
     }
 
     /**
      * Produce a block with the given values in the last field.
      */
-    private Block createBlock(List<Object> values)
+    private Block createBlock(Type type, List<Object> values)
     {
-        Type type = getValueType();
         BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
 
         for (Object value : values) {

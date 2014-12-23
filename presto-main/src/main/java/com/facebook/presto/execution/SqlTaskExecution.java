@@ -31,14 +31,13 @@ import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.util.SetThreadName;
-import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.concurrent.SetThreadName;
 import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
@@ -57,6 +56,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -150,9 +150,7 @@ public class SqlTaskExecution
             catch (Throwable e) {
                 // planning failed
                 taskStateMachine.failed(e);
-                Throwables.propagateIfInstanceOf(e, Error.class);
-
-                driverFactories = ImmutableList.of();
+                throw Throwables.propagate(e);
             }
 
             // index driver factories
@@ -196,7 +194,9 @@ public class SqlTaskExecution
         // start unpartitioned drivers
         List<DriverSplitRunner> runners = new ArrayList<>();
         for (DriverSplitRunnerFactory driverFactory : unpartitionedDriverFactories) {
-            runners.add(driverFactory.createDriverRunner(null, false));
+            for (int i = 0; i < driverFactory.getDriverInstances(); i++) {
+                runners.add(driverFactory.createDriverRunner(null, false));
+            }
             driverFactory.setNoMoreSplits();
         }
         enqueueDrivers(true, runners);
@@ -420,7 +420,7 @@ public class SqlTaskExecution
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("taskId", taskId)
                 .add("remainingDrivers", remainingDrivers)
                 .add("unpartitionedSources", unpartitionedSources)
@@ -490,6 +490,11 @@ public class SqlTaskExecution
             if (isNoMoreSplits() && pendingCreation.get() <= 0) {
                 driverFactory.close();
             }
+        }
+
+        public int getDriverInstances()
+        {
+            return driverFactory.getDriverInstances();
         }
     }
 

@@ -19,7 +19,6 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -106,14 +105,9 @@ public class SqlTaskManager
                         locationFactory.createLocalTaskLocation(taskId),
                         sqlTaskExecutionFactory,
                         taskNotificationExecutor,
-                        new Function<SqlTask, Void>()
-                        {
-                            @Override
-                            public Void apply(SqlTask sqlTask)
-                            {
+                        sqlTask -> {
                                 finishedTaskStats.merge(sqlTask.getIoStats());
                                 return null;
-                            }
                         },
                         maxBufferSize
                 );
@@ -191,7 +185,7 @@ public class SqlTaskManager
     @Override
     public List<TaskInfo> getAllTaskInfo()
     {
-        return ImmutableList.copyOf(transform(tasks.asMap().values(), SqlTask.taskInfoGetter()));
+        return ImmutableList.copyOf(transform(tasks.asMap().values(), SqlTask::getTaskInfo));
     }
 
     @Override
@@ -254,7 +248,7 @@ public class SqlTaskManager
     public void removeOldTasks()
     {
         DateTime oldestAllowedTask = DateTime.now().minus(infoCacheTime.toMillis());
-        for (TaskInfo taskInfo : filter(transform(tasks.asMap().values(), SqlTask.taskInfoGetter()), notNull())) {
+        for (TaskInfo taskInfo : filter(transform(tasks.asMap().values(), SqlTask::getTaskInfo), notNull())) {
             try {
                 DateTime endTime = taskInfo.getStats().getEndTime();
                 if (endTime != null && endTime.isBefore(oldestAllowedTask)) {

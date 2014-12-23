@@ -41,6 +41,7 @@ import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
@@ -66,11 +67,10 @@ import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -80,21 +80,23 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static com.facebook.presto.sql.analyzer.Field.typeGetter;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
@@ -111,7 +113,15 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_ANALYSIS_E
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_PARSE_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Type.EQUAL;
+import static com.facebook.presto.sql.tree.FrameBound.Type.CURRENT_ROW;
+import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
+import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
+import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
+import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -120,7 +130,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.elementsEqual;
 import static com.google.common.collect.Iterables.transform;
 
-class TupleAnalyzer
+public class TupleAnalyzer
         extends DefaultTraversalVisitor<TupleDescriptor, AnalysisContext>
 {
     private final Analysis analysis;
@@ -147,21 +157,14 @@ class TupleAnalyzer
     {
         ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
         for (Expression expression : node.getExpressions()) {
-            ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
-                    metadata,
-                    sqlParser,
-                    context.getLateralTupleDescriptor(),
-                    analysis,
-                    experimentalSyntaxEnabled,
-                    context,
-                    expression);
+            ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, context.getLateralTupleDescriptor(), context);
             Type expressionType = expressionAnalysis.getType(expression);
             if (expressionType instanceof ArrayType) {
-                outputFields.add(Field.newUnqualified(Optional.<String>absent(), ((ArrayType) expressionType).getElementType()));
+                outputFields.add(Field.newUnqualified(Optional.empty(), ((ArrayType) expressionType).getElementType()));
             }
             else if (expressionType instanceof MapType) {
-                outputFields.add(Field.newUnqualified(Optional.<String>absent(), ((MapType) expressionType).getKeyType()));
-                outputFields.add(Field.newUnqualified(Optional.<String>absent(), ((MapType) expressionType).getValueType()));
+                outputFields.add(Field.newUnqualified(Optional.empty(), ((MapType) expressionType).getKeyType()));
+                outputFields.add(Field.newUnqualified(Optional.empty(), ((MapType) expressionType).getValueType()));
             }
             else {
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot unnest type: " + expressionType);
@@ -322,7 +325,7 @@ class TupleAnalyzer
     @Override
     protected TupleDescriptor visitTableSubquery(TableSubquery node, AnalysisContext context)
     {
-        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, session, experimentalSyntaxEnabled, Optional.<QueryExplainer>absent());
+        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, session, experimentalSyntaxEnabled, Optional.empty());
         TupleDescriptor descriptor = analyzer.process(node.getQuery(), context);
 
         analysis.setOutputDescriptor(node, descriptor);
@@ -368,8 +371,23 @@ class TupleAnalyzer
 
         for (Relation relation : Iterables.skip(node.getRelations(), 1)) {
             TupleDescriptor descriptor = analyzer.process(relation, context);
-            if (!elementsEqual(transform(outputDescriptor.getVisibleFields(), typeGetter()), transform(descriptor.getVisibleFields(), typeGetter()))) {
-                throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES, node, "Union query terms have mismatched columns");
+            int outputFieldSize = outputDescriptor.getVisibleFields().size();
+            int descFieldSize = descriptor.getVisibleFields().size();
+            if (outputFieldSize != descFieldSize) {
+                throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
+                                            node,
+                                            "union query has different number of fields: %d, %d",
+                                            outputFieldSize, descFieldSize);
+            }
+            for (int i = 0; i < descriptor.getVisibleFields().size(); i++) {
+                Type outputFieldType = outputDescriptor.getFieldByIndex(i).getType();
+                Type descFieldType = descriptor.getFieldByIndex(i).getType();
+                if (!outputFieldType.equals(descFieldType)) {
+                    throw new SemanticException(TYPE_MISMATCH,
+                                                node,
+                                                "column %d in union query has incompatible types: %s, %s",
+                                                i, outputFieldType.getDisplayName(), descFieldType.getDisplayName());
+                }
             }
         }
 
@@ -396,7 +414,7 @@ class TupleAnalyzer
             throw new SemanticException(NOT_SUPPORTED, node, "Full outer joins are not supported");
         }
 
-        JoinCriteria criteria = node.getCriteria().orNull();
+        JoinCriteria criteria = node.getCriteria().orElse(null);
         if (criteria instanceof NaturalJoin) {
             throw new SemanticException(NOT_SUPPORTED, node, "Natural join not supported");
         }
@@ -423,34 +441,20 @@ class TupleAnalyzer
             // TODO: implement proper "using" semantics with respect to output columns
             List<String> columns = ((JoinUsing) criteria).getColumns();
 
-            ImmutableList.Builder<EquiJoinClause> builder = ImmutableList.builder();
+            List<Expression> expressions = new ArrayList<>();
             for (String column : columns) {
                 Expression leftExpression = new QualifiedNameReference(QualifiedName.of(column));
                 Expression rightExpression = new QualifiedNameReference(QualifiedName.of(column));
 
-                ExpressionAnalysis leftExpressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
-                        metadata,
-                        sqlParser,
-                        left,
-                        analysis,
-                        experimentalSyntaxEnabled,
-                        context,
-                        leftExpression);
-                ExpressionAnalysis rightExpressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
-                        metadata,
-                        sqlParser,
-                        right,
-                        analysis,
-                        experimentalSyntaxEnabled,
-                        context,
-                        rightExpression);
+                ExpressionAnalysis leftExpressionAnalysis = analyzeExpression(leftExpression, left, context);
+                ExpressionAnalysis rightExpressionAnalysis = analyzeExpression(rightExpression, right, context);
                 checkState(leftExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
                 checkState(rightExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
 
-                builder.add(new EquiJoinClause(leftExpression, rightExpression));
+                expressions.add(new ComparisonExpression(EQUAL, leftExpression, rightExpression));
             }
 
-            analysis.setEquijoinCriteria(node, builder.build());
+            analysis.setJoinCriteria(node, ExpressionUtils.and(expressions));
         }
         else if (criteria instanceof JoinOn) {
             Expression expression = ((JoinOn) criteria).getExpression();
@@ -471,10 +475,10 @@ class TupleAnalyzer
             if (!(optimizedExpression instanceof Expression) && optimizedExpression instanceof Boolean) {
                 // If the JoinOn clause evaluates to a boolean expression, simulate a cross join by adding the relevant redundant expression
                 if (optimizedExpression.equals(Boolean.TRUE)) {
-                    optimizedExpression = new ComparisonExpression(ComparisonExpression.Type.EQUAL, new LongLiteral("0"), new LongLiteral("0"));
+                    optimizedExpression = new ComparisonExpression(EQUAL, new LongLiteral("0"), new LongLiteral("0"));
                 }
                 else {
-                    optimizedExpression = new ComparisonExpression(ComparisonExpression.Type.EQUAL, new LongLiteral("0"), new LongLiteral("1"));
+                    optimizedExpression = new ComparisonExpression(EQUAL, new LongLiteral("0"), new LongLiteral("1"));
                 }
             }
 
@@ -482,17 +486,12 @@ class TupleAnalyzer
                 throw new SemanticException(TYPE_MISMATCH, node, "Join clause must be a boolean expression");
             }
 
-            ImmutableList.Builder<EquiJoinClause> clauses = ImmutableList.builder();
             for (Expression conjunct : ExpressionUtils.extractConjuncts((Expression) optimizedExpression)) {
                 if (!(conjunct instanceof ComparisonExpression)) {
                     throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins not supported: %s", conjunct);
                 }
 
                 ComparisonExpression comparison = (ComparisonExpression) conjunct;
-                if (comparison.getType() != ComparisonExpression.Type.EQUAL) {
-                    throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins not supported: %s", conjunct);
-                }
-
                 Set<QualifiedName> firstDependencies = DependencyExtractor.extract(comparison.getLeft());
                 Set<QualifiedName> secondDependencies = DependencyExtractor.extract(comparison.getRight());
 
@@ -512,28 +511,12 @@ class TupleAnalyzer
                 }
 
                 // analyze the clauses to record the types of all subexpressions and resolve names against the left/right underlying tuples
-                ExpressionAnalysis leftExpressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
-                        metadata,
-                        sqlParser,
-                        left,
-                        analysis,
-                        experimentalSyntaxEnabled,
-                        context,
-                        leftExpression);
-                ExpressionAnalysis rightExpressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
-                        metadata,
-                        sqlParser,
-                        right,
-                        analysis,
-                        experimentalSyntaxEnabled,
-                        context,
-                        rightExpression);
+                ExpressionAnalysis leftExpressionAnalysis = analyzeExpression(leftExpression, left, context);
+                ExpressionAnalysis rightExpressionAnalysis = analyzeExpression(rightExpression, right, context);
                 analysis.addJoinInPredicates(node, new Analysis.JoinInPredicates(leftExpressionAnalysis.getSubqueryInPredicates(), rightExpressionAnalysis.getSubqueryInPredicates()));
-
-                clauses.add(new EquiJoinClause(leftExpression, rightExpression));
             }
 
-            analysis.setEquijoinCriteria(node, clauses.build());
+            analysis.setJoinCriteria(node, (Expression) optimizedExpression);
         }
         else {
             throw new UnsupportedOperationException("unsupported join criteria: " + criteria.getClass().getName());
@@ -552,11 +535,11 @@ class TupleAnalyzer
 
         // Use the first descriptor as the output descriptor for the VALUES
         TupleDescriptor outputDescriptor = analyzer.process(node.getRows().get(0), context).withOnlyVisibleFields();
-        Iterable<Type> types = transform(outputDescriptor.getVisibleFields(), typeGetter());
+        Iterable<Type> types = transform(outputDescriptor.getVisibleFields(), Field::getType);
 
         for (Row row : Iterables.skip(node.getRows(), 1)) {
             TupleDescriptor descriptor = analyzer.process(row, context);
-            Iterable<Type> rowTypes = transform(descriptor.getVisibleFields(), typeGetter());
+            Iterable<Type> rowTypes = transform(descriptor.getVisibleFields(), Field::getType);
             if (!elementsEqual(types, rowTypes)) {
                 throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES, node, "Values rows have mismatched types: " +
                         "Expected: (" + Joiner.on(", ").join(types) + "), " +
@@ -573,15 +556,8 @@ class TupleAnalyzer
     {
         ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
         for (Expression expression : node.getItems()) {
-            ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
-                    metadata,
-                    sqlParser,
-                    new TupleDescriptor(),
-                    analysis,
-                    experimentalSyntaxEnabled,
-                    context,
-                    expression);
-            outputFields.add(Field.newUnqualified(Optional.<String>absent(), expressionAnalysis.getType(expression)));
+            ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, new TupleDescriptor(), context);
+            outputFields.add(Field.newUnqualified(Optional.empty(), expressionAnalysis.getType(expression)));
         }
         return new TupleDescriptor(outputFields.build());
     }
@@ -593,6 +569,14 @@ class TupleAnalyzer
         for (FieldOrExpression fieldOrExpression : Iterables.concat(outputExpressions, orderByExpressions)) {
             if (fieldOrExpression.isExpression()) {
                 extractor.process(fieldOrExpression.getExpression(), null);
+                if (fieldOrExpression.getExpression() instanceof FunctionCall) {
+                    FunctionCall functionCall = (FunctionCall) fieldOrExpression.getExpression();
+                    FunctionInfo functionInfo = analysis.getFunctionInfo(functionCall);
+                    checkState(functionInfo != null, "functionInfo is null");
+                    if (functionInfo.isWindow() && !functionInfo.isAggregate() && !functionCall.getWindow().isPresent()) {
+                        throw new SemanticException(WINDOW_REQUIRES_OVER, node, "Window function %s requires an OVER clause", functionInfo.getName());
+                    }
+                }
             }
         }
 
@@ -629,17 +613,10 @@ class TupleAnalyzer
             }
 
             if (window.getFrame().isPresent()) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Window frames not yet supported");
+                analyzeWindowFrame(window.getFrame().get());
             }
 
-            List<TypeSignature> argumentTypes = Lists.transform(windowFunction.getArguments(), new Function<Expression, TypeSignature>()
-            {
-                @Override
-                public TypeSignature apply(Expression input)
-                {
-                    return analysis.getType(input).getTypeSignature();
-                }
-            });
+            List<TypeSignature> argumentTypes = Lists.transform(windowFunction.getArguments(), expression -> analysis.getType(expression).getTypeSignature());
 
             FunctionInfo info = metadata.resolveFunction(windowFunction.getName(), argumentTypes, false);
             if (!info.isWindow()) {
@@ -650,19 +627,40 @@ class TupleAnalyzer
         analysis.setWindowFunctions(node, windowFunctions);
     }
 
+    private static void analyzeWindowFrame(WindowFrame frame)
+    {
+        FrameBound.Type startType = frame.getStart().getType();
+        FrameBound.Type endType = frame.getEnd().orElse(new FrameBound(CURRENT_ROW)).getType();
+
+        if (startType == UNBOUNDED_FOLLOWING) {
+            throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame start cannot be UNBOUNDED FOLLOWING");
+        }
+        if (endType == UNBOUNDED_PRECEDING) {
+            throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame end cannot be UNBOUNDED PRECEDING");
+        }
+        if ((startType == CURRENT_ROW) && (endType == PRECEDING)) {
+            throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame starting from CURRENT ROW cannot end with PRECEDING");
+        }
+        if ((startType == FOLLOWING) && (endType == PRECEDING)) {
+            throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame starting from FOLLOWING cannot end with PRECEDING");
+        }
+        if ((startType == FOLLOWING) && (endType == CURRENT_ROW)) {
+            throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame starting from FOLLOWING cannot end with CURRENT ROW");
+        }
+        if ((frame.getType() == RANGE) && ((startType == PRECEDING) || (endType == PRECEDING))) {
+            throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame RANGE PRECEDING is only supported with UNBOUNDED");
+        }
+        if ((frame.getType() == RANGE) && ((startType == FOLLOWING) || (endType == FOLLOWING))) {
+            throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame RANGE FOLLOWING is only supported with UNBOUNDED");
+        }
+    }
+
     private void analyzeHaving(QuerySpecification node, TupleDescriptor tupleDescriptor, AnalysisContext context)
     {
         if (node.getHaving().isPresent()) {
             Expression predicate = node.getHaving().get();
 
-            ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
-                    metadata,
-                    sqlParser,
-                    tupleDescriptor,
-                    analysis,
-                    experimentalSyntaxEnabled,
-                    context,
-                    predicate);
+            ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, tupleDescriptor, context);
             analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
 
             Type predicateType = expressionAnalysis.getType(predicate);
@@ -720,6 +718,19 @@ class TupleAnalyzer
                     }
 
                     orderByExpression = outputExpressions.get((int) (ordinal - 1));
+
+                    if (orderByExpression.isExpression()) {
+                        Type type = analysis.getType(orderByExpression.getExpression());
+                        if (!type.isOrderable()) {
+                            throw new SemanticException(TYPE_MISMATCH, node, "The type of expression in position %s is not orderable (actual: %s), and therefore cannot be used in ORDER BY: %s", ordinal, type, orderByExpression);
+                        }
+                    }
+                    else {
+                        Type type = tupleDescriptor.getFieldByIndex(orderByExpression.getFieldIndex()).getType();
+                        if (!type.isOrderable()) {
+                            throw new SemanticException(TYPE_MISMATCH, node, "The type of expression in position %s is not orderable (actual: %s), and therefore cannot be used in ORDER BY", ordinal, type);
+                        }
+                    }
                 }
 
                 // otherwise, just use the expression as is
@@ -728,15 +739,13 @@ class TupleAnalyzer
                 }
 
                 if (orderByExpression.isExpression()) {
-                    ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
-                            metadata,
-                            sqlParser,
-                            tupleDescriptor,
-                            analysis,
-                            experimentalSyntaxEnabled,
-                            context,
-                            orderByExpression.getExpression());
+                    ExpressionAnalysis expressionAnalysis = analyzeExpression(orderByExpression.getExpression(), tupleDescriptor, context);
                     analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
+
+                    Type type = expressionAnalysis.getType(orderByExpression.getExpression());
+                    if (!type.isOrderable()) {
+                        throw new SemanticException(TYPE_MISMATCH, node, "Type %s is not orderable, and therefore cannot be used in ORDER BY: %s", type, expression);
+                    }
                 }
 
                 orderByExpressionsBuilder.add(orderByExpression);
@@ -770,14 +779,7 @@ class TupleAnalyzer
                     groupByExpression = outputExpressions.get((int) (ordinal - 1));
                 }
                 else {
-                    ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
-                            metadata,
-                            sqlParser,
-                            tupleDescriptor,
-                            analysis,
-                            experimentalSyntaxEnabled,
-                            context,
-                            expression);
+                    ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, tupleDescriptor, context);
                     analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
                     groupByExpression = new FieldOrExpression(expression);
                 }
@@ -856,20 +858,22 @@ class TupleAnalyzer
                 for (Field field : fields) {
                     int fieldIndex = tupleDescriptor.indexOf(field);
                     outputExpressionBuilder.add(new FieldOrExpression(fieldIndex));
+
+                    if (node.getSelect().isDistinct() && !field.getType().isComparable()) {
+                        throw new SemanticException(TYPE_MISMATCH, node.getSelect(), "DISTINCT can only be applied to comparable types (actual: %s)", field.getType());
+                    }
                 }
             }
             else if (item instanceof SingleColumn) {
                 SingleColumn column = (SingleColumn) item;
-                ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
-                        metadata,
-                        sqlParser,
-                        tupleDescriptor,
-                        analysis,
-                        experimentalSyntaxEnabled,
-                        context,
-                        column.getExpression());
+                ExpressionAnalysis expressionAnalysis = analyzeExpression(column.getExpression(), tupleDescriptor, context);
                 analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
                 outputExpressionBuilder.add(new FieldOrExpression(column.getExpression()));
+
+                Type type = expressionAnalysis.getType(column.getExpression());
+                if (node.getSelect().isDistinct() && !type.isComparable()) {
+                    throw new SemanticException(TYPE_MISMATCH, node.getSelect(), "DISTINCT can only be applied to comparable types (actual: %s): %s", type, column.getExpression());
+                }
             }
             else {
                 throw new IllegalArgumentException("Unsupported SelectItem type: " + item.getClass().getName());
@@ -889,14 +893,7 @@ class TupleAnalyzer
 
             Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, predicate, "WHERE");
 
-            ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
-                    metadata,
-                    sqlParser,
-                    tupleDescriptor,
-                    analysis,
-                    experimentalSyntaxEnabled,
-                    context,
-                    predicate);
+            ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, tupleDescriptor, context);
             analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
 
             Type predicateType = expressionAnalysis.getType(predicate);
@@ -934,7 +931,7 @@ class TupleAnalyzer
         List<FunctionCall> aggregates = extractAggregates(node);
 
         if (context.isApproximate()) {
-            if (Iterables.any(aggregates, FunctionCall.distinctPredicate())) {
+            if (Iterables.any(aggregates, FunctionCall::isDistinct)) {
                 throw new SemanticException(NOT_SUPPORTED, node, "DISTINCT aggregations not supported for approximate queries");
             }
         }
@@ -1026,7 +1023,7 @@ class TupleAnalyzer
                     .setStartTime(session.getStartTime())
                     .build();
 
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewSession, experimentalSyntaxEnabled, Optional.<QueryExplainer>absent());
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewSession, experimentalSyntaxEnabled, Optional.empty());
             return analyzer.process(query, new AnalysisContext());
         }
         catch (RuntimeException e) {
@@ -1055,13 +1052,26 @@ class TupleAnalyzer
         for (int i = 0; i < columns.size(); i++) {
             ViewColumn column = columns.get(i);
             Field field = fieldList.get(i);
-            if (!column.getName().equals(field.getName().orNull()) ||
+            if (!column.getName().equals(field.getName().orElse(null)) ||
                     !column.getType().equals(field.getType())) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    private ExpressionAnalysis analyzeExpression(Expression expression, TupleDescriptor tupleDescriptor, AnalysisContext context)
+    {
+        return ExpressionAnalyzer.analyzeExpression(
+                session,
+                metadata,
+                sqlParser,
+                tupleDescriptor,
+                analysis,
+                experimentalSyntaxEnabled,
+                context,
+                expression);
     }
 
     public static class DependencyExtractor

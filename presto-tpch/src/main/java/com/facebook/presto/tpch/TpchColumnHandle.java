@@ -76,7 +76,7 @@ public class TpchColumnHandle
         if (fieldIndex != that.fieldIndex) {
             return false;
         }
-        if (type != that.type) {
+        if (!type.equals(that.type)) {
             return false;
         }
 

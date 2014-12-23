@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import com.google.common.base.Optional;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 
 public interface ShardManager
 {
@@ -25,10 +27,20 @@ public interface ShardManager
     /**
      * Return the shard nodes a given table.
      */
-    Iterable<ShardNode> getShardNodes(long tableId);
+    Iterable<ShardNodes> getShardNodes(long tableId);
+
+    /**
+     * Return the shards for a given node
+     */
+    Set<UUID> getNodeShards(String nodeIdentifier);
 
     /**
      * Drop all shards in a given table.
      */
     void dropTableShards(long tableId);
+
+    /**
+     * Assign a shard to a node.
+     */
+    void assignShard(UUID shardUuid, String nodeIdentifier);
 }

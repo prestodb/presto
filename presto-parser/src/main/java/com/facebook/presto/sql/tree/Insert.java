@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class Insert
@@ -48,7 +49,7 @@ public final class Insert
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(target, query);
+        return Objects.hash(target, query);
     }
 
     @Override
@@ -61,14 +62,14 @@ public final class Insert
             return false;
         }
         Insert o = (Insert) obj;
-        return Objects.equal(target, o.target) &&
-                Objects.equal(query, o.query);
+        return Objects.equals(target, o.target) &&
+                Objects.equals(query, o.query);
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("target", target)
                 .add("query", query)
                 .toString();

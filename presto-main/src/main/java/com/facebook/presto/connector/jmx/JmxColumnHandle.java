@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class JmxColumnHandle
         implements ConnectorColumnHandle
@@ -88,7 +89,7 @@ public class JmxColumnHandle
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("connectorId", connectorId)
                 .add("columnName", columnName)
                 .add("columnType", columnType)
@@ -98,17 +99,5 @@ public class JmxColumnHandle
     public ColumnMetadata getColumnMetadata()
     {
         return new ColumnMetadata(columnName, columnType, ordinalPosition, false);
-    }
-
-    public static Function<JmxColumnHandle, ColumnMetadata> columnMetadataGetter()
-    {
-        return new Function<JmxColumnHandle, ColumnMetadata>()
-        {
-            @Override
-            public ColumnMetadata apply(JmxColumnHandle jmxColumnHandle)
-            {
-                return jmxColumnHandle.getColumnMetadata();
-            }
-        };
     }
 }

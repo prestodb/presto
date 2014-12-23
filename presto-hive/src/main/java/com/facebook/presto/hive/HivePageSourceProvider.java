@@ -22,7 +22,6 @@ import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
@@ -32,11 +31,10 @@ import org.joda.time.DateTimeZone;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 
-import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnHandle;
-import static com.facebook.presto.hive.HiveColumnHandle.nativeTypeGetter;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
@@ -81,12 +79,12 @@ public class HivePageSourceProvider
 
         Configuration configuration = hdfsEnvironment.getConfiguration(path);
 
-        TupleDomain<HiveColumnHandle> tupleDomain = hiveSplit.getTupleDomain();
+        TupleDomain<HiveColumnHandle> effectivePredicate = hiveSplit.getEffectivePredicate();
 
         Properties schema = hiveSplit.getSchema();
 
         List<HivePartitionKey> partitionKeys = hiveSplit.getPartitionKeys();
-        List<HiveColumnHandle> hiveColumns = ImmutableList.copyOf(transform(columns, hiveColumnHandle()));
+        List<HiveColumnHandle> hiveColumns = ImmutableList.copyOf(transform(columns, HiveColumnHandle::toHiveColumnHandle));
 
         for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
@@ -98,7 +96,7 @@ public class HivePageSourceProvider
                     schema,
                     hiveColumns,
                     partitionKeys,
-                    tupleDomain,
+                    effectivePredicate,
                     hiveStorageTimeZone
             );
             if (pageSource.isPresent()) {
@@ -106,9 +104,9 @@ public class HivePageSourceProvider
             }
         }
 
-        HiveRecordCursor recordCursor = getHiveRecordCursor(clientId, session, configuration, path, start, length, schema, tupleDomain, partitionKeys, hiveColumns);
+        HiveRecordCursor recordCursor = getHiveRecordCursor(clientId, session, configuration, path, start, length, schema, effectivePredicate, partitionKeys, hiveColumns);
         if (recordCursor != null) {
-            List<Type> columnTypes = ImmutableList.copyOf(transform(hiveColumns, nativeTypeGetter(typeManager)));
+            List<Type> columnTypes = ImmutableList.copyOf(transform(hiveColumns, input -> typeManager.getType(input.getTypeSignature())));
             return new RecordPageSource(columnTypes, recordCursor);
         }
 
@@ -123,7 +121,7 @@ public class HivePageSourceProvider
             long start,
             long length,
             Properties schema,
-            TupleDomain<HiveColumnHandle> tupleDomain,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> hiveColumns)
     {
@@ -138,7 +136,7 @@ public class HivePageSourceProvider
                     schema,
                     hiveColumns,
                     partitionKeys,
-                    tupleDomain,
+                    effectivePredicate,
                     hiveStorageTimeZone,
                     typeManager);
             if (cursor.isPresent()) {

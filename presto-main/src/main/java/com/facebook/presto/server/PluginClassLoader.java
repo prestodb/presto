@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.server;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
@@ -45,8 +44,8 @@ class PluginClassLoader
                 parent,
                 hiddenClasses,
                 parentFirstClasses,
-                Iterables.transform(hiddenClasses, classNameToResource()),
-                Iterables.transform(parentFirstClasses, classNameToResource()));
+                Iterables.transform(hiddenClasses, PluginClassLoader::classNameToResource),
+                Iterables.transform(parentFirstClasses, PluginClassLoader::classNameToResource));
     }
 
     public PluginClassLoader(List<URL> urls,
@@ -215,15 +214,8 @@ class PluginClassLoader
         return false;
     }
 
-    private static Function<String, String> classNameToResource()
+    private static String classNameToResource(String className)
     {
-        return new Function<String, String>()
-        {
-            @Override
-            public String apply(String className)
-            {
-                return className.replace('.', '/');
-            }
-        };
+        return className.replace('.', '/');
     }
 }

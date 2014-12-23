@@ -19,6 +19,8 @@ import com.facebook.presto.hive.HiveUtil;
 import com.facebook.presto.orc.BooleanVector;
 import com.facebook.presto.orc.DoubleVector;
 import com.facebook.presto.orc.LongVector;
+import com.facebook.presto.orc.OrcCorruptionException;
+import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -33,53 +35,54 @@ import com.facebook.presto.spi.block.LazySliceArrayBlock;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Charsets;
-import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTimeZone;
-import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.hive.HiveBooleanParser.isFalse;
-import static com.facebook.presto.hive.HiveBooleanParser.isTrue;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
-import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
-import static com.facebook.presto.hive.NumberParser.parseDouble;
-import static com.facebook.presto.hive.NumberParser.parseLong;
+import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
+import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
+import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
 import static com.facebook.presto.orc.Vector.MAX_VECTOR_LENGTH;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
+import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.airlift.slice.Slices.wrappedBooleanArray;
 import static io.airlift.slice.Slices.wrappedDoubleArray;
+import static io.airlift.slice.Slices.wrappedIntArray;
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class OrcPageSource
         implements ConnectorPageSource
 {
-    private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
-
     private final OrcRecordReader recordReader;
-    private final HdfsOrcDataSource orcDataSource;
+    private final OrcDataSource orcDataSource;
 
     private final List<String> columnNames;
     private final List<Type> types;
@@ -95,7 +98,7 @@ public class OrcPageSource
 
     public OrcPageSource(
             OrcRecordReader recordReader,
-            HdfsOrcDataSource orcDataSource,
+            OrcDataSource orcDataSource,
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
@@ -104,7 +107,7 @@ public class OrcPageSource
         this.recordReader = checkNotNull(recordReader, "recordReader is null");
         this.orcDataSource = checkNotNull(orcDataSource, "orcDataSource is null");
 
-        Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(checkNotNull(partitionKeys, "partitionKeys is null"), HivePartitionKey.nameGetter());
+        Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(checkNotNull(partitionKeys, "partitionKeys is null"), HivePartitionKey::getName);
 
         int size = checkNotNull(columns, "columns is null").size();
 
@@ -125,7 +128,7 @@ public class OrcPageSource
             typesBuilder.add(type);
 
             String typeBase = column.getTypeSignature().getBase();
-            isStructuralType[columnIndex] = ARRAY.equals(typeBase) || MAP.equals(typeBase);
+            isStructuralType[columnIndex] = ARRAY.equals(typeBase) || MAP.equals(typeBase) || ROW.equals(typeBase);
 
             hiveColumnIndexes[columnIndex] = column.getHiveColumnIndex();
 
@@ -133,7 +136,7 @@ public class OrcPageSource
                 HivePartitionKey partitionKey = partitionKeysByName.get(name);
                 checkArgument(partitionKey != null, "No value provided for partition key %s", name);
 
-                byte[] bytes = partitionKey.getValue().getBytes(Charsets.UTF_8);
+                byte[] bytes = partitionKey.getValue().getBytes(UTF_8);
 
                 BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
 
@@ -143,35 +146,19 @@ public class OrcPageSource
                     }
                 }
                 else if (type.equals(BOOLEAN)) {
-                    boolean value;
-                    if (isTrue(bytes, 0, bytes.length)) {
-                        value = true;
-                    }
-                    else if (isFalse(bytes, 0, bytes.length)) {
-                        value = false;
-                    }
-                    else {
-                        String valueString = new String(bytes, Charsets.UTF_8);
-                        throw new IllegalArgumentException(String.format("Invalid partition value '%s' for BOOLEAN partition key %s", valueString, name));
-                    }
+                    boolean value = booleanPartitionKey(partitionKey.getValue(), name);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                         BOOLEAN.writeBoolean(blockBuilder, value);
                     }
                 }
                 else if (type.equals(BIGINT)) {
-                    if (bytes.length == 0) {
-                        throw new IllegalArgumentException(String.format("Invalid partition value '' for BIGINT partition key %s", name));
-                    }
-                    long value = parseLong(bytes, 0, bytes.length);
+                    long value = bigintPartitionKey(partitionKey.getValue(), name);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                         BIGINT.writeLong(blockBuilder, value);
                     }
                 }
                 else if (type.equals(DOUBLE)) {
-                    if (bytes.length == 0) {
-                        throw new IllegalArgumentException(String.format("Invalid partition value '' for DOUBLE partition key %s", name));
-                    }
-                    double value = parseDouble(bytes, 0, bytes.length);
+                    double value = doublePartitionKey(partitionKey.getValue(), name);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                         DOUBLE.writeDouble(blockBuilder, value);
                     }
@@ -183,19 +170,19 @@ public class OrcPageSource
                     }
                 }
                 else if (type.equals(DATE)) {
-                    long value = ISODateTimeFormat.date().withZone(DateTimeZone.UTC).parseMillis(partitionKey.getValue());
+                    long value = datePartitionKey(partitionKey.getValue(), name);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                         DATE.writeLong(blockBuilder, value);
                     }
                 }
                 else if (type.equals(TIMESTAMP)) {
-                    long value = parseHiveTimestamp(partitionKey.getValue(), hiveStorageTimeZone);
+                    long value = timestampPartitionKey(partitionKey.getValue(), hiveStorageTimeZone, name);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
-                        DATE.writeLong(blockBuilder, value);
+                        TIMESTAMP.writeLong(blockBuilder, value);
                     }
                 }
                 else {
-                    throw new UnsupportedOperationException("Partition key " + name + " had an unsupported column type " + type);
+                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for partition key: %s", type.getDisplayName(), name));
                 }
 
                 constantBlocks[columnIndex] = blockBuilder.build();
@@ -269,7 +256,7 @@ public class OrcPageSource
                     blocks[fieldId] = new LazySliceArrayBlock(batchSize, new LazySliceBlockLoader(hiveColumnIndexes[fieldId]));
                 }
                 else {
-                    throw new UnsupportedOperationException("Unsupported column type: " + type);
+                    throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type);
                 }
             }
             Page page = new Page(batchSize, blocks);
@@ -278,6 +265,10 @@ public class OrcPageSource
             completedBytes = min(recordReader.getSplitLength(), max(completedBytes, newCompletedBytes));
 
             return page;
+        }
+        catch (PrestoException e) {
+            closeWithSuppression(e);
+            throw e;
         }
         catch (IOException | RuntimeException e) {
             closeWithSuppression(e);
@@ -305,7 +296,7 @@ public class OrcPageSource
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("columnNames", columnNames)
                 .add("types", types)
                 .toString();
@@ -346,7 +337,7 @@ public class OrcPageSource
                 block.setRawSlice(wrappedBooleanArray(vector.vector, 0, batchSize));
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                throw propagateException(e);
             }
         }
     }
@@ -371,14 +362,19 @@ public class OrcPageSource
             try {
                 LongVector vector = new LongVector();
                 recordReader.readVector(hiveColumnIndex, vector);
-                for (int i = 0; i < batchSize; i++) {
-                    vector.vector[i] *= MILLIS_IN_DAY;
-                }
                 block.setNullVector(vector.isNull);
-                block.setRawSlice(wrappedLongArray(vector.vector, 0, batchSize));
+
+                // Presto stores dates as ints in memory, so convert to int array
+                // TODO to add an ORC int vector
+                int[] days = new int[batchSize];
+                for (int i = 0; i < batchSize; i++) {
+                    days[i] = (int) vector.vector[i];
+                }
+
+                block.setRawSlice(wrappedIntArray(days, 0, batchSize));
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                throw propagateException(e);
             }
         }
     }
@@ -407,7 +403,7 @@ public class OrcPageSource
                 block.setRawSlice(wrappedLongArray(vector.vector, 0, batchSize));
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                throw propagateException(e);
             }
         }
     }
@@ -437,7 +433,7 @@ public class OrcPageSource
                 block.setRawSlice(wrappedDoubleArray(vector.vector, 0, batchSize));
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                throw propagateException(e);
             }
         }
     }
@@ -464,8 +460,16 @@ public class OrcPageSource
                 block.setValues(vector.vector);
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                throw propagateException(e);
             }
         }
+    }
+
+    private static RuntimeException propagateException(IOException e)
+    {
+        if (e instanceof OrcCorruptionException) {
+            throw new PrestoException(HIVE_BAD_DATA, e);
+        }
+        throw new PrestoException(HIVE_CURSOR_ERROR, e);
     }
 }

@@ -19,13 +19,22 @@ import java.util.Map;
 
 public interface OrcPredicate
 {
+    OrcPredicate TRUE = new OrcPredicate()
+    {
+        @Override
+        public boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByColumnIndex)
+        {
+            return true;
+        }
+    };
+
     /**
      * Should the ORC reader process a file section with the specified statistics.
      *
      * @param numberOfRows the number of rows in the segment; this can be used with
      * {@code ColumnStatistics} to determine if a column is only null
-     * @param statisticsByHiveColumnIndex statistics for column by ordinal position
+     * @param statisticsByColumnIndex statistics for column by ordinal position
      * in the file; this will match the field order from the hive metastore
      */
-    boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByHiveColumnIndex);
+    boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByColumnIndex);
 }

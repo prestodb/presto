@@ -19,8 +19,8 @@ import io.airlift.slice.Slices;
 
 import java.util.Map;
 
-import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class LookupSymbolResolver
         implements SymbolResolver

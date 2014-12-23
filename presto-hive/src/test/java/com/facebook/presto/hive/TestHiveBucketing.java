@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.hive;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.google.common.collect.Maps.immutableEntry;

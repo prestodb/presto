@@ -27,17 +27,16 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.TupleDomain;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.facebook.presto.metadata.Partition.connectorPartitionGetter;
 import static com.facebook.presto.metadata.Util.toConnectorDomain;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -61,7 +60,7 @@ public class SplitManager
 
     public PartitionResult getPartitions(TableHandle table, Optional<TupleDomain<ColumnHandle>> tupleDomain)
     {
-        TupleDomain<ColumnHandle> domain = tupleDomain.or(TupleDomain.<ColumnHandle>all());
+        TupleDomain<ColumnHandle> domain = tupleDomain.orElse(TupleDomain.all());
 
         ConnectorPartitionResult result;
         if (domain.isNone()) {
@@ -80,7 +79,7 @@ public class SplitManager
             return new ConnectorAwareSplitSource(handle.getConnectorId(), new FixedSplitSource(handle.getConnectorId(), ImmutableList.<ConnectorSplit>of()));
         }
         ConnectorTableHandle table = handle.getConnectorHandle();
-        ConnectorSplitSource source = getConnectorSplitManager(handle).getPartitionSplits(table, Lists.transform(partitions, connectorPartitionGetter()));
+        ConnectorSplitSource source = getConnectorSplitManager(handle).getPartitionSplits(table, Lists.transform(partitions, Partition::getConnectorPartition));
         return new ConnectorAwareSplitSource(handle.getConnectorId(), source);
     }
 

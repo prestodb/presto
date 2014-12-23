@@ -13,14 +13,13 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.operator.GroupByIdBlock;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.testing.RunLengthEncodedBlock;
-import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.spi.Page;
-import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -28,6 +27,7 @@ import com.google.common.primitives.Ints;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -59,11 +59,11 @@ public final class AggregationTestUtils
 
     public static boolean approximateAggregationWithinErrorBound(InternalAggregationFunction function, int sampleWeightChannel, double confidence, Double expectedValue, Page... pages)
     {
-        Accumulator accumulator = function.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.of(sampleWeightChannel), confidence).createAccumulator();
+        Accumulator accumulator = function.bind(ImmutableList.of(0), Optional.empty(), Optional.of(sampleWeightChannel), confidence).createAccumulator();
         for (Page page : pages) {
             accumulator.addInput(page);
         }
-        Block result = accumulator.evaluateFinal();
+        Block result = getFinalBlock(accumulator);
 
         if (expectedValue == null) {
             return BlockAssertions.toValues(function.getFinalType(), result).get(0) == null;
@@ -72,9 +72,23 @@ public final class AggregationTestUtils
         return withinErrorBound(BlockAssertions.toValues(function.getFinalType(), result).get(0).toString(), expectedValue);
     }
 
+    public static Block getIntermediateBlock(Accumulator accumulator)
+    {
+        BlockBuilder blockBuilder = accumulator.getIntermediateType().createBlockBuilder(new BlockBuilderStatus());
+        accumulator.evaluateIntermediate(blockBuilder);
+        return blockBuilder.build();
+    }
+
+    public static Block getFinalBlock(Accumulator accumulator)
+    {
+        BlockBuilder blockBuilder = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus());
+        accumulator.evaluateFinal(blockBuilder);
+        return blockBuilder.build();
+    }
+
     public static boolean partialApproximateAggregationWithinErrorBound(InternalAggregationFunction function, int sampleWeightChannel, double confidence, Double expectedValue, Page... pages)
     {
-        AccumulatorFactory factory = function.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.of(sampleWeightChannel), confidence);
+        AccumulatorFactory factory = function.bind(ImmutableList.of(0), Optional.empty(), Optional.of(sampleWeightChannel), confidence);
         Accumulator partialAccumulator = factory.createAccumulator();
         for (Page page : pages) {
             if (page.getPositionCount() > 0) {
@@ -82,12 +96,12 @@ public final class AggregationTestUtils
             }
         }
 
-        Block partialBlock = partialAccumulator.evaluateIntermediate();
+        Block partialBlock = getIntermediateBlock(partialAccumulator);
 
         Accumulator finalAggregation = factory.createIntermediateAccumulator();
         finalAggregation.addIntermediate(partialBlock);
 
-        Block finalBlock = finalAggregation.evaluateFinal();
+        Block finalBlock = getFinalBlock(finalAggregation);
 
         if (expectedValue == null) {
             return BlockAssertions.toValues(function.getFinalType(), finalBlock).get(0) == null;
@@ -98,7 +112,7 @@ public final class AggregationTestUtils
 
     public static boolean groupedApproximateAggregationWithinErrorBound(InternalAggregationFunction function, int sampleWeightChannel, double confidence, Double expectedValue, Page... pages)
     {
-        GroupedAccumulator groupedAggregation = function.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.of(sampleWeightChannel), confidence).createGroupedAccumulator();
+        GroupedAccumulator groupedAggregation = function.bind(ImmutableList.of(0), Optional.empty(), Optional.of(sampleWeightChannel), confidence).createGroupedAccumulator();
         for (Page page : pages) {
             groupedAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
         }
@@ -173,16 +187,16 @@ public final class AggregationTestUtils
     public static Object aggregation(InternalAggregationFunction function, double confidence, Page... pages)
     {
         // execute with args in positions: arg0, arg1, arg2
-        Object aggregation = aggregation(function, createArgs(function), Optional.<Integer>absent(), confidence, pages);
+        Object aggregation = aggregation(function, createArgs(function), Optional.empty(), confidence, pages);
 
         // execute with args in reverse order: arg2, arg1, arg0
         if (function.getParameterTypes().size() > 1) {
-            Object aggregationWithOffset = aggregation(function, reverseArgs(function), Optional.<Integer>absent(), confidence, reverseColumns(pages));
+            Object aggregationWithOffset = aggregation(function, reverseArgs(function), Optional.empty(), confidence, reverseColumns(pages));
             assertEquals(aggregationWithOffset, aggregation, "Inconsistent results with reversed channels");
         }
 
         // execute with args at an offset (and possibly reversed): null, null, null, arg2, arg1, arg0
-        Object aggregationWithOffset = aggregation(function, offsetArgs(function, 3), Optional.<Integer>absent(), confidence, offsetColumns(pages, 3));
+        Object aggregationWithOffset = aggregation(function, offsetArgs(function, 3), Optional.empty(), confidence, offsetColumns(pages, 3));
         assertEquals(aggregationWithOffset, aggregation, "Inconsistent results with channel offset");
 
         return aggregation;
@@ -190,14 +204,14 @@ public final class AggregationTestUtils
 
     private static Object aggregation(InternalAggregationFunction function, int[] args, Optional<Integer> maskChannel, double confidence, Page... pages)
     {
-        Accumulator aggregation = function.bind(Ints.asList(args), maskChannel, Optional.<Integer>absent(), confidence).createAccumulator();
+        Accumulator aggregation = function.bind(Ints.asList(args), maskChannel, Optional.empty(), confidence).createAccumulator();
         for (Page page : pages) {
             if (page.getPositionCount() > 0) {
                 aggregation.addInput(page);
             }
         }
 
-        Block block = aggregation.evaluateFinal();
+        Block block = getFinalBlock(aggregation);
         return BlockAssertions.getOnlyValue(aggregation.getFinalType(), block);
     }
 
@@ -221,7 +235,7 @@ public final class AggregationTestUtils
 
     public static Object partialAggregation(InternalAggregationFunction function, double confidence, int[] args, Page... pages)
     {
-        AccumulatorFactory factory = function.bind(Ints.asList(args), Optional.<Integer>absent(), Optional.<Integer>absent(), confidence);
+        AccumulatorFactory factory = function.bind(Ints.asList(args), Optional.empty(), Optional.empty(), confidence);
         Accumulator partialAggregation = factory.createAccumulator();
         for (Page page : pages) {
             if (page.getPositionCount() > 0) {
@@ -229,15 +243,17 @@ public final class AggregationTestUtils
             }
         }
 
-        Block partialBlock = partialAggregation.evaluateIntermediate();
+        Block partialBlock = getIntermediateBlock(partialAggregation);
 
         Accumulator finalAggregation = factory.createIntermediateAccumulator();
         // Test handling of empty intermediate blocks
-        Block emptyBlock = factory.createAccumulator().evaluateIntermediate();
+        Accumulator emptyAggregation = factory.createAccumulator();
+        Block emptyBlock = getIntermediateBlock(emptyAggregation);
+
         finalAggregation.addIntermediate(emptyBlock);
         finalAggregation.addIntermediate(partialBlock);
 
-        Block finalBlock = finalAggregation.evaluateFinal();
+        Block finalBlock = getFinalBlock(finalAggregation);
         return BlockAssertions.getOnlyValue(finalAggregation.getFinalType(), finalBlock);
     }
 
@@ -261,7 +277,7 @@ public final class AggregationTestUtils
 
     public static Object groupedAggregation(InternalAggregationFunction function, double confidence, int[] args, Page... pages)
     {
-        GroupedAccumulator groupedAggregation = function.bind(Ints.asList(args), Optional.<Integer>absent(), Optional.<Integer>absent(), confidence).createGroupedAccumulator();
+        GroupedAccumulator groupedAggregation = function.bind(Ints.asList(args), Optional.empty(), Optional.empty(), confidence).createGroupedAccumulator();
         for (Page page : pages) {
             groupedAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
         }
@@ -296,7 +312,7 @@ public final class AggregationTestUtils
 
     public static Object groupedPartialAggregation(InternalAggregationFunction function, double confidence, int[] args, Page... pages)
     {
-        AccumulatorFactory factory = function.bind(Ints.asList(args), Optional.<Integer>absent(), Optional.<Integer>absent(), confidence);
+        AccumulatorFactory factory = function.bind(Ints.asList(args), Optional.empty(), Optional.empty(), confidence);
         GroupedAccumulator partialAggregation = factory.createGroupedAccumulator();
         for (Page page : pages) {
             partialAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);

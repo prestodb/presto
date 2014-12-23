@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.Page;
-import com.google.common.base.Function;
 import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
@@ -73,14 +72,16 @@ public class OperatorContext
     private final AtomicLong finishUserNanos = new AtomicLong();
 
     private final AtomicLong memoryReservation = new AtomicLong();
+    private final long maxMemoryReservation;
 
     private final AtomicReference<Supplier<Object>> infoSupplier = new AtomicReference<>();
     private final boolean collectTimings;
 
-    public OperatorContext(int operatorId, String operatorType, DriverContext driverContext, Executor executor)
+    public OperatorContext(int operatorId, String operatorType, DriverContext driverContext, Executor executor, long maxMemoryReservation)
     {
         checkArgument(operatorId >= 0, "operatorId is negative");
         this.operatorId = operatorId;
+        this.maxMemoryReservation = maxMemoryReservation;
         this.operatorType = checkNotNull(operatorType, "operatorType is null");
         this.driverContext = checkNotNull(driverContext, "driverContext is null");
         this.executor = checkNotNull(executor, "executor is null");
@@ -204,9 +205,14 @@ public class OperatorContext
 
     public boolean reserveMemory(long bytes)
     {
+        long newReservation = memoryReservation.getAndAdd(bytes);
+        if (newReservation > maxMemoryReservation) {
+            memoryReservation.getAndAdd(-bytes);
+            return false;
+        }
         boolean result = driverContext.reserveMemory(bytes);
-        if (result) {
-            memoryReservation.getAndAdd(bytes);
+        if (!result) {
+            memoryReservation.getAndAdd(-bytes);
         }
         return result;
     }
@@ -313,18 +319,6 @@ public class OperatorContext
     private static long nanosBetween(long start, long end)
     {
         return Math.abs(end - start);
-    }
-
-    public static Function<OperatorContext, OperatorStats> operatorStatsGetter()
-    {
-        return new Function<OperatorContext, OperatorStats>()
-        {
-            @Override
-            public OperatorStats apply(OperatorContext operatorContext)
-            {
-                return operatorContext.getOperatorStats();
-            }
-        };
     }
 
     private class BlockedMonitor

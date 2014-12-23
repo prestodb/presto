@@ -21,12 +21,12 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.util.SetThreadName;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTime;
@@ -193,15 +193,7 @@ public class SqlTask
         }
 
         ListenableFuture<TaskState> futureTaskState = taskStateMachine.getStateChange(callersCurrentState);
-        return Futures.transform(futureTaskState, new Function<TaskState, TaskInfo>()
-        {
-            @Nullable
-            @Override
-            public TaskInfo apply(@Nullable TaskState state)
-            {
-                return getTaskInfo();
-            }
-        });
+        return Futures.transform(futureTaskState, (TaskState input) -> getTaskInfo());
     }
 
     public TaskInfo updateTask(Session session, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputBuffers)
@@ -216,16 +208,23 @@ public class SqlTask
             }
             taskExecution = taskHolder.getTaskExecution();
             if (taskExecution == null) {
-                taskExecution = sqlTaskExecutionFactory.create(session, taskStateMachine, sharedBuffer, fragment, sources);
-                taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
+                try {
+                    taskExecution = sqlTaskExecutionFactory.create(session, taskStateMachine, sharedBuffer, fragment, sources);
+                    taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
+                }
+                catch (RuntimeException e) {
+                    failed(e);
+                }
             }
         }
 
         lastHeartbeat.set(DateTime.now());
 
-        // addSources checks for task completion, so update the buffers first and the task might complete earlier
-        sharedBuffer.setOutputBuffers(outputBuffers);
-        taskExecution.addSources(sources);
+        if (taskExecution != null) {
+            // addSources checks for task completion, so update the buffers first and the task might complete earlier
+            sharedBuffer.setOutputBuffers(outputBuffers);
+            taskExecution.addSources(sources);
+        }
 
         return getTaskInfo();
     }
@@ -271,19 +270,6 @@ public class SqlTask
     public String toString()
     {
         return taskId.toString();
-    }
-
-    public static Function<SqlTask, TaskInfo> taskInfoGetter()
-    {
-        return new Function<SqlTask, TaskInfo>()
-        {
-            @Nullable
-            @Override
-            public TaskInfo apply(SqlTask sqlTask)
-            {
-                return sqlTask.getTaskInfo();
-            }
-        };
     }
 
     private static final class TaskHolder

@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
+import java.util.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SampledRelation
@@ -86,7 +87,7 @@ public class SampledRelation
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("relation", relation)
                 .add("type", type)
                 .add("samplePercentage", samplePercentage)
@@ -104,15 +105,15 @@ public class SampledRelation
             return false;
         }
         SampledRelation that = (SampledRelation) o;
-        return Objects.equal(relation, that.relation) &&
-                Objects.equal(type, that.type) &&
-                Objects.equal(samplePercentage, that.samplePercentage) &&
-                Objects.equal(columnsToStratifyOn, that.columnsToStratifyOn);
+        return Objects.equals(relation, that.relation) &&
+                Objects.equals(type, that.type) &&
+                Objects.equals(samplePercentage, that.samplePercentage) &&
+                Objects.equals(columnsToStratifyOn, that.columnsToStratifyOn);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(relation, type, samplePercentage, columnsToStratifyOn);
+        return Objects.hash(relation, type, samplePercentage, columnsToStratifyOn);
     }
 }

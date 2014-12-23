@@ -232,11 +232,6 @@ concurrent_writes: 32
 # By default this will be set to the amount of data directories defined.
 #memtable_flush_writers: 1
 
-# the number of full memtables to allow pending flush, that is,
-# waiting for a writer thread.  At a minimum, this should be set to
-# the maximum number of secondary indexes created on a single CF.
-memtable_flush_queue_size: 4
-
 # Whether to, when doing sequential writing, fsync() at intervals in
 # order to force the operating system to flush the dirty
 # buffers. Enable this to avoid sudden dirty buffer flushing from
@@ -362,11 +357,6 @@ auto_snapshot: false
 # that wastefully either.
 column_index_size_in_kb: 64
 
-# Size limit for rows being compacted in memory.  Larger rows will spill
-# over to disk and use a slower two-pass compaction process.  A message
-# will be logged specifying the row key.
-in_memory_compaction_limit_in_mb: 64
-
 # Number of simultaneous compactions to allow, NOT including
 # validation "compactions" for anti-entropy repair.  Simultaneous
 # compactions can help preserve read performance in a mixed read/write
@@ -382,13 +372,6 @@ in_memory_compaction_limit_in_mb: 64
 # Uncomment to make compaction mono-threaded, the pre-0.8 default.
 #concurrent_compactors: 1
 
-# Multi-threaded compaction. When enabled, each compaction will use
-# up to one thread per core, plus one thread per sstable being merged.
-# This is usually only useful for SSD-based hardware: otherwise,
-# your concern is usually to get compaction to do LESS i/o (see:
-# compaction_throughput_mb_per_sec), not more.
-multithreaded_compaction: false
-
 # Throttles compaction to the given total throughput across the entire
 # system. The faster you insert data, the faster you need to compact in
 # order to keep the sstable count down, but in general, setting this to
@@ -396,11 +379,6 @@ multithreaded_compaction: false
 # Setting this to 0 disables throttling. Note that this account for all types
 # of compaction, including validation compaction.
 compaction_throughput_mb_per_sec: 16
-
-# Track cached row keys during compaction, and re-cache their new
-# positions in the compacted sstable.  Disable if you use really large
-# key caches.
-compaction_preheat_key_cache: true
 
 # Throttles all outbound streaming file transfers on this node to the
 # given total throughput in Mbps. This is necessary because Cassandra does

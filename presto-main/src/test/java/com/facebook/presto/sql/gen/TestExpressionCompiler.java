@@ -24,7 +24,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.sql.tree.Extract.Field;
 import com.facebook.presto.type.LikeFunctions;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -60,7 +59,6 @@ import java.util.concurrent.Callable;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor;
@@ -68,6 +66,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.cos;
 import static java.lang.Runtime.getRuntime;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertTrue;
@@ -819,25 +818,11 @@ public class TestExpressionCompiler
         assertExecute("bound_long in (1234, " + Joiner.on(", ").join(longValues) + ")", true);
         assertExecute("bound_long in (" + Joiner.on(", ").join(longValues) + ")", false);
 
-        Iterable<Object> doubleValues = transform(ContiguousSet.create(Range.openClosed(2000, 7000), DiscreteDomain.integers()), new Function<Integer, Object>()
-        {
-            @Override
-            public Object apply(Integer i)
-            {
-                return (double) i;
-            }
-        });
+        Iterable<Object> doubleValues = transform(ContiguousSet.create(Range.openClosed(2000, 7000), DiscreteDomain.integers()), i -> (double) i);
         assertExecute("bound_double in (12.34, " + Joiner.on(", ").join(doubleValues) + ")", true);
         assertExecute("bound_double in (" + Joiner.on(", ").join(doubleValues) + ")", false);
 
-        Iterable<Object> stringValues = transform(ContiguousSet.create(Range.openClosed(2000, 7000), DiscreteDomain.integers()), new Function<Integer, Object>()
-        {
-            @Override
-            public Object apply(Integer i)
-            {
-                return "'" + i + "'";
-            }
-        });
+        Iterable<Object> stringValues = transform(ContiguousSet.create(Range.openClosed(2000, 7000), DiscreteDomain.integers()), i -> "'" + i + "'");
         assertExecute("bound_string in ('hello', " + Joiner.on(", ").join(stringValues) + ")", true);
         assertExecute("bound_string in (" + Joiner.on(", ").join(stringValues) + ")", false);
 

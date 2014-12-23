@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.ml;
 
-import com.facebook.presto.ml.type.ClassifierType;
 import com.facebook.presto.ml.type.RegressorType;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -30,8 +29,10 @@ import io.airlift.slice.Slices;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.facebook.presto.ml.type.ClassifierType.CLASSIFIER;
+import static com.facebook.presto.ml.type.ClassifierType.BIGINT_CLASSIFIER;
+import static com.facebook.presto.ml.type.ClassifierType.VARCHAR_CLASSIFIER;
 import static com.facebook.presto.ml.type.RegressorType.REGRESSOR;
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class MLFunctions
@@ -44,14 +45,26 @@ public final class MLFunctions
     {
     }
 
-    @ScalarFunction
-    @SqlType(StandardTypes.BIGINT)
-    public static long classify(@SqlType(MAP_BIGINT_DOUBLE) Slice featuresMap, @SqlType(ClassifierType.NAME) Slice modelSlice)
+    @ScalarFunction("classify")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice varcharClassify(@SqlType(MAP_BIGINT_DOUBLE) Slice featuresMap, @SqlType("Classifier<varchar>") Slice modelSlice)
     {
         FeatureVector features = ModelUtils.jsonToFeatures(featuresMap);
         Model model = getOrLoadModel(modelSlice);
-        checkArgument(model instanceof Classifier && model.getType().equals(CLASSIFIER), "model is not a classifier");
-        return ((Classifier) model).classify(features);
+        checkArgument(model.getType().equals(VARCHAR_CLASSIFIER), "model is not a classifier<varchar>");
+        Classifier<String> varcharClassifier = checkType(model, Classifier.class, "model");
+        return Slices.utf8Slice(varcharClassifier.classify(features));
+    }
+
+    @ScalarFunction
+    @SqlType(StandardTypes.BIGINT)
+    public static long classify(@SqlType(MAP_BIGINT_DOUBLE) Slice featuresMap, @SqlType("Classifier<bigint>") Slice modelSlice)
+    {
+        FeatureVector features = ModelUtils.jsonToFeatures(featuresMap);
+        Model model = getOrLoadModel(modelSlice);
+        checkArgument(model.getType().equals(BIGINT_CLASSIFIER), "model is not a classifier<bigint>");
+        Classifier<Integer> classifier = checkType(model, Classifier.class, "model");
+        return classifier.classify(features);
     }
 
     @ScalarFunction
@@ -60,8 +73,9 @@ public final class MLFunctions
     {
         FeatureVector features = ModelUtils.jsonToFeatures(featuresMap);
         Model model = getOrLoadModel(modelSlice);
-        checkArgument(model instanceof Regressor && model.getType().equals(REGRESSOR), "model is not a regressor");
-        return ((Regressor) model).regress(features);
+        checkArgument(model.getType().equals(REGRESSOR), "model is not a regressor");
+        Regressor regressor = checkType(model, Regressor.class, "model");
+        return regressor.regress(features);
     }
 
     private static Model getOrLoadModel(Slice slice)

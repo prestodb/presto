@@ -122,13 +122,6 @@ public final class GenerateTimeZoneIndex
 
     public static Predicate<String> ignoredZone()
     {
-        return new Predicate<String>()
-        {
-            @Override
-            public boolean apply(String zoneId)
-            {
-                return isUtcZoneId(zoneId) || zoneId.startsWith("Etc/");
-            }
-        };
+        return zoneId -> isUtcZoneId(zoneId) || zoneId.startsWith("Etc/");
     }
 }

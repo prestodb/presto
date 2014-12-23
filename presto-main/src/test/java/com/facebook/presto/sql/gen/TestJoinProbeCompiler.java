@@ -20,22 +20,26 @@ import com.facebook.presto.operator.JoinProbe;
 import com.facebook.presto.operator.JoinProbeFactory;
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.SequencePageBuilder;
+import com.facebook.presto.SequencePageBuilder;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.ValuesOperator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
+import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -50,6 +54,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestJoinProbeCompiler
 {
+    private static final JoinCompiler joinCompiler = new JoinCompiler();
     private ExecutorService executor;
     private TaskContext taskContext;
 
@@ -66,13 +71,19 @@ public class TestJoinProbeCompiler
         executor.shutdownNow();
     }
 
-    @Test
-    public void testSingleChannel()
+    @DataProvider(name = "hashEnabledValues")
+    public static Object[][] hashEnabledValuesProvider()
+    {
+        return new Object[][] { { true }, { false } };
+    }
+
+    @Test(dataProvider = "hashEnabledValues")
+    public void testSingleChannel(boolean hashEnabled)
             throws Exception
     {
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
-        JoinCompiler joinCompiler = new JoinCompiler();
+
         ImmutableList<Type> types = ImmutableList.<Type>of(VARCHAR);
         LookupSourceFactory lookupSourceFactoryFactory = joinCompiler.compileLookupSourceFactory(types, Ints.asList(0));
 
@@ -88,25 +99,41 @@ public class TestJoinProbeCompiler
                 addresses.add(encodeSyntheticAddress(blockIndex, positionIndex));
             }
         }
-        LookupSource lookupSource = lookupSourceFactoryFactory.createLookupSource(addresses, types, ImmutableList.of(channel), operatorContext);
+
+        Optional<Integer> hashChannel = Optional.empty();
+        List<List<Block>> channels = ImmutableList.of(channel);
+
+        if (hashEnabled) {
+            ImmutableList.Builder<Block> hashChannelBuilder = ImmutableList.builder();
+            for (Block block : channel) {
+                hashChannelBuilder.add(TypeUtils.getHashBlock(ImmutableList.<Type>of(VARCHAR), block));
+            }
+            types = ImmutableList.<Type>of(VARCHAR, BigintType.BIGINT);
+            hashChannel = Optional.of(1);
+            channels = ImmutableList.of(channel, hashChannelBuilder.build());
+        }
+        LookupSource lookupSource = lookupSourceFactoryFactory.createLookupSource(addresses, types, channels, hashChannel, operatorContext);
 
         JoinProbeCompiler joinProbeCompiler = new JoinProbeCompiler();
-        JoinProbeFactory probeFactory = joinProbeCompiler.internalCompileJoinProbe(types, Ints.asList(0));
+        JoinProbeFactory probeFactory = joinProbeCompiler.internalCompileJoinProbe(types, Ints.asList(0), hashChannel);
 
         Page page = SequencePageBuilder.createSequencePage(types, 10, 10);
+        if (hashEnabled) {
+            page = new Page(page.getBlock(0), TypeUtils.getHashBlock(ImmutableList.of(VARCHAR), page.getBlock(0)));
+        }
         JoinProbe joinProbe = probeFactory.createJoinProbe(lookupSource, page);
 
         // verify channel count
-        assertEquals(joinProbe.getChannelCount(), 1);
+        assertEquals(joinProbe.getChannelCount(), types.size());
 
-        Block probeBlock = page.getBlock(0);
         PageBuilder pageBuilder = new PageBuilder(types);
         for (int position = 0; position < page.getPositionCount(); position++) {
             assertTrue(joinProbe.advanceNextPosition());
 
+            pageBuilder.declarePosition();
             joinProbe.appendTo(pageBuilder);
 
-            assertEquals(joinProbe.getCurrentJoinPosition(), lookupSource.getJoinPosition(position, probeBlock));
+            assertEquals(joinProbe.getCurrentJoinPosition(), lookupSource.getJoinPosition(position, page));
         }
         assertFalse(joinProbe.advanceNextPosition());
         assertPageEquals(types, pageBuilder.build(), page);

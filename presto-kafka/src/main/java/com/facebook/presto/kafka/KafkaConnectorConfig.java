@@ -14,7 +14,6 @@
 package com.facebook.presto.kafka;
 
 import com.facebook.presto.spi.HostAddress;
-import com.google.common.base.Function;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
@@ -162,18 +161,11 @@ public class KafkaConnectorConfig
     public static ImmutableSet<HostAddress> parseNodes(String nodes)
     {
         Splitter splitter = Splitter.on(',').omitEmptyStrings().trimResults();
-        return ImmutableSet.copyOf(transform(splitter.split(nodes), toHostAddress()));
+        return ImmutableSet.copyOf(transform(splitter.split(nodes), KafkaConnectorConfig::toHostAddress));
     }
 
-    private static Function<String, HostAddress> toHostAddress()
+    private static HostAddress toHostAddress(String value)
     {
-        return new Function<String, HostAddress>()
-        {
-            @Override
-            public HostAddress apply(String value)
-            {
-                return HostAddress.fromString(value).withDefaultPort(KAFKA_DEFAULT_PORT);
-            }
-        };
+        return HostAddress.fromString(value).withDefaultPort(KAFKA_DEFAULT_PORT);
     }
 }

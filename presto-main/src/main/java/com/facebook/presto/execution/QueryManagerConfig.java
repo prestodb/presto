@@ -17,6 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
+import javax.annotation.Nullable;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -27,9 +28,12 @@ public class QueryManagerConfig
     private int scheduleSplitBatchSize = 1000;
     private int maxConcurrentQueries = 1000;
     private int maxQueuedQueries = 5000;
+    private int maxConcurrentBigQueries = 10;
+    private int maxQueuedBigQueries = 500;
     private int maxPendingSplitsPerNode = 100;
 
     private int initialHashPartitions = 8;
+    private Integer bigQueryInitialHashPartitions;
     private Duration maxQueryAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
@@ -50,6 +54,32 @@ public class QueryManagerConfig
     public QueryManagerConfig setScheduleSplitBatchSize(int scheduleSplitBatchSize)
     {
         this.scheduleSplitBatchSize = scheduleSplitBatchSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxConcurrentBigQueries()
+    {
+        return maxConcurrentBigQueries;
+    }
+
+    @Config("experimental.max-concurrent-big-queries")
+    public QueryManagerConfig setMaxConcurrentBigQueries(int maxConcurrentBigQueries)
+    {
+        this.maxConcurrentBigQueries = maxConcurrentBigQueries;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxQueuedBigQueries()
+    {
+        return maxQueuedBigQueries;
+    }
+
+    @Config("experimental.max-queued-big-queries")
+    public QueryManagerConfig setMaxQueuedBigQueries(int maxQueuedBigQueries)
+    {
+        this.maxQueuedBigQueries = maxQueuedBigQueries;
         return this;
     }
 
@@ -89,6 +119,20 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxPendingSplitsPerNode(int maxPendingSplitsPerNode)
     {
         this.maxPendingSplitsPerNode = maxPendingSplitsPerNode;
+        return this;
+    }
+
+    @Nullable
+    @Min(1)
+    public Integer getBigQueryInitialHashPartitions()
+    {
+        return bigQueryInitialHashPartitions;
+    }
+
+    @Config("experimental.big-query-initial-hash-partitions")
+    public QueryManagerConfig setBigQueryInitialHashPartitions(Integer bigQueryinitialHashPartitions)
+    {
+        this.bigQueryInitialHashPartitions = bigQueryinitialHashPartitions;
         return this;
     }
 

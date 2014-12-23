@@ -15,11 +15,11 @@ package com.facebook.presto.operator;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
 import org.joda.time.DateTime;
 
 import java.net.URI;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class PageBufferClientStatus
 {
@@ -103,24 +103,12 @@ public class PageBufferClientStatus
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("uri", uri)
                 .add("state", state)
                 .add("lastUpdate", lastUpdate)
                 .add("pagesReceived", pagesReceived)
                 .add("httpRequestState", httpRequestState)
                 .toString();
-    }
-
-    public static Function<PageBufferClientStatus, URI> uriGetter()
-    {
-        return new Function<PageBufferClientStatus, URI>()
-        {
-            @Override
-            public URI apply(PageBufferClientStatus input)
-            {
-                return input.getUri();
-            }
-        };
     }
 }

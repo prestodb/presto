@@ -14,12 +14,14 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricOperator;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
+import com.facebook.presto.type.RowType;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -48,19 +50,19 @@ public class MapSubscriptOperator
         extends ParametricOperator
 {
     public static final MapSubscriptOperator MAP_SUBSCRIPT = new MapSubscriptOperator();
-    private static final LoadingCache<CacheKey, JsonExtractor<?>> cache;
 
-    static
-    {
-        cache = CacheBuilder.newBuilder().expireAfterAccess(1, TimeUnit.MINUTES).maximumSize(1000).build(new CacheLoader<CacheKey, JsonExtractor<?>>() {
-            @Override
-            public JsonExtractor<?> load(CacheKey key)
-                    throws Exception
+    private static final LoadingCache<CacheKey, JsonExtractor<?>> CACHE = CacheBuilder.newBuilder()
+            .expireAfterAccess(1, TimeUnit.MINUTES)
+            .maximumSize(1000)
+            .build(new CacheLoader<CacheKey, JsonExtractor<?>>()
             {
-                return generateExtractor(format("$[\"%s\"]", key.getKey()), key.getType().getExtractor());
-            }
-        });
-    }
+                @Override
+                public JsonExtractor<?> load(CacheKey key)
+                        throws Exception
+                {
+                    return generateExtractor(format("$[\"%s\"]", key.getKey()), key.getType().getExtractor());
+                }
+            });
 
     protected MapSubscriptOperator()
     {
@@ -68,7 +70,7 @@ public class MapSubscriptOperator
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager)
+    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type keyType = types.get("K");
         Type valueType = types.get("V");
@@ -80,7 +82,7 @@ public class MapSubscriptOperator
     private static MethodHandle lookupMethod(Type keyType, Type valueType)
     {
         String methodName = keyType.getJavaType().getSimpleName();
-        if (valueType instanceof ArrayType || valueType instanceof MapType) {
+        if (valueType instanceof ArrayType || valueType instanceof MapType || valueType instanceof RowType) {
             methodName += "Structural";
         }
         else {
@@ -195,9 +197,10 @@ public class MapSubscriptOperator
         return subscript(map, key, ExtractorType.STRUCTURAL);
     }
 
+    @SuppressWarnings("unchecked")
     private static <T> T subscript(Slice map, Object key, ExtractorType type)
     {
-        JsonExtractor<?> extractor = cache.getUnchecked(new CacheKey(key.toString(), type));
+        JsonExtractor<?> extractor = CACHE.getUnchecked(new CacheKey(key.toString(), type));
         return (T) JsonExtract.extract(map, extractor);
     }
 

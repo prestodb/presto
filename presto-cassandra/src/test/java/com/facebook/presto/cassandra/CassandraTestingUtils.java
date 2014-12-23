@@ -13,176 +13,179 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.google.common.base.Charsets;
-import com.google.common.collect.ImmutableList;
+import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.Session;
+import com.datastax.driver.mapping.Mapper;
+import com.datastax.driver.mapping.MappingManager;
+import com.datastax.driver.mapping.annotations.PartitionKey;
+import com.datastax.driver.mapping.annotations.Table;
 import com.google.common.primitives.Ints;
-import me.prettyprint.cassandra.model.BasicColumnDefinition;
-import me.prettyprint.cassandra.serializers.BytesArraySerializer;
-import me.prettyprint.cassandra.serializers.IntegerSerializer;
-import me.prettyprint.cassandra.serializers.LongSerializer;
-import me.prettyprint.cassandra.serializers.StringSerializer;
-import me.prettyprint.cassandra.serializers.UUIDSerializer;
-import me.prettyprint.hector.api.Cluster;
-import me.prettyprint.hector.api.Keyspace;
-import me.prettyprint.hector.api.ddl.ColumnDefinition;
-import me.prettyprint.hector.api.ddl.ColumnFamilyDefinition;
-import me.prettyprint.hector.api.ddl.ColumnType;
-import me.prettyprint.hector.api.ddl.ComparatorType;
-import me.prettyprint.hector.api.ddl.KeyspaceDefinition;
-import me.prettyprint.hector.api.factory.HFactory;
-import me.prettyprint.hector.api.mutation.Mutator;
-import org.cassandraunit.model.StrategyModel;
 
+import static org.testng.Assert.assertEquals;
+
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
+import java.nio.charset.Charset;
+import java.util.Arrays;
+import java.util.Date;
 import java.util.UUID;
 
-class CassandraTestingUtils
+public class CassandraTestingUtils
 {
+    public static final String HOSTNAME = "localhost";
+    public static final int PORT = 9142;
+    public static final String KEYSPACE_NAME = "Presto_Database";
+    public static final String TABLE_NAME = "Presto_Test";
     private static final String CLUSTER_NAME = "TestCluster";
-    private static final String HOST = "localhost:9160";
 
-    private CassandraTestingUtils()
+    private CassandraTestingUtils() {}
+
+    public static Cluster getCluster()
     {
+        return Cluster.builder()
+                .withClusterName(CLUSTER_NAME)
+                .addContactPointsWithPorts(Arrays.asList(new InetSocketAddress(HOSTNAME, PORT)))
+                .build();
     }
 
-    public static void createTestData(String keyspaceName, String columnFamilyName)
+    public static void createOrReplaceKeyspace(Session session, String keyspaceName)
     {
-        List<ColumnFamilyDefinition> columnFamilyDefinitions = createColumnFamilyDefinitions(keyspaceName, columnFamilyName);
-        Keyspace keyspace = createOrReplaceKeyspace(keyspaceName, columnFamilyDefinitions);
+        session.execute("DROP KEYSPACE IF EXISTS " + keyspaceName);
+        session.execute("CREATE KEYSPACE " + keyspaceName + " WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor':1}");
+    }
 
-        Mutator<String> mutator = HFactory.createMutator(keyspace, StringSerializer.get());
+    public static void initializeTestData(Date date)
+    {
+        try (Cluster cluster = getCluster()) {
+            try (Session session = cluster.connect()) {
+                createOrReplaceKeyspace(session, KEYSPACE_NAME);
+            }
 
-        long timestamp = System.currentTimeMillis();
-        for (int rowNumber = 1; rowNumber < 10; rowNumber++) {
-            addRow(columnFamilyName, mutator, timestamp, rowNumber);
+            try (Session session = cluster.connect(KEYSPACE_NAME)) {
+                session.execute("DROP TABLE IF EXISTS " + TABLE_NAME);
+                session.execute("CREATE TABLE " + TABLE_NAME + " (" +
+                        " key text PRIMARY KEY, " +
+                        " typeuuid uuid, " +
+                        " typeinteger int, " +
+                        " typelong bigint, " +
+                        " typebytes blob, " +
+                        " typetimestamp timestamp " +
+                        ")");
+
+                Mapper<TableRow> mapper = new MappingManager(session).mapper(TableRow.class);
+
+                for (Integer rowNumber = 1; rowNumber < 10; rowNumber++) {
+                    TableRow tableRow = new TableRow(
+                            "key " + rowNumber.toString(),
+                            UUID.fromString(String.format("00000000-0000-0000-0000-%012d", rowNumber)),
+                            rowNumber,
+                            rowNumber.longValue() + 1000,
+                            ByteBuffer.wrap(Ints.toByteArray(rowNumber)).asReadOnlyBuffer(),
+                            date
+                    );
+                    mapper.save(tableRow);
+                    assertEquals(mapper.get(tableRow.getKey()).toString(), tableRow.toString());
+                }
+
+                assertEquals(session.execute("SELECT COUNT(*) FROM presto_test").all().get(0).getLong(0), 9);
+            }
         }
-        mutator.execute();
     }
 
-    public static Keyspace createOrReplaceKeyspace(String keyspaceName, List<ColumnFamilyDefinition> columnFamilyDefinitions)
+    @Table(keyspace = "presto_database", name = "presto_test")
+    public static class TableRow
     {
-        Cluster cluster = getOrCreateCluster();
+        @PartitionKey
+        private String key;
+        private UUID typeuuid;
+        private Integer typeinteger;
+        private Long typelong;
+        private ByteBuffer typebytes;
+        private Date typetimestamp;
 
-        KeyspaceDefinition keyspaceDefinition = HFactory.createKeyspaceDefinition(
-                keyspaceName,
-                StrategyModel.SIMPLE_STRATEGY.value(),
-                1,
-                columnFamilyDefinitions);
+        public TableRow() {}
 
-        if (cluster.describeKeyspace(keyspaceName) != null) {
-            cluster.dropKeyspace(keyspaceName, true);
+        public TableRow(String key, UUID typeuuid, Integer typeinteger, Long typelong, ByteBuffer typebytes, Date typetimestamp)
+        {
+            this.key = key;
+            this.typeuuid = typeuuid;
+            this.typeinteger = typeinteger;
+            this.typelong = typelong;
+            this.typebytes = typebytes;
+            this.typetimestamp = typetimestamp;
         }
-        cluster.addKeyspace(keyspaceDefinition, true);
-        return HFactory.createKeyspace(keyspaceName, cluster);
-    }
 
-    public static Keyspace createOrReplaceKeyspace(String keyspaceName)
-    {
-        return createOrReplaceKeyspace(keyspaceName, ImmutableList.<ColumnFamilyDefinition>of());
-    }
+        public String getKey()
+        {
+            return key;
+        }
 
-    private static Cluster getOrCreateCluster()
-    {
-        return HFactory.getOrCreateCluster(CLUSTER_NAME, HOST);
-    }
+        public void setKey(String key)
+        {
+            this.key = key;
+        }
 
-    private static void addRow(String columnFamilyName, Mutator<String> mutator, long timestamp, int rowNumber)
-    {
-        String key = String.format("key %04d", rowNumber);
-        mutator.addInsertion(
-                key,
-                columnFamilyName,
-                HFactory.createColumn(
-                        "t_utf8",
-                        "utf8 " + rowNumber,
-                        timestamp,
-                        StringSerializer.get(),
-                        StringSerializer.get()));
-        mutator.addInsertion(
-                key,
-                columnFamilyName,
-                HFactory.createColumn(
-                        "t_bytes",
-                        Ints.toByteArray(rowNumber),
-                        timestamp,
-                        StringSerializer.get(),
-                        BytesArraySerializer.get()));
-        mutator.addInsertion(
-                key,
-                columnFamilyName,
-                HFactory.createColumn(
-                        "t_integer",
-                        rowNumber,
-                        timestamp,
-                        StringSerializer.get(),
-                        IntegerSerializer.get()));
-        mutator.addInsertion(
-                key,
-                columnFamilyName,
-                HFactory.createColumn(
-                        "t_long",
-                        1000L + rowNumber,
-                        timestamp,
-                        StringSerializer.get(),
-                        LongSerializer.get()));
-        mutator.addInsertion(
-                key,
-                columnFamilyName,
-                HFactory.createColumn(
-                        "t_uuid",
-                        UUID.fromString(String.format("00000000-0000-0000-0000-%012d", rowNumber)),
-                        timestamp,
-                        StringSerializer.get(),
-                        UUIDSerializer.get()));
-        mutator.addInsertion(
-                key,
-                columnFamilyName,
-                HFactory.createColumn(
-                        "t_lexical_uuid",
-                        UUID.fromString(String.format("00000000-0000-0000-0000-%012d", rowNumber)),
-                        timestamp,
-                        StringSerializer.get(),
-                        UUIDSerializer.get()));
-    }
+        public UUID getTypeuuid()
+        {
+            return typeuuid;
+        }
 
-    private static List<ColumnFamilyDefinition> createColumnFamilyDefinitions(String keyspaceName, String columnFamilyName)
-    {
-        List<ColumnFamilyDefinition> columnFamilyDefinitions = new ArrayList<>();
+        public void setTypeuuid(UUID typeuuid)
+        {
+            this.typeuuid = typeuuid;
+        }
 
-        ImmutableList.Builder<ColumnDefinition> columnsDefinition = ImmutableList.builder();
+        public Integer getTypeinteger()
+        {
+            return typeinteger;
+        }
 
-        columnsDefinition.add(createColumnDefinition("t_utf8", ComparatorType.UTF8TYPE));
-        columnsDefinition.add(createColumnDefinition("t_bytes", ComparatorType.BYTESTYPE));
-        columnsDefinition.add(createColumnDefinition("t_integer", ComparatorType.INTEGERTYPE));
-        columnsDefinition.add(createColumnDefinition("t_int32", ComparatorType.INT32TYPE));
-        columnsDefinition.add(createColumnDefinition("t_long", ComparatorType.LONGTYPE));
-        columnsDefinition.add(createColumnDefinition("t_boolean", ComparatorType.BOOLEANTYPE));
-        columnsDefinition.add(createColumnDefinition("t_uuid", ComparatorType.UUIDTYPE));
-        columnsDefinition.add(createColumnDefinition("t_lexical_uuid", ComparatorType.LEXICALUUIDTYPE));
+        public void setTypeinteger(Integer typeinteger)
+        {
+            this.typeinteger = typeinteger;
+        }
 
-        ColumnFamilyDefinition cfDef = HFactory.createColumnFamilyDefinition(
-                keyspaceName,
-                columnFamilyName,
-                ComparatorType.UTF8TYPE,
-                columnsDefinition.build());
+        public Long getTypelong()
+        {
+            return typelong;
+        }
 
-        cfDef.setColumnType(ColumnType.STANDARD);
-        cfDef.setComment("presto test table");
+        public void setTypelong(Long typelong)
+        {
+            this.typelong = typelong;
+        }
 
-        cfDef.setKeyValidationClass(ComparatorType.UTF8TYPE.getTypeName());
+        public ByteBuffer getTypebytes()
+        {
+            return typebytes;
+        }
 
-        columnFamilyDefinitions.add(cfDef);
+        public void setTypebytes(ByteBuffer typebytes)
+        {
+            this.typebytes = typebytes;
+        }
 
-        return columnFamilyDefinitions;
-    }
+        public Date getTypetimestamp()
+        {
+            return typetimestamp;
+        }
 
-    private static BasicColumnDefinition createColumnDefinition(String columnName, ComparatorType type)
-    {
-        BasicColumnDefinition columnDefinition = new BasicColumnDefinition();
-        columnDefinition.setName(ByteBuffer.wrap(columnName.getBytes(Charsets.UTF_8)));
-        columnDefinition.setValidationClass(type.getClassName());
-        return columnDefinition;
+        public void setTypetimestamp(Date typetimestamp)
+        {
+            this.typetimestamp = typetimestamp;
+        }
+
+        @Override
+        public String toString()
+        {
+            return "TableRow{" +
+                    "key='" + key + '\'' +
+                    ", typeuuid=" + typeuuid +
+                    ", typeinteger=" + typeinteger +
+                    ", typelong=" + typelong +
+                    ", typebytes=" + Charset.forName("UTF-8").decode(typebytes) +
+                    ", typetimestamp=" + typetimestamp +
+                    '}';
+        }
     }
 }

@@ -40,7 +40,6 @@ import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slices;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
@@ -59,10 +58,9 @@ import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
-import static com.facebook.presto.hive.HiveType.columnTypeToHiveType;
-import static com.facebook.presto.hive.HiveType.hiveTypeNameGetter;
 import static com.facebook.presto.hive.HiveUtil.isArrayType;
 import static com.facebook.presto.hive.HiveUtil.isMapType;
 import static com.google.common.base.Preconditions.checkState;
@@ -104,7 +102,7 @@ public class HiveRecordSink
         columnTypes = ImmutableList.copyOf(handle.getColumnTypes());
         connectorSession = handle.getConnectorSession();
 
-        Iterable<String> hiveTypeNames = transform(transform(handle.getColumnTypes(), columnTypeToHiveType()), hiveTypeNameGetter());
+        Iterable<String> hiveTypeNames = transform(transform(handle.getColumnTypes(), HiveType::toHiveType), HiveType::getHiveTypeName);
 
         Properties properties = new Properties();
         properties.setProperty(META_TABLE_COLUMNS, Joiner.on(',').join(handle.getColumnNames()));
@@ -163,7 +161,8 @@ public class HiveRecordSink
     {
         Type type = columnTypes.get(field);
         if (type == DateType.DATE) {
-            append(new Date(value));
+            // todo should this be adjusted to midnight in JVM timezone?
+            append(new Date(TimeUnit.DAYS.toMillis(value)));
         }
         else if (type == TimestampType.TIMESTAMP) {
             append(new Timestamp(value));
@@ -206,6 +205,12 @@ public class HiveRecordSink
         return ""; // the committer can list the directory
     }
 
+    @Override
+    public List<Type> getColumnTypes()
+    {
+        return columnTypes;
+    }
+
     private void append(Object value)
     {
         checkState(field != -1, "not in record");
@@ -214,7 +219,7 @@ public class HiveRecordSink
         Type type = columnTypes.get(field);
         if (isMapType(type) || isArrayType(type)) {
             // Hive expects a List<>/Map<> to write, so decode the value
-            value = TypeJsonUtils.stackRepresentationToObject(connectorSession, Slices.utf8Slice((String) value), type);
+            value = TypeJsonUtils.stackRepresentationToObject(connectorSession, (String) value, type);
         }
         tableInspector.setStructFieldData(row, structFields.get(field), value);
         field++;
@@ -288,5 +293,16 @@ public class HiveRecordSink
             return ObjectInspectorFactory.getStandardMapObjectInspector(keyObjectInspector, valueObjectInspector);
         }
         throw new IllegalArgumentException("unsupported type: " + type);
+    }
+
+    public static boolean isTypeSupported(Type type)
+    {
+        try {
+            getJavaObjectInspector(type);
+            return true;
+        }
+        catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 }

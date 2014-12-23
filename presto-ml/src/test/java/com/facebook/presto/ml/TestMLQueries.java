@@ -19,6 +19,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tpch.TpchConnectorFactory;
+import com.facebook.presto.type.ParametricType;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
@@ -41,6 +42,14 @@ public class TestMLQueries
     {
         assertQuery("SELECT classify(features(1, 2), model) " +
                 "FROM (SELECT learn_classifier(labels, features) AS model FROM (VALUES (1, features(1, 2))) t(labels, features)) t2", "SELECT 1");
+    }
+
+    @Test
+    public void testVarcharPrediction()
+            throws Exception
+    {
+        assertQuery("SELECT classify(features(1, 2), model) " +
+                "FROM (SELECT learn_classifier(labels, features) AS model FROM (VALUES ('cat', features(1, 2))) t(labels, features)) t2", "SELECT 'cat'");
     }
 
     private static LocalQueryRunner createLocalQueryRunner()
@@ -67,6 +76,9 @@ public class TestMLQueries
         plugin.setTypeManager(localQueryRunner.getTypeManager());
         for (Type type : plugin.getServices(Type.class)) {
             localQueryRunner.getTypeManager().addType(type);
+        }
+        for (ParametricType parametricType : plugin.getServices(ParametricType.class)) {
+            localQueryRunner.getTypeManager().addParametricType(parametricType);
         }
         localQueryRunner.getMetadata().getFunctionRegistry().addFunctions(Iterables.getOnlyElement(plugin.getServices(FunctionFactory.class)).listFunctions());
 

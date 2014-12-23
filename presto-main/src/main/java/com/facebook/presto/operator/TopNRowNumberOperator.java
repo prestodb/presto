@@ -19,7 +19,6 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MinMaxPriorityQueue;
 import com.google.common.collect.Ordering;
@@ -31,6 +30,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -46,12 +46,14 @@ public class TopNRowNumberOperator
         private final int operatorId;
 
         private final List<Type> sourceTypes;
+
         private final List<Integer> outputChannels;
         private final List<Integer> partitionChannels;
         private final List<Type> partitionTypes;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrder;
         private final int maxRowCountPerPartition;
+        private final Optional<Integer> hashChannel;
         private final int expectedPositions;
 
         private final List<Type> types;
@@ -69,6 +71,7 @@ public class TopNRowNumberOperator
                 List<SortOrder> sortOrder,
                 int maxRowCountPerPartition,
                 boolean partial,
+                Optional<Integer> hashChannel,
                 int expectedPositions)
         {
             this.operatorId = operatorId;
@@ -78,6 +81,7 @@ public class TopNRowNumberOperator
             this.partitionTypes = ImmutableList.copyOf(checkNotNull(partitionTypes, "partitionTypes is null"));
             this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels));
             this.sortOrder = ImmutableList.copyOf(checkNotNull(sortOrder));
+            this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
             checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
             this.maxRowCountPerPartition = maxRowCountPerPartition;
             checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
@@ -114,6 +118,7 @@ public class TopNRowNumberOperator
                     sortTypes,
                     maxRowCountPerPartition,
                     generateRowNumber,
+                    hashChannel,
                     expectedPositions);
         }
 
@@ -154,6 +159,7 @@ public class TopNRowNumberOperator
             List<Type> sortTypes,
             int maxRowCountPerPartition,
             boolean generateRowNumber,
+            Optional<Integer> hashChannel,
             int expectedPositions)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
@@ -172,12 +178,12 @@ public class TopNRowNumberOperator
         this.memoryManager = new MemoryManager(operatorContext);
         this.partitionRows = new HashMap<>();
         if (partitionChannels.isEmpty()) {
-            this.groupByHash = Optional.absent();
+            this.groupByHash = Optional.empty();
         }
         else {
-            this.groupByHash = Optional.of(new GroupByHash(partitionTypes, Ints.toArray(partitionChannels), expectedPositions));
+            this.groupByHash = Optional.of(new GroupByHash(partitionTypes, Ints.toArray(partitionChannels), hashChannel, expectedPositions));
         }
-        this.flushingPartition = Optional.absent();
+        this.flushingPartition = Optional.empty();
         this.pageBuilder = new PageBuilder(types);
     }
 
@@ -237,7 +243,7 @@ public class TopNRowNumberOperator
 
     private void processPage(Page page)
     {
-        Optional<GroupByIdBlock> partitionIds = Optional.absent();
+        Optional<GroupByIdBlock> partitionIds = Optional.empty();
         if (groupByHash.isPresent()) {
             GroupByHash hash = groupByHash.get();
             long groupByHashSize = hash.getEstimatedSize();
@@ -301,6 +307,8 @@ public class TopNRowNumberOperator
             while (!pageBuilder.isFull() && currentFlushingPartition.hasNext()) {
                 Block[] next = currentFlushingPartition.next();
                 sizeDelta += sizeOfRow(next);
+
+                pageBuilder.declarePosition();
                 for (int i = 0; i < outputChannels.length; i++) {
                     int channel = outputChannels[i];
                     Type type = types.get(channel);
@@ -339,7 +347,7 @@ public class TopNRowNumberOperator
             }
         }
         if (chosenPartitionBuilder == null) {
-            return Optional.absent();
+            return Optional.empty();
         }
         FlushingPartition flushingPartition = new FlushingPartition(chosenPartitionBuilder.build());
         partitionRows.remove(chosenPartitionId);

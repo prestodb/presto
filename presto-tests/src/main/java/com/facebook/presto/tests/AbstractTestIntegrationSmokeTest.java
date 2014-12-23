@@ -16,9 +16,10 @@ package com.facebook.presto.tests;
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
-import com.google.common.base.Optional;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -33,7 +34,7 @@ public abstract class AbstractTestIntegrationSmokeTest
 
     protected AbstractTestIntegrationSmokeTest(QueryRunner queryRunner)
     {
-        this(queryRunner, Optional.<Session>absent());
+        this(queryRunner, Optional.empty());
     }
 
     protected AbstractTestIntegrationSmokeTest(QueryRunner queryRunner, Session sampledSession)
@@ -172,18 +173,33 @@ public abstract class AbstractTestIntegrationSmokeTest
             throws Exception
     {
         MaterializedResult actualColumns = computeActual("DESC ORDERS").toJdbcTypes();
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR, VARCHAR, BOOLEAN, BOOLEAN, VARCHAR)
-                .row("orderkey", "bigint", true, false, "")
-                .row("custkey", "bigint", true, false, "")
-                .row("orderstatus", "varchar", true, false, "")
-                .row("totalprice", "double", true, false, "")
-                .row("orderdate", "varchar", true, false, "")
-                .row("orderpriority", "varchar", true, false, "")
-                .row("clerk", "varchar", true, false, "")
-                .row("shippriority", "bigint", true, false, "")
-                .row("comment", "varchar", true, false, "")
-                .build();
-        assertEquals(actualColumns, expectedColumns);
+
+        // some connectors don't support dates, so test with both options
+        if (!actualColumns.equals(getExpectedTableDescription(true))) {
+            assertEquals(actualColumns, getExpectedTableDescription(false));
+        }
+    }
+
+    private MaterializedResult getExpectedTableDescription(boolean dateSupported)
+    {
+        String orderDateType;
+        if (dateSupported) {
+            orderDateType = "date";
+        }
+        else {
+            orderDateType = "varchar";
+        }
+        return MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR, VARCHAR, BOOLEAN, BOOLEAN, VARCHAR)
+                    .row("orderkey", "bigint", true, false, "")
+                    .row("custkey", "bigint", true, false, "")
+                    .row("orderstatus", "varchar", true, false, "")
+                    .row("totalprice", "double", true, false, "")
+                    .row("orderdate", orderDateType, true, false, "")
+                    .row("orderpriority", "varchar", true, false, "")
+                    .row("clerk", "varchar", true, false, "")
+                    .row("shippriority", "bigint", true, false, "")
+                    .row("comment", "varchar", true, false, "")
+                    .build();
     }
 
     protected void assertApproximateQuery(@Language("SQL") String actual, @Language("SQL") String expected)

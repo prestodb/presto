@@ -17,6 +17,7 @@ import com.facebook.presto.hive.DirectoryLister;
 import com.facebook.presto.hive.NamenodeStats;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.concurrent.SetThreadName;
 import io.airlift.stats.TimeStat;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;

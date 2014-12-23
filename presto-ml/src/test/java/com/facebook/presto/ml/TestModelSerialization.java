@@ -68,6 +68,17 @@ public class TestModelSerialization
     }
 
     @Test
+    public void testVarcharClassifierAdapter()
+    {
+        Model model = new StringClassifierAdapter(new ClassifierFeatureTransformer(new SvmClassifier(), new FeatureVectorUnitNormalizer()));
+        model.train(getDataset());
+        Slice serialized = ModelUtils.serialize(model);
+        Model deserialized = ModelUtils.deserialize(serialized);
+        assertNotNull(deserialized, "deserialization failed");
+        assertTrue(deserialized instanceof StringClassifierAdapter, "deserialized model is not a varchar classifier adapter");
+    }
+
+    @Test
     public void testSerializationIds()
     {
         assertEquals((int) ModelUtils.MODEL_SERIALIZATION_IDS.get(SvmClassifier.class), 1);
@@ -75,5 +86,7 @@ public class TestModelSerialization
         assertEquals((int) ModelUtils.MODEL_SERIALIZATION_IDS.get(FeatureVectorUnitNormalizer.class), 3);
         assertEquals((int) ModelUtils.MODEL_SERIALIZATION_IDS.get(ClassifierFeatureTransformer.class), 4);
         assertEquals((int) ModelUtils.MODEL_SERIALIZATION_IDS.get(RegressorFeatureTransformer.class), 5);
+        assertEquals((int) ModelUtils.MODEL_SERIALIZATION_IDS.get(FeatureUnitNormalizer.class), 6);
+        assertEquals((int) ModelUtils.MODEL_SERIALIZATION_IDS.get(StringClassifierAdapter.class), 7);
     }
 }

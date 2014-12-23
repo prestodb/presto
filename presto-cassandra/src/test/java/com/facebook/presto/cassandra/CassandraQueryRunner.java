@@ -14,6 +14,7 @@
 package com.facebook.presto.cassandra;
 
 import com.facebook.presto.Session;
+import com.datastax.driver.core.Cluster;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.facebook.presto.tpch.testing.SampledTpchPlugin;
@@ -47,8 +48,12 @@ public final class CassandraQueryRunner
             throws Exception
     {
         EmbeddedCassandraServerHelper.startEmbeddedCassandra();
-        createOrReplaceKeyspace("tpch");
-        createOrReplaceKeyspace("tpch_sampled");
+
+        try (Cluster cluster = CassandraTestingUtils.getCluster();
+                com.datastax.driver.core.Session session = cluster.connect()) {
+            createOrReplaceKeyspace(session, "tpch");
+            createOrReplaceKeyspace(session, "tpch_sampled");
+        }
 
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession(), 4);
 

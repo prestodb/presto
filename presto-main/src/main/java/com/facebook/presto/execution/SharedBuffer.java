@@ -17,7 +17,6 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.PagePartitionFunction;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.spi.Page;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
@@ -51,6 +50,7 @@ import static com.facebook.presto.execution.SharedBuffer.BufferState.FLUSHING;
 import static com.facebook.presto.execution.SharedBuffer.BufferState.NO_MORE_BUFFERS;
 import static com.facebook.presto.execution.SharedBuffer.BufferState.NO_MORE_PAGES;
 import static com.facebook.presto.execution.SharedBuffer.BufferState.OPEN;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -494,7 +494,7 @@ public class SharedBuffer
         @Override
         public String toString()
         {
-            return Objects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("bufferId", bufferId)
                     .add("sequenceId", sequenceId.get())
                     .add("finished", finished.get())

@@ -24,7 +24,6 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 
-import static com.facebook.presto.type.TypeUtils.typeSignatureGetter;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
@@ -34,7 +33,7 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
 
     public ReflectionWindowFunctionSupplier(String name, Type returnType, List<? extends Type> argumentTypes, Class<T> type)
     {
-        this(new Signature(name, returnType.getTypeSignature(), Lists.transform(argumentTypes, typeSignatureGetter())), type);
+        this(new Signature(name, returnType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature)), type);
     }
 
     public ReflectionWindowFunctionSupplier(Signature signature, Class<T> type)

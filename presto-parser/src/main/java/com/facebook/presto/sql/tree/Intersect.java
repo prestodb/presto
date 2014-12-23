@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class Intersect
         extends SetOperation
@@ -52,7 +54,7 @@ public class Intersect
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("relations", relations)
                 .add("distinct", distinct)
                 .toString();
@@ -68,13 +70,13 @@ public class Intersect
             return false;
         }
         Intersect o = (Intersect) obj;
-        return Objects.equal(relations, o.relations) &&
-                Objects.equal(distinct, o.distinct);
+        return Objects.equals(relations, o.relations) &&
+                Objects.equals(distinct, o.distinct);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(relations, distinct);
+        return Objects.hash(relations, distinct);
     }
 }

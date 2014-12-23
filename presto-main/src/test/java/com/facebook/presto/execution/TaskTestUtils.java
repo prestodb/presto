@@ -23,9 +23,9 @@ import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -40,12 +40,11 @@ import com.facebook.presto.sql.planner.TestingTableHandle;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -56,7 +55,7 @@ public final class TaskTestUtils
     {
     }
 
-    public static final ScheduledSplit SPLIT = new ScheduledSplit(0, new Split("test", new TestingSplit()));
+    public static final ScheduledSplit SPLIT = new ScheduledSplit(0, new Split("test", TestingSplit.createLocalSplit()));
 
     public static final PlanNodeId TABLE_SCAN_NODE_ID = new PlanNodeId("tableScan");
 
@@ -72,12 +71,13 @@ public final class TaskTestUtils
                     ImmutableList.of(SYMBOL),
                     ImmutableMap.of(SYMBOL, new ColumnHandle("test", new TestingColumnHandle("column"))),
                     null,
-                    Optional.<GeneratedPartitions>absent()),
+                    Optional.empty()),
             ImmutableMap.<Symbol, Type>of(SYMBOL, VARCHAR),
             PlanDistribution.SOURCE,
             TABLE_SCAN_NODE_ID,
             OutputPartitioning.NONE,
-            ImmutableList.<Symbol>of());
+            ImmutableList.<Symbol>of(),
+            Optional.empty());
 
     public static LocalExecutionPlanner createTestingPlanner()
     {
@@ -90,7 +90,7 @@ public final class TaskTestUtils
                 new SqlParser(),
                 pageSourceManager,
                 new IndexManager(),
-                new RecordSinkManager(),
+                new PageSinkManager(),
                 new MockExchangeClientSupplier(),
                 new ExpressionCompiler(metadata),
                 new IndexJoinLookupStats(),

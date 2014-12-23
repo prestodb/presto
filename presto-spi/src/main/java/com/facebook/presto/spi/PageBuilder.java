@@ -85,7 +85,7 @@ public class PageBuilder
 
     public boolean isEmpty()
     {
-        return blockBuilders.length == 0 ? declaredPositions == 0 : blockBuilderStatus.isEmpty();
+        return declaredPositions == 0;
     }
 
     public int getPositionCount()
@@ -107,7 +107,11 @@ public class PageBuilder
         Block[] blocks = new Block[blockBuilders.length];
         for (int i = 0; i < blocks.length; i++) {
             blocks[i] = blockBuilders[i].build();
+            if (blocks[i].getPositionCount() != declaredPositions) {
+                throw new IllegalStateException(String.format("Declared positions (%s) does not match block %s's number of entries (%s)", declaredPositions, i, blocks[i].getPositionCount()));
+            }
         }
+
         return new Page(blocks);
     }
 }

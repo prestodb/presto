@@ -17,7 +17,6 @@ import com.facebook.presto.hive.util.SerDeUtils;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.ByteArrays;
@@ -34,7 +33,6 @@ import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.io.WritableUtils;
 import org.apache.hadoop.mapred.RecordReader;
 import org.joda.time.DateTimeZone;
-import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -42,10 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.hive.HiveBooleanParser.isFalse;
-import static com.facebook.presto.hive.HiveBooleanParser.isTrue;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
 import static com.facebook.presto.hive.HiveType.HIVE_DATE;
@@ -55,12 +50,14 @@ import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
 import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
+import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
+import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
-import static com.facebook.presto.hive.HiveUtil.isArrayOrMap;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
-import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
-import static com.facebook.presto.hive.NumberParser.parseDouble;
-import static com.facebook.presto.hive.NumberParser.parseLong;
+import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -74,13 +71,13 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 
 class ColumnarBinaryHiveRecordCursor<K>
         extends HiveRecordCursor
 {
-    private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
-
     private final RecordReader<K, BytesRefArrayWritable> recordReader;
     private final DateTimeZone sessionTimeZone;
     private final K key;
@@ -177,54 +174,40 @@ class ColumnarBinaryHiveRecordCursor<K>
         }
 
         // parse requested partition columns
-        Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey.nameGetter());
+        Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::getName);
         for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
             HiveColumnHandle column = columns.get(columnIndex);
             if (column.isPartitionKey()) {
                 HivePartitionKey partitionKey = partitionKeysByName.get(column.getName());
                 checkArgument(partitionKey != null, "Unknown partition key %s", column.getName());
 
-                byte[] bytes = partitionKey.getValue().getBytes(Charsets.UTF_8);
+                byte[] bytes = partitionKey.getValue().getBytes(UTF_8);
 
+                String name = names[columnIndex];
                 Type type = types[columnIndex];
                 if (HiveUtil.isHiveNull(bytes)) {
                     nulls[columnIndex] = true;
                 }
                 else if (BOOLEAN.equals(type)) {
-                    if (isTrue(bytes, 0, bytes.length)) {
-                        booleans[columnIndex] = true;
-                    }
-                    else if (isFalse(bytes, 0, bytes.length)) {
-                        booleans[columnIndex] = false;
-                    }
-                    else {
-                        String valueString = new String(bytes, Charsets.UTF_8);
-                        throw new IllegalArgumentException(String.format("Invalid partition value '%s' for BOOLEAN partition key %s", valueString, names[columnIndex]));
-                    }
+                    booleans[columnIndex] = booleanPartitionKey(partitionKey.getValue(), name);
                 }
                 else if (BIGINT.equals(type)) {
-                    if (bytes.length == 0) {
-                        throw new IllegalArgumentException(String.format("Invalid partition value '' for BIGINT partition key %s", names[columnIndex]));
-                    }
-                    longs[columnIndex] = parseLong(bytes, 0, bytes.length);
+                    longs[columnIndex] = bigintPartitionKey(partitionKey.getValue(), name);
                 }
                 else if (DOUBLE.equals(type)) {
-                    if (bytes.length == 0) {
-                        throw new IllegalArgumentException(String.format("Invalid partition value '' for DOUBLE partition key %s", names[columnIndex]));
-                    }
-                    doubles[columnIndex] = parseDouble(bytes, 0, bytes.length);
+                    doubles[columnIndex] = doublePartitionKey(partitionKey.getValue(), name);
                 }
                 else if (VARCHAR.equals(type)) {
                     slices[columnIndex] = Slices.wrappedBuffer(bytes);
                 }
                 else if (DATE.equals(type)) {
-                    longs[columnIndex] = ISODateTimeFormat.date().withZoneUTC().parseMillis(partitionKey.getValue());
+                    longs[columnIndex] = datePartitionKey(partitionKey.getValue(), name);
                 }
                 else if (TIMESTAMP.equals(type)) {
-                    longs[columnIndex] = parseHiveTimestamp(partitionKey.getValue(), hiveStorageTimeZone);
+                    longs[columnIndex] = timestampPartitionKey(partitionKey.getValue(), hiveStorageTimeZone, name);
                 }
                 else {
-                    throw new UnsupportedOperationException("Unsupported column type: " + type);
+                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for partition key: %s", type.getDisplayName(), name));
                 }
             }
         }
@@ -395,12 +378,12 @@ class ColumnarBinaryHiveRecordCursor<K>
         else if (hiveTypes[column].equals(HIVE_DATE)) {
             checkState(length >= 1, "Date should be at least 1 byte");
             long daysSinceEpoch = readVInt(bytes, start, length);
-            longs[column] = daysSinceEpoch * MILLIS_IN_DAY;
+            longs[column] = daysSinceEpoch;
         }
         else if (hiveTypes[column].equals(HIVE_TIMESTAMP)) {
             checkState(length >= 1, "Timestamp should be at least 1 byte");
             long seconds = TimestampWritable.getSeconds(bytes, start);
-            long nanos = TimestampWritable.getNanos(bytes, start + SIZE_OF_INT);
+            long nanos = (bytes[start] >> 7) != 0 ? TimestampWritable.getNanos(bytes, start + SIZE_OF_INT) : 0;
             longs[column] = (seconds * 1000) + (nanos / 1_000_000);
         }
         else if (hiveTypes[column].equals(HIVE_BYTE)) {
@@ -513,7 +496,7 @@ class ColumnarBinaryHiveRecordCursor<K>
         checkState(!closed, "Cursor is closed");
 
         Type type = types[fieldId];
-        if (!type.equals(VARCHAR) && !type.equals(VARBINARY) && !isArrayOrMap(hiveTypes[fieldId])) {
+        if (!type.equals(VARCHAR) && !type.equals(VARBINARY) && !isStructuralType(hiveTypes[fieldId])) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
             throw new IllegalArgumentException(String.format("Expected field to be VARCHAR or VARBINARY, actual %s (field %s)", type, fieldId));
         }
@@ -606,7 +589,7 @@ class ColumnarBinaryHiveRecordCursor<K>
         else if (DOUBLE.equals(type)) {
             parseDoubleColumn(column);
         }
-        else if (VARCHAR.equals(type) || VARBINARY.equals(type) || isArrayOrMap(hiveTypes[column])) {
+        else if (VARCHAR.equals(type) || VARBINARY.equals(type) || isStructuralType(hiveTypes[column])) {
             parseStringColumn(column);
         }
         else if (DATE.equals(type)) {

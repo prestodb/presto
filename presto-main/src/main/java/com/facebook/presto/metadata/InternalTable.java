@@ -95,6 +95,7 @@ public class InternalTable
 
         public Builder add(Object... values)
         {
+            pageBuilder.declarePosition();
             for (int i = 0; i < types.size(); i++) {
                 BlockUtils.appendObject(types.get(i), pageBuilder.getBlockBuilder(i), values[i]);
             }
