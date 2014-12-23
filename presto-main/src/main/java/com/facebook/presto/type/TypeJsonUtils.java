@@ -18,6 +18,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParseException;
@@ -215,5 +216,23 @@ public final class TypeJsonUtils
             value = Double.parseDouble(parser.getValueAsString());
         }
         return value;
+    }
+
+    public static boolean canCastFromJson(Type type)
+    {
+        String baseType = type.getTypeSignature().getBase();
+        if (baseType.equals(StandardTypes.BOOLEAN) ||
+                baseType.equals(StandardTypes.BIGINT) ||
+                baseType.equals(StandardTypes.DOUBLE) ||
+                baseType.equals(StandardTypes.VARCHAR)) {
+            return true;
+        }
+        if (type instanceof ArrayType) {
+            return canCastFromJson(((ArrayType) type).getElementType());
+        }
+        if (type instanceof MapType) {
+            return canCastFromJson(((MapType) type).getKeyType()) && canCastFromJson(((MapType) type).getValueType());
+        }
+        return false;
     }
 }
