@@ -16,7 +16,6 @@ package com.facebook.presto.execution;
 import com.facebook.presto.util.CpuTimer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
-import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -44,7 +43,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
@@ -59,6 +57,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -90,8 +89,8 @@ public class TaskExecutor
 
     private final Set<PrioritizedSplitRunner> allSplits = new HashSet<>();
     private final PriorityBlockingQueue<PrioritizedSplitRunner> pendingSplits;
-    private final Set<PrioritizedSplitRunner> runningSplits = Sets.newSetFromMap(new ConcurrentHashMap<PrioritizedSplitRunner, Boolean>());
-    private final Set<PrioritizedSplitRunner> blockedSplits = Sets.newSetFromMap(new ConcurrentHashMap<PrioritizedSplitRunner, Boolean>());
+    private final Set<PrioritizedSplitRunner> runningSplits = newConcurrentHashSet();
+    private final Set<PrioritizedSplitRunner> blockedSplits = newConcurrentHashSet();
 
     private final AtomicLongArray completedTasksPerLevel = new AtomicLongArray(5);
 

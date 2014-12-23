@@ -20,7 +20,6 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
-import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -37,13 +36,13 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -97,7 +96,7 @@ public class TaskExecutorSimulator
             throws Exception
     {
         Multimap<Integer, SimulationTask> tasks = Multimaps.synchronizedListMultimap(ArrayListMultimap.<Integer, SimulationTask>create());
-        Set<ListenableFuture<?>> finishFutures = Sets.newSetFromMap(new ConcurrentHashMap<ListenableFuture<?>, Boolean>());
+        Set<ListenableFuture<?>> finishFutures = newConcurrentHashSet();
         AtomicBoolean done = new AtomicBoolean();
 
         long start = System.nanoTime();
