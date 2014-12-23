@@ -356,6 +356,7 @@ identList returns [List<String> value = new ArrayList<>()]
 ident returns [String value]
     : i=IDENT        { $value = $i.text; }
     | q=QUOTED_IDENT { $value = $q.text; }
+    | d=DIM_IDENT    { $value = $d.text; }
     ;
 
 string returns [String value]

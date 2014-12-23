@@ -733,8 +733,18 @@ qname
 ident
     : IDENT
     | QUOTED_IDENT
+    | DIM_IDENT
     | nonReserved  -> IDENT[$nonReserved.text]
     ;
+
+DIM_IDENT
+    :
+    '@' '{'?
+        (('[' (IdChar | ' ')+ ']') | IdChar+) ('.' (('[' (IdChar | ' ')+ ']') | IdChar+))?
+    '}'?
+    ;
+
+fragment IdChar: ('#'|'_'|'A'..'Z'|'a'..'z' ('0'..'9')* IdChar*) ;
 
 number
     : DECIMAL_VALUE
