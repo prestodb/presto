@@ -14,7 +14,6 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.spi.PrestoException;
-import com.google.common.base.Optional;
 import com.google.inject.Inject;
 
 import javax.annotation.PostConstruct;
@@ -23,6 +22,7 @@ import javax.annotation.PreDestroy;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Optional;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
@@ -41,7 +41,7 @@ public class FileStorageService
     @Inject
     public FileStorageService(StorageManagerConfig config)
     {
-        this(config.getDataDirectory(), Optional.fromNullable(config.getBackupDirectory()));
+        this(config.getDataDirectory(), Optional.ofNullable(config.getBackupDirectory()));
     }
 
     public FileStorageService(File dataDirectory, Optional<File> backupDirectory)

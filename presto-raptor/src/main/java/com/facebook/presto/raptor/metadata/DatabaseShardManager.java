@@ -14,7 +14,6 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.spi.PrestoException;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -28,6 +27,7 @@ import javax.inject.Inject;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -103,7 +103,7 @@ public class DatabaseShardManager
 
         ImmutableList.Builder<ShardNodes> list = ImmutableList.builder();
         for (UUID shard : dao.getShards(tableId)) {
-            Set<String> nodes = Optional.of(map.get(shard)).or(ImmutableSet.<String>of());
+            Set<String> nodes = Optional.of(map.get(shard)).orElse(ImmutableSet.<String>of());
             list.add(new ShardNodes(shard, nodes));
         }
         return list.build();

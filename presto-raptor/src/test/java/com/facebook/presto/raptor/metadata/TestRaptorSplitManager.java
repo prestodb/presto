@@ -37,7 +37,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.type.TypeRegistry;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
@@ -53,6 +52,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -90,7 +90,7 @@ public class TestRaptorSplitManager
         dataDir = Files.createTempDir();
         ShardManager shardManager = new DatabaseShardManager(dbi);
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        StorageService storageService = new FileStorageService(dataDir, Optional.<File>absent());
+        StorageService storageService = new FileStorageService(dataDir, Optional.empty());
         ShardRecoveryManager recoveryManager = new ShardRecoveryManager(storageService, new InMemoryNodeManager(), shardManager, new Duration(5, TimeUnit.MINUTES), 10);
         StorageManager storageManager = new OrcStorageManager(storageService, new DataSize(1, MEGABYTE), recoveryManager, new Duration(30, TimeUnit.SECONDS));
 
@@ -111,7 +111,7 @@ public class TestRaptorSplitManager
 
         long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
 
-        shardManager.commitTable(tableId, shardNodes, Optional.<String>absent());
+        shardManager.commitTable(tableId, shardNodes, Optional.empty());
 
         raptorSplitManager = new RaptorSplitManager(connectorId, nodeManager, shardManager, storageManager);
     }
