@@ -416,7 +416,7 @@ public abstract class DefaultTraversalVisitor<R, C>
         process(node.getLeft(), context);
         process(node.getRight(), context);
 
-        if (node.getCriteria().orNull() instanceof JoinOn) {
+        if (node.getCriteria().orElse(null) instanceof JoinOn) {
             process(((JoinOn) node.getCriteria().get()).getExpression(), context);
         }
 
