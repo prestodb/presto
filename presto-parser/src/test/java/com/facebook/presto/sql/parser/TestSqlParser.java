@@ -72,6 +72,13 @@ public class TestSqlParser
     }
 
     @Test
+    public void testYulin()
+            throws Exception
+    {
+        SQL_PARSER.createExpression("1+sum(@{[#abc #ab].asds})");
+    }
+
+    @Test
     public void testGenericLiteral()
             throws Exception
     {

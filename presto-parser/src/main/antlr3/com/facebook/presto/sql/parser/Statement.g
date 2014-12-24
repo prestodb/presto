@@ -922,8 +922,13 @@ IDENT
     ;
 
 VIRTUAL_IDENT
-    : ('\@') ('\{') (~('\}'))+ ('\}')
+    :
+    '@' '{'?
+        (('[' (IdChar | ' ')+ ']') | IdChar+) ('.' (('[' (IdChar | ' ')+ ']') | IdChar+))?
+    '}'?
     ;
+
+fragment IdChar: ('#'|'_'|'A'..'Z'|'a'..'z' ('0'..'9')* IdChar*) ;
 
 DIGIT_IDENT
     : DIGIT (LETTER | DIGIT | '_' | '\@' | ':')+
