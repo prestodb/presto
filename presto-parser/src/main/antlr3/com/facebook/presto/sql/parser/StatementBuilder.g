@@ -68,6 +68,7 @@ statement returns [Statement value]
     | showFunctions             { $value = $showFunctions.value; }
     | use                       { $value = $use.value; }
     | createTable               { $value = $createTable.value; }
+    | createTempTable           { $value = $createTempTable.value; }
     | dropTable                 { $value = $dropTable.value; }
     | renameTable               { $value = $renameTable.value; }
     | createView                { $value = $createView.value; }
@@ -126,6 +127,24 @@ setOperation returns [SetOperation value]
     : ^(UNION q1=queryBody q2=queryBody d=distinct[true])       { $value = new Union(ImmutableList.<Relation>of($q1.value, $q2.value), $d.value); }
     | ^(INTERSECT q1=queryBody q2=queryBody d=distinct[true])   { $value = new Intersect(ImmutableList.<Relation>of($q1.value, $q2.value), $d.value); }
     | ^(EXCEPT q1=queryBody q2=queryBody d=distinct[true])      { $value = new Except($q1.value, $q2.value, $d.value); }
+    ;
+
+restrictedSelectStmt returns [Query value]
+    : selectClause fromClause
+        { $value = new Query(
+            Optional.<With>absent(),
+            new QuerySpecification(
+                $selectClause.value,
+                $fromClause.value,
+                Optional.<Expression>absent(),
+                ImmutableList.<Expression>of(),
+                Optional.<Expression>absent(),
+                ImmutableList.<SortItem>of(),
+                Optional.<String>absent()),
+            ImmutableList.<SortItem>of(),
+            Optional.<String>absent(),
+            Optional.<Approximate>absent());
+        }
     ;
 
 withClause returns [With value]
@@ -552,6 +571,10 @@ use returns [Statement value]
 
 createTable returns [Statement value]
     : ^(CREATE_TABLE qname query) { $value = new CreateTable($qname.value, $query.value); }
+    ;
+
+createTempTable returns [Statement value]
+    : ^(CREATE_TEMP_TABLE qname query) { $value = new CreateTempTable($qname.value, $query.value); }
     ;
 
 dropTable returns [Statement value]

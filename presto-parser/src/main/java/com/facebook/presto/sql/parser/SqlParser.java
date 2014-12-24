@@ -68,7 +68,7 @@ public class SqlParser
     }
 
     @VisibleForTesting
-    Statement createStatement(CommonTree tree)
+    public Statement createStatement(CommonTree tree)
     {
         TreeNodeStream stream = new BufferedTreeNodeStream(tree);
         StatementBuilder builder = new StatementBuilder(stream);
@@ -80,7 +80,7 @@ public class SqlParser
         }
     }
 
-    private Expression createExpression(CommonTree tree)
+    public Expression createExpression(CommonTree tree)
     {
         TreeNodeStream stream = new BufferedTreeNodeStream(tree);
         StatementBuilder builder = new StatementBuilder(stream);
@@ -93,7 +93,7 @@ public class SqlParser
     }
 
     @VisibleForTesting
-    CommonTree parseStatement(String sql)
+    public CommonTree parseStatement(String sql)
     {
         try {
             return (CommonTree) getParser(sql).singleStatement().getTree();
@@ -103,7 +103,7 @@ public class SqlParser
         }
     }
 
-    private CommonTree parseExpression(String expression)
+    public CommonTree parseExpression(String expression)
     {
         try {
             return (CommonTree) getParser(expression).singleExpression().getTree();

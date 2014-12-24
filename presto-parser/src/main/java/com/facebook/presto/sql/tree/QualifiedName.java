@@ -23,8 +23,6 @@ import com.google.common.collect.Lists;
 import java.util.List;
 import java.util.Optional;
 
-import static java.util.Locale.ENGLISH;
-
 public class QualifiedName
 {
     private final List<String> parts;

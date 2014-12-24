@@ -46,6 +46,7 @@ import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Values;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -69,6 +70,13 @@ public class TestSqlParser
             throws Exception
     {
         SQL_PARSER.createExpression("(((((((((((((((((((((((((((true)))))))))))))))))))))))))))");
+    }
+
+    @Test
+    public void testYulin()
+            throws Exception
+    {
+        SQL_PARSER.createExpression("1+sum(@{[#abc #ab].asds})");
     }
 
     @Test
@@ -353,6 +361,7 @@ public class TestSqlParser
         SQL_PARSER.createExpression("1 + 1 x");
     }
 
+    /*
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: no viable alternative at character '@'")
     public void testTokenizeErrorStartOfLine()
     {
@@ -364,6 +373,7 @@ public class TestSqlParser
     {
         SQL_PARSER.createStatement("select * from foo where @what");
     }
+    */
 
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:20: mismatched character '<EOF>' expecting '''")
     public void testTokenizeErrorIncompleteToken()
