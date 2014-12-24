@@ -77,6 +77,8 @@ public class TestSqlParser
             throws Exception
     {
         SQL_PARSER.createExpression("1+sum(@{[#abc #ab].asds})");
+        SQL_PARSER.createExpression("1+sum(@[#abc #ab].asds)");
+        SQL_PARSER.createExpression("1+sum(@asds)");
     }
 
     @Test

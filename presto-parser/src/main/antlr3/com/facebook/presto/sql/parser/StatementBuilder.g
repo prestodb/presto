@@ -132,18 +132,18 @@ setOperation returns [SetOperation value]
 restrictedSelectStmt returns [Query value]
     : selectClause fromClause
         { $value = new Query(
-            Optional.<With>absent(),
+            Optional.<With>empty(),
             new QuerySpecification(
                 $selectClause.value,
-                $fromClause.value,
-                Optional.<Expression>absent(),
+                Optional.ofNullable($fromClause.value),
+                Optional.<Expression>empty(),
                 ImmutableList.<Expression>of(),
-                Optional.<Expression>absent(),
+                Optional.<Expression>empty(),
                 ImmutableList.<SortItem>of(),
-                Optional.<String>absent()),
+                Optional.<String>empty()),
             ImmutableList.<SortItem>of(),
-            Optional.<String>absent(),
-            Optional.<Approximate>absent());
+            Optional.<String>empty(),
+            Optional.<Approximate>empty());
         }
     ;
 
