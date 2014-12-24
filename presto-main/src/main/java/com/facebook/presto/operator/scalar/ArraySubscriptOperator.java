@@ -152,7 +152,7 @@ public class ArraySubscriptOperator
     @SuppressWarnings("unchecked")
     private static <T> T subscript(Slice array, long index, ExtractorType type)
     {
-        if (index == 0) {
+        if (index <= 0) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Index out of bounds");
         }
         JsonExtractor<?> extractor = CACHE.getUnchecked(new CacheKey(index, type));
