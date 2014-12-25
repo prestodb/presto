@@ -663,7 +663,7 @@ createTableStmt
     ;
 
 createTempTableStmt
-    : CREATE TEMP TABLE qname s=tableContentsSource WITH DATA -> ^(CREATE_TEMP_TABLE qname $s)
+    : CREATE TEMP TABLE qname s=tableContentsSource -> ^(CREATE_TEMP_TABLE qname $s)
     ;
 
 alterTableStmt
