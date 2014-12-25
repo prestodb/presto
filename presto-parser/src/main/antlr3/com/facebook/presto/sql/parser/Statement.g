@@ -75,6 +75,7 @@ tokens {
     SHOW_FUNCTIONS;
     USE;
     CREATE_TABLE;
+    CREATE_TEMP_TABLE;
     DROP_TABLE;
     RENAME_TABLE;
     CREATE_VIEW;
@@ -168,6 +169,7 @@ statement
     | showFunctionsStmt
     | useStatement
     | createTableStmt
+    | createTempTableStmt    
     | insertStmt
     | dropTableStmt
     | alterTableStmt
@@ -523,11 +525,15 @@ specialFunction
     | CURRENT_TIMESTAMP ('(' integer ')')?         -> ^(CURRENT_TIMESTAMP integer?)
     | LOCALTIME ('(' integer ')')?                 -> ^(LOCALTIME integer?)
     | LOCALTIMESTAMP ('(' integer ')')?            -> ^(LOCALTIMESTAMP integer?)
-    | SUBSTRING '(' expr FROM expr (FOR expr)? ')' -> ^(FUNCTION_CALL ^(QNAME IDENT["substr"]) expr expr expr?)
+    | SUBSTRING '(' expr (FROM|',') expr ((FOR|',') expr)? ')' -> ^(FUNCTION_CALL ^(QNAME IDENT["substr"]) expr expr expr?)
     | EXTRACT '(' ident FROM expr ')'              -> ^(EXTRACT ident expr)
     | CAST '(' expr AS type ')'                    -> ^(CAST expr type)
     | TRY_CAST '(' expr AS type ')'                -> ^(TRY_CAST expr type)
     ;
+
+//veroFunction
+//    : TRIM '(' expr ')'         -> ^(FUNCTION_CALL ^(QNAME IDENT["trim"]) ^(QNAME IDENT["both"]) expr)
+//    ;
 
 // TODO: this should be 'dataType', which supports arbitrary type specifications. For now we constrain to simple types
 type
@@ -656,6 +662,10 @@ createTableStmt
     : CREATE TABLE qname s=tableContentsSource -> ^(CREATE_TABLE qname $s)
     ;
 
+createTempTableStmt
+    : CREATE TEMP TABLE qname s=tableContentsSource -> ^(CREATE_TEMP_TABLE qname $s)
+    ;
+
 alterTableStmt
     : ALTER TABLE s=qname RENAME TO t=qname -> ^(RENAME_TABLE $s $t)
     ;
@@ -733,8 +743,18 @@ qname
 ident
     : IDENT
     | QUOTED_IDENT
+    | DIM_IDENT
     | nonReserved  -> IDENT[$nonReserved.text]
     ;
+
+DIM_IDENT
+    :
+    '@' '{'?
+        (('[' (IdChar | ' ')+ ']') | IdChar+) ('.' (('[' (IdChar | ' ')+ ']') | IdChar+))?
+    '}'?
+    ;
+
+fragment IdChar: ('#'|'_'|'A'..'Z'|'a'..'z'|'0'..'9' IdChar*) ;
 
 number
     : DECIMAL_VALUE
@@ -895,6 +915,8 @@ STRATIFY: 'STRATIFY';
 ALTER: 'ALTER';
 RENAME: 'RENAME';
 UNNEST: 'UNNEST';
+TEMP: 'TEMP';
+DATA: 'DATA';
 
 EQ  : '=';
 NEQ : '<>' | '!=';
@@ -947,7 +969,7 @@ fragment DIGIT
     ;
 
 fragment LETTER
-    : 'A'..'Z'
+    : ('A'..'Z' | 'a'..'z')
     ;
 
 COMMENT

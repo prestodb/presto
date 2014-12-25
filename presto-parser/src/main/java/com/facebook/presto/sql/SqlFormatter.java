@@ -70,7 +70,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 
-public final class SqlFormatter
+public class SqlFormatter
 {
     private static final String INDENT = "   ";
 
@@ -83,10 +83,10 @@ public final class SqlFormatter
         return builder.toString();
     }
 
-    private static class Formatter
+    public static class Formatter
             extends AstVisitor<Void, Integer>
     {
-        private final StringBuilder builder;
+        public final StringBuilder builder;
 
         public Formatter(StringBuilder builder)
         {
@@ -629,13 +629,13 @@ public final class SqlFormatter
             }
         }
 
-        private StringBuilder append(int indent, String value)
+        protected StringBuilder append(int indent, String value)
         {
             return builder.append(indentString(indent))
                     .append(value);
         }
 
-        private static String indentString(int indent)
+        protected static String indentString(int indent)
         {
             return Strings.repeat(INDENT, indent);
         }
