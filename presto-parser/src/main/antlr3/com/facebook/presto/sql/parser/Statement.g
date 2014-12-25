@@ -128,6 +128,16 @@ tokens {
         }
         return super.getErrorMessage(e, tokenNames);
     }
+
+    private static String standardArray(String s)
+    {
+        String end = " ARRAY";
+        if (s.toUpperCase().endsWith(end)) {
+            s = s.substring(0, s.length() - end.length());
+            s = "ARRAY<" + standardArray(s.trim()) + ">";
+        }
+        return s;
+    }
 }
 
 @lexer::members {
@@ -536,12 +546,18 @@ specialFunction
 
 // TODO: this should be 'dataType', which supports arbitrary type specifications. For now we constrain to simple types
 type
+    : ( simpleType -> simpleType )
+      ( ARRAY -> IDENT[standardArray($type.text)] )*
+    ;
+
+simpleType
     : VARCHAR                    -> IDENT["VARCHAR"]
     | BIGINT                     -> IDENT["BIGINT"]
     | DOUBLE                     -> IDENT["DOUBLE"]
     | BOOLEAN                    -> IDENT["BOOLEAN"]
     | TIME WITH TIME ZONE        -> IDENT["TIME WITH TIME ZONE"]
     | TIMESTAMP WITH TIME ZONE   -> IDENT["TIMESTAMP WITH TIME ZONE"]
+    | ARRAY '<' t=type '>'       -> IDENT["ARRAY<" + $t.text + ">"]
     | ident
     ;
 
