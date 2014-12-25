@@ -22,7 +22,7 @@ import com.google.common.collect.Lists;
 
 import java.util.List;
 import java.util.Optional;
-import static java.util.Locale.ENGLISH;
+//import static java.util.Locale.ENGLISH;
 
 public class QualifiedName
 {
@@ -75,7 +75,9 @@ public class QualifiedName
         Preconditions.checkNotNull(parts, "parts");
         Preconditions.checkArgument(!Iterables.isEmpty(parts), "parts is empty");
 
-        this.parts = ImmutableList.copyOf(Iterables.transform(parts, s -> s.toLowerCase(ENGLISH)));
+        // TODO: yulin remain case sensitive
+        //this.parts = ImmutableList.copyOf(Iterables.transform(parts, s -> s.toLowerCase(ENGLISH)));
+        this.parts = ImmutableList.copyOf(parts);
     }
 
     public List<String> getParts()
