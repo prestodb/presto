@@ -27,6 +27,7 @@ import com.facebook.presto.sql.tree.IntervalLiteral.Sign;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NegativeExpression;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -158,7 +159,9 @@ public class TestSqlParser
     {
         assertCast("varchar");
         assertCast("bigint");
+        assertCast("BIGINT");
         assertCast("double");
+        assertCast("DOUBLE");
         assertCast("boolean");
         assertCast("date");
         assertCast("time");
@@ -166,11 +169,17 @@ public class TestSqlParser
         assertCast("time with time zone");
         assertCast("timestamp with time zone");
         assertCast("foo");
-    }
+        assertCast("FOO");
 
-    public static void assertCast(String type)
-    {
-        assertExpression("cast(123 as " + type + ")", new Cast(new LongLiteral("123"), type));
+        assertCast("ARRAY<bigint>");
+        assertCast("ARRAY<BIGINT>");
+        assertCast("array<bigint>");
+        assertCast("array < bigint  >", "ARRAY<bigint>");
+        assertCast("array<array<bigint>>");
+        assertCast("foo ARRAY", "ARRAY<foo>");
+        assertCast("boolean array  array ARRAY", "ARRAY<ARRAY<ARRAY<boolean>>>");
+        assertCast("boolean ARRAY ARRAY ARRAY", "ARRAY<ARRAY<ARRAY<boolean>>>");
+        assertCast("ARRAY<boolean> ARRAY ARRAY", "ARRAY<ARRAY<ARRAY<boolean>>>");
     }
 
     @Test
@@ -555,6 +564,16 @@ public class TestSqlParser
     {
         assertStatement("RESET SESSION foo.bar", new ResetSession(QualifiedName.of("foo", "bar")));
         assertStatement("RESET SESSION foo", new ResetSession(QualifiedName.of("foo")));
+    }
+
+    private static void assertCast(String type)
+    {
+        assertCast(type, type);
+    }
+
+    private static void assertCast(String type, String expected)
+    {
+        assertExpression("CAST(null AS " + type + ")", new Cast(new NullLiteral(), expected));
     }
 
     private static void assertStatement(String query, Statement expected)
