@@ -43,6 +43,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
@@ -234,20 +235,7 @@ public class PluginManager
             throws Exception
     {
         List<Artifact> artifacts = resolver.resolvePom(pomFile);
-
-        log.debug("Classpath for %s:", pomFile);
-        List<URL> urls = new ArrayList<>();
-        for (Artifact artifact : sortedArtifacts(artifacts)) {
-            if (artifact.getFile() != null) {
-                File file = artifact.getFile().getCanonicalFile();
-                log.debug("    %s", file);
-                urls.add(file.toURI().toURL());
-            }
-            else {
-                log.debug("  Could not resolve artifact %s", artifact);
-            }
-        }
-        return createClassLoader(urls);
+        return createClassLoader(artifacts, pomFile.getPath());
     }
 
     private URLClassLoader buildClassLoaderFromDirectory(File dir)
@@ -267,18 +255,21 @@ public class PluginManager
     {
         Artifact rootArtifact = new DefaultArtifact(coordinates);
         List<Artifact> artifacts = resolver.resolveArtifacts(rootArtifact);
+        return createClassLoader(artifacts, rootArtifact.toString());
+    }
 
-        log.debug("Classpath for %s:", rootArtifact);
+    private URLClassLoader createClassLoader(List<Artifact> artifacts, String name)
+            throws IOException
+    {
+        log.debug("Classpath for %s:", name);
         List<URL> urls = new ArrayList<>();
-        for (Artifact artifact : artifacts) {
-            if (artifact.getFile() != null) {
-                log.debug("    %s", artifact.getFile());
-                urls.add(artifact.getFile().toURI().toURL());
+        for (Artifact artifact : sortedArtifacts(artifacts)) {
+            if (artifact.getFile() == null) {
+                throw new RuntimeException("Could not resolve artifact: " + artifact);
             }
-            else {
-                // todo maybe exclude things like presto-spi
-                log.warn("  Could not resolve artifact %s", artifact);
-            }
+            File file = artifact.getFile().getCanonicalFile();
+            log.debug("    %s", file);
+            urls.add(file.toURI().toURL());
         }
         return createClassLoader(urls);
     }
