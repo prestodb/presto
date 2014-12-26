@@ -30,6 +30,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.type.ArrayType.rawSlicesToStackRepresentation;
 import static com.facebook.presto.type.ArrayType.toStackRepresentation;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -55,6 +56,17 @@ public class TestArrayOperators
     private void assertFunction(String projection, Object expected)
     {
         functionAssertions.assertFunction(projection, expected);
+    }
+
+    private void assertInvalidFunction(String projection, String message)
+    {
+        try {
+            assertFunction(projection, null);
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
+            assertEquals(e.getMessage(), message);
+        }
     }
 
     @Test
@@ -192,43 +204,13 @@ public class TestArrayOperators
     public void testSubscript()
             throws Exception
     {
-        try {
-            assertFunction("ARRAY [][1]", null);
-            fail("Access to any element of an empty array should fail");
-        }
-        catch (PrestoException e) {
-            // Expected
-        }
+        String outOfBounds = "Index out of bounds";
+        assertInvalidFunction("ARRAY [][1]", outOfBounds);
+        assertInvalidFunction("ARRAY [null][-1]", outOfBounds);
+        assertInvalidFunction("ARRAY [1, 2, 3][0]", outOfBounds);
+        assertInvalidFunction("ARRAY [1, 2, 3][-1]", outOfBounds);
+        assertInvalidFunction("ARRAY [1, 2, 3][4]", outOfBounds);
 
-        try {
-            assertFunction("ARRAY [null][-1]", null);
-            fail("Out of bounds array access should fail");
-        }
-        catch (PrestoException e) {
-            // Expected
-        }
-
-        try {
-            assertFunction("ARRAY [1, 2, 3][0]", null);
-            fail("Access to array element zero should fail");
-        }
-        catch (PrestoException e) {
-            // Expected
-        }
-        try {
-            assertFunction("ARRAY [1, 2, 3][-1]", null);
-            fail("Access to negative array element should fail");
-        }
-        catch (RuntimeException e) {
-            // Expected
-        }
-        try {
-            assertFunction("ARRAY [1, 2, 3][4]", null);
-            fail("Access to out of bounds array element should fail");
-        }
-        catch (RuntimeException e) {
-            // Expected
-        }
         try {
             assertFunction("ARRAY [1, 2, 3][1.1]", null);
             fail("Access to array with double subscript should fail");
