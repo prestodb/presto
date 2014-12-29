@@ -25,7 +25,6 @@ import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
@@ -34,7 +33,6 @@ import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -78,6 +76,8 @@ import static com.facebook.presto.connector.system.CatalogSystemTable.CATALOG_TA
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.QueryUtil.aliased;
 import static com.facebook.presto.sql.QueryUtil.aliasedName;
+import static com.facebook.presto.sql.QueryUtil.aliasedNullToEmpty;
+import static com.facebook.presto.sql.QueryUtil.aliasedYesNoToBoolean;
 import static com.facebook.presto.sql.QueryUtil.ascending;
 import static com.facebook.presto.sql.QueryUtil.caseWhen;
 import static com.facebook.presto.sql.QueryUtil.equal;
@@ -260,20 +260,6 @@ class StatementAnalyzer
     protected TupleDescriptor visitUse(Use node, AnalysisContext context)
     {
         throw new SemanticException(NOT_SUPPORTED, node, "USE statement is not supported");
-    }
-
-    private static SelectItem aliasedYesNoToBoolean(String column, String alias)
-    {
-        Expression expression = new IfExpression(
-                equal(nameReference(column), new StringLiteral("YES")),
-                BooleanLiteral.TRUE_LITERAL,
-                BooleanLiteral.FALSE_LITERAL);
-        return new SingleColumn(expression, alias);
-    }
-
-    private static SelectItem aliasedNullToEmpty(String column, String alias)
-    {
-        return new SingleColumn(new CoalesceExpression(nameReference(column), new StringLiteral("")), alias);
     }
 
     @Override
