@@ -58,6 +58,7 @@ import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 
 import java.util.HashSet;
 import java.util.List;
@@ -578,7 +579,7 @@ class StatementAnalyzer
         return descriptor;
     }
 
-    private List<FieldOrExpression> descriptorToFields(TupleDescriptor tupleDescriptor)
+    private static List<FieldOrExpression> descriptorToFields(TupleDescriptor tupleDescriptor)
     {
         ImmutableList.Builder<FieldOrExpression> builder = ImmutableList.builder();
         for (int fieldIndex = 0; fieldIndex < tupleDescriptor.getAllFieldCount(); fieldIndex++) {
@@ -635,7 +636,7 @@ class StatementAnalyzer
                         throw new SemanticException(INVALID_ORDINAL, expression, "ORDER BY position %s is not in select list", ordinal);
                     }
 
-                    orderByField = new FieldOrExpression((int) (ordinal - 1));
+                    orderByField = new FieldOrExpression(Ints.checkedCast(ordinal - 1));
                 }
                 else {
                     // otherwise, just use the expression as is
