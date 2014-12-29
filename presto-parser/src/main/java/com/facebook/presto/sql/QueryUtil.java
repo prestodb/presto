@@ -14,9 +14,12 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.sql.tree.AliasedRelation;
+import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -28,6 +31,7 @@ import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Values;
@@ -123,5 +127,19 @@ public final class QueryUtil
     public static Relation aliased(Relation relation, String alias, List<String> columnAliases)
     {
         return new AliasedRelation(relation, alias, columnAliases);
+    }
+
+    public static SelectItem aliasedNullToEmpty(String column, String alias)
+    {
+        return new SingleColumn(new CoalesceExpression(nameReference(column), new StringLiteral("")), alias);
+    }
+
+    public static SelectItem aliasedYesNoToBoolean(String column, String alias)
+    {
+        Expression expression = new IfExpression(
+                equal(nameReference(column), new StringLiteral("YES")),
+                BooleanLiteral.TRUE_LITERAL,
+                BooleanLiteral.FALSE_LITERAL);
+        return new SingleColumn(expression, alias);
     }
 }
