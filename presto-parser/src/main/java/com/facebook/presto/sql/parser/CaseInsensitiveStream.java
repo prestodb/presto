@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.sql.parser;
 
-import org.antlr.runtime.CharStream;
+import org.antlr.v4.runtime.CharStream;
+import org.antlr.v4.runtime.misc.Interval;
+import org.antlr.v4.runtime.misc.NotNull;
 
-public class CaseInsensitiveStream
+class CaseInsensitiveStream
         implements CharStream
 {
     private CharStream stream;
@@ -25,48 +27,11 @@ public class CaseInsensitiveStream
         this.stream = stream;
     }
 
-    /**
-     * @return the LA value without case transformation
-     */
-    public int rawLA(int i)
-    {
-        return stream.LA(i);
-    }
-
     @Override
-    public String substring(int start, int stop)
+    @NotNull
+    public String getText(@NotNull Interval interval)
     {
-        return stream.substring(start, stop);
-    }
-
-    @Override
-    public int LT(int i)
-    {
-        return LA(i);
-    }
-
-    @Override
-    public int getLine()
-    {
-        return stream.getLine();
-    }
-
-    @Override
-    public void setLine(int line)
-    {
-        stream.setLine(line);
-    }
-
-    @Override
-    public void setCharPositionInLine(int pos)
-    {
-        stream.setCharPositionInLine(pos);
-    }
-
-    @Override
-    public int getCharPositionInLine()
-    {
-        return stream.getCharPositionInLine();
+        return stream.getText(interval);
     }
 
     @Override
@@ -78,7 +43,7 @@ public class CaseInsensitiveStream
     @Override
     public int LA(int i)
     {
-        int result = stream.LT(i);
+        int result = stream.LA(i);
 
         switch (result) {
             case 0:
@@ -96,27 +61,15 @@ public class CaseInsensitiveStream
     }
 
     @Override
-    public int index()
-    {
-        return stream.index();
-    }
-
-    @Override
-    public void rewind(int marker)
-    {
-        stream.rewind(marker);
-    }
-
-    @Override
-    public void rewind()
-    {
-        stream.rewind();
-    }
-
-    @Override
     public void release(int marker)
     {
         stream.release(marker);
+    }
+
+    @Override
+    public int index()
+    {
+        return stream.index();
     }
 
     @Override
@@ -132,6 +85,7 @@ public class CaseInsensitiveStream
     }
 
     @Override
+    @NotNull
     public String getSourceName()
     {
         return stream.getSourceName();

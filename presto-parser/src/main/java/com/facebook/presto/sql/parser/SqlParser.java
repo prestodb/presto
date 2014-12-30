@@ -14,25 +14,39 @@
 package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Statement;
-import com.google.common.annotations.VisibleForTesting;
-import org.antlr.runtime.ANTLRStringStream;
-import org.antlr.runtime.CharStream;
-import org.antlr.runtime.CommonTokenStream;
-import org.antlr.runtime.RecognitionException;
-import org.antlr.runtime.TokenStream;
-import org.antlr.runtime.tree.BufferedTreeNodeStream;
-import org.antlr.runtime.tree.CommonTree;
-import org.antlr.runtime.tree.TreeNodeStream;
+import org.antlr.v4.runtime.ANTLRInputStream;
+import org.antlr.v4.runtime.BaseErrorListener;
+import org.antlr.v4.runtime.CommonToken;
+import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.RecognitionException;
+import org.antlr.v4.runtime.Recognizer;
+import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.atn.PredictionMode;
+import org.antlr.v4.runtime.misc.NotNull;
+import org.antlr.v4.runtime.misc.Pair;
+import org.antlr.v4.runtime.misc.ParseCancellationException;
 
 import javax.inject.Inject;
 
 import java.util.EnumSet;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SqlParser
 {
+    private static final BaseErrorListener ERROR_LISTENER = new BaseErrorListener()
+    {
+        @Override
+        public void syntaxError(@NotNull Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, @NotNull String message, RecognitionException e)
+        {
+            throw new ParsingException(message, e, line, charPositionInLine);
+        }
+    };
+
     private final EnumSet<IdentifierSymbol> allowedIdentifierSymbols;
 
     public SqlParser()
@@ -49,76 +63,116 @@ public class SqlParser
 
     public Statement createStatement(String sql)
     {
-        try {
-            return createStatement(parseStatement(sql));
-        }
-        catch (StackOverflowError e) {
-            throw new ParsingException("statement is too large (stack overflow while parsing)");
-        }
+        return (Statement) invokeParser("statement", sql, SqlBaseParser::singleStatement);
     }
 
     public Expression createExpression(String expression)
     {
+        return (Expression) invokeParser("expression", expression, SqlBaseParser::singleExpression);
+    }
+
+    private Node invokeParser(String name, String sql, Function<SqlBaseParser, ParserRuleContext> parseFunction)
+    {
         try {
-            return createExpression(parseExpression(expression));
+            SqlBaseLexer lexer = new SqlBaseLexer(new CaseInsensitiveStream(new ANTLRInputStream(sql)));
+            CommonTokenStream tokenStream = new CommonTokenStream(lexer);
+            SqlBaseParser parser = new SqlBaseParser(tokenStream);
+
+            parser.addParseListener(new PostProcessor());
+
+            lexer.removeErrorListeners();
+            lexer.addErrorListener(ERROR_LISTENER);
+
+            parser.removeErrorListeners();
+            parser.addErrorListener(ERROR_LISTENER);
+
+            ParserRuleContext tree;
+            try {
+                // first, try parsing with potentially faster SLL mode
+                parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
+                tree = parseFunction.apply(parser);
+            }
+            catch (ParseCancellationException ex) {
+                // if we fail, parse with LL mode
+                tokenStream.reset(); // rewind input stream
+                parser.reset();
+
+                parser.getInterpreter().setPredictionMode(PredictionMode.LL);
+                tree = parseFunction.apply(parser);
+            }
+
+            return new AstBuilder().visit(tree);
         }
         catch (StackOverflowError e) {
-            throw new ParsingException("expression is too large (stack overflow while parsing)");
+            throw new ParsingException(name + " is too large (stack overflow while parsing)");
         }
     }
 
-    @VisibleForTesting
-    Statement createStatement(CommonTree tree)
+    private class PostProcessor
+            extends SqlBaseBaseListener
     {
-        TreeNodeStream stream = new BufferedTreeNodeStream(tree);
-        StatementBuilder builder = new StatementBuilder(stream);
-        try {
-            return builder.statement().value;
+        @Override
+        public void exitUnquotedIdentifier(@NotNull SqlBaseParser.UnquotedIdentifierContext context)
+        {
+            String identifier = context.IDENTIFIER().getText();
+            for (IdentifierSymbol identifierSymbol : EnumSet.complementOf(allowedIdentifierSymbols)) {
+                char symbol = identifierSymbol.getSymbol();
+                if (identifier.indexOf(symbol) >= 0) {
+                    throw new ParsingException("identifiers must not contain '" + identifierSymbol.getSymbol() + "'", null, context.IDENTIFIER().getSymbol().getLine(), context.IDENTIFIER().getSymbol().getCharPositionInLine());
+                }
+            }
         }
-        catch (RecognitionException e) {
-            throw new AssertionError(e); // RecognitionException is not thrown
-        }
-    }
 
-    private Expression createExpression(CommonTree tree)
-    {
-        TreeNodeStream stream = new BufferedTreeNodeStream(tree);
-        StatementBuilder builder = new StatementBuilder(stream);
-        try {
-            return builder.singleExpression().value;
+        @Override
+        public void exitBackQuotedIdentifier(@NotNull SqlBaseParser.BackQuotedIdentifierContext context)
+        {
+            Token token = context.BACKQUOTED_IDENTIFIER().getSymbol();
+            throw new ParsingException(
+                    "backquoted identifiers are not supported; use double quotes to quote identifiers",
+                    null,
+                    token.getLine(),
+                    token.getCharPositionInLine());
         }
-        catch (RecognitionException e) {
-            throw new AssertionError(e); // RecognitionException is not thrown
-        }
-    }
 
-    @VisibleForTesting
-    CommonTree parseStatement(String sql)
-    {
-        try {
-            return (CommonTree) getParser(sql).singleStatement().getTree();
+        @Override
+        public void exitDigitIdentifier(@NotNull SqlBaseParser.DigitIdentifierContext context)
+        {
+            Token token = context.DIGIT_IDENTIFIER().getSymbol();
+            throw new ParsingException(
+                    "identifiers must not start with a digit; surround the identifier with double quotes",
+                    null,
+                    token.getLine(),
+                    token.getCharPositionInLine());
         }
-        catch (RecognitionException e) {
-            throw new AssertionError(e); // RecognitionException is not thrown
-        }
-    }
 
-    private CommonTree parseExpression(String expression)
-    {
-        try {
-            return (CommonTree) getParser(expression).singleExpression().getTree();
-        }
-        catch (RecognitionException e) {
-            throw new AssertionError(e); // RecognitionException is not thrown
-        }
-    }
+        @Override
+        public void exitQuotedIdentifier(@NotNull SqlBaseParser.QuotedIdentifierContext context)
+        {
+            // Remove quotes
+            context.getParent().removeLastChild();
 
-    private StatementParser getParser(String sql)
-    {
-        CharStream stream = new CaseInsensitiveStream(new ANTLRStringStream(sql));
-        StatementLexer lexer = new StatementLexer(stream);
-        lexer.setAllowedIdentifierSymbols(allowedIdentifierSymbols);
-        TokenStream tokenStream = new CommonTokenStream(lexer);
-        return new StatementParser(tokenStream);
+            Token token = (Token) context.getChild(0).getPayload();
+            context.getParent().addChild(new CommonToken(
+                    new Pair<>(token.getTokenSource(), token.getInputStream()),
+                    SqlBaseLexer.IDENTIFIER,
+                    token.getChannel(),
+                    token.getStartIndex() + 1,
+                    token.getStopIndex() - 1));
+        }
+
+        @Override
+        public void exitNonReserved(@NotNull SqlBaseParser.NonReservedContext context)
+        {
+            // replace nonReserved words with IDENT tokens
+            context.getParent().removeLastChild();
+
+            Token token = (Token) context.getChild(0).getPayload();
+            context.getParent().addChild(new CommonToken(
+                    new Pair<>(token.getTokenSource(), token.getInputStream()),
+                    SqlBaseLexer.IDENTIFIER,
+                    token.getChannel(),
+                    token.getStartIndex(),
+                    token.getStopIndex()));
+        }
     }
 }

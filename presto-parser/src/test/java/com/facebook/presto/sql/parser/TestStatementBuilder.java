@@ -16,12 +16,10 @@ package com.facebook.presto.sql.parser;
 import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.io.Resources;
-import org.antlr.runtime.tree.CommonTree;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 
-import static com.facebook.presto.sql.parser.TreePrinter.treeToString;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.google.common.base.Strings.repeat;
 import static java.lang.String.format;
@@ -196,11 +194,7 @@ public class TestStatementBuilder
         println(sql.trim());
         println("");
 
-        CommonTree tree = SQL_PARSER.parseStatement(sql);
-        println(treeToString(tree));
-        println("");
-
-        Statement statement = SQL_PARSER.createStatement(tree);
+        Statement statement = SQL_PARSER.createStatement(sql);
         println(statement.toString());
         println("");
 

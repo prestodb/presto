@@ -42,7 +42,7 @@
         <air.check.fail-checkstyle>true</air.check.fail-checkstyle>
         <air.check.skip-checkstyle>false</air.check.skip-checkstyle>
 
-        <dep.antlr.version>3.4</dep.antlr.version>
+        <dep.antlr.version>4.3</dep.antlr.version>
         <dep.slice.version>0.7</dep.slice.version>
         <dep.airlift.version>0.99</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
@@ -483,14 +483,14 @@
 
             <dependency>
                 <groupId>org.antlr</groupId>
-                <artifactId>antlr-runtime</artifactId>
+                <artifactId>antlr4-runtime</artifactId>
                 <version>${dep.antlr.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>antlr</groupId>
-                        <artifactId>antlr</artifactId>
-                    </exclusion>
-                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.antlr</groupId>
+                <artifactId>antlr4-annotations</artifactId>
+                <version>${dep.antlr.version}</version>
             </dependency>
 
             <dependency>
@@ -650,15 +650,18 @@
 
                 <plugin>
                     <groupId>org.antlr</groupId>
-                    <artifactId>antlr3-maven-plugin</artifactId>
+                    <artifactId>antlr4-maven-plugin</artifactId>
                     <version>${dep.antlr.version}</version>
                     <executions>
                         <execution>
                             <goals>
-                                <goal>antlr</goal>
+                                <goal>antlr4</goal>
                             </goals>
                         </execution>
                     </executions>
+                    <configuration>
+                        <visitor>true</visitor>
+                    </configuration>
                 </plugin>
 
                 <plugin>
