@@ -95,10 +95,10 @@ public class TestConditions
         assertFunction("'foo' in ('bar', 'baz', 'buz', 'blah')", false);
         assertFunction("'foo' in ('bar', null, 'foo', 'blah')", true);
 
-        assertFunction("null in (2, null, 3, 5) is null", true);
-        assertFunction("3 in (2, null) is null", true);
-        assertFunction("null not in (2, null, 3, 5) is null", true);
-        assertFunction("3 not in (2, null) is null", true);
+        assertFunction("(null in (2, null, 3, 5)) is null", true);
+        assertFunction("(3 in (2, null)) is null", true);
+        assertFunction("(null not in (2, null, 3, 5)) is null", true);
+        assertFunction("(3 not in (2, null)) is null", true);
     }
 
     @Test(expectedExceptions = PrestoException.class)
