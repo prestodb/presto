@@ -42,6 +42,7 @@ import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
 import static com.facebook.presto.util.DateTimeZoneIndex.extractZoneOffsetMinutes;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -168,10 +169,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
     public static long timeAtTimeZone(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long timeWithTimeZone, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long zoneOffset)
     {
-        if (zoneOffset % 60_000 != 0) {
-            throw new IllegalArgumentException("Invalid time zone offset interval: interval contains seconds");
-        }
-
+        checkCondition((zoneOffset % 60_000) == 0, INVALID_FUNCTION_ARGUMENT, "Invalid time zone offset interval: interval contains seconds");
         int zoneOffsetMinutes = (int) (zoneOffset / 60_000);
         return packDateTimeWithZone(unpackMillisUtc(timeWithTimeZone), getTimeZoneKeyForOffset(zoneOffsetMinutes));
     }
@@ -187,10 +185,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long timestampAtTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long zoneOffset)
     {
-        if (zoneOffset % 60_000 != 0) {
-            throw new IllegalArgumentException("Invalid time zone offset interval: interval contains seconds");
-        }
-
+        checkCondition((zoneOffset % 60_000) == 0, INVALID_FUNCTION_ARGUMENT, "Invalid time zone offset interval: interval contains seconds");
         int zoneOffsetMinutes = (int) (zoneOffset / 60_000);
         return packDateTimeWithZone(unpackMillisUtc(timestampWithTimeZone), getTimeZoneKeyForOffset(zoneOffsetMinutes));
     }
@@ -358,9 +353,8 @@ public final class DateTimeFunctions
                 return QUARTER_OF_YEAR.getField(chronology);
             case "year":
                 return chronology.year();
-            default:
-                throw new IllegalArgumentException("'" + unitString + "' is not a valid DATE field");
         }
+        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid DATE field");
     }
 
     private static DateTimeField getTimeField(ISOChronology chronology, Slice unit)
@@ -373,9 +367,8 @@ public final class DateTimeFunctions
                 return chronology.minuteOfHour();
             case "hour":
                 return chronology.hourOfDay();
-            default:
-                throw new IllegalArgumentException("'" + unitString + "' is not a valid Time field");
         }
+        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
     }
 
     private static DateTimeField getTimestampField(ISOChronology chronology, Slice unit)
@@ -398,9 +391,8 @@ public final class DateTimeFunctions
                 return QUARTER_OF_YEAR.getField(chronology);
             case "year":
                 return chronology.year();
-            default:
-                throw new IllegalArgumentException("'" + unitString + "' is not a valid Timestamp field");
         }
+        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Timestamp field");
     }
 
     @Description("parses the specified date/time by the given format")
