@@ -40,7 +40,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.joda.time.DateTimeZone;
@@ -184,7 +183,7 @@ public class OrcPageSourceFactory
             }
             catch (IOException ignored) {
             }
-            if (e instanceof BlockMissingException) {
+            if (e.getClass().getSimpleName().equals("BlockMissingException")) {
                 throw new PrestoException(HIVE_MISSING_DATA, e);
             }
             throw Throwables.propagate(e);
