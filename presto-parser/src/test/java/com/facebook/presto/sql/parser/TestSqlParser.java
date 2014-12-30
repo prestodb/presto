@@ -31,30 +31,28 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
-import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.ResetSession;
-import com.facebook.presto.sql.tree.Row;
-import com.facebook.presto.sql.tree.Select;
-import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetSession;
-import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubscriptExpression;
-import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.Union;
-import com.facebook.presto.sql.tree.Values;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.QueryUtil.query;
+import static com.facebook.presto.sql.QueryUtil.row;
 import static com.facebook.presto.sql.QueryUtil.selectList;
+import static com.facebook.presto.sql.QueryUtil.simpleQuery;
+import static com.facebook.presto.sql.QueryUtil.subquery;
 import static com.facebook.presto.sql.QueryUtil.table;
+import static com.facebook.presto.sql.QueryUtil.values;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
@@ -232,19 +230,9 @@ public class TestSqlParser
     public void testDoubleInQuery()
     {
         assertStatement("SELECT 123.456E7 FROM DUAL",
-                new Query(
-                        Optional.empty(),
-                        new QuerySpecification(
-                                selectList(new DoubleLiteral("123.456E7")),
-                                table(QualifiedName.of("DUAL")),
-                                Optional.empty(),
-                                ImmutableList.<Expression>of(),
-                                Optional.empty(),
-                                ImmutableList.<SortItem>of(),
-                                Optional.empty()),
-                        ImmutableList.<SortItem>of(),
-                        Optional.empty(),
-                        Optional.empty()));
+                simpleQuery(
+                        selectList(new DoubleLiteral("123.456E7")),
+                        table(QualifiedName.of("DUAL"))));
     }
 
     @Test
@@ -253,11 +241,11 @@ public class TestSqlParser
         assertStatement("SELECT 123 INTERSECT DISTINCT SELECT 123 INTERSECT ALL SELECT 123",
                 new Query(
                         Optional.empty(),
-                        new Intersect(ImmutableList.<Relation>of(
-                                new Intersect(ImmutableList.<Relation>of(createSelect123(), createSelect123()), true),
+                        new Intersect(ImmutableList.of(
+                                new Intersect(ImmutableList.of(createSelect123(), createSelect123()), true),
                                 createSelect123()
                         ), false),
-                        ImmutableList.<SortItem>of(),
+                        ImmutableList.of(),
                         Optional.empty(),
                         Optional.empty()));
     }
@@ -268,8 +256,8 @@ public class TestSqlParser
         assertStatement("SELECT 123 UNION DISTINCT SELECT 123 UNION ALL SELECT 123",
                 new Query(
                         Optional.empty(),
-                        new Union(ImmutableList.<Relation>of(
-                                new Union(ImmutableList.<Relation>of(createSelect123(), createSelect123()), true),
+                        new Union(ImmutableList.of(
+                                new Union(ImmutableList.of(createSelect123(), createSelect123()), true),
                                 createSelect123()
                         ), false),
                         ImmutableList.<SortItem>of(),
@@ -280,12 +268,12 @@ public class TestSqlParser
     private static QuerySpecification createSelect123()
     {
         return new QuerySpecification(
-                new Select(false, ImmutableList.<SelectItem>of(new SingleColumn(new LongLiteral("123")))),
+                selectList(new LongLiteral("123")),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.<Expression>of(),
+                ImmutableList.of(),
                 Optional.empty(),
-                ImmutableList.<SortItem>of(),
+                ImmutableList.of(),
                 Optional.empty()
         );
     }
@@ -293,57 +281,16 @@ public class TestSqlParser
     @Test
     public void testValues()
     {
-        assertStatement("VALUES ('a', 1, 2.2), ('b', 2, 3.3)",
-                new Query(
-                        Optional.empty(),
-                        new Values(ImmutableList.of(
-                                new Row(ImmutableList.<Expression>of(
-                                        new StringLiteral("a"),
-                                        new LongLiteral("1"),
-                                        new DoubleLiteral("2.2")
-                                )),
-                                new Row(ImmutableList.<Expression>of(
-                                        new StringLiteral("b"),
-                                        new LongLiteral("2"),
-                                        new DoubleLiteral("3.3")
-                                ))
-                        )),
-                        ImmutableList.<SortItem>of(),
-                        Optional.empty(),
-                        Optional.empty()));
+        Query valuesQuery = query(values(
+                row(new StringLiteral("a"), new LongLiteral("1"), new DoubleLiteral("2.2")),
+                row(new StringLiteral("b"), new LongLiteral("2"), new DoubleLiteral("3.3"))));
+
+        assertStatement("VALUES ('a', 1, 2.2), ('b', 2, 3.3)", valuesQuery);
 
         assertStatement("SELECT * FROM (VALUES ('a', 1, 2.2), ('b', 2, 3.3))",
-                new Query(
-                        Optional.empty(),
-                        new QuerySpecification(
-                                selectList(new AllColumns()),
-                                Optional.<Relation>of(new TableSubquery(
-                                                new Query(
-                                                        Optional.empty(),
-                                                        new Values(ImmutableList.of(
-                                                                new Row(ImmutableList.<Expression>of(
-                                                                        new StringLiteral("a"),
-                                                                        new LongLiteral("1"),
-                                                                        new DoubleLiteral("2.2")
-                                                                )),
-                                                                new Row(ImmutableList.<Expression>of(
-                                                                        new StringLiteral("b"),
-                                                                        new LongLiteral("2"),
-                                                                        new DoubleLiteral("3.3")
-                                                                ))
-                                                        )),
-                                                        ImmutableList.<SortItem>of(),
-                                                        Optional.empty(),
-                                                        Optional.empty()))
-                                ),
-                                Optional.empty(),
-                                ImmutableList.<Expression>of(),
-                                Optional.empty(),
-                                ImmutableList.<SortItem>of(),
-                                Optional.empty()),
-                        ImmutableList.<SortItem>of(),
-                        Optional.empty(),
-                        Optional.empty()));
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        subquery(valuesQuery)));
     }
 
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: no viable alternative at input '<EOF>'")
