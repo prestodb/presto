@@ -31,7 +31,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
@@ -46,6 +45,7 @@ import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
@@ -58,6 +58,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedReaderEn
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
+import static java.lang.String.format;
 
 public class OrcPageSourceFactory
         implements HivePageSourceFactory
@@ -142,10 +143,11 @@ public class OrcPageSourceFactory
             orcDataSource = new HdfsOrcDataSource(path.toString(), inputStream, size, maxMergeDistance);
         }
         catch (Exception e) {
-            if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed")) {
+            if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
+                    e instanceof FileNotFoundException) {
                 throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, e);
             }
-            throw Throwables.propagate(e);
+            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
         }
 
         ImmutableSet.Builder<Integer> includedColumns = ImmutableSet.builder();
@@ -183,10 +185,16 @@ public class OrcPageSourceFactory
             }
             catch (IOException ignored) {
             }
+            String message = splitError(e, path, start, length);
             if (e.getClass().getSimpleName().equals("BlockMissingException")) {
-                throw new PrestoException(HIVE_MISSING_DATA, e);
+                throw new PrestoException(HIVE_MISSING_DATA, message, e);
             }
-            throw Throwables.propagate(e);
+            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
+    }
+
+    private static String splitError(Throwable t, Path path, long start, long length)
+    {
+        return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
     }
 }
