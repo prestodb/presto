@@ -369,11 +369,9 @@ class AstBuilder
     {
         return new ShowTables(
                 Optional.ofNullable(context.qualifiedName())
-                        .map(AstBuilder::getQualifiedName)
-                        .orElse(null),
+                        .map(AstBuilder::getQualifiedName),
                 getTextIfPresent(context.pattern)
-                        .map(AstBuilder::unquote)
-                        .orElse(null));
+                        .map(AstBuilder::unquote));
     }
 
     @Override

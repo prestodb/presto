@@ -14,27 +14,32 @@
 package com.facebook.presto.sql.tree;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ShowTables
         extends Statement
 {
-    private final QualifiedName schema;
-    private final String likePattern;
+    private final Optional<QualifiedName> schema;
+    private final Optional<String> likePattern;
 
-    public ShowTables(QualifiedName schema, String likePattern)
+    public ShowTables(Optional<QualifiedName> schema, Optional<String> likePattern)
     {
+        checkNotNull(schema, "schema is null");
+        checkNotNull(likePattern, "likePattern is null");
+
         this.schema = schema;
         this.likePattern = likePattern;
     }
 
-    public QualifiedName getSchema()
+    public Optional<QualifiedName> getSchema()
     {
         return schema;
     }
 
-    public String getLikePattern()
+    public Optional<String> getLikePattern()
     {
         return likePattern;
     }
