@@ -378,11 +378,9 @@ public final class SqlToRowExpressionTranslator
                                     value4)))
 
              */
-            RowExpression expression = constantNull(types.get(node));
-
-            if (node.getDefaultValue() != null) {
-                expression = process(node.getDefaultValue(), context);
-            }
+            RowExpression expression = node.getDefaultValue()
+                    .map((value) -> process(value, context))
+                    .orElse(constantNull(types.get(node)));
 
             for (WhenClause clause : Lists.reverse(node.getWhenClauses())) {
                 expression = call(

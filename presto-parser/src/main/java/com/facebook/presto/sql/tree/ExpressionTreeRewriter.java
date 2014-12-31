@@ -326,12 +326,10 @@ public final class ExpressionTreeRewriter<C>
                 builder.add(rewrite(expression, context.get()));
             }
 
-            Expression defaultValue = null;
-            if (node.getDefaultValue() != null) {
-                defaultValue = rewrite(node.getDefaultValue(), context.get());
-            }
+            Optional<Expression> defaultValue = node.getDefaultValue()
+                    .map(value -> rewrite(value, context.get()));
 
-            if (defaultValue != node.getDefaultValue() || !sameElements(node.getWhenClauses(), builder.build())) {
+            if (!sameElements(node.getDefaultValue(), defaultValue) || !sameElements(node.getWhenClauses(), builder.build())) {
                 return new SearchedCaseExpression(builder.build(), defaultValue);
             }
 

@@ -247,7 +247,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitSearchedCaseExpression(SearchedCaseExpression node, Object context)
         {
-            Expression resultClause = node.getDefaultValue();
+            Expression resultClause = node.getDefaultValue().orElse(null);
             for (WhenClause whenClause : node.getWhenClauses()) {
                 Object value = process(whenClause.getOperand(), context);
                 if (value instanceof Expression) {

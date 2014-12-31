@@ -376,10 +376,10 @@ public final class ExpressionFormatter
             for (WhenClause whenClause : node.getWhenClauses()) {
                 parts.add(process(whenClause, context));
             }
-            if (node.getDefaultValue() != null) {
-                parts.add("ELSE")
-                        .add(process(node.getDefaultValue(), context));
-            }
+
+            node.getDefaultValue()
+                    .ifPresent((value) -> parts.add("ELSE").add(process(value, context)));
+
             parts.add("END");
 
             return "(" + Joiner.on(' ').join(parts.build()) + ")";

@@ -382,7 +382,7 @@ public class ExpressionAnalyzer
 
             Type type = coerceToSingleType(context,
                     "All CASE results must be the same type: %s",
-                    getCaseResultExpressions(node.getWhenClauses(), Optional.ofNullable(node.getDefaultValue())));
+                    getCaseResultExpressions(node.getWhenClauses(), node.getDefaultValue()));
             expressionTypes.put(node, type);
 
             for (WhenClause whenClause : node.getWhenClauses()) {
