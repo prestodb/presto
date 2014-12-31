@@ -42,7 +42,7 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitArithmeticExpression(ArithmeticExpression node, C context)
+    protected R visitArithmeticBinary(ArithmeticBinaryExpression node, C context)
     {
         return visitExpression(node, context);
     }

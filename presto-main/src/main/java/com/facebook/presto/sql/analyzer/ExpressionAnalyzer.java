@@ -24,7 +24,7 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -443,7 +443,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitArithmeticExpression(ArithmeticExpression node, AnalysisContext context)
+        protected Type visitArithmeticBinary(ArithmeticBinaryExpression node, AnalysisContext context)
         {
             return getOperator(context, node, OperatorType.valueOf(node.getType().name()), node.getLeft(), node.getRight());
         }

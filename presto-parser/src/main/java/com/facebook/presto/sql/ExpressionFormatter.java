@@ -14,7 +14,7 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.sql.tree.AllColumns;
-import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -317,7 +317,7 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitArithmeticExpression(ArithmeticExpression node, Void context)
+        protected String visitArithmeticBinary(ArithmeticBinaryExpression node, Void context)
         {
             return formatBinaryExpression(node.getType().getValue(), node.getLeft(), node.getRight());
         }

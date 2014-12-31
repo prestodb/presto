@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-public class ArithmeticExpression
+public class ArithmeticBinaryExpression
         extends Expression
 {
     public enum Type
@@ -40,7 +40,7 @@ public class ArithmeticExpression
     private final Expression left;
     private final Expression right;
 
-    public ArithmeticExpression(Type type, Expression left, Expression right)
+    public ArithmeticBinaryExpression(Type type, Expression left, Expression right)
     {
         this.type = type;
         this.left = left;
@@ -65,7 +65,7 @@ public class ArithmeticExpression
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitArithmeticExpression(this, context);
+        return visitor.visitArithmeticBinary(this, context);
     }
 
     @Override
@@ -78,7 +78,7 @@ public class ArithmeticExpression
             return false;
         }
 
-        ArithmeticExpression that = (ArithmeticExpression) o;
+        ArithmeticBinaryExpression that = (ArithmeticBinaryExpression) o;
 
         if (!left.equals(that.left)) {
             return false;
