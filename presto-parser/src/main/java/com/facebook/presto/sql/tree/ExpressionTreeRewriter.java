@@ -416,16 +416,18 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
 
-            Window rewrittenWindow = node.getWindow().orElse(null);
-            if (rewrittenWindow != null) {
+            Optional<Window> rewrittenWindow = node.getWindow();
+            if (node.getWindow().isPresent()) {
+                Window window = node.getWindow().get();
+
                 ImmutableList.Builder<Expression> partitionBy = ImmutableList.builder();
-                for (Expression expression : rewrittenWindow.getPartitionBy()) {
+                for (Expression expression : window.getPartitionBy()) {
                     partitionBy.add(rewrite(expression, context.get()));
                 }
 
                 // Since SortItem is not an Expression, but contains Expressions, just process the default rewrite inline with FunctionCall
                 ImmutableList.Builder<SortItem> orderBy = ImmutableList.builder();
-                for (SortItem sortItem : rewrittenWindow.getOrderBy()) {
+                for (SortItem sortItem : window.getOrderBy()) {
                     Expression sortKey = rewrite(sortItem.getSortKey(), context.get());
                     if (sortItem.getSortKey() != sortKey) {
                         orderBy.add(new SortItem(sortKey, sortItem.getOrdering(), sortItem.getNullOrdering()));
@@ -435,7 +437,7 @@ public final class ExpressionTreeRewriter<C>
                     }
                 }
 
-                WindowFrame frame = rewrittenWindow.getFrame().orElse(null);
+                WindowFrame frame = window.getFrame().orElse(null);
                 if (frame != null) {
                     FrameBound start = frame.getStart();
                     if (start.getValue().isPresent()) {
@@ -458,10 +460,10 @@ public final class ExpressionTreeRewriter<C>
                     }
                 }
 
-                if (!sameElements(rewrittenWindow.getPartitionBy(), partitionBy.build()) ||
-                        !sameElements(rewrittenWindow.getOrderBy(), orderBy.build()) ||
-                        rewrittenWindow.getFrame().orElse(null) != frame) {
-                    rewrittenWindow = new Window(partitionBy.build(), orderBy.build(), frame);
+                if (!sameElements(window.getPartitionBy(), partitionBy.build()) ||
+                        !sameElements(window.getOrderBy(), orderBy.build()) ||
+                        window.getFrame().orElse(null) != frame) {
+                    rewrittenWindow = Optional.of(new Window(partitionBy.build(), orderBy.build(), frame));
                 }
             }
 
@@ -470,8 +472,7 @@ public final class ExpressionTreeRewriter<C>
                 arguments.add(rewrite(expression, context.get()));
             }
 
-            if (!sameElements(node.getArguments(), arguments.build()) ||
-                    (rewrittenWindow != node.getWindow().orElse(null))) {
+            if (!sameElements(node.getArguments(), arguments.build()) || !sameElements(rewrittenWindow, node.getWindow())) {
                 return new FunctionCall(node.getName(), rewrittenWindow, node.isDistinct(), arguments.build());
             }
 
