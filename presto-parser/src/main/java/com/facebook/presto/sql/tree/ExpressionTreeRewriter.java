@@ -437,8 +437,10 @@ public final class ExpressionTreeRewriter<C>
                     }
                 }
 
-                WindowFrame frame = window.getFrame().orElse(null);
-                if (frame != null) {
+                Optional<WindowFrame> rewrittenFrame = window.getFrame();
+                if (rewrittenFrame.isPresent()) {
+                    WindowFrame frame = rewrittenFrame.get();
+
                     FrameBound start = frame.getStart();
                     if (start.getValue().isPresent()) {
                         Expression value = rewrite(start.getValue().get(), context.get());
@@ -456,14 +458,14 @@ public final class ExpressionTreeRewriter<C>
                     }
 
                     if ((frame.getStart() != start) || (frame.getEnd().orElse(null) != end)) {
-                        frame = new WindowFrame(frame.getType(), start, end);
+                        rewrittenFrame = Optional.of(new WindowFrame(frame.getType(), start, end));
                     }
                 }
 
                 if (!sameElements(window.getPartitionBy(), partitionBy.build()) ||
                         !sameElements(window.getOrderBy(), orderBy.build()) ||
-                        window.getFrame().orElse(null) != frame) {
-                    rewrittenWindow = Optional.of(new Window(partitionBy.build(), orderBy.build(), frame));
+                        !sameElements(window.getFrame(), rewrittenFrame)) {
+                    rewrittenWindow = Optional.of(new Window(partitionBy.build(), orderBy.build(), rewrittenFrame));
                 }
             }
 

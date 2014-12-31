@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
-import java.util.Objects;
-
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -28,11 +27,11 @@ public class Window
     private final List<SortItem> orderBy;
     private final Optional<WindowFrame> frame;
 
-    public Window(List<Expression> partitionBy, List<SortItem> orderBy, WindowFrame frame)
+    public Window(List<Expression> partitionBy, List<SortItem> orderBy, Optional<WindowFrame> frame)
     {
         this.partitionBy = checkNotNull(partitionBy, "partitionBy is null");
         this.orderBy = checkNotNull(orderBy, "orderBy is null");
-        this.frame = Optional.ofNullable(frame);
+        this.frame = checkNotNull(frame, "frame is null");
     }
 
     public List<Expression> getPartitionBy()
