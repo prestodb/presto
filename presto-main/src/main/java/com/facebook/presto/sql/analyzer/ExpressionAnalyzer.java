@@ -382,7 +382,7 @@ public class ExpressionAnalyzer
 
             Type type = coerceToSingleType(context,
                     "All CASE results must be the same type: %s",
-                    getCaseResultExpressions(node.getWhenClauses(), node.getDefaultValue()));
+                    getCaseResultExpressions(node.getWhenClauses(), Optional.ofNullable(node.getDefaultValue())));
             expressionTypes.put(node, type);
 
             for (WhenClause whenClause : node.getWhenClauses()) {
@@ -415,15 +415,13 @@ public class ExpressionAnalyzer
             return type;
         }
 
-        private List<Expression> getCaseResultExpressions(List<WhenClause> whenClauses, Expression defaultValue)
+        private List<Expression> getCaseResultExpressions(List<WhenClause> whenClauses, Optional<Expression> defaultValue)
         {
             List<Expression> resultExpressions = new ArrayList<>();
             for (WhenClause whenClause : whenClauses) {
                 resultExpressions.add(whenClause.getResult());
             }
-            if (defaultValue != null) {
-                resultExpressions.add(defaultValue);
-            }
+            defaultValue.ifPresent(resultExpressions::add);
             return resultExpressions;
         }
 
