@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -196,7 +196,7 @@ public class AggregationAnalyzer
         }
 
         @Override
-        protected Boolean visitArithmeticExpression(ArithmeticExpression node, Void context)
+        protected Boolean visitArithmeticBinary(ArithmeticBinaryExpression node, Void context)
         {
             return process(node.getLeft(), context) && process(node.getRight(), context);
         }

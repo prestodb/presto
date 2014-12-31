@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.tree.AllColumns;
-import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CurrentTime;
@@ -320,25 +320,25 @@ public class TestSqlParser
                 new NotExpression(new LongLiteral("1")),
                 new LongLiteral("2")));
 
-        assertExpression("-1 + 2", new ArithmeticExpression(ArithmeticExpression.Type.ADD,
+        assertExpression("-1 + 2", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.ADD,
                 new NegativeExpression(new LongLiteral("1")),
                 new LongLiteral("2")));
 
-        assertExpression("1 - 2 - 3", new ArithmeticExpression(ArithmeticExpression.Type.SUBTRACT,
-                new ArithmeticExpression(ArithmeticExpression.Type.SUBTRACT,
+        assertExpression("1 - 2 - 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.SUBTRACT,
+                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.SUBTRACT,
                         new LongLiteral("1"),
                         new LongLiteral("2")),
                 new LongLiteral("3")));
 
-        assertExpression("1 / 2 / 3", new ArithmeticExpression(ArithmeticExpression.Type.DIVIDE,
-                new ArithmeticExpression(ArithmeticExpression.Type.DIVIDE,
+        assertExpression("1 / 2 / 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.DIVIDE,
+                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.DIVIDE,
                         new LongLiteral("1"),
                         new LongLiteral("2")),
                 new LongLiteral("3")));
 
-        assertExpression("1 + 2 * 3", new ArithmeticExpression(ArithmeticExpression.Type.ADD,
+        assertExpression("1 + 2 * 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.ADD,
                 new LongLiteral("1"),
-                new ArithmeticExpression(ArithmeticExpression.Type.MULTIPLY,
+                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.MULTIPLY,
                         new LongLiteral("2"),
                         new LongLiteral("3"))));
 

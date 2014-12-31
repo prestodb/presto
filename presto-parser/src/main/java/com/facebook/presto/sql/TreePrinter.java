@@ -15,7 +15,7 @@ package com.facebook.presto.sql;
 
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
-import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -189,11 +189,11 @@ public class TreePrinter
             }
 
             @Override
-            protected Void visitArithmeticExpression(ArithmeticExpression node, Integer indentLevel)
+            protected Void visitArithmeticBinary(ArithmeticBinaryExpression node, Integer indentLevel)
             {
                 print(indentLevel, node.getType().toString());
 
-                super.visitArithmeticExpression(node, indentLevel + 1);
+                super.visitArithmeticBinary(node, indentLevel + 1);
 
                 return null;
             }

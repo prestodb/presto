@@ -87,10 +87,10 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        public Expression visitArithmeticExpression(ArithmeticExpression node, Context<C> context)
+        public Expression visitArithmeticBinary(ArithmeticBinaryExpression node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteArithmeticExpression(node, context.get(), ExpressionTreeRewriter.this);
+                Expression result = rewriter.rewriteArithmeticBinary(node, context.get(), ExpressionTreeRewriter.this);
                 if (result != null) {
                     return result;
                 }
@@ -100,7 +100,7 @@ public final class ExpressionTreeRewriter<C>
             Expression right = rewrite(node.getRight(), context.get());
 
             if (left != node.getLeft() || right != node.getRight()) {
-                return new ArithmeticExpression(node.getType(), left, right);
+                return new ArithmeticBinaryExpression(node.getType(), left, right);
             }
 
             return node;

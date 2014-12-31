@@ -16,7 +16,7 @@ package com.facebook.presto.sql.parser;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Approximate;
-import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -676,7 +676,7 @@ class AstBuilder
     @Override
     public Node visitArithmeticBinary(@NotNull SqlBaseParser.ArithmeticBinaryContext context)
     {
-        return new ArithmeticExpression(
+        return new ArithmeticBinaryExpression(
                 getArithmeticBinaryOperator(context.operator),
                 (Expression) visit(context.left),
                 (Expression) visit(context.right));
@@ -1042,22 +1042,22 @@ class AstBuilder
                 .collect(Collectors.toList());
     }
 
-    private static ArithmeticExpression.Type getArithmeticBinaryOperator(Token operator)
+    private static ArithmeticBinaryExpression.Type getArithmeticBinaryOperator(Token operator)
     {
         switch (operator.getType()) {
             case SqlBaseLexer.PLUS:
-                return ArithmeticExpression.Type.ADD;
+                return ArithmeticBinaryExpression.Type.ADD;
             case SqlBaseLexer.MINUS:
-                return ArithmeticExpression.Type.SUBTRACT;
+                return ArithmeticBinaryExpression.Type.SUBTRACT;
             case SqlBaseLexer.ASTERISK:
-                return ArithmeticExpression.Type.MULTIPLY;
+                return ArithmeticBinaryExpression.Type.MULTIPLY;
             case SqlBaseLexer.SLASH:
-                return ArithmeticExpression.Type.DIVIDE;
+                return ArithmeticBinaryExpression.Type.DIVIDE;
             case SqlBaseLexer.PERCENT:
-                return ArithmeticExpression.Type.MODULUS;
+                return ArithmeticBinaryExpression.Type.MODULUS;
         }
 
-        throw new IllegalArgumentException("Unsupported operator: " + operator.getText());
+        throw new UnsupportedOperationException("Unsupported operator: " + operator.getText());
     }
 
     private static ComparisonExpression.Type getComparisonOperator(Token symbol)
