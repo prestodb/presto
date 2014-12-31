@@ -41,7 +41,7 @@ import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
-import com.facebook.presto.sql.tree.NegativeExpression;
+import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
@@ -406,30 +406,37 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitNegativeExpression(NegativeExpression node, Object context)
+        protected Object visitArithmeticUnary(ArithmeticUnaryExpression node, Object context)
         {
             Object value = process(node.getValue(), context);
             if (value == null) {
                 return null;
             }
             if (value instanceof Expression) {
-                return new NegativeExpression(toExpression(value, expressionTypes.get(node.getValue())));
+                return new ArithmeticUnaryExpression(node.getSign(), toExpression(value, expressionTypes.get(node.getValue())));
             }
 
-            FunctionInfo operatorInfo = metadata.resolveOperator(OperatorType.NEGATION, types(node.getValue()));
+            switch (node.getSign()) {
+                case PLUS:
+                    return value;
+                case MINUS:
+                    FunctionInfo operatorInfo = metadata.resolveOperator(OperatorType.NEGATION, types(node.getValue()));
 
-            MethodHandle handle = operatorInfo.getMethodHandle();
-            if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
-                handle = handle.bindTo(session);
+                    MethodHandle handle = operatorInfo.getMethodHandle();
+                    if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
+                        handle = handle.bindTo(session);
+                    }
+                    try {
+                        return handle.invokeWithArguments(value);
+                    }
+                    catch (Throwable throwable) {
+                        Throwables.propagateIfInstanceOf(throwable, RuntimeException.class);
+                        Throwables.propagateIfInstanceOf(throwable, Error.class);
+                        throw new RuntimeException(throwable.getMessage(), throwable);
+                    }
             }
-            try {
-                return handle.invokeWithArguments(value);
-            }
-            catch (Throwable throwable) {
-                Throwables.propagateIfInstanceOf(throwable, RuntimeException.class);
-                Throwables.propagateIfInstanceOf(throwable, Error.class);
-                throw new RuntimeException(throwable.getMessage(), throwable);
-            }
+
+            throw new UnsupportedOperationException("Unsupported unary operator: " + node.getSign());
         }
 
         @Override
