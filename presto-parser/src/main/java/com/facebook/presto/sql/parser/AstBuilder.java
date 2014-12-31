@@ -790,8 +790,7 @@ class AstBuilder
     {
         return new SearchedCaseExpression(
                 visit(context.whenClause(), WhenClause.class),
-                visitIfPresent(context.elseExpression, Expression.class)
-                        .orElse(null));
+                visitIfPresent(context.elseExpression, Expression.class));
     }
 
     @Override

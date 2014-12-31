@@ -17,14 +17,15 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 public class SearchedCaseExpression
         extends Expression
 {
     private final List<WhenClause> whenClauses;
-    private final Expression defaultValue;
+    private final Optional<Expression> defaultValue;
 
-    public SearchedCaseExpression(List<WhenClause> whenClauses, Expression defaultValue)
+    public SearchedCaseExpression(List<WhenClause> whenClauses, Optional<Expression> defaultValue)
     {
         Preconditions.checkNotNull(whenClauses, "whenClauses is null");
         this.whenClauses = ImmutableList.copyOf(whenClauses);
@@ -36,7 +37,7 @@ public class SearchedCaseExpression
         return whenClauses;
     }
 
-    public Expression getDefaultValue()
+    public Optional<Expression> getDefaultValue()
     {
         return defaultValue;
     }

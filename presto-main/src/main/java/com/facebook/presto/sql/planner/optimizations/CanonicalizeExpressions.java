@@ -42,6 +42,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -114,10 +115,8 @@ public class CanonicalizeExpressions
             Expression condition = treeRewriter.rewrite(node.getCondition(), context);
             Expression trueValue = treeRewriter.rewrite(node.getTrueValue(), context);
 
-            Expression falseValue = null;
-            if (node.getFalseValue().isPresent()) {
-                falseValue = treeRewriter.rewrite(node.getFalseValue().get(), context);
-            }
+            Optional<Expression> falseValue = node.getFalseValue()
+                    .map((value) -> treeRewriter.rewrite(value, context));
 
             return new SearchedCaseExpression(ImmutableList.of(new WhenClause(condition, trueValue)), falseValue);
         }

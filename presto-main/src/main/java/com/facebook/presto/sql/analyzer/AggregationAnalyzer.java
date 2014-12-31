@@ -403,7 +403,7 @@ public class AggregationAnalyzer
                 }
             }
 
-            if (node.getDefaultValue() != null && !process(node.getDefaultValue(), context)) {
+            if (node.getDefaultValue().isPresent() && !process(node.getDefaultValue().get(), context)) {
                 return false;
             }
 

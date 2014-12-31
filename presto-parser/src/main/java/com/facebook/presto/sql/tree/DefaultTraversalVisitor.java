@@ -213,7 +213,7 @@ public abstract class DefaultTraversalVisitor<R, C>
         }
 
         node.getDefaultValue()
-                .ifPresent((value) -> process(value, context));
+                .ifPresent(value -> process(value, context));
 
         return null;
     }
@@ -267,9 +267,8 @@ public abstract class DefaultTraversalVisitor<R, C>
         for (WhenClause clause : node.getWhenClauses()) {
             process(clause, context);
         }
-        if (node.getDefaultValue() != null) {
-            process(node.getDefaultValue(), context);
-        }
+        node.getDefaultValue()
+                .ifPresent(value -> process(value, context));
 
         return null;
     }
