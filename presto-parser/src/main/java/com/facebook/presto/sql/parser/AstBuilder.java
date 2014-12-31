@@ -782,8 +782,7 @@ class AstBuilder
         return new SimpleCaseExpression(
                 (Expression) visit(context.valueExpression()),
                 visit(context.whenClause(), WhenClause.class),
-                visitIfPresent(context.elseExpression, Expression.class)
-                        .orElse(null));
+                visitIfPresent(context.elseExpression, Expression.class));
     }
 
     @Override

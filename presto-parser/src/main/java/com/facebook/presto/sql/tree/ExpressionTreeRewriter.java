@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.Iterator;
+import java.util.Optional;
 
 public final class ExpressionTreeRewriter<C>
 {
@@ -354,12 +355,12 @@ public final class ExpressionTreeRewriter<C>
                 builder.add(rewrite(expression, context.get()));
             }
 
-            Expression defaultValue = null;
-            if (node.getDefaultValue() != null) {
-                defaultValue = rewrite(node.getDefaultValue(), context.get());
-            }
+            Optional<Expression> defaultValue = node.getDefaultValue()
+                    .map(value -> rewrite(value, context.get()));
 
-            if (operand != node.getOperand() || defaultValue != node.getDefaultValue() || !sameElements(node.getWhenClauses(), builder.build())) {
+            if (operand != node.getOperand() ||
+                    !sameElements(node.getDefaultValue(), defaultValue) ||
+                    !sameElements(node.getWhenClauses(), builder.build())) {
                 return new SimpleCaseExpression(operand, builder.build(), defaultValue);
             }
 
@@ -657,6 +658,18 @@ public final class ExpressionTreeRewriter<C>
         {
             return defaultRewrite;
         }
+    }
+
+    private static <T> boolean sameElements(Optional<T> a, Optional<T> b)
+    {
+        if (!a.isPresent() && !b.isPresent()) {
+            return true;
+        }
+        else if (a.isPresent() != b.isPresent()) {
+            return false;
+        }
+
+        return a.get() == b.get();
     }
 
     @SuppressWarnings("ObjectEquality")

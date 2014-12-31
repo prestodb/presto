@@ -347,12 +347,10 @@ public final class SqlToRowExpressionTranslator
             }
 
             Type returnType = types.get(node);
-            if (node.getDefaultValue() != null) {
-                arguments.add(process(node.getDefaultValue(), context));
-            }
-            else {
-                arguments.add(constantNull(returnType));
-            }
+
+            arguments.add(node.getDefaultValue()
+                    .map((value) -> process(value, context))
+                    .orElse(constantNull(returnType)));
 
             return call(switchSignature(returnType), returnType, arguments.build());
         }

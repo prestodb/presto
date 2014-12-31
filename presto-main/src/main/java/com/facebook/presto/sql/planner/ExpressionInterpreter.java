@@ -281,7 +281,7 @@ public class ExpressionInterpreter
                 return node;
             }
 
-            Expression resultClause = node.getDefaultValue();
+            Expression resultClause = node.getDefaultValue().orElse(null);
             if (operand != null) {
                 for (WhenClause whenClause : node.getWhenClauses()) {
                     Object value = process(whenClause.getOperand(), context);
