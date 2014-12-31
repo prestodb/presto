@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CurrentTime;
@@ -24,10 +25,12 @@ import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
 import com.facebook.presto.sql.tree.IntervalLiteral.Sign;
+import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NegativeExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -291,6 +294,54 @@ public class TestSqlParser
                 simpleQuery(
                         selectList(new AllColumns()),
                         subquery(valuesQuery)));
+    }
+
+    @Test
+    public void testPrecedenceAndAssociativity()
+            throws Exception
+    {
+        assertExpression("1 AND 2 OR 3", new LogicalBinaryExpression(LogicalBinaryExpression.Type.OR,
+                new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND,
+                        new LongLiteral("1"),
+                        new LongLiteral("2")),
+                new LongLiteral("3")));
+
+        assertExpression("1 OR 2 AND 3", new LogicalBinaryExpression(LogicalBinaryExpression.Type.OR,
+                new LongLiteral("1"),
+                new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND,
+                        new LongLiteral("2"),
+                        new LongLiteral("3"))));
+
+        assertExpression("NOT 1 AND 2", new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND,
+                new NotExpression(new LongLiteral("1")),
+                new LongLiteral("2")));
+
+        assertExpression("NOT 1 OR 2", new LogicalBinaryExpression(LogicalBinaryExpression.Type.OR,
+                new NotExpression(new LongLiteral("1")),
+                new LongLiteral("2")));
+
+        assertExpression("-1 + 2", new ArithmeticExpression(ArithmeticExpression.Type.ADD,
+                new NegativeExpression(new LongLiteral("1")),
+                new LongLiteral("2")));
+
+        assertExpression("1 - 2 - 3", new ArithmeticExpression(ArithmeticExpression.Type.SUBTRACT,
+                new ArithmeticExpression(ArithmeticExpression.Type.SUBTRACT,
+                        new LongLiteral("1"),
+                        new LongLiteral("2")),
+                new LongLiteral("3")));
+
+        assertExpression("1 / 2 / 3", new ArithmeticExpression(ArithmeticExpression.Type.DIVIDE,
+                new ArithmeticExpression(ArithmeticExpression.Type.DIVIDE,
+                        new LongLiteral("1"),
+                        new LongLiteral("2")),
+                new LongLiteral("3")));
+
+        assertExpression("1 + 2 * 3", new ArithmeticExpression(ArithmeticExpression.Type.ADD,
+                new LongLiteral("1"),
+                new ArithmeticExpression(ArithmeticExpression.Type.MULTIPLY,
+                        new LongLiteral("2"),
+                        new LongLiteral("3"))));
+
     }
 
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: no viable alternative at input '<EOF>'")
