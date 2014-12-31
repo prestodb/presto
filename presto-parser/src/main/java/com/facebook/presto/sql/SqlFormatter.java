@@ -521,15 +521,13 @@ public final class SqlFormatter
         {
             builder.append("SHOW TABLES");
 
-            if (node.getSchema() != null) {
-                builder.append(" FROM ")
-                        .append(node.getSchema());
-            }
+            node.getSchema().ifPresent((value) ->
+                    builder.append(" FROM ")
+                            .append(value));
 
-            if (node.getLikePattern() != null) {
-                builder.append(" LIKE ")
-                        .append(formatStringLiteral(node.getLikePattern()));
-            }
+            node.getLikePattern().ifPresent((value) ->
+                    builder.append(" LIKE ")
+                            .append(formatStringLiteral(value)));
 
             return null;
         }

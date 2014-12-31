@@ -143,25 +143,25 @@ class StatementAnalyzer
         String catalogName = session.getCatalog();
         String schemaName = session.getSchema();
 
-        QualifiedName schema = showTables.getSchema();
-        if (schema != null) {
-            List<String> parts = schema.getParts();
+        Optional<QualifiedName> schema = showTables.getSchema();
+        if (schema.isPresent()) {
+            List<String> parts = schema.get().getParts();
             if (parts.size() > 2) {
                 throw new SemanticException(INVALID_SCHEMA_NAME, showTables, "too many parts in schema name: %s", schema);
             }
             if (parts.size() == 2) {
                 catalogName = parts.get(0);
             }
-            schemaName = schema.getSuffix();
+            schemaName = schema.get().getSuffix();
         }
 
         // TODO: throw SemanticException if schema does not exist
 
         Expression predicate = equal(nameReference("table_schema"), new StringLiteral(schemaName));
 
-        String likePattern = showTables.getLikePattern();
-        if (likePattern != null) {
-            Expression likePredicate = new LikePredicate(nameReference("table_name"), new StringLiteral(likePattern), null);
+        Optional<String> likePattern = showTables.getLikePattern();
+        if (likePattern.isPresent()) {
+            Expression likePredicate = new LikePredicate(nameReference("table_name"), new StringLiteral(likePattern.get()), null);
             predicate = logicalAnd(predicate, likePredicate);
         }
 
