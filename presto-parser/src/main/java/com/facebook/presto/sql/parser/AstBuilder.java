@@ -874,8 +874,7 @@ class AstBuilder
         return new WindowFrame(
                 getFrameType(context.frameType),
                 (FrameBound) visit(context.start),
-                visitIfPresent(context.end, FrameBound.class)
-                        .orElse(null));
+                visitIfPresent(context.end, FrameBound.class));
     }
 
     @Override

@@ -449,16 +449,19 @@ public final class ExpressionTreeRewriter<C>
                         }
                     }
 
-                    FrameBound end = frame.getEnd().orElse(null);
-                    if ((end != null) && end.getValue().isPresent()) {
-                        Expression value = rewrite(end.getValue().get(), context.get());
-                        if (value != end.getValue().get()) {
-                            end = new FrameBound(end.getType(), value);
+                    Optional<FrameBound> rewrittenEnd = frame.getEnd();
+                    if (rewrittenEnd.isPresent()) {
+                        Optional<Expression> value = rewrittenEnd.get().getValue();
+                        if (value.isPresent()) {
+                            Expression rewrittenValue = rewrite(value.get(), context.get());
+                            if (rewrittenValue != value.get()) {
+                                rewrittenEnd = Optional.of(new FrameBound(rewrittenEnd.get().getType(), rewrittenValue));
+                            }
                         }
                     }
 
-                    if ((frame.getStart() != start) || (frame.getEnd().orElse(null) != end)) {
-                        rewrittenFrame = Optional.of(new WindowFrame(frame.getType(), start, end));
+                    if ((frame.getStart() != start) || !sameElements(frame.getEnd(), rewrittenEnd)) {
+                        rewrittenFrame = Optional.of(new WindowFrame(frame.getType(), start, rewrittenEnd));
                     }
                 }
 
