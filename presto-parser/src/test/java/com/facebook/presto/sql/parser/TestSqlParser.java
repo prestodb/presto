@@ -27,7 +27,6 @@ import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
 import com.facebook.presto.sql.tree.IntervalLiteral.Sign;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.NegativeExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.NotExpression;
@@ -59,6 +58,8 @@ import static com.facebook.presto.sql.QueryUtil.values;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
+import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.negative;
+import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.positive;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
@@ -184,49 +185,41 @@ public class TestSqlParser
     }
 
     @Test
-    public void testPositiveSign()
-            throws Exception
+    public void testArithmeticUnary()
     {
         assertExpression("9", new LongLiteral("9"));
 
-        assertExpression("+9", new LongLiteral("9"));
-        assertExpression("++9", new LongLiteral("9"));
-        assertExpression("+++9", new LongLiteral("9"));
+        assertExpression("+9", positive(new LongLiteral("9")));
+        assertExpression("+ 9", positive(new LongLiteral("9")));
 
-        assertExpression("+9", new LongLiteral("9"));
-        assertExpression("+ +9", new LongLiteral("9"));
-        assertExpression("+ + +9", new LongLiteral("9"));
+        assertExpression("++9", positive(positive(new LongLiteral("9"))));
+        assertExpression("+ +9", positive(positive(new LongLiteral("9"))));
+        assertExpression("+ + 9", positive(positive(new LongLiteral("9"))));
 
-        assertExpression("+ 9", new LongLiteral("9"));
-        assertExpression("+ + 9", new LongLiteral("9"));
-        assertExpression("+ + + 9", new LongLiteral("9"));
-    }
+        assertExpression("+++9", positive(positive(positive(new LongLiteral("9")))));
+        assertExpression("+ + +9", positive(positive(positive(new LongLiteral("9")))));
+        assertExpression("+ + + 9", positive(positive(positive(new LongLiteral("9")))));
 
-    @Test
-    public void testNegativeSign()
-    {
-        Expression expression = new LongLiteral("9");
-        assertExpression("9", expression);
+        assertExpression("-9", negative(new LongLiteral("9")));
+        assertExpression("- 9", negative(new LongLiteral("9")));
 
-        expression = new NegativeExpression(expression);
-        assertExpression("-9", expression);
-        assertExpression("- 9", expression);
-        assertExpression("- + 9", expression);
-        assertExpression("+ - + 9", expression);
-        assertExpression("-+9", expression);
-        assertExpression("+-+9", expression);
+        assertExpression("- + 9", negative(positive(new LongLiteral("9"))));
+        assertExpression("-+9", negative(positive(new LongLiteral("9"))));
 
-        expression = new NegativeExpression(expression);
-        assertExpression("- -9", expression);
-        assertExpression("- - 9", expression);
-        assertExpression("- + - + 9", expression);
-        assertExpression("+ - + - + 9", expression);
-        assertExpression("-+-+9", expression);
-        assertExpression("+-+-+9", expression);
+        assertExpression("+ - + 9", positive(negative(positive(new LongLiteral("9")))));
+        assertExpression("+-+9", positive(negative(positive(new LongLiteral("9")))));
 
-        expression = new NegativeExpression(expression);
-        assertExpression("- - -9", expression);
-        assertExpression("- - - 9", expression);
+        assertExpression("- -9", negative(negative(new LongLiteral("9"))));
+        assertExpression("- - 9", negative(negative(new LongLiteral("9"))));
+
+        assertExpression("- + - + 9", negative(positive(negative(positive(new LongLiteral("9"))))));
+        assertExpression("-+-+9", negative(positive(negative(positive(new LongLiteral("9"))))));
+
+        assertExpression("+ - + - + 9", positive(negative(positive(negative(positive(new LongLiteral("9")))))));
+        assertExpression("+-+-+9", positive(negative(positive(negative(positive(new LongLiteral("9")))))));
+
+        assertExpression("- - -9", negative(negative(negative(new LongLiteral("9")))));
+        assertExpression("- - - 9", negative(negative(negative(new LongLiteral("9")))));
     }
 
     @Test
@@ -321,7 +314,7 @@ public class TestSqlParser
                 new LongLiteral("2")));
 
         assertExpression("-1 + 2", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.ADD,
-                new NegativeExpression(new LongLiteral("1")),
+                negative(new LongLiteral("1")),
                 new LongLiteral("2")));
 
         assertExpression("1 - 2 - 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.SUBTRACT,
@@ -341,7 +334,6 @@ public class TestSqlParser
                 new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.MULTIPLY,
                         new LongLiteral("2"),
                         new LongLiteral("3"))));
-
     }
 
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: no viable alternative at input '<EOF>'")

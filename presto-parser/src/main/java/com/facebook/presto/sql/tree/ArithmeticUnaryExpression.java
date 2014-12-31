@@ -13,14 +13,36 @@
  */
 package com.facebook.presto.sql.tree;
 
-public class NegativeExpression
+import static com.google.common.base.Preconditions.checkNotNull;
+
+public class ArithmeticUnaryExpression
         extends Expression
 {
-    private final Expression value;
+    public enum Sign {
+        PLUS,
+        MINUS
+    }
 
-    public NegativeExpression(Expression value)
+    private final Expression value;
+    private final Sign sign;
+
+    public ArithmeticUnaryExpression(Sign sign, Expression value)
     {
+        checkNotNull(value, "value is null");
+        checkNotNull(sign, "sign is null");
+
         this.value = value;
+        this.sign = sign;
+    }
+
+    public static ArithmeticUnaryExpression positive(Expression value)
+    {
+        return new ArithmeticUnaryExpression(Sign.PLUS, value);
+    }
+
+    public static ArithmeticUnaryExpression negative(Expression value)
+    {
+        return new ArithmeticUnaryExpression(Sign.MINUS, value);
     }
 
     public Expression getValue()
@@ -28,10 +50,15 @@ public class NegativeExpression
         return value;
     }
 
+    public Sign getSign()
+    {
+        return sign;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitNegativeExpression(this, context);
+        return visitor.visitArithmeticUnary(this, context);
     }
 
     @Override
@@ -44,8 +71,11 @@ public class NegativeExpression
             return false;
         }
 
-        NegativeExpression that = (NegativeExpression) o;
+        ArithmeticUnaryExpression that = (ArithmeticUnaryExpression) o;
 
+        if (sign != that.sign) {
+            return false;
+        }
         if (!value.equals(that.value)) {
             return false;
         }
@@ -56,6 +86,8 @@ public class NegativeExpression
     @Override
     public int hashCode()
     {
-        return value.hashCode();
+        int result = value.hashCode();
+        result = 31 * result + sign.hashCode();
+        return result;
     }
 }

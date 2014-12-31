@@ -40,7 +40,7 @@ import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.NegativeExpression;
+import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
@@ -309,11 +309,20 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitNegativeExpression(NegativeExpression node, Void context)
+        protected String visitArithmeticUnary(ArithmeticUnaryExpression node, Void context)
         {
             String value = process(node.getValue(), null);
-            String separator = value.startsWith("-") ? " " : "";
-            return "-" + separator + value;
+
+            switch (node.getSign()) {
+                case MINUS:
+                    // this is to avoid turning a sequence of "-" into a comment (i.e., "-- comment")
+                    String separator = value.startsWith("-") ? " " : "";
+                    return "-" + separator + value;
+                case PLUS:
+                    return "+" + value;
+                default:
+                    throw new UnsupportedOperationException("Unsupported sign: " + node.getSign());
+            }
         }
 
         @Override

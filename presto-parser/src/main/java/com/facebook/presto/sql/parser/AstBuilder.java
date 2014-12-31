@@ -56,7 +56,7 @@ import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
-import com.facebook.presto.sql.tree.NegativeExpression;
+import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
@@ -664,13 +664,16 @@ class AstBuilder
     @Override
     public Node visitArithmeticUnary(@NotNull SqlBaseParser.ArithmeticUnaryContext context)
     {
-        Expression result = (Expression) visit(context.valueExpression());
+        Expression child = (Expression) visit(context.valueExpression());
 
-        if (context.operator.getType() == SqlBaseLexer.MINUS) {
-            result = new NegativeExpression(result);
+        switch (context.operator.getType()) {
+            case SqlBaseLexer.MINUS:
+                return ArithmeticUnaryExpression.negative(child);
+            case SqlBaseLexer.PLUS:
+                return ArithmeticUnaryExpression.positive(child);
+            default:
+                throw new UnsupportedOperationException("Unsupported sign: " + context.operator.getText());
         }
-
-        return result;
     }
 
     @Override

@@ -48,7 +48,7 @@ import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.NegativeExpression;
+import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
@@ -437,9 +437,16 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitNegativeExpression(NegativeExpression node, AnalysisContext context)
+        protected Type visitArithmeticUnary(ArithmeticUnaryExpression node, AnalysisContext context)
         {
-            return getOperator(context, node, OperatorType.NEGATION, node.getValue());
+            if (node.getSign() == ArithmeticUnaryExpression.Sign.MINUS) {
+                return getOperator(context, node, OperatorType.NEGATION, node.getValue());
+            }
+
+            Type type = process(node.getValue(), context);
+            expressionTypes.put(node, type);
+
+            return type;
         }
 
         @Override
