@@ -187,8 +187,8 @@ public final class ExpressionFormatter
                     .append(" '").append(node.getValue()).append("' ")
                     .append(node.getStartField());
 
-            if (node.getEndField() != null)  {
-                builder.append(" TO ").append(node.getEndField());
+            if (node.getEndField().isPresent())  {
+                builder.append(" TO ").append(node.getEndField().get());
             }
             return builder.toString();
         }

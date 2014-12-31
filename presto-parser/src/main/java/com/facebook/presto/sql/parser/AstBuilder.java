@@ -955,8 +955,7 @@ class AstBuilder
                 Optional.ofNullable(context.to)
                         .map((x) -> x.getChild(0).getPayload())
                         .map(Token.class::cast)
-                        .map(AstBuilder::getIntervalFieldType)
-                        .orElse(null));
+                        .map(AstBuilder::getIntervalFieldType));
     }
 
     // ***************** helpers *****************
