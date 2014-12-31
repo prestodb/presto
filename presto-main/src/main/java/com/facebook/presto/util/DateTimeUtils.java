@@ -34,6 +34,7 @@ import org.joda.time.format.PeriodParser;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -235,47 +236,45 @@ public final class DateTimeUtils
 
     private static final PeriodFormatter INTERVAL_MONTH_FORMATTER = cretePeriodFormatter(IntervalField.MONTH, IntervalField.MONTH);
 
-    public static long parseDayTimeInterval(String value, IntervalField startField, IntervalField endField)
+    public static long parseDayTimeInterval(String value, IntervalField startField, Optional<IntervalField> endField)
     {
-        if (endField == null) {
-            endField = startField;
+        IntervalField end = endField.orElse(startField);
+
+        if (startField == IntervalField.DAY && end == IntervalField.SECOND) {
+            return parsePeriodMillis(INTERVAL_DAY_SECOND_FORMATTER, value, startField, end);
+        }
+        if (startField == IntervalField.DAY && end == IntervalField.MINUTE) {
+            return parsePeriodMillis(INTERVAL_DAY_MINUTE_FORMATTER, value, startField, end);
+        }
+        if (startField == IntervalField.DAY && end == IntervalField.HOUR) {
+            return parsePeriodMillis(INTERVAL_DAY_HOUR_FORMATTER, value, startField, end);
+        }
+        if (startField == IntervalField.DAY && end == IntervalField.DAY) {
+            return parsePeriodMillis(INTERVAL_DAY_FORMATTER, value, startField, end);
         }
 
-        if (startField == IntervalField.DAY && endField == IntervalField.SECOND) {
-            return parsePeriodMillis(INTERVAL_DAY_SECOND_FORMATTER, value, startField, endField);
+        if (startField == IntervalField.HOUR && end == IntervalField.SECOND) {
+            return parsePeriodMillis(INTERVAL_HOUR_SECOND_FORMATTER, value, startField, end);
         }
-        if (startField == IntervalField.DAY && endField == IntervalField.MINUTE) {
-            return parsePeriodMillis(INTERVAL_DAY_MINUTE_FORMATTER, value, startField, endField);
+        if (startField == IntervalField.HOUR && end == IntervalField.MINUTE) {
+            return parsePeriodMillis(INTERVAL_HOUR_MINUTE_FORMATTER, value, startField, end);
         }
-        if (startField == IntervalField.DAY && endField == IntervalField.HOUR) {
-            return parsePeriodMillis(INTERVAL_DAY_HOUR_FORMATTER, value, startField, endField);
-        }
-        if (startField == IntervalField.DAY && endField == IntervalField.DAY) {
-            return parsePeriodMillis(INTERVAL_DAY_FORMATTER, value, startField, endField);
+        if (startField == IntervalField.HOUR && end == IntervalField.HOUR) {
+            return parsePeriodMillis(INTERVAL_HOUR_FORMATTER, value, startField, end);
         }
 
-        if (startField == IntervalField.HOUR && endField == IntervalField.SECOND) {
-            return parsePeriodMillis(INTERVAL_HOUR_SECOND_FORMATTER, value, startField, endField);
+        if (startField == IntervalField.MINUTE && end == IntervalField.SECOND) {
+            return parsePeriodMillis(INTERVAL_MINUTE_SECOND_FORMATTER, value, startField, end);
         }
-        if (startField == IntervalField.HOUR && endField == IntervalField.MINUTE) {
-            return parsePeriodMillis(INTERVAL_HOUR_MINUTE_FORMATTER, value, startField, endField);
-        }
-        if (startField == IntervalField.HOUR && endField == IntervalField.HOUR) {
-            return parsePeriodMillis(INTERVAL_HOUR_FORMATTER, value, startField, endField);
+        if (startField == IntervalField.MINUTE && end == IntervalField.MINUTE) {
+            return parsePeriodMillis(INTERVAL_MINUTE_FORMATTER, value, startField, end);
         }
 
-        if (startField == IntervalField.MINUTE && endField == IntervalField.SECOND) {
-            return parsePeriodMillis(INTERVAL_MINUTE_SECOND_FORMATTER, value, startField, endField);
-        }
-        if (startField == IntervalField.MINUTE && endField == IntervalField.MINUTE) {
-            return parsePeriodMillis(INTERVAL_MINUTE_FORMATTER, value, startField, endField);
+        if (startField == IntervalField.SECOND && end == IntervalField.SECOND) {
+            return parsePeriodMillis(INTERVAL_SECOND_FORMATTER, value, startField, end);
         }
 
-        if (startField == IntervalField.SECOND && endField == IntervalField.SECOND) {
-            return parsePeriodMillis(INTERVAL_SECOND_FORMATTER, value, startField, endField);
-        }
-
-        throw new IllegalArgumentException("Invalid day second interval qualifier: " + startField + " to " + endField);
+        throw new IllegalArgumentException("Invalid day second interval qualifier: " + startField + " to " + end);
     }
 
     public static long parsePeriodMillis(PeriodFormatter periodFormatter, String value, IntervalField startField, IntervalField endField)
@@ -294,25 +293,23 @@ public final class DateTimeUtils
         return SqlIntervalDayTime.formatMillis(millis);
     }
 
-    public static long parseYearMonthInterval(String value, IntervalField startField, IntervalField endField)
+    public static long parseYearMonthInterval(String value, IntervalField startField, Optional<IntervalField> endField)
     {
-        if (endField == null) {
-            endField = startField;
-        }
+        IntervalField end = endField.orElse(startField);
 
-        if (startField == IntervalField.YEAR && endField == IntervalField.MONTH) {
+        if (startField == IntervalField.YEAR && end == IntervalField.MONTH) {
             PeriodFormatter periodFormatter = INTERVAL_YEAR_MONTH_FORMATTER;
-            return parsePeriodMonths(value, periodFormatter, startField, endField);
+            return parsePeriodMonths(value, periodFormatter, startField, end);
         }
-        if (startField == IntervalField.YEAR && endField == IntervalField.YEAR) {
-            return parsePeriodMonths(value, INTERVAL_YEAR_FORMATTER, startField, endField);
-        }
-
-        if (startField == IntervalField.MONTH && endField == IntervalField.MONTH) {
-            return parsePeriodMonths(value, INTERVAL_MONTH_FORMATTER, startField, endField);
+        if (startField == IntervalField.YEAR && end == IntervalField.YEAR) {
+            return parsePeriodMonths(value, INTERVAL_YEAR_FORMATTER, startField, end);
         }
 
-        throw new IllegalArgumentException("Invalid year month interval qualifier: " + startField + " to " + endField);
+        if (startField == IntervalField.MONTH && end == IntervalField.MONTH) {
+            return parsePeriodMonths(value, INTERVAL_MONTH_FORMATTER, startField, end);
+        }
+
+        throw new IllegalArgumentException("Invalid year month interval qualifier: " + startField + " to " + end);
     }
 
     private static long parsePeriodMonths(String value, PeriodFormatter periodFormatter, IntervalField startField, IntervalField endField)

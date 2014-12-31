@@ -16,6 +16,7 @@ package com.facebook.presto.sql.tree;
 import com.google.common.base.Preconditions;
 
 import java.util.Objects;
+import java.util.Optional;
 
 public class IntervalLiteral
         extends Literal
@@ -50,18 +51,19 @@ public class IntervalLiteral
     private final String value;
     private final Sign sign;
     private final IntervalField startField;
-    private final IntervalField endField;
+    private final Optional<IntervalField> endField;
 
     public IntervalLiteral(String value, Sign sign, IntervalField startField)
     {
-        this(value, sign, startField, null);
+        this(value, sign, startField, Optional.empty());
     }
 
-    public IntervalLiteral(String value, Sign sign, IntervalField startField, IntervalField endField)
+    public IntervalLiteral(String value, Sign sign, IntervalField startField, Optional<IntervalField> endField)
     {
         Preconditions.checkNotNull(value, "value is null");
         Preconditions.checkNotNull(sign, "sign is null");
         Preconditions.checkNotNull(startField, "startField is null");
+        Preconditions.checkNotNull(endField, "endField is null");
 
         this.value = value;
         this.sign = sign;
@@ -84,7 +86,7 @@ public class IntervalLiteral
         return startField;
     }
 
-    public IntervalField getEndField()
+    public Optional<IntervalField> getEndField()
     {
         return endField;
     }
