@@ -852,8 +852,7 @@ class AstBuilder
         return new Window(
                 visit(context.partition, Expression.class),
                 visit(context.sortItem(), SortItem.class),
-                visitIfPresent(context.windowFrame(), WindowFrame.class)
-                        .orElse(null));
+                visitIfPresent(context.windowFrame(), WindowFrame.class));
     }
 
     @Override
