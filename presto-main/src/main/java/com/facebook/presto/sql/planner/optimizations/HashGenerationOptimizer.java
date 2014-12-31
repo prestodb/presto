@@ -37,6 +37,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.Window;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -309,7 +310,7 @@ public class HashGenerationOptimizer
 
     private static Expression getHashFunctionCall(Expression previousHashValue, Symbol symbol)
     {
-        FunctionCall functionCall = new FunctionCall(QualifiedName.of(HASH_CODE), null, false, ImmutableList.<Expression>of(new QualifiedNameReference(symbol.toQualifiedName())));
+        FunctionCall functionCall = new FunctionCall(QualifiedName.of(HASH_CODE), Optional.<Window>empty(), false, ImmutableList.<Expression>of(new QualifiedNameReference(symbol.toQualifiedName())));
         List<Expression> arguments = ImmutableList.of(previousHashValue, functionCall);
         return new FunctionCall(QualifiedName.of("combine_hash"), arguments);
     }

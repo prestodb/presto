@@ -841,7 +841,7 @@ class AstBuilder
 
         return new FunctionCall(
                 getQualifiedName(context.qualifiedName()),
-                window.orElse(null),
+                window,
                 distinct,
                 visit(context.expression(), Expression.class));
     }
