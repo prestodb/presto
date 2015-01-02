@@ -25,7 +25,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 
-public class TestBooleanMaxAggregation
+public class TestBooleanOrAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
@@ -51,7 +51,7 @@ public class TestBooleanMaxAggregation
     @Override
     protected String getFunctionName()
     {
-        return "max";
+        return "bool_or";
     }
 
     @Override

@@ -21,23 +21,23 @@ import static com.facebook.presto.operator.aggregation.state.TriStateBooleanStat
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.NULL_VALUE;
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.TRUE_VALUE;
 
-@AggregationFunction("min")
-public final class BooleanMinAggregation
+@AggregationFunction("bool_or")
+public final class BooleanOrAggregation
 {
-    private BooleanMinAggregation() {}
+    private BooleanOrAggregation() {}
 
     @InputFunction
     @IntermediateInputFunction
-    public static void min(TriStateBooleanState state, @SqlType(StandardTypes.BOOLEAN) boolean value)
+    public static void booleanOr(TriStateBooleanState state, @SqlType(StandardTypes.BOOLEAN) boolean value)
     {
-        // if value is false, update the min to false
-        if (!value) {
-            state.setByte(FALSE_VALUE);
+        // if value is true, the result is true
+        if (value) {
+            state.setByte(TRUE_VALUE);
         }
         else {
-            // if the current value is null, set the min to true
+            // if the current value is unset, set result to false
             if (state.getByte() == NULL_VALUE) {
-                state.setByte(TRUE_VALUE);
+                state.setByte(FALSE_VALUE);
             }
         }
     }

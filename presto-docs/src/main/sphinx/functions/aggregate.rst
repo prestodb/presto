@@ -21,6 +21,14 @@ General Aggregate Functions
 
     Returns the average (arithmetic mean) of all input values.
 
+.. function:: bool_and(boolean) -> boolean
+
+    Returns ``TRUE`` if every input value is ``TRUE``, otherwise ``FALSE``.
+
+.. function:: bool_or(boolean) -> boolean
+
+    Returns ``TRUE`` if any input value is ``TRUE``, otherwise ``FALSE``.
+
 .. function:: count(*) -> bigint
 
     Returns the number of input rows.
@@ -33,6 +41,10 @@ General Aggregate Functions
 
     Returns the number of ``TRUE`` input values.
     This function is equivalent to ``count(CASE WHEN x THEN 1 END)``.
+
+.. function:: every(boolean) -> boolean
+
+    This is an alias for :func:`bool_and`.
 
 .. function:: max_by(x, y) -> [same as x]
 

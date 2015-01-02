@@ -21,23 +21,23 @@ import static com.facebook.presto.operator.aggregation.state.TriStateBooleanStat
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.NULL_VALUE;
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.TRUE_VALUE;
 
-@AggregationFunction("max")
-public final class BooleanMaxAggregation
+@AggregationFunction(value = "bool_and", alias = "every")
+public final class BooleanAndAggregation
 {
-    private BooleanMaxAggregation() {}
+    private BooleanAndAggregation() {}
 
     @InputFunction
     @IntermediateInputFunction
-    public static void max(TriStateBooleanState state, @SqlType(StandardTypes.BOOLEAN) boolean value)
+    public static void booleanAnd(TriStateBooleanState state, @SqlType(StandardTypes.BOOLEAN) boolean value)
     {
-        // if value is true, update the max to true
-        if (value) {
-            state.setByte(TRUE_VALUE);
+        // if the value is false, the result is false
+        if (!value) {
+            state.setByte(FALSE_VALUE);
         }
         else {
-            // if the current value is null, set the max to false
+            // if the current value is unset, set result to true
             if (state.getByte() == NULL_VALUE) {
-                state.setByte(FALSE_VALUE);
+                state.setByte(TRUE_VALUE);
             }
         }
     }

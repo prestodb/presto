@@ -25,7 +25,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 
-public class TestBooleanMinAggregation
+public class TestBooleanAndAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
@@ -51,7 +51,7 @@ public class TestBooleanMinAggregation
     @Override
     protected String getFunctionName()
     {
-        return "min";
+        return "bool_and";
     }
 
     @Override
