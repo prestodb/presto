@@ -127,7 +127,7 @@ public class DatabaseShardManager
         dao.insertShardNode(shardUuid, getOrCreateNodeId(nodeIdentifier));
     }
 
-    private long getOrCreateNodeId(final String nodeIdentifier)
+    private long getOrCreateNodeId(String nodeIdentifier)
     {
         Long id = dao.getNodeId(nodeIdentifier);
         if (id != null) {
@@ -135,14 +135,7 @@ public class DatabaseShardManager
         }
 
         // creating a node is idempotent
-        runIgnoringConstraintViolation(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                dao.insertNode(nodeIdentifier);
-            }
-        });
+        runIgnoringConstraintViolation(() -> dao.insertNode(nodeIdentifier));
 
         id = dao.getNodeId(nodeIdentifier);
         if (id == null) {

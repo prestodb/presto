@@ -43,7 +43,6 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_NO_HOST_FOR_SHARD;
-import static com.facebook.presto.raptor.util.Nodes.nodeIdentifier;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -86,7 +85,7 @@ public class RaptorSplitManager
         RaptorPartition partition = checkType(getOnlyElement(partitions), RaptorPartition.class, "partition");
         TupleDomain<RaptorColumnHandle> effectivePredicate = toRaptorTupleDomain(partition.getEffectivePredicate());
 
-        Map<String, Node> nodesById = uniqueIndex(nodeManager.getActiveNodes(), nodeIdentifier());
+        Map<String, Node> nodesById = uniqueIndex(nodeManager.getActiveNodes(), Node::getNodeIdentifier);
 
         List<ConnectorSplit> splits = new ArrayList<>();
         for (ShardNodes shardNode : shardManager.getShardNodes(raptorTableHandle.getTableId())) {

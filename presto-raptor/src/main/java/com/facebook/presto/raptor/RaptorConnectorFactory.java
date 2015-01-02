@@ -22,7 +22,6 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
-import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
@@ -76,20 +75,15 @@ public class RaptorConnectorFactory
         try {
             Bootstrap app = new Bootstrap(
                     new MBeanModule(),
-                    new Module()
-                    {
-                        @Override
-                        public void configure(Binder binder)
-                        {
-                            CurrentNodeId currentNodeId = new CurrentNodeId(nodeManager.getCurrentNode().getNodeIdentifier());
-                            MBeanServer mbeanServer = new RebindSafeMBeanServer(getPlatformMBeanServer());
+                    binder -> {
+                        CurrentNodeId currentNodeId = new CurrentNodeId(nodeManager.getCurrentNode().getNodeIdentifier());
+                        MBeanServer mbeanServer = new RebindSafeMBeanServer(getPlatformMBeanServer());
 
-                            binder.bind(MBeanServer.class).toInstance(mbeanServer);
-                            binder.bind(CurrentNodeId.class).toInstance(currentNodeId);
-                            binder.bind(NodeManager.class).toInstance(nodeManager);
-                            binder.bind(BlockEncodingSerde.class).toInstance(blockEncodingSerde);
-                            binder.bind(TypeManager.class).toInstance(typeManager);
-                        }
+                        binder.bind(MBeanServer.class).toInstance(mbeanServer);
+                        binder.bind(CurrentNodeId.class).toInstance(currentNodeId);
+                        binder.bind(NodeManager.class).toInstance(nodeManager);
+                        binder.bind(BlockEncodingSerde.class).toInstance(blockEncodingSerde);
+                        binder.bind(TypeManager.class).toInstance(typeManager);
                     },
                     module,
                     new StorageModule(),
