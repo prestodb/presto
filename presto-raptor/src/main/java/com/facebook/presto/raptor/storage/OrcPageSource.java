@@ -34,7 +34,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.orc.Vector.MAX_VECTOR_LENGTH;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
@@ -46,7 +45,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Objects.toStringHelper;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -60,8 +59,6 @@ import static java.lang.Math.min;
 public class OrcPageSource
         implements ConnectorPageSource
 {
-    private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
-
     private final OrcRecordReader recordReader;
     private final OrcDataSource orcDataSource;
 
