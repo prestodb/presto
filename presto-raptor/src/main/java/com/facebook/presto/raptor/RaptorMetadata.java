@@ -59,15 +59,17 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.RaptorColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
+import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.metadata.MetadataDaoUtils.createMetadataTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.SqlUtils.runIgnoringConstraintViolation;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.not;
+import static java.lang.String.format;
 
 public class RaptorMetadata
         implements ConnectorMetadata
@@ -147,7 +149,9 @@ public class RaptorMetadata
                 .transform(TableColumn::toColumnMetadata)
                 .filter(not(isSampleWeightColumn()))
                 .toList();
-        checkArgument(!columns.isEmpty(), "Table %s does not have any columns", tableName);
+        if (columns.isEmpty()) {
+            throw new PrestoException(RAPTOR_ERROR, "Table does not have any columns: " + tableName);
+        }
         return new ConnectorTableMetadata(tableName, columns);
     }
 
@@ -190,7 +194,9 @@ public class RaptorMetadata
         long columnId = checkType(columnHandle, RaptorColumnHandle.class, "columnHandle").getColumnId();
 
         TableColumn tableColumn = dao.getTableColumn(tableId, columnId);
-        checkState(tableColumn != null, "no column with id %s exists", columnId);
+        if (tableColumn == null) {
+            throw new PrestoException(NOT_FOUND, format("Column ID %s does not exist for table ID %s", columnId, tableId));
+        }
         return tableColumn.toColumnMetadata();
     }
 
@@ -228,7 +234,10 @@ public class RaptorMetadata
             return tableId;
         }));
 
-        checkState(newTableId != null, "table %s already exists", tableMetadata.getTable());
+        if (newTableId == null) {
+            throw new PrestoException(ALREADY_EXISTS, "Table already exists: " + tableMetadata.getTable());
+        }
+
         RaptorColumnHandle sampleWeightColumnHandle = null;
         if (tableMetadata.isSampled()) {
             sampleWeightColumnHandle = new RaptorColumnHandle(connectorId, SAMPLE_WEIGHT_COLUMN_NAME, tableMetadata.getColumns().size() + 1, BIGINT);
