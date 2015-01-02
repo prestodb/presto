@@ -22,8 +22,8 @@ import com.facebook.presto.operator.aggregation.ApproximateLongPercentileAggrega
 import com.facebook.presto.operator.aggregation.ApproximateSetAggregation;
 import com.facebook.presto.operator.aggregation.ApproximateSumAggregations;
 import com.facebook.presto.operator.aggregation.AverageAggregations;
-import com.facebook.presto.operator.aggregation.BooleanMaxAggregation;
-import com.facebook.presto.operator.aggregation.BooleanMinAggregation;
+import com.facebook.presto.operator.aggregation.BooleanOrAggregation;
+import com.facebook.presto.operator.aggregation.BooleanAndAggregation;
 import com.facebook.presto.operator.aggregation.CountAggregation;
 import com.facebook.presto.operator.aggregation.CountIfAggregation;
 import com.facebook.presto.operator.aggregation.DoubleMaxAggregation;
@@ -245,8 +245,8 @@ public class FunctionRegistry
                 .aggregate(ApproximateLongPercentileAggregations.class)
                 .aggregate(ApproximateDoublePercentileAggregations.class)
                 .aggregate(CountIfAggregation.class)
-                .aggregate(BooleanMinAggregation.class)
-                .aggregate(BooleanMaxAggregation.class)
+                .aggregate(BooleanAndAggregation.class)
+                .aggregate(BooleanOrAggregation.class)
                 .aggregate(DoubleMinAggregation.class)
                 .aggregate(DoubleMaxAggregation.class)
                 .aggregate(LongMinAggregation.class)
