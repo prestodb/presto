@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
@@ -111,18 +110,6 @@ public class TableColumn
     public ColumnMetadata toColumnMetadata()
     {
         return new ColumnMetadata(columnName, dataType, ordinalPosition, false);
-    }
-
-    public static Function<TableColumn, ColumnMetadata> columnMetadataGetter()
-    {
-        return new Function<TableColumn, ColumnMetadata>()
-        {
-            @Override
-            public ColumnMetadata apply(TableColumn input)
-            {
-                return input.toColumnMetadata();
-            }
-        };
     }
 
     public static class Mapper

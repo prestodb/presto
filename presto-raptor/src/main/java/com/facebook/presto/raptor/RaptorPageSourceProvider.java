@@ -47,45 +47,14 @@ public class RaptorPageSourceProvider
 
         UUID shardUuid = raptorSplit.getShardUuid();
         List<RaptorColumnHandle> columnHandles = FluentIterable.from(columns).transform(toRaptorColumnHandle()).toList();
-        List<Long> columnIds = FluentIterable.from(columnHandles).transform(raptorColumnId()).toList();
-        List<Type> columnTypes = FluentIterable.from(columnHandles).transform(raptorColumnType()).toList();
+        List<Long> columnIds = FluentIterable.from(columnHandles).transform(RaptorColumnHandle::getColumnId).toList();
+        List<Type> columnTypes = FluentIterable.from(columnHandles).transform(RaptorColumnHandle::getColumnType).toList();
 
         return storageManager.getPageSource(shardUuid, columnIds, columnTypes, raptorSplit.getEffectivePredicate());
     }
 
     private static Function<ConnectorColumnHandle, RaptorColumnHandle> toRaptorColumnHandle()
     {
-        return new Function<ConnectorColumnHandle, RaptorColumnHandle>()
-        {
-            @Override
-            public RaptorColumnHandle apply(ConnectorColumnHandle handle)
-            {
-                return checkType(handle, RaptorColumnHandle.class, "columnHandle");
-            }
-        };
-    }
-
-    private static Function<RaptorColumnHandle, Long> raptorColumnId()
-    {
-        return new Function<RaptorColumnHandle, Long>()
-        {
-            @Override
-            public Long apply(RaptorColumnHandle handle)
-            {
-                return handle.getColumnId();
-            }
-        };
-    }
-
-    private static Function<RaptorColumnHandle, Type> raptorColumnType()
-    {
-        return new Function<RaptorColumnHandle, Type>()
-        {
-            @Override
-            public Type apply(RaptorColumnHandle handle)
-            {
-                return handle.getColumnType();
-            }
-        };
+        return handle -> checkType(handle, RaptorColumnHandle.class, "columnHandle");
     }
 }

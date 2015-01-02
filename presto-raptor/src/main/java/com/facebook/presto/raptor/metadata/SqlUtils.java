@@ -46,6 +46,16 @@ public final class SqlUtils
      * Run a SQL query as ignoring any constraint violations.
      * This allows idempotent inserts (equivalent to INSERT IGNORE).
      */
+    public static <T> T runIgnoringConstraintViolation(Callable<T> task)
+            throws Exception
+    {
+        return runIgnoringConstraintViolation(task, null);
+    }
+
+    /**
+     * Run a SQL query as ignoring any constraint violations.
+     * This allows idempotent inserts (equivalent to INSERT IGNORE).
+     */
     public static <T> T runIgnoringConstraintViolation(Callable<T> task, T defaultValue)
             throws Exception
     {

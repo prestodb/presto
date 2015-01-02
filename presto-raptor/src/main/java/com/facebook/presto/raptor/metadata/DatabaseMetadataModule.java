@@ -24,8 +24,6 @@ import javax.inject.Singleton;
 import javax.sql.DataSource;
 
 import java.lang.annotation.Annotation;
-import java.sql.Connection;
-import java.sql.SQLException;
 
 import static com.facebook.presto.raptor.util.ConditionalModule.installIfPropertyEquals;
 
@@ -41,17 +39,9 @@ public class DatabaseMetadataModule
     @ForMetadata
     @Singleton
     @Provides
-    public ConnectionFactory createConnectionFactory(@ForMetadata final DataSource dataSource)
+    public ConnectionFactory createConnectionFactory(@ForMetadata DataSource dataSource)
     {
-        return new ConnectionFactory()
-        {
-            @Override
-            public Connection openConnection()
-                    throws SQLException
-            {
-                return dataSource.getConnection();
-            }
-        };
+        return dataSource::getConnection;
     }
 
     private void bindDataSource(String type, Class<? extends Annotation> annotation)
