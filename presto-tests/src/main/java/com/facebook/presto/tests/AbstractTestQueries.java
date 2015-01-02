@@ -1797,6 +1797,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testHavingWithoutGroupBy()
+            throws Exception
+    {
+        assertQuery("SELECT sum(orderkey) FROM orders HAVING sum(orderkey) > 400000");
+    }
+
+    @Test
     public void testGroupByAsJoinProbe()
             throws Exception
     {
