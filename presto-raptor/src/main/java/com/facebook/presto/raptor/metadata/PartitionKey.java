@@ -17,9 +17,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
-import com.google.common.base.Predicate;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
@@ -31,8 +29,6 @@ import java.sql.SQLException;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Predicates.compose;
-import static com.google.common.base.Predicates.equalTo;
 
 public final class PartitionKey
 {
@@ -136,22 +132,5 @@ public final class PartitionKey
                     typeManager.getType(parseTypeSignature(r.getString("key_type"))),
                     r.getString("key_value"));
         }
-    }
-
-    public static Predicate<PartitionKey> partitionNamePredicate(String partitionName)
-    {
-        return compose(equalTo(partitionName), partitionNameGetter());
-    }
-
-    public static Function<PartitionKey, String> partitionNameGetter()
-    {
-        return new Function<PartitionKey, String>()
-        {
-            @Override
-            public String apply(PartitionKey key)
-            {
-                return key.getPartitionName();
-            }
-        };
     }
 }

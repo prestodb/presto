@@ -85,11 +85,6 @@ public interface MetadataDao
             "ORDER BY c.ordinal_position")
     List<TableColumn> getTableColumns(@Bind("tableId") long tableId);
 
-    @SqlQuery("SELECT column_id\n" +
-            "FROM columns\n" +
-            "WHERE table_id = :tableId AND column_name = :columnName")
-    Long getColumnId(@Bind("tableId") long tableId, @Bind("columnName") String columnName);
-
     @SqlQuery("SELECT schema_name, table_name\n" +
             "FROM tables\n" +
             "WHERE catalog_name = :catalogName\n" +

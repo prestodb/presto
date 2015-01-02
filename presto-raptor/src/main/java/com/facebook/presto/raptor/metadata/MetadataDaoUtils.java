@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 
 public final class MetadataDaoUtils
 {
-    public static final Logger log = Logger.get(MetadataDaoUtils.class);
+    private static final Logger log = Logger.get(MetadataDaoUtils.class);
 
     private MetadataDaoUtils() {}
 
@@ -47,7 +47,7 @@ public final class MetadataDaoUtils
         }
     }
 
-    public static void createMetadataTables(MetadataDao dao)
+    private static void createMetadataTables(MetadataDao dao)
     {
         dao.createTableTables();
         dao.createTableColumns();

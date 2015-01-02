@@ -31,7 +31,7 @@ public final class MetadataUtil
         return checkLowerCase(tableName, "tableName");
     }
 
-    public static String checkLowerCase(String value, String name)
+    private static String checkLowerCase(String value, String name)
     {
         checkNotNull(value, "%s is null", name);
         checkArgument(value.equals(value.toLowerCase(ENGLISH)), "%s is not lowercase", name);

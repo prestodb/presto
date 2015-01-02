@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 
 public final class ShardManagerDaoUtils
 {
-    public static final Logger log = Logger.get(ShardManagerDaoUtils.class);
+    private static final Logger log = Logger.get(ShardManagerDaoUtils.class);
 
     private ShardManagerDaoUtils() {}
 

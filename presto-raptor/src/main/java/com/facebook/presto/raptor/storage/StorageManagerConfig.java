@@ -121,7 +121,6 @@ public class StorageManagerConfig
 
     @Min(1)
     @Max(1_000_000_000)
-    @Nullable
     public long getRowsPerShard()
     {
         return rowsPerShard;
