@@ -30,8 +30,9 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
+
+import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;

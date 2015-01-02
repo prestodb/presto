@@ -14,12 +14,13 @@
 package com.facebook.presto.cassandra;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import org.apache.cassandra.thrift.Cassandra;
 import org.apache.cassandra.thrift.ITransportFactory;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TTransport;
+
+import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.ArrayList;

@@ -39,8 +39,9 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.inject.Inject;
 import io.airlift.log.Logger;
+
+import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.List;

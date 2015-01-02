@@ -19,8 +19,9 @@ import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Inject;
 import io.airlift.log.Logger;
+
+import javax.inject.Inject;
 
 import java.util.List;
 

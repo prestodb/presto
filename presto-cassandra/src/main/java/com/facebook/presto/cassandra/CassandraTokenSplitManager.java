@@ -14,7 +14,6 @@
 package com.facebook.presto.cassandra;
 
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Inject;
 import org.apache.cassandra.dht.IPartitioner;
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
@@ -22,6 +21,8 @@ import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.thrift.CfSplit;
 import org.apache.cassandra.thrift.TokenRange;
 import org.apache.cassandra.utils.FBUtilities;
+
+import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.ArrayList;

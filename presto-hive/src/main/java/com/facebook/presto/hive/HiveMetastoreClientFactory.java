@@ -18,10 +18,10 @@ import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TTransport;
 import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TTransportException;
 import com.google.common.net.HostAndPort;
 import com.google.common.primitives.Ints;
-import com.google.inject.Inject;
 import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
+import javax.inject.Inject;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;

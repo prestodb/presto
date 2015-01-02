@@ -19,7 +19,8 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.type.Type;
-import com.google.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.UUID;

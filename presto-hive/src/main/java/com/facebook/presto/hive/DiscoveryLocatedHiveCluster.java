@@ -18,12 +18,13 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.net.HostAndPort;
-import com.google.inject.Inject;
 import io.airlift.discovery.client.DiscoveryException;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.ServiceState;
 import io.airlift.discovery.client.ServiceType;
+
+import javax.inject.Inject;
 
 import java.util.Collections;
 import java.util.List;

@@ -36,7 +36,8 @@ import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.RecordPageSinkProvider;
 import com.facebook.presto.split.RecordPageSourceProvider;
 import com.facebook.presto.split.SplitManager;
-import com.google.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
