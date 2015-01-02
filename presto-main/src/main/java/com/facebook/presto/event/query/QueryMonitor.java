@@ -25,7 +25,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Inject;
 import io.airlift.event.client.EventClient;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
@@ -33,6 +32,7 @@ import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;

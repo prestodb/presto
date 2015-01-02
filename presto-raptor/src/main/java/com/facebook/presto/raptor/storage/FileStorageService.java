@@ -14,10 +14,10 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.spi.PrestoException;
-import com.google.inject.Inject;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;

@@ -16,9 +16,10 @@ package com.facebook.presto.cassandra;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.Lists;
-import com.google.inject.Inject;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.UUID;
