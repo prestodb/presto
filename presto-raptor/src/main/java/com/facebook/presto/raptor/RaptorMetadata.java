@@ -35,9 +35,7 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Predicate;
 import com.google.common.base.Splitter;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -57,6 +55,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.raptor.RaptorColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
@@ -68,8 +67,8 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Predicates.not;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.toList;
 
 public class RaptorMetadata
         implements ConnectorMetadata
@@ -142,13 +141,12 @@ public class RaptorMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle tableHandle)
     {
-        RaptorTableHandle raptorTableHandle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
-        SchemaTableName tableName = new SchemaTableName(raptorTableHandle.getSchemaName(), raptorTableHandle.getTableName());
-        List<ColumnMetadata> columns = FluentIterable
-                .from(dao.getTableColumns(raptorTableHandle.getTableId()))
-                .transform(TableColumn::toColumnMetadata)
-                .filter(not(isSampleWeightColumn()))
-                .toList();
+        RaptorTableHandle handle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
+        SchemaTableName tableName = new SchemaTableName(handle.getSchemaName(), handle.getTableName());
+        List<ColumnMetadata> columns = dao.getTableColumns(handle.getTableId()).stream()
+                .map(TableColumn::toColumnMetadata)
+                .filter(isSampleWeightColumn().negate())
+                .collect(toList());
         if (columns.isEmpty()) {
             throw new PrestoException(RAPTOR_ERROR, "Table does not have any columns: " + tableName);
         }

@@ -19,15 +19,15 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Function;
-import com.google.common.collect.FluentIterable;
 import com.google.inject.Inject;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Function;
 
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.stream.Collectors.toList;
 
 public class RaptorPageSourceProvider
         implements ConnectorPageSourceProvider
@@ -46,9 +46,9 @@ public class RaptorPageSourceProvider
         RaptorSplit raptorSplit = checkType(split, RaptorSplit.class, "split");
 
         UUID shardUuid = raptorSplit.getShardUuid();
-        List<RaptorColumnHandle> columnHandles = FluentIterable.from(columns).transform(toRaptorColumnHandle()).toList();
-        List<Long> columnIds = FluentIterable.from(columnHandles).transform(RaptorColumnHandle::getColumnId).toList();
-        List<Type> columnTypes = FluentIterable.from(columnHandles).transform(RaptorColumnHandle::getColumnType).toList();
+        List<RaptorColumnHandle> columnHandles = columns.stream().map(toRaptorColumnHandle()).collect(toList());
+        List<Long> columnIds = columnHandles.stream().map(RaptorColumnHandle::getColumnId).collect(toList());
+        List<Type> columnTypes = columnHandles.stream().map(RaptorColumnHandle::getColumnType).collect(toList());
 
         return storageManager.getPageSource(shardUuid, columnIds, columnTypes, raptorSplit.getEffectivePredicate());
     }

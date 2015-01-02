@@ -19,7 +19,6 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
-import com.google.common.collect.FluentIterable;
 
 import javax.inject.Inject;
 
@@ -28,6 +27,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.stream.Collectors.toList;
 
 public class RaptorPageSinkProvider
         implements ConnectorPageSinkProvider
@@ -73,7 +73,7 @@ public class RaptorPageSinkProvider
 
     private static List<Long> toColumnIds(List<RaptorColumnHandle> columnHandles)
     {
-        return FluentIterable.from(columnHandles).transform(RaptorColumnHandle::getColumnId).toList();
+        return columnHandles.stream().map(RaptorColumnHandle::getColumnId).collect(toList());
     }
 
     private static Optional<Long> optionalColumnId(RaptorColumnHandle handle)
