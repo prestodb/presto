@@ -14,34 +14,53 @@
 package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.DropView;
+import com.facebook.presto.sql.tree.Explain;
+import com.facebook.presto.sql.tree.ExplainFormat;
+import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
 import com.facebook.presto.sql.tree.IntervalLiteral.Sign;
+import com.facebook.presto.sql.tree.Join;
+import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.NotExpression;
+import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.SetSession;
+import com.facebook.presto.sql.tree.ShowCatalogs;
+import com.facebook.presto.sql.tree.ShowSchemas;
+import com.facebook.presto.sql.tree.ShowSession;
+import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubscriptExpression;
+import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.Union;
+import com.facebook.presto.sql.tree.With;
+import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -554,6 +573,147 @@ public class TestSqlParser
     {
         assertStatement("RESET SESSION foo.bar", new ResetSession(QualifiedName.of("foo", "bar")));
         assertStatement("RESET SESSION foo", new ResetSession(QualifiedName.of("foo")));
+    }
+
+    @Test
+    public void testShowSession()
+            throws Exception
+    {
+        assertStatement("SHOW SESSION", new ShowSession());
+    }
+
+    @Test
+    public void testShowCatalogs()
+            throws Exception
+    {
+        assertStatement("SHOW CATALOGS", new ShowCatalogs());
+    }
+
+    @Test
+    public void testShowSchemas()
+            throws Exception
+    {
+        assertStatement("SHOW SCHEMAS", new ShowSchemas(Optional.<String>empty()));
+        assertStatement("SHOW SCHEMAS FROM foo", new ShowSchemas(Optional.of("foo")));
+        assertStatement("SHOW SCHEMAS IN foo", new ShowSchemas(Optional.of("foo")));
+    }
+
+    @Test
+    public void testShowTables()
+            throws Exception
+    {
+        assertStatement("SHOW TABLES", new ShowTables(Optional.empty(), Optional.empty()));
+        assertStatement("SHOW TABLES FROM a", new ShowTables(Optional.of(QualifiedName.of("a")), Optional.empty()));
+        assertStatement("SHOW TABLES IN a LIKE '%'", new ShowTables(Optional.of(QualifiedName.of("a")), Optional.of("%")));
+    }
+
+    @Test
+    public void testCreateTableAsSelect()
+            throws Exception
+    {
+        assertStatement("CREATE TABLE foo AS SELECT * FROM t",
+                new CreateTable(QualifiedName.of("foo"),
+                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")))));
+    }
+
+    @Test
+    public void testDropTable()
+            throws Exception
+    {
+        assertStatement("DROP TABLE a", new DropTable(QualifiedName.of("a")));
+        assertStatement("DROP TABLE a.b", new DropTable(QualifiedName.of("a", "b")));
+        assertStatement("DROP TABLE a.b.c", new DropTable(QualifiedName.of("a", "b", "c")));
+    }
+
+    @Test
+    public void testDropView()
+            throws Exception
+    {
+        assertStatement("DROP VIEW a", new DropView(QualifiedName.of("a")));
+        assertStatement("DROP VIEW a.b", new DropView(QualifiedName.of("a", "b")));
+        assertStatement("DROP VIEW a.b.c", new DropView(QualifiedName.of("a", "b", "c")));
+    }
+
+    @Test
+    public void testInsertInto()
+            throws Exception
+    {
+        assertStatement("INSERT INTO a SELECT * FROM t",
+                new Insert(QualifiedName.of("a"), simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")))));
+    }
+
+    @Test
+    public void testRenameTable()
+            throws Exception
+    {
+        assertStatement("ALTER TABLE a RENAME TO b", new RenameTable(QualifiedName.of("a"), QualifiedName.of("b")));
+    }
+
+    @Test
+    public void testCreateView()
+            throws Exception
+    {
+        assertStatement("CREATE VIEW a AS SELECT * FROM t", new CreateView(
+                QualifiedName.of("a"),
+                simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
+                false));
+
+        assertStatement("CREATE OR REPLACE VIEW a AS SELECT * FROM t", new CreateView(
+                QualifiedName.of("a"),
+                simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
+                true));
+    }
+
+    @Test
+    public void testWith()
+            throws Exception
+    {
+        assertStatement("WITH a (t, u) AS (SELECT * FROM x), b AS (SELECT * FROM y) TABLE z",
+                new Query(Optional.of(new With(false, ImmutableList.of(
+                        new WithQuery("a", simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("x"))), ImmutableList.of("t", "u")),
+                        new WithQuery("b", simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("y"))), null)))),
+                        new Table(QualifiedName.of("z")),
+                        ImmutableList.of(),
+                        Optional.<String>empty(),
+                        Optional.<Approximate>empty()));
+
+        assertStatement("WITH RECURSIVE a AS (SELECT * FROM x) TABLE y",
+                new Query(Optional.of(new With(true, ImmutableList.of(
+                        new WithQuery("a", simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("x"))), null)))),
+                        new Table(QualifiedName.of("y")),
+                        ImmutableList.of(),
+                        Optional.<String>empty(),
+                        Optional.<Approximate>empty()));
+    }
+
+    @Test
+    public void testImplicitJoin()
+            throws Exception
+    {
+        assertStatement("SELECT * FROM a, b",
+                simpleQuery(selectList(new AllColumns()),
+                        new Join(Join.Type.IMPLICIT,
+                                new Table(QualifiedName.of("a")),
+                                new Table(QualifiedName.of("b")),
+                                Optional.<JoinCriteria>empty())));
+    }
+
+    @Test
+    public void testExplain()
+            throws Exception
+    {
+        assertStatement("EXPLAIN SELECT * FROM t",
+                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), ImmutableList.of()));
+        assertStatement("EXPLAIN (TYPE LOGICAL) SELECT * FROM t",
+                new Explain(
+                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
+                        ImmutableList.of(new ExplainType(ExplainType.Type.LOGICAL))));
+        assertStatement("EXPLAIN (TYPE LOGICAL, FORMAT TEXT) SELECT * FROM t",
+                new Explain(
+                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
+                        ImmutableList.of(
+                                new ExplainType(ExplainType.Type.LOGICAL),
+                                new ExplainFormat(ExplainFormat.Type.TEXT))));
     }
 
     private static void assertCast(String type)
