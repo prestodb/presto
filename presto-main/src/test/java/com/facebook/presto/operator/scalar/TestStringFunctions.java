@@ -13,8 +13,12 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.PrestoException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static org.testng.Assert.assertEquals;
 
 public class TestStringFunctions
 {
@@ -33,6 +37,10 @@ public class TestStringFunctions
         assertFunction("CHR(9731)", "\u2603");
         assertFunction("CHR(131210)", new String(Character.toChars(131210)));
         assertFunction("CHR(0)", "\0");
+
+        assertInvalidFunction("CHR(-1)", "Not a valid Unicode code point: -1");
+        assertInvalidFunction("CHR(1234567)", "Not a valid Unicode code point: 1234567");
+        assertInvalidFunction("CHR(8589934592)", "Not a valid Unicode code point: 8589934592");
     }
 
     @Test
@@ -155,6 +163,9 @@ public class TestStringFunctions
         assertFunction("SPLIT_PART('abcdddddef', 'dd', 3)", "def");
         assertFunction("SPLIT_PART('a/b/c', '/', 4)", null);
         assertFunction("SPLIT_PART('a/b/c/', '/', 4)", "");
+
+        assertInvalidFunction("SPLIT_PART('abc', '', 0)", "Index must be greater than zero");
+        assertInvalidFunction("SPLIT_PART('abc', '', -1)", "Index must be greater than zero");
     }
 
     @Test(expectedExceptions = RuntimeException.class)
@@ -215,5 +226,16 @@ public class TestStringFunctions
     private void assertFunction(String projection, Object expected)
     {
         functionAssertions.assertFunction(projection, expected);
+    }
+
+    private void assertInvalidFunction(String projection, String message)
+    {
+        try {
+            assertFunction(projection, null);
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
+            assertEquals(e.getMessage(), message);
+        }
     }
 }
