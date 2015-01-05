@@ -14,6 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.FunctionAssertions;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.google.common.collect.ImmutableList;
@@ -28,6 +29,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.type.MapType.rawValueSlicesToStackRepresentation;
 import static org.testng.Assert.assertEquals;
 
@@ -44,6 +46,17 @@ public class TestMapOperators
     private void assertFunction(String projection, Object expected)
     {
         functionAssertions.assertFunction(projection, expected);
+    }
+
+    private void assertInvalidFunction(String projection, String message)
+    {
+        try {
+            assertFunction(projection, null);
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
+            assertEquals(e.getMessage(), message);
+        }
     }
 
     @Test
@@ -78,6 +91,8 @@ public class TestMapOperators
                 1.0,
                 new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey()),
                 100.0));
+
+        assertInvalidFunction("MAP(ARRAY [1], ARRAY [2, 4])", "Key and value arrays must be the same length");
     }
 
     @Test
