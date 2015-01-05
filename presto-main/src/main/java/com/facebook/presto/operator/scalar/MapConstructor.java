@@ -36,10 +36,11 @@ import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Reflection.methodHandle;
-import static com.google.common.base.Preconditions.checkArgument;
 
 public final class MapConstructor
         extends ParametricScalar
@@ -98,7 +99,7 @@ public final class MapConstructor
             keysArray = MAPPER.readValue(keys.getInput(), ARRAY_TYPE);
             valuesArray = MAPPER.readValue(values.getInput(), ARRAY_TYPE);
 
-            checkArgument(keysArray.length == valuesArray.length, "Key and value arrays have to be of the same length.");
+            checkCondition(keysArray.length == valuesArray.length, INVALID_FUNCTION_ARGUMENT, "Key and value arrays must be the same length");
             for (int i = 0; i < keysArray.length; i++) {
                 map.put(keysArray[i], valuesArray[i]);
             }
