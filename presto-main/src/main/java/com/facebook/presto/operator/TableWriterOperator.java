@@ -18,6 +18,8 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.split.PageSinkManager;
+import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 
@@ -26,6 +28,9 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -38,16 +43,19 @@ public class TableWriterOperator
             implements OperatorFactory
     {
         private final int operatorId;
-        private final ConnectorPageSink pageSink;
+        private final PageSinkManager pageSinkManager;
+        private final WriterTarget target;
         private final List<Integer> inputChannels;
         private final Optional<Integer> sampleWeightChannel;
         private boolean closed;
 
-        public TableWriterOperatorFactory(int operatorId, ConnectorPageSink pageSink, List<Integer> inputChannels, Optional<Integer> sampleWeightChannel)
+        public TableWriterOperatorFactory(int operatorId, PageSinkManager pageSinkManager, WriterTarget writerTarget, List<Integer> inputChannels, Optional<Integer> sampleWeightChannel)
         {
             this.operatorId = operatorId;
             this.inputChannels = checkNotNull(inputChannels, "inputChannels is null");
-            this.pageSink = checkNotNull(pageSink, "pageSink is null");
+            this.pageSinkManager = checkNotNull(pageSinkManager, "pageSinkManager is null");
+            checkArgument(writerTarget instanceof CreateHandle || writerTarget instanceof InsertHandle, "writerTarget must be CreateHandle or InsertHandle");
+            this.target = checkNotNull(writerTarget, "writerTarget is null");
             this.sampleWeightChannel = checkNotNull(sampleWeightChannel, "sampleWeightChannel is null");
         }
 
@@ -62,7 +70,18 @@ public class TableWriterOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext context = driverContext.addOperatorContext(operatorId, TableWriterOperator.class.getSimpleName());
-            return new TableWriterOperator(context, pageSink, inputChannels, sampleWeightChannel);
+            return new TableWriterOperator(context, createPageSink(), inputChannels, sampleWeightChannel);
+        }
+
+        private ConnectorPageSink createPageSink()
+        {
+            if (target instanceof CreateHandle) {
+                return pageSinkManager.createPageSink(((CreateHandle) target).getHandle());
+            }
+            if (target instanceof InsertHandle) {
+                return pageSinkManager.createPageSink(((InsertHandle) target).getHandle());
+            }
+            throw new UnsupportedOperationException("Unhandled target type: " + target.getClass().getName());
         }
 
         @Override
