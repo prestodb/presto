@@ -35,7 +35,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Relation;
@@ -336,7 +335,7 @@ class StatementAnalyzer
         }
 
         // add bogus row so we can support empty sessions
-        rows.add(row(new NullLiteral(), new NullLiteral(), FALSE_LITERAL));
+        rows.add(row(new StringLiteral(""), new StringLiteral(""), FALSE_LITERAL));
 
         Query query = simpleQuery(
                 selectList(
