@@ -47,7 +47,7 @@ import static io.airlift.testing.FileUtils.deleteRecursively;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
-public class TestOrcPageSink
+public class TestOrcStoragePageSink
 {
     private File directory;
 
