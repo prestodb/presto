@@ -13,18 +13,20 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.ColorType;
 import com.facebook.presto.type.SqlType;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.awt.Color;
 
 import static com.facebook.presto.operator.scalar.StringFunctions.upper;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -72,8 +74,7 @@ public final class ColorFunctions
                     return color;
                 }
             }
-
-            throw new IllegalArgumentException(String.format("invalid index: %s", index));
+            throw new PrestoException(INTERNAL_ERROR, "Invalid color index: " + index);
         }
     }
 
@@ -96,7 +97,7 @@ public final class ColorFunctions
             return -(index + 1);
         }
         catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(format("Invalid color: '%s'", color.toString(UTF_8)), e);
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Invalid color: '%s'", color.toString(UTF_8)), e);
         }
     }
 
@@ -104,9 +105,9 @@ public final class ColorFunctions
     @SqlType(ColorType.NAME)
     public static long rgb(@SqlType(StandardTypes.BIGINT) long red, @SqlType(StandardTypes.BIGINT) long green, @SqlType(StandardTypes.BIGINT) long blue)
     {
-        checkArgument(red >= 0 && red <= 255, "red must be between 0 and 255");
-        checkArgument(green >= 0 && green <= 255, "green must be between 0 and 255");
-        checkArgument(blue >= 0 && blue <= 255, "blue must be between 0 and 255");
+        checkCondition(red >= 0 && red <= 255, INVALID_FUNCTION_ARGUMENT, "red must be between 0 and 255");
+        checkCondition(green >= 0 && green <= 255, INVALID_FUNCTION_ARGUMENT, "green must be between 0 and 255");
+        checkCondition(blue >= 0 && blue <= 255, INVALID_FUNCTION_ARGUMENT, "blue must be between 0 and 255");
 
         return (red << 16) | (green << 8) | blue;
     }
@@ -139,8 +140,8 @@ public final class ColorFunctions
     @SqlType(ColorType.NAME)
     public static long color(@SqlType(StandardTypes.DOUBLE) double fraction, @SqlType(ColorType.NAME) long lowColor, @SqlType(ColorType.NAME) long highColor)
     {
-        Preconditions.checkArgument(lowColor >= 0, "lowColor not a valid RGB color");
-        Preconditions.checkArgument(highColor >= 0, "highColor not a valid RGB color");
+        checkCondition(lowColor >= 0, INVALID_FUNCTION_ARGUMENT, "lowColor not a valid RGB color");
+        checkCondition(highColor >= 0, INVALID_FUNCTION_ARGUMENT, "highColor not a valid RGB color");
 
         fraction = Math.min(1, fraction);
         fraction = Math.max(0, fraction);
@@ -292,7 +293,7 @@ public final class ColorFunctions
     @VisibleForTesting
     static int getRed(long color)
     {
-        checkArgument(color >= 0, "color is not a valid rgb value");
+        checkCondition(color >= 0, INVALID_FUNCTION_ARGUMENT, "color is not a valid rgb value");
 
         return (int) ((color >>> 16) & 0xff);
     }
@@ -300,7 +301,7 @@ public final class ColorFunctions
     @VisibleForTesting
     static int getGreen(long color)
     {
-        checkArgument(color >= 0, "color is not a valid rgb value");
+        checkCondition(color >= 0, INVALID_FUNCTION_ARGUMENT, "color is not a valid rgb value");
 
         return (int) ((color >>> 8) & 0xff);
     }
@@ -308,7 +309,7 @@ public final class ColorFunctions
     @VisibleForTesting
     static int getBlue(long color)
     {
-        checkArgument(color >= 0, "color is not a valid rgb value");
+        checkCondition(color >= 0, INVALID_FUNCTION_ARGUMENT, "color is not a valid rgb value");
 
         return (int) (color & 0xff);
     }
