@@ -92,7 +92,7 @@ public class TestRaptorSplitManager
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
         StorageService storageService = new FileStorageService(dataDir, Optional.empty());
         ShardRecoveryManager recoveryManager = new ShardRecoveryManager(storageService, new InMemoryNodeManager(), shardManager, new Duration(5, TimeUnit.MINUTES), 10);
-        StorageManager storageManager = new OrcStorageManager(storageService, new DataSize(1, MEGABYTE), recoveryManager, new Duration(30, TimeUnit.SECONDS), 100);
+        StorageManager storageManager = new OrcStorageManager(storageService, new DataSize(1, MEGABYTE), recoveryManager, new Duration(30, TimeUnit.SECONDS), 100, new DataSize(256, MEGABYTE));
 
         String nodeName = UUID.randomUUID().toString();
         nodeManager.addNode("raptor", new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN));

@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -36,6 +37,8 @@ public class RaptorOutputTableHandle
     private final List<Type> columnTypes;
     @Nullable
     private final RaptorColumnHandle sampleWeightColumnHandle;
+    private final List<RaptorColumnHandle> sortColumnHandles;
+    private final List<SortOrder> sortOrders;
 
     @JsonCreator
     public RaptorOutputTableHandle(
@@ -43,13 +46,17 @@ public class RaptorOutputTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnHandles") List<RaptorColumnHandle> columnHandles,
             @JsonProperty("columnTypes") List<Type> columnTypes,
-            @JsonProperty("sampleWeightColumnHandle") @Nullable RaptorColumnHandle sampleWeightColumnHandle)
+            @JsonProperty("sampleWeightColumnHandle") @Nullable RaptorColumnHandle sampleWeightColumnHandle,
+            @JsonProperty("sortColumnHandles") List<RaptorColumnHandle> sortColumnHandles,
+            @JsonProperty("sortOrders") List<SortOrder> sortOrders)
     {
         this.schemaName = checkSchemaName(schemaName);
         this.tableName = checkTableName(tableName);
         this.columnHandles = ImmutableList.copyOf(checkNotNull(columnHandles, "columnHandles is null"));
         this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
         this.sampleWeightColumnHandle = sampleWeightColumnHandle;
+        this.sortOrders = checkNotNull(sortOrders, "sortOrders is null");
+        this.sortColumnHandles = checkNotNull(sortColumnHandles, "sortColumnHandles is null");
     }
 
     @JsonProperty
@@ -81,6 +88,18 @@ public class RaptorOutputTableHandle
     public RaptorColumnHandle getSampleWeightColumnHandle()
     {
         return sampleWeightColumnHandle;
+    }
+
+    @JsonProperty
+    public List<RaptorColumnHandle> getSortColumnHandles()
+    {
+        return sortColumnHandles;
+    }
+
+    @JsonProperty
+    public List<SortOrder> getSortOrders()
+    {
+        return sortOrders;
     }
 
     @Override

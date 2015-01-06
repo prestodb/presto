@@ -16,11 +16,14 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.spi.Page;
 
 import java.io.Closeable;
+import java.util.List;
 
 public interface StoragePageSink
         extends Closeable
 {
-    void appendPage(Page page);
+    void appendPages(List<Page> pages);
+
+    void appendPages(List<Page> pages, int[] pageIndexes, int[] positionIndexes);
 
     @Override
     void close();

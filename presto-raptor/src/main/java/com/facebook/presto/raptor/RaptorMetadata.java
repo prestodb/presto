@@ -64,10 +64,12 @@ import static com.facebook.presto.raptor.metadata.SqlUtils.runIgnoringConstraint
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
+import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 
 public class RaptorMetadata
@@ -305,7 +307,9 @@ public class RaptorMetadata
                 tableMetadata.getTable().getTableName(),
                 columnHandles.build(),
                 columnTypes.build(),
-                sampleWeightColumnHandle);
+                sampleWeightColumnHandle,
+                ImmutableList.of(),
+                ImmutableList.of());
     }
 
     @Override
@@ -340,8 +344,24 @@ public class RaptorMetadata
         }
 
         String externalBatchId = session.getProperties().get("external_batch_id");
+        List<RaptorColumnHandle> sortColumnHandles = getSortColumnHandles(tableId);
+        return new RaptorInsertTableHandle(connectorId,
+                tableId,
+                columnHandles.build(),
+                columnTypes.build(),
+                externalBatchId,
+                sortColumnHandles,
+                nCopies(sortColumnHandles.size(), ASC_NULLS_FIRST));
+    }
 
-        return new RaptorInsertTableHandle(connectorId, tableId, columnHandles.build(), columnTypes.build(), externalBatchId);
+    private List<RaptorColumnHandle> getSortColumnHandles(long tableId)
+    {
+        ImmutableList.Builder<RaptorColumnHandle> builder = ImmutableList.builder();
+        for (TableColumn tableColumn : dao.listSortColumns(tableId)) {
+            checkArgument(!tableColumn.getColumnName().equals(SAMPLE_WEIGHT_COLUMN_NAME), "sample weight column may not be a sort column");
+            builder.add(getRaptorColumnHandle(tableColumn));
+        }
+        return builder.build();
     }
 
     @Override

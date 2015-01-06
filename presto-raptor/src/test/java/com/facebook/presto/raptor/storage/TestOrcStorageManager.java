@@ -83,6 +83,8 @@ public class TestOrcStorageManager
     private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
     private static final DataSize ORC_MERGE_DISTANCE = new DataSize(1, MEGABYTE);
     private static final Duration SHARD_RECOVERY_TIMEOUT = new Duration(30, TimeUnit.SECONDS);
+    private static final DataSize MAX_BUFFER_SIZE = new DataSize(256, MEGABYTE);
+    public static final int ROWS_PER_SHARD = 100;
 
     private final NodeManager nodeManager = new InMemoryNodeManager();
     private Handle dummyHandle;
@@ -139,7 +141,7 @@ public class TestOrcStorageManager
     public void testWriter()
             throws Exception
     {
-        OrcStorageManager manager = new OrcStorageManager(storageService, ORC_MERGE_DISTANCE, recoveryManager, SHARD_RECOVERY_TIMEOUT, 100);
+        OrcStorageManager manager = new OrcStorageManager(storageService, ORC_MERGE_DISTANCE, recoveryManager, SHARD_RECOVERY_TIMEOUT, ROWS_PER_SHARD, MAX_BUFFER_SIZE);
 
         List<Long> columnIds = ImmutableList.of(3L, 7L);
         List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR);
@@ -150,7 +152,7 @@ public class TestOrcStorageManager
                 .row(456, "bye")
                 .build();
         StoragePageSink storagePageSink = handle.createStoragePageSink();
-        pages.forEach(storagePageSink::appendPage);
+        storagePageSink.appendPages(pages);
         storagePageSink.close();
         manager.commit(handle);
 
@@ -194,7 +196,7 @@ public class TestOrcStorageManager
     public void testReader()
             throws Exception
     {
-        OrcStorageManager manager = new OrcStorageManager(storageService, ORC_MERGE_DISTANCE, recoveryManager, SHARD_RECOVERY_TIMEOUT, 100);
+        OrcStorageManager manager = new OrcStorageManager(storageService, ORC_MERGE_DISTANCE, recoveryManager, SHARD_RECOVERY_TIMEOUT, ROWS_PER_SHARD, MAX_BUFFER_SIZE);
 
         List<Long> columnIds = ImmutableList.of(2L, 4L, 6L, 7L, 8L, 9L);
         List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR, VARBINARY, DATE, BOOLEAN, DOUBLE);
@@ -211,7 +213,7 @@ public class TestOrcStorageManager
                 .build();
 
         StoragePageSink storagePageSink = handle.createStoragePageSink();
-        pages.forEach(storagePageSink::appendPage);
+        storagePageSink.appendPages(pages);
         storagePageSink.close();
         manager.commit(handle);
 

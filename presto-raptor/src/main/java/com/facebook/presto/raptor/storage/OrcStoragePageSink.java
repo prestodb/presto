@@ -99,21 +99,37 @@ public class OrcStoragePageSink
     }
 
     @Override
-    public void appendPage(Page page)
+    public void appendPages(List<Page> pages)
+    {
+        for (Page page : pages) {
+            for (int position = 0; position < page.getPositionCount(); position++) {
+                appendRow(page, position);
+            }
+        }
+    }
+
+    @Override
+    public void appendPages(List<Page> inputPages, int[] pageIndexes, int[] positionIndexes)
+    {
+        checkArgument(pageIndexes.length == positionIndexes.length, "pageIndexes and positionIndexes do not match");
+        for (int i = 0; i < pageIndexes.length; i++) {
+            Page page = inputPages.get(pageIndexes[i]);
+            appendRow(page, positionIndexes[i]);
+        }
+    }
+
+    private void appendRow(Page page, int position)
     {
         checkArgument(page.getChannelCount() == columnTypes.size(), "channelCount does not match");
-
-        for (int position = 0; position < page.getPositionCount(); position++) {
-            for (int channel = 0; channel < page.getChannelCount(); channel++) {
-                Object value = getValue(position, page.getBlock(channel), columnTypes.get(channel));
-                tableInspector.setStructFieldData(row, structFields.get(channel), value);
-            }
-            try {
-                recordWriter.write(serializer.serialize(row, tableInspector));
-            }
-            catch (IOException e) {
-                throw new PrestoException(RAPTOR_ERROR, "Failed to write record", e);
-            }
+        for (int channel = 0; channel < page.getChannelCount(); channel++) {
+            Object value = getValue(position, page.getBlock(channel), columnTypes.get(channel));
+            tableInspector.setStructFieldData(row, structFields.get(channel), value);
+        }
+        try {
+            recordWriter.write(serializer.serialize(row, tableInspector));
+        }
+        catch (IOException e) {
+            throw new PrestoException(RAPTOR_ERROR, "Failed to write record", e);
         }
     }
 

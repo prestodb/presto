@@ -19,6 +19,7 @@ import com.facebook.presto.raptor.util.RebindSafeMBeanServer;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
@@ -45,12 +46,14 @@ public class RaptorConnectorFactory
     private final NodeManager nodeManager;
     private final BlockEncodingSerde blockEncodingSerde;
     private final TypeManager typeManager;
+    private final PageSorter pageSorter;
 
     public RaptorConnectorFactory(
             String name,
             Module module,
             Map<String, String> optionalConfig,
             NodeManager nodeManager,
+            PageSorter pageSorter,
             BlockEncodingSerde blockEncodingSerde,
             TypeManager typeManager)
     {
@@ -59,6 +62,7 @@ public class RaptorConnectorFactory
         this.module = checkNotNull(module, "module is null");
         this.optionalConfig = checkNotNull(optionalConfig, "optionalConfig is null");
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
+        this.pageSorter = checkNotNull(pageSorter, "pageSorter is null");
         this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
     }
@@ -82,6 +86,7 @@ public class RaptorConnectorFactory
                         binder.bind(MBeanServer.class).toInstance(mbeanServer);
                         binder.bind(CurrentNodeId.class).toInstance(currentNodeId);
                         binder.bind(NodeManager.class).toInstance(nodeManager);
+                        binder.bind(PageSorter.class).toInstance(pageSorter);
                         binder.bind(BlockEncodingSerde.class).toInstance(blockEncodingSerde);
                         binder.bind(TypeManager.class).toInstance(typeManager);
                     },
