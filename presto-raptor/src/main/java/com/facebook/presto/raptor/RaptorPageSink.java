@@ -18,9 +18,13 @@ import com.facebook.presto.raptor.storage.StorageOutputHandle;
 import com.facebook.presto.raptor.storage.StoragePageSink;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +32,8 @@ import java.util.UUID;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static java.util.stream.Collectors.toList;
 
 public class RaptorPageSink
         implements ConnectorPageSink
@@ -36,49 +42,67 @@ public class RaptorPageSink
     private final StorageManager storageManager;
     private final StorageOutputHandle storageOutputHandle;
     private final int sampleWeightField;
+
+    private final PageSorter pageSorter;
+    private final List<Type> columnTypes;
+    private final List<Type> sortTypes;
+    private final List<Integer> sortFields;
+    private final List<SortOrder> sortOrders;
+
     private final long maxRowCount;
+    private final PageBuffer pageBuffer;
 
     private StoragePageSink storagePageSink;
-    private int rowCount;
+    private long rowCount;
 
     public RaptorPageSink(
             String nodeId,
+            PageSorter pageSorter,
             StorageManager storageManager,
             List<Long> columnIds,
             List<Type> columnTypes,
-            Optional<Long> sampleWeightColumnId)
+            Optional<Long> sampleWeightColumnId,
+            List<Long> sortColumnIds,
+            List<SortOrder> sortOrders)
     {
         this.nodeId = checkNotNull(nodeId, "nodeId is null");
+        this.pageSorter = checkNotNull(pageSorter, "pageSorter is null");
+        this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
+
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
         this.storageOutputHandle = storageManager.createStorageOutputHandle(columnIds, columnTypes);
-        this.maxRowCount = storageManager.getMaxRowCount();
+
         checkNotNull(sampleWeightColumnId, "sampleWeightColumnId is null");
         this.sampleWeightField = columnIds.indexOf(sampleWeightColumnId.orElse(-1L));
 
-        this.storagePageSink = createPageSink(storageManager, storageOutputHandle);
+        this.sortFields = ImmutableList.copyOf(sortColumnIds.stream().map(columnIds::indexOf).collect(toList()));
+        this.sortTypes = ImmutableList.copyOf(sortFields.stream().map(columnTypes::get).collect(toList()));
+        this.sortOrders = ImmutableList.copyOf(checkNotNull(sortOrders, "sortOrders is null"));
+
+        this.maxRowCount = storageManager.getMaxRowCount();
+        this.pageBuffer = new PageBuffer(storageManager.getMaxBufferSize().toBytes());
+
+        this.storagePageSink = createStoragePageSink(storageManager, storageOutputHandle);
         this.rowCount = 0;
     }
 
     @Override
     public void appendPage(Page page, Block sampleWeightBlock)
     {
-        if (rowCount >= maxRowCount) {
-            storagePageSink.close();
-            storagePageSink = createPageSink(storageManager, storageOutputHandle);
-            rowCount = 0;
-        }
+        flushPageBufferIfNecessary(page.getPositionCount());
 
         if (sampleWeightField >= 0) {
             page = createPageWithSampleWeightBlock(page, sampleWeightBlock);
         }
 
-        appendPage(page);
+        pageBuffer.add(page);
         rowCount += page.getPositionCount();
     }
 
     @Override
     public String commit()
     {
+        flushPages(pageBuffer.getPages());
         storagePageSink.close();
         List<UUID> shardUuids = storageManager.commit(storageOutputHandle);
         // Format of each fragment: nodeId:shardUuid1,shardUuid2,shardUuid3
@@ -106,14 +130,71 @@ public class RaptorPageSink
         return new Page(blocks);
     }
 
-    private void appendPage(Page page)
+    /**
+     * Flushes pages in the PageBuffer to StoragePageSink if ANY of the following is true:
+     * <ul>
+     * <li>rows written to the StoragePageSink >= maxRowsCount</li>
+     * <li>pageBuffer has maximum allowable bytes</li>
+     * <li>pageBuffer has more than Integer.MAX_VALUE rows (PagesSorter.sort can sort Integer.MAX_VALUE rows at a time)</li>
+     * </ul>
+     */
+    private void flushPageBufferIfNecessary(int rowsToAdd)
     {
-        storagePageSink.appendPage(page);
-        rowCount += page.getPositionCount();
+        if (rowCount >= maxRowCount) {
+            // This StoragePageSink is full, create a new one for the next batch of pages
+            flushPages(pageBuffer.getPages());
+            pageBuffer.reset();
+            rowCount = 0;
+            storagePageSink.close();
+            storagePageSink = createStoragePageSink(storageManager, storageOutputHandle);
+            return;
+        }
+
+        int maxRemainingRows = Integer.MAX_VALUE - Ints.checkedCast(pageBuffer.getRowCount());
+        if (pageBuffer.isFull() || (!sortFields.isEmpty() && (rowsToAdd > maxRemainingRows))) {
+            flushPages(pageBuffer.getPages());
+            pageBuffer.reset();
+        }
     }
 
-    private static StoragePageSink createPageSink(StorageManager storageManager, StorageOutputHandle storageOutputHandle)
+    private void flushPages(List<Page> pages)
+    {
+        if (pages.isEmpty()) {
+            return;
+        }
+
+        if (sortFields.isEmpty()) {
+            storagePageSink.appendPages(pages);
+        }
+        else {
+            checkState(pageBuffer.getRowCount() <= Integer.MAX_VALUE);
+
+            long[] orderedAddresses = pageSorter.sort(columnTypes, pages, sortTypes, sortFields, sortOrders, Ints.checkedCast(pageBuffer.getRowCount()));
+            int[] orderedPageIndex = new int[orderedAddresses.length];
+            int[] orderedPositionIndex = new int[orderedAddresses.length];
+            for (int i = 0; i < orderedAddresses.length; i++) {
+                orderedPageIndex[i] = pageSorter.decodePageIndex(orderedAddresses[i]);
+                orderedPositionIndex[i] = pageSorter.decodePositionIndex(orderedAddresses[i]);
+            }
+
+            storagePageSink.appendPages(pages, orderedPageIndex, orderedPositionIndex);
+        }
+    }
+
+    private static StoragePageSink createStoragePageSink(StorageManager storageManager, StorageOutputHandle storageOutputHandle)
     {
         return storageManager.createStoragePageSink(storageOutputHandle);
+    }
+
+    // This code is duplicated from SyntheticAddress
+    public static int decodeSliceIndex(long sliceAddress)
+    {
+        return ((int) (sliceAddress >> 32));
+    }
+
+    public static int decodePosition(long sliceAddress)
+    {
+        // low order bits contain the raw offset, so a simple cast here will suffice
+        return (int) sliceAddress;
     }
 }

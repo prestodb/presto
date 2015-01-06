@@ -17,6 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.airlift.units.MinDataSize;
 
 import javax.annotation.Nullable;
 import javax.validation.constraints.Max;
@@ -37,6 +38,7 @@ public class StorageManagerConfig
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private int recoveryThreads = 10;
     private long rowsPerShard = 1_000_000;
+    private DataSize maxBufferSize = new DataSize(256, MEGABYTE);
 
     @NotNull
     public File getDataDirectory()
@@ -131,6 +133,20 @@ public class StorageManagerConfig
     public StorageManagerConfig setRowsPerShard(long rowsPerShard)
     {
         this.rowsPerShard = rowsPerShard;
+        return this;
+    }
+
+    @MinDataSize("1MB")
+    public DataSize getMaxBufferSize()
+    {
+        return maxBufferSize;
+    }
+
+    @Config("storage.max-buffer-size")
+    @ConfigDescription("Maximum data to buffer before flushing to disk")
+    public StorageManagerConfig setMaxBufferSize(DataSize maxBufferSize)
+    {
+        this.maxBufferSize = maxBufferSize;
         return this;
     }
 }

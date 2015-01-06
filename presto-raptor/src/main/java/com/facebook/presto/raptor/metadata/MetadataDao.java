@@ -40,6 +40,7 @@ public interface MetadataDao
             "  column_name VARCHAR(255) NOT NULL,\n" +
             "  ordinal_position INT NOT NULL,\n" +
             "  data_type VARCHAR(255) NOT NULL,\n" +
+            "  sort_ordinal_position INT DEFAULT NULL,\n" +
             "  PRIMARY KEY (table_id, column_id),\n" +
             "  UNIQUE (table_id, column_name),\n" +
             "  UNIQUE (table_id, ordinal_position),\n" +
@@ -118,6 +119,15 @@ public interface MetadataDao
             "WHERE t.table_id = :tableId\n" +
             "ORDER BY c.ordinal_position")
     List<TableColumn> listTableColumns(@Bind("tableId") long tableId);
+
+    @SqlQuery("SELECT t.schema_name, t.table_name,\n" +
+            "  c.column_id, c.column_name, c.ordinal_position, c.data_type\n" +
+            "FROM tables t\n" +
+            "JOIN columns c ON (t.table_id = c.table_id)\n" +
+            "WHERE t.table_id = :tableId\n" +
+            "  AND c.sort_ordinal_position IS NOT NULL\n" +
+            "ORDER BY c.sort_ordinal_position")
+    List<TableColumn> listSortColumns(@Bind("tableId") long tableId);
 
     @SqlQuery("SELECT catalog_name, schema_name, table_name, data\n" +
             "FROM views\n" +

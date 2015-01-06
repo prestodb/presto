@@ -82,7 +82,7 @@ public class TestOrcStoragePageSink
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(new EmptyClassLoader());
              StoragePageSink sink = new OrcStoragePageSink(columnIds, columnTypes, file)) {
-            rowPagesBuilder.build().forEach(sink::appendPage);
+            sink.appendPages(rowPagesBuilder.build());
         }
 
         try (FileOrcDataSource dataSource = new FileOrcDataSource(file, new DataSize(1, Unit.MEGABYTE))) {

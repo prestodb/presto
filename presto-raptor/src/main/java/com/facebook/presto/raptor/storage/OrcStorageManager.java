@@ -62,21 +62,24 @@ public class OrcStorageManager
     private final ShardRecoveryManager recoveryManager;
     private final Duration recoveryTimeout;
     private final long rowsPerShard;
+    private final DataSize maxBufferSize;
 
     @Inject
     public OrcStorageManager(StorageService storageService, StorageManagerConfig config, ShardRecoveryManager recoveryManager)
     {
-        this(storageService, config.getOrcMaxMergeDistance(), recoveryManager, config.getShardRecoveryTimeout(), config.getRowsPerShard());
+        this(storageService, config.getOrcMaxMergeDistance(), recoveryManager, config.getShardRecoveryTimeout(), config.getRowsPerShard(), config.getMaxBufferSize());
     }
 
-    public OrcStorageManager(StorageService storageService, DataSize orcMaxMergeDistance, ShardRecoveryManager recoveryManager, Duration shardRecoveryTimeout, long rowsPerShard)
+    public OrcStorageManager(StorageService storageService, DataSize orcMaxMergeDistance, ShardRecoveryManager recoveryManager, Duration shardRecoveryTimeout, long rowsPerShard, DataSize maxBufferSize)
     {
         this.storageService = checkNotNull(storageService, "storageService is null");
         this.orcMaxMergeDistance = checkNotNull(orcMaxMergeDistance, "orcMaxMergeDistance is null");
         this.recoveryManager = checkNotNull(recoveryManager, "recoveryManager is null");
         this.recoveryTimeout = checkNotNull(shardRecoveryTimeout, "shardRecoveryTimeout is null");
+
         checkArgument(rowsPerShard > 0, "rowsPerShard must be > 0");
         this.rowsPerShard = rowsPerShard;
+        this.maxBufferSize = checkNotNull(maxBufferSize, "maxBufferSize is null");
     }
 
     @Override
@@ -174,6 +177,12 @@ public class OrcStorageManager
     public long getMaxRowCount()
     {
         return rowsPerShard;
+    }
+
+    @Override
+    public DataSize getMaxBufferSize()
+    {
+        return maxBufferSize;
     }
 
     @Override
