@@ -11,6 +11,11 @@ General Changes
 * Replace ``max(boolean)`` with :func:`bool_or`.
 * Add standard SQL function :func:`every` as an alias for :func:`bool_and`.
 
+* Disable falling back to the interpreter when expressions fail to be compiled
+  to bytecode. To enable this option, add ``compiler.interpreter-enabled=true``
+  to the coordinator and worker config properties. Enabling this option will
+  allow certain queries to run slowly rather than failing.
+
 SPI Changes
 -----------
 * Add ``getColumnTypes`` to ``RecordSink``

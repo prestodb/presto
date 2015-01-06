@@ -18,7 +18,7 @@ import io.airlift.configuration.Config;
 
 public class CompilerConfig
 {
-    private boolean interpreterEnabled = true;
+    private boolean interpreterEnabled;
 
     public boolean isInterpreterEnabled()
     {
