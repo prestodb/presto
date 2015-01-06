@@ -13,16 +13,15 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Joiner;
-import java.util.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class Row
-        extends Node
+        extends Expression
 {
     private final List<Expression> items;
 
@@ -41,12 +40,6 @@ public final class Row
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitRow(this, context);
-    }
-
-    @Override
-    public String toString()
-    {
-        return "(" + Joiner.on(", ").join(items) + ")";
     }
 
     @Override

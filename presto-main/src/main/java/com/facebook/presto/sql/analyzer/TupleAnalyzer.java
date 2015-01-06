@@ -55,7 +55,6 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
-import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SingleColumn;
@@ -70,7 +69,8 @@ import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
-import com.google.common.base.Joiner;
+import com.facebook.presto.type.RowType;
+import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -123,12 +123,11 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.elementsEqual;
-import static com.google.common.collect.Iterables.transform;
 
 public class TupleAnalyzer
         extends DefaultTraversalVisitor<TupleDescriptor, AnalysisContext>
@@ -531,35 +530,34 @@ public class TupleAnalyzer
     {
         checkState(node.getRows().size() >= 1);
 
-        TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata, sqlParser, experimentalSyntaxEnabled);
+        Set<Type> types = node.getRows().stream()
+                .map((row) -> analyzeExpression(row, new TupleDescriptor(), context).getType(row))
+                .collect(ImmutableCollectors.toImmutableSet());
 
-        // Use the first descriptor as the output descriptor for the VALUES
-        TupleDescriptor outputDescriptor = analyzer.process(node.getRows().get(0), context).withOnlyVisibleFields();
-        Iterable<Type> types = transform(outputDescriptor.getVisibleFields(), Field::getType);
-
-        for (Row row : Iterables.skip(node.getRows(), 1)) {
-            TupleDescriptor descriptor = analyzer.process(row, context);
-            Iterable<Type> rowTypes = transform(descriptor.getVisibleFields(), Field::getType);
-            if (!elementsEqual(types, rowTypes)) {
-                throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES, node, "Values rows have mismatched types: " +
-                        "Expected: (" + Joiner.on(", ").join(types) + "), " +
-                        "Actual: (" + Joiner.on(", ").join(rowTypes) + ")");
-            }
+        if (types.size() > 1) {
+            throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
+                    node,
+                    "Values rows have mismatched types: %s vs %s",
+                    Iterables.get(types, 0),
+                    Iterables.get(types, 1));
         }
 
-        analysis.setOutputDescriptor(node, outputDescriptor);
-        return outputDescriptor;
-    }
+        Type type = Iterables.getOnlyElement(types);
 
-    @Override
-    protected TupleDescriptor visitRow(Row node, AnalysisContext context)
-    {
-        ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
-        for (Expression expression : node.getItems()) {
-            ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, new TupleDescriptor(), context);
-            outputFields.add(Field.newUnqualified(Optional.empty(), expressionAnalysis.getType(expression)));
+        List<Field> fields;
+        if (type instanceof RowType) {
+            fields = ((RowType) type).getFields().stream()
+                    .map(RowType.RowField::getType)
+                    .map((valueType) -> Field.newUnqualified(Optional.empty(), valueType))
+                    .collect(toImmutableList());
         }
-        return new TupleDescriptor(outputFields.build());
+        else {
+            fields = ImmutableList.of(Field.newUnqualified(Optional.empty(), type));
+        }
+
+        TupleDescriptor descriptor = new TupleDescriptor(fields);
+        analysis.setOutputDescriptor(node, descriptor);
+        return descriptor;
     }
 
     private void analyzeWindowFunctions(QuerySpecification node, List<FieldOrExpression> outputExpressions, List<FieldOrExpression> orderByExpressions)

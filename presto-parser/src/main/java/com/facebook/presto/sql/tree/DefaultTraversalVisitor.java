@@ -369,7 +369,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     @Override
     protected R visitValues(Values node, C context)
     {
-        for (Row row : node.getRows()) {
+        for (Expression row : node.getRows()) {
             process(row, context);
         }
         return null;
