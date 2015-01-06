@@ -103,10 +103,10 @@ public abstract class AbstractTestQueries
     public void testRowFieldAccessor()
             throws Exception
     {
-        assertQuery("SELECT a.col0 FROM (VALUES (test_row(1, 2))) AS t (a)", "SELECT 1");
-        assertQuery("SELECT a.col0 FROM (VALUES (test_row(1.0, 2.0))) AS t (a)", "SELECT 1.0");
-        assertQuery("SELECT a.col0 FROM (VALUES (test_row(TRUE, FALSE))) AS t (a)", "SELECT TRUE");
-        assertQuery("SELECT a.col1 FROM (VALUES (test_row(1.0, 'kittens'))) AS t (a)", "SELECT 'kittens'");
+        assertQuery("SELECT a.col0 FROM (VALUES ROW (test_row(1, 2))) AS t (a)", "SELECT 1");
+        assertQuery("SELECT a.col0 FROM (VALUES ROW (test_row(1.0, 2.0))) AS t (a)", "SELECT 1.0");
+        assertQuery("SELECT a.col0 FROM (VALUES ROW (test_row(TRUE, FALSE))) AS t (a)", "SELECT TRUE");
+        assertQuery("SELECT a.col1 FROM (VALUES ROW (test_row(1.0, 'kittens'))) AS t (a)", "SELECT 'kittens'");
     }
 
     @Test
@@ -164,6 +164,7 @@ public abstract class AbstractTestQueries
     public void testValues()
             throws Exception
     {
+        assertQuery("VALUES 1, 2, 3, 4");
         assertQuery("VALUES (1.1, 2, 'foo'), (sin(3.3), 2+2, 'bar')");
         assertQuery("VALUES (1.1, 2), (sin(3.3), 2+2) ORDER BY 1", "VALUES (sin(3.3), 2+2), (1.1, 2)");
         assertQuery("VALUES (1.1, 2), (sin(3.3), 2+2) LIMIT 1", "VALUES (1.1, 2)");

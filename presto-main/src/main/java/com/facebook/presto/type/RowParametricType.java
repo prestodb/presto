@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.type.RowType.RowField;
 import static com.facebook.presto.util.Types.checkType;
@@ -44,12 +45,18 @@ public final class RowParametricType
     public RowType createType(List<Type> types, List<Object> literals)
     {
         checkArgument(!types.isEmpty(), "types is empty");
+
+        if (literals.isEmpty()) {
+            return new RowType(types, Optional.empty());
+        }
+
         checkArgument(types.size() == literals.size(), "types and literals must be matched in size");
+
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (Object literal : literals) {
             builder.add(checkType(literal, String.class, "literal"));
         }
-        return new RowType(types, builder.build());
+        return new RowType(types, Optional.of(builder.build()));
     }
 
     public List<ParametricFunction> createFunctions(Type type)
@@ -57,7 +64,8 @@ public final class RowParametricType
         RowType rowType = checkType(type, RowType.class, "type");
         ImmutableList.Builder<ParametricFunction> builder = ImmutableList.builder();
         for (RowField field : rowType.getFields()) {
-            builder.add(new RowFieldAccessor(rowType, field.getName()));
+            field.getName()
+                    .ifPresent(name -> builder.add(new RowFieldAccessor(rowType, field.getName().get())));
         }
         return builder.build();
     }

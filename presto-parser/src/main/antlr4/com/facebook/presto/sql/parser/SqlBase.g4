@@ -75,14 +75,10 @@ queryTerm
     ;
 
 queryPrimary
-    : querySpecification               #queryPrimaryDefault
-    | TABLE qualifiedName              #table
-    | VALUES rowValue (',' rowValue)*  #inlineTable
-    | '(' queryNoWith  ')'             #subquery
-    ;
-
-rowValue
-    : '(' expression (',' expression )* ')'
+    : querySpecification                   #queryPrimaryDefault
+    | TABLE qualifiedName                  #table
+    | VALUES expression (',' expression)*  #inlineTable
+    | '(' queryNoWith  ')'                 #subquery
     ;
 
 sortItem
@@ -207,6 +203,8 @@ primaryExpression
     | number                                                                         #numericLiteral
     | booleanValue                                                                   #booleanLiteral
     | STRING                                                                         #stringLiteral
+    | '(' expression (',' expression)+ ')'                                           #rowConstructor
+    | ROW '(' expression (',' expression)* ')'                                       #rowConstructor
     | qualifiedName                                                                  #columnReference
     | qualifiedName '(' ASTERISK ')' over?                                           #functionCall
     | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' over?     #functionCall

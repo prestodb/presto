@@ -48,6 +48,7 @@ import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
@@ -771,6 +772,12 @@ public class ExpressionInterpreter
         protected Object visitArrayConstructor(ArrayConstructor node, Object context)
         {
             return visitFunctionCall(new FunctionCall(QualifiedName.of(ArrayConstructor.ARRAY_CONSTRUCTOR), node.getValues()), context);
+        }
+
+        @Override
+        protected Object visitRow(Row node, Object context)
+        {
+            throw new UnsupportedOperationException("Row expressions not yet supported");
         }
 
         @Override

@@ -38,7 +38,6 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Relation;
-import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
@@ -317,7 +316,7 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitShowSession(ShowSession node, AnalysisContext context)
     {
-        ImmutableList.Builder<Row> rows = ImmutableList.builder();
+        ImmutableList.Builder<Expression> rows = ImmutableList.builder();
         for (Entry<String, String> property : new TreeMap<>(session.getSystemProperties()).entrySet()) {
             rows.add(row(
                     new StringLiteral(property.getKey()),

@@ -55,6 +55,7 @@ import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SortItem;
@@ -199,6 +200,19 @@ public class ExpressionAnalyzer
         }
 
         @Override
+        protected Type visitRow(Row node, AnalysisContext context)
+        {
+            List<Type> types = node.getItems().stream()
+                    .map((child) -> process(child, context))
+                    .collect(toImmutableList());
+
+            Type type = new RowType(types, Optional.empty());
+            expressionTypes.put(node, type);
+
+            return type;
+        }
+
+        @Override
         protected Type visitCurrentTime(CurrentTime node, AnalysisContext context)
         {
             if (node.getPrecision() != null) {
@@ -269,7 +283,7 @@ public class ExpressionAnalyzer
                 RowType rowType = checkType(field.getType(), RowType.class, "field.getType()");
                 Type rowFieldType = null;
                 for (RowField rowField : rowType.getFields()) {
-                    if (rowField.getName().equals(node.getName().getSuffix())) {
+                    if (rowField.getName().equals(Optional.of(node.getName().getSuffix()))) {
                         rowFieldType = rowField.getType();
                         break;
                     }

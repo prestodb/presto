@@ -434,11 +434,18 @@ class RelationPlanner
         }
 
         ImmutableList.Builder<List<Expression>> rows = ImmutableList.builder();
-        for (Row row : node.getRows()) {
+        for (Expression row : node.getRows()) {
             ImmutableList.Builder<Expression> values = ImmutableList.builder();
-            for (Expression expression : row.getItems()) {
-                values.add(evaluateConstantExpression(expression));
+
+            if (row instanceof Row) {
+                for (Expression expression : ((Row) row).getItems()) {
+                    values.add(evaluateConstantExpression(expression));
+                }
             }
+            else {
+                values.add(row);
+            }
+
             rows.add(values.build());
         }
 

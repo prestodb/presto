@@ -321,13 +321,7 @@ class AstBuilder
     @Override
     public Node visitInlineTable(@NotNull SqlBaseParser.InlineTableContext context)
     {
-        return new Values(visit(context.rowValue(), Row.class));
-    }
-
-    @Override
-    public Node visitRowValue(@NotNull SqlBaseParser.RowValueContext context)
-    {
-        return new Row(visit(context.expression(), Expression.class));
+        return new Values(visit(context.expression(), Expression.class));
     }
 
     @Override
@@ -717,6 +711,12 @@ class AstBuilder
     public Node visitParenthesizedExpression(@NotNull SqlBaseParser.ParenthesizedExpressionContext context)
     {
         return visit(context.expression());
+    }
+
+    @Override
+    public Node visitRowConstructor(@NotNull SqlBaseParser.RowConstructorContext context)
+    {
+        return new Row(visit(context.expression(), Expression.class));
     }
 
     @Override

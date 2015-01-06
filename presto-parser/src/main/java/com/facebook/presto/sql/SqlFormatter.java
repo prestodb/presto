@@ -39,7 +39,6 @@ import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
-import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
@@ -350,24 +349,14 @@ public final class SqlFormatter
             builder.append(" VALUES ");
 
             boolean first = true;
-            for (Row row : node.getRows()) {
+            for (Expression row : node.getRows()) {
                 builder.append("\n")
                         .append(indentString(indent))
                         .append(first ? "  " : ", ");
 
-                process(row, indent + 1);
+                builder.append(formatExpression(row));
                 first = false;
             }
-
-            return null;
-        }
-
-        @Override
-        protected Void visitRow(Row node, Integer indent)
-        {
-            builder.append('(')
-                    .append(Joiner.on(", ").join(transform(node.getItems(), ExpressionFormatter::formatExpression)))
-                    .append(')');
 
             return null;
         }

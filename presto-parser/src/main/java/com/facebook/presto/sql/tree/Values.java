@@ -14,25 +14,25 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Joiner;
-import java.util.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class Values
         extends QueryBody
 {
-    private final List<Row> rows;
+    private final List<Expression> rows;
 
-    public Values(List<Row> rows)
+    public Values(List<Expression> rows)
     {
         checkNotNull(rows, "rows is null");
         this.rows = ImmutableList.copyOf(rows);
     }
 
-    public List<Row> getRows()
+    public List<Expression> getRows()
     {
         return rows;
     }

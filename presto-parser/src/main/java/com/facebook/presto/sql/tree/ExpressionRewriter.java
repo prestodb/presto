@@ -20,6 +20,11 @@ public class ExpressionRewriter<C>
         return null;
     }
 
+    public Expression rewriteRow(Row node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
     public Expression rewriteArithmeticUnary(ArithmeticUnaryExpression node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);

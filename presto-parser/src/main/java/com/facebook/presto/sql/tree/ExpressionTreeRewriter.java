@@ -70,6 +70,28 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitRow(Row node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteRow(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            ImmutableList.Builder<Expression> builder = ImmutableList.builder();
+            for (Expression expression : node.getItems()) {
+                builder.add(rewrite(expression, context.get()));
+            }
+
+            if (!sameElements(node.getItems(), builder.build())) {
+                return new Row(builder.build());
+            }
+
+            return node;
+        }
+
+        @Override
         protected Expression visitArithmeticUnary(ArithmeticUnaryExpression node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

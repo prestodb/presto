@@ -47,6 +47,7 @@ import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SortItem;
@@ -64,6 +65,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 
@@ -83,6 +85,14 @@ public final class ExpressionFormatter
         protected String visitNode(Node node, Void context)
         {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        protected String visitRow(Row node, Void context)
+        {
+            return "ROW (" + Joiner.on(", ").join(node.getItems().stream()
+                            .map((child) -> process(child, context))
+                            .collect(Collectors.toList())) + ")";
         }
 
         @Override
