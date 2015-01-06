@@ -1676,7 +1676,9 @@ public class PrestoResultSet
         if ((index <= 0) || (index > resultSetMetaData.getColumnCount())) {
             throw new SQLException("Invalid column index: " + index);
         }
-        return row.get().get(index - 1);
+        Object value = row.get().get(index - 1);
+        wasNull.set(value == null);
+        return value;
     }
 
     private Object column(String label)
@@ -1684,7 +1686,9 @@ public class PrestoResultSet
     {
         checkOpen();
         checkValidRow();
-        return row.get().get(columnIndex(label) - 1);
+        Object value = row.get().get(columnIndex(label) - 1);
+        wasNull.set(value == null);
+        return value;
     }
 
     private int columnIndex(String label)
