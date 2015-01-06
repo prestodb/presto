@@ -710,13 +710,18 @@ public class TestDriver
     {
         try (Connection connection = createConnection()) {
             try (Statement statement = connection.createStatement()) {
-                assertTrue(statement.execute("SELECT 123 x, 'foo' y"));
+                assertTrue(statement.execute("SELECT 123 x, 'foo' y, NULL z"));
                 ResultSet rs = statement.getResultSet();
                 assertTrue(rs.next());
                 assertEquals(rs.getLong(1), 123);
                 assertEquals(rs.getLong("x"), 123);
+                assertEquals(rs.wasNull(), false);
                 assertEquals(rs.getString(2), "foo");
                 assertEquals(rs.getString("y"), "foo");
+                assertEquals(rs.wasNull(), false);
+                assertEquals(rs.getLong(3), 0);
+                assertEquals(rs.getObject("z"), null);
+                assertEquals(rs.wasNull(), true);
                 assertFalse(rs.next());
             }
         }
