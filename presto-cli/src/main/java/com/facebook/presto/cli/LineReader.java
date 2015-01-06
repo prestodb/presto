@@ -50,8 +50,6 @@ public class LineReader
             line = super.readLine(prompt, mask);
         }
         catch (UserInterruptException e) {
-            // TODO: remove when fixed in jline: https://github.com/jline/jline2/pull/112
-            getHistory().moveToEnd();
             interrupted = true;
             return null;
         }
