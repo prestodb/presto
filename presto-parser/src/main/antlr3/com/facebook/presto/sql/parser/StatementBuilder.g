@@ -71,6 +71,7 @@ statement returns [Statement value]
     | resetSession              { $value = $resetSession.value; }
     | showSession               { $value = $showSession.value; }
     | createTable               { $value = $createTable.value; }
+    | createTempTable           { $value = $createTempTable.value; }
     | dropTable                 { $value = $dropTable.value; }
     | renameTable               { $value = $renameTable.value; }
     | createView                { $value = $createView.value; }
@@ -129,6 +130,24 @@ setOperation returns [SetOperation value]
     : ^(UNION q1=queryBody q2=queryBody d=distinct[true])       { $value = new Union(ImmutableList.<Relation>of($q1.value, $q2.value), $d.value); }
     | ^(INTERSECT q1=queryBody q2=queryBody d=distinct[true])   { $value = new Intersect(ImmutableList.<Relation>of($q1.value, $q2.value), $d.value); }
     | ^(EXCEPT q1=queryBody q2=queryBody d=distinct[true])      { $value = new Except($q1.value, $q2.value, $d.value); }
+    ;
+
+restrictedSelectStmt returns [Query value]
+    : selectClause fromClause
+        { $value = new Query(
+            Optional.<With>empty(),
+            new QuerySpecification(
+                $selectClause.value,
+                Optional.ofNullable($fromClause.value),
+                Optional.<Expression>empty(),
+                ImmutableList.<Expression>of(),
+                Optional.<Expression>empty(),
+                ImmutableList.<SortItem>of(),
+                Optional.<String>empty()),
+            ImmutableList.<SortItem>of(),
+            Optional.<String>empty(),
+            Optional.<Approximate>empty());
+        }
     ;
 
 withClause returns [With value]
@@ -359,6 +378,7 @@ identList returns [List<String> value = new ArrayList<>()]
 ident returns [String value]
     : i=IDENT        { $value = $i.text; }
     | q=QUOTED_IDENT { $value = $q.text; }
+    | d=DIM_IDENT    { $value = $d.text; }
     ;
 
 string returns [String value]
@@ -566,6 +586,10 @@ resetSession returns [Statement value]
 
 createTable returns [Statement value]
     : ^(CREATE_TABLE qname query) { $value = new CreateTable($qname.value, $query.value); }
+    ;
+
+createTempTable returns [Statement value]
+    : ^(CREATE_TEMP_TABLE qname query) { $value = new CreateTempTable($qname.value, $query.value); }
     ;
 
 dropTable returns [Statement value]
