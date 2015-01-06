@@ -82,6 +82,9 @@ public class TestSqlParser
         SQL_PARSER.createExpression("1+sum(@asds)");
         SQL_PARSER.createExpression("@{m1}");
         SQL_PARSER.createExpression("@{[QBKZ70D4M].[Revenue]}");
+        SQL_PARSER.createExpression("@First/Second");
+        SQL_PARSER.createExpression("@First\\Second");
+        SQL_PARSER.createExpression("@First / @Second");
     }
 
     @Test
