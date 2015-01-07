@@ -38,6 +38,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.SetMultimap;
 import com.google.common.net.HttpHeaders;
 import com.google.common.net.MediaType;
@@ -73,6 +74,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -427,7 +429,7 @@ public class HttpRemoteTask
                         Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), this, executor);
                     }
                     else {
-                        log.error(t, "Unable to cancel task at %s", request.getUri());
+                        logError(t, "Unable to cancel task at %s", request.getUri());
                     }
                 }
             }, executor);
@@ -491,7 +493,7 @@ public class HttpRemoteTask
                         Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), this, executor);
                     }
                     else {
-                        log.error(t, "Unable to abort task at %s", request.getUri());
+                        logError(t, "Unable to abort task at %s", request.getUri());
                     }
                 }
             }, executor);
@@ -535,8 +537,8 @@ public class HttpRemoteTask
         }
 
         // log failure message
-        if (isSocketError(reason)) {
-            // don't print a stack for a socket error
+        if (isExpectedError(reason)) {
+            // don't print a stack for known errors
             log.warn("Error updating task %s: %s: %s", taskInfo.getTaskId(), reason.getMessage(), taskInfo.getSelf());
         }
         else {
@@ -773,7 +775,7 @@ public class HttpRemoteTask
                     callback.success(response.getValue());
                 }
                 else if (response.getStatusCode() == HttpStatus.SERVICE_UNAVAILABLE.code()) {
-                    callback.failed(new RuntimeException(format("Server at %s returned SERVICE_UNAVAILABLE", uri)));
+                    callback.failed(new ServiceUnavailableException(uri));
                 }
                 else {
                     // Something is broken in the server or the client, so fail the task immediately (includes 500 errors)
@@ -816,15 +818,37 @@ public class HttpRemoteTask
         void fatal(Throwable cause);
     }
 
-    private static boolean isSocketError(Throwable t)
+    private static void logError(Throwable t, String format, Object... args)
+    {
+        if (isExpectedError(t)) {
+            log.error(format + ": %s", ObjectArrays.concat(args, t));
+        }
+        else {
+            log.error(t, format, args);
+        }
+    }
+
+    private static boolean isExpectedError(Throwable t)
     {
         while (t != null) {
-            // in this case we consider an EOFException a socket error
-            if ((t instanceof SocketException) || (t instanceof SocketTimeoutException) || (t instanceof EOFException)) {
+            if ((t instanceof SocketException) ||
+                    (t instanceof SocketTimeoutException) ||
+                    (t instanceof EOFException) ||
+                    (t instanceof TimeoutException) ||
+                    (t instanceof ServiceUnavailableException)) {
                 return true;
             }
             t = t.getCause();
         }
         return false;
+    }
+
+    private static class ServiceUnavailableException
+            extends RuntimeException
+    {
+        public ServiceUnavailableException(URI uri)
+        {
+            super("Server returned SERVICE_UNAVAILABLE: " + uri);
+        }
     }
 }
