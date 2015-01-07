@@ -68,12 +68,28 @@ public class RaptorPageSink
             rowCount = 0;
         }
 
-        if (sampleWeightField < 0) {
-            appendPage(page);
-            return;
+        if (sampleWeightField >= 0) {
+            page = createPageWithSampleWeightBlock(page, sampleWeightBlock);
         }
 
-        // Create a page with the sampleWeightBlock at the sampleWeightField index
+        appendPage(page);
+        rowCount += page.getPositionCount();
+    }
+
+    @Override
+    public String commit()
+    {
+        storagePageSink.close();
+        List<UUID> shardUuids = storageManager.commit(storageOutputHandle);
+        // Format of each fragment: nodeId:shardUuid1,shardUuid2,shardUuid3
+        return Joiner.on(':').join(nodeId, Joiner.on(",").join(shardUuids));
+    }
+
+    /**
+     * @return page with the sampleWeightBlock at the sampleWeightField index
+     */
+    private Page createPageWithSampleWeightBlock(Page page, Block sampleWeightBlock)
+    {
         checkArgument(page.getPositionCount() == sampleWeightBlock.getPositionCount(), "position count of page and sampleWeightBlock must match");
         int outputChannelCount = page.getChannelCount() + 1;
         Block[] blocks = new Block[outputChannelCount];
@@ -87,23 +103,13 @@ public class RaptorPageSink
             blocks[channel] = page.getBlock(pageChannel);
             pageChannel++;
         }
-        appendPage(new Page(blocks));
+        return new Page(blocks);
     }
 
     private void appendPage(Page page)
     {
         storagePageSink.appendPage(page);
         rowCount += page.getPositionCount();
-    }
-
-    @Override
-    public String commit()
-    {
-        storagePageSink.close();
-        List<UUID> shardUuids = storageManager.commit(storageOutputHandle);
-        // Format of each fragment: nodeId:shardUuid1,shardUuid2,shardUuid3
-        return Joiner.on(':').join(nodeId, Joiner.on(",").join(shardUuids));
-
     }
 
     private static StoragePageSink createPageSink(StorageManager storageManager, StorageOutputHandle storageOutputHandle)
