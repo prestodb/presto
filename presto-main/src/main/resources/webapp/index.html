@@ -49,6 +49,7 @@
             <th>Source</th>
             <th>User</th>
             <th>State</th>
+            <th>Error</th>
             <th>Done</th>
             <th>Total</th>
             <th>Completion</th>
@@ -128,6 +129,7 @@ function renderDoneQueries(queries)
                           queryInfo.session.source,
                           queryInfo.session.user,
                           queryInfo.state,
+                          shortErrorType(queryInfo.errorType),
                           completedSplits,
                           splits,
                           d3.format("%")(splits == 0 ? 0 : completedSplits / splits)
@@ -216,6 +218,18 @@ function allStages(stage)
     return [stage].concat(flatten(substages));
 }
 
+function shortErrorType(errorType)
+{
+    switch (errorType) {
+        case "USER_ERROR":
+            return "USER";
+        case "INTERNAL_ERROR":
+            return "INTERNAL";
+        case "INSUFFICIENT_RESOURCES":
+            return "RESOURCES";
+    }
+    return errorType;
+}
 
 function flatten(array)
 {

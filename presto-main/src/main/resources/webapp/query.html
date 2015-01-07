@@ -98,6 +98,12 @@
         <dt>Kill</dt>
         <dd id="killQuery"></dd>
 
+        <dt>Error Type</dt>
+        <dd id="errorType"></dd>
+
+        <dt>Error Code</dt>
+        <dd id="errorCode"></dd>
+
         <dt>Message</dt>
         <dd id="failureMessage"></dd>
 
@@ -168,6 +174,20 @@ d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
     }
     else {
         d3.select('#failureMessage').html("&nbsp;");
+    }
+
+    if (query.errorType) {
+        d3.select('#errorType').text(query.errorType);
+    }
+    else {
+        d3.select('#errorType').html("&nbsp;");
+    }
+
+    if (query.errorCode) {
+        d3.select('#errorCode').text(query.errorCode.name + " (" + query.errorCode.code + ")");
+    }
+    else {
+        d3.select('#errorCode').html("&nbsp;");
     }
 
     var sessionPropertiesList = d3.select('#sessionProperties').append("ul");

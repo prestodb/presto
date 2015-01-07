@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.StandardErrorCode.ErrorType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.spi.StandardErrorCode.toErrorType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 @Immutable
@@ -48,6 +50,7 @@ public class QueryInfo
     private final Set<String> resetSessionProperties;
     private final StageInfo outputStage;
     private final FailureInfo failureInfo;
+    private final ErrorType errorType;
     private final ErrorCode errorCode;
     private final Set<Input> inputs;
 
@@ -91,14 +94,9 @@ public class QueryInfo
         this.resetSessionProperties = ImmutableSet.copyOf(resetSessionProperties);
         this.outputStage = outputStage;
         this.failureInfo = failureInfo;
+        this.errorType = errorCode == null ? null : toErrorType(errorCode.getCode());
         this.errorCode = errorCode;
         this.inputs = ImmutableSet.copyOf(inputs);
-    }
-
-    @JsonProperty
-    public ErrorCode getErrorCode()
-    {
-        return errorCode;
     }
 
     @JsonProperty
@@ -172,6 +170,20 @@ public class QueryInfo
     public FailureInfo getFailureInfo()
     {
         return failureInfo;
+    }
+
+    @Nullable
+    @JsonProperty
+    public ErrorType getErrorType()
+    {
+        return errorType;
+    }
+
+    @Nullable
+    @JsonProperty
+    public ErrorCode getErrorCode()
+    {
+        return errorCode;
     }
 
     @JsonProperty
