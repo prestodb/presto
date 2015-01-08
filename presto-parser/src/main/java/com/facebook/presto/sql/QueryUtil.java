@@ -108,7 +108,7 @@ public final class QueryUtil
 
     public static Expression caseWhen(Expression operand, Expression result)
     {
-        return new SearchedCaseExpression(ImmutableList.of(new WhenClause(operand, result)), null);
+        return new SearchedCaseExpression(ImmutableList.of(new WhenClause(operand, result)), Optional.empty());
     }
 
     public static Expression functionCall(String name, Expression... arguments)
