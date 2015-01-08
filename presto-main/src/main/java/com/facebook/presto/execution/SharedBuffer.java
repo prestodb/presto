@@ -45,11 +45,13 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.execution.BufferResult.emptyResults;
+import static com.facebook.presto.execution.PageSplitterUtil.splitPage;
 import static com.facebook.presto.execution.SharedBuffer.BufferState.FINISHED;
 import static com.facebook.presto.execution.SharedBuffer.BufferState.FLUSHING;
 import static com.facebook.presto.execution.SharedBuffer.BufferState.NO_MORE_BUFFERS;
 import static com.facebook.presto.execution.SharedBuffer.BufferState.NO_MORE_PAGES;
 import static com.facebook.presto.execution.SharedBuffer.BufferState.OPEN;
+import static com.facebook.presto.spi.block.BlockBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -230,11 +232,12 @@ public class SharedBuffer
 
     private synchronized void addInternal(Page page)
     {
-        // add page
-        masterBuffer.add(page);
-        pagesAdded.incrementAndGet();
-        bufferedBytes += page.getSizeInBytes();
-
+        List<Page> pages = splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+        masterBuffer.addAll(pages);
+        pagesAdded.addAndGet(pages.size());
+        for (Page p : pages) {
+            bufferedBytes += p.getSizeInBytes();
+        }
         processPendingReads();
     }
 
