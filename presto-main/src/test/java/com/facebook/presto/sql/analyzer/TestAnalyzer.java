@@ -544,8 +544,9 @@ public class TestAnalyzer
         assertFails(TYPE_MISMATCH, "SELECT TRY_CAST(date '2014-01-01' AS bigint)");
         assertFails(TYPE_MISMATCH, "SELECT CAST(null AS UNKNOWN)");
 
-        // arithmetic negation
+        // arithmetic unary
         assertFails(TYPE_MISMATCH, "SELECT -'a' FROM t1");
+        assertFails(TYPE_MISMATCH, "SELECT +'a' FROM t1");
 
         // arithmetic addition/subtraction
         assertFails(TYPE_MISMATCH, "SELECT 'a' + 1 FROM t1");
