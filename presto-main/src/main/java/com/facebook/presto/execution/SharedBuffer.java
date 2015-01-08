@@ -256,7 +256,7 @@ public class SharedBuffer
         return getBufferResult.getFuture();
     }
 
-    public synchronized List<Page> getPagesInternal(DataSize maxSize, long sequenceId)
+    private synchronized List<Page> getPagesInternal(DataSize maxSize, long sequenceId)
     {
         long maxBytes = maxSize.toBytes();
         List<Page> pages = new ArrayList<>();
