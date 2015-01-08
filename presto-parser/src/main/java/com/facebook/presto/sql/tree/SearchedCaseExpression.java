@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SearchedCaseExpression
         extends Expression
@@ -27,7 +28,8 @@ public class SearchedCaseExpression
 
     public SearchedCaseExpression(List<WhenClause> whenClauses, Optional<Expression> defaultValue)
     {
-        Preconditions.checkNotNull(whenClauses, "whenClauses is null");
+        checkNotNull(whenClauses, "whenClauses is null");
+        checkNotNull(defaultValue, "defaultValue is null");
         this.whenClauses = ImmutableList.copyOf(whenClauses);
         this.defaultValue = defaultValue;
     }
