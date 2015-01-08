@@ -437,14 +437,22 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitArithmeticUnary(ArithmeticUnaryExpression node, AnalysisContext context)
         {
-            if (node.getSign() == ArithmeticUnaryExpression.Sign.MINUS) {
-                return getOperator(context, node, OperatorType.NEGATION, node.getValue());
+            switch (node.getSign()) {
+                case PLUS:
+                    Type type = process(node.getValue(), context);
+
+                    if (!type.equals(BIGINT) && !type.equals(DOUBLE)) {
+                        // TODO: figure out a type-agnostic way of dealing with this. Maybe add a special unary operator
+                        // that types can chose to implement, or piggyback on the existence of the negation operator
+                        throw new SemanticException(TYPE_MISMATCH, node, "Unary '+' operator cannot by applied to %s type", type);
+                    }
+                    expressionTypes.put(node, type);
+                    break;
+                case MINUS:
+                    return getOperator(context, node, OperatorType.NEGATION, node.getValue());
             }
 
-            Type type = process(node.getValue(), context);
-            expressionTypes.put(node, type);
-
-            return type;
+            throw new UnsupportedOperationException("Unsupported unary operator: " + node.getSign());
         }
 
         @Override
