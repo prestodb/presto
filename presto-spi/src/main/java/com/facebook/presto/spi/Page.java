@@ -71,6 +71,20 @@ public class Page
         return blocks[channel];
     }
 
+    public Page getRegion(int positionOffset, int length)
+    {
+        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
+            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in page with " + positionCount + " positions");
+        }
+
+        int channelCount = getChannelCount();
+        Block[] slicedBlocks = new Block[channelCount];
+        for (int i = 0; i < channelCount; i++) {
+            slicedBlocks[i] = blocks[i].getRegion(positionOffset, length);
+        }
+        return new Page(length, slicedBlocks);
+    }
+
     /**
      * Assures that all data for the block is in memory.
      *
