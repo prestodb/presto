@@ -92,6 +92,14 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testVarbinary()
+            throws Exception
+    {
+        assertQuery("SELECT LENGTH(x) FROM (SELECT from_base64('gw==') as x)", "SELECT 1");
+        assertQuery("SELECT LENGTH(from_base64('gw=='))", "SELECT 1");
+    }
+
+    @Test
     public void testRowFieldAccessor()
             throws Exception
     {
