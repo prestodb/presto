@@ -18,6 +18,7 @@ import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.CurrentTime;
@@ -42,12 +43,14 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
+import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowTables;
@@ -605,6 +608,33 @@ public class TestSqlParser
         assertStatement("SHOW TABLES", new ShowTables(Optional.empty(), Optional.empty()));
         assertStatement("SHOW TABLES FROM a", new ShowTables(Optional.of(QualifiedName.of("a")), Optional.empty()));
         assertStatement("SHOW TABLES IN a LIKE '%'", new ShowTables(Optional.of(QualifiedName.of("a")), Optional.of("%")));
+    }
+
+    @Test
+    public void testShowPartitions()
+    {
+        assertStatement("SHOW PARTITIONS FROM t", new ShowPartitions(QualifiedName.of("t"), Optional.empty(), ImmutableList.of(), Optional.empty()));
+
+        assertStatement("SHOW PARTITIONS FROM t WHERE x = 1",
+                new ShowPartitions(
+                        QualifiedName.of("t"),
+                        Optional.of(new ComparisonExpression(ComparisonExpression.Type.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("SHOW PARTITIONS FROM t WHERE x = 1 ORDER BY y",
+                new ShowPartitions(
+                        QualifiedName.of("t"),
+                        Optional.of(new ComparisonExpression(ComparisonExpression.Type.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
+                        ImmutableList.of(new SortItem(new QualifiedNameReference(QualifiedName.of("y")), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
+                        Optional.empty()));
+
+        assertStatement("SHOW PARTITIONS FROM t WHERE x = 1 ORDER BY y LIMIT 10",
+                new ShowPartitions(
+                        QualifiedName.of("t"),
+                        Optional.of(new ComparisonExpression(ComparisonExpression.Type.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
+                        ImmutableList.of(new SortItem(new QualifiedNameReference(QualifiedName.of("y")), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
+                        Optional.of("10")));
     }
 
     @Test
