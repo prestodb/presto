@@ -81,6 +81,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
+import static com.facebook.presto.util.Failures.WORKER_NODE_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -556,10 +557,11 @@ public class HttpRemoteTask
         if (errorCount > maxConsecutiveErrorCount && timeSinceLastSuccess.compareTo(minErrorDuration) > 0) {
             // it is weird to mark the task failed locally and then cancel the remote task, but there is no way to tell a remote task that it is failed
             PrestoException exception = new PrestoException(TOO_MANY_REQUESTS_FAILED,
-                    format("Encountered too many errors talking to a worker node. The node may have crashed or be under too much load. This is probably a transient issue, so please retry your query in a few minutes (%s - %s failures, time since last success %s)",
+                    format("%s (%s - %s failures, time since last success %s)",
+                            WORKER_NODE_ERROR,
                             taskInfo.getSelf(),
                             errorCount,
-                            timeSinceLastSuccess.convertToMostSuccinctTimeUnit()));
+                            timeSinceLastSuccess.convertTo(TimeUnit.SECONDS)));
             for (Throwable error : errorsSinceLastSuccess) {
                 exception.addSuppressed(error);
             }
