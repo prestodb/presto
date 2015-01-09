@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TypeParameter;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -101,6 +102,10 @@ public final class MapConstructor
 
             checkCondition(keysArray.length == valuesArray.length, INVALID_FUNCTION_ARGUMENT, "Key and value arrays must be the same length");
             for (int i = 0; i < keysArray.length; i++) {
+                if (keysArray[i] == null) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
+                }
+
                 map.put(keysArray[i], valuesArray[i]);
             }
         }
