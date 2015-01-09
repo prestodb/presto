@@ -173,7 +173,7 @@ public final class BlockAssertions
 
     public static Block createLongSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(end - start);
 
         for (int i = start; i < end; i++) {
             BIGINT.writeLong(builder, i);
@@ -184,7 +184,7 @@ public final class BlockAssertions
 
     public static Block createBooleanSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = BOOLEAN.createFixedSizeBlockBuilder(end - start);
 
         for (int i = start; i < end; i++) {
             BOOLEAN.writeBoolean(builder, i % 2 == 0);
@@ -218,7 +218,7 @@ public final class BlockAssertions
 
     public static Block createDoubleSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = DOUBLE.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = DOUBLE.createFixedSizeBlockBuilder(end - start);
 
         for (int i = start; i < end; i++) {
             DOUBLE.writeDouble(builder, (double) i);
