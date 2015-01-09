@@ -390,7 +390,7 @@ public class StatementResource
 
             ImmutableList.Builder<RowIterable> pages = ImmutableList.builder();
             // wait up to max wait for data to arrive; then try to return at least DESIRED_RESULT_BYTES
-            int bytes = 0;
+            long bytes = 0;
             while (bytes < DESIRED_RESULT_BYTES) {
                 Page page = exchangeClient.getNextPage(maxWait);
                 if (page == null) {
