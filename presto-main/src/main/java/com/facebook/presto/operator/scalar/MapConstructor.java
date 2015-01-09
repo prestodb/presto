@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TypeParameter;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -83,6 +84,11 @@ public final class MapConstructor
         Type keyType = types.get("K");
         Type valueType = types.get("V");
 
+        //TODO Why is this null instead of unknown?
+        if (keyType == null) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
+        }
+
         Type mapType = typeManager.getParameterizedType(MAP, ImmutableList.of(keyType.getTypeSignature(), valueType.getTypeSignature()), ImmutableList.of());
         ImmutableList<TypeSignature> argumentTypes = ImmutableList.of(parameterizedTypeName(StandardTypes.ARRAY, keyType.getTypeSignature()), parameterizedTypeName(StandardTypes.ARRAY, valueType.getTypeSignature()));
         Signature signature = new Signature("map", ImmutableList.<TypeParameter>of(), mapType.getTypeSignature(), argumentTypes, false, false);
@@ -101,6 +107,10 @@ public final class MapConstructor
 
             checkCondition(keysArray.length == valuesArray.length, INVALID_FUNCTION_ARGUMENT, "Key and value arrays must be the same length");
             for (int i = 0; i < keysArray.length; i++) {
+                if (keysArray[i] == null) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
+                }
+
                 map.put(keysArray[i], valuesArray[i]);
             }
         }
