@@ -167,6 +167,10 @@ public class TestMapOperators
     public void testSubscript()
             throws Exception
     {
+        assertFunction("MAP(ARRAY [1], ARRAY [null])[1]", null);
+        assertFunction("MAP(ARRAY [1.0], ARRAY [null])[1.0]", null);
+        assertFunction("MAP(ARRAY [TRUE], ARRAY [null])[TRUE]", null);
+        assertFunction("MAP(ARRAY['puppies'], ARRAY [null])['puppies']", null);
         assertInvalidFunction("MAP(ARRAY [CAST(null as bigint)], ARRAY [1])", "map key cannot be null");
         assertInvalidFunction("MAP(ARRAY [CAST(null as bigint)], ARRAY [CAST(null as bigint)])", "map key cannot be null");
         assertInvalidFunction("MAP(ARRAY [1,null], ARRAY [null,2])", "map key cannot be null");
