@@ -21,6 +21,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Min;
@@ -571,8 +572,8 @@ public class HiveClientConfig
         return this;
     }
 
-    // TODO: add @MinDataSize(5MB) when supported in Airlift
     @NotNull
+    @MinDataSize("16MB")
     public DataSize getS3MultipartMinFileSize()
     {
         return s3MultipartMinFileSize;
@@ -586,8 +587,8 @@ public class HiveClientConfig
         return this;
     }
 
-    // TODO: add @MinDataSize(5MB) when supported in Airlift
     @NotNull
+    @MinDataSize("5MB")
     public DataSize getS3MultipartMinPartSize()
     {
         return s3MultipartMinPartSize;
