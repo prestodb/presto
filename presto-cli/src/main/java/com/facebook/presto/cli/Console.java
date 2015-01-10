@@ -30,6 +30,7 @@ import io.airlift.command.HelpOption;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
 import jline.console.history.FileHistory;
+import jline.console.history.History;
 import jline.console.history.MemoryHistory;
 import org.fusesource.jansi.AnsiConsole;
 
@@ -42,6 +43,8 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.cli.Help.getHelpText;
 import static com.facebook.presto.client.ClientSession.withProperties;
@@ -63,6 +66,8 @@ public class Console
 
     // create a parser with all identifier options enabled, since this is only used for USE statements
     private static final SqlParser SQL_PARSER = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(EnumSet.allOf(IdentifierSymbol.class)));
+
+    private static final Pattern HISTORY_INDEX_PATTERN = Pattern.compile("!\\d+");
 
     @Inject
     public HelpOption helpOption;
@@ -123,7 +128,8 @@ public class Console
                 if (buffer.length() > 0) {
                     prompt = Strings.repeat(" ", prompt.length() - 1) + "-";
                 }
-                String line = reader.readLine(prompt + "> ");
+                String commandPrompt = prompt + "> ";
+                String line = reader.readLine(commandPrompt);
 
                 // add buffer to history and clear on user interrupt
                 if (reader.interrupted()) {
@@ -143,13 +149,32 @@ public class Console
                 // check for special commands if this is the first line
                 if (buffer.length() == 0) {
                     String command = line.trim();
+
+                    Matcher matcher = HISTORY_INDEX_PATTERN.matcher(command);
+                    if (matcher.find()) {
+                        int historyIndex = Integer.parseInt(command.substring(1));
+                        final History history = reader.getHistory();
+                        try {
+                            line = history.get(historyIndex).toString();
+                            System.out.println(commandPrompt + line);
+                        }
+                        catch (Exception e) {
+                            System.err.println("Command doesn't exist");
+                            continue;
+                        }
+                    }
+
                     if (command.endsWith(";")) {
                         command = command.substring(0, command.length() - 1).trim();
                     }
+
                     switch (command.toLowerCase(ENGLISH)) {
                         case "exit":
                         case "quit":
                             return;
+                        case "history":
+                            System.out.println(reader.getHistory());
+                            continue;
                         case "help":
                             System.out.println();
                             System.out.println(getHelpText());
