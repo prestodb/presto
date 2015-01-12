@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -63,7 +64,7 @@ import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -82,9 +83,11 @@ public abstract class AbstractTestHiveClientS3
 
     protected HdfsEnvironment hdfsEnvironment;
     protected TestingHiveMetastore metastoreClient;
-    protected HiveClient client;
+    protected HiveClient metadata;
+    protected ConnectorSplitManager splitManager;
     protected ConnectorRecordSinkProvider recordSinkProvider;
     protected ConnectorPageSourceProvider pageSourceProvider;
+
     private ExecutorService executor;
 
     @BeforeClass
@@ -126,20 +129,27 @@ public abstract class AbstractTestHiveClientS3
             hiveClientConfig.setMetastoreSocksProxy(HostAndPort.fromString(proxy));
         }
 
+        HiveConnectorId connectorId = new HiveConnectorId("hive-test");
         HiveCluster hiveCluster = new TestingHiveCluster(hiveClientConfig, host, port);
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-s3-%s"));
 
         hdfsEnvironment = new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig));
         metastoreClient = new TestingHiveMetastore(hiveCluster, executor, hiveClientConfig, writableBucket);
-        client = new HiveClient(
-                new HiveConnectorId("hive-test"),
+        metadata = new HiveClient(
+                connectorId,
+                hiveClientConfig,
+                metastoreClient,
+                hdfsEnvironment,
+                newDirectExecutorService(),
+                new TypeRegistry());
+        splitManager = new HiveSplitManager(
+                connectorId,
                 hiveClientConfig,
                 metastoreClient,
                 new NamenodeStats(),
-                new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig)),
+                hdfsEnvironment,
                 new HadoopDirectoryLister(),
-                sameThreadExecutor(),
-                new TypeRegistry());
+                executor);
         recordSinkProvider = new HiveRecordSinkProvider(hdfsEnvironment);
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, DEFAULT_HIVE_RECORD_CURSOR_PROVIDER, DEFAULT_HIVE_DATA_STREAM_FACTORIES, TYPE_MANAGER);
     }
@@ -149,12 +159,12 @@ public abstract class AbstractTestHiveClientS3
             throws Exception
     {
         ConnectorTableHandle table = getTableHandle(tableS3);
-        List<ConnectorColumnHandle> columnHandles = ImmutableList.copyOf(client.getColumnHandles(table).values());
+        List<ConnectorColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(table).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
-        ConnectorPartitionResult partitionResult = client.getPartitions(table, TupleDomain.<ConnectorColumnHandle>all());
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(table, TupleDomain.<ConnectorColumnHandle>all());
         assertEquals(partitionResult.getPartitions().size(), 1);
-        ConnectorSplitSource splitSource = client.getPartitionSplits(table, partitionResult.getPartitions());
+        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(table, partitionResult.getPartitions());
 
         long sum = 0;
 
@@ -206,7 +216,7 @@ public abstract class AbstractTestHiveClientS3
                 .build();
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, tableOwner);
-        HiveOutputTableHandle outputHandle = client.beginCreateTable(SESSION, tableMetadata);
+        HiveOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, tableMetadata);
 
         // write the records
         RecordSink sink = recordSinkProvider.getRecordSink(outputHandle);
@@ -226,7 +236,7 @@ public abstract class AbstractTestHiveClientS3
         Collection<Slice> fragments = sink.commit();
 
         // commit the table
-        client.commitCreateTable(outputHandle, fragments);
+        metadata.commitCreateTable(outputHandle, fragments);
 
         // Hack to work around the metastore not being configured for S3.
         // The metastore tries to validate the location when creating the
@@ -237,12 +247,12 @@ public abstract class AbstractTestHiveClientS3
 
         // load the new table
         ConnectorTableHandle tableHandle = getTableHandle(tableName);
-        List<ConnectorColumnHandle> columnHandles = ImmutableList.copyOf(client.getColumnHandles(tableHandle).values());
+        List<ConnectorColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
 
         // verify the data
-        ConnectorPartitionResult partitionResult = client.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
         assertEquals(partitionResult.getPartitions().size(), 1);
-        ConnectorSplitSource splitSource = client.getPartitionSplits(tableHandle, partitionResult.getPartitions());
+        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
         ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
         try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(split, columnHandles)) {
@@ -274,7 +284,7 @@ public abstract class AbstractTestHiveClientS3
 
     private ConnectorTableHandle getTableHandle(SchemaTableName tableName)
     {
-        ConnectorTableHandle handle = client.getTableHandle(SESSION, tableName);
+        ConnectorTableHandle handle = metadata.getTableHandle(SESSION, tableName);
         checkArgument(handle != null, "table not found: %s", tableName);
         return handle;
     }
