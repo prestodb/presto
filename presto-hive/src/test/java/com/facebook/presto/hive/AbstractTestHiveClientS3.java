@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -82,6 +83,7 @@ public abstract class AbstractTestHiveClientS3
     protected HdfsEnvironment hdfsEnvironment;
     protected TestingHiveMetastore metastoreClient;
     protected HiveClient client;
+    protected ConnectorRecordSinkProvider recordSinkProvider;
     protected ConnectorPageSourceProvider pageSourceProvider;
     private ExecutorService executor;
 
@@ -138,7 +140,7 @@ public abstract class AbstractTestHiveClientS3
                 new HadoopDirectoryLister(),
                 sameThreadExecutor(),
                 new TypeRegistry());
-
+        recordSinkProvider = new HiveRecordSinkProvider(hdfsEnvironment);
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, DEFAULT_HIVE_RECORD_CURSOR_PROVIDER, DEFAULT_HIVE_DATA_STREAM_FACTORIES, TYPE_MANAGER);
     }
 
@@ -207,7 +209,7 @@ public abstract class AbstractTestHiveClientS3
         HiveOutputTableHandle outputHandle = client.beginCreateTable(SESSION, tableMetadata);
 
         // write the records
-        RecordSink sink = client.getRecordSink(outputHandle);
+        RecordSink sink = recordSinkProvider.getRecordSink(outputHandle);
 
         sink.beginRecord(1);
         sink.appendLong(1);
