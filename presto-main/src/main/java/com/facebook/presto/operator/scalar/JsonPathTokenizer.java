@@ -37,6 +37,10 @@ public class JsonPathTokenizer
     {
         this.path = checkNotNull(path, "path is null");
 
+        if (path.isEmpty()) {
+            throw invalidJsonPath();
+        }
+
         // skip the start token
         match('$');
     }
@@ -158,7 +162,7 @@ public class JsonPathTokenizer
         return path.charAt(index);
     }
 
-    public PrestoException invalidJsonPath()
+    private PrestoException invalidJsonPath()
     {
         return new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Invalid JSON path: '%s'", path));
     }
