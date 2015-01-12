@@ -291,7 +291,7 @@ public abstract class AbstractTestHiveClient
         HiveConnectorId connectorId = new HiveConnectorId(connectorName);
 
         hdfsEnvironment = new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig));
-        metadata = new HiveClient(
+        metadata = new HiveMetadata(
                 connectorId,
                 metastoreClient,
                 hdfsEnvironment,

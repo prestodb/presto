@@ -83,7 +83,7 @@ public abstract class AbstractTestHiveClientS3
 
     protected HdfsEnvironment hdfsEnvironment;
     protected TestingHiveMetastore metastoreClient;
-    protected HiveClient metadata;
+    protected HiveMetadata metadata;
     protected ConnectorSplitManager splitManager;
     protected ConnectorRecordSinkProvider recordSinkProvider;
     protected ConnectorPageSourceProvider pageSourceProvider;
@@ -135,7 +135,7 @@ public abstract class AbstractTestHiveClientS3
 
         hdfsEnvironment = new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig));
         metastoreClient = new TestingHiveMetastore(hiveCluster, executor, hiveClientConfig, writableBucket);
-        metadata = new HiveClient(
+        metadata = new HiveMetadata(
                 connectorId,
                 hiveClientConfig,
                 metastoreClient,
