@@ -314,8 +314,7 @@ public abstract class AbstractTestHiveClient
 
         metadata = client;
         splitManager = client;
-        recordSinkProvider = client;
-
+        recordSinkProvider = new HiveRecordSinkProvider(hdfsEnvironment);
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, DEFAULT_HIVE_RECORD_CURSOR_PROVIDER, DEFAULT_HIVE_DATA_STREAM_FACTORIES, TYPE_MANAGER);
     }
 

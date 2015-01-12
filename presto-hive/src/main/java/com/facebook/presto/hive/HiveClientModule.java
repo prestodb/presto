@@ -21,6 +21,7 @@ import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.net.HostAndPort;
 import com.google.inject.Binder;
@@ -99,6 +100,7 @@ public class HiveClientModule
         recordCursorProviderBinder.addBinding().to(GenericHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
 
         binder.bind(ConnectorPageSourceProvider.class).to(HivePageSourceProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorRecordSinkProvider.class).to(HiveRecordSinkProvider.class).in(Scopes.SINGLETON);
 
         Multibinder<HivePageSourceFactory> pageSourceFactoryBinder = Multibinder.newSetBinder(binder, HivePageSourceFactory.class);
         pageSourceFactoryBinder.addBinding().to(RcFilePageSourceFactory.class).in(Scopes.SINGLETON);

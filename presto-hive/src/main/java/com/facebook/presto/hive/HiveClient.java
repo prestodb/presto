@@ -23,7 +23,6 @@ import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
@@ -33,7 +32,6 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
@@ -80,7 +78,6 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
-import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
@@ -150,7 +147,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspe
 
 @SuppressWarnings("deprecation")
 public class HiveClient
-        implements ConnectorMetadata, ConnectorSplitManager, ConnectorRecordSinkProvider, ConnectorHandleResolver
+        implements ConnectorMetadata, ConnectorSplitManager, ConnectorHandleResolver
 {
     public static final String PRESTO_OFFLINE = "presto_offline";
     private static final String PARTITION_VALUE_WILDCARD = "";
@@ -753,23 +750,6 @@ public class HiveClient
         table.setSd(sd);
 
         metastore.createTable(table);
-    }
-
-    @Override
-    public RecordSink getRecordSink(ConnectorOutputTableHandle tableHandle)
-    {
-        HiveOutputTableHandle handle = checkType(tableHandle, HiveOutputTableHandle.class, "tableHandle");
-
-        Path target = new Path(handle.getTemporaryPath(), randomUUID().toString());
-        JobConf conf = new JobConf(hdfsEnvironment.getConfiguration(target));
-
-        return new HiveRecordSink(handle, target, conf);
-    }
-
-    @Override
-    public RecordSink getRecordSink(ConnectorInsertTableHandle tableHandle)
-    {
-        throw new UnsupportedOperationException();
     }
 
     private Database getDatabase(String database)
