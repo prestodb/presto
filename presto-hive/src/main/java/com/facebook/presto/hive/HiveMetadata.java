@@ -76,11 +76,10 @@ import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 import static org.apache.hadoop.hive.serde.serdeConstants.STRING_TYPE_NAME;
 
-@SuppressWarnings("deprecation")
-public class HiveClient
+public class HiveMetadata
         implements ConnectorMetadata
 {
-    private static final Logger log = Logger.get(HiveClient.class);
+    private static final Logger log = Logger.get(HiveMetadata.class);
 
     private final String connectorId;
     private final boolean allowDropTable;
@@ -93,7 +92,9 @@ public class HiveClient
     private final TypeManager typeManager;
 
     @Inject
-    public HiveClient(HiveConnectorId connectorId,
+    @SuppressWarnings("deprecation")
+    public HiveMetadata(
+            HiveConnectorId connectorId,
             HiveClientConfig hiveClientConfig,
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
@@ -111,7 +112,8 @@ public class HiveClient
                 typeManager);
     }
 
-    public HiveClient(HiveConnectorId connectorId,
+    public HiveMetadata(
+            HiveConnectorId connectorId,
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             DateTimeZone timeZone,
