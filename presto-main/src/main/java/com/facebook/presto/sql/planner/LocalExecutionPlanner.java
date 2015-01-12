@@ -817,6 +817,9 @@ public class LocalExecutionPlanner
                     return new PhysicalOperation(operatorFactory, outputMappings, source);
                 }
             }
+            catch (PrestoException pe) {
+                throw pe;
+            }
             catch (RuntimeException e) {
                 if (!interpreterEnabled) {
                     throw new PrestoException(COMPILER_ERROR, "Compiler failed and interpreter is disabled", e);
