@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SerializableNativeValue;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -75,6 +77,7 @@ import static com.facebook.presto.hive.HiveType.getHiveType;
 import static com.facebook.presto.hive.HiveType.getSupportedHiveType;
 import static com.facebook.presto.hive.HiveType.getType;
 import static com.facebook.presto.hive.RetryDriver.retry;
+import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -468,6 +471,11 @@ public final class HiveUtil
         catch (IllegalArgumentException e) {
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for TIMESTAMP partition key: %s", value, name));
         }
+    }
+
+    public static SchemaTableName schemaTableName(ConnectorTableHandle tableHandle)
+    {
+        return checkType(tableHandle, HiveTableHandle.class, "tableHandle").getSchemaTableName();
     }
 
     public static List<HiveColumnHandle> hiveColumnHandles(TypeManager typeManager, String connectorId, Table table, boolean includeSampleWeight)

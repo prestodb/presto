@@ -115,7 +115,7 @@ import static com.facebook.presto.testing.MaterializedResult.materializeSourceDa
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.uniqueIndex;
-import static com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -288,32 +288,36 @@ public abstract class AbstractTestHiveClient
 
         HiveMetastore metastoreClient = new CachingHiveMetastore(hiveCluster, executor, Duration.valueOf("1m"), Duration.valueOf("15s"));
 
+        HiveConnectorId connectorId = new HiveConnectorId(connectorName);
+
         hdfsEnvironment = new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig));
-        HiveClient client = new HiveClient(
-                new HiveConnectorId(connectorName),
+        metadata = new HiveClient(
+                connectorId,
+                metastoreClient,
+                hdfsEnvironment,
+                timeZone,
+                true,
+                true,
+                true,
+                hiveClientConfig.getHiveStorageFormat(),
+                new TypeRegistry());
+        splitManager = new HiveSplitManager(
+                connectorId,
                 metastoreClient,
                 new NamenodeStats(),
                 hdfsEnvironment,
                 new HadoopDirectoryLister(),
                 timeZone,
-                sameThreadExecutor(),
-                hiveClientConfig.getMaxSplitSize(),
+                newDirectExecutorService(),
                 maxOutstandingSplits,
                 maxThreads,
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
+                hiveClientConfig.getMaxSplitSize(),
                 hiveClientConfig.getMaxInitialSplitSize(),
                 hiveClientConfig.getMaxInitialSplits(),
                 false,
-                true,
-                true,
-                true,
-                hiveClientConfig.getHiveStorageFormat(),
-                false,
-                new TypeRegistry());
-
-        metadata = client;
-        splitManager = client;
+                false);
         recordSinkProvider = new HiveRecordSinkProvider(hdfsEnvironment);
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, DEFAULT_HIVE_RECORD_CURSOR_PROVIDER, DEFAULT_HIVE_DATA_STREAM_FACTORIES, TYPE_MANAGER);
     }
