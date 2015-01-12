@@ -18,24 +18,43 @@ import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.StructField;
+import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 
 import javax.annotation.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.hive.HiveUtil.isArrayType;
 import static com.facebook.presto.hive.HiveUtil.isMapType;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
+import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
@@ -193,5 +212,99 @@ public final class HiveType
     public String toString()
     {
         return hiveTypeName;
+    }
+
+    public static Type getType(String hiveType)
+    {
+        switch (hiveType) {
+            case BOOLEAN_TYPE_NAME:
+                return BOOLEAN;
+            case TINYINT_TYPE_NAME:
+            case SMALLINT_TYPE_NAME:
+            case INT_TYPE_NAME:
+            case BIGINT_TYPE_NAME:
+                return BIGINT;
+            case FLOAT_TYPE_NAME:
+            case DOUBLE_TYPE_NAME:
+                return DOUBLE;
+            case STRING_TYPE_NAME:
+                return VARCHAR;
+            case TIMESTAMP_TYPE_NAME:
+                return TIMESTAMP;
+            case BINARY_TYPE_NAME:
+                return VARBINARY;
+            default:
+                throw new IllegalArgumentException("Unsupported hive type " + hiveType);
+        }
+    }
+
+    @Nullable
+    public static Type getType(ObjectInspector fieldInspector, TypeManager typeManager)
+    {
+        switch (fieldInspector.getCategory()) {
+            case PRIMITIVE:
+                PrimitiveObjectInspector.PrimitiveCategory primitiveCategory = ((PrimitiveObjectInspector) fieldInspector).getPrimitiveCategory();
+                return getPrimitiveType(primitiveCategory);
+            case MAP:
+                MapObjectInspector mapObjectInspector = checkType(fieldInspector, MapObjectInspector.class, "fieldInspector");
+                Type keyType = getType(mapObjectInspector.getMapKeyObjectInspector(), typeManager);
+                Type valueType = getType(mapObjectInspector.getMapValueObjectInspector(), typeManager);
+                if (keyType == null || valueType == null) {
+                    return null;
+                }
+                return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(keyType.getTypeSignature(), valueType.getTypeSignature()), ImmutableList.of());
+            case LIST:
+                ListObjectInspector listObjectInspector = checkType(fieldInspector, ListObjectInspector.class, "fieldInspector");
+                Type elementType = getType(listObjectInspector.getListElementObjectInspector(), typeManager);
+                if (elementType == null) {
+                    return null;
+                }
+                return typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(elementType.getTypeSignature()), ImmutableList.of());
+            case STRUCT:
+                StructObjectInspector structObjectInspector = checkType(fieldInspector, StructObjectInspector.class, "fieldInspector");
+                List<TypeSignature> fieldTypes = new ArrayList<>();
+                List<Object> fieldNames = new ArrayList<>();
+                for (StructField field : structObjectInspector.getAllStructFieldRefs()) {
+                    fieldNames.add(field.getFieldName());
+                    Type fieldType = getType(field.getFieldObjectInspector(), typeManager);
+                    if (fieldType == null) {
+                        return null;
+                    }
+                    fieldTypes.add(fieldType.getTypeSignature());
+                }
+                return typeManager.getParameterizedType(StandardTypes.ROW, fieldTypes, fieldNames);
+            default:
+                throw new IllegalArgumentException("Unsupported hive type " + fieldInspector.getTypeName());
+        }
+    }
+
+    private static Type getPrimitiveType(PrimitiveObjectInspector.PrimitiveCategory primitiveCategory)
+    {
+        switch (primitiveCategory) {
+            case BOOLEAN:
+                return BOOLEAN;
+            case BYTE:
+                return BIGINT;
+            case SHORT:
+                return BIGINT;
+            case INT:
+                return BIGINT;
+            case LONG:
+                return BIGINT;
+            case FLOAT:
+                return DOUBLE;
+            case DOUBLE:
+                return DOUBLE;
+            case STRING:
+                return VARCHAR;
+            case DATE:
+                return DATE;
+            case TIMESTAMP:
+                return TIMESTAMP;
+            case BINARY:
+                return VARBINARY;
+            default:
+                return null;
+        }
     }
 }
