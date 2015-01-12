@@ -26,6 +26,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.JavaUtils;
+import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
@@ -56,6 +57,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
@@ -69,9 +71,13 @@ import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
+import static com.facebook.presto.hive.HiveType.getHiveType;
+import static com.facebook.presto.hive.HiveType.getSupportedHiveType;
+import static com.facebook.presto.hive.HiveType.getType;
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.transform;
@@ -462,5 +468,43 @@ public final class HiveUtil
         catch (IllegalArgumentException e) {
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for TIMESTAMP partition key: %s", value, name));
         }
+    }
+
+    public static List<HiveColumnHandle> hiveColumnHandles(TypeManager typeManager, String connectorId, Table table, boolean includeSampleWeight)
+    {
+        ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
+
+        // add the data fields first
+        int hiveColumnIndex = 0;
+        for (StructField field : getTableStructFields(table)) {
+            // ignore unsupported types rather than failing
+            HiveType hiveType = getHiveType(field.getFieldObjectInspector());
+            if (hiveType != null && (includeSampleWeight || !field.getFieldName().equals(SAMPLE_WEIGHT_COLUMN_NAME))) {
+                Type type = getType(field.getFieldObjectInspector(), typeManager);
+                checkNotNull(type, "Unsupported hive type: %s", field.getFieldObjectInspector().getTypeName());
+                columns.add(new HiveColumnHandle(connectorId, field.getFieldName(), hiveColumnIndex, hiveType, type.getTypeSignature(), hiveColumnIndex, false));
+            }
+            hiveColumnIndex++;
+        }
+
+        // add the partition keys last (like Hive does)
+        columns.addAll(getPartitionKeyColumnHandles(connectorId, table, hiveColumnIndex));
+
+        return columns.build();
+    }
+
+    public static List<HiveColumnHandle> getPartitionKeyColumnHandles(String connectorId, Table table, int startOrdinal)
+    {
+        ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
+
+        List<FieldSchema> partitionKeys = table.getPartitionKeys();
+        for (int i = 0; i < partitionKeys.size(); i++) {
+            FieldSchema field = partitionKeys.get(i);
+
+            HiveType hiveType = getSupportedHiveType(field.getType());
+            columns.add(new HiveColumnHandle(connectorId, field.getName(), startOrdinal + i, hiveType, getType(field.getType()).getTypeSignature(), -1, true));
+        }
+
+        return columns.build();
     }
 }

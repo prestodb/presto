@@ -70,7 +70,6 @@ import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
-import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -93,13 +92,11 @@ import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAM
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveSessionProperties.getHiveStorageFormat;
-import static com.facebook.presto.hive.HiveType.getHiveType;
-import static com.facebook.presto.hive.HiveType.getSupportedHiveType;
-import static com.facebook.presto.hive.HiveType.getType;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
 import static com.facebook.presto.hive.HiveUtil.encodeViewData;
-import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
+import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
+import static com.facebook.presto.hive.HiveUtil.hiveColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
 import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_PARTITION;
 import static com.facebook.presto.hive.util.Types.checkType;
@@ -288,7 +285,8 @@ public class HiveClient
             if (table.getTableType().equals(TableType.VIRTUAL_VIEW.name())) {
                 throw new TableNotFoundException(tableName);
             }
-            List<ColumnMetadata> columns = ImmutableList.copyOf(transform(getColumnHandles(table, false), columnMetadataGetter(table, typeManager)));
+            List<HiveColumnHandle> handles = hiveColumnHandles(typeManager, connectorId, table, false);
+            List<ColumnMetadata> columns = ImmutableList.copyOf(transform(handles, columnMetadataGetter(table, typeManager)));
             return new ConnectorTableMetadata(tableName, columns, table.getOwner());
         }
         catch (NoSuchObjectException e) {
@@ -327,7 +325,7 @@ public class HiveClient
         SchemaTableName tableName = getTableName(tableHandle);
         try {
             Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-            for (HiveColumnHandle columnHandle : getColumnHandles(table, true)) {
+            for (HiveColumnHandle columnHandle : hiveColumnHandles(typeManager, connectorId, table, true)) {
                 if (columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
                     return columnHandle;
                 }
@@ -352,7 +350,7 @@ public class HiveClient
         try {
             Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
             ImmutableMap.Builder<String, ConnectorColumnHandle> columnHandles = ImmutableMap.builder();
-            for (HiveColumnHandle columnHandle : getColumnHandles(table, false)) {
+            for (HiveColumnHandle columnHandle : hiveColumnHandles(typeManager, connectorId, table, false)) {
                 columnHandles.put(columnHandle.getName(), columnHandle);
             }
             return columnHandles.build();
@@ -360,44 +358,6 @@ public class HiveClient
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(tableName);
         }
-    }
-
-    private List<HiveColumnHandle> getColumnHandles(Table table, boolean includeSampleWeight)
-    {
-        ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
-
-        // add the data fields first
-        int hiveColumnIndex = 0;
-        for (StructField field : getTableStructFields(table)) {
-            // ignore unsupported types rather than failing
-            HiveType hiveType = getHiveType(field.getFieldObjectInspector());
-            if (hiveType != null && (includeSampleWeight || !field.getFieldName().equals(SAMPLE_WEIGHT_COLUMN_NAME))) {
-                Type type = getType(field.getFieldObjectInspector(), typeManager);
-                checkNotNull(type, "Unsupported hive type: %s", field.getFieldObjectInspector().getTypeName());
-                columns.add(new HiveColumnHandle(connectorId, field.getFieldName(), hiveColumnIndex, hiveType, type.getTypeSignature(), hiveColumnIndex, false));
-            }
-            hiveColumnIndex++;
-        }
-
-        // add the partition keys last (like Hive does)
-        columns.addAll(getPartitionKeyColumnHandles(table, hiveColumnIndex));
-
-        return columns.build();
-    }
-
-    private List<HiveColumnHandle> getPartitionKeyColumnHandles(Table table, int startOrdinal)
-    {
-        ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
-
-        List<FieldSchema> partitionKeys = table.getPartitionKeys();
-        for (int i = 0; i < partitionKeys.size(); i++) {
-            FieldSchema field = partitionKeys.get(i);
-
-            HiveType hiveType = getSupportedHiveType(field.getType());
-            columns.add(new HiveColumnHandle(connectorId, field.getName(), startOrdinal + i, hiveType, getType(field.getType()).getTypeSignature(), -1, true));
-        }
-
-        return columns.build();
     }
 
     @Override
@@ -831,7 +791,7 @@ public class HiveClient
             return new ConnectorPartitionResult(ImmutableList.<ConnectorPartition>of(new HivePartition(tableName, compactEffectivePredicate, bucket)), effectivePredicate);
         }
         else {
-            List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table, 0);
+            List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(connectorId, table, 0);
             List<String> partitionNames = getFilteredPartitionNames(tableName, partitionColumns, effectivePredicate);
 
             // do a final pass to filter based on fields that could not be used to filter the partitions
