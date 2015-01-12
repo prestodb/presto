@@ -16,13 +16,10 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
-import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
@@ -81,7 +78,7 @@ import static org.apache.hadoop.hive.serde.serdeConstants.STRING_TYPE_NAME;
 
 @SuppressWarnings("deprecation")
 public class HiveClient
-        implements ConnectorMetadata, ConnectorHandleResolver
+        implements ConnectorMetadata
 {
     private static final Logger log = Logger.get(HiveClient.class);
 
@@ -666,78 +663,6 @@ public class HiveClient
 
     @Override
     public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return tableHandle instanceof HiveTableHandle && ((HiveTableHandle) tableHandle).getClientId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ConnectorColumnHandle columnHandle)
-    {
-        return columnHandle instanceof HiveColumnHandle && ((HiveColumnHandle) columnHandle).getClientId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return split instanceof HiveSplit && ((HiveSplit) split).getClientId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ConnectorOutputTableHandle handle)
-    {
-        return (handle instanceof HiveOutputTableHandle) && ((HiveOutputTableHandle) handle).getClientId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ConnectorInsertTableHandle tableHandle)
-    {
-        return false;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorIndexHandle indexHandle)
-    {
-        return false;
-    }
-
-    @Override
-    public Class<? extends ConnectorTableHandle> getTableHandleClass()
-    {
-        return HiveTableHandle.class;
-    }
-
-    @Override
-    public Class<? extends ConnectorColumnHandle> getColumnHandleClass()
-    {
-        return HiveColumnHandle.class;
-    }
-
-    @Override
-    public Class<? extends ConnectorSplit> getSplitClass()
-    {
-        return HiveSplit.class;
-    }
-
-    @Override
-    public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
-    {
-        return HiveOutputTableHandle.class;
-    }
-
-    @Override
-    public Class<? extends ConnectorIndexHandle> getIndexHandleClass()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
     {
         throw new UnsupportedOperationException();
     }

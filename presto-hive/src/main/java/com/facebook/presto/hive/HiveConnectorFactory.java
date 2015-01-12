@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
@@ -104,13 +105,14 @@ public class HiveConnectorFactory
             ConnectorSplitManager splitManager = injector.getInstance(ConnectorSplitManager.class);
             ConnectorPageSourceProvider connectorPageSource = injector.getInstance(ConnectorPageSourceProvider.class);
             ConnectorRecordSinkProvider recordSinkProvider = injector.getInstance(ConnectorRecordSinkProvider.class);
+            ConnectorHandleResolver handleResolver = injector.getInstance(ConnectorHandleResolver.class);
 
             return new HiveConnector(
                     new ClassLoaderSafeConnectorMetadata(hiveClient, classLoader),
                     new ClassLoaderSafeConnectorSplitManager(splitManager, classLoader),
                     new ClassLoaderSafeConnectorPageSourceProvider(connectorPageSource, classLoader),
                     new ClassLoaderSafeConnectorRecordSinkProvider(recordSinkProvider, classLoader),
-                    new ClassLoaderSafeConnectorHandleResolver(hiveClient, classLoader));
+                    new ClassLoaderSafeConnectorHandleResolver(handleResolver, classLoader));
         }
         catch (Exception e) {
             throw Throwables.propagate(e);
