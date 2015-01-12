@@ -305,25 +305,16 @@ public class TestJsonExtract
         assertEquals(doJsonExtract("{\"15day\" : 0, \"30day\" : 1, \"90day\" : 2, }", "$[\"30day\"]"), "1");
     }
 
-    @Test(expectedExceptions = PrestoException.class)
-    public void testInvalidJsonPath1()
-            throws Exception
+    @Test
+    public void testInvalidExtracts()
     {
-        doScalarExtract("{}", "$.");
-    }
-
-    @Test(expectedExceptions = PrestoException.class)
-    public void testInvalidJsonPath2()
-            throws Exception
-    {
-        doScalarExtract("{}", "$.fuu..bar");
-    }
-
-    @Test(expectedExceptions = PrestoException.class)
-    public void testInvalidJsonPath3()
-            throws Exception
-    {
-        doScalarExtract("{}", "$.bar[2][-1]");
+        assertInvalidExtract("", "", "Invalid JSON path: ''");
+        assertInvalidExtract("{}", "$.bar[2][-1]", "Invalid JSON path: '$.bar[2][-1]'");
+        assertInvalidExtract("{}", "$.fuu..bar", "Invalid JSON path: '$.fuu..bar'");
+        assertInvalidExtract("{}", "$.", "Invalid JSON path: '$.'");
+        assertInvalidExtract("", "$$", "Invalid JSON path: '$$'");
+        assertInvalidExtract("", " ", "Invalid JSON path: ' '");
+        assertInvalidExtract("", ".", "Invalid JSON path: '.'");
     }
 
     private static String doExtract(JsonExtractor<Slice> jsonExtractor, String json)
@@ -337,14 +328,12 @@ public class TestJsonExtract
     }
 
     private static String doScalarExtract(String inputJson, String jsonPath)
-            throws IOException
     {
         Slice value = JsonExtract.extract(Slices.utf8Slice(inputJson), generateExtractor(jsonPath, new ScalarValueJsonExtractor()));
         return (value == null) ? null : value.toString(UTF_8);
     }
 
     private static String doJsonExtract(String inputJson, String jsonPath)
-            throws IOException
     {
         Slice value = JsonExtract.extract(Slices.utf8Slice(inputJson), generateExtractor(jsonPath, new JsonValueJsonExtractor()));
         return (value == null) ? null : value.toString(UTF_8);
@@ -353,5 +342,16 @@ public class TestJsonExtract
     private static List<String> tokenizePath(String path)
     {
         return ImmutableList.copyOf(new JsonPathTokenizer(path));
+    }
+
+    private static void assertInvalidExtract(String inputJson, String jsonPath, String message)
+    {
+        try {
+            doJsonExtract(inputJson, jsonPath);
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
+            assertEquals(e.getMessage(), message);
+        }
     }
 }
