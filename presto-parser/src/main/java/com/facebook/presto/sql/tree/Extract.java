@@ -36,6 +36,8 @@ public class Extract
         DOW,
         DAY_OF_YEAR,
         DOY,
+        YEAR_OF_WEEK,
+        YOW,
         HOUR,
         MINUTE,
         SECOND,

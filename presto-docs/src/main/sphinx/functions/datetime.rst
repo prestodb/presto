@@ -226,6 +226,8 @@ Field               Description
 ``DOW``             :func:`day_of_week`
 ``DAY_OF_YEAR``     :func:`day_of_year`
 ``DOY``             :func:`day_of_year`
+``YEAR_OF_WEEK``    :func:`year_of_week`
+``YOW``             :func:`year_of_week`
 ``HOUR``            :func:`hour`
 ``MINUTE``          :func:`minute`
 ``SECOND``          :func:`second`
@@ -315,3 +317,11 @@ Convenience Extraction Functions
 .. function:: year(x) -> bigint
 
     Returns the year from ``x``.
+
+.. function:: year_of_week(x) -> bigint
+
+    Returns the year of the `ISO week`_ from ``x``.
+
+.. function:: yow(x) -> bigint
+
+    This is an alias for :func:`year_of_week`.

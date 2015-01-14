@@ -66,6 +66,7 @@ public final class DateTimeFunctions
     private static final DateTimeField DAY_OF_MONTH = UTC_CHRONOLOGY.dayOfMonth();
     private static final DateTimeField DAY_OF_YEAR = UTC_CHRONOLOGY.dayOfYear();
     private static final DateTimeField WEEK_OF_YEAR = UTC_CHRONOLOGY.weekOfWeekyear();
+    private static final DateTimeField YEAR_OF_WEEK = UTC_CHRONOLOGY.weekyear();
     private static final DateTimeField MONTH_OF_YEAR = UTC_CHRONOLOGY.monthOfYear();
     private static final DateTimeField QUARTER = QUARTER_OF_YEAR.getField(UTC_CHRONOLOGY);
     private static final DateTimeField YEAR = UTC_CHRONOLOGY.year();
@@ -718,6 +719,30 @@ public final class DateTimeFunctions
     public static long weekFromDate(@SqlType(StandardTypes.DATE) long date)
     {
         return WEEK_OF_YEAR.get(DAYS.toMillis(date));
+    }
+
+    @Description("year of the ISO week of the given timestamp")
+    @ScalarFunction(value = "year_of_week", alias = "yow")
+    @SqlType(StandardTypes.BIGINT)
+    public static long yearOfWeekFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
+    {
+        return getChronology(session.getTimeZoneKey()).weekyear().get(timestamp);
+    }
+
+    @Description("year of the ISO week of the given timestamp")
+    @ScalarFunction(value = "year_of_week", alias = "yow")
+    @SqlType(StandardTypes.BIGINT)
+    public static long yearOfWeekFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
+    {
+        return unpackChronology(timestampWithTimeZone).weekyear().get(unpackMillisUtc(timestampWithTimeZone));
+    }
+
+    @Description("year of the ISO week of the given date")
+    @ScalarFunction(value = "year_of_week", alias = "yow")
+    @SqlType(StandardTypes.BIGINT)
+    public static long yearOfWeekFromDate(@SqlType(StandardTypes.DATE) long date)
+    {
+        return YEAR_OF_WEEK.get(DAYS.toMillis(date));
     }
 
     @Description("month of the year of the given timestamp")
