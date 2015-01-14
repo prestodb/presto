@@ -807,7 +807,7 @@
             <plugin>
                 <groupId>org.gaul</groupId>
                 <artifactId>modernizer-maven-plugin</artifactId>
-                <version>1.1.0</version>
+                <version>1.2.2</version>
                 <configuration>
                     <javaVersion>1.8</javaVersion>
                     <failOnViolations>false</failOnViolations>
@@ -815,7 +815,6 @@
                 <executions>
                     <execution>
                         <id>modernizer</id>
-                        <phase>validate</phase>
                         <goals>
                             <goal>modernizer</goal>
                         </goals>
