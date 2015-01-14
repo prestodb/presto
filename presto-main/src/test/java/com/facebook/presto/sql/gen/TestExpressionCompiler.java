@@ -968,6 +968,9 @@ public class TestExpressionCompiler
             case DAY_OF_WEEK:
             case DOW:
                 return DateTimeFunctions.dayOfWeekFromTimestamp(session, value);
+            case YEAR_OF_WEEK:
+            case YOW:
+                return DateTimeFunctions.yearOfWeekFromTimestamp(session, value);
             case DAY_OF_YEAR:
             case DOY:
                 return DateTimeFunctions.dayOfYearFromTimestamp(session, value);

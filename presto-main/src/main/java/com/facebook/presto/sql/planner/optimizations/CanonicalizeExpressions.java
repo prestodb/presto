@@ -167,6 +167,9 @@ public class CanonicalizeExpressions
                 case DAY_OF_YEAR:
                 case DOY:
                     return new FunctionCall(new QualifiedName("day_of_year"), ImmutableList.of(value));
+                case YEAR_OF_WEEK:
+                case YOW:
+                    return new FunctionCall(new QualifiedName("year_of_week"), ImmutableList.of(value));
                 case HOUR:
                     return new FunctionCall(new QualifiedName("hour"), ImmutableList.of(value));
                 case MINUTE:
