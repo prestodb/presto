@@ -17,7 +17,8 @@ import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Doubles;
-
+import java.math.BigDecimal;
+import java.math.MathContext;
 import java.util.concurrent.ThreadLocalRandom;
 
 public final class MathFunctions
@@ -252,8 +253,15 @@ public final class MathFunctions
             return -round(-num, decimals);
         }
 
-        double factor = Math.pow(10, decimals);
-        return Math.floor(num * factor + 0.5) / factor;
+        double log10 = Math.log10(num);
+        int alldecimals = 0;
+        if (log10 < 0.0) {
+            alldecimals = (int) decimals;
+        }
+        else {
+            alldecimals = (int) Math.ceil(log10) + (int) decimals;
+        }
+        return new BigDecimal(num).round(new MathContext(alldecimals)).doubleValue();
     }
 
     @Description("sine")
