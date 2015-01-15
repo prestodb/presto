@@ -36,6 +36,8 @@ public final class ApproximateCountDistinctAggregations
     public static final InternalAggregationFunction DOUBLE_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS = new AggregationCompiler().generateAggregationFunction(ApproximateCountDistinctAggregations.class, BIGINT, ImmutableList.<Type>of(DOUBLE, DOUBLE));
     public static final InternalAggregationFunction VARBINARY_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS = new AggregationCompiler().generateAggregationFunction(ApproximateCountDistinctAggregations.class, BIGINT, ImmutableList.<Type>of(VARCHAR, DOUBLE));
     private static final double DEFAULT_STANDARD_ERROR = 0.023;
+    private static final double LOWEST_MAX_STANDARD_ERROR = 0.01150;
+    private static final double HIGHEST_MAX_STANDARD_ERROR = 0.26000;
 
     private ApproximateCountDistinctAggregations() {}
 
@@ -95,7 +97,9 @@ public final class ApproximateCountDistinctAggregations
     @VisibleForTesting
     static int standardErrorToBuckets(double maxStandardError)
     {
-        checkCondition(maxStandardError > 0.0, INVALID_FUNCTION_ARGUMENT, "Max standard error must be greater than zero");
+        checkCondition(maxStandardError >= LOWEST_MAX_STANDARD_ERROR && maxStandardError <= HIGHEST_MAX_STANDARD_ERROR,
+                INVALID_FUNCTION_ARGUMENT,
+                "Max standard error must be in [%s, %s]: %s", LOWEST_MAX_STANDARD_ERROR, HIGHEST_MAX_STANDARD_ERROR, maxStandardError);
         return log2Ceiling((int) Math.ceil(1.0816 / (maxStandardError * maxStandardError)));
     }
 

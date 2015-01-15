@@ -97,7 +97,7 @@ Approximate Aggregate Functions
     is the standard deviation of the (approximately normal) error distribution
     over all possible sets. It does not guarantee an upper bound on the error
     for any specific input set. The current implementation of this function
-    requires that ``e`` be in the range: [0.01149, 0.26000].
+    requires that ``e`` be in the range: [0.01150, 0.26000].
 
 .. function:: approx_percentile(x, p) -> [same as input]
 
