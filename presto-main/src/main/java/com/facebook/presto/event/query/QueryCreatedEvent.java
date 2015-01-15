@@ -29,6 +29,7 @@ public class QueryCreatedEvent
     private final QueryId queryId;
     private final String user;
     private final String source;
+    private final String serverVersion;
     private final String environment;
     private final String catalog;
     private final String schema;
@@ -42,6 +43,7 @@ public class QueryCreatedEvent
             QueryId queryId,
             String user,
             String source,
+            String serverVersion,
             String environment,
             String catalog,
             String schema,
@@ -54,6 +56,7 @@ public class QueryCreatedEvent
         this.queryId = queryId;
         this.user = user;
         this.source = source;
+        this.serverVersion = serverVersion;
         this.environment = environment;
         this.catalog = catalog;
         this.schema = schema;
@@ -80,6 +83,12 @@ public class QueryCreatedEvent
     public String getSource()
     {
         return source;
+    }
+
+    @EventField
+    public String getServerVersion()
+    {
+        return serverVersion;
     }
 
     @EventField

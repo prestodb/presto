@@ -19,6 +19,7 @@ import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.operator.DriverStats;
 import com.facebook.presto.operator.TaskStats;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -47,13 +48,15 @@ public class QueryMonitor
     private final ObjectMapper objectMapper;
     private final EventClient eventClient;
     private final String environment;
+    private final String serverVersion;
 
     @Inject
-    public QueryMonitor(ObjectMapper objectMapper, EventClient eventClient, NodeInfo nodeInfo)
+    public QueryMonitor(ObjectMapper objectMapper, EventClient eventClient, NodeInfo nodeInfo, NodeVersion nodeVersion)
     {
         this.objectMapper = checkNotNull(objectMapper, "objectMapper is null");
         this.eventClient = checkNotNull(eventClient, "eventClient is null");
         this.environment = checkNotNull(nodeInfo, "nodeInfo is null").getEnvironment();
+        this.serverVersion = checkNotNull(nodeVersion, "nodeVersion is null").toString();
     }
 
     public void createdEvent(QueryInfo queryInfo)
@@ -63,6 +66,7 @@ public class QueryMonitor
                         queryInfo.getQueryId(),
                         queryInfo.getSession().getUser(),
                         queryInfo.getSession().getSource(),
+                        serverVersion,
                         environment,
                         queryInfo.getSession().getCatalog(),
                         queryInfo.getSession().getSchema(),
@@ -97,6 +101,7 @@ public class QueryMonitor
                             queryInfo.getQueryId(),
                             queryInfo.getSession().getUser(),
                             queryInfo.getSession().getSource(),
+                            serverVersion,
                             environment,
                             queryInfo.getSession().getCatalog(),
                             queryInfo.getSession().getSchema(),
