@@ -97,7 +97,7 @@ public class MethodDefinition
             if (parameterName == null) {
                 parameterName = "arg" + argId;
             }
-            getCompilerContext().declareParameter(parameter.getType(), parameterName);
+            getCompilerContext().declareVariable(parameter.getType(), parameterName);
             argId++;
         }
     }
