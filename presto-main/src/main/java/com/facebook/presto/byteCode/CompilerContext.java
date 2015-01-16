@@ -101,19 +101,6 @@ public class CompilerContext
         variables.put("this", variable);
     }
 
-    public Variable declareParameter(ParameterizedType type, String parameterName)
-    {
-        Preconditions.checkArgument(!variables.containsKey(parameterName), "There is already a parameter named %s", parameterName);
-
-        Variable variable = new Variable(parameterName, nextSlot, type);
-        nextSlot += Type.getType(type.getType()).getSize();
-
-        allVariables.add(variable);
-        variables.put(parameterName, variable);
-
-        return variable;
-    }
-
     public Variable declareVariable(Class<?> type, String variableName)
     {
         return declareVariable(type(type), variableName);
@@ -121,7 +108,7 @@ public class CompilerContext
 
     public Variable declareVariable(ParameterizedType type, String variableName)
     {
-        Preconditions.checkArgument(!variables.containsKey(variableName), "There is already a parameter named %s", variableName);
+        checkArgument(!variables.containsKey(variableName), "There is already a variable named %s", variableName);
 
         Variable variable = new Variable(variableName, nextSlot, type);
         nextSlot += Type.getType(type.getType()).getSize();
