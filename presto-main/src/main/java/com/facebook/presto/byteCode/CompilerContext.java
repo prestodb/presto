@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import static com.facebook.presto.byteCode.ParameterizedType.type;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class CompilerContext
 {
@@ -73,12 +74,7 @@ public class CompilerContext
     public Variable getVariable(String name)
     {
         Variable variable = variables.get(name);
-        try {
-            Preconditions.checkArgument(variable != null, "Variable %s not defined", name);
-        }
-        catch (Exception e) {
-            System.out.println("hello");
-        }
+        checkArgument(variable != null, "Variable %s not defined", name);
         return variable;
     }
 
