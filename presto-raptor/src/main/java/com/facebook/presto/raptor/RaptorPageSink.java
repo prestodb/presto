@@ -109,6 +109,12 @@ public class RaptorPageSink
         return Joiner.on(':').join(nodeId, Joiner.on(",").join(shardUuids));
     }
 
+    @Override
+    public void rollback()
+    {
+        // TODO: clean up open resources
+    }
+
     /**
      * @return page with the sampleWeightBlock at the sampleWeightField index
      */

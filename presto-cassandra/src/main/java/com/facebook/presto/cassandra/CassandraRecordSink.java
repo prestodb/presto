@@ -150,6 +150,9 @@ public class CassandraRecordSink
     }
 
     @Override
+    public void rollback() {}
+
+    @Override
     public List<Type> getColumnTypes()
     {
         return columnTypes;

@@ -206,6 +206,17 @@ public class HiveRecordSink
     }
 
     @Override
+    public void rollback()
+    {
+        try {
+            recordWriter.close(true);
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    @Override
     public List<Type> getColumnTypes()
     {
         return columnTypes;

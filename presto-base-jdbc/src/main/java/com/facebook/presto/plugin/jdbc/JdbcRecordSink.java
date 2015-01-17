@@ -171,6 +171,20 @@ public class JdbcRecordSink
         return ""; // the committer does not need any additional info
     }
 
+    @SuppressWarnings("UnusedDeclaration")
+    @Override
+    public void rollback()
+    {
+        // rollback and close
+        try (Connection connection = this.connection;
+             PreparedStatement statement = this.statement) {
+            connection.rollback();
+        }
+        catch (SQLException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
     @Override
     public List<Type> getColumnTypes()
     {

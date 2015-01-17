@@ -39,6 +39,12 @@ public class RecordPageSink
     }
 
     @Override
+    public void rollback()
+    {
+        recordSink.rollback();
+    }
+
+    @Override
     public void appendPage(Page page, Block sampleWeightBlock)
     {
         Block[] blocks = page.getBlocks();

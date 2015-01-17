@@ -20,4 +20,6 @@ public interface ConnectorPageSink
     void appendPage(Page page, Block sampleWeightBlock);
 
     String commit();
+
+    void rollback();
 }

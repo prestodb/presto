@@ -103,6 +103,8 @@ public class TableWriterOperator
 
     private State state = State.RUNNING;
     private long rowCount;
+    private boolean committed;
+    private boolean closed;
 
     public TableWriterOperator(OperatorContext operatorContext,
             ConnectorPageSink pageSink,
@@ -174,11 +176,24 @@ public class TableWriterOperator
         state = State.FINISHED;
 
         String fragment = pageSink.commit();
+        committed = true;
 
         PageBuilder page = new PageBuilder(TYPES);
         page.declarePosition();
         BIGINT.writeLong(page.getBlockBuilder(0), rowCount);
         VARCHAR.writeSlice(page.getBlockBuilder(1), Slices.utf8Slice(fragment));
         return page.build();
+    }
+
+    @Override
+    public void close()
+            throws Exception
+    {
+        if (!closed) {
+            closed = true;
+            if (!committed) {
+                pageSink.rollback();
+            }
+        }
     }
 }

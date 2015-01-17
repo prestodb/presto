@@ -39,5 +39,7 @@ public interface RecordSink
 
     String commit();
 
+    void rollback();
+
     List<Type> getColumnTypes();
 }
