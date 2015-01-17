@@ -110,4 +110,9 @@ public class Scope
         block.append(variable.set(initialValue));
         return variable;
     }
+
+    public boolean variableExists(String variableName)
+    {
+        return variables.containsKey(variableName);
+    }
 }
