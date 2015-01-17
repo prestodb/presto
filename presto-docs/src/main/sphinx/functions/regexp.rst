@@ -6,6 +6,11 @@ All of the regular expression functions use the `Java pattern`_ syntax.
 
     .. _Java pattern: http://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html
 
+.. function:: regexp_extract_all(string, pattern) -> array<varchar>
+
+    Returns the substring(s) matched by the regular expression ``pattern``
+    in ``string``.
+
 .. function:: regexp_extract(string, pattern) -> varchar
 
     Returns the first substring matched by the regular expression ``pattern``
