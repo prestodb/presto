@@ -51,6 +51,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -73,11 +74,17 @@ public class TestRaptorSplitManager
             .column("foo", VARCHAR)
             .column("bar", BigintType.BIGINT)
             .build();
+    private static final DataSize ORC_MAX_MERGE_DISTANCE = new DataSize(1, MEGABYTE);
+    private static final Duration SHARD_RECOVERY_TIMEOUT = new Duration(30, TimeUnit.SECONDS);
+    private static final DataSize MAX_BUFFER_SIZE = new DataSize(256, MEGABYTE);
+    private static final int ROWS_PER_SHARD = 100;
 
     private Handle dummyHandle;
     private File dataDir;
     private RaptorSplitManager raptorSplitManager;
     private ConnectorTableHandle tableHandle;
+    private ShardManager shardManager;
+    private StorageManager storageManagerWithBackup;
 
     @BeforeMethod
     public void setup()
@@ -88,11 +95,14 @@ public class TestRaptorSplitManager
         dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
         dummyHandle = dbi.open();
         dataDir = Files.createTempDir();
-        ShardManager shardManager = new DatabaseShardManager(dbi);
+        shardManager = new DatabaseShardManager(dbi);
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+
         StorageService storageService = new FileStorageService(dataDir, Optional.empty());
-        ShardRecoveryManager recoveryManager = new ShardRecoveryManager(storageService, new InMemoryNodeManager(), shardManager, new Duration(5, TimeUnit.MINUTES), 10);
-        StorageManager storageManager = new OrcStorageManager(storageService, new DataSize(1, MEGABYTE), recoveryManager, new Duration(30, TimeUnit.SECONDS), 100, new DataSize(256, MEGABYTE));
+        StorageService storageServiceWithBackup = new FileStorageService(dataDir, Optional.of(Files.createTempDir()));
+        ShardRecoveryManager recoveryManager = new ShardRecoveryManager(storageServiceWithBackup, new InMemoryNodeManager(), shardManager, new Duration(5, TimeUnit.MINUTES), 10);
+        StorageManager storageManager = new OrcStorageManager(storageService, ORC_MAX_MERGE_DISTANCE, recoveryManager, SHARD_RECOVERY_TIMEOUT, ROWS_PER_SHARD, MAX_BUFFER_SIZE);
+        storageManagerWithBackup = new OrcStorageManager(storageServiceWithBackup, ORC_MAX_MERGE_DISTANCE, recoveryManager, SHARD_RECOVERY_TIMEOUT, ROWS_PER_SHARD, MAX_BUFFER_SIZE);
 
         String nodeName = UUID.randomUUID().toString();
         nodeManager.addNode("raptor", new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN));
@@ -153,5 +163,31 @@ public class TestRaptorSplitManager
         ConnectorPartitionResult result = raptorSplitManager.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
 
         raptorSplitManager.getPartitionSplits(tableHandle, result.getPartitions());
+    }
+
+    @Test
+    public void testAssignRandomNodeWhenBackupAvailable()
+            throws InterruptedException, URISyntaxException
+    {
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        PrestoNode node = new PrestoNode(UUID.randomUUID().toString(), new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN);
+        nodeManager.addNode("fbraptor", node);
+        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), nodeManager, shardManager, storageManagerWithBackup);
+
+        dummyHandle.execute("DELETE FROM shard_nodes");
+
+        ConnectorPartitionResult result = raptorSplitManagerWithBackup.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
+        ConnectorSplitSource partitionSplit = raptorSplitManagerWithBackup.getPartitionSplits(tableHandle, result.getPartitions());
+        assertEquals(Iterables.getOnlyElement(Iterables.getOnlyElement(partitionSplit.getNextBatch(1)).getAddresses()), node.getHostAndPort());
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "No nodes available to run query")
+    public void testNoNodes()
+            throws InterruptedException, URISyntaxException
+    {
+        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), new InMemoryNodeManager(), shardManager, storageManagerWithBackup);
+        dummyHandle.execute("DELETE FROM shard_nodes");
+        ConnectorPartitionResult result = raptorSplitManagerWithBackup.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
+        raptorSplitManagerWithBackup.getPartitionSplits(tableHandle, result.getPartitions());
     }
 }
