@@ -16,14 +16,15 @@ package com.facebook.presto.cli;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
-import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClientConfig;
-import io.airlift.http.client.netty.StandaloneNettyAsyncHttpClient;
+import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 
 import java.io.Closeable;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -32,20 +33,29 @@ public class QueryRunner
         implements Closeable
 {
     private final JsonCodec<QueryResults> queryResultsCodec;
-    private final ClientSession session;
-    private final AsyncHttpClient httpClient;
+    private final AtomicReference<ClientSession> session;
+    private final HttpClient httpClient;
 
     public QueryRunner(ClientSession session, JsonCodec<QueryResults> queryResultsCodec)
     {
-        this.session = checkNotNull(session, "session is null");
+        this.session = new AtomicReference<>(checkNotNull(session, "session is null"));
         this.queryResultsCodec = checkNotNull(queryResultsCodec, "queryResultsCodec is null");
-        this.httpClient = new StandaloneNettyAsyncHttpClient("cli",
-                new HttpClientConfig().setConnectTimeout(new Duration(10, TimeUnit.SECONDS)));
+        this.httpClient = new JettyHttpClient(new HttpClientConfig().setConnectTimeout(new Duration(10, TimeUnit.SECONDS)));
     }
 
     public ClientSession getSession()
     {
-        return session;
+        return session.get();
+    }
+
+    public HttpClient getHttpClient()
+    {
+        return httpClient;
+    }
+
+    public void setSession(ClientSession session)
+    {
+        this.session.set(checkNotNull(session, "session is null"));
     }
 
     public Query startQuery(String query)
@@ -55,7 +65,7 @@ public class QueryRunner
 
     public StatementClient startInternalQuery(String query)
     {
-        return new StatementClient(httpClient, queryResultsCodec, session, query);
+        return new StatementClient(httpClient, queryResultsCodec, session.get(), query);
     }
 
     @Override

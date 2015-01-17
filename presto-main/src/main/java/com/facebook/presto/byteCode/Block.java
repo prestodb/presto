@@ -58,7 +58,6 @@ public class Block
 {
     private final CompilerContext context;
     private final List<ByteCodeNode> nodes = new ArrayList<>();
-//    private final List<TryCatchBlockNode> tryCatchBlocks = new ArrayList<>();
 
     private String description;
 
@@ -86,7 +85,7 @@ public class Block
 
     public Block append(ByteCodeNode node)
     {
-        if (node != OpCodes.NOP && !(node instanceof Block && ((Block) node).isEmpty())) {
+        if (node != OpCode.NOP && !(node instanceof Block && ((Block) node).isEmpty())) {
             nodes.add(node);
         }
         return this;
@@ -108,54 +107,6 @@ public class Block
     {
         return nodes.size() == 0;
     }
-
-//    public List<TryCatchBlockNode> getTryCatchBlocks()
-//    {
-//        return tryCatchBlocks;
-//    }
-//
-//    public BlockDefinition tryCatch(BlockDefinition tryBlock, BlockDefinition handlerBlock, ParameterizedType exceptionType)
-//    {
-//        LabelNode tryStart = new LabelNode();
-//        LabelNode tryEnd = new LabelNode();
-//        LabelNode handler = new LabelNode();
-//        LabelNode done = new LabelNode();
-//
-//        String exceptionName = null;
-//        if (exceptionType != null) {
-//            exceptionName = exceptionType.getClassName();
-//        }
-//        tryCatchBlocks.add(new TryCatchBlockNode(tryStart, tryEnd, handler, exceptionName));
-//
-//        //
-//        // try block
-//        visitLabel(tryStart);
-//        append(tryBlock);
-//        visitLabel(tryEnd);
-//        gotoLabel(done);
-//
-//        //
-//        // handler block
-//
-//        visitLabel(handler);
-//
-//        // store exception
-//        Variable exception = context.createTempVariable();
-//        storeVariable(exception.getLocalVariableDefinition());
-//
-//        // execute handler code
-//        append(handlerBlock);
-//
-//        // load and rethrow exception
-//        loadVariable(exception.getLocalVariableDefinition());
-//        context.dropTempVariable(exception);
-//        throwObject();
-//
-//        // all done
-//        visitLabel(done);
-//
-//        return this;
-//    }
 
     public Block visitLabel(LabelNode label)
     {
@@ -203,93 +154,135 @@ public class Block
         return this;
     }
 
+    public Block intAdd()
+    {
+        nodes.add(OpCode.IADD);
+        return this;
+    }
+
+    public Block longAdd()
+    {
+        nodes.add(OpCode.LADD);
+        return this;
+    }
+
+    public Block longCompare()
+    {
+        nodes.add(OpCode.LCMP);
+        return this;
+    }
+
+    /**
+     * Compare two doubles. If either is NaN comparison is -1.
+     */
+    public Block doubleCompareNanLess()
+    {
+        nodes.add(OpCode.DCMPL);
+        return this;
+    }
+
+    /**
+     * Compare two doubles. If either is NaN comparison is 1.
+     */
+    public Block doubleCompareNanGreater()
+    {
+        nodes.add(OpCode.DCMPG);
+        return this;
+    }
+
     public Block intLeftShift()
     {
-        nodes.add(OpCodes.ISHL);
+        nodes.add(OpCode.ISHL);
         return this;
     }
 
     public Block intRightShift()
     {
-        nodes.add(OpCodes.ISHR);
+        nodes.add(OpCode.ISHR);
         return this;
     }
 
     public Block longLeftShift()
     {
-        nodes.add(OpCodes.LSHL);
+        nodes.add(OpCode.LSHL);
         return this;
     }
 
     public Block longRightShift()
     {
-        nodes.add(OpCodes.LSHR);
+        nodes.add(OpCode.LSHR);
         return this;
     }
 
     public Block unsignedIntRightShift()
     {
-        nodes.add(OpCodes.IUSHR);
+        nodes.add(OpCode.IUSHR);
         return this;
     }
 
     public Block unsignedLongRightShift()
     {
-        nodes.add(OpCodes.LUSHR);
+        nodes.add(OpCode.LUSHR);
         return this;
     }
 
     public Block intBitAnd()
     {
-        nodes.add(OpCodes.IAND);
+        nodes.add(OpCode.IAND);
         return this;
     }
 
     public Block intBitOr()
     {
-        nodes.add(OpCodes.IOR);
+        nodes.add(OpCode.IOR);
         return this;
     }
 
     public Block intBitXor()
     {
-        nodes.add(OpCodes.IXOR);
+        nodes.add(OpCode.IXOR);
         return this;
     }
 
     public Block longBitAnd()
     {
-        nodes.add(OpCodes.LAND);
+        nodes.add(OpCode.LAND);
         return this;
     }
 
     public Block longBitOr()
     {
-        nodes.add(OpCodes.LOR);
+        nodes.add(OpCode.LOR);
         return this;
     }
 
     public Block longBitXor()
     {
-        nodes.add(OpCodes.LXOR);
+        nodes.add(OpCode.LXOR);
         return this;
     }
 
     public Block intNegate()
     {
-        nodes.add(OpCodes.INEG);
+        nodes.add(OpCode.INEG);
+        return this;
+    }
+
+    public Block intToLong()
+    {
+        nodes.add(OpCode.I2L);
         return this;
     }
 
     public Block longNegate()
     {
-        nodes.add(OpCodes.LNEG);
+        nodes.add(OpCode.LNEG);
         return this;
     }
 
     public Block longToInt()
     {
-        nodes.add(OpCodes.L2I);
+        nodes.add(OpCode.L2I);
         return this;
     }
 
@@ -518,39 +511,91 @@ public class Block
         return this;
     }
 
+    public ByteCodeNode invokeDynamic(String name,
+            ParameterizedType returnType,
+            Iterable<ParameterizedType> parameterTypes,
+            Method bootstrapMethod,
+            List<Object> bootstrapArgs)
+    {
+        nodes.add(InvokeInstruction.invokeDynamic(name, returnType, parameterTypes, bootstrapMethod, bootstrapArgs));
+        return this;
+    }
+
+    public Block ret(Class<?> type)
+    {
+        if (type == long.class) {
+            retLong();
+        }
+        else if (type == boolean.class) {
+            retBoolean();
+        }
+        else if (type == int.class || type == byte.class || type == char.class || type == short.class) {
+            retInt();
+        }
+        else if (type == float.class) {
+            retFloat();
+        }
+        else if (type == double.class) {
+            retDouble();
+        }
+        else if (type == void.class) {
+            ret();
+        }
+        else if (!type.isPrimitive()) {
+            retObject();
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported type: " + type.getName());
+        }
+
+        return this;
+    }
+
     public Block ret()
     {
-        nodes.add(OpCodes.RETURN);
+        nodes.add(OpCode.RETURN);
         return this;
     }
 
     public Block retObject()
     {
-        nodes.add(OpCodes.ARETURN);
+        nodes.add(OpCode.ARETURN);
+        return this;
+    }
+
+    public Block retFloat()
+    {
+        nodes.add(OpCode.FRETURN);
+        return this;
+    }
+
+    public Block retDouble()
+    {
+        nodes.add(OpCode.DRETURN);
         return this;
     }
 
     public Block retBoolean()
     {
-        nodes.add(OpCodes.IRETURN);
+        nodes.add(OpCode.IRETURN);
         return this;
     }
 
     public Block retLong()
     {
-        nodes.add(OpCodes.LRETURN);
+        nodes.add(OpCode.LRETURN);
         return this;
     }
 
     public Block retInt()
     {
-        nodes.add(OpCodes.IRETURN);
+        nodes.add(OpCode.IRETURN);
         return this;
     }
 
     public Block throwObject()
     {
-        nodes.add(OpCodes.ATHROW);
+        nodes.add(OpCode.ATHROW);
         return this;
     }
 
@@ -574,41 +619,53 @@ public class Block
 
     public Block dup()
     {
-        nodes.add(OpCodes.DUP);
+        nodes.add(OpCode.DUP);
         return this;
     }
 
     public Block dup(Class<?> type)
     {
         if (type == long.class || type == double.class) {
-            nodes.add(OpCodes.DUP2);
+            nodes.add(OpCode.DUP2);
         }
         else {
-            nodes.add(OpCodes.DUP);
+            nodes.add(OpCode.DUP);
         }
         return this;
     }
 
     public Block pop()
     {
-        nodes.add(OpCodes.POP);
+        nodes.add(OpCode.POP);
         return this;
     }
 
     public Block pop(Class<?> type)
     {
         if (type == long.class || type == double.class) {
-            nodes.add(OpCodes.POP2);
+            nodes.add(OpCode.POP2);
         }
         else if (type != void.class) {
-            nodes.add(OpCodes.POP);
+            nodes.add(OpCode.POP);
+        }
+        return this;
+    }
+
+    public Block pop(ParameterizedType type)
+    {
+        Class<?> primitiveType = type.getPrimitiveType();
+        if (primitiveType == long.class || primitiveType == double.class) {
+            nodes.add(OpCode.POP2);
+        }
+        else if (primitiveType != void.class) {
+            nodes.add(OpCode.POP);
         }
         return this;
     }
 
     public Block swap()
     {
-        nodes.add(OpCodes.SWAP);
+        nodes.add(OpCode.SWAP);
         return this;
     }
 
@@ -729,7 +786,7 @@ public class Block
 
     public Block pushNull()
     {
-        nodes.add(OpCodes.ACONST_NULL);
+        nodes.add(OpCode.ACONST_NULL);
         return this;
     }
 
@@ -791,7 +848,7 @@ public class Block
 
     public Block getVariable(String name)
     {
-        append(context.getVariable(name).getValue());
+        append(context.getVariable(name).getByteCode());
         return this;
     }
 
@@ -802,7 +859,7 @@ public class Block
         return this;
     }
 
-    public Block initializeVariable(LocalVariableDefinition variable)
+    public Block initializeVariable(Variable variable)
     {
         ParameterizedType type = variable.getType();
         if (type.getType().length() == 1) {
@@ -836,7 +893,7 @@ public class Block
         return this;
     }
 
-    public Block getVariable(LocalVariableDefinition variable)
+    public Block getVariable(Variable variable)
     {
         nodes.add(VariableInstruction.loadVariable(variable));
         return this;
@@ -844,7 +901,7 @@ public class Block
 
     public Block putVariable(String name)
     {
-        append(context.getVariable(name).setValue());
+        putVariable(context.getVariable(name));
         return this;
     }
 
@@ -890,55 +947,55 @@ public class Block
         return this;
     }
 
-    public Block putVariable(LocalVariableDefinition variable)
+    public Block putVariable(Variable variable)
     {
         nodes.add(VariableInstruction.storeVariable(variable));
         return this;
     }
 
-    public Block putVariable(LocalVariableDefinition variable, Class<?> type)
+    public Block putVariable(Variable variable, Class<?> type)
     {
         nodes.add(loadClass(type));
         putVariable(variable);
         return this;
     }
 
-    public Block putVariable(LocalVariableDefinition variable, ParameterizedType type)
+    public Block putVariable(Variable variable, ParameterizedType type)
     {
         nodes.add(loadClass(type));
         putVariable(variable);
         return this;
     }
 
-    public Block putVariable(LocalVariableDefinition variable, String value)
+    public Block putVariable(Variable variable, String value)
     {
         nodes.add(Constant.loadString(value));
         putVariable(variable);
         return this;
     }
 
-    public Block putVariable(LocalVariableDefinition variable, Number value)
+    public Block putVariable(Variable variable, Number value)
     {
         nodes.add(loadNumber(value));
         putVariable(variable);
         return this;
     }
 
-    public Block putVariable(LocalVariableDefinition variable, int value)
+    public Block putVariable(Variable variable, int value)
     {
         nodes.add(loadInt(value));
         putVariable(variable);
         return this;
     }
 
-    public Block putVariable(LocalVariableDefinition variable, boolean value)
+    public Block putVariable(Variable variable, boolean value)
     {
         nodes.add(loadBoolean(value));
         putVariable(variable);
         return this;
     }
 
-    public Block incrementVariable(LocalVariableDefinition variable, byte increment)
+    public Block incrementVariable(Variable variable, byte increment)
     {
         String type = variable.getType().getClassName();
         Preconditions.checkArgument(ImmutableList.of("byte", "short", "int").contains(type), "variable must be an byte, short or int, but is %s", type);
@@ -948,13 +1005,13 @@ public class Block
 
     public Block getObjectArrayElement()
     {
-        nodes.add(OpCodes.AALOAD);
+        nodes.add(OpCode.AALOAD);
         return this;
     }
 
     public Block putObjectArrayElement()
     {
-        nodes.add(OpCodes.AASTORE);
+        nodes.add(OpCode.AASTORE);
         return this;
     }
 

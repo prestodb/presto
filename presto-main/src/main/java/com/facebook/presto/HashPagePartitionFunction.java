@@ -13,20 +13,23 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.operator.Page;
-import com.facebook.presto.operator.PageBuilder;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.operator.HashGenerator;
+import com.facebook.presto.operator.InterpretedHashGenerator;
+import com.facebook.presto.operator.PrecomputedHashGenerator;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public final class HashPagePartitionFunction
@@ -35,16 +38,28 @@ public final class HashPagePartitionFunction
     private final int partition;
     private final int partitionCount;
     private final List<Integer> partitioningChannels;
+    private final List<Type> types;
+    private final HashGenerator hashGenerator;
+    private final Optional<Integer> hashChannel;
 
     @JsonCreator
     public HashPagePartitionFunction(
             @JsonProperty("partition") int partition,
             @JsonProperty("partitionCount") int partitionCount,
-            @JsonProperty("partitioningChannels") List<Integer> partitioningChannels)
+            @JsonProperty("partitioningChannels") List<Integer> partitioningChannels,
+            @JsonProperty("hashChannel") Optional<Integer> hashChannel,
+            @JsonProperty("types") List<Type> types)
     {
+        checkNotNull(partitioningChannels, "partitioningChannels is null");
+        checkArgument(!partitioningChannels.isEmpty(), "partitioningChannels is empty");
+        this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
+        checkArgument(!hashChannel. isPresent() || hashChannel.get() < types.size(), "invalid hashChannel");
+
         this.partition = partition;
         this.partitionCount = partitionCount;
         this.partitioningChannels = ImmutableList.copyOf(partitioningChannels);
+        this.hashGenerator = createHashGenerator(hashChannel, partitioningChannels, types);
+        this.types = ImmutableList.copyOf(types);
     }
 
     @JsonProperty
@@ -65,40 +80,39 @@ public final class HashPagePartitionFunction
         return partitioningChannels;
     }
 
+    @JsonProperty
+    public List<Type> getTypes()
+    {
+        return types;
+    }
+
+    @JsonProperty
+    public Optional<Integer> getHashChannel()
+    {
+        return hashChannel;
+    }
+
     @Override
     public List<Page> partition(List<Page> pages)
     {
         if (pages.isEmpty()) {
             return pages;
         }
-
-        List<TupleInfo> tupleInfos = getTupleInfos(pages);
-
-        PageBuilder pageBuilder = new PageBuilder(tupleInfos);
+        PageBuilder pageBuilder = new PageBuilder(types);
 
         ImmutableList.Builder<Page> partitionedPages = ImmutableList.builder();
         for (Page page : pages) {
-            // open the page
-            BlockCursor[] cursors = new BlockCursor[tupleInfos.size()];
-            for (int i = 0; i < cursors.length; i++) {
-                cursors[i] = page.getBlock(i).cursor();
-            }
-            // for each position
             for (int position = 0; position < page.getPositionCount(); position++) {
-                // advance all cursors
-                for (BlockCursor cursor : cursors) {
-                    cursor.advanceNextPosition();
-                }
-
                 // if hash is not in range skip
-                int partitionHashBucket = getPartitionHashBucket(tupleInfos, cursors);
+                int partitionHashBucket = getPartitionHashBucket(position, page);
                 if (partitionHashBucket != partition) {
                     continue;
                 }
 
-                // append row
-                for (int channel = 0; channel < cursors.length; channel++) {
-                    pageBuilder.getBlockBuilder(channel).append(cursors[channel]);
+                pageBuilder.declarePosition();
+                for (int channel = 0; channel < types.size(); channel++) {
+                    Type type = types.get(channel);
+                    type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
                 }
 
                 // if page is full, flush
@@ -115,33 +129,22 @@ public final class HashPagePartitionFunction
         return partitionedPages.build();
     }
 
-    private int getPartitionHashBucket(List<TupleInfo> tupleInfos, BlockCursor[] cursors)
+    private int getPartitionHashBucket(int position, Page page)
     {
-        long hashCode = 1;
-        for (int channel : partitioningChannels) {
-            hashCode *= 31;
-            hashCode += calculateHashCode(tupleInfos.get(channel), cursors[channel]);
-        }
-        // clear the sign bit
-        hashCode &= 0x7fff_ffff_ffff_ffffL;
+        int rawHash = hashGenerator.hashPosition(position, page);
 
-        int bucket = (int) (hashCode % partitionCount);
+         // clear the sign bit
+        rawHash &= 0x7fff_ffffL;
+
+        int bucket = rawHash % partitionCount;
         checkState(bucket >= 0 && bucket < partitionCount);
         return bucket;
-    }
-
-    private static int calculateHashCode(TupleInfo tupleInfo, BlockCursor cursor)
-    {
-        Slice slice = cursor.getRawSlice();
-        int offset = cursor.getRawOffset();
-        int length = tupleInfo.size(slice, offset);
-        return slice.hashCode(offset, length);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(partition, partitionCount, partitioningChannels);
+        return Objects.hashCode(partition, partitionCount, partitioningChannels, hashGenerator);
     }
 
     @Override
@@ -153,29 +156,36 @@ public final class HashPagePartitionFunction
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final HashPagePartitionFunction other = (HashPagePartitionFunction) obj;
+        HashPagePartitionFunction other = (HashPagePartitionFunction) obj;
         return Objects.equal(this.partition, other.partition) &&
                 Objects.equal(this.partitionCount, other.partitionCount) &&
-                Objects.equal(this.partitioningChannels, other.partitioningChannels);
+                Objects.equal(this.partitioningChannels, other.partitioningChannels) &&
+                Objects.equal(hashChannel, other.hashChannel);
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("partition", partition)
                 .add("partitionCount", partitionCount)
                 .add("partitioningChannels", partitioningChannels)
+                .add("hashChannel", hashChannel)
                 .toString();
     }
 
-    private static List<TupleInfo> getTupleInfos(List<Page> pages)
+    private static HashGenerator createHashGenerator(Optional<Integer> hashChannel, List<Integer> partitioningChannels, List<Type> types)
     {
-        Page firstPage = pages.get(0);
-        List<TupleInfo> tupleInfos = new ArrayList<>();
-        for (Block block : firstPage.getBlocks()) {
-            tupleInfos.add(block.getTupleInfo());
+        if (hashChannel.isPresent()) {
+            return new PrecomputedHashGenerator(hashChannel.get());
         }
-        return tupleInfos;
+        ImmutableList.Builder<Type> hashTypes = ImmutableList.builder();
+        int[] hashChannels = new int[partitioningChannels.size()];
+        for (int i = 0; i < partitioningChannels.size(); i++) {
+            int channel = partitioningChannels.get(i);
+            hashTypes.add(types.get(channel));
+            hashChannels[i] = channel;
+        }
+        return new InterpretedHashGenerator(hashTypes.build(), hashChannels);
     }
 }

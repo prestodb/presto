@@ -13,136 +13,29 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.util.array.BooleanBigArray;
-import com.facebook.presto.util.array.LongBigArray;
-import com.google.common.base.Optional;
+import com.facebook.presto.operator.aggregation.state.InitialLongValue;
+import com.facebook.presto.operator.aggregation.state.NullableBigintState;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.SqlType;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-
-public class LongMaxAggregation
-        extends SimpleAggregationFunction
+@AggregationFunction("max")
+public final class LongMaxAggregation
 {
-    public static final LongMaxAggregation LONG_MAX = new LongMaxAggregation();
+    private LongMaxAggregation() {}
 
-    public LongMaxAggregation()
+    @InputFunction
+    @IntermediateInputFunction
+    public static void max(BigintMaxState state, @SqlType(StandardTypes.BIGINT) long value)
     {
-        super(SINGLE_LONG, SINGLE_LONG, FIXED_INT_64);
+        state.setNull(false);
+        state.setLong(Math.max(state.getLong(), value));
     }
 
-    @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
+    public interface BigintMaxState
+            extends NullableBigintState
     {
-        // Min/max are not effected by distinct, so ignore it.
-        checkArgument(confidence == 1.0, "max does not support approximate queries");
-        return new LongMaxGroupedAccumulator(valueChannel);
-    }
-
-    public static class LongMaxGroupedAccumulator
-            extends SimpleGroupedAccumulator
-    {
-        private final BooleanBigArray notNull;
-        private final LongBigArray maxValues;
-
-        public LongMaxGroupedAccumulator(int valueChannel)
-        {
-            super(valueChannel, SINGLE_LONG, SINGLE_LONG, Optional.<Integer>absent(), Optional.<Integer>absent());
-
-            this.notNull = new BooleanBigArray();
-            this.maxValues = new LongBigArray(Long.MIN_VALUE);
-        }
-
         @Override
-        public long getEstimatedSize()
-        {
-            return notNull.sizeOf() + maxValues.sizeOf();
-        }
-
-        @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
-        {
-            notNull.ensureCapacity(groupIdsBlock.getGroupCount());
-            maxValues.ensureCapacity(groupIdsBlock.getGroupCount(), Long.MIN_VALUE);
-
-            BlockCursor values = valuesBlock.cursor();
-
-            for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
-                checkState(values.advanceNextPosition());
-
-                long groupId = groupIdsBlock.getGroupId(position);
-
-                if (!values.isNull()) {
-                    notNull.set(groupId, true);
-
-                    long value = values.getLong();
-                    value = Math.max(value, maxValues.get(groupId));
-                    maxValues.set(groupId, value);
-                }
-            }
-            checkState(!values.advanceNextPosition());
-        }
-
-        @Override
-        public void evaluateFinal(int groupId, BlockBuilder output)
-        {
-            if (notNull.get((long) groupId)) {
-                long value = maxValues.get((long) groupId);
-                output.append(value);
-            }
-            else {
-                output.appendNull();
-            }
-        }
-    }
-
-    @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
-    {
-        // Min/max are not effected by distinct, so ignore it.
-        checkArgument(confidence == 1.0, "max does not support approximate queries");
-        return new LongMaxAccumulator(valueChannel);
-    }
-
-    public static class LongMaxAccumulator
-            extends SimpleAccumulator
-    {
-        private boolean notNull;
-        private long max = Long.MIN_VALUE;
-
-        public LongMaxAccumulator(int valueChannel)
-        {
-            super(valueChannel, SINGLE_LONG, SINGLE_LONG, Optional.<Integer>absent(), Optional.<Integer>absent());
-        }
-
-        @Override
-        protected void processInput(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
-        {
-            BlockCursor values = block.cursor();
-
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                checkState(values.advanceNextPosition());
-                if (!values.isNull()) {
-                    notNull = true;
-                    max = Math.max(max, values.getLong());
-                }
-            }
-        }
-
-        @Override
-        public void evaluateFinal(BlockBuilder out)
-        {
-            if (notNull) {
-                out.append(max);
-            }
-            else {
-                out.appendNull();
-            }
-        }
+        @InitialLongValue(Long.MIN_VALUE)
+        long getLong();
     }
 }

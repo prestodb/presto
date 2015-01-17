@@ -13,36 +13,40 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
+import javax.annotation.concurrent.ThreadSafe;
+
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.operator.OperatorContext.operatorStatsGetter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getFirst;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
+@ThreadSafe
 public class DriverContext
 {
+    private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
+
     private final PipelineContext pipelineContext;
     private final Executor executor;
 
@@ -54,17 +58,31 @@ public class DriverContext
     private final AtomicLong startNanos = new AtomicLong();
     private final AtomicLong endNanos = new AtomicLong();
 
+    private final AtomicLong intervalWallStart = new AtomicLong();
+    private final AtomicLong intervalCpuStart = new AtomicLong();
+    private final AtomicLong intervalUserStart = new AtomicLong();
+
+    private final AtomicLong processCalls = new AtomicLong();
+    private final AtomicLong processWallNanos = new AtomicLong();
+    private final AtomicLong processCpuNanos = new AtomicLong();
+    private final AtomicLong processUserNanos = new AtomicLong();
+
+    private final AtomicReference<BlockedMonitor> blockedMonitor = new AtomicReference<>();
+    private final AtomicLong blockedWallNanos = new AtomicLong();
+
     private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> executionEndTime = new AtomicReference<>();
 
     private final AtomicLong memoryReservation = new AtomicLong();
 
     private final List<OperatorContext> operatorContexts = new CopyOnWriteArrayList<>();
+    private final boolean partitioned;
 
-    public DriverContext(PipelineContext pipelineContext, Executor executor)
+    public DriverContext(PipelineContext pipelineContext, Executor executor, boolean partitioned)
     {
         this.pipelineContext = checkNotNull(pipelineContext, "pipelineContext is null");
         this.executor = checkNotNull(executor, "executor is null");
+        this.partitioned = partitioned;
     }
 
     public TaskId getTaskId()
@@ -74,13 +92,18 @@ public class DriverContext
 
     public OperatorContext addOperatorContext(int operatorId, String operatorType)
     {
+        return addOperatorContext(operatorId, operatorType, pipelineContext.getMaxMemorySize().toBytes());
+    }
+
+    public OperatorContext addOperatorContext(int operatorId, String operatorType, long maxMemoryReservation)
+    {
         checkArgument(operatorId >= 0, "operatorId is negative");
 
         for (OperatorContext operatorContext : operatorContexts) {
             checkArgument(operatorId != operatorContext.getOperatorId(), "A context already exists for operatorId %s", operatorId);
         }
 
-        OperatorContext operatorContext = new OperatorContext(operatorId, operatorType, this, executor);
+        OperatorContext operatorContext = new OperatorContext(operatorId, operatorType, this, executor, maxMemoryReservation);
         operatorContexts.add(operatorContext);
         return operatorContext;
     }
@@ -90,19 +113,48 @@ public class DriverContext
         return ImmutableList.copyOf(operatorContexts);
     }
 
+    public PipelineContext getPipelineContext()
+    {
+        return pipelineContext;
+    }
+
     public Session getSession()
     {
         return pipelineContext.getSession();
     }
 
-    public void start()
+    public void startProcessTimer()
     {
-        if (!startNanos.compareAndSet(0, System.nanoTime())) {
-            // already started
-            return;
+        if (startNanos.compareAndSet(0, System.nanoTime())) {
+            pipelineContext.start();
+            executionStartTime.set(DateTime.now());
         }
-        pipelineContext.start();
-        executionStartTime.set(DateTime.now());
+
+        intervalWallStart.set(System.nanoTime());
+        intervalCpuStart.set(currentThreadCpuTime());
+        intervalUserStart.set(currentThreadUserTime());
+    }
+
+    public void recordProcessed()
+    {
+        processCalls.incrementAndGet();
+        processWallNanos.getAndAdd(nanosBetween(intervalWallStart.get(), System.nanoTime()));
+        processCpuNanos.getAndAdd(nanosBetween(intervalCpuStart.get(), currentThreadCpuTime()));
+        processUserNanos.getAndAdd(nanosBetween(intervalUserStart.get(), currentThreadUserTime()));
+    }
+
+    public void recordBlocked(ListenableFuture<?> blocked)
+    {
+        checkNotNull(blocked, "blocked is null");
+
+        BlockedMonitor monitor = new BlockedMonitor();
+
+        BlockedMonitor oldMonitor = blockedMonitor.getAndSet(monitor);
+        if (oldMonitor != null) {
+            oldMonitor.run();
+        }
+
+        blocked.addListener(monitor, executor);
     }
 
     public void finished()
@@ -135,7 +187,7 @@ public class DriverContext
 
     public DataSize getOperatorPreAllocatedMemory()
     {
-        return pipelineContext.getMaxMemorySize();
+        return pipelineContext.getOperatorPreAllocatedMemory();
     }
 
     public boolean reserveMemory(long bytes)
@@ -145,6 +197,17 @@ public class DriverContext
             memoryReservation.getAndAdd(bytes);
         }
         return result;
+    }
+
+    public void freeMemory(long bytes)
+    {
+        pipelineContext.freeMemory(bytes);
+        memoryReservation.getAndAdd(-bytes);
+    }
+
+    public boolean isVerboseStats()
+    {
+        return pipelineContext.isVerboseStats();
     }
 
     public boolean isCpuTimerEnabled()
@@ -196,39 +259,23 @@ public class DriverContext
         }
     }
 
-    @Deprecated
-    public void addOutputItems(PlanNodeId id, Set<?> output)
-    {
-        pipelineContext.addOutputItems(id, output);
-    }
-
     public DriverStats getDriverStats()
     {
-        long totalScheduledTime = 0;
-        long totalCpuTime = 0;
-        long totalUserTime = 0;
-        long totalBlockedTime = 0;
+        long totalScheduledTime = processWallNanos.get();
+        long totalCpuTime = processCpuNanos.get();
+        long totalUserTime = processUserNanos.get();
 
-        List<OperatorStats> operators = ImmutableList.copyOf(transform(operatorContexts, operatorStatsGetter()));
-        for (OperatorStats operator : operators) {
-            totalScheduledTime += operator.getGetOutputWall().roundTo(NANOSECONDS);
-            totalCpuTime += operator.getGetOutputCpu().roundTo(NANOSECONDS);
-            totalUserTime += operator.getGetOutputUser().roundTo(NANOSECONDS);
-
-            totalScheduledTime += operator.getAddInputWall().roundTo(NANOSECONDS);
-            totalCpuTime += operator.getAddInputCpu().roundTo(NANOSECONDS);
-            totalUserTime += operator.getAddInputUser().roundTo(NANOSECONDS);
-
-            totalScheduledTime += operator.getFinishWall().roundTo(NANOSECONDS);
-            totalCpuTime += operator.getFinishCpu().roundTo(NANOSECONDS);
-            totalUserTime += operator.getFinishUser().roundTo(NANOSECONDS);
-
-            totalBlockedTime += operator.getBlockedWall().roundTo(NANOSECONDS);
+        long totalBlockedTime = blockedWallNanos.get();
+        BlockedMonitor blockedMonitor = this.blockedMonitor.get();
+        if (blockedMonitor != null) {
+            totalBlockedTime += blockedMonitor.getBlockedTime();
         }
 
+        List<OperatorStats> operators = ImmutableList.copyOf(transform(operatorContexts, OperatorContext::getOperatorStats));
         OperatorStats inputOperator = getFirst(operators, null);
         DataSize rawInputDataSize;
         long rawInputPositions;
+        Duration rawInputReadTime;
         DataSize processedInputDataSize;
         long processedInputPositions;
         DataSize outputDataSize;
@@ -236,6 +283,7 @@ public class DriverContext
         if (inputOperator != null) {
             rawInputDataSize = inputOperator.getInputDataSize();
             rawInputPositions = inputOperator.getInputPositions();
+            rawInputReadTime = inputOperator.getAddInputWall();
 
             processedInputDataSize = inputOperator.getOutputDataSize();
             processedInputPositions = inputOperator.getOutputPositions();
@@ -247,6 +295,7 @@ public class DriverContext
         else {
             rawInputDataSize = new DataSize(0, BYTE);
             rawInputPositions = 0;
+            rawInputReadTime = new Duration(0, MILLISECONDS);
 
             processedInputDataSize = new DataSize(0, BYTE);
             processedInputPositions = 0;
@@ -283,21 +332,69 @@ public class DriverContext
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 rawInputDataSize.convertToMostSuccinctDataSize(),
                 rawInputPositions,
+                rawInputReadTime,
                 processedInputDataSize.convertToMostSuccinctDataSize(),
                 processedInputPositions,
                 outputDataSize.convertToMostSuccinctDataSize(),
                 outputPositions,
-                ImmutableList.copyOf(Iterables.transform(operatorContexts, operatorStatsGetter())));
+                ImmutableList.copyOf(transform(operatorContexts, OperatorContext::getOperatorStats)));
     }
 
-    public static Function<DriverContext, DriverStats> driverStatsGetter()
+    public boolean isPartitioned()
     {
-        return new Function<DriverContext, DriverStats>()
+        return partitioned;
+    }
+
+    private long currentThreadUserTime()
+    {
+        if (!isCpuTimerEnabled()) {
+            return 0;
+        }
+        return THREAD_MX_BEAN.getCurrentThreadUserTime();
+    }
+
+    private long currentThreadCpuTime()
+    {
+        if (!isCpuTimerEnabled()) {
+            return 0;
+        }
+        return THREAD_MX_BEAN.getCurrentThreadCpuTime();
+    }
+
+    private static long nanosBetween(long start, long end)
+    {
+        return Math.abs(end - start);
+    }
+
+    // hack for index joins
+    @Deprecated
+    public Executor getExecutor()
+    {
+        return executor;
+    }
+
+    private class BlockedMonitor
+            implements Runnable
+    {
+        private final long start = System.nanoTime();
+        private boolean finished;
+
+        @Override
+        public void run()
         {
-            public DriverStats apply(DriverContext driverContext)
-            {
-                return driverContext.getDriverStats();
+            synchronized (this) {
+                if (finished) {
+                    return;
+                }
+                finished = true;
+                blockedMonitor.compareAndSet(this, null);
+                blockedWallNanos.getAndAdd(getBlockedTime());
             }
-        };
+        }
+
+        public long getBlockedTime()
+        {
+            return nanosBetween(start, System.nanoTime());
+        }
     }
 }

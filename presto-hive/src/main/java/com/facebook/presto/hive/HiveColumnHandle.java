@@ -13,25 +13,29 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
-import com.google.common.base.Predicate;
 
+import static com.facebook.presto.hive.util.Types.checkType;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class HiveColumnHandle
-        implements ColumnHandle
+        implements ConnectorColumnHandle
 {
+    public static final String SAMPLE_WEIGHT_COLUMN_NAME = "__presto__sample_weight__";
+
     private final String clientId;
     private final String name;
     private final int ordinalPosition;
     private final HiveType hiveType;
+    private final TypeSignature typeName;
     private final int hiveColumnIndex;
     private final boolean partitionKey;
 
@@ -41,6 +45,7 @@ public class HiveColumnHandle
             @JsonProperty("name") String name,
             @JsonProperty("ordinalPosition") int ordinalPosition,
             @JsonProperty("hiveType") HiveType hiveType,
+            @JsonProperty("typeSignature") TypeSignature typeSignature,
             @JsonProperty("hiveColumnIndex") int hiveColumnIndex,
             @JsonProperty("partitionKey") boolean partitionKey)
     {
@@ -51,6 +56,7 @@ public class HiveColumnHandle
         checkArgument(hiveColumnIndex >= 0 || partitionKey, "hiveColumnIndex is negative");
         this.hiveColumnIndex = hiveColumnIndex;
         this.hiveType = checkNotNull(hiveType, "hiveType is null");
+        this.typeName = checkNotNull(typeSignature, "type is null");
         this.partitionKey = partitionKey;
     }
 
@@ -90,14 +96,15 @@ public class HiveColumnHandle
         return partitionKey;
     }
 
-    public ColumnMetadata getColumnMetadata()
+    public ColumnMetadata getColumnMetadata(TypeManager typeManager)
     {
-        return new ColumnMetadata(name, hiveType.getNativeType(), ordinalPosition, partitionKey);
+        return new ColumnMetadata(name, typeManager.getType(typeName), ordinalPosition, partitionKey);
     }
 
-    public ColumnType getType()
+    @JsonProperty
+    public TypeSignature getTypeSignature()
     {
-        return hiveType.getNativeType();
+        return typeName;
     }
 
     @Override
@@ -126,7 +133,7 @@ public class HiveColumnHandle
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("clientId", clientId)
                 .add("name", name)
                 .add("ordinalPosition", ordinalPosition)
@@ -136,65 +143,8 @@ public class HiveColumnHandle
                 .toString();
     }
 
-    public static Function<ColumnHandle, HiveColumnHandle> hiveColumnHandle()
+    public static HiveColumnHandle toHiveColumnHandle(ConnectorColumnHandle columnHandle)
     {
-        return new Function<ColumnHandle, HiveColumnHandle>()
-        {
-            @Override
-            public HiveColumnHandle apply(ColumnHandle columnHandle)
-            {
-                checkNotNull(columnHandle, "columnHandle is null");
-                checkArgument(columnHandle instanceof HiveColumnHandle, "columnHandle is not an instance of HiveColumnHandle");
-                return (HiveColumnHandle) columnHandle;
-            }
-        };
-    }
-
-    public static Function<HiveColumnHandle, Integer> hiveColumnIndexGetter()
-    {
-        return new Function<HiveColumnHandle, Integer>()
-        {
-            @Override
-            public Integer apply(HiveColumnHandle input)
-            {
-                return input.getHiveColumnIndex();
-            }
-        };
-    }
-
-    public static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter()
-    {
-        return new Function<HiveColumnHandle, ColumnMetadata>()
-        {
-            @Override
-            public ColumnMetadata apply(HiveColumnHandle input)
-            {
-                return input.getColumnMetadata();
-            }
-        };
-    }
-
-    public static Function<HiveColumnHandle, ColumnType> nativeTypeGetter()
-    {
-        return new Function<HiveColumnHandle, ColumnType>()
-        {
-            @Override
-            public ColumnType apply(HiveColumnHandle input)
-            {
-                return input.getType();
-            }
-        };
-    }
-
-    public static Predicate<HiveColumnHandle> isPartitionKeyPredicate()
-    {
-        return new Predicate<HiveColumnHandle>()
-        {
-            @Override
-            public boolean apply(HiveColumnHandle input)
-            {
-                return input.isPartitionKey();
-            }
-        };
+        return checkType(columnHandle, HiveColumnHandle.class, "columnHandle");
     }
 }

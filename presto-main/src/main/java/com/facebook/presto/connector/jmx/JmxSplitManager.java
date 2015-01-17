@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.connector.jmx;
 
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorPartition;
+import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.Partition;
-import com.facebook.presto.spi.PartitionResult;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.SplitSource;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -31,7 +31,8 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.util.Types.checkType;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class JmxSplitManager
@@ -48,51 +49,35 @@ public class JmxSplitManager
     }
 
     @Override
-    public String getConnectorId()
+    public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
-        return connectorId;
-    }
-
-    @Override
-    public boolean canHandle(TableHandle tableHandle)
-    {
-        return tableHandle instanceof JmxTableHandle && ((JmxTableHandle) tableHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public PartitionResult getPartitions(TableHandle table, TupleDomain tupleDomain)
-    {
-        checkNotNull(table, "table is null");
         checkNotNull(tupleDomain, "tupleDomain is null");
+        JmxTableHandle jmxTableHandle = checkType(table, JmxTableHandle.class, "table");
 
-        checkArgument(table instanceof JmxTableHandle, "TableHandle must be an JmxTableHandle");
-        JmxTableHandle jmxTableHandle = (JmxTableHandle) table;
-
-        ImmutableList<Partition> partitions = ImmutableList.<Partition>of(new JmxPartition(jmxTableHandle));
-        return new PartitionResult(partitions, tupleDomain);
+        List<ConnectorPartition> partitions = ImmutableList.<ConnectorPartition>of(new JmxPartition(jmxTableHandle));
+        return new ConnectorPartitionResult(partitions, tupleDomain);
     }
 
     @Override
-    public SplitSource getPartitionSplits(TableHandle table, List<Partition> partitions)
+    public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle table, List<ConnectorPartition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
-            return new FixedSplitSource(connectorId, ImmutableList.<Split>of());
+            return new FixedSplitSource(connectorId, ImmutableList.<ConnectorSplit>of());
         }
 
-        Partition partition = Iterables.getOnlyElement(partitions);
-        checkArgument(partition instanceof JmxPartition, "Partition must be an jmx partition");
-        JmxPartition jmxPartition = (JmxPartition) partition;
+        ConnectorPartition partition = Iterables.getOnlyElement(partitions);
+        JmxTableHandle tableHandle = checkType(partition, JmxPartition.class, "partition").getTableHandle();
 
-        ImmutableList.Builder<Split> splits = ImmutableList.builder();
+        ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         for (Node node : nodeManager.getActiveNodes()) {
-            splits.add(new JmxSplit(jmxPartition.tableHandle, ImmutableList.of(node.getHostAndPort())));
+            splits.add(new JmxSplit(tableHandle, ImmutableList.of(node.getHostAndPort())));
         }
         return new FixedSplitSource(connectorId, splits.build());
     }
 
     public static class JmxPartition
-            implements Partition
+            implements ConnectorPartition
     {
         private final JmxTableHandle tableHandle;
 
@@ -113,7 +98,7 @@ public class JmxSplitManager
         }
 
         @Override
-        public TupleDomain getTupleDomain()
+        public TupleDomain<ConnectorColumnHandle> getTupleDomain()
         {
             return TupleDomain.all();
         }
@@ -121,7 +106,7 @@ public class JmxSplitManager
         @Override
         public String toString()
         {
-            return Objects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("tableHandle", tableHandle)
                     .toString();
         }

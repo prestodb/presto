@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
-
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Window
@@ -27,11 +27,11 @@ public class Window
     private final List<SortItem> orderBy;
     private final Optional<WindowFrame> frame;
 
-    public Window(List<Expression> partitionBy, List<SortItem> orderBy, WindowFrame frame)
+    public Window(List<Expression> partitionBy, List<SortItem> orderBy, Optional<WindowFrame> frame)
     {
         this.partitionBy = checkNotNull(partitionBy, "partitionBy is null");
         this.orderBy = checkNotNull(orderBy, "orderBy is null");
-        this.frame = Optional.fromNullable(frame);
+        this.frame = checkNotNull(frame, "frame is null");
     }
 
     public List<Expression> getPartitionBy()
@@ -65,21 +65,21 @@ public class Window
             return false;
         }
         Window o = (Window) obj;
-        return Objects.equal(partitionBy, o.partitionBy) &&
-                Objects.equal(orderBy, o.orderBy) &&
-                Objects.equal(frame, o.frame);
+        return Objects.equals(partitionBy, o.partitionBy) &&
+                Objects.equals(orderBy, o.orderBy) &&
+                Objects.equals(frame, o.frame);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(partitionBy, orderBy, frame);
+        return Objects.hash(partitionBy, orderBy, frame);
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("partitionBy", partitionBy)
                 .add("orderBy", orderBy)
                 .add("frame", frame)

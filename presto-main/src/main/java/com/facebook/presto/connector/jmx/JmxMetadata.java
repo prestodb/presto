@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.TableHandle;
-import com.google.common.base.Function;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
@@ -40,8 +40,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Locale.ENGLISH;
 import static javax.management.ObjectName.WILDCARD;
 
 public class JmxMetadata
@@ -60,19 +65,13 @@ public class JmxMetadata
     }
 
     @Override
-    public boolean canHandle(TableHandle tableHandle)
-    {
-        return tableHandle instanceof JmxTableHandle && ((JmxTableHandle) tableHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public List<String> listSchemaNames()
+    public List<String> listSchemaNames(ConnectorSession session)
     {
         return ImmutableList.of(SCHEMA_NAME);
     }
 
     @Override
-    public JmxTableHandle getTableHandle(SchemaTableName tableName)
+    public JmxTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         checkNotNull(tableName, "tableName is null");
         if (!tableName.getSchemaName().equals(SCHEMA_NAME)) {
@@ -85,7 +84,7 @@ public class JmxMetadata
 
             ImmutableList.Builder<JmxColumnHandle> columns = ImmutableList.builder();
             int ordinalPosition = 0;
-            columns.add(new JmxColumnHandle(connectorId, "node", ColumnType.STRING, ordinalPosition++));
+            columns.add(new JmxColumnHandle(connectorId, "node", VARCHAR, ordinalPosition++));
             for (MBeanAttributeInfo attribute : mbeanInfo.getAttributes()) {
                 if (!attribute.isReadable()) {
                     continue;
@@ -100,16 +99,13 @@ public class JmxMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(TableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle tableHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkArgument(tableHandle instanceof JmxTableHandle, "tableHandle is not an instance of JmxTableHandle");
-        JmxTableHandle jmxTableHandle = (JmxTableHandle) tableHandle;
-        return jmxTableHandle.getTableMetadata();
+        return checkType(tableHandle, JmxTableHandle.class, "tableHandle").getTableMetadata();
     }
 
     @Override
-    public List<SchemaTableName> listTables(String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
         if (schemaNameOrNull != null && !schemaNameOrNull.equals(SCHEMA_NAME)) {
             return ImmutableList.of();
@@ -118,62 +114,33 @@ public class JmxMetadata
         Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (ObjectName objectName : mbeanServer.queryNames(WILDCARD, null)) {
             // todo remove lower case when presto supports mixed case names
-            tableNames.add(new SchemaTableName(SCHEMA_NAME, objectName.toString().toLowerCase()));
+            tableNames.add(new SchemaTableName(SCHEMA_NAME, objectName.toString().toLowerCase(ENGLISH)));
         }
         return tableNames.build();
     }
 
     @Override
-    public ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName)
-    {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkArgument(tableHandle instanceof JmxTableHandle, "tableHandle is not an instance of JmxTableHandle");
-        JmxTableHandle jmxTableHandle = (JmxTableHandle) tableHandle;
-
-        for (JmxColumnHandle jmxColumnHandle : jmxTableHandle.getColumns()) {
-            if (jmxColumnHandle.getColumnName().equalsIgnoreCase(columnName)) {
-                return jmxColumnHandle;
-            }
-        }
-        return null;
-    }
-
-    @Override
-    public ColumnHandle getSampleWeightColumnHandle(TableHandle tableHandle)
+    public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return null;
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
+    public Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkArgument(tableHandle instanceof JmxTableHandle, "tableHandle is not an instance of JmxTableHandle");
-        JmxTableHandle jmxTableHandle = (JmxTableHandle) tableHandle;
-
-        return ImmutableMap.<String, ColumnHandle>copyOf(Maps.uniqueIndex(jmxTableHandle.getColumns(), new Function<JmxColumnHandle, String>()
-        {
-            @Override
-            public String apply(JmxColumnHandle input)
-            {
-                return input.getColumnName().toLowerCase();
-            }
-        }));
+        JmxTableHandle jmxTableHandle = checkType(tableHandle, JmxTableHandle.class, "tableHandle");
+        return ImmutableMap.copyOf(Maps.uniqueIndex(jmxTableHandle.getColumns(), column -> column.getColumnName().toLowerCase(ENGLISH)));
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkArgument(tableHandle instanceof JmxTableHandle, "tableHandle is not an instance of JmxTableHandle");
-        checkNotNull(columnHandle, "columnHandle is null");
-        checkArgument(columnHandle instanceof JmxColumnHandle, "columnHandle is not an instance of JmxColumnHandle");
-        JmxColumnHandle jmxColumnHandle = (JmxColumnHandle) columnHandle;
-        return jmxColumnHandle.getColumnMetadata();
+        checkType(tableHandle, JmxTableHandle.class, "tableHandle");
+        return checkType(columnHandle, JmxColumnHandle.class, "columnHandle").getColumnMetadata();
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
         if (prefix.getSchemaName() != null && !prefix.getSchemaName().equals(SCHEMA_NAME)) {
@@ -184,26 +151,26 @@ public class JmxMetadata
 
         List<SchemaTableName> tableNames;
         if (prefix.getTableName() == null) {
-            tableNames = listTables(prefix.getSchemaName());
+            tableNames = listTables(session, prefix.getSchemaName());
         }
         else {
             tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
         }
 
         for (SchemaTableName tableName : tableNames) {
-            JmxTableHandle tableHandle = getTableHandle(tableName);
+            JmxTableHandle tableHandle = getTableHandle(session, tableName);
             columns.put(tableName, tableHandle.getTableMetadata().getColumns());
         }
         return columns.build();
     }
 
-    private ColumnType getColumnType(MBeanAttributeInfo attribute)
+    private Type getColumnType(MBeanAttributeInfo attribute)
     {
-        ColumnType columnType;
+        Type columnType;
         switch (attribute.getType()) {
             case "boolean":
             case "java.lang.Boolean":
-                columnType = ColumnType.BOOLEAN;
+                columnType = BOOLEAN;
                 break;
             case "byte":
             case "java.lang.Byte":
@@ -213,17 +180,17 @@ public class JmxMetadata
             case "java.lang.Integer":
             case "long":
             case "java.lang.Long":
-                columnType = ColumnType.LONG;
+                columnType = BIGINT;
                 break;
             case "java.lang.Number":
             case "float":
             case "java.lang.Float":
             case "double":
             case "java.lang.Double":
-                columnType = ColumnType.DOUBLE;
+                columnType = DOUBLE;
                 break;
             default:
-                columnType = ColumnType.STRING;
+                columnType = VARCHAR;
                 break;
         }
         return columnType;

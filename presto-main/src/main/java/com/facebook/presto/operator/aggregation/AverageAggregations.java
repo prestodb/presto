@@ -13,44 +13,55 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.AverageAggregation.AverageAccumulator;
-import com.facebook.presto.operator.aggregation.AverageAggregation.AverageGroupedAccumulator;
-import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleAccumulator;
-import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleGroupedAccumulator;
-import com.facebook.presto.tuple.TupleInfo.Type;
-import com.google.common.base.Throwables;
+import com.facebook.presto.operator.aggregation.state.LongAndDoubleState;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.SqlType;
+import com.google.common.collect.ImmutableList;
 
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
+@AggregationFunction("avg")
 public final class AverageAggregations
 {
-    public static final AggregationFunction LONG_AVERAGE = createIsolatedAggregation(FIXED_INT_64);
-    public static final AggregationFunction DOUBLE_AVERAGE = createIsolatedAggregation(DOUBLE);
+    public static final InternalAggregationFunction LONG_AVERAGE = new AggregationCompiler().generateAggregationFunction(AverageAggregations.class, DOUBLE, ImmutableList.<Type>of(BIGINT));
+    public static final InternalAggregationFunction DOUBLE_AVERAGE = new AggregationCompiler().generateAggregationFunction(AverageAggregations.class, DOUBLE, ImmutableList.<Type>of(DOUBLE));
 
     private AverageAggregations() {}
 
-    private static AggregationFunction createIsolatedAggregation(Type parameterType)
+    @InputFunction
+    public static void input(LongAndDoubleState state, @SqlType(StandardTypes.BIGINT) long value)
     {
-        Class<? extends AggregationFunction> functionClass = IsolatedClass.isolateClass(
-                AggregationFunction.class,
+        state.setLong(state.getLong() + 1);
+        state.setDouble(state.getDouble() + value);
+    }
 
-                AverageAggregation.class,
-                SimpleAggregationFunction.class,
+    @InputFunction
+    public static void input(LongAndDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
+    {
+        state.setLong(state.getLong() + 1);
+        state.setDouble(state.getDouble() + value);
+    }
 
-                AverageGroupedAccumulator.class,
-                SimpleGroupedAccumulator.class,
+    @CombineFunction
+    public static void combine(LongAndDoubleState state, LongAndDoubleState otherState)
+    {
+        state.setLong(state.getLong() + otherState.getLong());
+        state.setDouble(state.getDouble() + otherState.getDouble());
+    }
 
-                AverageAccumulator.class,
-                SimpleAccumulator.class);
-
-        try {
-            return functionClass
-                    .getConstructor(Type.class)
-                    .newInstance(parameterType);
+    @OutputFunction(StandardTypes.DOUBLE)
+    public static void output(LongAndDoubleState state, BlockBuilder out)
+    {
+        long count = state.getLong();
+        if (count == 0) {
+            out.appendNull();
         }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
+        else {
+            double value = state.getDouble();
+            DOUBLE.writeDouble(out, value / count);
         }
     }
 }

@@ -13,30 +13,32 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
+
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class RankFunction
-        implements WindowFunction
+        extends RankingWindowFunction
 {
     private long rank;
     private long count;
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return TupleInfo.SINGLE_LONG;
+        return BIGINT;
     }
 
     @Override
-    public void reset(int partitionRowCount)
+    public void reset()
     {
         rank = 0;
         count = 1;
     }
 
     @Override
-    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
+    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount, int currentPosition)
     {
         if (newPeerGroup) {
             rank += count;
@@ -45,6 +47,6 @@ public class RankFunction
         else {
             count++;
         }
-        output.append(rank);
+        BIGINT.writeLong(output, rank);
     }
 }

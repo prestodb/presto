@@ -28,7 +28,8 @@ public class FailureDetectorModule
     public void configure(Binder binder)
     {
         httpClientBinder(binder)
-                .bindAsyncHttpClient("failure-detector", ForFailureDetector.class)
+                .bindHttpClient("failure-detector", ForFailureDetector.class)
+                .withPrivateIoThreadPool()
                 .withTracing();
 
         bindConfig(binder).to(FailureDetectorConfig.class);

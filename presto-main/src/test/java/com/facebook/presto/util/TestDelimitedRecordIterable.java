@@ -14,13 +14,13 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.Splitter;
+import com.google.common.io.CharSource;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
-import static com.google.common.base.Charsets.UTF_8;
-import static com.google.common.io.CharStreams.newReaderSupplier;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -32,24 +32,24 @@ public class TestDelimitedRecordIterable
             throws Exception
     {
         DelimitedRecordSet recordIterable = new DelimitedRecordSet(
-                newReaderSupplier("apple,fuu,123\nbanana,bar,456"),
+                CharSource.wrap("apple,fuu,123\nbanana,bar,456"),
                 Splitter.on(','),
-                new ColumnMetadata("fruit", ColumnType.STRING, 0, false),
-                new ColumnMetadata("foo", ColumnType.STRING, 1, false),
-                new ColumnMetadata("value", ColumnType.STRING, 2, false));
+                new ColumnMetadata("fruit", VARCHAR, 0, false),
+                new ColumnMetadata("foo", VARCHAR, 1, false),
+                new ColumnMetadata("value", VARCHAR, 2, false));
 
         RecordCursor cursor = recordIterable.cursor();
         assertTrue(cursor.advanceNextPosition());
-        assertEquals(cursor.getString(0), "apple".getBytes(UTF_8));
-        assertEquals(cursor.getString(1), "fuu".getBytes(UTF_8));
-        assertEquals(cursor.getString(2), "123".getBytes(UTF_8));
+        assertEquals(cursor.getSlice(0), Slices.utf8Slice("apple"));
+        assertEquals(cursor.getSlice(1), Slices.utf8Slice("fuu"));
+        assertEquals(cursor.getSlice(2), Slices.utf8Slice("123"));
         assertEquals(cursor.getLong(2), 123L);
         assertEquals(cursor.getDouble(2), 123.0);
 
         assertTrue(cursor.advanceNextPosition());
-        assertEquals(cursor.getString(0), "banana".getBytes(UTF_8));
-        assertEquals(cursor.getString(1), "bar".getBytes(UTF_8));
-        assertEquals(cursor.getString(2), "456".getBytes(UTF_8));
+        assertEquals(cursor.getSlice(0), Slices.utf8Slice("banana"));
+        assertEquals(cursor.getSlice(1), Slices.utf8Slice("bar"));
+        assertEquals(cursor.getSlice(2), Slices.utf8Slice("456"));
         assertEquals(cursor.getLong(2), 456L);
         assertEquals(cursor.getDouble(2), 456.0);
 

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 
@@ -27,14 +27,16 @@ import static com.google.common.collect.Lists.transform;
 public class CassandraRecordSet
         implements RecordSet
 {
+    private final CassandraSession cassandraSession;
+    private final String schema;
     private final String cql;
     private final List<FullCassandraType> cassandraTypes;
-    private final List<ColumnType> columnTypes;
-    private final CassandraSession cassandraSession;
+    private final List<Type> columnTypes;
 
-    public CassandraRecordSet(CassandraSession cassandraSession, String cql, List<CassandraColumnHandle> cassandraColumns)
+    public CassandraRecordSet(CassandraSession cassandraSession, String schema, String cql, List<CassandraColumnHandle> cassandraColumns)
     {
         this.cassandraSession = checkNotNull(cassandraSession, "cassandraSession is null");
+        this.schema = checkNotNull(schema, "schema is null");
         this.cql = checkNotNull(cql, "cql is null");
         checkNotNull(cassandraColumns, "cassandraColumns is null");
         this.cassandraTypes = transform(cassandraColumns, cassandraFullTypeGetter());
@@ -42,7 +44,7 @@ public class CassandraRecordSet
     }
 
     @Override
-    public List<ColumnType> getColumnTypes()
+    public List<Type> getColumnTypes()
     {
         return columnTypes;
     }
@@ -50,6 +52,6 @@ public class CassandraRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new CassandraRecordCursor(cassandraSession, cassandraTypes, cql);
+        return new CassandraRecordCursor(cassandraSession, schema, cassandraTypes, cql);
     }
 }

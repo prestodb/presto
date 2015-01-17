@@ -13,18 +13,28 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.QueryOptions;
+import com.datastax.driver.core.SocketOptions;
+import com.datastax.driver.core.policies.ExponentialReconnectionPolicy;
+import com.google.common.primitives.Ints;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import io.airlift.json.JsonCodec;
 
 import javax.inject.Singleton;
 
+import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
+import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -45,33 +55,75 @@ public class CassandraClientModule
         binder.bind(CassandraConnector.class).in(Scopes.SINGLETON);
         binder.bind(CassandraMetadata.class).in(Scopes.SINGLETON);
         binder.bind(CassandraSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(CassandraTokenSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(CassandraRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(CassandraHandleResolver.class).in(Scopes.SINGLETON);
+        binder.bind(CassandraConnectorRecordSinkProvider.class).in(Scopes.SINGLETON);
+
+        binder.bind(CassandraThriftConnectionFactory.class).in(Scopes.SINGLETON);
 
         bindConfig(binder).to(CassandraClientConfig.class);
+
+        binder.bind(CassandraThriftConnectionFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(CachingCassandraSchemaProvider.class).in(Scopes.SINGLETON);
         newExporter(binder).export(CachingCassandraSchemaProvider.class).as(generatedNameOf(CachingCassandraSchemaProvider.class, connectorId));
 
-        binder.bind(CassandraSessionFactory.class).in(Scopes.SINGLETON);
+        jsonCodecBinder(binder).bindListJsonCodec(ExtraColumnMetadata.class);
     }
 
-    @ForCassandraSchema
+    @ForCassandra
     @Singleton
     @Provides
-    public ExecutorService createCachingCassandraSchemaExecutor(CassandraConnectorId clientId, CassandraClientConfig cassandraClientConfig)
+    public static ExecutorService createCachingCassandraSchemaExecutor(CassandraConnectorId clientId, CassandraClientConfig cassandraClientConfig)
     {
-        return Executors.newFixedThreadPool(
+        return newFixedThreadPool(
                 cassandraClientConfig.getMaxSchemaRefreshThreads(),
-                new ThreadFactoryBuilder().setDaemon(true)
-                        .setNameFormat("cassandra-schema-" + clientId + "-%d").build());
+                daemonThreadsNamed("cassandra-" + clientId + "-%s"));
     }
 
     @Singleton
     @Provides
-    public CassandraSession createCassandraSession(CassandraConnectorId connectorId, CassandraClientConfig config)
+    public static CassandraSession createCassandraSession(
+            CassandraConnectorId connectorId,
+            CassandraClientConfig config,
+            JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec)
     {
-        CassandraSessionFactory factory = new CassandraSessionFactory(connectorId, config);
-        return factory.create();
+        checkNotNull(config, "config is null");
+        checkNotNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
+
+        Cluster.Builder clusterBuilder = Cluster.builder();
+
+        List<String> contactPoints = checkNotNull(config.getContactPoints(), "contactPoints is null");
+        checkArgument(!contactPoints.isEmpty(), "empty contactPoints");
+        clusterBuilder.addContactPoints(contactPoints.toArray(new String[contactPoints.size()]));
+
+        clusterBuilder.withPort(config.getNativeProtocolPort());
+        clusterBuilder.withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 10000));
+        clusterBuilder.withRetryPolicy(config.getRetryPolicy().getPolicy());
+
+        SocketOptions socketOptions = new SocketOptions();
+        socketOptions.setReadTimeoutMillis(Ints.checkedCast(config.getClientReadTimeout().toMillis()));
+        socketOptions.setConnectTimeoutMillis(Ints.checkedCast(config.getClientConnectTimeout().toMillis()));
+        if (config.getClientSoLinger() != null) {
+            socketOptions.setSoLinger(config.getClientSoLinger());
+        }
+        clusterBuilder.withSocketOptions(socketOptions);
+
+        if (config.getUsername() != null && config.getPassword() != null) {
+            clusterBuilder.withCredentials(config.getUsername(), config.getPassword());
+        }
+
+        QueryOptions options = new QueryOptions();
+        options.setFetchSize(config.getFetchSize());
+        options.setConsistencyLevel(config.getConsistencyLevel());
+        clusterBuilder.withQueryOptions(options);
+
+        return new CassandraSession(
+                connectorId.toString(),
+                clusterBuilder,
+                config.getFetchSizeForPartitionKeySelect(),
+                config.getLimitForPartitionKeySelect(),
+                extraColumnMetadataCodec);
     }
 }

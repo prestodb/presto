@@ -16,7 +16,6 @@ package com.facebook.presto.byteCode.instruction;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.facebook.presto.byteCode.ParameterizedType;
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
@@ -24,86 +23,87 @@ import org.objectweb.asm.Type;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.OpCodes.ACONST_NULL;
-import static com.facebook.presto.byteCode.OpCodes.BIPUSH;
-import static com.facebook.presto.byteCode.OpCodes.DCONST_0;
-import static com.facebook.presto.byteCode.OpCodes.DCONST_1;
-import static com.facebook.presto.byteCode.OpCodes.FCONST_0;
-import static com.facebook.presto.byteCode.OpCodes.FCONST_1;
-import static com.facebook.presto.byteCode.OpCodes.FCONST_2;
-import static com.facebook.presto.byteCode.OpCodes.ICONST_0;
-import static com.facebook.presto.byteCode.OpCodes.ICONST_1;
-import static com.facebook.presto.byteCode.OpCodes.ICONST_2;
-import static com.facebook.presto.byteCode.OpCodes.ICONST_3;
-import static com.facebook.presto.byteCode.OpCodes.ICONST_4;
-import static com.facebook.presto.byteCode.OpCodes.ICONST_5;
-import static com.facebook.presto.byteCode.OpCodes.ICONST_M1;
-import static com.facebook.presto.byteCode.OpCodes.LCONST_0;
-import static com.facebook.presto.byteCode.OpCodes.LCONST_1;
-import static com.facebook.presto.byteCode.OpCodes.SIPUSH;
+import static com.facebook.presto.byteCode.OpCode.ACONST_NULL;
+import static com.facebook.presto.byteCode.OpCode.BIPUSH;
+import static com.facebook.presto.byteCode.OpCode.DCONST_0;
+import static com.facebook.presto.byteCode.OpCode.DCONST_1;
+import static com.facebook.presto.byteCode.OpCode.FCONST_0;
+import static com.facebook.presto.byteCode.OpCode.FCONST_1;
+import static com.facebook.presto.byteCode.OpCode.FCONST_2;
+import static com.facebook.presto.byteCode.OpCode.ICONST_0;
+import static com.facebook.presto.byteCode.OpCode.ICONST_1;
+import static com.facebook.presto.byteCode.OpCode.ICONST_2;
+import static com.facebook.presto.byteCode.OpCode.ICONST_3;
+import static com.facebook.presto.byteCode.OpCode.ICONST_4;
+import static com.facebook.presto.byteCode.OpCode.ICONST_5;
+import static com.facebook.presto.byteCode.OpCode.ICONST_M1;
+import static com.facebook.presto.byteCode.OpCode.LCONST_0;
+import static com.facebook.presto.byteCode.OpCode.LCONST_1;
+import static com.facebook.presto.byteCode.OpCode.SIPUSH;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.instruction.FieldInstruction.getStaticInstruction;
 import static com.facebook.presto.byteCode.instruction.InvokeInstruction.invokeStatic;
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public abstract class Constant
         implements InstructionNode
 {
-    public static InstructionNode loadNull()
+    public static Constant loadNull()
     {
-        return ACONST_NULL;
+        return new NullConstant();
     }
 
-    public static InstructionNode loadBoolean(boolean value)
+    public static Constant loadBoolean(boolean value)
     {
-        return new IntConstant(value ? 1 : 0);
+        return new BooleanConstant(value);
     }
 
-    public static InstructionNode loadBoxedBoolean(boolean value)
+    public static Constant loadBoxedBoolean(boolean value)
     {
         return new BoxedBooleanConstant(value);
     }
 
-    public static InstructionNode loadInt(int value)
+    public static Constant loadInt(int value)
     {
         return new IntConstant(value);
     }
 
-    public static InstructionNode loadBoxedInt(int value)
+    public static Constant loadBoxedInt(int value)
     {
         return new BoxedIntegerConstant(value);
     }
 
-    public static InstructionNode loadFloat(float value)
+    public static Constant loadFloat(float value)
     {
         return new FloatConstant(value);
     }
 
-    public static InstructionNode loadBoxedFloat(float value)
+    public static Constant loadBoxedFloat(float value)
     {
         return new BoxedFloatConstant(value);
     }
 
-    public static InstructionNode loadLong(long value)
+    public static Constant loadLong(long value)
     {
         return new LongConstant(value);
     }
 
-    public static InstructionNode loadBoxedLong(long value)
+    public static Constant loadBoxedLong(long value)
     {
         return new BoxedLongConstant(value);
     }
 
-    public static InstructionNode loadDouble(double value)
+    public static Constant loadDouble(double value)
     {
         return new DoubleConstant(value);
     }
 
-    public static InstructionNode loadBoxedDouble(double value)
+    public static Constant loadBoxedDouble(double value)
     {
         return new BoxedDoubleConstant(value);
     }
 
-    public static InstructionNode loadNumber(Number value)
+    public static Constant loadNumber(Number value)
     {
         Preconditions.checkNotNull(value, "value is null");
         if (value instanceof Byte) {
@@ -127,19 +127,19 @@ public abstract class Constant
         throw new IllegalStateException("Unsupported number type " + value.getClass().getSimpleName());
     }
 
-    public static InstructionNode loadString(String value)
+    public static Constant loadString(String value)
     {
         Preconditions.checkNotNull(value, "value is null");
         return new StringConstant(value);
     }
 
-    public static InstructionNode loadClass(Class<?> value)
+    public static Constant loadClass(Class<?> value)
     {
         Preconditions.checkNotNull(value, "value is null");
         return new ClassConstant(type(value));
     }
 
-    public static InstructionNode loadClass(ParameterizedType value)
+    public static Constant loadClass(ParameterizedType value)
     {
         Preconditions.checkNotNull(value, "value is null");
         return new ClassConstant(value);
@@ -162,9 +162,65 @@ public abstract class Constant
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("value", getValue())
                 .toString();
+    }
+
+    public static class NullConstant
+            extends Constant
+    {
+        @Override
+        public Object getValue()
+        {
+            return null;
+        }
+
+        @Override
+        public void accept(MethodVisitor visitor)
+        {
+            visitor.visitInsn(ACONST_NULL.getOpCode());
+        }
+
+        @Override
+        public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+        {
+            return visitor.visitConstant(parent, this);
+        }
+    }
+
+    public static class BooleanConstant
+            extends Constant
+    {
+        private final boolean value;
+
+        private BooleanConstant(boolean value)
+        {
+            this.value = value;
+        }
+
+        @Override
+        public Boolean getValue()
+        {
+            return value;
+        }
+
+        @Override
+        public void accept(MethodVisitor visitor)
+        {
+            if (value) {
+                visitor.visitInsn(ICONST_1.getOpCode());
+            }
+            else {
+                visitor.visitInsn(ICONST_0.getOpCode());
+            }
+        }
+
+        @Override
+        public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+        {
+            return visitor.visitBooleanConstant(parent, this);
+        }
     }
 
     public static class BoxedBooleanConstant

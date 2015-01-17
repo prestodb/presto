@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.base.Function;
+import com.facebook.presto.ExceededMemoryLimitException;
+import com.facebook.presto.Session;
+import com.facebook.presto.spi.Page;
 import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
@@ -26,14 +26,12 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
-import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -65,6 +63,7 @@ public class OperatorContext
     private final CounterStat outputDataSize = new CounterStat();
     private final CounterStat outputPositions = new CounterStat();
 
+    private final AtomicReference<BlockedMonitor> blockedMonitor = new AtomicReference<>();
     private final AtomicLong blockedWallNanos = new AtomicLong();
 
     private final AtomicLong finishCalls = new AtomicLong();
@@ -73,16 +72,21 @@ public class OperatorContext
     private final AtomicLong finishUserNanos = new AtomicLong();
 
     private final AtomicLong memoryReservation = new AtomicLong();
+    private final long maxMemoryReservation;
 
     private final AtomicReference<Supplier<Object>> infoSupplier = new AtomicReference<>();
+    private final boolean collectTimings;
 
-    public OperatorContext(int operatorId, String operatorType, DriverContext driverContext, Executor executor)
+    public OperatorContext(int operatorId, String operatorType, DriverContext driverContext, Executor executor, long maxMemoryReservation)
     {
         checkArgument(operatorId >= 0, "operatorId is negative");
         this.operatorId = operatorId;
+        this.maxMemoryReservation = maxMemoryReservation;
         this.operatorType = checkNotNull(operatorType, "operatorType is null");
         this.driverContext = checkNotNull(driverContext, "driverContext is null");
         this.executor = checkNotNull(executor, "executor is null");
+
+        collectTimings = driverContext.isVerboseStats() && driverContext.isCpuTimerEnabled();
     }
 
     public int getOperatorId()
@@ -93,6 +97,11 @@ public class OperatorContext
     public String getOperatorType()
     {
         return operatorType;
+    }
+
+    public DriverContext getDriverContext()
+    {
+        return driverContext;
     }
 
     public Session getSession()
@@ -115,20 +124,31 @@ public class OperatorContext
     public void recordAddInput(Page page)
     {
         addInputCalls.incrementAndGet();
-        addInputWallNanos.getAndAdd(nanosBetween(intervalWallStart.get(), System.nanoTime()));
+        recordInputWallNanos(nanosBetween(intervalWallStart.get(), System.nanoTime()));
         addInputCpuNanos.getAndAdd(nanosBetween(intervalCpuStart.get(), currentThreadCpuTime()));
         addInputUserNanos.getAndAdd(nanosBetween(intervalUserStart.get(), currentThreadUserTime()));
 
         if (page != null) {
-            inputDataSize.update(page.getDataSize().toBytes());
+            inputDataSize.update(page.getSizeInBytes());
             inputPositions.update(page.getPositionCount());
         }
     }
 
-    public void recordGeneratedInput(DataSize dataSize, long positions)
+    public void recordGeneratedInput(long sizeInBytes, long positions)
     {
-        inputDataSize.update(dataSize.toBytes());
+        recordGeneratedInput(sizeInBytes, positions, 0);
+    }
+
+    public void recordGeneratedInput(long sizeInBytes, long positions, long readNanos)
+    {
+        inputDataSize.update(sizeInBytes);
         inputPositions.update(positions);
+        recordInputWallNanos(readNanos);
+    }
+
+    public long recordInputWallNanos(long readNanos)
+    {
+        return addInputWallNanos.getAndAdd(readNanos);
     }
 
     public void recordGetOutput(Page page)
@@ -139,30 +159,30 @@ public class OperatorContext
         getOutputUserNanos.getAndAdd(nanosBetween(intervalUserStart.get(), currentThreadUserTime()));
 
         if (page != null) {
-            outputDataSize.update(page.getDataSize().toBytes());
+            outputDataSize.update(page.getSizeInBytes());
             outputPositions.update(page.getPositionCount());
         }
     }
 
-    public void recordGeneratedOutput(DataSize dataSize, long positions)
+    public void recordGeneratedOutput(long sizeInBytes, long positions)
     {
-        outputDataSize.update(dataSize.toBytes());
+        outputDataSize.update(sizeInBytes);
         outputPositions.update(positions);
     }
 
     public void recordBlocked(ListenableFuture<?> blocked)
     {
         checkNotNull(blocked, "blocked is null");
-        blocked.addListener(new Runnable()
-        {
-            private final long start = System.nanoTime();
 
-            @Override
-            public void run()
-            {
-                blockedWallNanos.getAndAdd(nanosBetween(start, System.nanoTime()));
-            }
-        }, executor);
+        BlockedMonitor monitor = new BlockedMonitor();
+
+        BlockedMonitor oldMonitor = blockedMonitor.getAndSet(monitor);
+        if (oldMonitor != null) {
+            oldMonitor.run();
+        }
+
+        blocked.addListener(monitor, executor);
+        driverContext.recordBlocked(blocked);
     }
 
     public void recordFinish()
@@ -185,11 +205,22 @@ public class OperatorContext
 
     public boolean reserveMemory(long bytes)
     {
+        long newReservation = memoryReservation.getAndAdd(bytes);
+        if (newReservation > maxMemoryReservation) {
+            memoryReservation.getAndAdd(-bytes);
+            return false;
+        }
         boolean result = driverContext.reserveMemory(bytes);
-        if (result) {
-            memoryReservation.getAndAdd(bytes);
+        if (!result) {
+            memoryReservation.getAndAdd(-bytes);
         }
         return result;
+    }
+
+    public void freeMemory(long bytes)
+    {
+        driverContext.freeMemory(bytes);
+        memoryReservation.getAndAdd(-bytes);
     }
 
     public synchronized long setMemoryReservation(long newMemoryReservation)
@@ -199,8 +230,8 @@ public class OperatorContext
         long delta = newMemoryReservation - memoryReservation.get();
 
         // currently, operator memory is not be released
-        if (delta > 0) {
-            checkState(reserveMemory(delta), "Task exceeded max memory size of %s", getMaxMemorySize());
+        if (delta > 0 && !reserveMemory(delta)) {
+            throw new ExceededMemoryLimitException(getMaxMemorySize());
         }
 
         return newMemoryReservation;
@@ -230,12 +261,6 @@ public class OperatorContext
     public CounterStat getOutputPositions()
     {
         return outputPositions;
-    }
-
-    @Deprecated
-    public void addOutputItems(PlanNodeId id, Set<?> output)
-    {
-        driverContext.addOutputItems(id, output);
     }
 
     public OperatorStats getOperatorStats()
@@ -277,7 +302,7 @@ public class OperatorContext
 
     private long currentThreadUserTime()
     {
-        if (!driverContext.isCpuTimerEnabled()) {
+        if (!collectTimings) {
             return 0;
         }
         return THREAD_MX_BEAN.getCurrentThreadUserTime();
@@ -285,7 +310,7 @@ public class OperatorContext
 
     private long currentThreadCpuTime()
     {
-        if (!driverContext.isCpuTimerEnabled()) {
+        if (!collectTimings) {
             return 0;
         }
         return THREAD_MX_BEAN.getCurrentThreadCpuTime();
@@ -296,14 +321,28 @@ public class OperatorContext
         return Math.abs(end - start);
     }
 
-    public static Function<OperatorContext, OperatorStats> operatorStatsGetter()
+    private class BlockedMonitor
+            implements Runnable
     {
-        return new Function<OperatorContext, OperatorStats>()
+        private final long start = System.nanoTime();
+        private boolean finished;
+
+        @Override
+        public synchronized void run()
         {
-            public OperatorStats apply(OperatorContext operatorContext)
-            {
-                return operatorContext.getOperatorStats();
+            synchronized (this) {
+                if (finished) {
+                    return;
+                }
+                finished = true;
+                blockedMonitor.compareAndSet(this, null);
+                blockedWallNanos.getAndAdd(getBlockedTime());
             }
-        };
+        }
+
+        public long getBlockedTime()
+        {
+            return nanosBetween(start, System.nanoTime());
+        }
     }
 }

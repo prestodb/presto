@@ -13,17 +13,19 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.Block;
+import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.operator.aggregation.Accumulator;
-import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.aggregation.AccumulatorFactory;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
-import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -39,22 +41,22 @@ public class AggregationOperator
     {
         private final int operatorId;
         private final Step step;
-        private final List<AggregationFunctionDefinition> functionDefinitions;
-        private final List<TupleInfo> tupleInfos;
+        private final List<AccumulatorFactory> accumulatorFactories;
+        private final List<Type> types;
         private boolean closed;
 
-        public AggregationOperatorFactory(int operatorId, Step step, List<AggregationFunctionDefinition> functionDefinitions)
+        public AggregationOperatorFactory(int operatorId, Step step, List<AccumulatorFactory> accumulatorFactories)
         {
             this.operatorId = operatorId;
             this.step = step;
-            this.functionDefinitions = functionDefinitions;
-            this.tupleInfos = toTupleInfos(step, functionDefinitions);
+            this.accumulatorFactories = ImmutableList.copyOf(accumulatorFactories);
+            this.types = toTypes(step, accumulatorFactories);
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override
@@ -62,7 +64,7 @@ public class AggregationOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, AggregationOperator.class.getSimpleName());
-            return new AggregationOperator(operatorContext, step, functionDefinitions);
+            return new AggregationOperator(operatorContext, step, accumulatorFactories);
         }
 
         @Override
@@ -80,24 +82,25 @@ public class AggregationOperator
     }
 
     private final OperatorContext operatorContext;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
     private final List<Aggregator> aggregates;
 
     private State state = State.NEEDS_INPUT;
 
-    public AggregationOperator(OperatorContext operatorContext, Step step, List<AggregationFunctionDefinition> functionDefinitions)
+    public AggregationOperator(OperatorContext operatorContext, Step step, List<AccumulatorFactory> accumulatorFactories)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 
         checkNotNull(step, "step is null");
-        checkNotNull(functionDefinitions, "functionDefinitions is null");
+        checkNotNull(accumulatorFactories, "accumulatorFactories is null");
 
-        this.tupleInfos = toTupleInfos(step, functionDefinitions);
+        this.types = toTypes(step, accumulatorFactories);
+        MemoryManager memoryManager = new MemoryManager(operatorContext);
 
         // wrapper each function with an aggregator
         ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
-        for (AggregationFunctionDefinition functionDefinition : functionDefinitions) {
-            builder.add(new Aggregator(functionDefinition, step));
+        for (AccumulatorFactory accumulatorFactory : accumulatorFactories) {
+            builder.add(new Aggregator(accumulatorFactory, step, memoryManager));
         }
         aggregates = builder.build();
     }
@@ -109,9 +112,9 @@ public class AggregationOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override
@@ -126,12 +129,6 @@ public class AggregationOperator
     public boolean isFinished()
     {
         return state == State.FINISHED;
-    }
-
-    @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
     }
 
     @Override
@@ -159,66 +156,59 @@ public class AggregationOperator
         }
 
         // project results into output blocks
-        Block[] blocks = new Block[aggregates.size()];
-        for (int i = 0; i < blocks.length; i++) {
-            blocks[i] = aggregates.get(i).evaluate();
+        List<Type> types = aggregates.stream().map(Aggregator::getType).collect(toImmutableList());
+
+        PageBuilder pageBuilder = new PageBuilder(types);
+
+        pageBuilder.declarePosition();
+        for (int i = 0; i < aggregates.size(); i++) {
+            Aggregator aggregator = aggregates.get(i);
+            BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
+            aggregator.evaluate(blockBuilder);
         }
+
         state = State.FINISHED;
-        return new Page(blocks);
+        return pageBuilder.build();
     }
 
-    private static List<TupleInfo> toTupleInfos(Step step, List<AggregationFunctionDefinition> functionDefinitions)
+    private static List<Type> toTypes(Step step, List<AccumulatorFactory> accumulatorFactories)
     {
-        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
-        for (AggregationFunctionDefinition functionDefinition : functionDefinitions) {
-            if (step != Step.PARTIAL) {
-                tupleInfos.add(functionDefinition.getFunction().getFinalTupleInfo());
-            }
-            else {
-                tupleInfos.add(functionDefinition.getFunction().getIntermediateTupleInfo());
-            }
+        ImmutableList.Builder<Type> types = ImmutableList.builder();
+        for (AccumulatorFactory accumulatorFactory : accumulatorFactories) {
+            types.add(new Aggregator(accumulatorFactory, step, null).getType());
         }
-        return tupleInfos.build();
+        return types.build();
     }
 
     private static class Aggregator
     {
         private final Accumulator aggregation;
         private final Step step;
-
+        private final MemoryManager memoryManager;
         private final int intermediateChannel;
 
-        private Aggregator(AggregationFunctionDefinition functionDefinition, Step step)
+        private Aggregator(AccumulatorFactory accumulatorFactory, Step step, MemoryManager memoryManager)
         {
-            AggregationFunction function = functionDefinition.getFunction();
-
-            if (step != Step.FINAL) {
-                int[] argumentChannels = new int[functionDefinition.getInputs().size()];
-                for (int i = 0; i < argumentChannels.length; i++) {
-                    argumentChannels[i] = functionDefinition.getInputs().get(i).getChannel();
-                }
-                intermediateChannel = -1;
-                aggregation = function.createAggregation(
-                        functionDefinition.getMask().transform(Input.channelGetter()),
-                        functionDefinition.getSampleWeight().transform(Input.channelGetter()),
-                        functionDefinition.getConfidence(),
-                        argumentChannels);
+            if (step == Step.FINAL) {
+                checkArgument(accumulatorFactory.getInputChannels().size() == 1, "expected 1 input channel for intermediate aggregation");
+                intermediateChannel = accumulatorFactory.getInputChannels().get(0);
+                aggregation = accumulatorFactory.createIntermediateAccumulator();
             }
             else {
-                checkArgument(functionDefinition.getInputs().size() == 1, "Expected a single input for an intermediate aggregation");
-                intermediateChannel = functionDefinition.getInputs().get(0).getChannel();
-                aggregation = function.createIntermediateAggregation(functionDefinition.getConfidence());
+                intermediateChannel = -1;
+                aggregation = accumulatorFactory.createAccumulator();
             }
             this.step = step;
+            this.memoryManager = memoryManager;
         }
 
-        public TupleInfo getTupleInfo()
+        public Type getType()
         {
             if (step == Step.PARTIAL) {
-                return aggregation.getIntermediateTupleInfo();
+                return aggregation.getIntermediateType();
             }
             else {
-                return aggregation.getFinalTupleInfo();
+                return aggregation.getFinalType();
             }
         }
 
@@ -230,15 +220,18 @@ public class AggregationOperator
             else {
                 aggregation.addInput(page);
             }
+            if (!memoryManager.canUse(aggregation.getEstimatedSize())) {
+                throw new ExceededMemoryLimitException(memoryManager.getMaxMemorySize());
+            }
         }
 
-        public Block evaluate()
+        public void evaluate(BlockBuilder blockBuilder)
         {
             if (step == Step.PARTIAL) {
-                return aggregation.evaluateIntermediate();
+                aggregation.evaluateIntermediate(blockBuilder);
             }
             else {
-                return aggregation.evaluateFinal();
+                aggregation.evaluateFinal(blockBuilder);
             }
         }
     }

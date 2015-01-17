@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
@@ -38,9 +39,9 @@ public class InMemoryExchangeSourceOperator
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return inMemoryExchange.getTupleInfos();
+            return inMemoryExchange.getTypes();
         }
 
         @Override
@@ -74,9 +75,9 @@ public class InMemoryExchangeSourceOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return exchange.getTupleInfos();
+        return exchange.getTypes();
     }
 
     @Override
@@ -94,7 +95,7 @@ public class InMemoryExchangeSourceOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        ListenableFuture<?> blocked = exchange.waitForNotEmpty();
+        ListenableFuture<?> blocked = exchange.waitForReading();
         if (blocked.isDone()) {
             return NOT_BLOCKED;
         }
@@ -118,7 +119,7 @@ public class InMemoryExchangeSourceOperator
     {
         Page page = exchange.removePage();
         if (page != null) {
-            operatorContext.recordGeneratedInput(page.getDataSize(), page.getPositionCount());
+            operatorContext.recordGeneratedInput(page.getSizeInBytes(), page.getPositionCount());
         }
         return page;
     }

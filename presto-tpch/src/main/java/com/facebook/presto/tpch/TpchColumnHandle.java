@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -22,17 +22,17 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TpchColumnHandle
-        implements ColumnHandle
+        implements ConnectorColumnHandle
 {
     private final String columnName;
     private final int fieldIndex;
-    private final ColumnType type;
+    private final Type type;
 
     @JsonCreator
-    public TpchColumnHandle(@JsonProperty("columnName") String columnName, @JsonProperty("fieldIndex") int fieldIndex, @JsonProperty("type") ColumnType type)
+    public TpchColumnHandle(@JsonProperty("columnName") String columnName, @JsonProperty("fieldIndex") int fieldIndex, @JsonProperty("type") Type type)
     {
         this.columnName = checkNotNull(columnName, "columnName is null");
-        checkArgument(fieldIndex >= 0, "fieldIndex must be at least zero");
+        checkArgument(fieldIndex >= -1, "Invalid fieldIndex");
         this.fieldIndex = fieldIndex;
         this.type = checkNotNull(type, "type is null");
     }
@@ -50,7 +50,7 @@ public class TpchColumnHandle
     }
 
     @JsonProperty
-    public ColumnType getType()
+    public Type getType()
     {
         return type;
     }
@@ -76,7 +76,7 @@ public class TpchColumnHandle
         if (fieldIndex != that.fieldIndex) {
             return false;
         }
-        if (type != that.type) {
+        if (!type.equals(that.type)) {
             return false;
         }
 

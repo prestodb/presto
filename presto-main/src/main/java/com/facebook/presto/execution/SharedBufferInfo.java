@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.execution.SharedBuffer.QueueState;
+import com.facebook.presto.execution.SharedBuffer.BufferState;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
@@ -21,16 +21,18 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public class SharedBufferInfo
+import static com.google.common.base.MoreObjects.toStringHelper;
+
+public final class SharedBufferInfo
 {
-    private final QueueState state;
+    private final BufferState state;
     private final long masterSequenceId;
     private final long pagesAdded;
     private final List<BufferInfo> buffers;
 
     @JsonCreator
     public SharedBufferInfo(
-            @JsonProperty("state") QueueState state,
+            @JsonProperty("state") BufferState state,
             @JsonProperty("masterSequenceId") long masterSequenceId,
             @JsonProperty("pagesAdded") long pagesAdded,
             @JsonProperty("buffers") List<BufferInfo> buffers)
@@ -42,7 +44,7 @@ public class SharedBufferInfo
     }
 
     @JsonProperty
-    public QueueState getState()
+    public BufferState getState()
     {
         return state;
     }
@@ -80,7 +82,7 @@ public class SharedBufferInfo
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final SharedBufferInfo other = (SharedBufferInfo) obj;
+        SharedBufferInfo other = (SharedBufferInfo) obj;
         return Objects.equal(this.state, other.state) &&
                 Objects.equal(this.pagesAdded, other.pagesAdded) &&
                 Objects.equal(this.buffers, other.buffers) &&
@@ -90,7 +92,7 @@ public class SharedBufferInfo
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("state", state)
                 .add("pagesAdded", pagesAdded)
                 .add("buffers", buffers)

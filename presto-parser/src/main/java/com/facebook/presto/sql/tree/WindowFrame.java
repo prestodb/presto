@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
+import java.util.Objects;
+import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class WindowFrame
@@ -30,11 +31,11 @@ public class WindowFrame
     private final FrameBound start;
     private final Optional<FrameBound> end;
 
-    public WindowFrame(Type type, FrameBound start, FrameBound end)
+    public WindowFrame(Type type, FrameBound start, Optional<FrameBound> end)
     {
         this.type = checkNotNull(type, "type is null");
         this.start = checkNotNull(start, "start is null");
-        this.end = Optional.fromNullable(end);
+        this.end = checkNotNull(end, "end is null");
     }
 
     public Type getType()
@@ -68,21 +69,21 @@ public class WindowFrame
             return false;
         }
         WindowFrame o = (WindowFrame) obj;
-        return Objects.equal(type, o.type) &&
-                Objects.equal(start, o.start) &&
-                Objects.equal(end, o.end);
+        return Objects.equals(type, o.type) &&
+                Objects.equals(start, o.start) &&
+                Objects.equals(end, o.end);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(type, start, end);
+        return Objects.hash(type, start, end);
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("type", type)
                 .add("start", start)
                 .add("end", end)

@@ -13,25 +13,38 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.metadata.InMemoryMetadata;
+import com.facebook.presto.Session;
+import com.facebook.presto.connector.system.SystemTablesMetadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.metadata.TestingMetadata;
+import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
-import com.google.common.base.Optional;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
+import io.airlift.json.JsonCodec;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
+import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
@@ -46,12 +59,27 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_BE_IN_SELECT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.fail;
 
+@Test(singleThreaded = true)
 public class TestAnalyzer
 {
+    public static final Session SESSION = Session.builder()
+            .setUser("user")
+            .setSource("test")
+            .setCatalog("default")
+            .setSchema("default")
+            .setTimeZoneKey(UTC_KEY)
+            .setLocale(ENGLISH)
+            .build();
+
+    private static final SqlParser SQL_PARSER = new SqlParser();
+
     private Analyzer analyzer;
     private Analyzer approximateDisabledAnalyzer;
 
@@ -61,6 +89,56 @@ public class TestAnalyzer
     {
         assertFails(DUPLICATE_RELATION, "SELECT * FROM t1 JOIN t1 USING (a)");
         assertFails(DUPLICATE_RELATION, "SELECT * FROM t1 x JOIN t2 x USING (a)");
+    }
+
+    @Test
+    public void testNonComparableGroupBy()
+            throws Exception
+    {
+        assertFails(TYPE_MISMATCH, "SELECT * FROM (SELECT approx_set(1)) GROUP BY 1");
+    }
+
+    @Test
+    public void testNonComparableWindowPartition()
+            throws Exception
+    {
+        assertFails(TYPE_MISMATCH, "SELECT row_number() OVER (PARTITION BY t.x) FROM (VALUES(null)) AS t(x)");
+    }
+
+    @Test
+    public void testNonComparableWindowOrder()
+            throws Exception
+    {
+        assertFails(TYPE_MISMATCH, "SELECT row_number() OVER (ORDER BY t.x) FROM (VALUES(null)) AS t(x)");
+    }
+
+    @Test
+    public void testNonComparableDistinctAggregation()
+            throws Exception
+    {
+        assertFails(TYPE_MISMATCH, "SELECT count(DISTINCT x) FROM (SELECT approx_set(1) x)");
+    }
+
+    @Test
+    public void testNonComparableDistinct()
+            throws Exception
+    {
+        assertFails(TYPE_MISMATCH, "SELECT DISTINCT * FROM (SELECT approx_set(1) x)");
+        assertFails(TYPE_MISMATCH, "SELECT DISTINCT x FROM (SELECT approx_set(1) x)");
+    }
+
+    @Test
+    public void testInSubqueryTypes()
+            throws Exception
+    {
+        assertFails(TYPE_MISMATCH, "SELECT * FROM (VALUES ('a')) t(y) WHERE y IN (VALUES (1))");
+    }
+
+    @Test
+    public void testScalarSubQueryException()
+            throws Exception
+    {
+        assertFails(NOT_SUPPORTED, "SELECT 'a', (VALUES (1)) GROUP BY 1");
     }
 
     @Test
@@ -102,6 +180,15 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testOrderByNonComparable()
+            throws Exception
+    {
+        assertFails(TYPE_MISMATCH, "SELECT x FROM (SELECT approx_set(1) x) ORDER BY 1");
+        assertFails(TYPE_MISMATCH, "SELECT * FROM (SELECT approx_set(1) x) ORDER BY 1");
+        assertFails(TYPE_MISMATCH, "SELECT x FROM (SELECT approx_set(1) x) ORDER BY x");
+    }
+
+    @Test
     public void testNestedAggregation()
             throws Exception
     {
@@ -139,6 +226,7 @@ public class TestAnalyzer
     public void testNonAggregate()
             throws Exception
     {
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT 'a', array[b][1] FROM t1 GROUP BY 1");
         assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT a, sum(b) FROM t1");
         assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT sum(b) / a FROM t1");
         assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT sum(b) / a FROM t1 GROUP BY c");
@@ -180,7 +268,7 @@ public class TestAnalyzer
             throws Exception
     {
         try {
-            Statement statement = SqlParser.createStatement("SELECT AVG(a) FROM t1 APPROXIMATE AT 99.0 CONFIDENCE");
+            Statement statement = SQL_PARSER.createStatement("SELECT AVG(a) FROM t1 APPROXIMATE AT 99.0 CONFIDENCE");
             approximateDisabledAnalyzer.analyze(statement);
             fail(format("Expected error %s, but analysis succeeded", NOT_SUPPORTED));
         }
@@ -267,7 +355,6 @@ public class TestAnalyzer
     public void testNonEquiJoin()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT * FROM t1 JOIN t2 ON t1.a < t2.a");
         assertFails(NOT_SUPPORTED, "SELECT * FROM t1 JOIN t2 ON t1.a + t2.a = 1");
         assertFails(NOT_SUPPORTED, "SELECT * FROM t1 JOIN t2 ON t1.a = t2.a OR t1.b = t2.b");
     }
@@ -287,9 +374,10 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testImplicitCrossJoinNotSupported()
+    public void testImplicitCrossJoin()
     {
-        assertFails(NOT_SUPPORTED, "SELECT * FROM a, b");
+        // TODO: validate output
+        analyze("SELECT * FROM t1, t2");
     }
 
     @Test
@@ -310,18 +398,38 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testWindowFunctionWithoutOverClause()
+    {
+        assertFails(WINDOW_REQUIRES_OVER, "SELECT row_number()");
+    }
+
+    @Test
+    public void testInvalidWindowFrame()
+            throws Exception
+    {
+        assertFails(INVALID_WINDOW_FRAME, "SELECT rank() OVER (ROWS UNBOUNDED FOLLOWING)");
+        assertFails(INVALID_WINDOW_FRAME, "SELECT rank() OVER (ROWS 2 FOLLOWING)");
+        assertFails(INVALID_WINDOW_FRAME, "SELECT rank() OVER (ROWS BETWEEN UNBOUNDED FOLLOWING AND CURRENT ROW)");
+        assertFails(INVALID_WINDOW_FRAME, "SELECT rank() OVER (ROWS BETWEEN CURRENT ROW AND UNBOUNDED PRECEDING)");
+        assertFails(INVALID_WINDOW_FRAME, "SELECT rank() OVER (ROWS BETWEEN CURRENT ROW AND 5 PRECEDING)");
+        assertFails(INVALID_WINDOW_FRAME, "SELECT rank() OVER (ROWS BETWEEN 2 FOLLOWING AND 5 PRECEDING)");
+        assertFails(INVALID_WINDOW_FRAME, "SELECT rank() OVER (ROWS BETWEEN 2 FOLLOWING AND CURRENT ROW)");
+        assertFails(INVALID_WINDOW_FRAME, "SELECT rank() OVER (RANGE 2 PRECEDING)");
+        assertFails(INVALID_WINDOW_FRAME, "SELECT rank() OVER (RANGE BETWEEN 2 PRECEDING AND CURRENT ROW)");
+        assertFails(INVALID_WINDOW_FRAME, "SELECT rank() OVER (RANGE BETWEEN CURRENT ROW AND 5 FOLLOWING)");
+        assertFails(INVALID_WINDOW_FRAME, "SELECT rank() OVER (RANGE BETWEEN 2 PRECEDING AND 5 FOLLOWING)");
+
+        assertFails(TYPE_MISMATCH, "SELECT rank() OVER (ROWS 0.5 PRECEDING)");
+        assertFails(TYPE_MISMATCH, "SELECT rank() OVER (ROWS 'foo' PRECEDING)");
+        assertFails(TYPE_MISMATCH, "SELECT rank() OVER (ROWS BETWEEN CURRENT ROW AND 0.5 FOLLOWING)");
+        assertFails(TYPE_MISMATCH, "SELECT rank() OVER (ROWS BETWEEN CURRENT ROW AND 'foo' FOLLOWING)");
+    }
+
+    @Test
     public void testDistinctInWindowFunctionParameter()
             throws Exception
     {
         assertFails(NOT_SUPPORTED, "SELECT a, count(DISTINCT b) OVER () FROM t1");
-    }
-
-    @Test
-    public void testWindowFrameNotSupported()
-            throws Exception
-    {
-        assertFails(NOT_SUPPORTED, "SELECT count(*) over (ORDER BY a ROWS UNBOUNDED PRECEDING) FROM t1");
-        assertFails(NOT_SUPPORTED, "SELECT count(*) over (ORDER BY a ROWS UNBOUNDED FOLLOWING) FROM t1");
     }
 
     @Test
@@ -365,12 +473,30 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testWithCaseInsensitiveResolution()
+            throws Exception
+    {
+        // TODO: verify output
+        analyze("WITH AB AS (SELECT * FROM t1) SELECT * FROM ab");
+    }
+
+    @Test
     public void testDuplicateWithQuery()
             throws Exception
     {
         assertFails(DUPLICATE_RELATION,
                 "WITH a AS (SELECT * FROM t1)," +
                         "     a AS (SELECT * FROM t1)" +
+                        "SELECT * FROM a");
+    }
+
+    @Test
+    public void testCaseInsensitiveDuplicateWithQuery()
+            throws Exception
+    {
+        assertFails(DUPLICATE_RELATION,
+                "WITH a AS (SELECT * FROM t1)," +
+                        "     A AS (SELECT * FROM t1)" +
                         "SELECT * FROM a");
     }
 
@@ -388,10 +514,6 @@ public class TestAnalyzer
     public void testExpressions()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT CURRENT_TIME FROM t1");
-        assertFails(NOT_SUPPORTED, "SELECT CURRENT_TIMESTAMP (1) FROM t1");
-        assertFails(NOT_SUPPORTED, "SELECT CURRENT_DATE FROM t1");
-
         // logical not
         assertFails(TYPE_MISMATCH, "SELECT NOT 1 FROM t1");
 
@@ -417,8 +539,14 @@ public class TestAnalyzer
         // coalesce
         assertFails(TYPE_MISMATCH, "SELECT COALESCE(1, 'a') FROM t1");
 
-        // arithmetic negation
+        // cast
+        assertFails(TYPE_MISMATCH, "SELECT CAST(date '2014-01-01' AS bigint)");
+        assertFails(TYPE_MISMATCH, "SELECT TRY_CAST(date '2014-01-01' AS bigint)");
+        assertFails(TYPE_MISMATCH, "SELECT CAST(null AS UNKNOWN)");
+
+        // arithmetic unary
         assertFails(TYPE_MISMATCH, "SELECT -'a' FROM t1");
+        assertFails(TYPE_MISMATCH, "SELECT +'a' FROM t1");
 
         // arithmetic addition/subtraction
         assertFails(TYPE_MISMATCH, "SELECT 'a' + 1 FROM t1");
@@ -502,9 +630,9 @@ public class TestAnalyzer
     public void testMismatchedUnionQueries()
             throws Exception
     {
-        assertFails(MISMATCHED_SET_COLUMN_TYPES, "SELECT 1 UNION SELECT 'a'");
-        assertFails(MISMATCHED_SET_COLUMN_TYPES, "SELECT a FROM t1 UNION SELECT 'a'");
-        assertFails(MISMATCHED_SET_COLUMN_TYPES, "(SELECT 1) UNION SELECT 'a'");
+        assertFails(TYPE_MISMATCH, "SELECT 1 UNION SELECT 'a'");
+        assertFails(TYPE_MISMATCH, "SELECT a FROM t1 UNION SELECT 'a'");
+        assertFails(TYPE_MISMATCH, "(SELECT 1) UNION SELECT 'a'");
         assertFails(MISMATCHED_SET_COLUMN_TYPES, "SELECT 1, 2 UNION SELECT 1");
         assertFails(MISMATCHED_SET_COLUMN_TYPES, "SELECT 'a' UNION SELECT 'b', 'c'");
         assertFails(MISMATCHED_SET_COLUMN_TYPES, "TABLE t2 UNION SELECT 'a'");
@@ -545,53 +673,149 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testUseCollection()
+    public void testCreateViewColumns()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "USE CATALOG default");
+        assertFails(COLUMN_NAME_NOT_SPECIFIED, "CREATE VIEW test AS SELECT 123");
+        assertFails(DUPLICATE_COLUMN_NAME, "CREATE VIEW test AS SELECT 1 a, 2 a");
+    }
+
+    @Test
+    public void testStaleView()
+            throws Exception
+    {
+        assertFails(VIEW_IS_STALE, "SELECT * FROM v2");
+    }
+
+    @Test
+    public void testStoredViewAnalysisScoping()
+            throws Exception
+    {
+        // the view must not be analyzed using the query context
+        analyze("WITH t1 AS (SELECT 123 x) SELECT * FROM v1");
+    }
+
+    @Test
+    public void testStoredViewResolution()
+            throws Exception
+    {
+        // the view must be analyzed relative to its own catalog/schema
+        analyze("SELECT * FROM c3.s3.v3");
+    }
+
+    @Test
+    public void testUse()
+            throws Exception
+    {
+        assertFails(NOT_SUPPORTED, "USE default");
+    }
+
+    @Test
+    public void testNotNullInJoinClause()
+            throws Exception
+    {
+        assertFails(NOT_SUPPORTED, "SELECT * FROM (VALUES (1)) a (x) JOIN (VALUES (2)) b ON a.x IS NOT NULL");
+    }
+
+    @Test
+    public void testIfInJoinClause()
+            throws Exception
+    {
+        assertFails(NOT_SUPPORTED, "SELECT * FROM (VALUES (1)) a (x) JOIN (VALUES (2)) b ON IF(a.x = 1, true, false)");
     }
 
     @BeforeMethod(alwaysRun = true)
     public void setup()
             throws Exception
     {
-        MetadataManager metadata = new MetadataManager();
-        metadata.addConnectorMetadata("tpch", "tpch", new InMemoryMetadata());
+        MetadataManager metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), new TypeRegistry(), new SystemTablesMetadata());
+        metadata.addConnectorMetadata("tpch", "tpch", new TestingMetadata());
+        metadata.addConnectorMetadata("c2", "c2", new TestingMetadata());
+        metadata.addConnectorMetadata("c3", "c3", new TestingMetadata());
 
         SchemaTableName table1 = new SchemaTableName("default", "t1");
-        metadata.createTable("tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table1,
+        metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table1,
                 ImmutableList.<ColumnMetadata>of(
-                        new ColumnMetadata("a", ColumnType.LONG, 0, false),
-                        new ColumnMetadata("b", ColumnType.LONG, 1, false),
-                        new ColumnMetadata("c", ColumnType.LONG, 2, false),
-                        new ColumnMetadata("d", ColumnType.LONG, 3, false)))));
+                        new ColumnMetadata("a", BIGINT, 0, false),
+                        new ColumnMetadata("b", BIGINT, 1, false),
+                        new ColumnMetadata("c", BIGINT, 2, false),
+                        new ColumnMetadata("d", BIGINT, 3, false)))));
 
         SchemaTableName table2 = new SchemaTableName("default", "t2");
-        metadata.createTable("tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table2,
+        metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table2,
                 ImmutableList.<ColumnMetadata>of(
-                        new ColumnMetadata("a", ColumnType.LONG, 0, false),
-                        new ColumnMetadata("b", ColumnType.LONG, 1, false)))));
+                        new ColumnMetadata("a", BIGINT, 0, false),
+                        new ColumnMetadata("b", BIGINT, 1, false)))));
 
         SchemaTableName table3 = new SchemaTableName("default", "t3");
-        metadata.createTable("tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table3,
+        metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table3,
                 ImmutableList.<ColumnMetadata>of(
-                        new ColumnMetadata("a", ColumnType.LONG, 0, false),
-                        new ColumnMetadata("b", ColumnType.LONG, 1, false)))));
+                        new ColumnMetadata("a", BIGINT, 0, false),
+                        new ColumnMetadata("b", BIGINT, 1, false)))));
 
-        analyzer = new Analyzer(new Session("user", "test", "tpch", "default", null, null), metadata, Optional.<QueryExplainer>absent(), true);
-        approximateDisabledAnalyzer = new Analyzer(new Session("user", "test", "tpch", "default", null, null), metadata, Optional.<QueryExplainer>absent(), false);
+        // table in different catalog
+        SchemaTableName table4 = new SchemaTableName("s2", "t4");
+        metadata.createTable(SESSION, "c2", new TableMetadata("tpch", new ConnectorTableMetadata(table4,
+                ImmutableList.<ColumnMetadata>of(
+                        new ColumnMetadata("a", BIGINT, 0, false)))));
+
+        // valid view referencing table in same schema
+        String viewData1 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition("select a from t1", "tpch", "default", ImmutableList.of(
+                        new ViewColumn("a", BIGINT))));
+        metadata.createView(SESSION, new QualifiedTableName("tpch", "default", "v1"), viewData1, false);
+
+        // stale view (different column type)
+        String viewData2 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition("select a from t1", "tpch", "default", ImmutableList.of(
+                        new ViewColumn("a", VARCHAR))));
+        metadata.createView(SESSION, new QualifiedTableName("tpch", "default", "v2"), viewData2, false);
+
+        // view referencing table in different schema from itself and session
+        String viewData3 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition("select a from t4", "c2", "s2", ImmutableList.of(
+                        new ViewColumn("a", BIGINT))));
+        metadata.createView(SESSION, new QualifiedTableName("c3", "s3", "v3"), viewData3, false);
+
+        analyzer = new Analyzer(
+                Session.builder()
+                        .setUser("user")
+                        .setSource("test")
+                        .setCatalog("tpch")
+                        .setSchema("default")
+                        .setTimeZoneKey(UTC_KEY)
+                        .setLocale(ENGLISH)
+                        .build(),
+                metadata,
+                SQL_PARSER,
+                Optional.empty(),
+                true);
+
+        approximateDisabledAnalyzer = new Analyzer(
+                Session.builder()
+                        .setUser("user")
+                        .setSource("test")
+                        .setCatalog("tpch")
+                        .setSchema("default")
+                        .setTimeZoneKey(UTC_KEY)
+                        .setLocale(ENGLISH)
+                        .build(),
+                metadata,
+                SQL_PARSER,
+                Optional.empty(),
+                false);
     }
 
     private void analyze(@Language("SQL") String query)
     {
-        Statement statement = SqlParser.createStatement(query);
+        Statement statement = SQL_PARSER.createStatement(query);
         analyzer.analyze(statement);
     }
 
     private void assertFails(SemanticErrorCode error, @Language("SQL") String query)
     {
         try {
-            Statement statement = SqlParser.createStatement(query);
+            Statement statement = SQL_PARSER.createStatement(query);
             analyzer.analyze(statement);
             fail(format("Expected error %s, but analysis succeeded", error));
         }

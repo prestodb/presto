@@ -13,44 +13,106 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.ApproximateAverageAggregation.ApproximateAverageAccumulator;
-import com.facebook.presto.operator.aggregation.ApproximateAverageAggregation.ApproximateAverageGroupedAccumulator;
-import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleAccumulator;
-import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleGroupedAccumulator;
-import com.facebook.presto.tuple.TupleInfo.Type;
-import com.google.common.base.Throwables;
+import com.facebook.presto.operator.aggregation.state.AccumulatorState;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.SqlType;
 
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.operator.aggregation.ApproximateUtils.formatApproximateResult;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
+@AggregationFunction(value = "avg", approximate = true)
 public final class ApproximateAverageAggregations
 {
-    public static final AggregationFunction LONG_APPROXIMATE_AVERAGE_AGGREGATION = createIsolatedAggregation(FIXED_INT_64);
-    public static final AggregationFunction DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION = createIsolatedAggregation(DOUBLE);
-
     private ApproximateAverageAggregations() {}
 
-    private static AggregationFunction createIsolatedAggregation(Type parameterType)
+    @InputFunction
+    public static void bigintInput(ApproximateAverageState state, @SqlType(StandardTypes.BIGINT) long value, @SampleWeight long sampleWeight)
     {
-        Class<? extends AggregationFunction> functionClass = IsolatedClass.isolateClass(
-                AggregationFunction.class,
+        doubleInput(state, (double) value, sampleWeight);
+    }
 
-                ApproximateAverageAggregation.class,
-                SimpleAggregationFunction.class,
+    @InputFunction
+    public static void doubleInput(ApproximateAverageState state, @SqlType(StandardTypes.DOUBLE) double value, @SampleWeight long sampleWeight)
+    {
+        long currentCount = state.getCount();
+        double currentMean = state.getMean();
 
-                ApproximateAverageGroupedAccumulator.class,
-                SimpleGroupedAccumulator.class,
-
-                ApproximateAverageAccumulator.class,
-                SimpleAccumulator.class);
-
-        try {
-            return functionClass
-                    .getConstructor(Type.class)
-                    .newInstance(parameterType);
+        // Use numerically stable variant
+        for (int i = 0; i < sampleWeight; i++) {
+            currentCount++;
+            double delta = value - currentMean;
+            currentMean += (delta / currentCount);
+            // update m2 inline
+            state.setM2(state.getM2() + (delta * (value - currentMean)));
         }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
+
+        // write values back out
+        state.setCount(currentCount);
+        state.setMean(currentMean);
+        state.setSamples(state.getSamples() + 1);
+    }
+
+    @CombineFunction
+    public static void combine(ApproximateAverageState state, ApproximateAverageState otherState)
+    {
+        long inputCount = otherState.getCount();
+        long inputSamples = otherState.getSamples();
+        double inputMean = otherState.getMean();
+        double inputM2 = otherState.getM2();
+
+        long currentCount = state.getCount();
+        double currentMean = state.getMean();
+        double currentM2 = state.getM2();
+
+        // Use numerically stable variant
+        if (inputCount > 0) {
+            long newCount = currentCount + inputCount;
+            double newMean = ((currentCount * currentMean) + (inputCount * inputMean)) / newCount;
+            double delta = inputMean - currentMean;
+            double newM2 = currentM2 + inputM2 + ((delta * delta) * (currentCount * inputCount)) / newCount;
+
+            state.setCount(newCount);
+            state.setSamples(state.getSamples() + inputSamples);
+            state.setMean(newMean);
+            state.setM2(newM2);
         }
+    }
+
+    @OutputFunction(StandardTypes.VARCHAR)
+    public static void output(ApproximateAverageState state, double confidence, BlockBuilder out)
+    {
+        if (state.getCount() == 0) {
+            out.appendNull();
+        }
+        else {
+            String result = formatApproximateAverage(state.getSamples(), state.getMean(), state.getM2() / state.getCount(), confidence);
+            VARCHAR.writeString(out, result);
+        }
+    }
+
+    private static String formatApproximateAverage(long samples, double mean, double variance, double confidence)
+    {
+        return formatApproximateResult(mean, Math.sqrt(variance / samples), confidence, false);
+    }
+
+    public interface ApproximateAverageState
+            extends AccumulatorState
+    {
+        long getCount();
+
+        void setCount(long value);
+
+        long getSamples();
+
+        void setSamples(long value);
+
+        double getMean();
+
+        void setMean(double value);
+
+        double getM2();
+
+        void setM2(double value);
     }
 }

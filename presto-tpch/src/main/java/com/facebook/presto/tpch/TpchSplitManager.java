@@ -13,25 +13,28 @@
  */
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorPartition;
+import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.Partition;
-import com.facebook.presto.spi.PartitionResult;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.SplitSource;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.tpch.Types.checkType;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 public class TpchSplitManager
         implements ConnectorSplitManager
@@ -49,53 +52,42 @@ public class TpchSplitManager
     }
 
     @Override
-    public String getConnectorId()
+    public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
-        return connectorId;
+        ImmutableList<ConnectorPartition> partitions = ImmutableList.<ConnectorPartition>of(new TpchPartition((TpchTableHandle) table));
+        return new ConnectorPartitionResult(partitions, tupleDomain);
     }
 
     @Override
-    public boolean canHandle(TableHandle handle)
-    {
-        return handle instanceof TpchTableHandle && ((TpchTableHandle) handle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public PartitionResult getPartitions(TableHandle table, TupleDomain tupleDomain)
-    {
-        ImmutableList<Partition> partitions = ImmutableList.<Partition>of(new TpchPartition((TpchTableHandle) table));
-        return new PartitionResult(partitions, tupleDomain);
-    }
-
-    @Override
-    public SplitSource getPartitionSplits(TableHandle table, List<Partition> partitions)
+    public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle table, List<ConnectorPartition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
-            return new FixedSplitSource(connectorId, ImmutableList.<Split>of());
+            return new FixedSplitSource(connectorId, ImmutableList.<ConnectorSplit>of());
         }
 
-        Partition partition = Iterables.getOnlyElement(partitions);
-        checkArgument(partition instanceof TpchPartition, "Partition must be a tpch partition");
-        TpchTableHandle tableHandle = ((TpchPartition) partition).getTable();
+        ConnectorPartition partition = Iterables.getOnlyElement(partitions);
+        TpchTableHandle tableHandle = checkType(partition, TpchPartition.class, "partition").getTable();
 
         Set<Node> nodes = nodeManager.getActiveDatasourceNodes(connectorId);
+        checkState(!nodes.isEmpty(), "No TPCH nodes available");
 
         int totalParts = nodes.size() * splitsPerNode;
         int partNumber = 0;
 
         // Split the data using split and skew by the number of nodes available.
-        ImmutableList.Builder<Split> splits = ImmutableList.builder();
+        ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         for (Node node : nodes) {
             for (int i = 0; i < splitsPerNode; i++) {
-                splits.add(new TpchSplit(tableHandle, partNumber++, totalParts, ImmutableList.of(node.getHostAndPort())));
+                splits.add(new TpchSplit(tableHandle, partNumber, totalParts, ImmutableList.of(node.getHostAndPort())));
+                partNumber++;
             }
         }
         return new FixedSplitSource(connectorId, splits.build());
     }
 
     public static class TpchPartition
-            implements Partition
+            implements ConnectorPartition
     {
         private final TpchTableHandle table;
 
@@ -116,7 +108,7 @@ public class TpchSplitManager
         }
 
         @Override
-        public TupleDomain getTupleDomain()
+        public TupleDomain<ConnectorColumnHandle> getTupleDomain()
         {
             return TupleDomain.all();
         }
@@ -124,7 +116,7 @@ public class TpchSplitManager
         @Override
         public String toString()
         {
-            return Objects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("table", table)
                     .toString();
         }

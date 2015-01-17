@@ -13,55 +13,56 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.FunctionRegistry.FunctionListBuilder;
-import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.FunctionListBuilder;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.ParametricFunction;
+import com.facebook.presto.metadata.Split;
+import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
+import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
+import com.facebook.presto.operator.GenericPageProcessor;
 import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.operator.Page;
+import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.operator.ProjectionFunction;
-import com.facebook.presto.operator.RecordProjectOperator;
+import com.facebook.presto.operator.ScanFilterAndProjectOperator;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
-import com.facebook.presto.operator.StaticOperator;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.InMemoryRecordSet;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.split.DataStreamProvider;
-import com.facebook.presto.sql.analyzer.Analysis;
-import com.facebook.presto.sql.analyzer.AnalysisContext;
-import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
-import com.facebook.presto.sql.analyzer.Field;
-import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.TupleDescriptor;
-import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.split.PageSourceProvider;
+import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.InterpretedFilterFunction;
 import com.facebook.presto.sql.planner.InterpretedProjectionFunction;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.relational.RowExpression;
+import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.util.LocalQueryRunner;
-import com.facebook.presto.util.MaterializedResult;
-import com.facebook.presto.util.Threads;
-import com.google.common.base.Charsets;
-import com.google.common.base.Function;
+import com.facebook.presto.testing.LocalQueryRunner;
+import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -72,97 +73,122 @@ import org.joda.time.DateTimeZone;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.TestSplit.createNormalSplit;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.TestSplit.createRecordSetSplit;
-import static com.facebook.presto.spi.ColumnType.BOOLEAN;
-import static com.facebook.presto.spi.ColumnType.DOUBLE;
-import static com.facebook.presto.spi.ColumnType.LONG;
-import static com.facebook.presto.spi.ColumnType.STRING;
-import static com.facebook.presto.sql.parser.SqlParser.createExpression;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeExpressionsWithSymbols;
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
+import static com.facebook.presto.sql.planner.LocalExecutionPlanner.toTypes;
+import static com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions.canonicalizeExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Iterables.transform;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public final class FunctionAssertions
 {
-    public static final Session SESSION = new Session("user", "source", "catalog", "schema", "address", "agent");
+    private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-%s"));
 
-    private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool(Threads.daemonThreadsNamed("test-%s"));
+    private static final SqlParser SQL_PARSER = new SqlParser();
 
     private static final Page SOURCE_PAGE = new Page(
             createLongsBlock(1234L),
             createStringsBlock("hello"),
             createDoublesBlock(12.34),
             createBooleansBlock(true),
-            createLongsBlock(MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis())),
+            createLongsBlock(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis()),
             createStringsBlock("%el%"),
             createStringsBlock((String) null));
 
     private static final Page ZERO_CHANNEL_PAGE = new Page(1);
 
-    private static final Map<Input, Type> INPUT_TYPES = ImmutableMap.<Input, Type>builder()
-            .put(new Input(0), Type.BIGINT)
-            .put(new Input(1), Type.VARCHAR)
-            .put(new Input(2), Type.DOUBLE)
-            .put(new Input(3), Type.BOOLEAN)
-            .put(new Input(4), Type.BIGINT)
-            .put(new Input(5), Type.VARCHAR)
-            .put(new Input(6), Type.VARCHAR)
+    private static final Map<Integer, Type> INPUT_TYPES = ImmutableMap.<Integer, Type>builder()
+            .put(0, BIGINT)
+            .put(1, VARCHAR)
+            .put(2, DOUBLE)
+            .put(3, BOOLEAN)
+            .put(4, BIGINT)
+            .put(5, VARCHAR)
+            .put(6, VARCHAR)
             .build();
 
-    private static final Map<Symbol, Input> INPUT_MAPPING = ImmutableMap.<Symbol, Input>builder()
-            .put(new Symbol("bound_long"), new Input(0))
-            .put(new Symbol("bound_string"), new Input(1))
-            .put(new Symbol("bound_double"), new Input(2))
-            .put(new Symbol("bound_boolean"), new Input(3))
-            .put(new Symbol("bound_timestamp"), new Input(4))
-            .put(new Symbol("bound_pattern"), new Input(5))
-            .put(new Symbol("bound_null_string"), new Input(6))
+    private static final Map<Symbol, Integer> INPUT_MAPPING = ImmutableMap.<Symbol, Integer>builder()
+            .put(new Symbol("bound_long"), 0)
+            .put(new Symbol("bound_string"), 1)
+            .put(new Symbol("bound_double"), 2)
+            .put(new Symbol("bound_boolean"), 3)
+            .put(new Symbol("bound_timestamp"), 4)
+            .put(new Symbol("bound_pattern"), 5)
+            .put(new Symbol("bound_null_string"), 6)
             .build();
 
-    private static final TupleDescriptor TUPLE_DESCRIPTOR = new TupleDescriptor(ImmutableList.copyOf(transform(INPUT_MAPPING.entrySet(), new Function<Entry<Symbol, Input>, Field>()
-    {
-        @Override
-        public Field apply(Entry<Symbol, Input> entry)
-        {
-            return Field.newUnqualified(entry.getKey().getName(), INPUT_TYPES.get(entry.getValue()));
-        }
-    })));
+    private static final Map<Symbol, Type> SYMBOL_TYPES = ImmutableMap.<Symbol, Type>builder()
+            .put(new Symbol("bound_long"), BIGINT)
+            .put(new Symbol("bound_string"), VARCHAR)
+            .put(new Symbol("bound_double"), DOUBLE)
+            .put(new Symbol("bound_boolean"), BOOLEAN)
+            .put(new Symbol("bound_timestamp"), BIGINT)
+            .put(new Symbol("bound_pattern"), VARCHAR)
+            .put(new Symbol("bound_null_string"), VARCHAR)
+            .build();
 
-    private static final DataStreamProvider DATA_STREAM_PROVIDER = new TestDataStreamProvider();
+    private static final PageSourceProvider PAGE_SOURCE_PROVIDER = new TestPageSourceProvider();
     private static final PlanNodeId SOURCE_ID = new PlanNodeId("scan");
 
-    private final MetadataManager metadataManager = new MetadataManager();
-    private final ExpressionCompiler compiler = new ExpressionCompiler(metadataManager);
+    private final Session session;
+    private final LocalQueryRunner runner;
+    private final Metadata metadata;
+    private final ExpressionCompiler compiler;
 
-    public FunctionAssertions() {}
-
-    public FunctionAssertions addFunctions(List<FunctionInfo> functionInfos)
+    public FunctionAssertions()
     {
-        metadataManager.addFunctions(functionInfos);
+        this(TEST_SESSION);
+    }
+
+    public FunctionAssertions(Session session)
+    {
+        this.session = checkNotNull(session, "session is null");
+        runner = new LocalQueryRunner(session);
+        metadata = runner.getMetadata();
+        compiler = new ExpressionCompiler(metadata);
+    }
+
+    public Metadata getMetadata()
+    {
+        return metadata;
+    }
+
+    public FunctionAssertions addFunctions(List<ParametricFunction> functionInfos)
+    {
+        metadata.addFunctions(functionInfos);
         return this;
     }
 
     public FunctionAssertions addScalarFunctions(Class<?> clazz)
     {
-        metadataManager.addFunctions(new FunctionListBuilder().scalar(clazz).build());
+        metadata.addFunctions(new FunctionListBuilder(metadata.getTypeManager()).scalar(clazz).getFunctions());
         return this;
     }
 
@@ -172,24 +198,57 @@ public final class FunctionAssertions
             expected = ((Integer) expected).longValue();
         }
         else if (expected instanceof Slice) {
-            expected = ((Slice) expected).toString(Charsets.UTF_8);
+            expected = ((Slice) expected).toString(UTF_8);
         }
-        assertEquals(selectSingleValue(projection), expected);
+
+        Object actual = selectSingleValue(projection, compiler);
+        try {
+            assertEquals(actual, expected);
+        }
+        catch (Throwable e) {
+            throw e;
+        }
     }
 
     public void assertFunctionNull(String projection)
     {
-        assertNull(selectSingleValue(projection));
+        assertNull(selectSingleValue(projection, compiler));
     }
 
-    public Object selectSingleValue(String projection)
+    public void assertInvalidFunction(String projection)
     {
-        return selectSingleValue(projection, SESSION);
+        try {
+            assertFunction(projection, null);
+            fail();
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
+        }
     }
 
-    public Object selectSingleValue(String projection, Session session)
+    public void tryEvaluate(String expression)
     {
-        List<Object> results = executeProjectionWithAll(projection, session);
+        tryEvaluate(expression, session);
+    }
+
+    public void tryEvaluate(String expression, Session session)
+    {
+        selectUniqueValue(expression, session, compiler);
+    }
+
+    public void tryEvaluateWithAll(String expression, Session session)
+    {
+        executeProjectionWithAll(expression, session, compiler);
+    }
+
+    private Object selectSingleValue(String projection, ExpressionCompiler compiler)
+    {
+        return selectUniqueValue(projection, session, compiler);
+    }
+
+    private Object selectUniqueValue(String projection, Session session, ExpressionCompiler compiler)
+    {
+        List<Object> results = executeProjectionWithAll(projection, session, compiler);
         HashSet<Object> resultSet = new HashSet<>(results);
 
         // we should only have a single result
@@ -198,26 +257,35 @@ public final class FunctionAssertions
         return Iterables.getOnlyElement(resultSet);
     }
 
-    public List<Object> executeProjectionWithAll(String projection, Session session)
+    public List<Object> executeProjectionWithAll(String projection, Session session, ExpressionCompiler compiler)
     {
         checkNotNull(projection, "projection is null");
 
-        Expression projectionExpression = createExpression(projection);
+        Expression projectionExpression = createExpression(projection, metadata, SYMBOL_TYPES);
 
         List<Object> results = new ArrayList<>();
 
+        //
+        // If the projection does not need bound values, execute query using full engine
+        if (!needsBoundValue(projectionExpression)) {
+            MaterializedResult result = runner.execute("SELECT " + projection);
+            assertEquals(result.getTypes().size(), 1);
+            assertEquals(result.getMaterializedRows().size(), 1);
+            Object queryResult = Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
+            results.add(queryResult);
+        }
+
         // execute as standalone operator
-        OperatorFactory operatorFactory = compileFilterProject(TRUE_LITERAL, projectionExpression);
-        Type expressionType = Type.fromRaw(operatorFactory.getTupleInfos().get(0).getType());
+        OperatorFactory operatorFactory = compileFilterProject(TRUE_LITERAL, projectionExpression, compiler);
         Object directOperatorValue = selectSingleValue(operatorFactory, session);
         results.add(directOperatorValue);
 
         // interpret
-        Object interpretedValue = selectSingleValue(interpretedFilterProject(TRUE_LITERAL, projectionExpression, expressionType, session));
+        Object interpretedValue = selectSingleValue(interpretedFilterProject(TRUE_LITERAL, projectionExpression, session));
         results.add(interpretedValue);
 
         // execute over normal operator
-        SourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(TRUE_LITERAL, projectionExpression);
+        SourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(TRUE_LITERAL, projectionExpression, compiler);
         Object scanOperatorValue = selectSingleValue(scanProjectOperatorFactory, createNormalSplit(), session);
         results.add(scanOperatorValue);
 
@@ -228,29 +296,23 @@ public final class FunctionAssertions
         //
         // If the projection does not need bound values, execute query using full engine
         if (!needsBoundValue(projectionExpression)) {
-            try {
-                LocalQueryRunner runner = new LocalQueryRunner(session, EXECUTOR);
-                MaterializedResult result = runner.execute("SELECT " + projection + " FROM dual");
-                assertEquals(result.getTupleInfos().size(), 1);
-                assertEquals(result.getMaterializedTuples().size(), 1);
-                Object queryResult = Iterables.getOnlyElement(result.getMaterializedTuples()).getField(0);
-                results.add(queryResult);
-            }
-            catch (RuntimeException e) {
-                // todo remove this when analyzer supports null types and full numeric type promotion
-            }
+            MaterializedResult result = runner.execute("SELECT " + projection);
+            assertEquals(result.getTypes().size(), 1);
+            assertEquals(result.getMaterializedRows().size(), 1);
+            Object queryResult = Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
+            results.add(queryResult);
         }
 
         return results;
     }
 
-    public static Object selectSingleValue(OperatorFactory operatorFactory, Session session)
+    private Object selectSingleValue(OperatorFactory operatorFactory, Session session)
     {
         Operator operator = operatorFactory.createOperator(createDriverContext(session));
         return selectSingleValue(operator);
     }
 
-    public static Object selectSingleValue(SourceOperatorFactory operatorFactory, Split split, Session session)
+    private Object selectSingleValue(SourceOperatorFactory operatorFactory, Split split, Session session)
     {
         SourceOperator operator = operatorFactory.createOperator(createDriverContext(session));
         operator.addSplit(split);
@@ -258,30 +320,29 @@ public final class FunctionAssertions
         return selectSingleValue(operator);
     }
 
-    public static Object selectSingleValue(Operator operator)
+    private Object selectSingleValue(Operator operator)
     {
         Page output = getAtMostOnePage(operator, SOURCE_PAGE);
 
         assertNotNull(output);
         assertEquals(output.getPositionCount(), 1);
         assertEquals(output.getChannelCount(), 1);
+        Type type = operator.getTypes().get(0);
 
         Block block = output.getBlock(0);
         assertEquals(block.getPositionCount(), 1);
 
-        BlockCursor cursor = block.cursor();
-        assertTrue(cursor.advanceNextPosition());
-        if (cursor.isNull()) {
-            return null;
-        }
-        else {
-            return cursor.getTuple().getObjectValue();
-        }
+        return type.getObjectValue(session.toConnectorSession(), block, 0);
     }
 
     public void assertFilter(String filter, boolean expected, boolean withNoInputColumns)
     {
-        List<Boolean> results = executeFilterWithAll(filter, SESSION, withNoInputColumns);
+        assertFilter(filter, expected, withNoInputColumns, compiler);
+    }
+
+    private void assertFilter(String filter, boolean expected, boolean withNoInputColumns, ExpressionCompiler compiler)
+    {
+        List<Boolean> results = executeFilterWithAll(filter, TEST_SESSION, withNoInputColumns, compiler);
         HashSet<Boolean> resultSet = new HashSet<>(results);
 
         // we should only have a single result
@@ -290,31 +351,30 @@ public final class FunctionAssertions
         assertEquals((boolean) Iterables.getOnlyElement(resultSet), expected);
     }
 
-    public List<Boolean> executeFilterWithAll(String filter, Session session, boolean executeWithNoInputColumns)
+    private List<Boolean> executeFilterWithAll(String filter, Session session, boolean executeWithNoInputColumns, ExpressionCompiler compiler)
     {
         checkNotNull(filter, "filter is null");
 
-        Expression filterExpression = createExpression(filter);
+        Expression filterExpression = createExpression(filter, metadata, SYMBOL_TYPES);
 
         List<Boolean> results = new ArrayList<>();
 
         // execute as standalone operator
-        OperatorFactory operatorFactory = compileFilterProject(filterExpression, TRUE_LITERAL);
-        Type expressionType = Type.fromRaw(operatorFactory.getTupleInfos().get(0).getType());
+        OperatorFactory operatorFactory = compileFilterProject(filterExpression, TRUE_LITERAL, compiler);
         results.add(executeFilter(operatorFactory, session));
 
         if (executeWithNoInputColumns) {
             // execute as standalone operator
-            operatorFactory = compileFilterWithNoInputColumns(filterExpression);
+            operatorFactory = compileFilterWithNoInputColumns(filterExpression, compiler);
             results.add(executeFilterWithNoInputColumns(operatorFactory, session));
         }
 
         // interpret
-        boolean interpretedValue = executeFilter(interpretedFilterProject(filterExpression, TRUE_LITERAL, expressionType, session));
+        boolean interpretedValue = executeFilter(interpretedFilterProject(filterExpression, TRUE_LITERAL, session));
         results.add(interpretedValue);
 
         // execute over normal operator
-        SourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(filterExpression, TRUE_LITERAL);
+        SourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(filterExpression, TRUE_LITERAL, compiler);
         boolean scanOperatorValue = executeFilter(scanProjectOperatorFactory, createNormalSplit(), session);
         results.add(scanOperatorValue);
 
@@ -325,27 +385,46 @@ public final class FunctionAssertions
         //
         // If the filter does not need bound values, execute query using full engine
         if (!needsBoundValue(filterExpression)) {
-            try {
-                LocalQueryRunner runner = new LocalQueryRunner(session, EXECUTOR);
-                MaterializedResult result = runner.execute("SELECT TRUE FROM dual WHERE " + filter);
-                assertEquals(result.getTupleInfos().size(), 1);
+            MaterializedResult result = runner.execute("SELECT TRUE WHERE " + filter);
+            assertEquals(result.getTypes().size(), 1);
 
-                Boolean queryResult;
-                if (result.getMaterializedTuples().isEmpty()) {
-                    queryResult = false;
-                }
-                else {
-                    assertEquals(result.getMaterializedTuples().size(), 1);
-                    queryResult = (Boolean) Iterables.getOnlyElement(result.getMaterializedTuples()).getField(0);
-                }
-                results.add(queryResult);
+            Boolean queryResult;
+            if (result.getMaterializedRows().isEmpty()) {
+                queryResult = false;
             }
-            catch (SemanticException e) {
-                // todo remove this when analyzer supports null types and full numeric type promotion
+            else {
+                assertEquals(result.getMaterializedRows().size(), 1);
+                queryResult = (Boolean) Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
             }
+            results.add(queryResult);
         }
 
         return results;
+    }
+
+    public static Expression createExpression(String expression, Metadata metadata, Map<Symbol, Type> symbolTypes)
+    {
+        Expression parsedExpression = SQL_PARSER.createExpression(expression);
+
+        final ExpressionAnalysis analysis = analyzeExpressionsWithSymbols(TEST_SESSION, metadata, SQL_PARSER, symbolTypes, ImmutableList.of(parsedExpression));
+        Expression rewrittenExpression = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+        {
+            @Override
+            public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Expression rewrittenExpression = treeRewriter.defaultRewrite(node, context);
+
+                // cast expression if coercion is registered
+                Type coercion = analysis.getCoercion(node);
+                if (coercion != null) {
+                    rewrittenExpression = new Cast(rewrittenExpression, coercion.getTypeSignature().toString());
+                }
+
+                return rewrittenExpression;
+            }
+        }, parsedExpression);
+
+        return canonicalizeExpression(rewrittenExpression);
     }
 
     private static boolean executeFilterWithNoInputColumns(OperatorFactory operatorFactory, Session session)
@@ -375,9 +454,7 @@ public final class FunctionAssertions
             assertEquals(page.getPositionCount(), 1);
             assertEquals(page.getChannelCount(), 1);
 
-            BlockCursor cursor = page.getBlock(0).cursor();
-            assertTrue(cursor.advanceNextPosition());
-            assertTrue(cursor.getBoolean());
+            assertTrue(operator.getTypes().get(0).getBoolean(page.getBlock(0), 0));
             value = true;
         }
         else {
@@ -417,33 +494,43 @@ public final class FunctionAssertions
         return hasQualifiedNameReference.get();
     }
 
-    private Operator interpretedFilterProject(Expression filter, Expression projection, Type expressionType, Session session)
+    private Operator interpretedFilterProject(Expression filter, Expression projection, Session session)
     {
         FilterFunction filterFunction = new InterpretedFilterFunction(
                 filter,
+                SYMBOL_TYPES,
                 INPUT_MAPPING,
-                metadataManager,
+                metadata,
+                SQL_PARSER,
                 session
         );
 
         ProjectionFunction projectionFunction = new InterpretedProjectionFunction(
-                expressionType,
                 projection,
+                SYMBOL_TYPES,
                 INPUT_MAPPING,
-                metadataManager,
+                metadata,
+                SQL_PARSER,
                 session
         );
 
-        OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(0, filterFunction, ImmutableList.of(projectionFunction));
+        OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, new GenericPageProcessor(filterFunction, ImmutableList.of(projectionFunction)), toTypes(
+                ImmutableList.of(projectionFunction)));
         return operatorFactory.createOperator(createDriverContext(session));
     }
 
-    private OperatorFactory compileFilterWithNoInputColumns(Expression filter)
+    private OperatorFactory compileFilterWithNoInputColumns(Expression filter, ExpressionCompiler compiler)
     {
-        filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(ImmutableMap.<Symbol, Input>of()), filter);
+        filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(ImmutableMap.<Symbol, Integer>of()), filter);
+
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter));
 
         try {
-            return compiler.compileFilterAndProjectOperator(0, filter, ImmutableList.<Expression>of(), ImmutableMap.<Input, Type>of(), ImmutableList.<Type>of());
+            PageProcessor processor = compiler.compilePageProcessor(
+                    SqlToRowExpressionTranslator.translate(filter, expressionTypes, metadata, session, false),
+                    ImmutableList.<RowExpression>of());
+
+            return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, processor, ImmutableList.<Type>of());
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -453,15 +540,20 @@ public final class FunctionAssertions
         }
     }
 
-    private OperatorFactory compileFilterProject(Expression filter, Expression projection)
+    private OperatorFactory compileFilterProject(Expression filter, Expression projection, ExpressionCompiler compiler)
     {
-        Type projectionType = getExpressionType(projection);
-
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
         projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
 
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter, projection));
+
         try {
-            return compiler.compileFilterAndProjectOperator(0, filter, ImmutableList.of(projection), INPUT_TYPES, ImmutableList.of(projectionType));
+            List<RowExpression> projections = ImmutableList.of(SqlToRowExpressionTranslator.translate(projection, expressionTypes, metadata, session, false));
+            PageProcessor processor = compiler.compilePageProcessor(
+                    SqlToRowExpressionTranslator.translate(filter, expressionTypes, metadata, session, false),
+                    projections);
+
+            return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, processor, ImmutableList.of(expressionTypes.get(projection)));
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -471,23 +563,31 @@ public final class FunctionAssertions
         }
     }
 
-    private SourceOperatorFactory compileScanFilterProject(Expression filter, Expression projection)
+    private SourceOperatorFactory compileScanFilterProject(Expression filter, Expression projection, ExpressionCompiler compiler)
     {
-        Type projectionType = getExpressionType(projection);
-
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
         projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
 
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter, projection));
+
         try {
-            return compiler.compileScanFilterAndProjectOperator(
+            CursorProcessor cursorProcessor = compiler.compileCursorProcessor(
+                    SqlToRowExpressionTranslator.translate(filter, expressionTypes, metadata, session, false),
+                    ImmutableList.of(SqlToRowExpressionTranslator.translate(projection, expressionTypes, metadata, session, false)),
+                    SOURCE_ID);
+
+            PageProcessor pageProcessor = compiler.compilePageProcessor(
+                    SqlToRowExpressionTranslator.translate(filter, expressionTypes, metadata, session, false),
+                    ImmutableList.of(SqlToRowExpressionTranslator.translate(projection, expressionTypes, metadata, session, false)));
+
+            return new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                     0,
                     SOURCE_ID,
-                    DATA_STREAM_PROVIDER,
+                    PAGE_SOURCE_PROVIDER,
+                    cursorProcessor,
+                    pageProcessor,
                     ImmutableList.<ColumnHandle>of(),
-                    filter,
-                    ImmutableList.of(projection),
-                    INPUT_TYPES,
-                    ImmutableList.of(projectionType));
+                    ImmutableList.of(expressionTypes.get(projection)));
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -532,48 +632,43 @@ public final class FunctionAssertions
                 .addDriverContext();
     }
 
-    private Type getExpressionType(Expression projection)
-    {
-        return new ExpressionAnalyzer(new Analysis(), SESSION, metadataManager, false).analyze(projection, TUPLE_DESCRIPTOR, new AnalysisContext());
-    }
-
-    private static class TestDataStreamProvider
-            implements DataStreamProvider
+    private static class TestPageSourceProvider
+            implements PageSourceProvider
     {
         @Override
-        public Operator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
+        public ConnectorPageSource createPageSource(Split split, List<ColumnHandle> columns)
         {
-            assertInstanceOf(split, FunctionAssertions.TestSplit.class);
-            FunctionAssertions.TestSplit testSplit = (FunctionAssertions.TestSplit) split;
+            assertInstanceOf(split.getConnectorSplit(), FunctionAssertions.TestSplit.class);
+            FunctionAssertions.TestSplit testSplit = (FunctionAssertions.TestSplit) split.getConnectorSplit();
             if (testSplit.isRecordSet()) {
-                RecordSet records = InMemoryRecordSet.builder(ImmutableList.of(LONG, STRING, DOUBLE, BOOLEAN, LONG, STRING, STRING)).addRow(
+                RecordSet records = InMemoryRecordSet.builder(ImmutableList.<Type>of(BIGINT, VARCHAR, DOUBLE, BOOLEAN, BIGINT, VARCHAR, VARCHAR)).addRow(
                         1234L,
                         "hello",
                         12.34,
                         true,
-                        MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis()),
+                        new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis(),
                         "%el%",
                         null
                 ).build();
-                return new RecordProjectOperator(operatorContext, records);
+                return new RecordPageSource(records);
             }
             else {
-                return new StaticOperator(operatorContext, ImmutableList.of(SOURCE_PAGE));
+                return new FixedPageSource(ImmutableList.of(SOURCE_PAGE));
             }
         }
     }
 
     static class TestSplit
-            implements Split
+            implements ConnectorSplit
     {
         static Split createRecordSetSplit()
         {
-            return new TestSplit(true);
+            return new Split("test", new TestSplit(true));
         }
 
         static Split createNormalSplit()
         {
-            return new TestSplit(false);
+            return new Split("test", new TestSplit(false));
         }
 
         private final boolean recordSet;

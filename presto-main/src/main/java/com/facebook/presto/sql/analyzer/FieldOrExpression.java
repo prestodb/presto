@@ -14,12 +14,9 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.sql.tree.Expression;
-import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 
-import javax.annotation.Nullable;
+import java.util.Optional;
 
 /**
  * Represents an expression or a direct field reference. The latter is used, for
@@ -34,14 +31,14 @@ public class FieldOrExpression
     public FieldOrExpression(int fieldIndex)
     {
         this.fieldIndex = Optional.of(fieldIndex);
-        this.expression = Optional.absent();
+        this.expression = Optional.empty();
     }
 
     public FieldOrExpression(Expression expression)
     {
         Preconditions.checkNotNull(expression, "expression is null");
 
-        this.fieldIndex = Optional.absent();
+        this.fieldIndex = Optional.empty();
         this.expression = Optional.of(expression);
     }
 
@@ -105,53 +102,5 @@ public class FieldOrExpression
         int result = fieldIndex.hashCode();
         result = 31 * result + expression.hashCode();
         return result;
-    }
-
-    public static Predicate<FieldOrExpression> isFieldReferencePredicate()
-    {
-        return new Predicate<FieldOrExpression>()
-        {
-            @Override
-            public boolean apply(@Nullable FieldOrExpression input)
-            {
-                return input.isFieldReference();
-            }
-        };
-    }
-
-    public static Predicate<FieldOrExpression> isExpressionPredicate()
-    {
-        return new Predicate<FieldOrExpression>()
-        {
-            @Override
-            public boolean apply(@Nullable FieldOrExpression input)
-            {
-                return input.isExpression();
-            }
-        };
-    }
-
-    public static Function<FieldOrExpression, Integer> fieldIndexGetter()
-    {
-        return new Function<FieldOrExpression, Integer>()
-        {
-            @Override
-            public Integer apply(FieldOrExpression input)
-            {
-                return input.getFieldIndex();
-            }
-        };
-    }
-
-    public static Function<FieldOrExpression, Expression> expressionGetter()
-    {
-        return new Function<FieldOrExpression, Expression>()
-        {
-            @Override
-            public Expression apply(FieldOrExpression input)
-            {
-                return input.getExpression();
-            }
-        };
     }
 }

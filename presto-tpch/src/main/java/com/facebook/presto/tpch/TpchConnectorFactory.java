@@ -16,8 +16,9 @@ package com.facebook.presto.tpch;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorOutputHandleResolver;
+import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
@@ -52,7 +53,7 @@ public class TpchConnectorFactory
     }
 
     @Override
-    public Connector create(final String connectorId, final Map<String, String> properties)
+    public Connector create(final String connectorId, Map<String, String> properties)
     {
         final int splitsPerNode = getSplitsPerNode(properties);
 
@@ -76,9 +77,15 @@ public class TpchConnectorFactory
             }
 
             @Override
+            public ConnectorPageSourceProvider getPageSourceProvider()
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
             public ConnectorRecordSetProvider getRecordSetProvider()
             {
-                return new TpchRecordSetProvider(connectorId);
+                return new TpchRecordSetProvider();
             }
 
             @Override
@@ -88,7 +95,7 @@ public class TpchConnectorFactory
             }
 
             @Override
-            public ConnectorOutputHandleResolver getOutputHandleResolver()
+            public ConnectorIndexResolver getIndexResolver()
             {
                 throw new UnsupportedOperationException();
             }

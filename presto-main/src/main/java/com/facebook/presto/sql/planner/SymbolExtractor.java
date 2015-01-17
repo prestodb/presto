@@ -15,29 +15,35 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
-import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.IndexJoinNode;
+import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
-import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
+import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.planner.plan.UnnestNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -67,7 +73,7 @@ public final class SymbolExtractor
         }
 
         @Override
-        public Void visitExchange(ExchangeNode node, Void context)
+        public Void visitRemoteSource(RemoteSourceNode node, Void context)
         {
             builder.addAll(node.getOutputSymbols());
 
@@ -81,16 +87,6 @@ public final class SymbolExtractor
             node.getSource().accept(this, context);
 
             builder.addAll(node.getAggregations().keySet());
-
-            return null;
-        }
-
-        @Override
-        public Void visitMaterializeSample(MaterializeSampleNode node, Void context)
-        {
-            node.getSource().accept(this, context);
-
-            builder.add(node.getSampleWeightSymbol());
 
             return null;
         }
@@ -117,6 +113,28 @@ public final class SymbolExtractor
         }
 
         @Override
+        public Void visitTopNRowNumber(TopNRowNumberNode node, Void context)
+        {
+            // visit child
+            node.getSource().accept(this, context);
+
+            builder.add(node.getRowNumberSymbol());
+
+            return null;
+        }
+
+        @Override
+        public Void visitRowNumber(RowNumberNode node, Void context)
+        {
+            // visit child
+            node.getSource().accept(this, context);
+
+            builder.add(node.getRowNumberSymbol());
+
+            return null;
+        }
+
+        @Override
         public Void visitFilter(FilterNode node, Void context)
         {
             // visit child
@@ -132,6 +150,16 @@ public final class SymbolExtractor
             node.getSource().accept(this, context);
 
             builder.addAll(node.getOutputSymbols());
+
+            return null;
+        }
+
+        @Override
+        public Void visitUnnest(UnnestNode node, Void context)
+        {
+            node.getSource().accept(this, context);
+
+            builder.addAll(Iterables.concat(node.getUnnestSymbols().values()));
 
             return null;
         }
@@ -181,6 +209,11 @@ public final class SymbolExtractor
         {
             node.getSource().accept(this, context);
 
+            Optional<Symbol> sampleWeightSymbol = node.getSampleWeightSymbol();
+            if (sampleWeightSymbol.isPresent()) {
+                builder.add(sampleWeightSymbol.get());
+            }
+
             return null;
         }
 
@@ -188,6 +221,14 @@ public final class SymbolExtractor
         public Void visitTableScan(TableScanNode node, Void context)
         {
             builder.addAll(node.getAssignments().keySet());
+
+            return null;
+        }
+
+        @Override
+        public Void visitValues(ValuesNode node, Void context)
+        {
+            builder.addAll(node.getOutputSymbols());
 
             return null;
         }
@@ -213,11 +254,9 @@ public final class SymbolExtractor
         }
 
         @Override
-        public Void visitMaterializedViewWriter(MaterializedViewWriterNode node, Void context)
+        public Void visitIndexSource(IndexSourceNode node, Void context)
         {
-            node.getSource().accept(this, context);
-
-            builder.addAll(node.getOutputSymbols());
+            builder.addAll(node.getAssignments().keySet());
 
             return null;
         }
@@ -243,9 +282,10 @@ public final class SymbolExtractor
         }
 
         @Override
-        public Void visitSink(SinkNode node, Void context)
+        public Void visitIndexJoin(IndexJoinNode node, Void context)
         {
-            node.getSource().accept(this, context);
+            node.getProbeSource().accept(this, context);
+            node.getIndexSource().accept(this, context);
 
             return null;
         }
@@ -256,6 +296,15 @@ public final class SymbolExtractor
             for (PlanNode subPlanNode : node.getSources()) {
                 subPlanNode.accept(this, context);
             }
+
+            builder.addAll(node.getOutputSymbols());
+            return null;
+        }
+
+        @Override
+        public Void visitExchange(ExchangeNode node, Void context)
+        {
+            builder.addAll(node.getOutputSymbols());
 
             return null;
         }

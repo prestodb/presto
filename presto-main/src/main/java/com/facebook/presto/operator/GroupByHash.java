@@ -13,75 +13,114 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.JoinCompiler;
+import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
-import com.google.common.primitives.Longs;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.longs.Long2IntOpenCustomHashMap;
-import it.unimi.dsi.fastutil.longs.LongHash;
-import it.unimi.dsi.fastutil.longs.LongHash.Strategy;
+import com.google.common.collect.Iterables;
+import io.airlift.slice.XxHash64;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.sql.gen.JoinCompiler.PagesHashStrategyFactory;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static it.unimi.dsi.fastutil.HashCommon.arraySize;
+import static it.unimi.dsi.fastutil.HashCommon.maxFill;
 
+// This implementation assumes arrays used in the hash are always a power of 2
 public class GroupByHash
 {
-    private static final long CURRENT_ROW_ADDRESS = 0xFF_FF_FF_FF_FF_FF_FF_FFL;
+    private static final JoinCompiler JOIN_COMPILER = new JoinCompiler();
 
+    private static final float FILL_RATIO = 0.75f;
     private final List<Type> types;
     private final int[] channels;
 
-    private GroupByPageBuilder activePage;
+    private final PagesHashStrategy hashStrategy;
+    private final List<ObjectArrayList<Block>> channelBuilders;
+    private final HashGenerator hashGenerator;
+    private final Optional<Integer> precomputedHashChannel;
+    private PageBuilder currentPageBuilder;
 
-    private final List<GroupByPageBuilder> allPages;
     private long completedPagesMemorySize;
 
-    private final PageBuilderHashStrategy hashStrategy;
-    private final PagePositionToGroupId pagePositionToGroupId;
+    private int maxFill;
+    private int mask;
+    private long[] key;
+    private int[] value;
+
+    private final LongBigArray groupAddress;
 
     private int nextGroupId;
 
-    public GroupByHash(List<Type> types, int[] channels, int expectedSize)
+    public GroupByHash(List<? extends Type> hashTypes, int[] hashChannels, Optional<Integer> inputHashChannel, int expectedSize)
     {
-        this.types = checkNotNull(types, "types is null");
-        this.channels = checkNotNull(channels, "channels is null").clone();
-        checkArgument(types.size() == channels.length, "types and channels have different sizes");
+        checkNotNull(hashTypes, "hashTypes is null");
+        checkArgument(hashTypes.size() == hashChannels.length, "hashTypes and hashChannels have different sizes");
+        checkNotNull(inputHashChannel, "inputHashChannel is null");
+        checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
 
-        this.allPages = ObjectArrayList.wrap(new GroupByPageBuilder[1024], 0);
-        this.activePage = new GroupByPageBuilder(types);
-        this.allPages.add(activePage);
+        this.types = inputHashChannel.isPresent() ? ImmutableList.copyOf(Iterables.concat(hashTypes, ImmutableList.of(BIGINT))) : ImmutableList.copyOf(hashTypes);
+        this.channels = checkNotNull(hashChannels, "hashChannels is null").clone();
+        this.hashGenerator = inputHashChannel.isPresent() ? new PrecomputedHashGenerator(inputHashChannel.get()) : new InterpretedHashGenerator(ImmutableList.copyOf(hashTypes), hashChannels);
 
-        this.hashStrategy = new PageBuilderHashStrategy();
-        this.pagePositionToGroupId = new PagePositionToGroupId(expectedSize, hashStrategy);
-        this.pagePositionToGroupId.defaultReturnValue(-1);
+        // For each hashed channel, create an appendable list to hold the blocks (builders).  As we
+        // add new values we append them to the existing block builder until it fills up and then
+        // we add a new block builder to each list.
+        ImmutableList.Builder<Integer> outputChannels = ImmutableList.builder();
+        ImmutableList.Builder<ObjectArrayList<Block>> channelBuilders = ImmutableList.builder();
+        for (int i = 0; i < hashChannels.length; i++) {
+            outputChannels.add(i);
+            channelBuilders.add(ObjectArrayList.wrap(new Block[1024], 0));
+        }
+        if (inputHashChannel.isPresent()) {
+            this.precomputedHashChannel = Optional.of(hashChannels.length);
+            channelBuilders.add(ObjectArrayList.wrap(new Block[1024], 0));
+        }
+        else {
+            this.precomputedHashChannel = Optional.empty();
+        }
+        this.channelBuilders = channelBuilders.build();
+        PagesHashStrategyFactory pagesHashStrategyFactory = JOIN_COMPILER.compilePagesHashStrategyFactory(this.types, outputChannels.build());
+        hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(this.channelBuilders, this.precomputedHashChannel);
+
+        startNewPage();
+
+        // reserve memory for the arrays
+        int hashSize = arraySize(expectedSize, FILL_RATIO);
+
+        maxFill = maxFill(hashSize, FILL_RATIO);
+        mask = hashSize - 1;
+        key = new long[hashSize];
+        Arrays.fill(key, -1);
+
+        value = new int[hashSize];
+
+        groupAddress = new LongBigArray();
+        groupAddress.ensureCapacity(maxFill);
     }
 
     public long getEstimatedSize()
     {
-        return completedPagesMemorySize + activePage.getMemorySize() + pagePositionToGroupId.getEstimatedSize();
+        return (sizeOf(channelBuilders.get(0).elements()) * channelBuilders.size()) +
+                completedPagesMemorySize +
+                currentPageBuilder.getSizeInBytes() +
+                sizeOf(key) +
+                sizeOf(value) +
+                groupAddress.sizeOf();
     }
 
     public List<Type> getTypes()
@@ -89,466 +128,201 @@ public class GroupByHash
         return types;
     }
 
+    public int getGroupCount()
+    {
+        return nextGroupId;
+    }
+
+    public void appendValuesTo(int groupId, PageBuilder pageBuilder, int outputChannelOffset)
+    {
+        long address = groupAddress.get(groupId);
+        int blockIndex = decodeSliceIndex(address);
+        int position = decodePosition(address);
+        hashStrategy.appendTo(blockIndex, position, pageBuilder, outputChannelOffset);
+    }
+
     public GroupByIdBlock getGroupIds(Page page)
     {
         int positionCount = page.getPositionCount();
 
-        int groupIdBlockSize = SINGLE_LONG.getFixedSize() * positionCount;
-        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_LONG, groupIdBlockSize, Slices.allocate(groupIdBlockSize).getOutput());
+        // we know the exact size required for the block
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(positionCount);
 
-        // open cursors for group blocks
-        BlockCursor[] cursors = new BlockCursor[channels.length];
+        // extract the hash columns
+        Block[] hashBlocks = new Block[channels.length];
         for (int i = 0; i < channels.length; i++) {
-            cursors[i] = page.getBlock(channels[i]).cursor();
+            hashBlocks[i] = page.getBlock(channels[i]);
         }
 
-        // use cursors in hash strategy to provide value for "current" row
-        hashStrategy.setCurrentRow(cursors);
-
+        // get the group id for each position
         for (int position = 0; position < positionCount; position++) {
-            for (BlockCursor cursor : cursors) {
-                checkState(cursor.advanceNextPosition());
-            }
+            // get the group for the current row
+            int groupId = putIfAbsent(position, page, hashBlocks);
 
-            int groupId = pagePositionToGroupId.get(CURRENT_ROW_ADDRESS);
-            if (groupId < 0) {
-                groupId = addNewGroup(cursors);
-            }
-            blockBuilder.append(groupId);
+            // output the group id for this row
+            BIGINT.writeLong(blockBuilder, groupId);
         }
-        UncompressedBlock block = blockBuilder.build();
-        return new GroupByIdBlock(nextGroupId, block);
+        return new GroupByIdBlock(nextGroupId, blockBuilder.build());
     }
 
-    private int addNewGroup(BlockCursor... row)
+    public boolean contains(int position, Page page)
     {
-        int pageIndex = allPages.size() - 1;
-        if (!activePage.append(row)) {
-            // record the active page memory size
-            completedPagesMemorySize += activePage.getMemorySize();
+        // if hash is not provided, compute it using all the blocks in the page
+        return contains(position, page, hashStrategy.hashRow(position, page.getBlocks()));
+    }
 
-            activePage = new GroupByPageBuilder(types);
-            allPages.add(activePage);
-            pageIndex++;
+    public boolean contains(int position, Page page, int rawHash)
+    {
+        int hashPosition = getHashPosition(rawHash, mask);
 
-            // TODO make the page builder allocation guarantee enough space to hold at least the first row.
-            checkState(activePage.append(row), "Could not add row to empty page builder");
+        // look for a slot containing this key
+        while (key[hashPosition] != -1) {
+            long address = key[hashPosition];
+            if (hashStrategy.positionEqualsRow(decodeSliceIndex(address), decodePosition(address), position, page.getBlocks())) {
+                // found an existing slot for this key
+                return true;
+            }
+            // increment position and mask to handle wrap around
+            hashPosition = (hashPosition + 1) & mask;
         }
 
-        // record group id in hash
-        int groupId = nextGroupId++;
-        long address = encodeSyntheticAddress(pageIndex, activePage.getPositionCount() - 1);
-        pagePositionToGroupId.put(address, groupId);
+        return false;
+    }
 
+    public int putIfAbsent(int position, Page page, Block[] hashBlocks)
+    {
+        int rawHash = hashGenerator.hashPosition(position, page);
+        int hashPosition = getHashPosition(rawHash, mask);
+
+        // look for an empty slot or a slot containing this key
+        int groupId = -1;
+        while (key[hashPosition] != -1) {
+            long address = key[hashPosition];
+            if (positionEqualsCurrentRow(decodeSliceIndex(address), decodePosition(address), position, hashBlocks)) {
+                // found an existing slot for this key
+                groupId = value[hashPosition];
+
+                break;
+            }
+            // increment position and mask to handle wrap around
+            hashPosition = (hashPosition + 1) & mask;
+        }
+
+        // did we find an existing group?
+        if (groupId < 0) {
+            groupId = addNewGroup(hashPosition, position, page, rawHash);
+        }
         return groupId;
     }
 
-    public Long2IntOpenCustomHashMap getPagePositionToGroupId()
+    private int addNewGroup(int hashPosition, int position, Page page, int rawHash)
     {
-        return pagePositionToGroupId;
+        // add the row to the open page
+        Block[] blocks = page.getBlocks();
+        for (int i = 0; i < channels.length; i++) {
+            int hashChannel = channels[i];
+            Type type = types.get(i);
+            type.appendTo(blocks[hashChannel], position, currentPageBuilder.getBlockBuilder(i));
+        }
+        if (precomputedHashChannel.isPresent()) {
+            BIGINT.writeLong(currentPageBuilder.getBlockBuilder(precomputedHashChannel.get()), rawHash);
+        }
+        currentPageBuilder.declarePosition();
+        int pageIndex = channelBuilders.get(0).size() - 1;
+        int pagePosition = currentPageBuilder.getPositionCount() - 1;
+        long address = encodeSyntheticAddress(pageIndex, pagePosition);
+
+        // record group id in hash
+        int groupId = nextGroupId++;
+
+        key[hashPosition] = address;
+        value[hashPosition] = groupId;
+        groupAddress.set(groupId, address);
+
+        // create new page builder if this page is full
+        if (currentPageBuilder.isFull()) {
+            startNewPage();
+        }
+
+        // increase capacity, if necessary
+        if (nextGroupId >= maxFill) {
+            rehash(maxFill * 2);
+        }
+        return groupId;
     }
 
-    public void appendValuesTo(long pagePosition, BlockBuilder[] builders)
+    private void startNewPage()
     {
-        GroupByPageBuilder page = allPages.get(decodeSliceIndex(pagePosition));
-        page.appendValuesTo(decodePosition(pagePosition), builders);
-    }
-
-    private class PageBuilderHashStrategy
-            implements Strategy
-    {
-        private BlockCursor[] currentRow;
-
-        public void setCurrentRow(BlockCursor[] currentRow)
-        {
-            this.currentRow = currentRow;
+        if (currentPageBuilder != null) {
+            completedPagesMemorySize += currentPageBuilder.getSizeInBytes();
         }
 
-        @Override
-        public int hashCode(long sliceAddress)
-        {
-            if (sliceAddress == CURRENT_ROW_ADDRESS) {
-                return hashCurrentRow();
-            }
-            else {
-                return hashPosition(sliceAddress);
-            }
-        }
-
-        private int hashPosition(long sliceAddress)
-        {
-            int sliceIndex = decodeSliceIndex(sliceAddress);
-            int position = decodePosition(sliceAddress);
-            return allPages.get(sliceIndex).hashCode(position);
-        }
-
-        private int hashCurrentRow()
-        {
-            int result = 0;
-            for (int channel = 0; channel < types.size(); channel++) {
-                Type type = types.get(channel);
-                BlockCursor cursor = currentRow[channel];
-                result = addToHashCode(result, valueHashCode(type, cursor.getRawSlice(), cursor.getRawOffset()));
-            }
-            return result;
-        }
-
-        @Override
-        public boolean equals(long leftSliceAddress, long rightSliceAddress)
-        {
-            // current row always equals itself
-            if (leftSliceAddress == CURRENT_ROW_ADDRESS && rightSliceAddress == CURRENT_ROW_ADDRESS) {
-                return true;
-            }
-
-            // current row == position
-            if (leftSliceAddress == CURRENT_ROW_ADDRESS) {
-                return positionEqualsCurrentRow(decodeSliceIndex(rightSliceAddress), decodePosition(rightSliceAddress));
-            }
-
-            // position == current row
-            if (rightSliceAddress == CURRENT_ROW_ADDRESS) {
-                return positionEqualsCurrentRow(decodeSliceIndex(leftSliceAddress), decodePosition(leftSliceAddress));
-            }
-
-            // position == position
-            return positionEqualsPosition(
-                    decodeSliceIndex(leftSliceAddress), decodePosition(leftSliceAddress),
-                    decodeSliceIndex(rightSliceAddress), decodePosition(rightSliceAddress));
-        }
-
-        private boolean positionEqualsCurrentRow(int sliceIndex, int position)
-        {
-            return allPages.get(sliceIndex).equals(position, currentRow);
-        }
-
-        private boolean positionEqualsPosition(int leftSliceIndex, int leftPosition, int rightSliceIndex, int rightPosition)
-        {
-            return allPages.get(leftSliceIndex).equals(leftPosition, allPages.get(rightSliceIndex), rightPosition);
+        currentPageBuilder = new PageBuilder(types);
+        for (int i = 0; i < types.size(); i++) {
+            channelBuilders.get(i).add(currentPageBuilder.getBlockBuilder(i));
         }
     }
 
-    private static class GroupByPageBuilder
+    private void rehash(int size)
     {
-        private final List<ChannelBuilder> channels;
-        private int positionCount;
-        private boolean full;
+        int newSize = arraySize(size + 1, FILL_RATIO);
 
-        public GroupByPageBuilder(List<Type> types)
-        {
-            ImmutableList.Builder<ChannelBuilder> builder = ImmutableList.builder();
-            for (Type type : types) {
-                builder.add(new ChannelBuilder(type));
-            }
-            channels = builder.build();
-        }
+        int newMask = newSize - 1;
+        long[] newKey = new long[newSize];
+        Arrays.fill(newKey, -1);
+        int[] newValue = new int[newSize];
 
-        public int getPositionCount()
-        {
-            return positionCount;
-        }
-
-        public long getMemorySize()
-        {
-            long memorySize = 0;
-            for (ChannelBuilder channel : channels) {
-                memorySize += channel.getMemorySize();
-            }
-            return memorySize;
-        }
-
-        private boolean append(BlockCursor... row)
-        {
-            // don't add row if already full
-            if (full) {
-                return false;
+        int oldIndex = 0;
+        for (int groupId = 0; groupId < nextGroupId; groupId++) {
+            // seek to the next used slot
+            while (key[oldIndex] == -1) {
+                oldIndex++;
             }
 
-            // append to each channel
-            for (int channel = 0; channel < row.length; channel++) {
-                if (!channels.get(channel).append(row[channel])) {
-                    // This early return will result in uneven channels, but this is not
-                    // a problem since the position count is not incremented.  This means
-                    // that although some channels have "garbage" on the end, these values
-                    // will never be read since the position is not valid.
-                    full = true;
-                    return false;
-                }
+            // get the address for this slot
+            long address = key[oldIndex];
+
+            // find an empty slot for the address
+            int pos = getHashPosition(hashPosition(address), newMask);
+            while (newKey[pos] != -1) {
+                pos = (pos + 1) & newMask;
             }
-            positionCount++;
-            return true;
+
+            // record the mapping
+            newKey[pos] = address;
+            newValue[pos] = value[oldIndex];
+            oldIndex++;
         }
 
-        public void appendValuesTo(int position, BlockBuilder[] builders)
-        {
-            for (int i = 0; i < channels.size(); i++) {
-                ChannelBuilder channel = channels.get(i);
-                channel.appendTo(position, builders[i]);
-            }
-        }
-
-        public int hashCode(int position)
-        {
-            int result = 0;
-            for (ChannelBuilder channel : channels) {
-                result = addToHashCode(result, channel.hashCode(position));
-            }
-            return result;
-        }
-
-        public boolean equals(int thisPosition, GroupByPageBuilder that, int thatPosition)
-        {
-            for (int i = 0; i < channels.size(); i++) {
-                ChannelBuilder thisBlock = this.channels.get(i);
-                ChannelBuilder thatBlock = that.channels.get(i);
-                if (!thisBlock.equals(thisPosition, thatBlock, thatPosition)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        public boolean equals(int position, BlockCursor... row)
-        {
-            for (int i = 0; i < channels.size(); i++) {
-                ChannelBuilder thisBlock = this.channels.get(i);
-                if (!thisBlock.equals(position, row[i])) {
-                    return false;
-                }
-            }
-            return true;
-        }
+        this.mask = newMask;
+        this.maxFill = maxFill(newSize, FILL_RATIO);
+        this.key = newKey;
+        this.value = newValue;
+        groupAddress.ensureCapacity(maxFill);
     }
 
-    private static class ChannelBuilder
+    private int hashPosition(long sliceAddress)
     {
-        public static final DataSize DEFAULT_MAX_BLOCK_SIZE = new DataSize(64, Unit.KILOBYTE);
-
-        private final Type type;
-        private final SliceOutput sliceOutput;
-        private final Slice slice;
-        private final IntArrayList positionOffsets;
-
-        public ChannelBuilder(Type type)
-        {
-            checkNotNull(type, "type is null");
-
-            this.type = type;
-            this.slice = Slices.allocate(Ints.checkedCast(DEFAULT_MAX_BLOCK_SIZE.toBytes()));
-            this.sliceOutput = slice.getOutput();
-            this.positionOffsets = new IntArrayList(1024);
+        int sliceIndex = decodeSliceIndex(sliceAddress);
+        int position = decodePosition(sliceAddress);
+        if (precomputedHashChannel.isPresent()) {
+            return getRawHash(sliceIndex, position);
         }
-
-        public long getMemorySize()
-        {
-            return slice.length() + sizeOf(positionOffsets.elements());
-        }
-
-        public boolean equals(int position, ChannelBuilder rightBuilder, int rightPosition)
-        {
-            checkArgument(position >= 0 && position < positionOffsets.size());
-            checkArgument(rightPosition >= 0 && rightPosition < rightBuilder.positionOffsets.size());
-
-            Slice leftSlice = slice;
-            int leftOffset = positionOffsets.getInt(position);
-
-            Slice rightSlice = rightBuilder.slice;
-            int rightOffset = rightBuilder.positionOffsets.getInt(rightPosition);
-
-            return valueEquals(type, leftSlice, leftOffset, rightSlice, rightOffset);
-        }
-
-        public boolean equals(int position, BlockCursor cursor)
-        {
-            checkArgument(position >= 0 && position < positionOffsets.size());
-
-            int offset = positionOffsets.getInt(position);
-
-            Slice rightSlice = cursor.getRawSlice();
-            int rightOffset = cursor.getRawOffset();
-            return valueEquals(type, slice, offset, rightSlice, rightOffset);
-        }
-
-        public void appendTo(int position, BlockBuilder builder)
-        {
-            checkArgument(position >= 0 && position < positionOffsets.size());
-
-            int offset = positionOffsets.getInt(position);
-
-            if (slice.getByte(offset) != 0) {
-                builder.appendNull();
-            }
-            else if (type == Type.FIXED_INT_64) {
-                builder.append(slice.getLong(offset + SIZE_OF_BYTE));
-            }
-            else if (type == Type.DOUBLE) {
-                builder.append(slice.getDouble(offset + SIZE_OF_BYTE));
-            }
-            else if (type == Type.BOOLEAN) {
-                builder.append(slice.getByte(offset + SIZE_OF_BYTE) != 0);
-            }
-            else if (type == Type.VARIABLE_BINARY) {
-                int sliceLength = getVariableBinaryLength(slice, offset);
-                builder.append(slice.slice(offset + SIZE_OF_BYTE + SIZE_OF_INT, sliceLength));
-            }
-            else {
-                throw new IllegalArgumentException("Unsupported type " + type);
-            }
-        }
-
-        public int hashCode(int position)
-        {
-            checkArgument(position >= 0 && position < positionOffsets.size());
-            return valueHashCode(type, slice, positionOffsets.getInt(position));
-        }
-
-        public boolean append(BlockCursor cursor)
-        {
-            // the extra BYTE here is for the null flag
-            int writableBytes = sliceOutput.writableBytes() - SIZE_OF_BYTE;
-
-            boolean isNull = cursor.isNull();
-
-            if (type == Type.FIXED_INT_64) {
-                if (writableBytes < SIZE_OF_LONG) {
-                    return false;
-                }
-
-                positionOffsets.add(sliceOutput.size());
-                sliceOutput.writeByte(isNull ? 1 : 0);
-                sliceOutput.appendLong(isNull ? 0 : cursor.getLong());
-            }
-            else if (type == Type.DOUBLE) {
-                if (writableBytes < SIZE_OF_DOUBLE) {
-                    return false;
-                }
-
-                positionOffsets.add(sliceOutput.size());
-                sliceOutput.writeByte(isNull ? 1 : 0);
-                sliceOutput.appendDouble(isNull ? 0 : cursor.getDouble());
-            }
-            else if (type == Type.BOOLEAN) {
-                if (writableBytes < SIZE_OF_BYTE) {
-                    return false;
-                }
-
-                positionOffsets.add(sliceOutput.size());
-                sliceOutput.writeByte(isNull ? 1 : 0);
-                sliceOutput.writeByte(!isNull && cursor.getBoolean() ? 1 : 0);
-            }
-            else if (type == Type.VARIABLE_BINARY) {
-                int sliceLength = isNull ? 0 : getVariableBinaryLength(cursor.getRawSlice(), cursor.getRawOffset());
-                if (writableBytes < SIZE_OF_INT + sliceLength) {
-                    return false;
-                }
-
-                int startingOffset = sliceOutput.size();
-                positionOffsets.add(startingOffset);
-                sliceOutput.writeByte(isNull ? 1 : 0);
-                sliceOutput.appendInt(sliceLength + SIZE_OF_BYTE + SIZE_OF_INT);
-                if (!isNull) {
-                    sliceOutput.writeBytes(cursor.getRawSlice(), cursor.getRawOffset() + SIZE_OF_BYTE + SIZE_OF_INT, sliceLength);
-                }
-            }
-            else {
-                throw new IllegalArgumentException("Unsupported type " + type);
-            }
-            return true;
-        }
-
-        public UncompressedBlock build()
-        {
-            checkState(!positionOffsets.isEmpty(), "Cannot build an empty block");
-
-            return new UncompressedBlock(positionOffsets.size(), new TupleInfo(type), sliceOutput.slice());
-        }
+        return hashStrategy.hashPosition(sliceIndex, position);
     }
 
-    private static int addToHashCode(int result, int hashCode)
+    private int getRawHash(int sliceIndex, int position)
     {
-        result = 31 * result + hashCode;
-        return result;
+        return (int) channelBuilders.get(precomputedHashChannel.get()).get(sliceIndex).getLong(position, 0);
     }
 
-    private static int valueHashCode(Type type, Slice slice, int offset)
+    private boolean positionEqualsCurrentRow(int sliceIndex, int slicePosition, int position, Block[] blocks)
     {
-        boolean isNull = slice.getByte(offset) != 0;
-        if (isNull) {
-            return 0;
-        }
-
-        if (type == Type.FIXED_INT_64) {
-            return Longs.hashCode(slice.getLong(offset + SIZE_OF_BYTE));
-        }
-        else if (type == Type.DOUBLE) {
-            long longValue = Double.doubleToLongBits(slice.getDouble(offset + SIZE_OF_BYTE));
-            return Longs.hashCode(longValue);
-        }
-        else if (type == Type.BOOLEAN) {
-            return slice.getByte(offset + SIZE_OF_BYTE) != 0 ? 1 : 0;
-        }
-        else if (type == Type.VARIABLE_BINARY) {
-            int sliceLength = getVariableBinaryLength(slice, offset);
-            return slice.hashCode(offset + SIZE_OF_BYTE + SIZE_OF_INT, sliceLength);
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported type " + type);
-        }
+        return hashStrategy.positionEqualsRow(sliceIndex, slicePosition, position, blocks);
     }
 
-    private static int getVariableBinaryLength(Slice slice, int offset)
+    private static int getHashPosition(int rawHash, int mask)
     {
-        // INT here is the length and the BYTE is the null flag
-        return slice.getInt(offset + SIZE_OF_BYTE) - SIZE_OF_INT - SIZE_OF_BYTE;
-    }
-
-    private static boolean valueEquals(Type type, Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
-    {
-        // check if null flags are the same
-        boolean leftIsNull = leftSlice.getByte(leftOffset) != 0;
-        boolean rightIsNull = rightSlice.getByte(rightOffset) != 0;
-        if (leftIsNull != rightIsNull) {
-            return false;
-        }
-
-        // if values are both null, they are equal
-        if (leftIsNull) {
-            return true;
-        }
-
-        if (type == Type.FIXED_INT_64 || type == Type.DOUBLE) {
-            long leftValue = leftSlice.getLong(leftOffset + SIZE_OF_BYTE);
-            long rightValue = rightSlice.getLong(rightOffset + SIZE_OF_BYTE);
-            return leftValue == rightValue;
-        }
-        else if (type == Type.BOOLEAN) {
-            boolean leftValue = leftSlice.getByte(leftOffset + SIZE_OF_BYTE) != 0;
-            boolean rightValue = rightSlice.getByte(rightOffset + SIZE_OF_BYTE) != 0;
-            return leftValue == rightValue;
-        }
-        else if (type == Type.VARIABLE_BINARY) {
-            int leftLength = getVariableBinaryLength(leftSlice, leftOffset);
-            int rightLength = getVariableBinaryLength(rightSlice, rightOffset);
-            return leftSlice.equals(leftOffset + SIZE_OF_BYTE + SIZE_OF_INT, leftLength,
-                    rightSlice, rightOffset + SIZE_OF_BYTE + SIZE_OF_INT, rightLength);
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported type " + type);
-        }
-    }
-
-    private static class PagePositionToGroupId
-            extends Long2IntOpenCustomHashMap
-    {
-        private PagePositionToGroupId(int expected, LongHash.Strategy strategy)
-        {
-            super(expected, strategy);
-            defaultReturnValue(-1);
-        }
-
-        public long getEstimatedSize()
-        {
-            return sizeOf(this.key) + sizeOf(this.value) + sizeOf(this.used);
-        }
+        return ((int) XxHash64.hash(rawHash)) & mask;
     }
 }

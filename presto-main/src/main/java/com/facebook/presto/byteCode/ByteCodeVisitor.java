@@ -18,11 +18,14 @@ import com.facebook.presto.byteCode.control.FlowControl;
 import com.facebook.presto.byteCode.control.ForLoop;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.control.LookupSwitch;
+import com.facebook.presto.byteCode.control.TryCatch;
 import com.facebook.presto.byteCode.control.WhileLoop;
 import com.facebook.presto.byteCode.debug.DebugNode;
 import com.facebook.presto.byteCode.debug.LineNumberNode;
 import com.facebook.presto.byteCode.debug.LocalVariableNode;
+import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.byteCode.instruction.Constant;
+import com.facebook.presto.byteCode.instruction.Constant.BooleanConstant;
 import com.facebook.presto.byteCode.instruction.Constant.BoxedBooleanConstant;
 import com.facebook.presto.byteCode.instruction.Constant.BoxedDoubleConstant;
 import com.facebook.presto.byteCode.instruction.Constant.BoxedFloatConstant;
@@ -112,12 +115,25 @@ public class ByteCodeVisitor<T>
     }
 
     //
+    // Byte Code Expression
+    //
+    public T visitByteCodeExpression(ByteCodeNode parent, ByteCodeExpression byteCodeExpression)
+    {
+        return visitNode(parent, byteCodeExpression);
+    }
+
+    //
     // Flow Control
     //
 
     public T visitFlowControl(ByteCodeNode parent, FlowControl flowControl)
     {
         return visitNode(parent, flowControl);
+    }
+
+    public T visitTryCatch(ByteCodeNode parent, TryCatch tryCatch)
+    {
+        return visitFlowControl(parent, tryCatch);
     }
 
     public T visitIf(ByteCodeNode parent, IfStatement ifStatement)
@@ -176,6 +192,11 @@ public class ByteCodeVisitor<T>
     public T visitBoxedBooleanConstant(ByteCodeNode parent, BoxedBooleanConstant boxedBooleanConstant)
     {
         return visitConstant(parent, boxedBooleanConstant);
+    }
+
+    public T visitBooleanConstant(ByteCodeNode parent, BooleanConstant booleanConstant)
+    {
+        return visitConstant(parent, booleanConstant);
     }
 
     public T visitIntConstant(ByteCodeNode parent, IntConstant intConstant)

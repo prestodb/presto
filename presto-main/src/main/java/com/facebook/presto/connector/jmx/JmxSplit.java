@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.connector.jmx;
 
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.Split;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -24,7 +24,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class JmxSplit
-        implements Split
+        implements ConnectorSplit
 {
     private final JmxTableHandle tableHandle;
     private final List<HostAddress> addresses;

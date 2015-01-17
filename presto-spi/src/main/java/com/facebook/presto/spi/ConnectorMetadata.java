@@ -20,95 +20,112 @@ import java.util.Map;
 public interface ConnectorMetadata
 {
     /**
-     * Can this connector handler operations for the specified table handle.
-     */
-    boolean canHandle(TableHandle tableHandle);
-
-    /**
      * Returns the schemas provided by this connector.
      */
-    List<String> listSchemaNames();
+    List<String> listSchemaNames(ConnectorSession session);
 
     /**
      * Returns a table handle for the specified table name, or null if the connector does not contain the table.
      */
-    TableHandle getTableHandle(SchemaTableName tableName);
+    ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName);
 
     /**
      * Return the metadata for the specified table handle.
      *
      * @throws RuntimeException if table handle is no longer valid
      */
-    ConnectorTableMetadata getTableMetadata(TableHandle table);
+    ConnectorTableMetadata getTableMetadata(ConnectorTableHandle table);
 
     /**
-     * Get the names that match the specified table prefix (never null).
+     * List table names, possibly filtered by schema. An empty list is returned if none match.
      */
-    List<SchemaTableName> listTables(String schemaNameOrNull);
-
-    /**
-     * Returns a handle for the specified table column, or null if the table does not contain the specified column.
-     *
-     * @throws RuntimeException if table handle is no longer valid
-     */
-    ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName);
+    List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull);
 
     /**
      * Returns the handle for the sample weight column, or null if the table does not contain sampled data.
      *
      * @throws RuntimeException if the table handle is no longer valid
      */
-    ColumnHandle getSampleWeightColumnHandle(TableHandle tableHandle);
+    ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle);
 
     /**
-     * Returns true iff this catalog supports creation of sampled tables
-     *
+     * Returns true if this catalog supports creation of sampled tables
      */
-    boolean canCreateSampledTables();
+    boolean canCreateSampledTables(ConnectorSession session);
 
     /**
      * Gets all of the columns on the specified table, or an empty map if the columns can not be enumerated.
      *
      * @throws RuntimeException if table handle is no longer valid
      */
-    Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle);
+    Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle);
 
     /**
      * Gets the metadata for the specified table column.
      *
      * @throws RuntimeException if table or column handles are no longer valid
      */
-    ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle);
+    ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle);
 
     /**
      * Gets the metadata for all columns that match the specified table prefix.
      */
-    Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix);
+    Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix);
 
     /**
      * Creates a table using the specified table metadata.
      */
-    TableHandle createTable(ConnectorTableMetadata tableMetadata);
+    ConnectorTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 
     /**
      * Drops the specified table
      *
      * @throws RuntimeException if the table can not be dropped or table handle is no longer valid
      */
-    void dropTable(TableHandle tableHandle);
+    void dropTable(ConnectorTableHandle tableHandle);
 
     /**
-     * Can this connector handler operations for the specified output table handle.
+     * Rename the specified table
      */
-    boolean canHandle(OutputTableHandle tableHandle);
+    void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName);
 
     /**
      * Begin the atomic creation of a table with data.
      */
-    OutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata);
+    ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 
     /**
      * Commit a table creation with data after the data is written.
      */
-    void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments);
+    void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<String> fragments);
+
+    /**
+     * Begin insert query
+     */
+    ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle);
+
+    /**
+     * Commit insert query
+     */
+    void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments);
+
+    /**
+     * Create the specified view. The data for the view is opaque to the connector.
+     */
+    void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace);
+
+    /**
+     * Drop the specified view.
+     */
+    void dropView(ConnectorSession session, SchemaTableName viewName);
+
+    /**
+     * List view names, possibly filtered by schema. An empty list is returned if none match.
+     */
+    List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull);
+
+    /**
+     * Gets the view data for views that match the specified table prefix.
+     */
+    Map<SchemaTableName, String> getViews(ConnectorSession session, SchemaTablePrefix prefix);
 }

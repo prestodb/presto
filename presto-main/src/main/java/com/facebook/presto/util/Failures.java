@@ -14,26 +14,29 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.client.ErrorLocation;
-import com.facebook.presto.client.Failure;
-import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.execution.ExecutionFailureInfo;
+import com.facebook.presto.execution.Failure;
+import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.ErrorCodeSupplier;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.parser.ParsingException;
-import com.google.common.base.Function;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nullable;
 
+import java.util.Collection;
 import java.util.List;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Functions.toStringFunction;
-import static com.google.common.collect.Iterables.transform;
+import static java.lang.String.format;
 import static java.util.Arrays.asList;
 
 public final class Failures
 {
     private Failures() {}
 
-    public static FailureInfo toFailure(Throwable failure)
+    public static ExecutionFailureInfo toFailure(Throwable failure)
     {
         if (failure == null) {
             return null;
@@ -47,29 +50,35 @@ public final class Failures
             type = failure.getClass().getCanonicalName();
         }
 
-        return new FailureInfo(type,
+        ErrorCode errorCode = null;
+        if (failure instanceof PrestoException) {
+            errorCode = ((PrestoException) failure).getErrorCode();
+        }
+        else if (failure instanceof Failure) {
+            errorCode = ((Failure) failure).getErrorCode();
+        }
+
+        return new ExecutionFailureInfo(type,
                 failure.getMessage(),
                 toFailure(failure.getCause()),
                 toFailures(asList(failure.getSuppressed())),
                 Lists.transform(asList(failure.getStackTrace()), toStringFunction()),
-                getErrorLocation(failure));
+                getErrorLocation(failure),
+                errorCode);
     }
 
-    public static List<FailureInfo> toFailures(Iterable<? extends Throwable> failures)
+    public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, String formatString, Object... args)
     {
-        return ImmutableList.copyOf(transform(failures, toFailureFunction()));
+        if (!condition) {
+            throw new PrestoException(errorCode, format(formatString, args));
+        }
     }
 
-    private static Function<Throwable, FailureInfo> toFailureFunction()
+    public static List<ExecutionFailureInfo> toFailures(Collection<? extends Throwable> failures)
     {
-        return new Function<Throwable, FailureInfo>()
-        {
-            @Override
-            public FailureInfo apply(Throwable throwable)
-            {
-                return toFailure(throwable);
-            }
-        };
+        return failures.stream()
+                .map(Failures::toFailure)
+                .collect(toImmutableList());
     }
 
     @Nullable

@@ -13,27 +13,28 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public class JmxColumnHandle
-        implements ColumnHandle
+        implements ConnectorColumnHandle
 {
     private final String connectorId;
     private final String columnName;
-    private final ColumnType columnType;
+    private final Type columnType;
     private final int ordinalPosition;
 
     @JsonCreator
     public JmxColumnHandle(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("columnName") String columnName,
-            @JsonProperty("columnType") ColumnType columnType,
+            @JsonProperty("columnType") Type columnType,
             @JsonProperty("ordinalPosition") int ordinalPosition)
     {
         this.connectorId = connectorId;
@@ -55,7 +56,7 @@ public class JmxColumnHandle
     }
 
     @JsonProperty
-    public ColumnType getColumnType()
+    public Type getColumnType()
     {
         return columnType;
     }
@@ -88,7 +89,7 @@ public class JmxColumnHandle
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("connectorId", connectorId)
                 .add("columnName", columnName)
                 .add("columnType", columnType)
@@ -98,17 +99,5 @@ public class JmxColumnHandle
     public ColumnMetadata getColumnMetadata()
     {
         return new ColumnMetadata(columnName, columnType, ordinalPosition, false);
-    }
-
-    public static Function<JmxColumnHandle, ColumnMetadata> columnMetadataGetter()
-    {
-        return new Function<JmxColumnHandle, ColumnMetadata>()
-        {
-            @Override
-            public ColumnMetadata apply(JmxColumnHandle jmxColumnHandle)
-            {
-                return jmxColumnHandle.getColumnMetadata();
-            }
-        };
     }
 }

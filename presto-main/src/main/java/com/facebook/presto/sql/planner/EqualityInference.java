@@ -240,14 +240,7 @@ public class EqualityInference
 
     private static Predicate<Expression> symbolToExpressionPredicate(final Predicate<Symbol> symbolScope)
     {
-        return new Predicate<Expression>()
-        {
-            @Override
-            public boolean apply(Expression expression)
-            {
-                return Iterables.all(DependencyExtractor.extractUnique(expression), symbolScope);
-            }
-        };
+        return expression -> Iterables.all(DependencyExtractor.extractUnique(expression), symbolScope);
     }
 
     /**
@@ -255,20 +248,15 @@ public class EqualityInference
      */
     public static Predicate<Expression> isInferenceCandidate()
     {
-        return new Predicate<Expression>()
-        {
-            @Override
-            public boolean apply(Expression expression)
-            {
-                if (DeterminismEvaluator.isDeterministic(expression) && expression instanceof ComparisonExpression) {
-                    ComparisonExpression comparison = (ComparisonExpression) expression;
-                    if (comparison.getType() == ComparisonExpression.Type.EQUAL) {
-                        // We should only consider equalities that have distinct left and right components
-                        return !comparison.getLeft().equals(comparison.getRight());
-                    }
+        return expression -> {
+            if (DeterminismEvaluator.isDeterministic(expression) && expression instanceof ComparisonExpression) {
+                ComparisonExpression comparison = (ComparisonExpression) expression;
+                if (comparison.getType() == ComparisonExpression.Type.EQUAL) {
+                    // We should only consider equalities that have distinct left and right components
+                    return !comparison.getLeft().equals(comparison.getRight());
                 }
-                return false;
             }
+            return false;
         };
     }
 

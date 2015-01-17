@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+
+import java.util.Objects;
+
+import static java.util.Locale.ENGLISH;
 
 public class BooleanLiteral
         extends Literal
@@ -27,9 +30,9 @@ public class BooleanLiteral
     public BooleanLiteral(String value)
     {
         Preconditions.checkNotNull(value, "value is null");
-        Preconditions.checkArgument(value.toLowerCase().equals("true") || value.toLowerCase().equals("false"));
+        Preconditions.checkArgument(value.toLowerCase(ENGLISH).equals("true") || value.toLowerCase(ENGLISH).equals("false"));
 
-        this.value = value.toLowerCase().equals("true");
+        this.value = value.toLowerCase(ENGLISH).equals("true");
     }
 
     public boolean getValue()
@@ -46,7 +49,7 @@ public class BooleanLiteral
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(value);
+        return Objects.hash(value);
     }
 
     @Override
@@ -59,6 +62,6 @@ public class BooleanLiteral
             return false;
         }
         final BooleanLiteral other = (BooleanLiteral) obj;
-        return Objects.equal(this.value, other.value);
+        return Objects.equals(this.value, other.value);
     }
 }

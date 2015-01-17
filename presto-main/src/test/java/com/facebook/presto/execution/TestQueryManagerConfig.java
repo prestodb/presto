@@ -31,11 +31,17 @@ public class TestQueryManagerConfig
                 .setMaxQueryHistory(100)
                 .setClientTimeout(new Duration(5, TimeUnit.MINUTES))
                 .setScheduleSplitBatchSize(1000)
+                .setMaxConcurrentQueries(1000)
+                .setMaxQueuedQueries(5000)
+                .setMaxConcurrentBigQueries(10)
+                .setMaxQueuedBigQueries(500)
+                .setBigQueryInitialHashPartitions(null)
                 .setMaxPendingSplitsPerNode(100)
                 .setInitialHashPartitions(8)
                 .setQueryManagerExecutorPoolSize(5)
                 .setRemoteTaskMaxConsecutiveErrorCount(10)
-                .setRemoteTaskMinErrorDuration(new Duration(2, TimeUnit.MINUTES)));
+                .setRemoteTaskMinErrorDuration(new Duration(2, TimeUnit.MINUTES))
+                .setRemoteTaskMaxCallbackThreads(1000));
     }
 
     @Test
@@ -46,11 +52,17 @@ public class TestQueryManagerConfig
                 .put("query.max-age", "30s")
                 .put("query.max-history", "10")
                 .put("query.schedule-split-batch-size", "99")
+                .put("query.max-concurrent-queries", "10")
+                .put("query.max-queued-queries", "15")
+                .put("experimental.max-concurrent-big-queries", "20")
+                .put("experimental.max-queued-big-queries", "30")
                 .put("query.max-pending-splits-per-node", "33")
                 .put("query.initial-hash-partitions", "16")
+                .put("experimental.big-query-initial-hash-partitions", "32")
                 .put("query.manager-executor-pool-size", "11")
                 .put("query.remote-task.max-consecutive-error-count", "300")
                 .put("query.remote-task.min-error-duration", "30s")
+                .put("query.remote-task.max-callback-threads", "10")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -58,11 +70,17 @@ public class TestQueryManagerConfig
                 .setMaxQueryHistory(10)
                 .setClientTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setScheduleSplitBatchSize(99)
+                .setMaxConcurrentQueries(10)
+                .setMaxQueuedQueries(15)
+                .setMaxConcurrentBigQueries(20)
+                .setMaxQueuedBigQueries(30)
                 .setMaxPendingSplitsPerNode(33)
                 .setInitialHashPartitions(16)
+                .setBigQueryInitialHashPartitions(32)
                 .setQueryManagerExecutorPoolSize(11)
                 .setRemoteTaskMaxConsecutiveErrorCount(300)
-                .setRemoteTaskMinErrorDuration(new Duration(30, TimeUnit.SECONDS));
+                .setRemoteTaskMinErrorDuration(new Duration(30, TimeUnit.SECONDS))
+                .setRemoteTaskMaxCallbackThreads(10);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.example;
 
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.google.common.collect.ImmutableList;
@@ -26,11 +25,10 @@ import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static com.google.common.base.Charsets.UTF_8;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
 
 public class TestExampleRecordSetProvider
 {
@@ -38,21 +36,13 @@ public class TestExampleRecordSetProvider
     private URI dataUri;
 
     @Test
-    public void testCanHandle()
-    {
-        ExampleRecordSetProvider recordSetProvider = new ExampleRecordSetProvider(new ExampleConnectorId("test"));
-        assertTrue(recordSetProvider.canHandle(new ExampleSplit("test", "schema", "table", URI.create("http://127.0.0.1/test.file"))));
-        assertFalse(recordSetProvider.canHandle(new ExampleSplit("unknown", "schema", "table", URI.create("http://127.0.0.1/test.file"))));
-    }
-
-    @Test
     public void testGetRecordSet()
             throws Exception
     {
         ExampleRecordSetProvider recordSetProvider = new ExampleRecordSetProvider(new ExampleConnectorId("test"));
         RecordSet recordSet = recordSetProvider.getRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
-                new ExampleColumnHandle("test", "text", ColumnType.STRING, 0),
-                new ExampleColumnHandle("test", "value", ColumnType.LONG, 1)));
+                new ExampleColumnHandle("test", "text", VARCHAR, 0),
+                new ExampleColumnHandle("test", "value", BIGINT, 1)));
         assertNotNull(recordSet, "recordSet is null");
 
         RecordCursor cursor = recordSet.cursor();
@@ -60,7 +50,7 @@ public class TestExampleRecordSetProvider
 
         Map<String, Long> data = new LinkedHashMap<>();
         while (cursor.advanceNextPosition()) {
-            data.put(new String(cursor.getString(0), UTF_8), cursor.getLong(1));
+            data.put(cursor.getSlice(0).toStringUtf8(), cursor.getLong(1));
         }
         assertEquals(data, ImmutableMap.<String, Long>builder()
                 .put("ten", 10L)

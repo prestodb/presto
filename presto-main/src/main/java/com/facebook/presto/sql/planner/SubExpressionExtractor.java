@@ -13,11 +13,16 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionRewriter;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.Node;
+import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import javax.annotation.Nullable;
+
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -27,23 +32,41 @@ public final class SubExpressionExtractor
 {
     private SubExpressionExtractor() {}
 
-    public static Set<Expression> extract(Expression expression)
+    public static List<Expression> extractAll(Iterable<Expression> expressions)
     {
-        ImmutableSet.Builder<Expression> builder = ImmutableSet.builder();
-        // Borrow the TreeRewriter as a way to walk the Expression tree with a visitor that still respects the type inheritance
-        // We actually don't care about the rewrite result, just the context that gets updated through the walk
-        ExpressionTreeRewriter.rewriteWith(new Visitor(), expression, builder);
+        ImmutableList.Builder<Expression> builder = ImmutableList.builder();
+        for (Expression expression : expressions) {
+            extract(builder, expression);
+        }
         return builder.build();
     }
 
-    private static class Visitor
-            extends ExpressionRewriter<ImmutableSet.Builder<Expression>>
+    public static List<Expression> extractAll(Expression expression)
     {
-        @Override
-        public Expression rewriteExpression(Expression node, ImmutableSet.Builder<Expression> builder, ExpressionTreeRewriter<ImmutableSet.Builder<Expression>> treeRewriter)
+        ImmutableList.Builder<Expression> builder = ImmutableList.builder();
+        extract(builder, expression);
+        return builder.build();
+    }
+
+    public static Set<Expression> extract(Expression expression)
+    {
+        final ImmutableSet.Builder<Expression> builder = ImmutableSet.builder();
+        extract(builder, expression);
+        return builder.build();
+    }
+
+    private static void extract(final ImmutableCollection.Builder<Expression> builder, Expression expression)
+    {
+        new DefaultTraversalVisitor<Void, Void>()
         {
-            builder.add(node);
-            return null;
-        }
+            @Override
+            public Void process(Node node, @Nullable Void context)
+            {
+                Expression expression = (Expression) node;
+                builder.add(expression);
+
+                return super.process(node, context);
+            }
+        }.process(expression, null);
     }
 }

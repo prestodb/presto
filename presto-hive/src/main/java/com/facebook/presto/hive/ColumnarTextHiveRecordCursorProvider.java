@@ -13,43 +13,60 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.RecordCursor;
-import com.google.common.base.Optional;
-import com.google.common.base.Throwables;
-import org.apache.hadoop.hive.metastore.api.MetaException;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.type.TypeManager;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
 import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
 import org.apache.hadoop.mapred.RecordReader;
+import org.joda.time.DateTimeZone;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.Properties;
 
-import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getDeserializer;
+import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 
 public class ColumnarTextHiveRecordCursorProvider
         implements HiveRecordCursorProvider
 {
     @Override
-    public Optional<RecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns)
+    public Optional<HiveRecordCursor> createHiveRecordCursor(
+            String clientId,
+            Configuration configuration,
+            ConnectorSession session,
+            Path path,
+            long start,
+            long length,
+            Properties schema,
+            List<HiveColumnHandle> columns,
+            List<HivePartitionKey> partitionKeys,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            DateTimeZone hiveStorageTimeZone,
+            TypeManager typeManager)
     {
-        if (usesColumnarTextSerDe(split)) {
-            return Optional.<RecordCursor>of(new ColumnarTextHiveRecordCursor<>(
-                    columnarTextRecordReader(recordReader),
-                    split.getLength(),
-                    split.getSchema(),
-                    split.getPartitionKeys(),
-                    columns));
+        if (!usesColumnarTextSerDe(schema)) {
+            return Optional.empty();
         }
-        return Optional.absent();
+
+        RecordReader<?, ?> recordReader = HiveUtil.createRecordReader(clientId, configuration, path, start, length, schema, columns, typeManager);
+
+        return Optional.<HiveRecordCursor>of(new ColumnarTextHiveRecordCursor<>(
+                columnarTextRecordReader(recordReader),
+                length,
+                schema,
+                partitionKeys,
+                columns,
+                hiveStorageTimeZone,
+                DateTimeZone.forID(session.getTimeZoneKey().getId()),
+                typeManager));
     }
 
-    private static boolean usesColumnarTextSerDe(HiveSplit split)
+    private static boolean usesColumnarTextSerDe(Properties schema)
     {
-        try {
-            return getDeserializer(null, split.getSchema()) instanceof ColumnarSerDe;
-        }
-        catch (MetaException e) {
-            throw Throwables.propagate(e);
-        }
+        return getDeserializer(schema) instanceof ColumnarSerDe;
     }
 
     @SuppressWarnings("unchecked")

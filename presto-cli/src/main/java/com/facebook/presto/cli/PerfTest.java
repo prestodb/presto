@@ -16,25 +16,23 @@ package com.facebook.presto.cli;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.sql.parser.StatementSplitter;
-import com.google.common.base.Charsets;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.airlift.command.Command;
 import io.airlift.command.HelpOption;
 import io.airlift.command.Option;
-import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
-import io.airlift.http.client.netty.StandaloneNettyAsyncHttpClient;
+import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
 import io.airlift.units.Duration;
@@ -49,6 +47,8 @@ import java.io.PrintStream;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.TimeZone;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -63,12 +63,14 @@ import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.command.SingleCommand.singleCommand;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.airlift.log.Logging.Level;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 @Command(name = "presto", description = "Presto interactive console")
@@ -96,14 +98,20 @@ public class PerfTest
     @Option(name = "--debug", title = "debug", description = "Enable debug information")
     public boolean debug;
 
+    @Option(name = {"-r", "--runs"}, title = "number", description = "Number of runs until exit (default: 10)")
+    public int runs = 10;
+
+    @Option(name = "--timeout", title = "timeout", description = "Timeout for HTTP-Client to wait for query results (default: 600)")
+    public int timeout = 600;
+
     public void run()
             throws Exception
     {
         initializeLogging(debug);
         List<String> queries = loadQueries();
 
-        try (ParallelQueryRunner parallelQueryRunner = new ParallelQueryRunner(16, parseServer(server), catalog, schema, debug)) {
-            for (int loop = 0; loop < 10; loop++) {
+        try (ParallelQueryRunner parallelQueryRunner = new ParallelQueryRunner(16, parseServer(server), catalog, schema, debug, timeout)) {
+            for (int loop = 0; loop < runs; loop++) {
                 executeQueries(queries, parallelQueryRunner, 1);
                 executeQueries(queries, parallelQueryRunner, 2);
                 executeQueries(queries, parallelQueryRunner, 4);
@@ -123,16 +131,9 @@ public class PerfTest
     private List<String> loadQueries()
     {
         try {
-            String query = Files.toString(new File(file), Charsets.UTF_8);
+            String query = Files.toString(new File(file), UTF_8);
             StatementSplitter splitter = new StatementSplitter(query + ";");
-            return ImmutableList.copyOf(transform(splitter.getCompleteStatements(), new Function<Statement, String>()
-            {
-                @Override
-                public String apply(Statement statement)
-                {
-                    return statement.statement();
-                }
-            }));
+            return ImmutableList.copyOf(transform(splitter.getCompleteStatements(), Statement::statement));
         }
         catch (IOException e) {
             throw new RuntimeException(format("Error reading from file %s: %s", file, e.getMessage()));
@@ -145,14 +146,23 @@ public class PerfTest
         private final ListeningExecutorService executor;
         private final List<QueryRunner> runners;
 
-        public ParallelQueryRunner(int maxParallelism, URI server, String catalog, String schema, boolean debug)
+        public ParallelQueryRunner(int maxParallelism, URI server, String catalog, String schema, boolean debug, int timeout)
         {
-            executor = listeningDecorator(newCachedThreadPool(new ThreadFactoryBuilder().setNameFormat("query-runner-%s").setDaemon(true).build()));
+            executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("query-runner-%s")));
 
             ImmutableList.Builder<QueryRunner> runners = ImmutableList.builder();
             for (int i = 0; i < maxParallelism; i++) {
-                ClientSession session = new ClientSession(server, "test-" + i, "presto-perf", catalog, schema, debug);
-                runners.add(new QueryRunner(session, executor));
+                ClientSession session = new ClientSession(
+                        server,
+                        "test-" + i,
+                        "presto-perf",
+                        catalog,
+                        schema,
+                        TimeZone.getDefault().getID(),
+                        Locale.getDefault(),
+                        ImmutableMap.<String, String>of(),
+                        debug);
+                runners.add(new QueryRunner(session, executor, timeout));
             }
             this.runners = runners.build();
         }
@@ -220,28 +230,26 @@ public class PerfTest
     {
         private final ClientSession session;
         private final ListeningExecutorService executor;
-        private final AsyncHttpClient httpClient;
+        private final HttpClient httpClient;
 
-        public QueryRunner(ClientSession session, ListeningExecutorService executor)
+        public QueryRunner(ClientSession session, ListeningExecutorService executor, int timeout)
         {
             this.session = session;
             this.executor = executor;
 
-            httpClient = new StandaloneNettyAsyncHttpClient("cli",
-                    new HttpClientConfig().setConnectTimeout(new Duration(10, TimeUnit.SECONDS)));
+            HttpClientConfig clientConfig = new HttpClientConfig();
+            clientConfig.setConnectTimeout(new Duration(10, TimeUnit.SECONDS));
+            clientConfig.setReadTimeout(new Duration(timeout, TimeUnit.SECONDS));
+            clientConfig.setKeepAliveInterval(new Duration(timeout, TimeUnit.SECONDS));
+            httpClient = new JettyHttpClient(clientConfig);
         }
 
         public ListenableFuture<?> execute(final BlockingQueue<String> queue, final CountDownLatch remainingQueries)
         {
-            return executor.submit(new Runnable()
-            {
-                @Override
-                public void run()
-                {
-                    for (String query = queue.poll(); query != null; query = queue.poll()) {
-                        execute(query);
-                        remainingQueries.countDown();
-                    }
+            return executor.submit(() -> {
+                for (String query = queue.poll(); query != null; query = queue.poll()) {
+                    execute(query);
+                    remainingQueries.countDown();
                 }
             });
         }
@@ -259,7 +267,7 @@ public class PerfTest
         {
             Request.Builder builder = preparePost()
                     .setUri(uriBuilderFrom(session.getServer()).replacePath("/v1/execute").build())
-                    .setBodyGenerator(createStaticBodyGenerator(query, Charsets.UTF_8));
+                    .setBodyGenerator(createStaticBodyGenerator(query, UTF_8));
 
             if (session.getUser() != null) {
                 builder.setHeader(PrestoHeaders.PRESTO_USER, session.getUser());
@@ -273,6 +281,7 @@ public class PerfTest
             if (session.getSchema() != null) {
                 builder.setHeader(PrestoHeaders.PRESTO_SCHEMA, session.getSchema());
             }
+            builder.setHeader(PrestoHeaders.PRESTO_TIME_ZONE, session.getTimeZoneId());
             builder.setHeader(USER_AGENT, USER_AGENT_VALUE);
 
             return builder.build();

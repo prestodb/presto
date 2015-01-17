@@ -13,30 +13,31 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.SerializableNativeValue;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class InformationSchemaSplit
-        implements Split
+        implements ConnectorSplit
 {
     private final InformationSchemaTableHandle tableHandle;
-    private final Map<String, Object> filters;
+    private final Map<String, SerializableNativeValue> filters;
     private final List<HostAddress> addresses;
 
     @JsonCreator
     public InformationSchemaSplit(
             @JsonProperty("tableHandle") InformationSchemaTableHandle tableHandle,
-            @JsonProperty("filters") Map<String, Object> filters,
+            @JsonProperty("filters") Map<String, SerializableNativeValue> filters,
             @JsonProperty("addresses") List<HostAddress> addresses)
     {
         this.tableHandle = checkNotNull(tableHandle, "tableHandle is null");
@@ -67,7 +68,7 @@ public class InformationSchemaSplit
     }
 
     @JsonProperty
-    public Map<String, Object> getFilters()
+    public Map<String, SerializableNativeValue> getFilters()
     {
         return filters;
     }
@@ -81,7 +82,7 @@ public class InformationSchemaSplit
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("tableHandle", tableHandle)
                 .add("filters", filters)
                 .add("addresses", addresses)

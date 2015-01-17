@@ -13,46 +13,53 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Suppliers;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.List;
 
+import static com.facebook.presto.operator.FinishedPageSource.FINISHED_PAGE_SOURCE;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class TableScanOperator
-        implements SourceOperator
+        implements SourceOperator, Closeable
 {
     public static class TableScanOperatorFactory
             implements SourceOperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId sourceId;
-        private final DataStreamProvider dataStreamProvider;
-        private final List<TupleInfo> tupleInfos;
+        private final PageSourceProvider pageSourceProvider;
+        private final List<Type> types;
         private final List<ColumnHandle> columns;
         private boolean closed;
 
         public TableScanOperatorFactory(
                 int operatorId,
                 PlanNodeId sourceId,
-                DataStreamProvider dataStreamProvider,
-                List<TupleInfo> tupleInfos,
+                PageSourceProvider pageSourceProvider,
+                List<Type> types,
                 Iterable<ColumnHandle> columns)
         {
             this.operatorId = operatorId;
             this.sourceId = checkNotNull(sourceId, "sourceId is null");
-            this.tupleInfos = checkNotNull(tupleInfos, "tupleInfos is null");
-            this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
+            this.types = checkNotNull(types, "types is null");
+            this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceManager is null");
             this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
         }
 
@@ -63,9 +70,9 @@ public class TableScanOperator
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override
@@ -76,8 +83,8 @@ public class TableScanOperator
             return new TableScanOperator(
                     operatorContext,
                     sourceId,
-                    dataStreamProvider,
-                    tupleInfos,
+                    pageSourceProvider,
+                    types,
                     columns);
         }
 
@@ -90,25 +97,30 @@ public class TableScanOperator
 
     private final OperatorContext operatorContext;
     private final PlanNodeId planNodeId;
-    private final DataStreamProvider dataStreamProvider;
-    private final List<TupleInfo> tupleInfos;
+    private final PageSourceProvider pageSourceProvider;
+    private final List<Type> types;
     private final List<ColumnHandle> columns;
+    private final SettableFuture<?> blocked;
 
     @GuardedBy("this")
-    private Operator source;
+    private ConnectorPageSource source;
+
+    private long completedBytes;
+    private long readTimeNanos;
 
     public TableScanOperator(
             OperatorContext operatorContext,
             PlanNodeId planNodeId,
-            DataStreamProvider dataStreamProvider,
-            List<TupleInfo> tupleInfos,
+            PageSourceProvider pageSourceProvider,
+            List<Type> types,
             Iterable<ColumnHandle> columns)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.planNodeId = checkNotNull(planNodeId, "planNodeId is null");
-        this.tupleInfos = checkNotNull(tupleInfos, "tupleInfos is null");
-        this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
+        this.types = checkNotNull(types, "types is null");
+        this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceManager is null");
         this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
+        this.blocked = SettableFuture.create();
     }
 
     @Override
@@ -124,59 +136,75 @@ public class TableScanOperator
     }
 
     @Override
-    public synchronized void addSplit(final Split split)
+    public synchronized void addSplit(Split split)
     {
         checkNotNull(split, "split is null");
         checkState(getSource() == null, "Table scan split already set");
 
-        source = dataStreamProvider.createNewDataStream(operatorContext, split, columns);
+        source = pageSourceProvider.createPageSource(split, columns);
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
             operatorContext.setInfoSupplier(Suppliers.ofInstance(splitInfo));
         }
+        blocked.set(null);
     }
 
     @Override
     public synchronized void noMoreSplits()
     {
         if (source == null) {
-            source = new FinishedOperator(operatorContext, tupleInfos);
+            source = FINISHED_PAGE_SOURCE;
         }
     }
 
-    private synchronized Operator getSource()
+    private synchronized ConnectorPageSource getSource()
     {
         return source;
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
+    }
+
+    @Override
+    public synchronized void close()
+    {
+        finish();
     }
 
     @Override
     public void finish()
     {
-        Operator delegate = getSource();
+        ConnectorPageSource delegate = getSource();
         if (delegate == null) {
             return;
         }
-        delegate.finish();
+        try {
+            delegate.close();
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     @Override
     public boolean isFinished()
     {
-        Operator delegate = getSource();
+        ConnectorPageSource delegate = getSource();
         return delegate != null && delegate.isFinished();
     }
 
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return NOT_BLOCKED;
+        ConnectorPageSource delegate = getSource();
+        if (delegate != null) {
+            return NOT_BLOCKED;
+        }
+        return blocked;
     }
 
     @Override
@@ -194,10 +222,24 @@ public class TableScanOperator
     @Override
     public Page getOutput()
     {
-        Operator delegate = getSource();
+        ConnectorPageSource delegate = getSource();
         if (delegate == null) {
             return null;
         }
-        return delegate.getOutput();
+
+        Page page = delegate.getNextPage();
+        if (page != null) {
+            // assure the page is in memory before handing to another operator
+            page.assureLoaded();
+
+            // update operator stats
+            long endCompletedBytes = delegate.getCompletedBytes();
+            long endReadTimeNanos = delegate.getReadTimeNanos();
+            operatorContext.recordGeneratedInput(endCompletedBytes - completedBytes, page.getPositionCount(), endReadTimeNanos - readTimeNanos);
+            completedBytes = endCompletedBytes;
+            readTimeNanos = endReadTimeNanos;
+        }
+
+        return page;
     }
 }

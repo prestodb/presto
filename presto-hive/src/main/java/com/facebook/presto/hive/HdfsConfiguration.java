@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import com.google.common.primitives.Ints;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -25,6 +26,7 @@ import org.apache.hadoop.net.SocksSocketFactory;
 import javax.inject.Inject;
 import javax.net.SocketFactory;
 
+import java.io.File;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -40,7 +42,19 @@ public class HdfsConfiguration
     private final String domainSocketPath;
     private final String s3AwsAccessKey;
     private final String s3AwsSecretKey;
+    private final boolean s3SslEnabled;
+    private final int s3MaxClientRetries;
+    private final int s3MaxErrorRetries;
+    private final Duration s3MaxBackoffTime;
+    private final Duration s3MaxRetryTime;
+    private final Duration s3ConnectTimeout;
+    private final Duration s3SocketTimeout;
+    private final int s3MaxConnections;
+    private final DataSize s3MultipartMinFileSize;
+    private final DataSize s3MultipartMinPartSize;
+    private final File s3StagingDirectory;
     private final List<String> resourcePaths;
+    private final boolean verifyChecksum;
 
     @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<Configuration> hadoopConfiguration = new ThreadLocal<Configuration>()
@@ -65,7 +79,24 @@ public class HdfsConfiguration
         this.domainSocketPath = hiveClientConfig.getDomainSocketPath();
         this.s3AwsAccessKey = hiveClientConfig.getS3AwsAccessKey();
         this.s3AwsSecretKey = hiveClientConfig.getS3AwsSecretKey();
+        this.s3SslEnabled = hiveClientConfig.isS3SslEnabled();
+        this.s3MaxClientRetries = hiveClientConfig.getS3MaxClientRetries();
+        this.s3MaxErrorRetries = hiveClientConfig.getS3MaxErrorRetries();
+        this.s3MaxBackoffTime = hiveClientConfig.getS3MaxBackoffTime();
+        this.s3MaxRetryTime = hiveClientConfig.getS3MaxRetryTime();
+        this.s3ConnectTimeout = hiveClientConfig.getS3ConnectTimeout();
+        this.s3SocketTimeout = hiveClientConfig.getS3SocketTimeout();
+        this.s3MaxConnections = hiveClientConfig.getS3MaxConnections();
+        this.s3MultipartMinFileSize = hiveClientConfig.getS3MultipartMinFileSize();
+        this.s3MultipartMinPartSize = hiveClientConfig.getS3MultipartMinPartSize();
+        this.s3StagingDirectory = hiveClientConfig.getS3StagingDirectory();
         this.resourcePaths = hiveClientConfig.getResourceConfigFiles();
+        this.verifyChecksum = hiveClientConfig.isVerifyChecksum();
+    }
+
+    public boolean verifyChecksum()
+    {
+        return verifyChecksum;
     }
 
     @SuppressWarnings("UnusedParameters")
@@ -108,7 +139,8 @@ public class HdfsConfiguration
         config.setInt("ipc.client.connect.max.retries", dfsConnectMaxRetries);
 
         // re-map filesystem schemes to match Amazon Elastic MapReduce
-        config.set("fs.s3.impl", "org.apache.hadoop.fs.s3native.NativeS3FileSystem");
+        config.set("fs.s3.impl", PrestoS3FileSystem.class.getName());
+        config.set("fs.s3n.impl", PrestoS3FileSystem.class.getName());
         config.set("fs.s3bfs.impl", "org.apache.hadoop.fs.s3.S3FileSystem");
 
         // set AWS credentials for S3
@@ -120,6 +152,19 @@ public class HdfsConfiguration
                 config.set(format("fs.%s.awsSecretAccessKey", scheme), s3AwsSecretKey);
             }
         }
+
+        // set config for S3
+        config.setBoolean(PrestoS3FileSystem.S3_SSL_ENABLED, s3SslEnabled);
+        config.setInt(PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES, s3MaxClientRetries);
+        config.setInt(PrestoS3FileSystem.S3_MAX_ERROR_RETRIES, s3MaxErrorRetries);
+        config.set(PrestoS3FileSystem.S3_MAX_BACKOFF_TIME, s3MaxBackoffTime.toString());
+        config.set(PrestoS3FileSystem.S3_MAX_RETRY_TIME, s3MaxRetryTime.toString());
+        config.set(PrestoS3FileSystem.S3_CONNECT_TIMEOUT, s3ConnectTimeout.toString());
+        config.set(PrestoS3FileSystem.S3_SOCKET_TIMEOUT, s3SocketTimeout.toString());
+        config.set(PrestoS3FileSystem.S3_STAGING_DIRECTORY, s3StagingDirectory.toString());
+        config.setInt(PrestoS3FileSystem.S3_MAX_CONNECTIONS, s3MaxConnections);
+        config.setLong(PrestoS3FileSystem.S3_MULTIPART_MIN_FILE_SIZE, s3MultipartMinFileSize.toBytes());
+        config.setLong(PrestoS3FileSystem.S3_MULTIPART_MIN_PART_SIZE, s3MultipartMinPartSize.toBytes());
 
         updateConfiguration(config);
 

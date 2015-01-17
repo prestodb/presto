@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.base.Function;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
@@ -38,7 +36,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.operator.OperatorContext.operatorStatsGetter;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -86,6 +84,11 @@ public class PipelineContext
         this.executor = checkNotNull(executor, "executor is null");
     }
 
+    public TaskContext getTaskContext()
+    {
+        return taskContext;
+    }
+
     public TaskId getTaskId()
     {
         return taskContext.getTaskId();
@@ -103,14 +106,14 @@ public class PipelineContext
 
     public DriverContext addDriverContext()
     {
-        DriverContext driverContext = new DriverContext(this, executor);
-        drivers.add(driverContext);
-        return driverContext;
+        return addDriverContext(false);
     }
 
-    public List<DriverContext> getDrivers()
+    public DriverContext addDriverContext(boolean partitioned)
     {
-        return ImmutableList.copyOf(drivers);
+        DriverContext driverContext = new DriverContext(this, executor, partitioned);
+        drivers.add(driverContext);
+        return driverContext;
     }
 
     public Session getSession()
@@ -131,7 +134,7 @@ public class PipelineContext
         completedDrivers.getAndIncrement();
 
         // remove the memory reservation
-        memoryReservation.getAndAdd(-driverStats.getMemoryReservation().toBytes());
+        freeMemory(driverStats.getMemoryReservation().toBytes());
 
         queuedTime.add(driverStats.getQueuedTime().roundTo(NANOSECONDS));
         elapsedTime.add(driverStats.getElapsedTime().roundTo(NANOSECONDS));
@@ -145,14 +148,19 @@ public class PipelineContext
         // merge the operator stats into the operator summary
         List<OperatorStats> operators = driverStats.getOperatorStats();
         for (OperatorStats operator : operators) {
-            OperatorStats operatorSummary = operatorSummaries.get(operator.getOperatorId());
-            if (operatorSummary != null) {
-                operatorSummary = operatorSummary.add(operator);
+            // TODO: replace with ConcurrentMap.compute() when we migrate to java 8
+            OperatorStats updated;
+            OperatorStats current;
+            do {
+                current = operatorSummaries.get(operator.getOperatorId());
+                if (current != null) {
+                    updated = current.add(operator);
+                }
+                else {
+                    updated = operator;
+                }
             }
-            else {
-                operatorSummary = operator;
-            }
-            operatorSummaries.put(operator.getOperatorId(), operatorSummary);
+            while (!compareAndSet(operatorSummaries, operator.getOperatorId(), current, updated));
         }
 
         rawInputDataSize.update(driverStats.getRawInputDataSize().toBytes());
@@ -197,6 +205,18 @@ public class PipelineContext
             memoryReservation.getAndAdd(bytes);
         }
         return result;
+    }
+
+    public synchronized void freeMemory(long bytes)
+    {
+        checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
+        taskContext.freeMemory(bytes);
+        memoryReservation.getAndAdd(-bytes);
+    }
+
+    public boolean isVerboseStats()
+    {
+        return taskContext.isVerboseStats();
     }
 
     public boolean isCpuTimerEnabled()
@@ -244,19 +264,15 @@ public class PipelineContext
         return stat;
     }
 
-    @Deprecated
-    public void addOutputItems(PlanNodeId id, Iterable<?> outputItems)
-    {
-        taskContext.addOutputItems(id, outputItems);
-    }
-
     public PipelineStats getPipelineStats()
     {
         List<DriverContext> driverContexts = ImmutableList.copyOf(this.drivers);
 
         int totalDriers = completedDrivers.get() + driverContexts.size();
         int queuedDrivers = 0;
+        int queuedPartitionedDrivers = 0;
         int runningDrivers = 0;
+        int runningPartitionedDrivers = 0;
         int completedDrivers = this.completedDrivers.get();
 
         Distribution queuedTime = new Distribution(this.queuedTime);
@@ -285,9 +301,15 @@ public class PipelineContext
 
             if (driverStats.getStartTime() == null) {
                 queuedDrivers++;
+                if (driverContext.isPartitioned()) {
+                    queuedPartitionedDrivers++;
+                }
             }
             else {
                 runningDrivers++;
+                if (driverContext.isPartitioned()) {
+                    runningPartitionedDrivers++;
+                }
             }
 
             queuedTime.add(driverStats.getQueuedTime().roundTo(NANOSECONDS));
@@ -298,7 +320,7 @@ public class PipelineContext
             totalUserTime += driverStats.getTotalUserTime().roundTo(NANOSECONDS);
             totalBlockedTime += driverStats.getTotalBlockedTime().roundTo(NANOSECONDS);
 
-            List<OperatorStats> operators = ImmutableList.copyOf(transform(driverContext.getOperatorContexts(), operatorStatsGetter()));
+            List<OperatorStats> operators = ImmutableList.copyOf(transform(driverContext.getOperatorContexts(), OperatorContext::getOperatorStats));
             for (OperatorStats operator : operators) {
                 runningOperators.put(operator.getOperatorId(), operator);
             }
@@ -313,12 +335,17 @@ public class PipelineContext
             outputPositions += driverStats.getOutputPositions();
         }
 
-        // merge the operator stats into the operator summary
-        TreeMap<Integer, OperatorStats> operatorSummaries = new TreeMap<>();
-        for (Entry<Integer, OperatorStats> entry : this.operatorSummaries.entrySet()) {
-            OperatorStats operator = entry.getValue();
-            operator.add(runningOperators.get(entry.getKey()));
-            operatorSummaries.put(entry.getKey(), operator);
+        // merge the running operator stats into the operator summary
+        TreeMap<Integer, OperatorStats> operatorSummaries = new TreeMap<>(this.operatorSummaries);
+        for (Entry<Integer, OperatorStats> entry : runningOperators.entries()) {
+            OperatorStats current = operatorSummaries.get(entry.getKey());
+            if (current == null) {
+                current = entry.getValue();
+            }
+            else {
+                current = current.add(entry.getValue());
+            }
+            operatorSummaries.put(entry.getKey(), current);
         }
 
         return new PipelineStats(
@@ -327,7 +354,9 @@ public class PipelineContext
 
                 totalDriers,
                 queuedDrivers,
+                queuedPartitionedDrivers,
                 runningDrivers,
+                runningPartitionedDrivers,
                 completedDrivers,
 
                 new DataSize(memoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
@@ -353,14 +382,12 @@ public class PipelineContext
                 drivers);
     }
 
-    public static Function<PipelineContext, PipelineStats> pipelineStatsGetter()
+    private static <K, V> boolean compareAndSet(ConcurrentMap<K, V> map, K key, V oldValue, V newValue)
     {
-        return new Function<PipelineContext, PipelineStats>()
-        {
-            public PipelineStats apply(PipelineContext pipelineContext)
-            {
-                return pipelineContext.getPipelineStats();
-            }
-        };
+        if (oldValue == null) {
+            return map.putIfAbsent(key, newValue) == null;
+        }
+
+        return map.replace(key, oldValue, newValue);
     }
 }

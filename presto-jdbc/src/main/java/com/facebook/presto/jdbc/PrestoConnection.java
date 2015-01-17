@@ -17,9 +17,11 @@ import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.StatementClient;
 import com.google.common.base.Objects;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 
 import java.net.URI;
+import java.nio.charset.CharsetEncoder;
 import java.sql.Array;
 import java.sql.Blob;
 import java.sql.CallableStatement;
@@ -38,17 +40,21 @@ import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Maps.fromProperties;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilder;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 
 public class PrestoConnection
         implements Connection
@@ -56,10 +62,13 @@ public class PrestoConnection
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicReference<String> catalog = new AtomicReference<>();
     private final AtomicReference<String> schema = new AtomicReference<>();
+    private final AtomicReference<String> timeZoneId = new AtomicReference<>();
+    private final AtomicReference<Locale> locale = new AtomicReference<>();
     private final URI uri;
     private final HostAndPort address;
     private final String user;
     private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
+    private final Map<String, String> sessionProperties = new ConcurrentHashMap<>();
     private final QueryExecutor queryExecutor;
 
     PrestoConnection(URI uri, String user, QueryExecutor queryExecutor)
@@ -71,6 +80,8 @@ public class PrestoConnection
         this.queryExecutor = checkNotNull(queryExecutor, "queryExecutor is null");
         catalog.set("default");
         schema.set("default");
+        timeZoneId.set(TimeZone.getDefault().getID());
+        locale.set(Locale.getDefault());
 
         if (!isNullOrEmpty(uri.getPath())) {
             setCatalogAndSchema();
@@ -214,7 +225,7 @@ public class PrestoConnection
     public int getTransactionIsolation()
             throws SQLException
     {
-        throw new UnsupportedOperationException("getTransactionIsolation");
+        return TRANSACTION_NONE;
     }
 
     @Override
@@ -399,7 +410,7 @@ public class PrestoConnection
             clientInfo.put(name, value);
         }
         else {
-            clientInfo.remove(value);
+            clientInfo.remove(name);
         }
     }
 
@@ -456,6 +467,44 @@ public class PrestoConnection
         return schema.get();
     }
 
+    public String getTimeZoneId()
+    {
+        return timeZoneId.get();
+    }
+
+    public void setTimeZoneId(String timeZoneId)
+    {
+        checkNotNull(timeZoneId, "timeZoneId is null");
+        this.timeZoneId.set(timeZoneId);
+    }
+
+    public Locale getLocale()
+    {
+        return locale.get();
+    }
+
+    public void setLocale(Locale locale)
+    {
+        this.locale.set(locale);
+    }
+
+    /**
+     * Adds a session property (experimental).
+     */
+    public void setSessionProperty(String name, String value)
+    {
+        checkNotNull(name, "name is null");
+        checkNotNull(value, "value is null");
+        checkArgument(!name.isEmpty(), "name is empty");
+
+        CharsetEncoder charsetEncoder = US_ASCII.newEncoder();
+        checkArgument(name.indexOf('=') < 0, "Session property name must not contain '=': %s", name);
+        checkArgument(charsetEncoder.canEncode(name), "Session property name is not US_ASCII: %s", name);
+        checkArgument(charsetEncoder.canEncode(value), "Session property value is not US_ASCII: %s", value);
+
+        sessionProperties.put(name, value);
+    }
+
     @Override
     public void abort(Executor executor)
             throws SQLException
@@ -510,7 +559,18 @@ public class PrestoConnection
         URI uri = createHttpUri(address);
 
         String source = Objects.firstNonNull(clientInfo.get("ApplicationName"), "presto-jdbc");
-        ClientSession session = new ClientSession(uri, user, source, catalog.get(), schema.get(), false);
+
+        ClientSession session = new ClientSession(
+                uri,
+                user,
+                source,
+                catalog.get(),
+                schema.get(),
+                timeZoneId.get(),
+                locale.get(),
+                ImmutableMap.copyOf(sessionProperties),
+                false);
+
         return queryExecutor.startQuery(session, sql);
     }
 

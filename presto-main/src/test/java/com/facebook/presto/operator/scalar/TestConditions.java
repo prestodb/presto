@@ -13,11 +13,9 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.spi.PrestoException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
-import static org.testng.Assert.fail;
 
 public class TestConditions
 {
@@ -56,7 +54,7 @@ public class TestConditions
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*escape must be empty or a single character.*")
     public void testLikeInvalidEscape()
     {
-        selectSingleValue("'monkey' like 'monkey' escape 'foo'");
+        evaluate("'monkey' like 'monkey' escape 'foo'");
     }
 
     @Test
@@ -97,16 +95,16 @@ public class TestConditions
         assertFunction("'foo' in ('bar', 'baz', 'buz', 'blah')", false);
         assertFunction("'foo' in ('bar', null, 'foo', 'blah')", true);
 
-        assertFunction("null in (2, null, 3, 5) is null", true);
-        assertFunction("3 in (2, null) is null", true);
-        assertFunction("null not in (2, null, 3, 5) is null", true);
-        assertFunction("3 not in (2, null) is null", true);
+        assertFunction("(null in (2, null, 3, 5)) is null", true);
+        assertFunction("(3 in (2, null)) is null", true);
+        assertFunction("(null not in (2, null, 3, 5)) is null", true);
+        assertFunction("(3 not in (2, null)) is null", true);
     }
 
-    @Test(expectedExceptions = ArithmeticException.class)
+    @Test(expectedExceptions = PrestoException.class)
     public void testInDoesNotShortCircuit()
     {
-        selectSingleValue("3 in (2, 4, 3, 5 / 0)");
+        evaluate("3 in (2, 4, 3, 5 / 0)");
     }
 
     @Test
@@ -148,21 +146,22 @@ public class TestConditions
                 "end",
                 33L);
 
-        // todo coercion to double
-        try {
-            selectSingleValue("case " +
-                    "when false then 1.0 " +
-                    "when true then 33 " +
-                    "end");
-            fail("Expected SemanticException");
-        }
-        catch (ClassCastException | SemanticException expected) {
-        }
+        assertFunction("case " +
+                "when false then 1.0 " +
+                "when true then 33 " +
+                "end",
+                33.0);
     }
 
     @Test
     public void testSimpleCase()
     {
+        assertFunction("case true " +
+                "when true then cast(null as varchar) " +
+                "else 'foo' " +
+                "end",
+                null);
+
         assertFunction("case true " +
                 "when true then 33 " +
                 "end",
@@ -205,16 +204,11 @@ public class TestConditions
                 "end",
                 33);
 
-        // todo coercion to double
-        try {
-            selectSingleValue("case true " +
-                    "when false then 1.0 " +
-                    "when true then 33 " +
-                    "end");
-            fail("Expected SemanticException");
-        }
-        catch (ClassCastException | SemanticException expected) {
-        }
+        assertFunction("case true " +
+                "when false then 1.0 " +
+                "when true then 33 " +
+                "end",
+                33.0);
     }
 
     private void assertFunction(String projection, Object expected)
@@ -222,8 +216,8 @@ public class TestConditions
         functionAssertions.assertFunction(projection, expected);
     }
 
-    private Object selectSingleValue(String projection)
+    private void evaluate(String projection)
     {
-        return functionAssertions.selectSingleValue(projection);
+        functionAssertions.tryEvaluate(projection);
     }
 }

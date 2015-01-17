@@ -14,51 +14,48 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
-import com.google.common.base.Preconditions;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.InputSupplier;
+import com.google.common.io.CharSource;
 import com.google.common.io.LineReader;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.io.Reader;
 import java.util.List;
 
-import static com.facebook.presto.metadata.MetadataUtil.columnTypeGetter;
-import static com.google.common.base.Charsets.UTF_8;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 
 public class DelimitedRecordSet
         implements RecordSet
 {
-    private final InputSupplier<? extends Reader> readerSupplier;
+    private final CharSource charSource;
     private final Splitter columnSplitter;
     private final List<ColumnMetadata> columns;
-    private final List<ColumnType> columnTypes;
+    private final List<Type> columnTypes;
 
-    public DelimitedRecordSet(InputSupplier<? extends Reader> readerSupplier, Splitter columnSplitter, ColumnMetadata... columns)
+    public DelimitedRecordSet(CharSource charSource, Splitter columnSplitter, ColumnMetadata... columns)
     {
-        this(readerSupplier, columnSplitter, ImmutableList.copyOf(columns));
+        this(charSource, columnSplitter, ImmutableList.copyOf(columns));
     }
 
-    public DelimitedRecordSet(InputSupplier<? extends Reader> readerSupplier, Splitter columnSplitter, Iterable<ColumnMetadata> columns)
+    public DelimitedRecordSet(CharSource charSource, Splitter columnSplitter, Iterable<ColumnMetadata> columns)
     {
-        Preconditions.checkNotNull(readerSupplier, "readerSupplier is null");
-        Preconditions.checkNotNull(columnSplitter, "columnSplitter is null");
-
-        this.readerSupplier = readerSupplier;
-        this.columnSplitter = columnSplitter;
+        this.charSource = checkNotNull(charSource, "charSource is null");
+        this.columnSplitter = checkNotNull(columnSplitter, "columnSplitter is null");
         this.columns = ImmutableList.copyOf(columns);
 
-        this.columnTypes = ImmutableList.copyOf(transform(columns, columnTypeGetter()));
+        this.columnTypes = ImmutableList.copyOf(transform(columns, ColumnMetadata::getType));
     }
 
     @Override
-    public List<ColumnType> getColumnTypes()
+    public List<Type> getColumnTypes()
     {
         return columnTypes;
     }
@@ -66,7 +63,7 @@ public class DelimitedRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new DelimitedRecordCursor(readerSupplier, columnSplitter, columns);
+        return new DelimitedRecordCursor(charSource, columnSplitter, columns);
     }
 
     private static class DelimitedRecordCursor
@@ -78,10 +75,10 @@ public class DelimitedRecordSet
         private final List<ColumnMetadata> columns;
         private List<String> row;
 
-        private DelimitedRecordCursor(InputSupplier<? extends Reader> readerSupplier, Splitter columnSplitter, List<ColumnMetadata> columns)
+        private DelimitedRecordCursor(CharSource charSource, Splitter columnSplitter, List<ColumnMetadata> columns)
         {
             try {
-                this.reader = readerSupplier.getInput();
+                this.reader = charSource.openStream();
                 this.lineReader = new LineReader(reader);
                 this.columnSplitter = columnSplitter;
                 this.columns = columns;
@@ -104,7 +101,13 @@ public class DelimitedRecordSet
         }
 
         @Override
-        public ColumnType getType(int field)
+        public long getReadTimeNanos()
+        {
+            return 0;
+        }
+
+        @Override
+        public Type getType(int field)
         {
             return columns.get(field).getType();
         }
@@ -145,9 +148,9 @@ public class DelimitedRecordSet
         }
 
         @Override
-        public byte[] getString(int field)
+        public Slice getSlice(int field)
         {
-            return getField(field).getBytes(UTF_8);
+            return Slices.utf8Slice(getField(field));
         }
 
         @Override

@@ -14,46 +14,43 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.Session;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
-import com.facebook.presto.client.FailureInfo;
-import com.facebook.presto.connector.dual.DualMetadata;
-import com.facebook.presto.connector.dual.DualSplit;
-import com.facebook.presto.execution.SharedBuffer.QueueState;
+import com.facebook.presto.execution.SharedBuffer.BufferState;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TestSqlTaskManager.MockLocationFactory;
+import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.InMemoryNodeManager;
-import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.metadata.PrestoNode;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.Split;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedSplitSource;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.SplitSource;
-import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
-import com.facebook.presto.sql.planner.OutputReceiver;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.split.ConnectorAwareSplitSource;
+import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.TestingColumnHandle;
+import com.facebook.presto.sql.planner.TestingTableHandle;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.util.Threads;
-import com.google.common.base.Optional;
+import com.google.common.base.Supplier;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -67,132 +64,157 @@ import javax.annotation.concurrent.GuardedBy;
 import java.net.URI;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
-import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.fail;
 
+@Test(singleThreaded = true)
 public class TestSqlStageExecution
 {
-    public static final Session SESSION = new Session("user", "source", "catalog", "schema", "address", "agent");
-    MetadataManager metadata;
-    LocationFactory locationFactory = new MockLocationFactory();
+    public static final TaskId OUT = new TaskId("query", "stage", "out");
+    private NodeTaskMap nodeTaskMap;
+    private InMemoryNodeManager nodeManager;
+    private NodeScheduler nodeScheduler;
+    private LocationFactory locationFactory;
+    private Supplier<ConnectorSplit> splitFactory;
 
     @BeforeMethod
     public void setUp()
             throws Exception
     {
-        metadata = new MetadataManager();
-        metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
+        nodeManager = new InMemoryNodeManager();
+        ImmutableList.Builder<Node> nodeBuilder = ImmutableList.builder();
+        nodeBuilder.add(new PrestoNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
+        nodeBuilder.add(new PrestoNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN));
+        nodeBuilder.add(new PrestoNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN));
+        ImmutableList<Node> nodes = nodeBuilder.build();
 
+        nodeManager.addNode("foo", nodes);
+        NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
+                .setMaxSplitsPerNode(20)
+                .setIncludeCoordinator(false)
+                .setMaxPendingSplitsPerNodePerTask(10);
+
+        nodeTaskMap = new NodeTaskMap();
+        nodeScheduler = new NodeScheduler(nodeManager, nodeSchedulerConfig, nodeTaskMap);
+        locationFactory = new MockLocationFactory();
+        splitFactory = new Supplier<ConnectorSplit>() {
+            @Override
+            public ConnectorSplit get()
+            {
+                return TestingSplit.createLocalSplit();
+            }
+        };
+    }
+
+    @Test(expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*No nodes available to run query")
+    public void testExcludeCoordinator()
+            throws Exception
+    {
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        NodeScheduler nodeScheduler = new NodeScheduler(nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap);
+
+        // Start sql stage execution
+        StageExecutionPlan tableScanPlan = createTableScanPlan("test", 20, new Supplier<ConnectorSplit>() {
+            @Override
+            public ConnectorSplit get()
+            {
+                return TestingSplit.createEmptySplit();
+            }
+        });
+        SqlStageExecution sqlStageExecution = createSqlStageExecution(nodeScheduler, 2, tableScanPlan);
+        Future future = sqlStageExecution.start();
+        future.get(1, TimeUnit.SECONDS);
     }
 
     @Test
     public void testSplitAssignment()
             throws Exception
     {
-        final InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        ImmutableList.Builder<Node> nodeBuilder = ImmutableList.builder();
-        nodeBuilder.add(new PrestoNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
-        nodeBuilder.add(new PrestoNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN));
-        nodeBuilder.add(new PrestoNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN));
-        ImmutableList<Node> nodes = nodeBuilder.build();
-        nodeManager.addNode("foo", nodes);
-        NodeScheduler nodeScheduler = new NodeScheduler(nodeManager, new NodeSchedulerConfig());
-
-        // Start sql stage execution
-        SqlStageExecution sqlStageExecution1 = createSqlStageExecution(nodeScheduler, 2, 20);
+        // Start sql stage execution (schedule 15 splits in batches of 2), there are 3 nodes, each node should get 5 splits
+        StageExecutionPlan tableScanPlan = createTableScanPlan("test", 15, splitFactory);
+        SqlStageExecution sqlStageExecution1 = createSqlStageExecution(nodeScheduler, 2, tableScanPlan);
         Future future1 = sqlStageExecution1.start();
         future1.get(1, TimeUnit.SECONDS);
-        Map<Node, RemoteTask> tasks1 = sqlStageExecution1.getTasks();
-        for (Map.Entry<Node, RemoteTask> entry : tasks1.entrySet()) {
-            assertEquals(entry.getValue().getQueuedSplits(), 5);
+        for (RemoteTask remoteTask : sqlStageExecution1.getAllTasks()) {
+            assertEquals(remoteTask.getPartitionedSplitCount(), 5);
         }
 
         // Add new node
         Node additionalNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN);
         nodeManager.addNode("foo", additionalNode);
 
-        // Schedule next query
-        SqlStageExecution sqlStageExecution2 = createSqlStageExecution(nodeScheduler, 2, 20);
+        // Schedule next query with 5 splits. Since the new node does not have any splits, all 5 splits are assigned to the new node
+        StageExecutionPlan tableScanPlan2 = createTableScanPlan("test", 5, splitFactory);
+        SqlStageExecution sqlStageExecution2 = createSqlStageExecution(nodeScheduler, 5, tableScanPlan2);
         Future future2 = sqlStageExecution2.start();
         future2.get(1, TimeUnit.SECONDS);
-        Map<Node, RemoteTask> tasks2 = sqlStageExecution2.getTasks();
+        List<RemoteTask> tasks2 = sqlStageExecution2.getTasks(additionalNode);
 
-        RemoteTask task = tasks2.get(additionalNode);
+        RemoteTask task = Iterables.getFirst(tasks2, null);
         assertNotNull(task);
-
-        for (Map.Entry<Node, RemoteTask> entry : tasks2.entrySet()) {
-            assertEquals(entry.getValue().getQueuedSplits(), 4);
-        }
+        assertEquals(task.getPartitionedSplitCount(), 5);
     }
 
     @Test
     public void testSplitAssignmentBatchSizeGreaterThanMaxPending()
             throws Exception
     {
-        final InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        ImmutableList.Builder<Node> nodeBuilder = ImmutableList.builder();
-        nodeBuilder.add(new PrestoNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
-        nodeBuilder.add(new PrestoNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN));
-        nodeBuilder.add(new PrestoNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN));
-        ImmutableList<Node> nodes = nodeBuilder.build();
-        nodeManager.addNode("foo", nodes);
-        NodeScheduler nodeScheduler = new NodeScheduler(nodeManager, new NodeSchedulerConfig());
-
-        // Start sql stage execution
-        SqlStageExecution sqlStageExecution1 = createSqlStageExecution(nodeScheduler, 10, 2);
+        // Start sql stage execution with 100 splits. Only 20 will be scheduled on each node as that is the maxSplitsPerNode
+        StageExecutionPlan tableScanPlan = createTableScanPlan("test", 100, splitFactory);
+        SqlStageExecution sqlStageExecution1 = createSqlStageExecution(nodeScheduler, 100, tableScanPlan);
         Future future1 = sqlStageExecution1.start();
 
         // The stage scheduler will block and this will cause a timeout exception
         try {
-            future1.get(2, TimeUnit.SECONDS);
+            future1.get(1, TimeUnit.SECONDS);
         }
         catch (TimeoutException e) {
         }
 
-        Map<Node, RemoteTask> tasks1 = sqlStageExecution1.getTasks();
-        for (Map.Entry<Node, RemoteTask> entry : tasks1.entrySet()) {
-            assertEquals(entry.getValue().getQueuedSplits(), 2);
+        for (RemoteTask task : sqlStageExecution1.getAllTasks()) {
+            assertEquals(task.getPartitionedSplitCount(), 20);
         }
     }
 
-    private SqlStageExecution createSqlStageExecution(NodeScheduler nodeScheduler, int splitBatchSize, int maxPendingSplitsPerNode)
+    private SqlStageExecution createSqlStageExecution(NodeScheduler nodeScheduler, int splitBatchSize, StageExecutionPlan tableScanPlan)
     {
-        int splitCount = 20;
-        ExecutorService remoteTaskExecutor = Executors.newCachedThreadPool(Threads.daemonThreadsNamed("remoteTaskExecutor"));
+        ExecutorService remoteTaskExecutor = newCachedThreadPool(daemonThreadsNamed("remoteTaskExecutor"));
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor);
-        ExecutorService executor = Executors.newCachedThreadPool(Threads.daemonThreadsNamed("stageExecutor"));
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stageExecutor"));
 
         OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
-                .withBuffer("out", new UnpartitionedPagePartitionFunction())
+                .withBuffer(OUT, new UnpartitionedPagePartitionFunction())
                 .withNoMoreBufferIds();
 
-        StageExecutionPlan tableScanPlan = createTableScanPlan("test", metadata, splitCount);
         return new SqlStageExecution(new QueryId("query"),
                 locationFactory,
                 tableScanPlan,
                 nodeScheduler,
                 remoteTaskFactory,
-                SESSION,
+                TEST_SESSION,
                 splitBatchSize,
-                maxPendingSplitsPerNode,
                 8,      // initialHashPartitions
                 executor,
+                nodeTaskMap,
                 outputBuffers);
     }
 
@@ -200,30 +222,28 @@ public class TestSqlStageExecution
     public void testYieldCausesFullSchedule()
             throws Exception
     {
-        ExecutorService executor = Executors.newCachedThreadPool(Threads.daemonThreadsNamed("test"));
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
         SqlStageExecution stageExecution = null;
         try {
-            MetadataManager metadata = new MetadataManager();
-            metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
-
-            StageExecutionPlan joinPlan = createJoinPlan("A", metadata);
+            StageExecutionPlan joinPlan = createJoinPlan("A");
 
             InMemoryNodeManager nodeManager = new InMemoryNodeManager();
             nodeManager.addNode("foo", new PrestoNode("other", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
 
             OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
-                    .withBuffer("out", new UnpartitionedPagePartitionFunction())
+                    .withBuffer(OUT, new UnpartitionedPagePartitionFunction())
                     .withNoMoreBufferIds();
 
             stageExecution = new SqlStageExecution(new QueryId("query"),
                     new MockLocationFactory(),
                     joinPlan,
-                    new NodeScheduler(nodeManager, new NodeSchedulerConfig()), new MockRemoteTaskFactory(executor),
-                    SESSION,
+                    new NodeScheduler(nodeManager, new NodeSchedulerConfig(), nodeTaskMap),
+                    new MockRemoteTaskFactory(executor),
+                    TEST_SESSION,
                     1000,
-                    1,
                     8,
                     executor,
+                    nodeTaskMap,
                     outputBuffers);
 
             Future<?> future = stageExecution.start();
@@ -245,7 +265,7 @@ public class TestSqlStageExecution
                         assertEquals(stageInfo.getTasks().size(), 2);
 
                         assertEquals(tableScanInfo.getTasks().size(), 1);
-                        assertEquals(tableScanInfo.getTasks().get(0).getOutputBuffers().getState(), QueueState.NO_MORE_QUEUES);
+                        assertEquals(tableScanInfo.getTasks().get(0).getOutputBuffers().getState(), BufferState.NO_MORE_BUFFERS);
                         return;
                     case FINISHED:
                     case CANCELED:
@@ -267,80 +287,83 @@ public class TestSqlStageExecution
         }
         finally {
             if (stageExecution != null) {
-                stageExecution.cancel(false);
+                stageExecution.cancel();
             }
             executor.shutdownNow();
         }
     }
 
-    private StageExecutionPlan createJoinPlan(String planId, MetadataManager metadata)
+    private StageExecutionPlan createJoinPlan(String planId)
     {
         // create table scan for build data with a single split, so it is only waiting on the no-more buffers call
-        StageExecutionPlan build = createTableScanPlan("build", metadata, 1);
+        StageExecutionPlan build = createTableScanPlan("build", 1, splitFactory);
 
         // create an exchange to read the build data
-        ExchangeNode buildExchange = new ExchangeNode(new PlanNodeId(planId + "-build"),
+        RemoteSourceNode buildSource = new RemoteSourceNode(new PlanNodeId(planId + "-build"),
                 build.getFragment().getId(),
                 ImmutableList.copyOf(build.getFragment().getSymbols().keySet()));
 
         // create table scan for probe data with three splits, so it will not send the no-more buffers call
-        StageExecutionPlan probe = createTableScanPlan("probe", metadata, 10);
+        StageExecutionPlan probe = createTableScanPlan("probe", 10, splitFactory);
 
         // create an exchange to read the probe data
-        ExchangeNode probeExchange = new ExchangeNode(new PlanNodeId(planId + "-probe"),
+        RemoteSourceNode probeSource = new RemoteSourceNode(new PlanNodeId(planId + "-probe"),
                 probe.getFragment().getId(),
                 ImmutableList.copyOf(probe.getFragment().getSymbols().keySet()));
 
         // join build and probe
+        JoinNode joinNode = new JoinNode(new PlanNodeId(planId), JoinNode.Type.INNER, probeSource, buildSource, ImmutableList.<EquiJoinClause>of(), Optional.empty(), Optional.empty());
         PlanFragment joinPlan = new PlanFragment(
                 new PlanFragmentId(planId),
-                new JoinNode(new PlanNodeId(planId), JoinNode.Type.INNER, probeExchange, buildExchange, ImmutableList.<EquiJoinClause>of()),
+                joinNode,
                 probe.getFragment().getSymbols(), // this is wrong, but it works
+                joinNode.getOutputSymbols(),
                 PlanDistribution.SOURCE,
                 new PlanNodeId(planId),
                 OutputPartitioning.NONE,
-                ImmutableList.<Symbol>of());
+                ImmutableList.<Symbol>of(),
+                Optional.empty());
 
         return new StageExecutionPlan(joinPlan,
                 probe.getDataSource(),
-                ImmutableList.of(probe, build),
-                ImmutableMap.<PlanNodeId, OutputReceiver>of());
+                ImmutableList.of(probe, build)
+        );
     }
 
-    private StageExecutionPlan createTableScanPlan(String planId, MetadataManager metadata, int splitCount)
+    private StageExecutionPlan createTableScanPlan(String planId, int splitCount, Supplier<ConnectorSplit> splitFactory)
     {
-        TableHandle tableHandle = metadata.getTableHandle(new QualifiedTableName("default", "default", DualMetadata.NAME)).get();
-        ColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, DualMetadata.COLUMN_NAME).get();
-        Symbol symbol = new Symbol(DualMetadata.COLUMN_NAME);
+        Symbol symbol = new Symbol("column");
 
         // table scan with splitCount splits
-        Split split = new DualSplit(HostAddress.fromString("127.0.0.1"));
         PlanNodeId tableScanNodeId = new PlanNodeId(planId);
         PlanFragment testFragment = new PlanFragment(
                 new PlanFragmentId(planId),
                 new TableScanNode(
                         tableScanNodeId,
-                        tableHandle,
+                        new TableHandle("test", new TestingTableHandle()),
                         ImmutableList.of(symbol),
-                        ImmutableMap.of(symbol, columnHandle),
+                        ImmutableMap.of(symbol, new ColumnHandle("test", new TestingColumnHandle("column"))),
                         null,
-                        Optional.<GeneratedPartitions>absent()),
-                ImmutableMap.<Symbol, Type>of(symbol, Type.VARCHAR),
+                        Optional.empty()),
+                ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
+                ImmutableList.of(symbol),
                 PlanDistribution.SOURCE,
                 tableScanNodeId,
                 OutputPartitioning.NONE,
-                ImmutableList.<Symbol>of());
+                ImmutableList.<Symbol>of(),
+                Optional.empty());
 
-        ImmutableList.Builder<Split> splits = ImmutableList.builder();
+        ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
+
         for (int i = 0; i < splitCount; i++) {
-            splits.add(new DualSplit(HostAddress.fromString("127.0.0.1")));
+            splits.add(splitFactory.get());
         }
-        SplitSource splitSource = new FixedSplitSource(null, splits.build());
+        SplitSource splitSource = new ConnectorAwareSplitSource("test", new FixedSplitSource(null, splits.build()));
 
         return new StageExecutionPlan(testFragment,
                 Optional.of(splitSource),
-                ImmutableList.<StageExecutionPlan>of(),
-                ImmutableMap.<PlanNodeId, OutputReceiver>of());
+                ImmutableList.<StageExecutionPlan>of()
+        );
     }
 
     private static class MockRemoteTaskFactory
@@ -360,10 +383,9 @@ public class TestSqlStageExecution
                 Node node,
                 PlanFragment fragment,
                 Multimap<PlanNodeId, Split> initialSplits,
-                Map<PlanNodeId, OutputReceiver> outputReceivers,
                 OutputBuffers outputBuffers)
         {
-            return new MockRemoteTask(taskId, fragment, executor, initialSplits);
+            return new MockRemoteTask(taskId, node.getNodeIdentifier(), fragment, executor, initialSplits);
         }
 
         private static class MockRemoteTask
@@ -375,6 +397,7 @@ public class TestSqlStageExecution
             private final TaskStateMachine taskStateMachine;
             private final TaskContext taskContext;
             private final SharedBuffer sharedBuffer;
+            private final String nodeId;
 
             private final PlanFragment fragment;
 
@@ -385,33 +408,34 @@ public class TestSqlStageExecution
             private final Multimap<PlanNodeId, Split> splits = HashMultimap.create();
 
             public MockRemoteTask(TaskId taskId,
+                    String nodeId,
                     PlanFragment fragment,
                     Executor executor,
                     Multimap<PlanNodeId, Split> initialSplits)
             {
                 this.taskStateMachine = new TaskStateMachine(checkNotNull(taskId, "taskId is null"), checkNotNull(executor, "executor is null"));
 
-                Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
-                this.taskContext = new TaskContext(taskStateMachine, executor, session, new DataSize(256, MEGABYTE), new DataSize(1, MEGABYTE), true);
+                this.taskContext = new TaskContext(taskStateMachine, executor, TEST_SESSION, new DataSize(256, MEGABYTE), new DataSize(1, MEGABYTE), true, true);
 
                 this.location = URI.create("fake://task/" + taskId);
 
-                this.sharedBuffer = new SharedBuffer(taskId, executor, checkNotNull(new DataSize(1, Unit.BYTE), "maxBufferSize is null"), INITIAL_EMPTY_OUTPUT_BUFFERS);
+                this.sharedBuffer = new SharedBuffer(taskId, executor, checkNotNull(new DataSize(1, Unit.BYTE), "maxBufferSize is null"));
                 this.fragment = checkNotNull(fragment, "fragment is null");
+                this.nodeId = nodeId;
                 splits.putAll(initialSplits);
             }
 
             @Override
             public String getNodeId()
             {
-                return "node";
+                return nodeId;
             }
 
             @Override
             public TaskInfo getTaskInfo()
             {
                 TaskState state = taskStateMachine.getState();
-                List<FailureInfo> failures = ImmutableList.of();
+                List<ExecutionFailureInfo> failures = ImmutableList.of();
                 if (state == TaskState.FAILED) {
                     failures = toFailures(taskStateMachine.getFailureCauses());
                 }
@@ -425,8 +449,12 @@ public class TestSqlStageExecution
                         sharedBuffer.getInfo(),
                         ImmutableSet.<PlanNodeId>of(),
                         taskContext.getTaskStats(),
-                        failures,
-                        taskContext.getOutputItems());
+                        failures);
+            }
+
+            public void finished()
+            {
+                taskStateMachine.finished();
             }
 
             @Override
@@ -435,7 +463,7 @@ public class TestSqlStageExecution
             }
 
             @Override
-            public void addSplits(PlanNodeId sourceId, Iterable<? extends Split> splits)
+            public void addSplits(PlanNodeId sourceId, Iterable<Split> splits)
             {
                 checkNotNull(splits, "splits is null");
                 for (Split split : splits) {
@@ -447,9 +475,6 @@ public class TestSqlStageExecution
             public void noMoreSplits(PlanNodeId sourceId)
             {
                 noMoreSplits.add(sourceId);
-                if (noMoreSplits.containsAll(fragment.getSources())) {
-                    taskStateMachine.finished();
-                }
             }
 
             @Override
@@ -478,6 +503,12 @@ public class TestSqlStageExecution
             }
 
             @Override
+            public void abort()
+            {
+                taskStateMachine.abort();
+            }
+
+            @Override
             public Duration waitForTaskToFinish(Duration maxWait)
                     throws InterruptedException
             {
@@ -491,12 +522,18 @@ public class TestSqlStageExecution
             }
 
             @Override
-            public int getQueuedSplits()
+            public int getPartitionedSplitCount()
             {
                 if (taskStateMachine.getState().isDone()) {
                     return 0;
                 }
                 return splits.size();
+            }
+
+            @Override
+            public int getQueuedPartitionedSplitCount()
+            {
+                return 0;
             }
         }
     }

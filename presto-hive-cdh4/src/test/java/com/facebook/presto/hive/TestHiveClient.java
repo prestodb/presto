@@ -13,17 +13,19 @@
  */
 package com.facebook.presto.hive;
 
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Parameters;
+import org.testng.annotations.Test;
 
+@Test
 public class TestHiveClient
         extends AbstractTestHiveClient
 {
-    @Parameters({"hive.cdh4.metastoreHost", "hive.cdh4.metastorePort", "hive.cdh4.databaseName"})
-    @BeforeMethod
+    @Parameters({"hive.cdh4.metastoreHost", "hive.cdh4.metastorePort", "hive.cdh4.databaseName", "hive.cdh4.timeZone"})
+    @BeforeClass
     @Override
-    public void setup(String host, int port, String databaseName)
+    public void setup(String host, int port, String databaseName, String timeZone)
     {
-        super.setup(host, port, databaseName);
+        super.setup(host, port, databaseName, timeZone);
     }
 }

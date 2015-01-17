@@ -15,12 +15,13 @@ package com.facebook.presto.byteCode.instruction;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 
 import java.util.List;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class LabelNode
         implements InstructionNode
@@ -34,7 +35,7 @@ public class LabelNode
         this.name = "label@" + label.hashCode();
     }
 
-    public LabelNode(com.facebook.presto.byteCode.instruction.LabelNode labelNode)
+    public LabelNode(LabelNode labelNode)
     {
         this.label = labelNode.getLabel();
         this.name = "label@" + label.hashCode();
@@ -65,7 +66,7 @@ public class LabelNode
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("name", name)
                 .toString();
     }

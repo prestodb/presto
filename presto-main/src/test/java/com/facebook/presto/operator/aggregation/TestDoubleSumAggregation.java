@@ -13,11 +13,15 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.collect.ImmutableList;
 
-import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
+import java.util.List;
+
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class TestDoubleSumAggregation
         extends AbstractTestAggregationFunction
@@ -25,17 +29,11 @@ public class TestDoubleSumAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_DOUBLE);
+        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus());
         for (int i = start; i < start + length; i++) {
-            blockBuilder.append((double) i);
+            DOUBLE.writeDouble(blockBuilder, (double) i);
         }
         return blockBuilder.build();
-    }
-
-    @Override
-    public AggregationFunction getFunction()
-    {
-        return DOUBLE_SUM;
     }
 
     @Override
@@ -50,5 +48,17 @@ public class TestDoubleSumAggregation
             sum += i;
         }
         return sum;
+    }
+
+    @Override
+    protected String getFunctionName()
+    {
+        return "sum";
+    }
+
+    @Override
+    protected List<String> getFunctionParameterTypes()
+    {
+        return ImmutableList.of(StandardTypes.DOUBLE);
     }
 }

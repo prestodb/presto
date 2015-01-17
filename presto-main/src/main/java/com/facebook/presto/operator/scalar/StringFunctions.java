@@ -14,32 +14,51 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.Description;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.SqlType;
 import com.google.common.base.Ascii;
-import com.google.common.base.Charsets;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import javax.annotation.Nullable;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.util.Failures.checkCondition;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class StringFunctions
 {
     private StringFunctions() {}
 
-    @Description("convert ASCII character code to string")
+    @Description("convert Unicode code point to a string")
     @ScalarFunction
-    public static Slice chr(long n)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice chr(@SqlType(StandardTypes.BIGINT) long codepoint)
     {
-        Slice slice = Slices.allocate(1);
-        slice.setByte(0, Ints.saturatedCast(n));
-        return slice;
+        char[] utf16 = codePointChars(codepoint);
+        ByteBuffer utf8 = UTF_8.encode(CharBuffer.wrap(utf16));
+        return Slices.wrappedBuffer(utf8.array(), 0, utf8.limit());
+    }
+
+    private static char[] codePointChars(long codepoint)
+    {
+        try {
+            return Character.toChars(Ints.checkedCast(codepoint));
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Not a valid Unicode code point: " + codepoint);
+        }
     }
 
     @Description("concatenates given strings")
     @ScalarFunction
-    public static Slice concat(Slice str1, Slice str2)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice concat(@SqlType(StandardTypes.VARCHAR) Slice str1, @SqlType(StandardTypes.VARCHAR) Slice str2)
     {
         Slice concat = Slices.allocate(str1.length() + str2.length());
         concat.setBytes(0, str1);
@@ -49,31 +68,35 @@ public final class StringFunctions
 
     @Description("length of the given string")
     @ScalarFunction
-    public static long length(Slice slice)
+    @SqlType(StandardTypes.BIGINT)
+    public static long length(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         return slice.length();
     }
 
     @Description("greedily removes occurrences of a pattern in a string")
     @ScalarFunction
-    public static Slice replace(Slice str, Slice search)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice replace(@SqlType(StandardTypes.VARCHAR) Slice str, @SqlType(StandardTypes.VARCHAR) Slice search)
     {
         return replace(str, search, Slices.EMPTY_SLICE);
     }
 
     @Description("greedily replaces occurrences of a pattern with a string")
     @ScalarFunction
-    public static Slice replace(Slice str, Slice search, Slice replace)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice replace(@SqlType(StandardTypes.VARCHAR) Slice str, @SqlType(StandardTypes.VARCHAR) Slice search, @SqlType(StandardTypes.VARCHAR) Slice replace)
     {
-        String replaced = str.toString(Charsets.UTF_8).replace(
-                search.toString(Charsets.UTF_8),
-                replace.toString(Charsets.UTF_8));
-        return Slices.copiedBuffer(replaced, Charsets.UTF_8);
+        String replaced = str.toString(UTF_8).replace(
+                search.toString(UTF_8),
+                replace.toString(UTF_8));
+        return Slices.copiedBuffer(replaced, UTF_8);
     }
 
     @Description("reverses the given string")
     @ScalarFunction
-    public static Slice reverse(Slice slice)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice reverse(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         Slice reverse = Slices.allocate(slice.length());
         for (int i = 0, j = slice.length() - 1; i < slice.length(); i++, j--) {
@@ -84,7 +107,8 @@ public final class StringFunctions
 
     @Description("returns index of first occurrence of a substring (or 0 if not found)")
     @ScalarFunction("strpos")
-    public static long stringPosition(Slice string, Slice substring)
+    @SqlType(StandardTypes.BIGINT)
+    public static long stringPosition(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice substring)
     {
         if (substring.length() > string.length()) {
             return 0;
@@ -101,14 +125,16 @@ public final class StringFunctions
 
     @Description("suffix starting at given index")
     @ScalarFunction
-    public static Slice substr(Slice slice, long start)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice substr(@SqlType(StandardTypes.VARCHAR) Slice slice, @SqlType(StandardTypes.BIGINT) long start)
     {
         return substr(slice, start, slice.length());
     }
 
     @Description("substring of given length starting at an index")
     @ScalarFunction
-    public static Slice substr(Slice slice, long start, long length)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice substr(@SqlType(StandardTypes.VARCHAR) Slice slice, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
     {
         if ((start == 0) || (length <= 0)) {
             return Slices.EMPTY_SLICE;
@@ -141,9 +167,10 @@ public final class StringFunctions
     @Nullable
     @Description("splits a string by a delimiter and returns the specified field (counting from one)")
     @ScalarFunction
-    public static Slice splitPart(Slice string, Slice delimiter, long index)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice splitPart(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter, @SqlType(StandardTypes.BIGINT) long index)
     {
-        checkArgument(index > 0, "Index must be greater than zero");
+        checkCondition(index > 0, INVALID_FUNCTION_ARGUMENT, "Index must be greater than zero");
 
         if (delimiter.length() == 0) {
             if (index > string.length()) {
@@ -179,7 +206,8 @@ public final class StringFunctions
 
     @Description("removes spaces from the beginning of a string")
     @ScalarFunction("ltrim")
-    public static Slice leftTrim(Slice slice)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice leftTrim(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         int start = firstNonSpace(slice);
         return slice.slice(start, slice.length() - start);
@@ -187,7 +215,8 @@ public final class StringFunctions
 
     @Description("removes spaces from the end of a string")
     @ScalarFunction("rtrim")
-    public static Slice rightTrim(Slice slice)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice rightTrim(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         int end = lastNonSpace(slice);
         return slice.slice(0, end + 1);
@@ -195,7 +224,8 @@ public final class StringFunctions
 
     @Description("removes spaces from the beginning and end of a string")
     @ScalarFunction
-    public static Slice trim(Slice slice)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice trim(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         int start = firstNonSpace(slice);
         if (start == slice.length()) {
@@ -230,7 +260,8 @@ public final class StringFunctions
 
     @Description("converts the alphabets in a string to lower case")
     @ScalarFunction
-    public static Slice lower(Slice slice)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice lower(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         Slice upper = Slices.allocate(slice.length());
         for (int i = 0; i < slice.length(); i++) {
@@ -241,7 +272,8 @@ public final class StringFunctions
 
     @Description("converts all the alphabets in the string to upper case")
     @ScalarFunction
-    public static Slice upper(Slice slice)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice upper(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         Slice upper = Slices.allocate(slice.length());
         for (int i = 0; i < slice.length(); i++) {

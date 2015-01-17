@@ -15,16 +15,13 @@ package com.facebook.presto.byteCode;
 
 import com.facebook.presto.byteCode.debug.LocalVariableNode;
 import com.facebook.presto.byteCode.instruction.LabelNode;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.tree.InsnNode;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.ArrayList;
@@ -33,9 +30,6 @@ import java.util.List;
 
 import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.toAccessModifier;
-import static com.facebook.presto.byteCode.NamedParameterDefinition.getNamedParameterType;
-import static com.facebook.presto.byteCode.ParameterizedType.getParameterType;
-import static com.facebook.presto.byteCode.ParameterizedType.toParameterizedType;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.google.common.collect.Iterables.transform;
 import static org.objectweb.asm.Opcodes.RETURN;
@@ -91,18 +85,11 @@ public class MethodDefinition
             this.returnType = type(void.class);
         }
         this.parameters = ImmutableList.copyOf(parameters);
-        this.parameterTypes = Lists.transform(this.parameters, getNamedParameterType());
-        this.parameterAnnotations = ImmutableList.copyOf(Iterables.transform(parameters, new Function<NamedParameterDefinition, List<AnnotationDefinition>>()
-        {
-            @Override
-            public List<AnnotationDefinition> apply(@Nullable NamedParameterDefinition input)
-            {
-                return new ArrayList<>();
-            }
-        }));
+        this.parameterTypes = Lists.transform(this.parameters, NamedParameterDefinition::getType);
+        this.parameterAnnotations = ImmutableList.copyOf(transform(parameters, input -> new ArrayList<>()));
 
         if (!access.contains(STATIC)) {
-            getCompilerContext().declareThisVariable(type(Object.class));
+            getCompilerContext().declareThisVariable(declaringClass.getType());
         }
         int argId = 0;
         for (NamedParameterDefinition parameter : parameters) {
@@ -110,7 +97,7 @@ public class MethodDefinition
             if (parameterName == null) {
                 parameterName = "arg" + argId;
             }
-            getCompilerContext().declareParameter(parameter.getType(), parameterName);
+            getCompilerContext().declareVariable(parameter.getType(), parameterName);
             argId++;
         }
     }
@@ -258,11 +245,6 @@ public class MethodDefinition
         // visit code
         methodVisitor.visitCode();
 
-//        // visit try catch blocks
-//        for (TryCatchBlockNode tryCatchBlockNode : body.getTryCatchBlocks()) {
-//            tryCatchBlockNode.accept(methodVisitor);
-//        }
-
         // visit instructions
         body.accept(methodVisitor);
         if (addReturn) {
@@ -279,6 +261,22 @@ public class MethodDefinition
         methodVisitor.visitEnd();
     }
 
+    public String toSourceString()
+    {
+        StringBuilder sb = new StringBuilder();
+        Joiner.on(' ').appendTo(sb, access).append(' ');
+        sb.append(returnType.getJavaClassName()).append(' ');
+        sb.append(name).append('(');
+        Joiner.on(", ").appendTo(sb, transform(parameters, NamedParameterDefinition::getSourceString)).append(')');
+        return sb.toString();
+    }
+
+    @Override
+    public String toString()
+    {
+        return toSourceString();
+    }
+
     public static String methodDescription(Class<?> returnType, Class<?>... parameterTypes)
     {
         return methodDescription(returnType, ImmutableList.copyOf(parameterTypes));
@@ -288,7 +286,7 @@ public class MethodDefinition
     {
         return methodDescription(
                 type(returnType),
-                Lists.transform(parameterTypes, toParameterizedType())
+                Lists.transform(parameterTypes, ParameterizedType::type)
         );
     }
 
@@ -307,7 +305,7 @@ public class MethodDefinition
     {
         StringBuilder sb = new StringBuilder();
         sb.append("(");
-        Joiner.on("").appendTo(sb, transform(parameterTypes, getParameterType()));
+        Joiner.on("").appendTo(sb, transform(parameterTypes, ParameterizedType::getType));
         sb.append(")");
         sb.append(returnType.getType());
         return sb.toString();
@@ -334,7 +332,7 @@ public class MethodDefinition
         return sb.toString();
     }
 
-    public void addLocalVariable(LocalVariableDefinition localVariable, LabelNode start, LabelNode end)
+    public void addLocalVariable(Variable localVariable, LabelNode start, LabelNode end)
     {
         localVariableNodes.add(new LocalVariableNode(localVariable, start, end));
     }

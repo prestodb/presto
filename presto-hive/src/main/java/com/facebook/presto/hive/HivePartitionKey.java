@@ -13,18 +13,16 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ColumnType;
-import com.facebook.presto.spi.PartitionKey;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class HivePartitionKey
-        implements PartitionKey
+public final class HivePartitionKey
 {
+    public static final String HIVE_DEFAULT_DYNAMIC_PARTITION = "__HIVE_DEFAULT_PARTITION__";
     private final String name;
     private final HiveType hiveType;
     private final String value;
@@ -41,11 +39,10 @@ public class HivePartitionKey
 
         this.name = name;
         this.hiveType = hiveType;
-        this.value = value;
+        this.value = value.equals(HIVE_DEFAULT_DYNAMIC_PARTITION) ? "\\N" : value;
     }
 
     @JsonProperty
-    @Override
     public String getName()
     {
         return name;
@@ -57,14 +54,7 @@ public class HivePartitionKey
         return hiveType;
     }
 
-    @Override
-    public ColumnType getType()
-    {
-        return hiveType.getNativeType();
-    }
-
     @JsonProperty
-    @Override
     public String getValue()
     {
         return value;
@@ -73,7 +63,7 @@ public class HivePartitionKey
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("name", name)
                 .add("hiveType", hiveType)
                 .add("value", value)
@@ -99,17 +89,5 @@ public class HivePartitionKey
         return Objects.equal(this.name, other.name) &&
                 Objects.equal(this.hiveType, other.hiveType) &&
                 Objects.equal(this.value, other.value);
-    }
-
-    public static Function<HivePartitionKey, String> nameGetter()
-    {
-        return new Function<HivePartitionKey, String>()
-        {
-            @Override
-            public String apply(HivePartitionKey input)
-            {
-                return input.getName();
-            }
-        };
     }
 }

@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_OFFLINE;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class PartitionOfflineException
-        extends RuntimeException
+        extends PrestoException
 {
     private final SchemaTableName tableName;
     private final String partition;
@@ -32,7 +34,7 @@ public class PartitionOfflineException
             String partition,
             String message)
     {
-        super(message);
+        super(HIVE_PARTITION_OFFLINE, message);
         if (tableName == null) {
             throw new NullPointerException("tableName is null");
         }

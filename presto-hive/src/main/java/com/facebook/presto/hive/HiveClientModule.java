@@ -13,25 +13,36 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.CachingHiveMetastore;
+import com.facebook.presto.hive.metastore.HiveMetastore;
+import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
+import com.facebook.presto.hive.orc.DwrfRecordCursorProvider;
+import com.facebook.presto.hive.orc.OrcPageSourceFactory;
+import com.facebook.presto.hive.orc.OrcRecordCursorProvider;
+import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
+import com.facebook.presto.spi.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.net.HostAndPort;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.multibindings.Multibinder;
 
 import javax.inject.Singleton;
 
 import java.net.URI;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -39,10 +50,14 @@ public class HiveClientModule
         implements Module
 {
     private final String connectorId;
+    private final HiveMetastore metastore;
+    private final TypeManager typeManager;
 
-    public HiveClientModule(String connectorId)
+    public HiveClientModule(String connectorId, HiveMetastore metastore, TypeManager typeManager)
     {
         this.connectorId = connectorId;
+        this.metastore = metastore;
+        this.typeManager = typeManager;
     }
 
     @Override
@@ -53,16 +68,42 @@ public class HiveClientModule
 
         binder.bind(HdfsConfiguration.class).in(Scopes.SINGLETON);
         binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
+        binder.bind(DirectoryLister.class).to(HadoopDirectoryLister.class).in(Scopes.SINGLETON);
         bindConfig(binder).to(HiveClientConfig.class);
         bindConfig(binder).to(HivePluginConfig.class);
 
-        binder.bind(CachingHiveMetastore.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(CachingHiveMetastore.class)
-                .as(generatedNameOf(CachingHiveMetastore.class, connectorId));
+        if (metastore != null) {
+            binder.bind(HiveMetastore.class).toInstance(metastore);
+        }
+        else {
+            binder.bind(HiveMetastore.class).to(CachingHiveMetastore.class).in(Scopes.SINGLETON);
+            newExporter(binder).export(HiveMetastore.class)
+                    .as(generatedNameOf(CachingHiveMetastore.class, connectorId));
+        }
+
+        binder.bind(NamenodeStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(NamenodeStats.class).as(generatedNameOf(NamenodeStats.class));
 
         binder.bind(DiscoveryLocatedHiveCluster.class).in(Scopes.SINGLETON);
         binder.bind(HiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
         discoveryBinder(binder).bindSelector("hive-metastore");
+
+        binder.bind(TypeManager.class).toInstance(typeManager);
+
+        Multibinder<HiveRecordCursorProvider> recordCursorProviderBinder = Multibinder.newSetBinder(binder, HiveRecordCursorProvider.class);
+        recordCursorProviderBinder.addBinding().to(OrcRecordCursorProvider.class).in(Scopes.SINGLETON);
+        recordCursorProviderBinder.addBinding().to(ParquetRecordCursorProvider.class).in(Scopes.SINGLETON);
+        recordCursorProviderBinder.addBinding().to(DwrfRecordCursorProvider.class).in(Scopes.SINGLETON);
+        recordCursorProviderBinder.addBinding().to(ColumnarTextHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
+        recordCursorProviderBinder.addBinding().to(ColumnarBinaryHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
+        recordCursorProviderBinder.addBinding().to(GenericHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
+
+        binder.bind(ConnectorPageSourceProvider.class).to(HivePageSourceProvider.class).in(Scopes.SINGLETON);
+
+        Multibinder<HivePageSourceFactory> pageSourceFactoryBinder = Multibinder.newSetBinder(binder, HivePageSourceFactory.class);
+        pageSourceFactoryBinder.addBinding().to(RcFilePageSourceFactory.class).in(Scopes.SINGLETON);
+        pageSourceFactoryBinder.addBinding().to(OrcPageSourceFactory.class).in(Scopes.SINGLETON);
+        pageSourceFactoryBinder.addBinding().to(DwrfPageSourceFactory.class).in(Scopes.SINGLETON);
     }
 
     @ForHiveClient
@@ -70,7 +111,7 @@ public class HiveClientModule
     @Provides
     public ExecutorService createHiveClientExecutor(HiveConnectorId hiveClientId)
     {
-        return Executors.newCachedThreadPool(new ThreadFactoryBuilder().setDaemon(true).setNameFormat("hive-" + hiveClientId + "-%d").build());
+        return newCachedThreadPool(daemonThreadsNamed("hive-" + hiveClientId + "-%s"));
     }
 
     @ForHiveMetastore
@@ -78,9 +119,9 @@ public class HiveClientModule
     @Provides
     public ExecutorService createCachingHiveMetastoreExecutor(HiveConnectorId hiveClientId, HiveClientConfig hiveClientConfig)
     {
-        return Executors.newFixedThreadPool(
+        return newFixedThreadPool(
                 hiveClientConfig.getMaxMetastoreRefreshThreads(),
-                new ThreadFactoryBuilder().setDaemon(true).setNameFormat("hive-metastore-" + hiveClientId + "-%d").build());
+                daemonThreadsNamed("hive-metastore-" + hiveClientId + "-%s"));
     }
 
     @Singleton

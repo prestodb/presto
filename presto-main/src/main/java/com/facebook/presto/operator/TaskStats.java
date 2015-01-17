@@ -26,6 +26,8 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class TaskStats
 {
@@ -39,7 +41,9 @@ public class TaskStats
 
     private final int totalDrivers;
     private final int queuedDrivers;
+    private final int queuedPartitionedDrivers;
     private final int runningDrivers;
+    private final int runningPartitionedDrivers;
     private final int completedDrivers;
 
     private final DataSize memoryReservation;
@@ -60,6 +64,34 @@ public class TaskStats
 
     private final List<PipelineStats> pipelines;
 
+    public TaskStats(DateTime createTime)
+    {
+        this(createTime,
+                null,
+                null,
+                null,
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                new DataSize(0, BYTE),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new DataSize(0, BYTE),
+                0,
+                new DataSize(0, BYTE),
+                0,
+                new DataSize(0, BYTE),
+                0,
+                ImmutableList.<PipelineStats>of());
+    }
+
     @JsonCreator
     public TaskStats(
             @JsonProperty("createTime") DateTime createTime,
@@ -71,7 +103,9 @@ public class TaskStats
 
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
+            @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
             @JsonProperty("runningDrivers") int runningDrivers,
+            @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
             @JsonProperty("memoryReservation") DataSize memoryReservation,
@@ -103,8 +137,14 @@ public class TaskStats
         this.totalDrivers = totalDrivers;
         checkArgument(queuedDrivers >= 0, "queuedDrivers is negative");
         this.queuedDrivers = queuedDrivers;
+        checkArgument(queuedPartitionedDrivers >= 0, "queuedPartitionedDrivers is negative");
+        this.queuedPartitionedDrivers = queuedPartitionedDrivers;
+
         checkArgument(runningDrivers >= 0, "runningDrivers is negative");
         this.runningDrivers = runningDrivers;
+        checkArgument(runningPartitionedDrivers >= 0, "runningPartitionedDrivers is negative");
+        this.runningPartitionedDrivers = runningPartitionedDrivers;
+
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
 
@@ -263,5 +303,46 @@ public class TaskStats
     public List<PipelineStats> getPipelines()
     {
         return pipelines;
+    }
+
+    @JsonProperty
+    public int getQueuedPartitionedDrivers()
+    {
+        return queuedPartitionedDrivers;
+    }
+
+    @JsonProperty
+    public int getRunningPartitionedDrivers()
+    {
+        return runningPartitionedDrivers;
+    }
+
+    public TaskStats summarize()
+    {
+        return new TaskStats(
+                createTime,
+                firstStartTime,
+                lastStartTime,
+                endTime,
+                elapsedTime,
+                queuedTime,
+                totalDrivers,
+                queuedDrivers,
+                queuedPartitionedDrivers,
+                runningDrivers,
+                runningPartitionedDrivers,
+                completedDrivers,
+                memoryReservation,
+                totalScheduledTime,
+                totalCpuTime,
+                totalUserTime,
+                totalBlockedTime,
+                rawInputDataSize,
+                rawInputPositions,
+                processedInputDataSize,
+                processedInputPositions,
+                outputDataSize,
+                outputPositions,
+                ImmutableList.<PipelineStats>of());
     }
 }

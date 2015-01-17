@@ -13,26 +13,20 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 @Immutable
@@ -63,8 +57,7 @@ public class TaskInfo
     private final SharedBufferInfo outputBuffers;
     private final Set<PlanNodeId> noMoreSplits;
     private final TaskStats stats;
-    private final List<FailureInfo> failures;
-    private final Map<PlanNodeId, Set<?>> outputs;
+    private final List<ExecutionFailureInfo> failures;
 
     @JsonCreator
     public TaskInfo(@JsonProperty("taskId") TaskId taskId,
@@ -75,8 +68,7 @@ public class TaskInfo
             @JsonProperty("outputBuffers") SharedBufferInfo outputBuffers,
             @JsonProperty("noMoreSplits") Set<PlanNodeId> noMoreSplits,
             @JsonProperty("stats") TaskStats stats,
-            @JsonProperty("failures") List<FailureInfo> failures,
-            @JsonProperty("outputs") Map<PlanNodeId, Set<?>> outputs)
+            @JsonProperty("failures") List<ExecutionFailureInfo> failures)
     {
         this.taskId = checkNotNull(taskId, "taskId is null");
         this.version = checkNotNull(version, "version is null");
@@ -93,15 +85,6 @@ public class TaskInfo
         else {
             this.failures = ImmutableList.of();
         }
-
-        checkNotNull(outputs, "outputs is null");
-        this.outputs = ImmutableMap.copyOf(Maps.transformValues(outputs, new Function<Set<?>, Set<?>>() {
-            @Override
-            public Set<?> apply(Set<?> input)
-            {
-                return ImmutableSet.copyOf(input);
-            }
-        }));
     }
 
     @JsonProperty
@@ -153,35 +136,22 @@ public class TaskInfo
     }
 
     @JsonProperty
-    public List<FailureInfo> getFailures()
+    public List<ExecutionFailureInfo> getFailures()
     {
         return failures;
     }
 
-    @JsonProperty
-    public Map<PlanNodeId, Set<?>> getOutputs()
+    public TaskInfo summarize()
     {
-        return outputs;
+        return new TaskInfo(taskId, version, state, self, lastHeartbeat, outputBuffers, noMoreSplits, stats.summarize(), failures);
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("taskId", taskId)
                 .add("state", state)
                 .toString();
-    }
-
-    public static Function<TaskInfo, TaskState> taskStateGetter()
-    {
-        return new Function<TaskInfo, TaskState>()
-        {
-            @Override
-            public TaskState apply(TaskInfo taskInfo)
-            {
-                return taskInfo.getState();
-            }
-        };
     }
 }

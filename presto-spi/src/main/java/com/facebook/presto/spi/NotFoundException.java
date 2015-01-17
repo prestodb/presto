@@ -13,30 +13,33 @@
  */
 package com.facebook.presto.spi;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+
 public abstract class NotFoundException
-        extends RuntimeException
+        extends PrestoException
 {
     protected NotFoundException()
     {
+        this(null, null);
     }
 
     protected NotFoundException(String message)
     {
-        super(message);
-    }
-
-    protected NotFoundException(String message, Throwable cause)
-    {
-        super(message, cause);
+        this(message, null);
     }
 
     protected NotFoundException(Throwable cause)
     {
-        super(cause);
+        this(null, cause);
+    }
+
+    protected NotFoundException(String message, Throwable cause)
+    {
+        super(NOT_FOUND, message, cause);
     }
 
     protected NotFoundException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace)
     {
-        super(message, cause, enableSuppression, writableStackTrace);
+        super(NOT_FOUND, message, cause, enableSuppression, writableStackTrace);
     }
 }

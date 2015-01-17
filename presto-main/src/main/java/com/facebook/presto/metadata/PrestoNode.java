@@ -15,11 +15,10 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
 
 import java.net.URI;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -87,34 +86,10 @@ public class PrestoNode
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("nodeIdentifier", nodeIdentifier)
                 .add("httpUri", httpUri)
                 .add("nodeVersion", nodeVersion)
                 .toString();
-    }
-
-    public static Function<Node, String> getIdentifierFunction()
-    {
-        return new Function<Node, String>()
-        {
-            @Override
-            public String apply(Node node)
-            {
-                return node.getNodeIdentifier();
-            }
-        };
-    }
-
-    public static Function<Node, HostAddress> hostAndPortGetter()
-    {
-        return new Function<Node, HostAddress>()
-        {
-            @Override
-            public HostAddress apply(Node node)
-            {
-                return node.getHostAndPort();
-            }
-        };
     }
 }

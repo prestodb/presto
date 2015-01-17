@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.google.common.base.Predicate;
-
 public enum TaskState
 {
     /**
@@ -36,13 +34,18 @@ public enum TaskState
      */
     CANCELED(true),
     /**
+     * Task was aborted due to a failure in the query.  The failure
+     * was not in this task.
+     */
+    ABORTED(true),
+    /**
      * Task execution failed.
      */
     FAILED(true);
 
     private final boolean doneState;
 
-    private TaskState(boolean doneState)
+    TaskState(boolean doneState)
     {
         this.doneState = doneState;
     }
@@ -53,17 +56,5 @@ public enum TaskState
     public boolean isDone()
     {
         return doneState;
-    }
-
-    public static Predicate<TaskState> inDoneState()
-    {
-        return new Predicate<TaskState>()
-        {
-            @Override
-            public boolean apply(TaskState state)
-            {
-                return state.isDone();
-            }
-        };
     }
 }

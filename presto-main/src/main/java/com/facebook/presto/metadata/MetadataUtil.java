@@ -13,36 +13,26 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.base.Function;
-import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Locale.ENGLISH;
 
 public final class MetadataUtil
 {
     private MetadataUtil() {}
-
-    public static QualifiedTableName checkTable(QualifiedTableName table)
-    {
-        checkNotNull(table, "table is null");
-        checkCatalogName(table.getCatalogName());
-        checkSchemaName(table.getSchemaName());
-        checkTableName(table.getTableName());
-        return table;
-    }
 
     public static void checkTableName(String catalogName, Optional<String> schemaName, Optional<String> tableName)
     {
@@ -101,7 +91,7 @@ public final class MetadataUtil
     public static String checkLowerCase(String value, String name)
     {
         checkNotNull(value, "%s is null", name);
-        checkArgument(value.equals(value.toLowerCase()), "%s is not lowercase", name);
+        checkArgument(value.equals(value.toLowerCase(ENGLISH)), "%s is not lowercase", name);
         return value;
     }
 
@@ -115,35 +105,11 @@ public final class MetadataUtil
         return null;
     }
 
-    public static Function<ColumnMetadata, ColumnType> columnTypeGetter()
-    {
-        return new Function<ColumnMetadata, ColumnType>()
-        {
-            @Override
-            public ColumnType apply(ColumnMetadata columnMetadata)
-            {
-                return columnMetadata.getType();
-            }
-        };
-    }
-
-    public static Function<ColumnMetadata, String> columnNameGetter()
-    {
-        return new Function<ColumnMetadata, String>()
-        {
-            @Override
-            public String apply(ColumnMetadata columnMetadata)
-            {
-                return columnMetadata.getName();
-            }
-        };
-    }
-
     public static QualifiedTableName createQualifiedTableName(Session session, QualifiedName name)
     {
-        Preconditions.checkNotNull(session, "session is null");
-        Preconditions.checkNotNull(name, "name is null");
-        Preconditions.checkArgument(name.getParts().size() <= 3, "Too many dots in table name: %s", name);
+        checkNotNull(session, "session is null");
+        checkNotNull(name, "name is null");
+        checkArgument(name.getParts().size() <= 3, "Too many dots in table name: %s", name);
 
         List<String> parts = Lists.reverse(name.getParts());
         String tableName = parts.get(0);
@@ -151,30 +117,6 @@ public final class MetadataUtil
         String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCatalog();
 
         return new QualifiedTableName(catalogName, schemaName, tableName);
-    }
-
-    public static Function<SchemaTableName, String> schemaNameGetter()
-    {
-        return new Function<SchemaTableName, String>()
-        {
-            @Override
-            public String apply(SchemaTableName schemaTableName)
-            {
-                return schemaTableName.getSchemaName();
-            }
-        };
-    }
-
-    public static Function<SchemaTableName, String> tableNameGetter()
-    {
-        return new Function<SchemaTableName, String>()
-        {
-            @Override
-            public String apply(SchemaTableName schemaTableName)
-            {
-                return schemaTableName.getTableName();
-            }
-        };
     }
 
     public static class SchemaMetadataBuilder
@@ -212,22 +154,24 @@ public final class MetadataUtil
 
         private final SchemaTableName tableName;
         private final ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        private int ordinalPosition = 0;
+        private int ordinalPosition;
 
         private TableMetadataBuilder(SchemaTableName tableName)
         {
             this.tableName = tableName;
         }
 
-        public TableMetadataBuilder column(String columnName, ColumnType type)
+        public TableMetadataBuilder column(String columnName, Type type)
         {
-            columns.add(new ColumnMetadata(columnName, type, ordinalPosition++, false));
+            columns.add(new ColumnMetadata(columnName, type, ordinalPosition, false));
+            ordinalPosition++;
             return this;
         }
 
-        public TableMetadataBuilder partitionKeyColumn(String columnName, ColumnType type)
+        public TableMetadataBuilder partitionKeyColumn(String columnName, Type type)
         {
-            columns.add(new ColumnMetadata(columnName, type, ordinalPosition++, true));
+            columns.add(new ColumnMetadata(columnName, type, ordinalPosition, true));
+            ordinalPosition++;
             return this;
         }
 

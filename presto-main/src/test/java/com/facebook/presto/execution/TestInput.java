@@ -17,24 +17,26 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static org.testng.Assert.assertEquals;
 
 public class TestInput
 {
-    private final JsonCodec<Input> codec = JsonCodec.jsonCodec(Input.class);
+    private static final JsonCodec<Input> codec = JsonCodec.jsonCodec(Input.class);
 
     @Test
     public void testRoundTrip()
             throws Exception
     {
-        Input expected = new Input("connectorId", "schema", "table", ImmutableList.of("column1", "column2", "column3"));
+        Input expected = new Input("connectorId", "schema", "table", ImmutableList.of(
+                new Column("column1", "string", Optional.empty()),
+                new Column("column2", "string", Optional.empty()),
+                new Column("column3", "string", Optional.empty())));
 
         String json = codec.toJson(expected);
         Input actual = codec.fromJson(json);
 
-        assertEquals(actual.getConnectorId(), expected.getConnectorId());
-        assertEquals(actual.getSchema(), expected.getSchema());
-        assertEquals(actual.getTable(), expected.getTable());
-        assertEquals(actual.getColumns(), expected.getColumns());
+        assertEquals(actual, expected);
     }
 }

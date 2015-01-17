@@ -15,9 +15,8 @@ package com.facebook.presto.byteCode.instruction;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
-import com.facebook.presto.byteCode.LocalVariableDefinition;
 import com.facebook.presto.byteCode.ParameterizedType;
-import com.google.common.base.Objects;
+import com.facebook.presto.byteCode.Variable;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
@@ -25,40 +24,41 @@ import org.objectweb.asm.Type;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.OpCodes.ILOAD;
-import static com.facebook.presto.byteCode.OpCodes.ISTORE;
+import static com.facebook.presto.byteCode.OpCode.ILOAD;
+import static com.facebook.presto.byteCode.OpCode.ISTORE;
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public abstract class VariableInstruction
         implements InstructionNode
 {
     public static InstructionNode loadVariable(int slot)
     {
-        return new LoadVariableInstruction(new LocalVariableDefinition("unknown", slot, ParameterizedType.type(Object.class)));
+        return new LoadVariableInstruction(new Variable("unknown", slot, ParameterizedType.type(Object.class)));
     }
 
-    public static InstructionNode loadVariable(LocalVariableDefinition variable)
+    public static InstructionNode loadVariable(Variable variable)
     {
         return new LoadVariableInstruction(variable);
     }
 
-    public static InstructionNode storeVariable(LocalVariableDefinition variable)
+    public static InstructionNode storeVariable(Variable variable)
     {
         return new StoreVariableInstruction(variable);
     }
 
-    public static InstructionNode incrementVariable(LocalVariableDefinition variable, byte increment)
+    public static InstructionNode incrementVariable(Variable variable, byte increment)
     {
         return new IncrementVariableInstruction(variable, increment);
     }
 
-    private final LocalVariableDefinition variable;
+    private final Variable variable;
 
-    private VariableInstruction(LocalVariableDefinition variable)
+    private VariableInstruction(Variable variable)
     {
         this.variable = variable;
     }
 
-    public LocalVariableDefinition getVariable()
+    public Variable getVariable()
     {
         return variable;
     }
@@ -78,7 +78,7 @@ public abstract class VariableInstruction
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("variable", variable)
                 .toString();
     }
@@ -86,7 +86,7 @@ public abstract class VariableInstruction
     public static class LoadVariableInstruction
             extends VariableInstruction
     {
-        public LoadVariableInstruction(LocalVariableDefinition variable)
+        public LoadVariableInstruction(Variable variable)
         {
             super(variable);
         }
@@ -107,7 +107,7 @@ public abstract class VariableInstruction
     public static class StoreVariableInstruction
             extends VariableInstruction
     {
-        public StoreVariableInstruction(LocalVariableDefinition variable)
+        public StoreVariableInstruction(Variable variable)
         {
             super(variable);
         }
@@ -130,7 +130,7 @@ public abstract class VariableInstruction
     {
         private final byte increment;
 
-        public IncrementVariableInstruction(LocalVariableDefinition variable, byte increment)
+        public IncrementVariableInstruction(Variable variable, byte increment)
         {
             super(variable);
             String type = variable.getType().getClassName();

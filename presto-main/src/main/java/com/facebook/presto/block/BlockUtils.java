@@ -13,169 +13,46 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
-
-import java.util.Iterator;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 public final class BlockUtils
 {
-    private BlockUtils() {}
-
-    // TODO: remove this hack after empty blocks are supported
-    public static BlockIterable emptyBlockIterable()
+    private BlockUtils()
     {
-        return new BlockIterable()
-        {
-            @Override
-            public TupleInfo getTupleInfo()
-            {
-                return TupleInfo.SINGLE_LONG;
+    }
+
+    public static void appendObject(Type type, BlockBuilder blockBuilder, Object value)
+    {
+        if (value == null) {
+            blockBuilder.appendNull();
+        }
+        else if (type.getJavaType() == boolean.class) {
+            type.writeBoolean(blockBuilder, (Boolean) value);
+        }
+        else if (type.getJavaType() == double.class) {
+            type.writeDouble(blockBuilder, ((Number) value).doubleValue());
+        }
+        else if (type.getJavaType() == long.class) {
+            type.writeLong(blockBuilder, ((Number) value).longValue());
+        }
+        else if (type.getJavaType() == Slice.class) {
+            Slice slice;
+            if (value instanceof byte[]) {
+                slice = Slices.wrappedBuffer((byte[]) value);
             }
-
-            @Override
-            public Optional<DataSize> getDataSize()
-            {
-                return Optional.of(new DataSize(0, Unit.BYTE));
+            else if (value instanceof String) {
+                slice = Slices.utf8Slice((String) value);
             }
-
-            @Override
-            public Optional<Integer> getPositionCount()
-            {
-                return Optional.of(0);
+            else {
+                slice = (Slice) value;
             }
-
-            @Override
-            public Iterator<Block> iterator()
-            {
-                return Iterators.emptyIterator();
-            }
-        };
-    }
-
-    public static BlockIterable toBlocks(Block firstBlock, Block... rest)
-    {
-        return new BlocksIterableAdapter(firstBlock.getTupleInfo(),
-                Optional.<DataSize>absent(),
-                Optional.<Integer>absent(),
-                ImmutableList.<Block>builder().add(firstBlock).add(rest).build());
-    }
-
-    public static BlockIterable toBlocks(Iterable<Block> blocks)
-    {
-        return new BlocksIterableAdapter(Iterables.get(blocks, 0).getTupleInfo(),
-                Optional.<DataSize>absent(),
-                Optional.<Integer>absent(),
-                blocks);
-    }
-
-    public static BlockIterable toBlocks(DataSize dataSize, int positionCount, Iterable<Block> blocks)
-    {
-        return new BlocksIterableAdapter(Iterables.get(blocks, 0).getTupleInfo(),
-                Optional.of(dataSize),
-                Optional.of(positionCount),
-                blocks);
-    }
-
-    private static class BlocksIterableAdapter
-            implements BlockIterable
-    {
-        private final TupleInfo tupleInfo;
-        private final Iterable<Block> blocks;
-        private Optional<DataSize> dataSize;
-        private final Optional<Integer> positionCount;
-
-        public BlocksIterableAdapter(TupleInfo tupleInfo, Iterable<Block> blocks)
-        {
-            this(tupleInfo, Optional.<DataSize>absent(), Optional.<Integer>absent(), blocks);
+            type.writeSlice(blockBuilder, slice, 0, slice.length());
         }
-
-        public BlocksIterableAdapter(TupleInfo tupleInfo, Optional<DataSize> dataSize, Optional<Integer> positionCount, Iterable<Block> blocks)
-        {
-            this.tupleInfo = tupleInfo;
-            this.blocks = blocks;
-            this.dataSize = dataSize;
-            this.positionCount = positionCount;
-        }
-
-        @Override
-        public TupleInfo getTupleInfo()
-        {
-            return tupleInfo;
-        }
-
-        @Override
-        public Optional<DataSize> getDataSize()
-        {
-            return dataSize;
-        }
-
-        @Override
-        public Optional<Integer> getPositionCount()
-        {
-            return positionCount;
-        }
-
-        @Override
-        public Iterator<Block> iterator()
-        {
-            return blocks.iterator();
-        }
-    }
-
-    public static Iterable<Tuple> toTupleIterable(Block block)
-    {
-        Preconditions.checkNotNull(block, "block is null");
-        return new BlockIterableAdapter(block);
-    }
-
-    private static class BlockIterableAdapter
-            implements Iterable<Tuple>
-    {
-        private final Block block;
-
-        private BlockIterableAdapter(Block block)
-        {
-            this.block = block;
-        }
-
-        @Override
-        public Iterator<Tuple> iterator()
-        {
-            return new BlockCursorIteratorAdapter(block.cursor());
-        }
-    }
-
-    public static Iterator<Tuple> toTupleIterable(BlockCursor cursor)
-    {
-        return new BlockCursorIteratorAdapter(cursor);
-    }
-
-    private static class BlockCursorIteratorAdapter
-            extends AbstractIterator<Tuple>
-    {
-        private final BlockCursor cursor;
-
-        private BlockCursorIteratorAdapter(BlockCursor cursor)
-        {
-            this.cursor = cursor;
-        }
-
-        @Override
-        protected Tuple computeNext()
-        {
-            if (!cursor.advanceNextPosition()) {
-                return endOfData();
-            }
-            return cursor.getTuple();
+        else {
+            throw new IllegalArgumentException("Unsupported type: " + value.getClass().getName());
         }
     }
 }

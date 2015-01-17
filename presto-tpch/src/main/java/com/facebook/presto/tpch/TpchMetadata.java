@@ -13,18 +13,20 @@
  */
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.tpch.TpchColumn;
+import io.airlift.tpch.TpchColumnType;
 import io.airlift.tpch.TpchEntity;
 import io.airlift.tpch.TpchTable;
 
@@ -32,14 +34,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.tpch.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TpchMetadata
         extends ReadOnlyConnectorMetadata
 {
     public static final String TINY_SCHEMA_NAME = "tiny";
-    private static final double TINY_SCALE_FACTOR = 0.01;
+    public static final double TINY_SCALE_FACTOR = 0.01;
+
+    public static final String ROW_NUMBER_COLUMN_NAME = "row_number";
+    private static final TpchColumnHandle ROW_NUMBER_COLUMN_HANDLE = new TpchColumnHandle(ROW_NUMBER_COLUMN_NAME, -1, BIGINT);
 
     private final String connectorId;
     private final Set<String> tableNames;
@@ -55,19 +64,13 @@ public class TpchMetadata
     }
 
     @Override
-    public boolean canHandle(TableHandle tableHandle)
-    {
-        return tableHandle instanceof TpchTableHandle && ((TpchTableHandle) tableHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public List<String> listSchemaNames()
+    public List<String> listSchemaNames(ConnectorSession session)
     {
         return ImmutableList.of(TINY_SCHEMA_NAME, "sf1", "sf100", "sf300", "sf1000", "sf3000", "sf10000", "sf30000", "sf100000");
     }
 
     @Override
-    public TpchTableHandle getTableHandle(SchemaTableName tableName)
+    public TpchTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         checkNotNull(tableName, "tableName is null");
         if (!tableNames.contains(tableName.getTableName())) {
@@ -84,11 +87,9 @@ public class TpchMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(TableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle tableHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkArgument(tableHandle instanceof TpchTableHandle, "tableHandle is not an instance of TpchTableHandle");
-        TpchTableHandle tpchTableHandle = (TpchTableHandle) tableHandle;
+        TpchTableHandle tpchTableHandle = checkType(tableHandle, TpchTableHandle.class, "tableHandle");
 
         TpchTable<?> tpchTable = TpchTable.getTable(tpchTableHandle.getTableName());
         String schemaName = scaleFactorSchemaName(tpchTableHandle.getScaleFactor());
@@ -96,22 +97,24 @@ public class TpchMetadata
         return getTableMetadata(schemaName, tpchTable);
     }
 
-    private ConnectorTableMetadata getTableMetadata(String schemaName, TpchTable<?> tpchTable)
+    private static ConnectorTableMetadata getTableMetadata(String schemaName, TpchTable<?> tpchTable)
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         int ordinalPosition = 0;
         for (TpchColumn<? extends TpchEntity> column : tpchTable.getColumns()) {
-            columns.add(new ColumnMetadata(column.getColumnName(), ColumnType.fromNativeType(column.getType()), ordinalPosition++, false));
+            columns.add(new ColumnMetadata(column.getColumnName(), getPrestoType(column.getType()), ordinalPosition, false));
+            ordinalPosition++;
         }
+        columns.add(new ColumnMetadata(ROW_NUMBER_COLUMN_NAME, BIGINT, ordinalPosition, false, null, true));
 
         SchemaTableName tableName = new SchemaTableName(schemaName, tpchTable.getTableName());
         return new ConnectorTableMetadata(tableName, columns.build());
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
+    public Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
-        ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<String, ConnectorColumnHandle> builder = ImmutableMap.builder();
         for (ColumnMetadata columnMetadata : getTableMetadata(tableHandle).getColumns()) {
             builder.put(columnMetadata.getName(), new TpchColumnHandle(columnMetadata.getName(), columnMetadata.getOrdinalPosition(), columnMetadata.getType()));
         }
@@ -119,22 +122,16 @@ public class TpchMetadata
     }
 
     @Override
-    public ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName)
-    {
-        return getColumnHandles(tableHandle).get(columnName);
-    }
-
-    @Override
-    public ColumnHandle getSampleWeightColumnHandle(TableHandle tableHandle)
+    public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return null;
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> tableColumns = ImmutableMap.builder();
-        for (String schemaName : getSchemaNames(prefix.getSchemaName())) {
+        for (String schemaName : getSchemaNames(session, prefix.getSchemaName())) {
             for (TpchTable<?> tpchTable : TpchTable.getTables()) {
                 if (prefix.getTableName() == null || tpchTable.getTableName().equals(prefix.getTableName())) {
                     ConnectorTableMetadata tableMetadata = getTableMetadata(schemaName, tpchTable);
@@ -146,11 +143,10 @@ public class TpchMetadata
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
     {
         ConnectorTableMetadata tableMetadata = getTableMetadata(tableHandle);
-        checkArgument(columnHandle instanceof TpchColumnHandle, "columnHandle is not an instance of TpchColumnHandle");
-        String columnName = ((TpchColumnHandle) columnHandle).getColumnName();
+        String columnName = checkType(columnHandle, TpchColumnHandle.class, "columnHandle").getColumnName();
 
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             if (column.getName().equals(columnName)) {
@@ -161,10 +157,10 @@ public class TpchMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
-        for (String schemaName : getSchemaNames(schemaNameOrNull)) {
+        for (String schemaName : getSchemaNames(session, schemaNameOrNull)) {
             for (TpchTable<?> tpchTable : TpchTable.getTables()) {
                 builder.add(new SchemaTableName(schemaName, tpchTable.getTableName()));
             }
@@ -172,11 +168,11 @@ public class TpchMetadata
         return builder.build();
     }
 
-    private List<String> getSchemaNames(String schemaNameOrNull)
+    private List<String> getSchemaNames(ConnectorSession session, String schemaNameOrNull)
     {
         List<String> schemaNames;
         if (schemaNameOrNull == null) {
-            schemaNames = listSchemaNames();
+            schemaNames = listSchemaNames(session);
         }
         else if (schemaNameToScaleFactor(schemaNameOrNull) > 0) {
             schemaNames = ImmutableList.of(schemaNameOrNull);
@@ -208,5 +204,20 @@ public class TpchMetadata
         catch (Exception ignored) {
             return -1;
         }
+    }
+
+    public static Type getPrestoType(TpchColumnType tpchType)
+    {
+        switch (tpchType) {
+            case BIGINT:
+                return BIGINT;
+            case DATE:
+                return DATE;
+            case DOUBLE:
+                return DOUBLE;
+            case VARCHAR:
+                return VARCHAR;
+        }
+        throw new IllegalArgumentException("Unsupported type " + tpchType);
     }
 }

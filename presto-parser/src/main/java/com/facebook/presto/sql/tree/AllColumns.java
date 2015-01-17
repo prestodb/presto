@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+
+import java.util.Optional;
 
 public class AllColumns
         extends SelectItem
@@ -23,7 +24,7 @@ public class AllColumns
 
     public AllColumns()
     {
-        prefix = Optional.absent();
+        prefix = Optional.empty();
     }
 
     public AllColumns(QualifiedName prefix)

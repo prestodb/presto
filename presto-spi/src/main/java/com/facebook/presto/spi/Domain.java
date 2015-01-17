@@ -42,6 +42,9 @@ public final class Domain
     {
         this.ranges = Objects.requireNonNull(ranges, "ranges is null");
         this.nullAllowed = nullAllowed;
+        if (ranges.getType().isPrimitive()) {
+            throw new IllegalArgumentException("Primitive types not supported: " + ranges.getType());
+        }
     }
 
     public static Domain create(SortedRangeSet ranges, boolean nullAllowed)
@@ -115,6 +118,23 @@ public final class Domain
     }
 
     @JsonIgnore
+    public boolean isNullableSingleValue()
+    {
+        if (nullAllowed) {
+            return ranges.isNone();
+        }
+        else {
+            return ranges.isSingleValue();
+        }
+    }
+
+    @JsonIgnore
+    public boolean isOnlyNull()
+    {
+        return equals(onlyNull(getType()));
+    }
+
+    @JsonIgnore
     public Comparable<?> getSingleValue()
     {
         if (!isSingleValue()) {
@@ -123,10 +143,24 @@ public final class Domain
         return ranges.getSingleValue();
     }
 
+    @JsonIgnore
+    public Comparable<?> getNullableSingleValue()
+    {
+        if (!isNullableSingleValue()) {
+            throw new IllegalStateException("Domain is not a single value");
+        }
+
+        if (nullAllowed) {
+            return null;
+        }
+        else {
+            return ranges.getSingleValue();
+        }
+    }
+
     public boolean includesValue(Comparable<?> value)
     {
-        Objects.requireNonNull(value, "value is null");
-        return ranges.includesMarker(Marker.exactly(value));
+        return value == null ? nullAllowed : ranges.includesMarker(Marker.exactly(value));
     }
 
     public boolean overlaps(Domain other)
@@ -155,6 +189,22 @@ public final class Domain
         SortedRangeSet unionRanges = this.getRanges().union(other.getRanges());
         boolean nullAllowed = this.isNullAllowed() || other.isNullAllowed();
         return new Domain(unionRanges, nullAllowed);
+    }
+
+    public static Domain union(List<Domain> domains)
+    {
+        if (domains.size() == 1) {
+            return domains.get(0);
+        }
+
+        boolean nullAllowed = false;
+        List<SortedRangeSet> ranges = new ArrayList<>();
+        for (Domain domain : domains) {
+            ranges.add(domain.getRanges());
+            nullAllowed = nullAllowed || domain.nullAllowed;
+        }
+
+        return new Domain(SortedRangeSet.union(ranges), nullAllowed);
     }
 
     public Domain complement()

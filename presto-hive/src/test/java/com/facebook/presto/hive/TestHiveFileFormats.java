@@ -13,48 +13,108 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
+import com.facebook.presto.hive.orc.DwrfRecordCursorProvider;
+import com.facebook.presto.hive.orc.OrcPageSourceFactory;
+import com.facebook.presto.hive.orc.OrcRecordCursorProvider;
+import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
+import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.type.TypeRegistry;
+import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
 import org.apache.hadoop.hive.ql.io.RCFileInputFormat;
 import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
+import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
+import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
+import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.serde2.SerDe;
-import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
 import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
 import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
+import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
+import org.apache.hadoop.hive.serde2.objectinspector.StructField;
+import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.mapred.FileSplit;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.RecordReader;
-import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.mapred.InputFormat;
+import org.joda.time.DateTimeZone;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.util.ArrayList;
+import java.io.IOException;
+import java.util.List;
 import java.util.Properties;
+import java.util.TimeZone;
+
+import static com.facebook.presto.hive.HiveTestUtils.getTypes;
+import static com.google.common.base.Predicates.not;
+import static com.google.common.collect.Iterables.filter;
+import static com.google.common.collect.Iterables.transform;
+import static java.util.Locale.ENGLISH;
+import static java.util.stream.Collectors.toList;
+import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
+import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
+import static org.testng.Assert.assertEquals;
 
 public class TestHiveFileFormats
         extends AbstractTestHiveFileFormats
 {
+    private static final TimeZoneKey TIME_ZONE_KEY = TimeZoneKey.getTimeZoneKey(DateTimeZone.getDefault().getID());
+    private static final ConnectorSession SESSION = new ConnectorSession("user", TIME_ZONE_KEY, ENGLISH, System.currentTimeMillis(), null);
+    private static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
+
+    @BeforeClass(alwaysRun = true)
+    public void setUp()
+            throws Exception
+    {
+        // ensure the expected timezone is configured for this VM
+        assertEquals(TimeZone.getDefault().getID(),
+                "Asia/Katmandu",
+                "Timezone not configured correctly. Add -Duser.timezone=Asia/Katmandu to your JVM arguments");
+    }
+
     @Test
     public void testRCText()
             throws Exception
     {
-        JobConf jobConf = new JobConf();
-        RCFileOutputFormat outputFormat = new RCFileOutputFormat();
-        @SuppressWarnings("rawtypes")
-        RCFileInputFormat inputFormat = new RCFileInputFormat();
+        HiveOutputFormat<?, ?> outputFormat = new RCFileOutputFormat();
+        InputFormat<?, ?> inputFormat = new RCFileInputFormat<>();
         @SuppressWarnings("deprecation")
         SerDe serde = new ColumnarSerDe();
         File file = File.createTempFile("presto_test", "rc-text");
         try {
-            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null);
-            @SuppressWarnings("unchecked")
-            RecordReader<?, BytesRefArrayWritable> recordReader = (RecordReader<?, BytesRefArrayWritable>) inputFormat.getRecordReader(split, jobConf, Reporter.NULL);
-            Properties splitProperties = new Properties();
-            splitProperties.setProperty("serialization.lib", "org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe");
-            splitProperties.setProperty("columns", COLUMN_NAMES_STRING);
-            splitProperties.setProperty("columns.types", COLUMN_TYPES);
-            RecordCursor cursor = new ColumnarTextHiveRecordCursor<>(recordReader, split.getLength(), splitProperties, new ArrayList<HivePartitionKey>(), getColumns());
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS);
+            testCursorProvider(new ColumnarTextHiveRecordCursorProvider(), split, inputFormat, serde, TEST_COLUMNS);
+            testCursorProvider(new GenericHiveRecordCursorProvider(), split, inputFormat, serde, TEST_COLUMNS);
+        }
+        finally {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
 
-            checkCursor(cursor, true);
+    @Test(enabled = false)
+    public void testRcTextPageSource()
+            throws Exception
+    {
+        HiveOutputFormat<?, ?> outputFormat = new RCFileOutputFormat();
+        InputFormat<?, ?> inputFormat = new RCFileInputFormat<>();
+        @SuppressWarnings("deprecation")
+        SerDe serde = new ColumnarSerDe();
+        File file = File.createTempFile("presto_test", "rc-binary");
+        file.delete();
+        try {
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS);
+            testPageSourceFactory(new RcFilePageSourceFactory(TYPE_MANAGER), split, inputFormat, serde, TEST_COLUMNS);
         }
         finally {
             //noinspection ResultOfMethodCallIgnored
@@ -66,28 +126,277 @@ public class TestHiveFileFormats
     public void testRCBinary()
             throws Exception
     {
-        JobConf jobConf = new JobConf();
-        RCFileOutputFormat outputFormat = new RCFileOutputFormat();
-        @SuppressWarnings("rawtypes")
-        RCFileInputFormat inputFormat = new RCFileInputFormat();
+        HiveOutputFormat<?, ?> outputFormat = new RCFileOutputFormat();
+        InputFormat<?, ?> inputFormat = new RCFileInputFormat<>();
         @SuppressWarnings("deprecation")
         SerDe serde = new LazyBinaryColumnarSerDe();
         File file = File.createTempFile("presto_test", "rc-binary");
         try {
-            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null);
-            @SuppressWarnings("unchecked")
-            RecordReader<?, BytesRefArrayWritable> recordReader = (RecordReader<?, BytesRefArrayWritable>) inputFormat.getRecordReader(split, jobConf, Reporter.NULL);
-            Properties splitProperties = new Properties();
-            splitProperties.setProperty("serialization.lib", "org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe");
-            splitProperties.setProperty("columns", COLUMN_NAMES_STRING);
-            splitProperties.setProperty("columns.types", COLUMN_TYPES);
-            RecordCursor cursor = new ColumnarBinaryHiveRecordCursor<>(recordReader, split.getLength(), splitProperties, new ArrayList<HivePartitionKey>(), getColumns());
-
-            checkCursor(cursor, true);
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS);
+            testCursorProvider(new ColumnarBinaryHiveRecordCursorProvider(), split, inputFormat, serde, TEST_COLUMNS);
+            testCursorProvider(new GenericHiveRecordCursorProvider(), split, inputFormat, serde, TEST_COLUMNS);
         }
         finally {
             //noinspection ResultOfMethodCallIgnored
             file.delete();
         }
+    }
+
+    @Test(enabled = false)
+    public void testRcBinaryPageSource()
+            throws Exception
+    {
+        HiveOutputFormat<?, ?> outputFormat = new RCFileOutputFormat();
+        InputFormat<?, ?> inputFormat = new RCFileInputFormat<>();
+        @SuppressWarnings("deprecation")
+        SerDe serde = new LazyBinaryColumnarSerDe();
+        File file = File.createTempFile("presto_test", "rc-binary");
+        file.delete();
+        try {
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS);
+            testPageSourceFactory(new RcFilePageSourceFactory(TYPE_MANAGER), split, inputFormat, serde, TEST_COLUMNS);
+        }
+        finally {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
+    @Test
+    public void testOrc()
+            throws Exception
+    {
+        HiveOutputFormat<?, ?> outputFormat = new org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat();
+        InputFormat<?, ?> inputFormat = new org.apache.hadoop.hive.ql.io.orc.OrcInputFormat();
+        @SuppressWarnings("deprecation")
+        SerDe serde = new org.apache.hadoop.hive.ql.io.orc.OrcSerde();
+        File file = File.createTempFile("presto_test", "orc");
+        file.delete();
+        try {
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS);
+            testCursorProvider(new OrcRecordCursorProvider(), split, inputFormat, serde, TEST_COLUMNS);
+        }
+        finally {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
+    @Test
+    public void testOrcDataStream()
+            throws Exception
+    {
+        HiveOutputFormat<?, ?> outputFormat = new org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat();
+        InputFormat<?, ?> inputFormat = new org.apache.hadoop.hive.ql.io.orc.OrcInputFormat();
+        @SuppressWarnings("deprecation")
+        SerDe serde = new org.apache.hadoop.hive.ql.io.orc.OrcSerde();
+        File file = File.createTempFile("presto_test", "orc");
+        file.delete();
+        try {
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS);
+            testPageSourceFactory(new OrcPageSourceFactory(TYPE_MANAGER), split, inputFormat, serde, TEST_COLUMNS);
+        }
+        finally {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
+    @Test
+    public void testParquet()
+            throws Exception
+    {
+        List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, new Predicate<TestColumn>()
+        {
+            @Override
+            public boolean apply(TestColumn testColumn)
+            {
+                // Write of complex hive data to Parquet is broken
+                if (testColumn.getName().equals("t_complex")) {
+                    return false;
+                }
+
+                // Parquet does not support DATE, TIMESTAMP, or BINARY
+                ObjectInspector objectInspector = testColumn.getObjectInspector();
+                return !hasType(objectInspector, PrimitiveCategory.DATE, PrimitiveCategory.TIMESTAMP, PrimitiveCategory.BINARY);
+            }
+        }));
+
+        HiveOutputFormat<?, ?> outputFormat = new MapredParquetOutputFormat();
+        InputFormat<?, ?> inputFormat = new MapredParquetInputFormat();
+        @SuppressWarnings("deprecation")
+        SerDe serde = new ParquetHiveSerDe();
+        File file = File.createTempFile("presto_test", "ord");
+        file.delete();
+        try {
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, testColumns);
+            HiveRecordCursorProvider cursorProvider = new ParquetRecordCursorProvider();
+            testCursorProvider(cursorProvider, split, inputFormat, serde, testColumns);
+        }
+        finally {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
+    @Test
+    public void testDwrf()
+            throws Exception
+    {
+        List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, new Predicate<TestColumn>()
+        {
+            @Override
+            public boolean apply(TestColumn testColumn)
+            {
+                ObjectInspector objectInspector = testColumn.getObjectInspector();
+                return !hasType(objectInspector, PrimitiveCategory.DATE);
+            }
+
+        }));
+
+        HiveOutputFormat<?, ?> outputFormat = new com.facebook.hive.orc.OrcOutputFormat();
+        InputFormat<?, ?> inputFormat = new com.facebook.hive.orc.OrcInputFormat();
+        @SuppressWarnings("deprecation")
+        SerDe serde = new com.facebook.hive.orc.OrcSerde();
+        File file = File.createTempFile("presto_test", "dwrf");
+        file.delete();
+        try {
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, testColumns);
+            testCursorProvider(new DwrfRecordCursorProvider(), split, inputFormat, serde, testColumns);
+        }
+        finally {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
+    @Test
+    public void testDwrfDataStream()
+            throws Exception
+    {
+        List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, new Predicate<TestColumn>()
+        {
+            @Override
+            public boolean apply(TestColumn testColumn)
+            {
+                ObjectInspector objectInspector = testColumn.getObjectInspector();
+                return !hasType(objectInspector, PrimitiveCategory.DATE);
+            }
+
+        }));
+
+        HiveOutputFormat<?, ?> outputFormat = new com.facebook.hive.orc.OrcOutputFormat();
+        InputFormat<?, ?> inputFormat = new com.facebook.hive.orc.OrcInputFormat();
+        @SuppressWarnings("deprecation")
+        SerDe serde = new com.facebook.hive.orc.OrcSerde();
+        File file = File.createTempFile("presto_test", "dwrf");
+        file.delete();
+        try {
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, testColumns);
+            testPageSourceFactory(new DwrfPageSourceFactory(TYPE_MANAGER), split, inputFormat, serde, testColumns);
+        }
+        finally {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
+    private void testCursorProvider(HiveRecordCursorProvider cursorProvider,
+            FileSplit split,
+            InputFormat<?, ?> inputFormat,
+            @SuppressWarnings("deprecation") SerDe serde,
+            List<TestColumn> testColumns)
+            throws IOException
+    {
+        Properties splitProperties = new Properties();
+        splitProperties.setProperty(FILE_INPUT_FORMAT, inputFormat.getClass().getName());
+        splitProperties.setProperty(SERIALIZATION_LIB, serde.getClass().getName());
+        splitProperties.setProperty("columns", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getName)));
+        splitProperties.setProperty("columns.types", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getType)));
+
+        List<HivePartitionKey> partitionKeys = testColumns.stream()
+                .filter(TestColumn::isPartitionKey)
+                .map(input -> new HivePartitionKey(input.getName(), HiveType.getHiveType(input.getObjectInspector()), (String) input.getWriteValue()))
+                .collect(toList());
+
+        HiveRecordCursor cursor = cursorProvider.createHiveRecordCursor(
+                "test",
+                new Configuration(),
+                SESSION,
+                split.getPath(),
+                split.getStart(),
+                split.getLength(),
+                splitProperties,
+                getColumnHandles(testColumns),
+                partitionKeys,
+                TupleDomain.<HiveColumnHandle>all(),
+                DateTimeZone.getDefault(),
+                TYPE_MANAGER).get();
+
+        checkCursor(cursor, testColumns);
+    }
+
+    private void testPageSourceFactory(HivePageSourceFactory sourceFactory, FileSplit split, InputFormat<?, ?> inputFormat, SerDe serde, List<TestColumn> testColumns)
+            throws IOException
+    {
+        Properties splitProperties = new Properties();
+        splitProperties.setProperty(FILE_INPUT_FORMAT, inputFormat.getClass().getName());
+        splitProperties.setProperty(SERIALIZATION_LIB, serde.getClass().getName());
+        splitProperties.setProperty("columns", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getName)));
+        splitProperties.setProperty("columns.types", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getType)));
+
+        List<HivePartitionKey> partitionKeys = testColumns.stream()
+                .filter(TestColumn::isPartitionKey)
+                .map(input -> new HivePartitionKey(input.getName(), HiveType.getHiveType(input.getObjectInspector()), (String) input.getWriteValue()))
+                .collect(toList());
+
+        List<HiveColumnHandle> columnHandles = getColumnHandles(testColumns);
+
+        ConnectorPageSource pageSource = sourceFactory.createPageSource(
+                new Configuration(),
+                SESSION,
+                split.getPath(),
+                split.getStart(),
+                split.getLength(),
+                splitProperties,
+                columnHandles,
+                partitionKeys,
+                TupleDomain.<HiveColumnHandle>all(),
+                DateTimeZone.getDefault()
+        ).get();
+
+        checkPageSource(pageSource, testColumns, getTypes(columnHandles));
+    }
+
+    public static boolean hasType(ObjectInspector objectInspector, PrimitiveCategory... types)
+    {
+        if (objectInspector instanceof PrimitiveObjectInspector) {
+            PrimitiveObjectInspector primitiveInspector = (PrimitiveObjectInspector) objectInspector;
+            PrimitiveCategory primitiveCategory = primitiveInspector.getPrimitiveCategory();
+            for (PrimitiveCategory type : types) {
+                if (primitiveCategory == type) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        if (objectInspector instanceof ListObjectInspector) {
+            ListObjectInspector listInspector = (ListObjectInspector) objectInspector;
+            return hasType(listInspector.getListElementObjectInspector(), types);
+        }
+        if (objectInspector instanceof MapObjectInspector) {
+            MapObjectInspector mapInspector = (MapObjectInspector) objectInspector;
+            return hasType(mapInspector.getMapKeyObjectInspector(), types) ||
+                    hasType(mapInspector.getMapValueObjectInspector(), types);
+        }
+        if (objectInspector instanceof StructObjectInspector) {
+            for (StructField field : ((StructObjectInspector) objectInspector).getAllStructFieldRefs()) {
+                if (hasType(field.getFieldObjectInspector(), types)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        throw new IllegalArgumentException("Unknown object inspector type " + objectInspector);
     }
 }

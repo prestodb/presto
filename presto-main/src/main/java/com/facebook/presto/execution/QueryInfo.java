@@ -13,14 +13,15 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.StandardErrorCode.ErrorType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nullable;
@@ -28,7 +29,11 @@ import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+
+import static com.facebook.presto.spi.StandardErrorCode.toErrorType;
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 @Immutable
 public class QueryInfo
@@ -36,12 +41,17 @@ public class QueryInfo
     private final QueryId queryId;
     private final Session session;
     private final QueryState state;
+    private final boolean scheduled;
     private final URI self;
     private final List<String> fieldNames;
     private final String query;
     private final QueryStats queryStats;
+    private final Map<String, String> setSessionProperties;
+    private final Set<String> resetSessionProperties;
     private final StageInfo outputStage;
     private final FailureInfo failureInfo;
+    private final ErrorType errorType;
+    private final ErrorCode errorCode;
     private final Set<Input> inputs;
 
     @JsonCreator
@@ -49,12 +59,16 @@ public class QueryInfo
             @JsonProperty("queryId") QueryId queryId,
             @JsonProperty("session") Session session,
             @JsonProperty("state") QueryState state,
+            @JsonProperty("scheduled") boolean scheduled,
             @JsonProperty("self") URI self,
             @JsonProperty("fieldNames") List<String> fieldNames,
             @JsonProperty("query") String query,
             @JsonProperty("queryStats") QueryStats queryStats,
+            @JsonProperty("setSessionProperties") Map<String, String> setSessionProperties,
+            @JsonProperty("resetSessionProperties") Set<String> resetSessionProperties,
             @JsonProperty("outputStage") StageInfo outputStage,
             @JsonProperty("failureInfo") FailureInfo failureInfo,
+            @JsonProperty("errorCode") ErrorCode errorCode,
             @JsonProperty("inputs") Set<Input> inputs)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
@@ -63,18 +77,25 @@ public class QueryInfo
         Preconditions.checkNotNull(self, "self is null");
         Preconditions.checkNotNull(fieldNames, "fieldNames is null");
         Preconditions.checkNotNull(queryStats, "queryStats is null");
+        Preconditions.checkNotNull(setSessionProperties, "setSessionProperties is null");
+        Preconditions.checkNotNull(resetSessionProperties, "resetSessionProperties is null");
         Preconditions.checkNotNull(query, "query is null");
         Preconditions.checkNotNull(inputs, "inputs is null");
 
         this.queryId = queryId;
         this.session = session;
         this.state = state;
+        this.scheduled = scheduled;
         this.self = self;
         this.fieldNames = ImmutableList.copyOf(fieldNames);
         this.query = query;
         this.queryStats = queryStats;
+        this.setSessionProperties = ImmutableMap.copyOf(setSessionProperties);
+        this.resetSessionProperties = ImmutableSet.copyOf(resetSessionProperties);
         this.outputStage = outputStage;
         this.failureInfo = failureInfo;
+        this.errorType = errorCode == null ? null : toErrorType(errorCode.getCode());
+        this.errorCode = errorCode;
         this.inputs = ImmutableSet.copyOf(inputs);
     }
 
@@ -94,6 +115,12 @@ public class QueryInfo
     public QueryState getState()
     {
         return state;
+    }
+
+    @JsonProperty
+    public boolean isScheduled()
+    {
+        return scheduled;
     }
 
     @JsonProperty
@@ -121,6 +148,18 @@ public class QueryInfo
     }
 
     @JsonProperty
+    public Map<String, String> getSetSessionProperties()
+    {
+        return setSessionProperties;
+    }
+
+    @JsonProperty
+    public Set<String> getResetSessionProperties()
+    {
+        return resetSessionProperties;
+    }
+
+    @JsonProperty
     public StageInfo getOutputStage()
     {
         return outputStage;
@@ -133,6 +172,20 @@ public class QueryInfo
         return failureInfo;
     }
 
+    @Nullable
+    @JsonProperty
+    public ErrorType getErrorType()
+    {
+        return errorType;
+    }
+
+    @Nullable
+    @JsonProperty
+    public ErrorCode getErrorCode()
+    {
+        return errorCode;
+    }
+
     @JsonProperty
     public Set<Input> getInputs()
     {
@@ -142,22 +195,10 @@ public class QueryInfo
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("queryId", queryId)
                 .add("state", state)
                 .add("fieldNames", fieldNames)
                 .toString();
-    }
-
-    public static Function<QueryInfo, QueryId> queryIdGetter()
-    {
-        return new Function<QueryInfo, QueryId>()
-        {
-            @Override
-            public QueryId apply(QueryInfo queryInfo)
-            {
-                return queryInfo.getQueryId();
-            }
-        };
     }
 }

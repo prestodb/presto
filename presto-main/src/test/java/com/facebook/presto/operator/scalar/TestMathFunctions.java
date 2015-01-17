@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.PrestoException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.operator.scalar.FunctionAssertions.SESSION;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 
 public class TestMathFunctions
 {
@@ -281,8 +282,8 @@ public class TestMathFunctions
     public void testRandom()
     {
         // random is non-deterministic
-        functionAssertions.executeProjectionWithAll("rand()", SESSION);
-        functionAssertions.executeProjectionWithAll("random()", SESSION);
+        functionAssertions.tryEvaluateWithAll("rand()", TEST_SESSION);
+        functionAssertions.tryEvaluateWithAll("random()", TEST_SESSION);
     }
 
     @Test
@@ -352,6 +353,62 @@ public class TestMathFunctions
         for (double doubleValue : DOUBLE_VALUES) {
             assertFunction("tanh(" + doubleValue + ")", Math.tanh(doubleValue));
         }
+    }
+
+    @Test
+    public void testGreatest()
+            throws Exception
+    {
+        // bigint
+        assertFunction("greatest(1, 2)", 2);
+        assertFunction("greatest(-1, -2)", -1);
+        assertFunction("greatest(5, 4, 3, 2, 1, 2, 3, 4, 1, 5)", 5);
+        assertFunction("greatest(-1)", -1);
+
+        // double
+        assertFunction("greatest(1.5, 2.3)", 2.3);
+        assertFunction("greatest(-1.5, -2.3)", -1.5);
+        assertFunction("greatest(-1.5, -2.3, -5/3)", -1.0);
+        assertFunction("greatest(1.5, -1.0 / 0.0, 1.0 / 0.0)", Double.POSITIVE_INFINITY);
+
+        // mixed
+        assertFunction("greatest(1, 2.0)", 2.0);
+        assertFunction("greatest(1.0, 2)", 2.0);
+    }
+
+    @Test
+    public void testLeast()
+            throws Exception
+    {
+        // bigint
+        assertFunction("least(1, 2)", 1);
+        assertFunction("least(-1, -2)", -2);
+        assertFunction("least(5, 4, 3, 2, 1, 2, 3, 4, 1, 5)", 1);
+        assertFunction("least(-1)", -1);
+
+        // double
+        assertFunction("least(1.5, 2.3)", 1.5);
+        assertFunction("least(-1.5, -2.3)", -2.3);
+        assertFunction("least(-1.5, -2.3, -5/3)", -2.3);
+        assertFunction("least(1.5, -1.0 / 0.0, 1.0 / 0.0)", Double.NEGATIVE_INFINITY);
+
+        // mixed
+        assertFunction("least(1, 2.0)", 1.0);
+        assertFunction("least(1.0, 2)", 1.0);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "\\QInvalid argument to greatest(): NaN\\E")
+    public void testGreatestWithNaN()
+            throws Exception
+    {
+        functionAssertions.tryEvaluate("greatest(1.5, 0.0 / 0.0)");
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "\\QInvalid argument to least(): NaN\\E")
+    public void testLeastWithNaN()
+            throws Exception
+    {
+        functionAssertions.tryEvaluate("least(1.5, 0.0 / 0.0)");
     }
 
     private void assertFunction(String projection, Object expected)

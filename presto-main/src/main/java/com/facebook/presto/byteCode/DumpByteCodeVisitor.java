@@ -18,8 +18,11 @@ import com.facebook.presto.byteCode.control.DoWhileLoop;
 import com.facebook.presto.byteCode.control.ForLoop;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.control.LookupSwitch;
+import com.facebook.presto.byteCode.control.TryCatch;
 import com.facebook.presto.byteCode.control.WhileLoop;
 import com.facebook.presto.byteCode.debug.LineNumberNode;
+import com.facebook.presto.byteCode.expression.ByteCodeExpression;
+import com.facebook.presto.byteCode.instruction.Constant.BooleanConstant;
 import com.facebook.presto.byteCode.instruction.Constant.BoxedBooleanConstant;
 import com.facebook.presto.byteCode.instruction.Constant.BoxedDoubleConstant;
 import com.facebook.presto.byteCode.instruction.Constant.BoxedFloatConstant;
@@ -134,18 +137,7 @@ public class DumpByteCodeVisitor
         }
 
         // print method declaration
-        Line methodDeclaration = line().addAll(methodDefinition.getAccess()).add(methodDefinition.getReturnType().getJavaClassName());
-        if (!methodDefinition.getParameters().isEmpty()) {
-            Line parameters = line(", ");
-            for (NamedParameterDefinition parameterDefinition : methodDefinition.getParameters()) {
-                parameters.add(line().add(parameterDefinition.getType().getJavaClassName()).add(parameterDefinition.getName()));
-            }
-            methodDeclaration.add(methodDefinition.getName() + "(" + parameters + ")");
-        }
-        else {
-            methodDeclaration.add(methodDefinition.getName() + "()");
-        }
-        methodDeclaration.print();
+        printLine(methodDefinition.toSourceString());
 
         // print body
         methodDefinition.getBody().accept(null, this);
@@ -197,6 +189,13 @@ public class DumpByteCodeVisitor
     }
 
     @Override
+    public Void visitByteCodeExpression(ByteCodeNode parent, ByteCodeExpression byteCodeExpression)
+    {
+        printLine(byteCodeExpression.toString());
+        return null;
+    }
+
+    @Override
     public Void visitNode(ByteCodeNode parent, ByteCodeNode node)
     {
         printLine(node.toString());
@@ -225,7 +224,7 @@ public class DumpByteCodeVisitor
     @Override
     public Void visitLoadVariable(ByteCodeNode parent, LoadVariableInstruction loadVariableInstruction)
     {
-        LocalVariableDefinition variable = loadVariableInstruction.getVariable();
+        Variable variable = loadVariableInstruction.getVariable();
         printLine("load %s(#%d)", variable.getName(), variable.getSlot());
         return null;
     }
@@ -233,7 +232,7 @@ public class DumpByteCodeVisitor
     @Override
     public Void visitStoreVariable(ByteCodeNode parent, StoreVariableInstruction storeVariableInstruction)
     {
-        LocalVariableDefinition variable = storeVariableInstruction.getVariable();
+        Variable variable = storeVariableInstruction.getVariable();
         printLine("store %s(#%d)", variable.getName(), variable.getSlot());
         return null;
     }
@@ -241,7 +240,7 @@ public class DumpByteCodeVisitor
     @Override
     public Void visitIncrementVariable(ByteCodeNode parent, IncrementVariableInstruction incrementVariableInstruction)
     {
-        LocalVariableDefinition variable = incrementVariableInstruction.getVariable();
+        Variable variable = incrementVariableInstruction.getVariable();
         byte increment = incrementVariableInstruction.getIncrement();
         printLine("increment %s(#%d) %s", variable.getName(), variable.getSlot(), increment);
         return null;
@@ -274,6 +273,29 @@ public class DumpByteCodeVisitor
     //
     // Control Flow
     //
+
+    @Override
+    public Void visitTryCatch(ByteCodeNode parent, TryCatch tryCatch)
+    {
+        if (tryCatch.getComment() != null) {
+            printLine();
+            printLine("// %s", tryCatch.getComment());
+        }
+
+        printLine("try {");
+        indentLevel++;
+        tryCatch.getTryNode().accept(tryCatch, this);
+        indentLevel--;
+        printLine("}");
+
+        printLine("catch (%s) {", tryCatch.getExceptionName());
+        indentLevel++;
+        tryCatch.getCatchNode().accept(tryCatch, this);
+        indentLevel--;
+        printLine("}");
+
+        return null;
+    }
 
     @Override
     public Void visitIf(ByteCodeNode parent, IfStatement ifStatement)
@@ -374,6 +396,13 @@ public class DumpByteCodeVisitor
     public Void visitBoxedBooleanConstant(ByteCodeNode parent, BoxedBooleanConstant boxedBooleanConstant)
     {
         printLine("load constant %s", boxedBooleanConstant.getValue());
+        return null;
+    }
+
+    @Override
+    public Void visitBooleanConstant(ByteCodeNode parent, BooleanConstant booleanConstant)
+    {
+        printLine("load constant %s", booleanConstant.getValue());
         return null;
     }
 

@@ -31,16 +31,17 @@ import java.util.Set;
 //
 public class SystemTablesManager
 {
+    public static final String CONNECTOR_ID = "system";
     private final SystemTablesMetadata metadata;
     private final SystemSplitManager splitManager;
-    private final SystemDataStreamProvider dataStreamProvider;
+    private final SystemRecordSetProvider recordSetProvider;
 
     @Inject
-    public SystemTablesManager(SystemTablesMetadata metadata, SystemSplitManager splitManager, SystemDataStreamProvider dataStreamProvider, Set<SystemTable> tables)
+    public SystemTablesManager(SystemTablesMetadata metadata, SystemSplitManager splitManager, SystemRecordSetProvider recordSetProvider, Set<SystemTable> tables)
     {
         this.metadata = metadata;
         this.splitManager = splitManager;
-        this.dataStreamProvider = dataStreamProvider;
+        this.recordSetProvider = recordSetProvider;
         for (SystemTable table : tables) {
             addTable(table);
         }
@@ -50,6 +51,6 @@ public class SystemTablesManager
     {
         metadata.addTable(systemTable.getTableMetadata());
         splitManager.addTable(systemTable);
-        dataStreamProvider.addTable(systemTable);
+        recordSetProvider.addTable(systemTable);
     }
 }

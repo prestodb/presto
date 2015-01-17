@@ -13,17 +13,19 @@
  */
 package com.facebook.presto.hive;
 
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Parameters;
+import org.testng.annotations.Test;
 
+@Test
 public class TestSplitIteratorBackpressure
         extends AbstractTestSplitIteratorBackpressure
 {
-    @Parameters({"hive.hadoop2.metastoreHost", "hive.hadoop2.metastorePort", "hive.hadoop2.databaseName"})
-    @BeforeMethod
+    @Parameters({"hive.hadoop2.metastoreHost", "hive.hadoop2.metastorePort", "hive.hadoop2.databaseName", "hive.hadoop2.timeZone"})
+    @BeforeClass
     @Override
-    public void setup(String host, int port, String databaseName)
+    public void setup(String host, int port, String databaseName, String timeZone)
     {
-        super.setup(host, port, databaseName);
+        super.setup(host, port, databaseName, timeZone);
     }
 }

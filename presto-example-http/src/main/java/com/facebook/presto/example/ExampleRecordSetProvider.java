@@ -13,16 +13,17 @@
  */
 package com.facebook.presto.example;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.Split;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.facebook.presto.example.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -38,24 +39,15 @@ public class ExampleRecordSetProvider
     }
 
     @Override
-    public boolean canHandle(Split split)
-    {
-        return split instanceof ExampleSplit && ((ExampleSplit) split).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public RecordSet getRecordSet(Split split, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorSplit split, List<? extends ConnectorColumnHandle> columns)
     {
         checkNotNull(split, "partitionChunk is null");
-        checkArgument(split instanceof ExampleSplit);
-
-        ExampleSplit exampleSplit = (ExampleSplit) split;
+        ExampleSplit exampleSplit = checkType(split, ExampleSplit.class, "split");
         checkArgument(exampleSplit.getConnectorId().equals(connectorId), "split is not for this connector");
 
         ImmutableList.Builder<ExampleColumnHandle> handles = ImmutableList.builder();
-        for (ColumnHandle handle : columns) {
-            checkArgument(handle instanceof ExampleColumnHandle);
-            handles.add((ExampleColumnHandle) handle);
+        for (ConnectorColumnHandle handle : columns) {
+            handles.add(checkType(handle, ExampleColumnHandle.class, "handle"));
         }
 
         return new ExampleRecordSet(exampleSplit, handles.build());

@@ -13,11 +13,15 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.collect.ImmutableList;
 
-import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import java.util.List;
+
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestLongSumAggregation
         extends AbstractTestAggregationFunction
@@ -25,17 +29,11 @@ public class TestLongSumAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_LONG);
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
         for (int i = start; i < start + length; i++) {
-            blockBuilder.append(i);
+            BIGINT.writeLong(blockBuilder, i);
         }
         return blockBuilder.build();
-    }
-
-    @Override
-    public AggregationFunction getFunction()
-    {
-        return LONG_SUM;
     }
 
     @Override
@@ -50,5 +48,17 @@ public class TestLongSumAggregation
             sum += i;
         }
         return sum;
+    }
+
+    @Override
+    protected String getFunctionName()
+    {
+        return "sum";
+    }
+
+    @Override
+    protected List<String> getFunctionParameterTypes()
+    {
+        return ImmutableList.of(StandardTypes.BIGINT);
     }
 }

@@ -6,6 +6,7 @@ Installation
     :maxdepth: 1
 
     installation/deployment
-    installation/discovery
     installation/cli
     installation/jdbc
+    installation/verifier
+    installation/benchmark-driver

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.util.concurrent.ListenableFuture;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 
@@ -24,12 +24,12 @@ public class FinishedOperator
         implements Operator
 {
     private final OperatorContext operatorContext;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
 
-    public FinishedOperator(OperatorContext operatorContext, List<TupleInfo> tupleInfos)
+    public FinishedOperator(OperatorContext operatorContext, List<Type> types)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.tupleInfos = checkNotNull(tupleInfos, "tupleInfos is null");
+        this.types = checkNotNull(types, "types is null");
     }
 
     @Override
@@ -39,9 +39,9 @@ public class FinishedOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override
@@ -53,12 +53,6 @@ public class FinishedOperator
     public boolean isFinished()
     {
         return true;
-    }
-
-    @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
     }
 
     @Override

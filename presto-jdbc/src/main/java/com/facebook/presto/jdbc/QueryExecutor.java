@@ -18,11 +18,11 @@ import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
-import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClientConfig;
-import io.airlift.http.client.netty.NettyAsyncHttpClientConfig;
-import io.airlift.http.client.netty.NettyIoPoolConfig;
-import io.airlift.http.client.netty.StandaloneNettyAsyncHttpClient;
+import io.airlift.http.client.jetty.JettyHttpClient;
+import io.airlift.http.client.jetty.JettyIoPool;
+import io.airlift.http.client.jetty.JettyIoPoolConfig;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 
@@ -42,7 +42,7 @@ class QueryExecutor
         implements Closeable
 {
     private final JsonCodec<QueryResults> queryInfoCodec;
-    private final AsyncHttpClient httpClient;
+    private final HttpClient httpClient;
 
     private QueryExecutor(String userAgent, JsonCodec<QueryResults> queryResultsCodec, HostAndPort socksProxy)
     {
@@ -50,12 +50,11 @@ class QueryExecutor
         checkNotNull(queryResultsCodec, "queryResultsCodec is null");
 
         this.queryInfoCodec = queryResultsCodec;
-        this.httpClient = new StandaloneNettyAsyncHttpClient("jdbc",
+        this.httpClient = new JettyHttpClient(
                 new HttpClientConfig()
                         .setConnectTimeout(new Duration(10, TimeUnit.SECONDS))
                         .setSocksProxy(socksProxy),
-                new NettyAsyncHttpClientConfig(),
-                new NettyIoPoolConfig(),
+                new JettyIoPool("presto-jdbc", new JettyIoPoolConfig()),
                 ImmutableSet.of(new UserAgentRequestFilter(userAgent)));
     }
 

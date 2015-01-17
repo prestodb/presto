@@ -14,49 +14,45 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.Session;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.ShardManager;
+import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
-import com.facebook.presto.sql.analyzer.AnalyzerConfig;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedExecutionPlanner;
-import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.InputExtractor;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.storage.StorageManager;
-import com.facebook.presto.util.SetThreadName;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import io.airlift.concurrent.ThreadPoolExecutorMBean;
+import io.airlift.concurrent.SetThreadName;
 import io.airlift.units.Duration;
-import org.weakref.jmx.Managed;
-import org.weakref.jmx.Nested;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
-import static com.facebook.presto.util.Threads.threadsNamed;
+import static com.facebook.presto.SystemSessionProperties.isBigQueryEnabled;
+import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -65,30 +61,30 @@ public class SqlQueryExecution
         implements QueryExecution
 {
     private static final OutputBuffers ROOT_OUTPUT_BUFFERS = INITIAL_EMPTY_OUTPUT_BUFFERS
-            .withBuffer("out", new UnpartitionedPagePartitionFunction())
+            .withBuffer(new TaskId("output", "buffer", "id"), new UnpartitionedPagePartitionFunction())
             .withNoMoreBufferIds();
 
     private final QueryStateMachine stateMachine;
 
+    private final Session session;
     private final Statement statement;
     private final Metadata metadata;
+    private final SqlParser sqlParser;
     private final SplitManager splitManager;
     private final NodeScheduler nodeScheduler;
     private final List<PlanOptimizer> planOptimizers;
     private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
     private final int scheduleSplitBatchSize;
-    private final int maxPendingSplitsPerNode;
     private final int initialHashPartitions;
-    private final boolean approximateQueriesEnabled;
+    private final boolean experimentalSyntaxEnabled;
+    private final boolean distributedIndexJoinsEnabled;
+    private final boolean distributedJoinsEnabled;
     private final ExecutorService queryExecutor;
-    private final ShardManager shardManager;
-    private final StorageManager storageManager;
-
-    private final PeriodicImportManager periodicImportManager;
 
     private final QueryExplainer queryExplainer;
     private final AtomicReference<SqlStageExecution> outputStage = new AtomicReference<>();
+    private final NodeTaskMap nodeTaskMap;
 
     public SqlQueryExecution(QueryId queryId,
             String query,
@@ -96,6 +92,7 @@ public class SqlQueryExecution
             URI self,
             Statement statement,
             Metadata metadata,
+            SqlParser sqlParser,
             SplitManager splitManager,
             NodeScheduler nodeScheduler,
             List<PlanOptimizer> planOptimizers,
@@ -104,31 +101,30 @@ public class SqlQueryExecution
             int scheduleSplitBatchSize,
             int maxPendingSplitsPerNode,
             int initialHashPartitions,
-            boolean approximateQueriesEnabled,
+            boolean experimentalSyntaxEnabled,
+            boolean distributedIndexJoinsEnabled,
+            boolean distributedJoinsEnabled,
             ExecutorService queryExecutor,
-            ShardManager shardManager,
-            StorageManager storageManager,
-            PeriodicImportManager periodicImportManager)
+            NodeTaskMap nodeTaskMap)
     {
         try (SetThreadName setThreadName = new SetThreadName("Query-%s", queryId)) {
+            this.session = checkNotNull(session, "session is null");
             this.statement = checkNotNull(statement, "statement is null");
             this.metadata = checkNotNull(metadata, "metadata is null");
+            this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
             this.splitManager = checkNotNull(splitManager, "splitManager is null");
             this.nodeScheduler = checkNotNull(nodeScheduler, "nodeScheduler is null");
             this.planOptimizers = checkNotNull(planOptimizers, "planOptimizers is null");
             this.remoteTaskFactory = checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
             this.queryExecutor = checkNotNull(queryExecutor, "queryExecutor is null");
-            this.shardManager = checkNotNull(shardManager, "shardManager is null");
-            this.storageManager = checkNotNull(storageManager, "storageManager is null");
-            this.periodicImportManager = checkNotNull(periodicImportManager, "periodicImportManager is null");
-            this.approximateQueriesEnabled = approximateQueriesEnabled;
+            this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
+            this.distributedIndexJoinsEnabled = distributedIndexJoinsEnabled;
+            this.distributedJoinsEnabled = distributedJoinsEnabled;
+            this.nodeTaskMap = checkNotNull(nodeTaskMap, "nodeTaskMap is null");
 
             checkArgument(maxPendingSplitsPerNode > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
-
-            checkArgument(maxPendingSplitsPerNode > 0, "maxPendingSplitsPerNode must be greater than 0");
-            this.maxPendingSplitsPerNode = maxPendingSplitsPerNode;
 
             checkArgument(initialHashPartitions > 0, "initialHashPartitions must be greater than 0");
             this.initialHashPartitions = initialHashPartitions;
@@ -139,7 +135,7 @@ public class SqlQueryExecution
             checkNotNull(self, "self is null");
             this.stateMachine = new QueryStateMachine(queryId, query, session, self, queryExecutor);
 
-            this.queryExplainer = new QueryExplainer(session, planOptimizers, metadata, periodicImportManager, storageManager, approximateQueriesEnabled);
+            this.queryExplainer = new QueryExplainer(session, planOptimizers, metadata, sqlParser, experimentalSyntaxEnabled);
         }
     }
 
@@ -173,7 +169,7 @@ public class SqlQueryExecution
                     stage.start();
                 }
                 else {
-                    stage.cancel(true);
+                    stage.abort();
                 }
             }
             catch (Throwable e) {
@@ -207,19 +203,19 @@ public class SqlQueryExecution
         long analysisStart = System.nanoTime();
 
         // analyze query
-        Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, Optional.of(queryExplainer), approximateQueriesEnabled);
+        Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, Optional.of(queryExplainer), experimentalSyntaxEnabled);
 
         Analysis analysis = analyzer.analyze(statement);
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         // plan query
-        LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata, periodicImportManager, storageManager);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata);
         Plan plan = logicalPlanner.plan(analysis);
 
         List<Input> inputs = new InputExtractor(metadata).extract(plan.getRoot());
         stateMachine.setInputs(inputs);
 
         // fragment the plan
-        SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubPlans(plan, false);
+        SubPlan subplan = new PlanFragmenter().createSubPlans(plan);
 
         stateMachine.recordAnalysisTime(analysisStart);
         return subplan;
@@ -231,7 +227,7 @@ public class SqlQueryExecution
         long distributedPlanningStart = System.nanoTime();
 
         // plan the execution on the active nodes
-        DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(splitManager, shardManager);
+        DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(splitManager);
         StageExecutionPlan outputStageExecutionPlan = distributedPlanner.plan(subplan);
 
         if (stateMachine.isDone()) {
@@ -249,44 +245,18 @@ public class SqlQueryExecution
                 remoteTaskFactory,
                 stateMachine.getSession(),
                 scheduleSplitBatchSize,
-                maxPendingSplitsPerNode,
                 initialHashPartitions,
                 queryExecutor,
+                nodeTaskMap,
                 ROOT_OUTPUT_BUFFERS);
         this.outputStage.set(outputStage);
-        outputStage.addStateChangeListener(new StateChangeListener<StageInfo>()
-        {
-            @Override
-            public void stateChanged(StageInfo stageInfo)
-            {
-                doUpdateState(stageInfo);
-            }
-        });
+        outputStage.addStateChangeListener(this::doUpdateState);
 
         // record planning time
         stateMachine.recordDistributedPlanningTime(distributedPlanningStart);
 
         // update state in case output finished before listener was added
         doUpdateState(outputStage.getStageInfo());
-    }
-
-    @Override
-    public void cancel()
-    {
-        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
-            stateMachine.cancel();
-            cancelOutputStage();
-        }
-    }
-
-    private void cancelOutputStage()
-    {
-        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
-            SqlStageExecution stageExecution = outputStage.get();
-            if (stageExecution != null) {
-                stageExecution.cancel(true);
-            }
-        }
     }
 
     @Override
@@ -308,7 +278,11 @@ public class SqlQueryExecution
         try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             // transition to failed state, only if not already finished
             stateMachine.fail(cause);
-            cancelOutputStage();
+
+            SqlStageExecution stageExecution = outputStage.get();
+            if (stageExecution != null) {
+                stageExecution.abort();
+            }
         }
     }
 
@@ -350,11 +324,11 @@ public class SqlQueryExecution
         // if output stage is done, transition to done
         StageState outputStageState = outputStageInfo.getState();
         if (outputStageState.isDone()) {
-            if (outputStageState == StageState.FAILED) {
+            if (outputStageState.isFailure()) {
                 stateMachine.fail(failureCause(outputStageInfo));
             }
             else if (outputStageState == StageState.CANCELED) {
-                stateMachine.cancel();
+                stateMachine.fail(new PrestoException(USER_CANCELED, "Query was canceled"));
             }
             else {
                 stateMachine.finished();
@@ -397,68 +371,78 @@ public class SqlQueryExecution
         private final int scheduleSplitBatchSize;
         private final int maxPendingSplitsPerNode;
         private final int initialHashPartitions;
-        private final boolean approximateQueriesEnabled;
+        private final Integer bigQueryInitialHashPartitions;
+        private final boolean experimentalSyntaxEnabled;
+        private final boolean distributedIndexJoinsEnabled;
+        private final boolean distributedJoinsEnabled;
         private final Metadata metadata;
+        private final SqlParser sqlParser;
         private final SplitManager splitManager;
         private final NodeScheduler nodeScheduler;
         private final List<PlanOptimizer> planOptimizers;
         private final RemoteTaskFactory remoteTaskFactory;
         private final LocationFactory locationFactory;
-        private final ShardManager shardManager;
-        private final StorageManager storageManager;
-
-        private final PeriodicImportManager periodicImportManager;
         private final ExecutorService executor;
-        private final ThreadPoolExecutorMBean executorMBean;
+        private final NodeTaskMap nodeTaskMap;
+        private final NodeManager nodeManager;
 
         @Inject
         SqlQueryExecutionFactory(QueryManagerConfig config,
-                AnalyzerConfig analyzerConfig,
+                FeaturesConfig featuresConfig,
                 Metadata metadata,
+                SqlParser sqlParser,
                 LocationFactory locationFactory,
                 SplitManager splitManager,
                 NodeScheduler nodeScheduler,
+                NodeManager nodeManager,
                 List<PlanOptimizer> planOptimizers,
                 RemoteTaskFactory remoteTaskFactory,
-                ShardManager shardManager,
-                StorageManager storageManager,
-                PeriodicImportManager periodicImportManager)
+                @ForQueryExecution ExecutorService executor,
+                NodeTaskMap nodeTaskMap)
         {
             checkNotNull(config, "config is null");
             this.scheduleSplitBatchSize = config.getScheduleSplitBatchSize();
             this.maxPendingSplitsPerNode = config.getMaxPendingSplitsPerNode();
             this.initialHashPartitions = config.getInitialHashPartitions();
+            this.bigQueryInitialHashPartitions = config.getBigQueryInitialHashPartitions();
             this.metadata = checkNotNull(metadata, "metadata is null");
+            this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
             this.splitManager = checkNotNull(splitManager, "splitManager is null");
             this.nodeScheduler = checkNotNull(nodeScheduler, "nodeScheduler is null");
             this.planOptimizers = checkNotNull(planOptimizers, "planOptimizers is null");
             this.remoteTaskFactory = checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
-            this.shardManager = checkNotNull(shardManager, "shardManager is null");
-            this.storageManager = checkNotNull(storageManager, "storageManager is null");
-            this.periodicImportManager = checkNotNull(periodicImportManager, "periodicImportManager is null");
-            this.approximateQueriesEnabled = checkNotNull(analyzerConfig, "analyzerConfig is null").isApproximateQueriesEnabled();
-
-            this.executor = Executors.newCachedThreadPool(threadsNamed("query-scheduler-%d"));
-            this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
-        }
-
-        @Managed
-        @Nested
-        public ThreadPoolExecutorMBean getExecutor()
-        {
-            return executorMBean;
+            checkNotNull(featuresConfig, "featuresConfig is null");
+            this.experimentalSyntaxEnabled = featuresConfig.isExperimentalSyntaxEnabled();
+            this.distributedIndexJoinsEnabled = featuresConfig.isDistributedIndexJoinsEnabled();
+            this.distributedJoinsEnabled = featuresConfig.isDistributedJoinsEnabled();
+            this.executor = checkNotNull(executor, "executor is null");
+            this.nodeTaskMap = checkNotNull(nodeTaskMap, "nodeTaskMap is null");
+            this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
         }
 
         @Override
         public SqlQueryExecution createQueryExecution(QueryId queryId, String query, Session session, Statement statement)
         {
+            int initialHashPartitions;
+            if (isBigQueryEnabled(session, false)) {
+                if (this.bigQueryInitialHashPartitions == null) {
+                    initialHashPartitions = nodeManager.getActiveNodes().size();
+                }
+                else {
+                    initialHashPartitions = this.bigQueryInitialHashPartitions;
+                }
+            }
+            else {
+                initialHashPartitions = this.initialHashPartitions;
+            }
             SqlQueryExecution queryExecution = new SqlQueryExecution(queryId,
                     query,
                     session,
                     locationFactory.createQueryLocation(queryId),
                     statement,
                     metadata,
+                    sqlParser,
                     splitManager,
                     nodeScheduler,
                     planOptimizers,
@@ -467,11 +451,11 @@ public class SqlQueryExecution
                     scheduleSplitBatchSize,
                     maxPendingSplitsPerNode,
                     initialHashPartitions,
-                    approximateQueriesEnabled,
+                    experimentalSyntaxEnabled,
+                    distributedIndexJoinsEnabled,
+                    isBigQueryEnabled(session, distributedJoinsEnabled),
                     executor,
-                    shardManager,
-                    storageManager,
-                    periodicImportManager);
+                    nodeTaskMap);
 
             return queryExecution;
         }

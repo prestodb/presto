@@ -15,8 +15,9 @@ package com.facebook.presto.cassandra;
 
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorOutputHandleResolver;
+import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
@@ -32,35 +33,48 @@ public class CassandraConnector
     private final CassandraSplitManager splitManager;
     private final ConnectorRecordSetProvider recordSetProvider;
     private final CassandraHandleResolver handleResolver;
+    private final CassandraConnectorRecordSinkProvider recordSinkProvider;
 
     @Inject
     public CassandraConnector(
             CassandraMetadata metadata,
             CassandraSplitManager splitManager,
             CassandraRecordSetProvider recordSetProvider,
-            CassandraHandleResolver handleResolver)
+            CassandraHandleResolver handleResolver,
+            CassandraConnectorRecordSinkProvider recordSinkProvider)
     {
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
         this.recordSetProvider = checkNotNull(recordSetProvider, "recordSetProvider is null");
         this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
+        this.recordSinkProvider = checkNotNull(recordSinkProvider, "recordSinkProvider is null");
     }
 
+    @Override
     public ConnectorMetadata getMetadata()
     {
         return metadata;
     }
 
+    @Override
     public ConnectorSplitManager getSplitManager()
     {
         return splitManager;
     }
 
+    @Override
+    public ConnectorPageSourceProvider getPageSourceProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public ConnectorRecordSetProvider getRecordSetProvider()
     {
         return recordSetProvider;
     }
 
+    @Override
     public ConnectorHandleResolver getHandleResolver()
     {
         return handleResolver;
@@ -69,11 +83,11 @@ public class CassandraConnector
     @Override
     public ConnectorRecordSinkProvider getRecordSinkProvider()
     {
-        throw new UnsupportedOperationException();
+        return recordSinkProvider;
     }
 
     @Override
-    public ConnectorOutputHandleResolver getOutputHandleResolver()
+    public ConnectorIndexResolver getIndexResolver()
     {
         throw new UnsupportedOperationException();
     }

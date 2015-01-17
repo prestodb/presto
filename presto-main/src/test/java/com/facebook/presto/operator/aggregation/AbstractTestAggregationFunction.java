@@ -13,20 +13,40 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.rle.RunLengthEncodedBlock;
+import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.testing.RunLengthEncodedBlock;
+import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.type.TypeRegistry;
+import com.google.common.collect.Lists;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.tuple.Tuples.nullTuple;
 
 public abstract class AbstractTestAggregationFunction
 {
+    protected final FunctionRegistry functionRegistry = new FunctionRegistry(new TypeRegistry(), true);
     public abstract Block getSequenceBlock(int start, int length);
 
-    public abstract AggregationFunction getFunction();
+    protected final InternalAggregationFunction getFunction()
+    {
+        return functionRegistry.resolveFunction(QualifiedName.of(getFunctionName()), Lists.transform(getFunctionParameterTypes(), TypeSignature::parseTypeSignature), isApproximate()).getAggregationFunction();
+    }
+
+    protected abstract String getFunctionName();
+
+    protected abstract List<String> getFunctionParameterTypes();
+
+    protected boolean isApproximate()
+    {
+        return false;
+    }
 
     public abstract Object getExpectedValue(int start, int length);
 
@@ -43,55 +63,78 @@ public abstract class AbstractTestAggregationFunction
     @Test
     public void testNoPositions()
     {
-        assertAggregation(getFunction(), getConfidence(), getExpectedValue(0, 0), 0);
+        testAggregation(getExpectedValue(0, 0), getSequenceBlock(0, 0));
     }
 
     @Test
     public void testSinglePosition()
     {
-        assertAggregation(getFunction(), getConfidence(), getExpectedValue(0, 1), 1, getSequenceBlock(0, 1));
+        testAggregation(getExpectedValue(0, 1), getSequenceBlock(0, 1));
     }
 
     @Test
     public void testMultiplePositions()
     {
-        assertAggregation(getFunction(), getConfidence(), getExpectedValue(0, 5), 5, getSequenceBlock(0, 5));
+        testAggregation(getExpectedValue(0, 5), getSequenceBlock(0, 5));
     }
 
     @Test
     public void testAllPositionsNull()
             throws Exception
     {
-        Block block = new RunLengthEncodedBlock(nullTuple(getSequenceBlock(0, 10).getTupleInfo()), 10);
-        assertAggregation(getFunction(), getConfidence(), getExpectedValueIncludingNulls(0, 0, 10), 10, block);
+        // if there are no parameters skip this test
+        List<Type> parameterTypes = getFunction().getParameterTypes();
+        if (parameterTypes.isEmpty()) {
+            return;
+        }
+
+        Block nullValueBlock = parameterTypes.get(0).createBlockBuilder(new BlockBuilderStatus())
+                .appendNull()
+                .build();
+
+        Block block = new RunLengthEncodedBlock(nullValueBlock, 10);
+        testAggregation(getExpectedValueIncludingNulls(0, 0, 10), block);
     }
 
     @Test
     public void testMixedNullAndNonNullPositions()
     {
-        Block alternatingNullsBlock = createAlternatingNullsBlock(getSequenceBlock(0, 10));
-        assertAggregation(getFunction(), getConfidence(), getExpectedValueIncludingNulls(0, 10, 20), 20, alternatingNullsBlock);
+        // if there are no parameters skip this test
+        List<Type> parameterTypes = getFunction().getParameterTypes();
+        if (parameterTypes.isEmpty()) {
+            return;
+        }
+
+        Block alternatingNullsBlock = createAlternatingNullsBlock(parameterTypes.get(0), getSequenceBlock(0, 10));
+        testAggregation(getExpectedValueIncludingNulls(0, 10, 20), alternatingNullsBlock);
     }
 
     @Test
     public void testNegativeOnlyValues()
     {
-        assertAggregation(getFunction(), getConfidence(), getExpectedValue(-10, 5), 5, getSequenceBlock(-10, 5));
+        testAggregation(getExpectedValue(-10, 5), getSequenceBlock(-10, 5));
     }
 
     @Test
     public void testPositiveOnlyValues()
     {
-        assertAggregation(getFunction(), getConfidence(), getExpectedValue(2, 4), 4, getSequenceBlock(2, 4));
+        testAggregation(getExpectedValue(2, 4), getSequenceBlock(2, 4));
     }
 
-    public Block createAlternatingNullsBlock(Block sequenceBlock)
+    public Block createAlternatingNullsBlock(Type type, Block sequenceBlock)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(sequenceBlock.getTupleInfo());
-        BlockCursor cursor = sequenceBlock.cursor();
-        while (cursor.advanceNextPosition()) {
-            blockBuilder.appendNull().append(cursor.getTuple());
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+        for (int position = 0; position < sequenceBlock.getPositionCount(); position++) {
+            // append null
+            blockBuilder.appendNull();
+            // append value
+            type.appendTo(sequenceBlock, position, blockBuilder);
         }
         return blockBuilder.build();
+    }
+
+    protected void testAggregation(Object expectedValue, Block block)
+    {
+        assertAggregation(getFunction(), getConfidence(), expectedValue, block.getPositionCount(), block);
     }
 }

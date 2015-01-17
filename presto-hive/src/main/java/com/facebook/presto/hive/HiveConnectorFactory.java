@@ -13,15 +13,17 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorMetadata;
-import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorOutputHandleResolver;
-import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorRecordSetProvider;
+import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorRecordSinkProvider;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorSplitManager;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
@@ -47,13 +49,17 @@ public class HiveConnectorFactory
     private final String name;
     private final Map<String, String> optionalConfig;
     private final ClassLoader classLoader;
+    private final HiveMetastore metastore;
+    private final TypeManager typeManager;
 
-    public HiveConnectorFactory(String name, Map<String, String> optionalConfig, ClassLoader classLoader)
+    public HiveConnectorFactory(String name, Map<String, String> optionalConfig, ClassLoader classLoader, HiveMetastore metastore, TypeManager typeManager)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
         this.optionalConfig = checkNotNull(optionalConfig, "optionalConfig is null");
         this.classLoader = checkNotNull(classLoader, "classLoader is null");
+        this.metastore = metastore;
+        this.typeManager = checkNotNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -73,7 +79,7 @@ public class HiveConnectorFactory
                     new DiscoveryModule(),
                     new MBeanModule(),
                     new JsonModule(),
-                    new HiveClientModule(connectorId),
+                    new HiveClientModule(connectorId, metastore, typeManager),
                     new Module()
                     {
                         @Override
@@ -93,14 +99,14 @@ public class HiveConnectorFactory
                     .initialize();
 
             HiveClient hiveClient = injector.getInstance(HiveClient.class);
+            ConnectorPageSourceProvider connectorPageSource = injector.getInstance(ConnectorPageSourceProvider.class);
 
             return new HiveConnector(
                     new ClassLoaderSafeConnectorMetadata(hiveClient, classLoader),
                     new ClassLoaderSafeConnectorSplitManager(hiveClient, classLoader),
-                    new ClassLoaderSafeConnectorRecordSetProvider(hiveClient, classLoader),
+                    new ClassLoaderSafeConnectorPageSourceProvider(connectorPageSource, classLoader),
                     new ClassLoaderSafeConnectorRecordSinkProvider(hiveClient, classLoader),
-                    new ClassLoaderSafeConnectorHandleResolver(hiveClient, classLoader),
-                    new ClassLoaderSafeConnectorOutputHandleResolver(hiveClient, classLoader));
+                    new ClassLoaderSafeConnectorHandleResolver(hiveClient, classLoader));
         }
         catch (Exception e) {
             throw Throwables.propagate(e);

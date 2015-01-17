@@ -15,17 +15,17 @@ package com.facebook.presto.byteCode.instruction;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
-import com.facebook.presto.byteCode.OpCodes;
+import com.facebook.presto.byteCode.OpCode;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.OpCodes.ANEWARRAY;
-import static com.facebook.presto.byteCode.OpCodes.CHECKCAST;
-import static com.facebook.presto.byteCode.OpCodes.INSTANCEOF;
-import static com.facebook.presto.byteCode.OpCodes.NEW;
+import static com.facebook.presto.byteCode.OpCode.ANEWARRAY;
+import static com.facebook.presto.byteCode.OpCode.CHECKCAST;
+import static com.facebook.presto.byteCode.OpCode.INSTANCEOF;
+import static com.facebook.presto.byteCode.OpCode.NEW;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 
 public class TypeInstruction
@@ -71,10 +71,10 @@ public class TypeInstruction
         return new TypeInstruction(CHECKCAST, type);
     }
 
-    private final OpCodes opCode;
+    private final OpCode opCode;
     private final ParameterizedType type;
 
-    public TypeInstruction(OpCodes opCode, ParameterizedType type)
+    public TypeInstruction(OpCode opCode, ParameterizedType type)
     {
         this.opCode = opCode;
         this.type = type;

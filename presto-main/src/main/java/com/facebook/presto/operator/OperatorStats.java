@@ -277,6 +277,10 @@ public class OperatorStats
 
         long memoryReservation = this.memoryReservation.toBytes();
 
+        Mergeable<?> base = null;
+        if (info instanceof Mergeable) {
+            base = (Mergeable<?>) info;
+        }
         for (OperatorStats operator : operators) {
             checkArgument(operator.getOperatorId() == operatorId, "Expected operatorId to be %s but was %s", operatorId, operator.getOperatorId());
 
@@ -302,6 +306,11 @@ public class OperatorStats
             blockedWall += operator.getBlockedWall().roundTo(NANOSECONDS);
 
             memoryReservation += operator.getMemoryReservation().toBytes();
+
+            Object info = operator.getInfo();
+            if (base != null && info != null && base.getClass() == info.getClass()) {
+                base = mergeInfo(base, info);
+            }
         }
 
         return new OperatorStats(
@@ -331,7 +340,11 @@ public class OperatorStats
 
                 new DataSize(memoryReservation, BYTE).convertToMostSuccinctDataSize(),
 
-                // todo merge operator info?
-                null);
+                base);
+    }
+
+    public static <T extends Mergeable<T>> Mergeable<?> mergeInfo(Object base, Object other)
+    {
+        return ((T) base).mergeWith(((T) other));
     }
 }

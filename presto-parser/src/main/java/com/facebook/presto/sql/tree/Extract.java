@@ -26,7 +26,6 @@ public class Extract
 
     public enum Field
     {
-        CENTURY,
         YEAR,
         QUARTER,
         MONTH,
@@ -37,11 +36,13 @@ public class Extract
         DOW,
         DAY_OF_YEAR,
         DOY,
+        YEAR_OF_WEEK,
+        YOW,
         HOUR,
         MINUTE,
         SECOND,
-        TIMEZONE_HOUR,
-        TIMEZONE_MINUTE
+        TIMEZONE_MINUTE,
+        TIMEZONE_HOUR
     }
 
     public Extract(Expression expression, Field field)

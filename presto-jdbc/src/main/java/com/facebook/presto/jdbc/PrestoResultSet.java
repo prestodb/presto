@@ -17,10 +17,19 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
-import com.google.common.base.Function;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import org.joda.time.DateTimeZone;
+import org.joda.time.Period;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.DateTimeFormatterBuilder;
+import org.joda.time.format.DateTimeParser;
+import org.joda.time.format.ISODateTimeFormat;
+import org.joda.time.format.PeriodFormatter;
+import org.joda.time.format.PeriodFormatterBuilder;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -50,21 +59,72 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.jdbc.ColumnInfo.setTypeInfo;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Throwables.propagate;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
 import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.transform;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public class PrestoResultSet
         implements ResultSet
 {
-    private static final int VARIABLE_BINARY_MAX = 1024 * 1024 * 1024;
+    private static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormat.forPattern("HH:mm:ss.SSS");
+    private static final DateTimeFormatter TIME_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
+            .append(DateTimeFormat.forPattern("HH:mm:ss.SSS ZZZ").getPrinter(),
+                    new DateTimeParser[] {
+                            DateTimeFormat.forPattern("HH:mm:ss.SSS Z").getParser(),
+                            DateTimeFormat.forPattern("HH:mm:ss.SSS ZZZ").getParser(),
+                    }
+            )
+            .toFormatter()
+            .withOffsetParsed();
+
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
+    private static final DateTimeFormatter TIMESTAMP_WITH_TIME_ZONE_FORMATTER  = new DateTimeFormatterBuilder()
+            .append(DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ").getPrinter(),
+                    new DateTimeParser[] {
+                            DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS Z").getParser(),
+                            DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ").getParser(),
+                    }
+            )
+            .toFormatter()
+            .withOffsetParsed();
+
+    private static final PeriodFormatter INTERVAL_YEAR_TO_MONTH_FORMATTER = new PeriodFormatterBuilder()
+            .appendYears()
+            .appendLiteral("-")
+            .appendMonths()
+            .toFormatter();
+
+    private static final PeriodFormatter INTERVAL_DAY_TO_SECOND_FORMATTER = new PeriodFormatterBuilder()
+            .appendDays()
+            .appendLiteral(" ")
+            .appendHours()
+            .appendLiteral(":")
+            .appendMinutes()
+            .appendLiteral(":")
+            .appendSecondsWithOptionalMillis()
+            .toFormatter();
+
+    private static final int YEAR_FIELD = 0;
+    private static final int MONTH_FIELD = 1;
+    private static final int DAY_FIELD = 3;
+    private static final int HOUR_FIELD = 4;
+    private static final int MINUTE_FIELD = 5;
+    private static final int SECOND_FIELD = 6;
+    private static final int MILLIS_FIELD = 7;
 
     private final StatementClient client;
+    private final DateTimeZone sessionTimeZone;
+    private final String queryId;
     private final Iterator<List<Object>> results;
     private final Map<String, Integer> fieldMap;
+    private final List<ColumnInfo> columnInfoList;
     private final ResultSetMetaData resultSetMetaData;
     private final AtomicReference<List<Object>> row = new AtomicReference<>();
     private final AtomicBoolean wasNull = new AtomicBoolean();
@@ -73,12 +133,20 @@ public class PrestoResultSet
             throws SQLException
     {
         this.client = checkNotNull(client, "client is null");
+        this.sessionTimeZone = DateTimeZone.forID(client.getTimeZoneId());
+        this.queryId = client.current().getId();
 
         List<Column> columns = getColumns(client);
         this.fieldMap = getFieldMap(columns);
-        this.resultSetMetaData = new PrestoResultSetMetaData(getColumnInfo(columns));
+        this.columnInfoList = getColumnInfo(columns);
+        this.resultSetMetaData = new PrestoResultSetMetaData(columnInfoList);
 
         this.results = flatten(new ResultsPageIterator(client));
+    }
+
+    public String getQueryId()
+    {
+        return queryId;
     }
 
     @Override
@@ -189,28 +257,104 @@ public class PrestoResultSet
     public byte[] getBytes(int columnIndex)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getBytes");
+        return (byte[]) column(columnIndex);
     }
 
     @Override
     public Date getDate(int columnIndex)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getDate");
+        return getDate(columnIndex, sessionTimeZone);
+    }
+
+    private Date getDate(int columnIndex, DateTimeZone localTimeZone)
+            throws SQLException
+    {
+        Object value = column(columnIndex);
+        if (value == null) {
+            return null;
+        }
+
+        try {
+            return new Date(DATE_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value)));
+        }
+        catch (IllegalArgumentException e) {
+            throw new SQLException("Invalid date from server: " + value, e);
+        }
     }
 
     @Override
     public Time getTime(int columnIndex)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getTime");
+        return getTime(columnIndex, sessionTimeZone);
+    }
+
+    private Time getTime(int columnIndex, DateTimeZone localTimeZone)
+            throws SQLException
+    {
+        Object value = column(columnIndex);
+        if (value == null) {
+            return null;
+        }
+
+        ColumnInfo columnInfo = columnInfoList.get(columnIndex - 1);
+        if (columnInfo.getColumnTypeName().equalsIgnoreCase("time")) {
+            try {
+                return new Time(TIME_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value)));
+            }
+            catch (IllegalArgumentException e) {
+                throw new SQLException("Invalid time from server: " + value, e);
+            }
+        }
+
+        if (columnInfo.getColumnTypeName().equalsIgnoreCase("time with time zone")) {
+            try {
+                return new Time(TIME_WITH_TIME_ZONE_FORMATTER.parseMillis(String.valueOf(value)));
+            }
+            catch (IllegalArgumentException e) {
+                throw new SQLException("Invalid time from server: " + value, e);
+            }
+        }
+
+        throw new IllegalArgumentException("Expected column to be a time type but is " + columnInfo.getColumnTypeName());
     }
 
     @Override
     public Timestamp getTimestamp(int columnIndex)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getTimestamp");
+        return getTimestamp(columnIndex, sessionTimeZone);
+    }
+
+    public Timestamp getTimestamp(int columnIndex, DateTimeZone localTimeZone)
+            throws SQLException
+    {
+        Object value = column(columnIndex);
+        if (value == null) {
+            return null;
+        }
+
+        ColumnInfo columnInfo = columnInfoList.get(columnIndex - 1);
+        if (columnInfo.getColumnTypeName().equalsIgnoreCase("timestamp")) {
+            try {
+                return new Timestamp(TIMESTAMP_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value)));
+            }
+            catch (IllegalArgumentException e) {
+                throw new SQLException("Invalid timestamp from server: " + value, e);
+            }
+        }
+
+        if (columnInfo.getColumnTypeName().equalsIgnoreCase("timestamp with time zone")) {
+            try {
+                return new Timestamp(TIMESTAMP_WITH_TIME_ZONE_FORMATTER.parseMillis(String.valueOf(value)));
+            }
+            catch (IllegalArgumentException e) {
+                throw new SQLException("Invalid timestamp from server: " + value, e);
+            }
+        }
+
+        throw new IllegalArgumentException("Expected column to be a timestamp type but is " + columnInfo.getColumnTypeName());
     }
 
     @Override
@@ -309,28 +453,28 @@ public class PrestoResultSet
     public byte[] getBytes(String columnLabel)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getBytes");
+        return (byte[]) column(columnLabel);
     }
 
     @Override
     public Date getDate(String columnLabel)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getDate");
+        return getDate(columnIndex(columnLabel));
     }
 
     @Override
     public Time getTime(String columnLabel)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getTime");
+        return getTime(columnIndex(columnLabel));
     }
 
     @Override
     public Timestamp getTimestamp(String columnLabel)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getTimestamp");
+        return getTimestamp(columnIndex(columnLabel));
     }
 
     @Override
@@ -387,14 +531,63 @@ public class PrestoResultSet
     public Object getObject(int columnIndex)
             throws SQLException
     {
+        ColumnInfo columnInfo = columnInfoList.get(columnIndex - 1);
+        switch (columnInfo.getColumnType()) {
+            case Types.DATE:
+                return getDate(columnIndex);
+            case Types.TIME:
+                return getTime(columnIndex);
+            case Types.TIMESTAMP:
+                return getTimestamp(columnIndex);
+            case Types.ARRAY:
+                return getArray(columnIndex);
+            case Types.JAVA_OBJECT:
+                if (columnInfo.getColumnTypeName().equalsIgnoreCase("interval year to month")) {
+                    return getIntervalYearMonth(columnIndex);
+                }
+                else if (columnInfo.getColumnTypeName().equalsIgnoreCase("interval day to second")) {
+                    return getIntervalDayTime(columnIndex);
+                }
+        }
         return column(columnIndex);
+    }
+
+    private PrestoIntervalYearMonth getIntervalYearMonth(int columnIndex)
+            throws SQLException
+    {
+        Object value = column(columnIndex);
+        if (value == null) {
+            return null;
+        }
+
+        Period period = INTERVAL_YEAR_TO_MONTH_FORMATTER.parsePeriod(String.valueOf(value));
+        return new PrestoIntervalYearMonth(
+                period.getValue(YEAR_FIELD),
+                period.getValue(MONTH_FIELD));
+    }
+
+    private PrestoIntervalDayTime getIntervalDayTime(int columnIndex)
+            throws SQLException
+    {
+        Object value = column(columnIndex);
+        if (value == null) {
+            return null;
+        }
+
+        Period period = INTERVAL_DAY_TO_SECOND_FORMATTER.parsePeriod(String.valueOf(value));
+        return new PrestoIntervalDayTime(
+                period.getValue(DAY_FIELD),
+                period.getValue(HOUR_FIELD),
+                period.getValue(MINUTE_FIELD),
+                period.getValue(SECOND_FIELD),
+                period.getValue(MILLIS_FIELD));
     }
 
     @Override
     public Object getObject(String columnLabel)
             throws SQLException
     {
-        return column(columnLabel);
+        return getObject(columnIndex(columnLabel));
     }
 
     @Override
@@ -934,7 +1127,14 @@ public class PrestoResultSet
     public Array getArray(int columnIndex)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getArray");
+        Object value = column(columnIndex);
+        if (value == null) {
+            return null;
+        }
+
+        String elementTypeName = Iterables.getOnlyElement(columnInfoList.get(columnIndex - 1).getColumnTypeSignature().getParameters()).toString();
+        int elementType = Iterables.getOnlyElement(columnInfoList.get(columnIndex - 1).getColumnParameterTypes());
+        return new PrestoArray(elementTypeName, elementType, (List) value);
     }
 
     @Override
@@ -969,49 +1169,49 @@ public class PrestoResultSet
     public Array getArray(String columnLabel)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getArray");
+        return getArray(columnIndex(columnLabel));
     }
 
     @Override
     public Date getDate(int columnIndex, Calendar cal)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getDate");
+        return getDate(columnIndex, DateTimeZone.forTimeZone(cal.getTimeZone()));
     }
 
     @Override
     public Date getDate(String columnLabel, Calendar cal)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getDate");
+        return getDate(columnIndex(columnLabel), cal);
     }
 
     @Override
     public Time getTime(int columnIndex, Calendar cal)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getTime");
+        return getTime(columnIndex, DateTimeZone.forTimeZone(cal.getTimeZone()));
     }
 
     @Override
     public Time getTime(String columnLabel, Calendar cal)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getTime");
+        return getTime(columnIndex(columnLabel), cal);
     }
 
     @Override
     public Timestamp getTimestamp(int columnIndex, Calendar cal)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getTimestamp");
+        return getTimestamp(columnIndex, DateTimeZone.forTimeZone(cal.getTimeZone()));
     }
 
     @Override
     public Timestamp getTimestamp(String columnLabel, Calendar cal)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getTimestamp");
+        return getTimestamp(columnIndex(columnLabel), cal);
     }
 
     @Override
@@ -1476,7 +1676,9 @@ public class PrestoResultSet
         if ((index <= 0) || (index > resultSetMetaData.getColumnCount())) {
             throw new SQLException("Invalid column index: " + index);
         }
-        return row.get().get(index - 1);
+        Object value = row.get().get(index - 1);
+        wasNull.set(value == null);
+        return value;
     }
 
     private Object column(String label)
@@ -1484,7 +1686,9 @@ public class PrestoResultSet
     {
         checkOpen();
         checkValidRow();
-        return row.get().get(columnIndex(label) - 1);
+        Object value = row.get().get(columnIndex(label) - 1);
+        wasNull.set(value == null);
+        return value;
     }
 
     private int columnIndex(String label)
@@ -1493,7 +1697,7 @@ public class PrestoResultSet
         if (label == null) {
             throw new SQLException("Column label is null");
         }
-        Integer index = fieldMap.get(label.toLowerCase());
+        Integer index = fieldMap.get(label.toLowerCase(ENGLISH));
         if (index == null) {
             throw new SQLException("Invalid column label: " + label);
         }
@@ -1520,14 +1724,7 @@ public class PrestoResultSet
 
     private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator)
     {
-        return concat(transform(iterator, new Function<Iterable<T>, Iterator<T>>()
-        {
-            @Override
-            public Iterator<T> apply(Iterable<T> input)
-            {
-                return input.iterator();
-            }
-        }));
+        return concat(transform(iterator, Iterable::iterator));
     }
 
     private static class ResultsPageIterator
@@ -1571,7 +1768,7 @@ public class PrestoResultSet
     {
         Map<String, Integer> map = new HashMap<>();
         for (int i = 0; i < columns.size(); i++) {
-            String name = columns.get(i).getName().toLowerCase();
+            String name = columns.get(i).getName().toLowerCase(ENGLISH);
             if (!map.containsKey(name)) {
                 map.put(name, i + 1);
             }
@@ -1589,45 +1786,12 @@ public class PrestoResultSet
                     .setTableName("") // TODO
                     .setColumnLabel(column.getName())
                     .setColumnName(column.getName()) // TODO
-                    .setColumnTypeName(column.getType().toUpperCase())
+                    .setColumnTypeSignature(parseTypeSignature(column.getType().toUpperCase(ENGLISH)))
                     .setNullable(ResultSetMetaData.columnNullableUnknown)
                     .setCurrency(false);
-            setTypeInfo(builder, column.getType());
+            setTypeInfo(builder, parseTypeSignature(column.getType()));
             list.add(builder.build());
         }
         return list.build();
-    }
-
-    private static void setTypeInfo(ColumnInfo.Builder builder, String type)
-    {
-        switch (type) {
-            case "boolean":
-                builder.setColumnType(Types.BOOLEAN);
-                builder.setColumnDisplaySize(5);
-                break;
-            case "bigint":
-                builder.setColumnType(Types.BIGINT);
-                builder.setSigned(true);
-                builder.setPrecision(19);
-                builder.setScale(0);
-                builder.setColumnDisplaySize(20);
-                break;
-            case "double":
-                builder.setColumnType(Types.DOUBLE);
-                builder.setSigned(true);
-                builder.setPrecision(17);
-                builder.setScale(0);
-                builder.setColumnDisplaySize(24);
-                break;
-            case "varchar":
-                builder.setColumnType(Types.LONGNVARCHAR);
-                builder.setSigned(true);
-                builder.setPrecision(VARIABLE_BINARY_MAX);
-                builder.setScale(0);
-                builder.setColumnDisplaySize(VARIABLE_BINARY_MAX);
-                break;
-            default:
-                throw new AssertionError("unimplemented type: " + type);
-        }
     }
 }
