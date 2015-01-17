@@ -101,7 +101,7 @@ public class RaptorSplitManager
                 // Pick a random node and optimistically assign the shard to it.
                 // That node will restore the shard from the backup location.
                 Set<Node> activeDatasourceNodes = nodeManager.getActiveDatasourceNodes(connectorId);
-                if (!activeDatasourceNodes.isEmpty()) {
+                if (activeDatasourceNodes.isEmpty()) {
                     throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
                 }
                 Node node = selectRandom(activeDatasourceNodes);
