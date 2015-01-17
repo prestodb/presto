@@ -19,6 +19,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.RegexpType;
 import com.facebook.presto.type.SqlType;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -30,6 +31,7 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.type.ArrayType.toStackRepresentation;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class RegexpFunctions
@@ -74,6 +76,19 @@ public final class RegexpFunctions
         Matcher matcher = pattern.matcher(source.toString(UTF_8));
         String replaced = matcher.replaceAll(replacement.toString(UTF_8));
         return Slices.copiedBuffer(replaced, UTF_8);
+    }
+
+    @Description("string(s) extracted using the given pattern")
+    @ScalarFunction
+    @SqlType("array<varchar>")
+    public static Slice regexpExtractAll(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Pattern pattern)
+    {
+        Matcher matcher = pattern.matcher(source.toString(UTF_8));
+        ImmutableList.Builder<String> builder = ImmutableList.builder();
+        while (matcher.find()) {
+            builder.add(matcher.group());
+        }
+        return toStackRepresentation(builder.build());
     }
 
     @Nullable

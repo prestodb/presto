@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -59,6 +60,12 @@ public class TestRegexpFunctions
     {
         assertFunction("REGEXP_EXTRACT('Hello world bye', '\\b[a-z]([a-z]*)')", "world");
         assertFunction("REGEXP_EXTRACT('Hello world bye', '\\b[a-z]([a-z]*)', 1)", "orld");
+    }
+
+    @Test
+    public void testRegexpExtractAll()
+    {
+        assertFunction("REGEXP_EXTRACT_ALL('rat cat\nbat dog', '.at')", ImmutableList.of("rat", "cat", "bat"));
     }
 
     private void assertFunction(String projection, Object expected)
