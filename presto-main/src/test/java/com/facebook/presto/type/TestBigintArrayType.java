@@ -21,9 +21,9 @@ import io.airlift.slice.Slice;
 
 import java.util.List;
 
-import static com.facebook.presto.type.TypeJsonUtils.getObjectList;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.TypeJsonUtils.getObjectList;
 
 public class TestBigintArrayType
         extends AbstractTestType

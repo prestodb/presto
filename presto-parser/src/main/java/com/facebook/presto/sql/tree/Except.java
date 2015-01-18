@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
-import java.util.Objects;
 import com.google.common.base.Preconditions;
+
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 

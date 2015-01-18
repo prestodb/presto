@@ -21,14 +21,14 @@ import com.datastax.driver.mapping.annotations.PartitionKey;
 import com.datastax.driver.mapping.annotations.Table;
 import com.google.common.primitives.Ints;
 
-import static org.testng.Assert.assertEquals;
-
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.UUID;
+
+import static org.testng.Assert.assertEquals;
 
 public class CassandraTestingUtils
 {

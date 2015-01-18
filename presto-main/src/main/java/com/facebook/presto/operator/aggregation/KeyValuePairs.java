@@ -40,8 +40,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.type.MapType.toStackRepresentation;
-import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
 import static com.facebook.presto.type.TypeJsonUtils.getValue;
+import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class KeyValuePairs

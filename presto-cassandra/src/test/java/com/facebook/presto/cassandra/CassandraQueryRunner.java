@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.facebook.presto.Session;
 import com.datastax.driver.core.Cluster;
+import com.facebook.presto.Session;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.facebook.presto.tpch.testing.SampledTpchPlugin;
