@@ -17,6 +17,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressionAssertions.assertByteCodeExpression;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantBoolean;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantClass;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantDouble;
@@ -26,7 +27,6 @@ import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.consta
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantLong;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantNull;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantString;
-import static com.facebook.presto.byteCode.expression.ByteCodeExpressionAssertions.assertByteCodeExpression;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantTrue;
 
 public class TestConstantByteCodeExpression

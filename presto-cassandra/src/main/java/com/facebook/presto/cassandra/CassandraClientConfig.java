@@ -17,7 +17,6 @@ import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.SocketOptions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;

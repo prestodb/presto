@@ -15,10 +15,15 @@ package com.facebook.presto.byteCode.expression;
 
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressionAssertions.assertByteCodeExpression;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.add;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.bitwiseAnd;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.bitwiseOr;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.bitwiseXor;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantDouble;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFloat;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantLong;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.divide;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.multiply;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.negate;
@@ -27,11 +32,6 @@ import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.shiftL
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.shiftRight;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.shiftRightUnsigned;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.subtract;
-import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantDouble;
-import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFloat;
-import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
-import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantLong;
-import static com.facebook.presto.byteCode.expression.ByteCodeExpressionAssertions.assertByteCodeExpression;
 
 public class TestArithmeticByteCodeExpression
 {

@@ -14,10 +14,10 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Joiner;
-import java.util.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 

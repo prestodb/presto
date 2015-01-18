@@ -26,8 +26,8 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Locale;
 
-import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
