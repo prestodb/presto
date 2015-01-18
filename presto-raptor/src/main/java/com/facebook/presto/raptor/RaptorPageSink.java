@@ -196,16 +196,4 @@ public class RaptorPageSink
     {
         return storageManager.createStoragePageSink(storageOutputHandle);
     }
-
-    // This code is duplicated from SyntheticAddress
-    public static int decodeSliceIndex(long sliceAddress)
-    {
-        return ((int) (sliceAddress >> 32));
-    }
-
-    public static int decodePosition(long sliceAddress)
-    {
-        // low order bits contain the raw offset, so a simple cast here will suffice
-        return (int) sliceAddress;
-    }
 }
