@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.dbpool.H2EmbeddedDataSource;
@@ -52,7 +51,6 @@ public class TestShardManagerDao
         H2EmbeddedDataSourceConfig dataSourceConfig = new H2EmbeddedDataSourceConfig().setFilename("mem:");
         DataSource dataSource = new H2EmbeddedDataSource(dataSourceConfig);
         DBI h2Dbi = new DBI(dataSource);
-        h2Dbi.registerMapper(new PartitionKey.Mapper(new TypeRegistry()));
         handle = h2Dbi.open();
         dao = handle.attach(ShardManagerDao.class);
 
