@@ -40,13 +40,8 @@ public class RaptorPageSinkProvider
     @Inject
     public RaptorPageSinkProvider(StorageManager storageManager, CurrentNodeId currentNodeId, PageSorter pageSorter)
     {
-        this(storageManager, currentNodeId.toString(), pageSorter);
-    }
-
-    public RaptorPageSinkProvider(StorageManager storageManager, String nodeId, PageSorter pageSorter)
-    {
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
-        this.nodeId = checkNotNull(nodeId, "nodeId is null");
+        this.nodeId = checkNotNull(currentNodeId, "currentNodeId is null").toString();
         this.pageSorter = checkNotNull(pageSorter, "pageSorter is null");
     }
 
