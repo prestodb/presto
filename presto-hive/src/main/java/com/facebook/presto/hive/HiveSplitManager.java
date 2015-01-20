@@ -109,6 +109,7 @@ public class HiveSplitManager
     private final int maxInitialSplits;
     private final boolean forceLocalScheduling;
     private final boolean recursiveDfsWalkerEnabled;
+    private final boolean assumeCanonicalPartitionKeys;
 
     @Inject
     public HiveSplitManager(
@@ -135,6 +136,7 @@ public class HiveSplitManager
                 hiveClientConfig.getMaxInitialSplitSize(),
                 hiveClientConfig.getMaxInitialSplits(),
                 hiveClientConfig.isForceLocalScheduling(),
+                hiveClientConfig.isAssumeCanonicalPartitionKeys(),
                 false);
     }
 
@@ -154,6 +156,7 @@ public class HiveSplitManager
             DataSize maxInitialSplitSize,
             int maxInitialSplits,
             boolean forceLocalScheduling,
+            boolean assumeCanonicalPartitionKeys,
             boolean recursiveDfsWalkerEnabled)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
@@ -173,6 +176,7 @@ public class HiveSplitManager
         this.maxInitialSplits = maxInitialSplits;
         this.forceLocalScheduling = forceLocalScheduling;
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
+        this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
     }
 
     @Override
@@ -285,7 +289,13 @@ public class HiveSplitManager
                     filter.add(((Slice) value).toStringUtf8());
                 }
                 else if ((value instanceof Boolean) || (value instanceof Double) || (value instanceof Long)) {
-                    filter.add(value.toString());
+                    if (assumeCanonicalPartitionKeys) {
+                        filter.add(value.toString());
+                    }
+                    else {
+                        // Hive treats '0', 'false', and 'False' the same. However, the metastore differentiates between these.
+                        filter.add(PARTITION_VALUE_WILDCARD);
+                    }
                 }
                 else {
                     throw new PrestoException(NOT_SUPPORTED, "Only Boolean, Double and Long partition keys are supported");

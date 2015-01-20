@@ -85,6 +85,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveSessionProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
@@ -151,6 +152,7 @@ public abstract class AbstractTestHiveClient
     protected SchemaTableName tableBucketedBigintBoolean;
     protected SchemaTableName tableBucketedDoubleFloat;
     protected SchemaTableName tablePartitionSchemaChange;
+    protected SchemaTableName tablePartitionSchemaChangeNonCanonical;
 
     protected SchemaTableName temporaryCreateTable;
     protected SchemaTableName temporaryCreateSampledTable;
@@ -210,6 +212,7 @@ public abstract class AbstractTestHiveClient
         tableBucketedBigintBoolean = new SchemaTableName(database, "presto_test_bucketed_by_bigint_boolean");
         tableBucketedDoubleFloat = new SchemaTableName(database, "presto_test_bucketed_by_double_float");
         tablePartitionSchemaChange = new SchemaTableName(database, "presto_test_partition_schema_change");
+        tablePartitionSchemaChangeNonCanonical = new SchemaTableName(database, "presto_test_partition_schema_change_non_canonical");
 
         temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
         temporaryCreateSampledTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
@@ -316,6 +319,7 @@ public abstract class AbstractTestHiveClient
                 hiveClientConfig.getMaxSplitSize(),
                 hiveClientConfig.getMaxInitialSplitSize(),
                 hiveClientConfig.getMaxInitialSplits(),
+                false,
                 false,
                 false);
         recordSinkProvider = new HiveRecordSinkProvider(hdfsEnvironment);
@@ -873,6 +877,30 @@ public abstract class AbstractTestHiveClient
         ConnectorTableHandle table = getTableHandle(tablePartitionSchemaChange);
         ConnectorPartitionResult partitionResult = splitManager.getPartitions(table, TupleDomain.<ConnectorColumnHandle>all());
         getAllSplits(splitManager.getPartitionSplits(table, partitionResult.getPartitions()));
+    }
+
+    @Test
+    public void testPartitionSchemaNonCanonical()
+            throws Exception
+    {
+        ConnectorTableHandle table = getTableHandle(tablePartitionSchemaChangeNonCanonical);
+        ConnectorColumnHandle column = metadata.getColumnHandles(table).get("t_boolean");
+        assertNotNull(column);
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(table, TupleDomain.withFixedValues(ImmutableMap.of(column, false)));
+        assertEquals(partitionResult.getPartitions().size(), 1);
+        assertEquals(partitionResult.getPartitions().get(0).getPartitionId(), "t_boolean=0");
+
+        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(table, partitionResult.getPartitions());
+        ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
+
+        ImmutableList<ConnectorColumnHandle> columnHandles = ImmutableList.of(column);
+        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(split, columnHandles)) {
+            // TODO coercion of non-canonical values should be supported
+            fail("expected exception");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), HIVE_INVALID_PARTITION_VALUE.toErrorCode());
+        }
     }
 
     @Test
