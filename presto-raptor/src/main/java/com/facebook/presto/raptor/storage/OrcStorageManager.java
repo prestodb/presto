@@ -122,7 +122,7 @@ public class OrcStorageManager
             catch (IOException ex) {
                 e.addSuppressed(ex);
             }
-            throw new PrestoException(RAPTOR_ERROR, "Failed to create page source", e);
+            throw new PrestoException(RAPTOR_ERROR, "Failed to create page source for shard " + shardUuid, e);
         }
     }
 
