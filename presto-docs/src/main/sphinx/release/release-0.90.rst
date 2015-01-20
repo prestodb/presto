@@ -27,6 +27,13 @@ General Changes
 * Improve :doc:`/installation/jdbc` conformance. In particular, all unimplemented
   methods now throw ``SQLException`` rather than ``UnsupportedOperationException``.
 
+Hive Changes
+------------
+* Disable optimized metastore partition fetching for non-string partition keys.
+  This fixes an issue were Presto might silently ignore data with non-canonical
+  partition values. To enable this option, add ``hive.assume-canonical-partition-keys=true``
+  to the coordinator and worker config properties.
+
 SPI Changes
 -----------
 * Add ``getColumnTypes`` to ``RecordSink``.

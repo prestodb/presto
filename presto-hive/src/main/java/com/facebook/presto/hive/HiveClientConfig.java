@@ -86,6 +86,8 @@ public class HiveClientConfig
 
     private boolean optimizedReaderEnabled = true;
 
+    private boolean assumeCanonicalPartitionKeys;
+
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
 
     public int getMaxInitialSplits()
@@ -623,6 +625,18 @@ public class HiveClientConfig
     public HiveClientConfig setOrcMaxMergeDistance(DataSize orcMaxMergeDistance)
     {
         this.orcMaxMergeDistance = orcMaxMergeDistance;
+        return this;
+    }
+
+    public boolean isAssumeCanonicalPartitionKeys()
+    {
+        return assumeCanonicalPartitionKeys;
+    }
+
+    @Config("hive.assume-canonical-partition-keys")
+    public HiveClientConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
+    {
+        this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         return this;
     }
 }
