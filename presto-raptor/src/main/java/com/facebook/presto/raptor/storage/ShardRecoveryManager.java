@@ -150,7 +150,7 @@ public class ShardRecoveryManager
 
         File backupFile = storageService.getBackupFile(shardUuid);
         if (!backupFile.exists()) {
-            throw new PrestoException(RAPTOR_RECOVERY_ERROR, "No backup file found for shard: %s" + shardUuid);
+            throw new PrestoException(RAPTOR_RECOVERY_ERROR, "No backup file found for shard: " + shardUuid);
         }
 
         // create a temporary file in the staging directory
@@ -165,12 +165,12 @@ public class ShardRecoveryManager
             Files.copy(backupFile.toPath(), stagingFile.toPath());
         }
         catch (IOException e) {
-            throw new PrestoException(RAPTOR_ERROR, "Failed to copy backup shard file: " + backupFile, e);
+            throw new PrestoException(RAPTOR_ERROR, "Failed to copy backup shard: " + shardUuid, e);
         }
 
         Duration duration = nanosSince(start);
         DataSize size = new DataSize(stagingFile.length(), BYTE);
-        DataSize rate = dataRate(size, duration);
+        DataSize rate = dataRate(size, duration).convertToMostSuccinctDataSize();
         log.info("Copied shard %s from backup in %s (%s at %s/s)", shardUuid, duration, size, rate);
 
         // move to final location
@@ -182,7 +182,7 @@ public class ShardRecoveryManager
             // someone else already created it (should not happen, but safe to ignore)
         }
         catch (IOException e) {
-            throw new PrestoException(RAPTOR_ERROR, "Failed to move shard file", e);
+            throw new PrestoException(RAPTOR_ERROR, "Failed to move shard: " + shardUuid, e);
         }
     }
 
