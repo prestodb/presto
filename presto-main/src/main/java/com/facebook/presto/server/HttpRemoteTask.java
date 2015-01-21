@@ -125,8 +125,7 @@ public class HttpRemoteTask
     @GuardedBy("this")
     private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>();
 
-    @GuardedBy("this")
-    private ContinuousTaskInfoFetcher continuousTaskInfoFetcher;
+    private final ContinuousTaskInfoFetcher continuousTaskInfoFetcher;
 
     private final HttpClient httpClient;
     private final Executor executor;
@@ -201,6 +200,8 @@ public class HttpRemoteTask
                     ImmutableSet.<PlanNodeId>of(),
                     taskStats,
                     ImmutableList.<ExecutionFailureInfo>of()));
+
+            continuousTaskInfoFetcher = new ContinuousTaskInfoFetcher();
         }
     }
 
@@ -222,6 +223,9 @@ public class HttpRemoteTask
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             // to start we just need to trigger an update
             scheduleUpdate();
+
+            // begin the info fetcher
+            continuousTaskInfoFetcher.start();
         }
     }
 
@@ -515,11 +519,6 @@ public class HttpRemoteTask
                 for (ScheduledSplit split : source.getSplits()) {
                     pendingSplits.remove(planNodeId, split);
                 }
-            }
-
-            if (continuousTaskInfoFetcher == null) {
-                continuousTaskInfoFetcher = new ContinuousTaskInfoFetcher();
-                continuousTaskInfoFetcher.start();
             }
         }
     }
