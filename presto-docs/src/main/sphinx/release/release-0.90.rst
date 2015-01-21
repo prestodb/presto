@@ -11,6 +11,7 @@ General Changes
 * Replace ``max(boolean)`` with :func:`bool_or`.
 * Add standard SQL function :func:`every` as an alias for :func:`bool_and`.
 * Add :func:`year_of_week` function.
+* Add :func:`regexp_extract_all` function.
 * Update the :func:`approx_distinct` documentation with correct standard error bounds.
 
 * Disable falling back to the interpreter when expressions fail to be compiled
