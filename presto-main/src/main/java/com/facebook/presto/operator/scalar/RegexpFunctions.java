@@ -19,19 +19,21 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.RegexpType;
 import com.facebook.presto.type.SqlType;
-import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import javax.annotation.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.type.ArrayType.toStackRepresentation;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class RegexpFunctions
@@ -83,12 +85,21 @@ public final class RegexpFunctions
     @SqlType("array<varchar>")
     public static Slice regexpExtractAll(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Pattern pattern)
     {
+        return regexpExtractAll(source, pattern, 0);
+    }
+
+    @Description("group(s) extracted using the given pattern")
+    @ScalarFunction
+    @SqlType("array<varchar>")
+    public static Slice regexpExtractAll(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Pattern pattern, @SqlType(StandardTypes.BIGINT) long group)
+    {
         Matcher matcher = pattern.matcher(source.toString(UTF_8));
-        ImmutableList.Builder<String> builder = ImmutableList.builder();
+        validateGroup(group, matcher);
+        List<String> matches = new ArrayList<>();
         while (matcher.find()) {
-            builder.add(matcher.group());
+            matches.add(matcher.group(Ints.checkedCast(group)));
         }
-        return toStackRepresentation(builder.build());
+        return toStackRepresentation(matches);
     }
 
     @Nullable
@@ -107,13 +118,21 @@ public final class RegexpFunctions
     public static Slice regexpExtract(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Pattern pattern, @SqlType(StandardTypes.BIGINT) long group)
     {
         Matcher matcher = pattern.matcher(source.toString(UTF_8));
-        if ((group < 0) || (group > matcher.groupCount())) {
-            throw new IllegalArgumentException("invalid group count");
-        }
+        validateGroup(group, matcher);
         if (!matcher.find()) {
             return null;
         }
         String extracted = matcher.group(Ints.checkedCast(group));
         return Slices.copiedBuffer(extracted, UTF_8);
+    }
+
+    private static void validateGroup(long group, Matcher matcher)
+    {
+        if (group < 0) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Group cannot be negative");
+        }
+        if (group > matcher.groupCount()) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Pattern has %d groups. Cannot access group %d", matcher.groupCount(), group));
+        }
     }
 }
