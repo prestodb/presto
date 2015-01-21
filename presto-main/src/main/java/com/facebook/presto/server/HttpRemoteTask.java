@@ -131,7 +131,8 @@ public class HttpRemoteTask
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
 
-    private final RequestErrorTracker errorTracker;
+    private final RequestErrorTracker updateErrorTracker;
+    private final RequestErrorTracker getErrorTracker;
 
     private final AtomicBoolean needsUpdate = new AtomicBoolean(true);
 
@@ -170,7 +171,8 @@ public class HttpRemoteTask
             this.executor = executor;
             this.taskInfoCodec = taskInfoCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
-            this.errorTracker = new RequestErrorTracker(taskId, location, maxConsecutiveErrorCount, minErrorDuration);
+            this.updateErrorTracker = new RequestErrorTracker(taskId, location, maxConsecutiveErrorCount, minErrorDuration);
+            this.getErrorTracker = new RequestErrorTracker(taskId, location, maxConsecutiveErrorCount, minErrorDuration);
 
             for (Entry<PlanNodeId, Split> entry : checkNotNull(initialSplits, "initialSplits is null").entries()) {
                 ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), entry.getValue());
@@ -361,7 +363,7 @@ public class HttpRemoteTask
             return;
         }
 
-        errorTracker.acquireRequestPermit();
+        updateErrorTracker.acquireRequestPermit();
 
         List<TaskSource> sources = getSources();
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(session,
@@ -553,7 +555,7 @@ public class HttpRemoteTask
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 try {
                     updateTaskInfo(value, sources);
-                    errorTracker.requestSucceeded();
+                    updateErrorTracker.requestSucceeded();
                 }
                 finally {
                     scheduleUpdate();
@@ -572,7 +574,7 @@ public class HttpRemoteTask
                     // if task not already done, record error
                     TaskInfo taskInfo = getTaskInfo();
                     if (!taskInfo.getState().isDone()) {
-                        errorTracker.requestFailed(cause);
+                        updateErrorTracker.requestFailed(cause);
                     }
                 }
                 catch (Error e) {
@@ -670,7 +672,7 @@ public class HttpRemoteTask
 
                 try {
                     updateTaskInfo(value, ImmutableList.<TaskSource>of());
-                    errorTracker.requestSucceeded();
+                    getErrorTracker.requestSucceeded();
                 }
                 finally {
                     scheduleNextRequest();
@@ -690,7 +692,7 @@ public class HttpRemoteTask
                     // if task not already done, record error
                     TaskInfo taskInfo = getTaskInfo();
                     if (!taskInfo.getState().isDone()) {
-                        errorTracker.requestFailed(cause);
+                        getErrorTracker.requestFailed(cause);
                     }
                 }
                 catch (Error e) {
