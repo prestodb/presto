@@ -509,32 +509,6 @@ public class HttpRemoteTask
         }
     }
 
-    private void requestSucceeded(TaskInfo newValue, List<TaskSource> sources)
-    {
-        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            updateTaskInfo(newValue, sources);
-
-            errorTracker.requestSucceeded();
-        }
-    }
-
-    private void requestFailed(Throwable reason)
-    {
-        try {
-            // if task is done, ignore the error
-            TaskInfo taskInfo = getTaskInfo();
-            if (taskInfo.getState().isDone()) {
-                return;
-            }
-
-            errorTracker.requestFailed(reason);
-        }
-        catch (PrestoException e) {
-            failTask(e);
-            abort();
-        }
-    }
-
     /**
      * Move the task directly to the failed state
      */
@@ -578,7 +552,8 @@ public class HttpRemoteTask
         {
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 try {
-                    requestSucceeded(value, sources);
+                    updateTaskInfo(value, sources);
+                    errorTracker.requestSucceeded();
                 }
                 finally {
                     scheduleUpdate();
@@ -594,7 +569,20 @@ public class HttpRemoteTask
                     // on failure assume we need to update again
                     needsUpdate.set(true);
 
-                    requestFailed(cause);
+                    // if task not already done, record error
+                    TaskInfo taskInfo = getTaskInfo();
+                    if (!taskInfo.getState().isDone()) {
+                        errorTracker.requestFailed(cause);
+                    }
+                }
+                catch (Error e) {
+                    failTask(e);
+                    abort();
+                    throw e;
+                }
+                catch (RuntimeException e) {
+                    failTask(e);
+                    abort();
                 }
                 finally {
                     scheduleUpdate();
@@ -681,7 +669,8 @@ public class HttpRemoteTask
                 }
 
                 try {
-                    requestSucceeded(value, ImmutableList.<TaskSource>of());
+                    updateTaskInfo(value, ImmutableList.<TaskSource>of());
+                    errorTracker.requestSucceeded();
                 }
                 finally {
                     scheduleNextRequest();
@@ -698,7 +687,20 @@ public class HttpRemoteTask
                 }
 
                 try {
-                    requestFailed(cause);
+                    // if task not already done, record error
+                    TaskInfo taskInfo = getTaskInfo();
+                    if (!taskInfo.getState().isDone()) {
+                        errorTracker.requestFailed(cause);
+                    }
+                }
+                catch (Error e) {
+                    failTask(e);
+                    abort();
+                    throw e;
+                }
+                catch (RuntimeException e) {
+                    failTask(e);
+                    abort();
                 }
                 finally {
                     // there is no back off here so we can get a lot of error messages when a server spins
