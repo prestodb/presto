@@ -203,32 +203,36 @@ public class SqlTask
 
     public TaskInfo updateTask(Session session, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputBuffers)
     {
-        // assure the task execution is only created once
-        SqlTaskExecution taskExecution;
-        synchronized (this) {
-            // is task already complete?
-            TaskHolder taskHolder = taskHolderReference.get();
-            if (taskHolder.isFinished()) {
-                return taskHolder.getFinalTaskInfo();
-            }
-            taskExecution = taskHolder.getTaskExecution();
-            if (taskExecution == null) {
-                try {
+        try {
+            // assure the task execution is only created once
+            SqlTaskExecution taskExecution;
+            synchronized (this) {
+                // is task already complete?
+                TaskHolder taskHolder = taskHolderReference.get();
+                if (taskHolder.isFinished()) {
+                    return taskHolder.getFinalTaskInfo();
+                }
+                taskExecution = taskHolder.getTaskExecution();
+                if (taskExecution == null) {
                     taskExecution = sqlTaskExecutionFactory.create(session, taskStateMachine, sharedBuffer, fragment, sources);
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
                 }
-                catch (RuntimeException e) {
-                    failed(e);
-                }
+            }
+
+            lastHeartbeat.set(DateTime.now());
+
+            if (taskExecution != null) {
+                // addSources checks for task completion, so update the buffers first and the task might complete earlier
+                sharedBuffer.setOutputBuffers(outputBuffers);
+                taskExecution.addSources(sources);
             }
         }
-
-        lastHeartbeat.set(DateTime.now());
-
-        if (taskExecution != null) {
-            // addSources checks for task completion, so update the buffers first and the task might complete earlier
-            sharedBuffer.setOutputBuffers(outputBuffers);
-            taskExecution.addSources(sources);
+        catch (Error e) {
+            failed(e);
+            throw e;
+        }
+        catch (RuntimeException e) {
+            failed(e);
         }
 
         return getTaskInfo();
