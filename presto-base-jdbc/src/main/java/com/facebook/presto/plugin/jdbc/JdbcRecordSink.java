@@ -16,6 +16,8 @@ package com.facebook.presto.plugin.jdbc;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
 import org.joda.time.chrono.ISOChronology;
 
@@ -23,6 +25,7 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -156,7 +159,7 @@ public class JdbcRecordSink
     }
 
     @Override
-    public String commit()
+    public Collection<Slice> commit()
     {
         // commit and close
         try (Connection connection = this.connection) {
@@ -168,7 +171,8 @@ public class JdbcRecordSink
         catch (SQLException e) {
             throw Throwables.propagate(e);
         }
-        return ""; // the committer does not need any additional info
+        // the committer does not need any additional info
+        return ImmutableList.of();
     }
 
     @SuppressWarnings("UnusedDeclaration")

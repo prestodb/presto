@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
@@ -126,7 +126,7 @@ public class LogicalPlanner
     {
         List<Symbol> writerOutputs = ImmutableList.of(
                 symbolAllocator.newSymbol("partialrows", BIGINT),
-                symbolAllocator.newSymbol("fragment", VARCHAR));
+                symbolAllocator.newSymbol("fragment", VARBINARY));
 
         TableWriterNode writerNode = new TableWriterNode(
                 idAllocator.getNextId(),

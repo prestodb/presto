@@ -40,6 +40,7 @@ import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
@@ -56,6 +57,7 @@ import org.apache.hadoop.mapred.Reporter;
 import java.io.IOException;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
@@ -191,7 +193,7 @@ public class HiveRecordSink
     }
 
     @Override
-    public String commit()
+    public Collection<Slice> commit()
     {
         checkState(field == -1, "record not finished");
 
@@ -202,7 +204,8 @@ public class HiveRecordSink
             throw Throwables.propagate(e);
         }
 
-        return ""; // the committer can list the directory
+        // the committer can list the directory
+        return ImmutableList.of();
     }
 
     @Override

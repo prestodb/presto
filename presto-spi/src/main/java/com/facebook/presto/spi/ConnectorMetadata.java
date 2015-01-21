@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi;
 
+import io.airlift.slice.Slice;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -97,7 +99,7 @@ public interface ConnectorMetadata
     /**
      * Commit a table creation with data after the data is written.
      */
-    void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<String> fragments);
+    void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Begin insert query
@@ -107,7 +109,7 @@ public interface ConnectorMetadata
     /**
      * Commit insert query
      */
-    void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments);
+    void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments);
 
     /**
      * Create the specified view. The data for the view is opaque to the connector.

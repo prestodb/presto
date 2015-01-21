@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi;
 
+import io.airlift.slice.Slice;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +56,7 @@ public abstract class ReadOnlyConnectorMetadata
     }
 
     @Override
-    public final void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<String> fragments)
+    public final void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new UnsupportedOperationException();
     }
@@ -66,7 +68,7 @@ public abstract class ReadOnlyConnectorMetadata
     }
 
     @Override
-    public final void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
+    public final void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
         throw new UnsupportedOperationException();
     }

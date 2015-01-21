@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
 
@@ -334,7 +335,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public void commitCreateTable(JdbcOutputTableHandle handle, Collection<String> fragments)
+    public void commitCreateTable(JdbcOutputTableHandle handle, Collection<Slice> fragments)
     {
         StringBuilder sql = new StringBuilder()
                 .append("ALTER TABLE ")

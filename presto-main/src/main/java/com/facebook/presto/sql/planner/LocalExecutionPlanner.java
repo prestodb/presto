@@ -126,6 +126,7 @@ import com.google.common.collect.Ordering;
 import com.google.common.collect.SetMultimap;
 import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 
 import javax.annotation.Nullable;
@@ -1503,7 +1504,7 @@ public class LocalExecutionPlanner
         return new TableCommitter()
         {
             @Override
-            public void commitTable(Collection<String> fragments)
+            public void commitTable(Collection<Slice> fragments)
             {
                 if (target instanceof CreateHandle) {
                     metadata.commitCreateTable(((CreateHandle) target).getHandle(), fragments);
