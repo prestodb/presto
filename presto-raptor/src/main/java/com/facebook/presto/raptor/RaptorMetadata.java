@@ -40,6 +40,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimaps;
+import io.airlift.slice.Slice;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionStatus;
@@ -313,7 +314,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public void commitCreateTable(ConnectorOutputTableHandle outputTableHandle, Collection<String> fragments)
+    public void commitCreateTable(ConnectorOutputTableHandle outputTableHandle, Collection<Slice> fragments)
     {
         RaptorOutputTableHandle table = checkType(outputTableHandle, RaptorOutputTableHandle.class, "outputTableHandle");
 
@@ -365,7 +366,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
+    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
         RaptorInsertTableHandle handle = checkType(insertHandle, RaptorInsertTableHandle.class, "insertHandle");
         long tableId = handle.getTableId();
@@ -441,12 +442,12 @@ public class RaptorMetadata
         return new RaptorColumnHandle(connectorId, tableColumn.getColumnName(), tableColumn.getColumnId(), tableColumn.getDataType());
     }
 
-    private static List<ShardNode> parseFragments(Collection<String> fragments)
+    private static Iterable<ShardNode> parseFragments(Iterable<Slice> fragments)
     {
         // Format of each fragment: nodeId:shardUuid1,shardUuid2,shardUuid3
         ImmutableList.Builder<ShardNode> shards = ImmutableList.builder();
-        for (String fragment : fragments) {
-            Iterator<String> split = NODE_SHARD_SPLITTER.split(fragment).iterator();
+        for (Slice fragment : fragments) {
+            Iterator<String> split = NODE_SHARD_SPLITTER.split(fragment.toStringUtf8()).iterator();
             String nodeId = split.next();
             checkArgument(split.hasNext(), "fragment not formatted correctly");
             String uuids = split.next();

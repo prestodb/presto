@@ -35,6 +35,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
+import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.api.Database;
@@ -44,6 +45,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -219,10 +221,10 @@ public abstract class AbstractTestHiveClientS3
         sink.appendLong(2);
         sink.finishRecord();
 
-        String fragment = sink.commit();
+        Collection<Slice> fragments = sink.commit();
 
         // commit the table
-        client.commitCreateTable(outputHandle, ImmutableList.of(fragment));
+        client.commitCreateTable(outputHandle, fragments);
 
         // Hack to work around the metastore not being configured for S3.
         // The metastore tries to validate the location when creating the

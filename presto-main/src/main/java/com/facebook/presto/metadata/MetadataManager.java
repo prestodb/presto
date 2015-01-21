@@ -44,6 +44,7 @@ import com.google.common.collect.Maps;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
+import io.airlift.slice.Slice;
 
 import javax.inject.Inject;
 
@@ -350,7 +351,7 @@ public class MetadataManager
     }
 
     @Override
-    public void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments)
+    public void commitCreateTable(OutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         lookupConnectorFor(tableHandle).commitCreateTable(tableHandle.getConnectorHandle(), fragments);
     }
@@ -365,7 +366,7 @@ public class MetadataManager
     }
 
     @Override
-    public void commitInsert(InsertTableHandle tableHandle, Collection<String> fragments)
+    public void commitInsert(InsertTableHandle tableHandle, Collection<Slice> fragments)
     {
         lookupConnectorFor(tableHandle).commitInsert(tableHandle.getConnectorHandle(), fragments);
     }

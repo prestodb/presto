@@ -20,9 +20,10 @@ General Changes
 
 SPI Changes
 -----------
-* Add ``getColumnTypes`` to ``RecordSink``
+* Add ``getColumnTypes`` to ``RecordSink``.
+* Use ``Slice`` for table writer fragments.
 
 .. note::
     This is a backwards incompatible change with the previous connector SPI.
-    If you have an implementation of ``RecordSink`` you need to update
-    your code to add the ``getColumnTypes`` method.
+    If you have written a connector, you will need to update your code
+    before deploying this release.

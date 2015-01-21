@@ -15,12 +15,15 @@ package com.facebook.presto.cassandra;
 
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import io.airlift.slice.Slice;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
 import javax.inject.Inject;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -143,10 +146,11 @@ public class CassandraRecordSink
     }
 
     @Override
-    public String commit()
+    public Collection<Slice> commit()
     {
         checkState(field == -1, "record not finished");
-        return "";
+        // the committer does not need any additional info
+        return ImmutableList.of();
     }
 
     @Override

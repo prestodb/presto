@@ -19,6 +19,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.QualifiedName;
+import io.airlift.slice.Slice;
 
 import javax.validation.constraints.NotNull;
 
@@ -131,7 +132,7 @@ public interface Metadata
     /**
      * Commit a table creation with data after the data is written.
      */
-    void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments);
+    void commitCreateTable(OutputTableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Begin insert query
@@ -141,7 +142,7 @@ public interface Metadata
     /**
      * Commit insert query
      */
-    void commitInsert(InsertTableHandle tableHandle, Collection<String> fragments);
+    void commitInsert(InsertTableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Gets all the loaded catalogs

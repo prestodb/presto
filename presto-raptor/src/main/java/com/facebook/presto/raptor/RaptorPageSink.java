@@ -22,10 +22,11 @@ import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import io.airlift.slice.Slice;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -33,6 +34,7 @@ import java.util.UUID;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.stream.Collectors.toList;
 
 public class RaptorPageSink
@@ -100,13 +102,16 @@ public class RaptorPageSink
     }
 
     @Override
-    public String commit()
+    public Collection<Slice> commit()
     {
         flushPages(pageBuffer.getPages());
         storagePageSink.close();
         List<UUID> shardUuids = storageManager.commit(storageOutputHandle);
-        // Format of each fragment: nodeId:shardUuid1,shardUuid2,shardUuid3
-        return Joiner.on(':').join(nodeId, Joiner.on(",").join(shardUuids));
+
+        // Format of each fragment: nodeId:shardUuid
+        return shardUuids.stream()
+                .map(shardUuid -> utf8Slice(nodeId + ":" + shardUuid))
+                .collect(toList());
     }
 
     @Override

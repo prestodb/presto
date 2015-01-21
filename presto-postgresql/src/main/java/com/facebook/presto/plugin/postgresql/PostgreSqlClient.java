@@ -18,6 +18,7 @@ import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
 import com.google.common.base.Throwables;
+import io.airlift.slice.Slice;
 import org.postgresql.Driver;
 
 import javax.inject.Inject;
@@ -37,7 +38,7 @@ public class PostgreSqlClient
     }
 
     @Override
-    public void commitCreateTable(JdbcOutputTableHandle handle, Collection<String> fragments)
+    public void commitCreateTable(JdbcOutputTableHandle handle, Collection<Slice> fragments)
     {
         // PostgreSQL does not allow qualifying the target of a rename
         StringBuilder sql = new StringBuilder()

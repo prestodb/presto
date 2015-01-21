@@ -74,6 +74,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -1119,7 +1120,7 @@ public abstract class AbstractTestHiveClient
         List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", VARCHAR, 1, false));
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, SESSION.getUser());
         ConnectorOutputTableHandle handle = metadata.beginCreateTable(SESSION, tableMetadata);
-        metadata.commitCreateTable(handle, ImmutableList.<String>of());
+        metadata.commitCreateTable(handle, ImmutableList.of());
     }
 
     private void verifyViewCreation()
@@ -1196,10 +1197,10 @@ public abstract class AbstractTestHiveClient
         sink.appendLong(4);
         sink.finishRecord();
 
-        String fragment = sink.commit();
+        Collection<Slice> fragments = sink.commit();
 
         // commit the table
-        metadata.commitCreateTable(outputHandle, ImmutableList.of(fragment));
+        metadata.commitCreateTable(outputHandle, fragments);
 
         // load the new table
         ConnectorTableHandle tableHandle = getTableHandle(temporaryCreateSampledTable);
@@ -1290,10 +1291,10 @@ public abstract class AbstractTestHiveClient
         sink.appendBoolean(false);
         sink.finishRecord();
 
-        String fragment = sink.commit();
+        Collection<Slice> fragments = sink.commit();
 
         // commit the table
-        metadata.commitCreateTable(outputHandle, ImmutableList.of(fragment));
+        metadata.commitCreateTable(outputHandle, fragments);
 
         // load the new table
         ConnectorTableHandle tableHandle = getTableHandle(temporaryCreateTable);
