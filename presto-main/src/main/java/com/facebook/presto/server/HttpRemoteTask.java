@@ -313,7 +313,12 @@ public class HttpRemoteTask
         }
     }
 
-    private synchronized void updateTaskInfo(final TaskInfo newValue)
+    private synchronized void updateTaskInfo(TaskInfo newValue)
+    {
+        updateTaskInfo(newValue, ImmutableList.of());
+    }
+
+    private synchronized void updateTaskInfo(TaskInfo newValue, List<TaskSource> sources)
     {
         if (newValue.getState().isDone()) {
             // splits can be huge so clear the list
@@ -332,6 +337,14 @@ public class HttpRemoteTask
             }
             return true;
         });
+
+        // remove acknowledged splits, which frees memory
+        for (TaskSource source : sources) {
+            PlanNodeId planNodeId = source.getPlanNodeId();
+            for (ScheduledSplit split : source.getSplits()) {
+                pendingSplits.remove(planNodeId, split);
+            }
+        }
     }
 
     private synchronized void scheduleUpdate()
@@ -508,18 +521,11 @@ public class HttpRemoteTask
     private synchronized void requestSucceeded(TaskInfo newValue, List<TaskSource> sources)
     {
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            updateTaskInfo(newValue);
+            updateTaskInfo(newValue, sources);
+
             lastSuccessfulRequest.set(System.nanoTime());
             errorCount.set(0);
             errorsSinceLastSuccess.clear();
-
-            // remove acknowledged splits, which frees memory
-            for (TaskSource source : sources) {
-                PlanNodeId planNodeId = source.getPlanNodeId();
-                for (ScheduledSplit split : source.getSplits()) {
-                    pendingSplits.remove(planNodeId, split);
-                }
-            }
         }
     }
 
