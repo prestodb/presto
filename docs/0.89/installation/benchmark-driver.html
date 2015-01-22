@@ -53,8 +53,6 @@
 <h1>2.5. Benchmark Driver</h1>
 <p>The benchmark driver can be used to measure the performance of queries in a
 Presto cluster. We use it to continuously measure the performance of trunk.</p>
-<p>Download <a class="reference external" href="https://repo1.maven.org/maven2/com/facebook/presto/presto-benchmark-driver/0.89/presto-benchmark-driver-0.89-executable.jar">presto-benchmark-driver-0.89-executable.jar</a>, rename it to <tt class="docutils literal"><span class="pre">presto-benchmark-driver</span></tt>,
-then make it executable with <tt class="docutils literal"><span class="pre">chmod</span> <span class="pre">+x</span></tt>.</p>
 <div class="section" id="suites">
 <h2>Suites</h2>
 <p>Create a <tt class="docutils literal"><span class="pre">suite.json</span></tt> file:</p>
@@ -74,7 +72,7 @@ then make it executable with <tt class="docutils literal"><span class="pre">chmo
 </pre></div>
 </div>
 <p>This example contains two suites <tt class="docutils literal"><span class="pre">file_formats</span></tt> and <tt class="docutils literal"><span class="pre">legacy_orc</span></tt>. The
-<tt class="docutils literal"><span class="pre">file_formats</span></tt> suite will run queries with names matching the regular expression
+<cite>file_formats</cite> will run queries with names matching the regular expression
 <tt class="docutils literal"><span class="pre">single_.*</span></tt> or <tt class="docutils literal"><span class="pre">tpch_.*</span></tt> in all schemas matching the regular expression
 <tt class="docutils literal"><span class="pre">tpch_sf.*_.*_.*?</span></tt>. The <tt class="docutils literal"><span class="pre">legacy_orc</span></tt> suite adds a session property to
 disable the optimized ORC reader and only runs in the <tt class="docutils literal"><span class="pre">tpch_sf.*_orc_.*?</span></tt>
@@ -82,8 +80,8 @@ schema.</p>
 </div>
 <div class="section" id="queries">
 <h2>Queries</h2>
-<p>The SQL files are contained in a directory named <tt class="docutils literal"><span class="pre">sql</span></tt> and must have the
-<tt class="docutils literal"><span class="pre">.sql</span></tt> file extension. The name of the query is the name of the file
+<p>The SQL files are contained in a directory named <tt class="docutils literal"><span class="pre">sql`</span> <span class="pre">and</span> <span class="pre">must</span> <span class="pre">have</span> <span class="pre">the</span>
+<span class="pre">``.sql</span></tt> file extension and the name of the query is the name of the file
 without the extension.</p>
 </div>
 <div class="section" id="output">
@@ -93,29 +91,144 @@ all Presto processes and the CPU time used by the query. For each timing, the
 driver reports median, mean and standard deviation of the query runs. The
 difference between process and query CPU times is the query overhead, which
 is normally from garbage collections. The following is the output from the
-<tt class="docutils literal"><span class="pre">file_formats</span></tt> suite above:</p>
-<div class="highlight-none"><div class="highlight"><pre>suite        query          compression format scale wallTimeP50 wallTimeMean wallTimeStd processCpuTimeP50 processCpuTimeMean processCpuTimeStd queryCpuTimeP50 queryCpuTimeMean queryCpuTimeStd
-============ ============== =========== ====== ===== =========== ============ =========== ================= ================== ================= =============== ================ ===============
-file_formats single_varchar none        orc    100   597         642          101         100840            97180              6373              98296           94610            6628
-file_formats single_bigint  none        orc    100   238         242          12          33930             34050              697               32452           32417            460
-file_formats single_varchar snappy      orc    100   530         525          14          99440             101320             7713              97317           99139            7682
-file_formats single_bigint  snappy      orc    100   218         238          35          34650             34606              83                33198           33188            83
-file_formats single_varchar zlib        orc    100   547         543          38          105680            103373             4038              103029          101021           3773
-file_formats single_bigint  zlib        orc    100   282         269          23          38990             39030              282               37574           37496            156
-</pre></div>
-</div>
-<p>Note that the above output has been reformatted for readability from the
-standard TSV that the driver outputs.</p>
+<tt class="docutils literal"><span class="pre">file_formats</span></tt> suite above.</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="7%" />
+<col width="8%" />
+<col width="6%" />
+<col width="3%" />
+<col width="3%" />
+<col width="6%" />
+<col width="7%" />
+<col width="6%" />
+<col width="9%" />
+<col width="10%" />
+<col width="9%" />
+<col width="8%" />
+<col width="9%" />
+<col width="8%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">suite</th>
+<th class="head">query</th>
+<th class="head">compression</th>
+<th class="head">format</th>
+<th class="head">scale</th>
+<th class="head">wallTimeP50</th>
+<th class="head">wallTimeMean</th>
+<th class="head">wallTimeStd</th>
+<th class="head">processCpuTimeP50</th>
+<th class="head">processCpuTimeMean</th>
+<th class="head">processCpuTimeStd</th>
+<th class="head">queryCpuTimeP50</th>
+<th class="head">queryCpuTimeMean</th>
+<th class="head">queryCpuTimeStd</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>file_formats</td>
+<td>single_varchar</td>
+<td>none</td>
+<td>orc</td>
+<td>100</td>
+<td>597</td>
+<td>642</td>
+<td>101</td>
+<td>100840</td>
+<td>97180</td>
+<td>6373</td>
+<td>98296</td>
+<td>94610</td>
+<td>6628</td>
+</tr>
+<tr class="row-odd"><td>file_formats</td>
+<td>single_bigint</td>
+<td>none</td>
+<td>orc</td>
+<td>100</td>
+<td>238</td>
+<td>242</td>
+<td>12</td>
+<td>33930</td>
+<td>34050</td>
+<td>697</td>
+<td>32452</td>
+<td>32417</td>
+<td>460</td>
+</tr>
+<tr class="row-even"><td>file_formats</td>
+<td>single_varchar</td>
+<td>snappy</td>
+<td>orc</td>
+<td>100</td>
+<td>530</td>
+<td>525</td>
+<td>14</td>
+<td>99440</td>
+<td>101320</td>
+<td>7713</td>
+<td>97317</td>
+<td>99139</td>
+<td>7682</td>
+</tr>
+<tr class="row-odd"><td>file_formats</td>
+<td>single_bigint</td>
+<td>snappy</td>
+<td>orc</td>
+<td>100</td>
+<td>218</td>
+<td>238</td>
+<td>35</td>
+<td>34650</td>
+<td>34606</td>
+<td>83</td>
+<td>33198</td>
+<td>33188</td>
+<td>83</td>
+</tr>
+<tr class="row-even"><td>file_formats</td>
+<td>single_varchar</td>
+<td>zlib</td>
+<td>orc</td>
+<td>100</td>
+<td>547</td>
+<td>543</td>
+<td>38</td>
+<td>105680</td>
+<td>103373</td>
+<td>4038</td>
+<td>103029</td>
+<td>101021</td>
+<td>3773</td>
+</tr>
+<tr class="row-odd"><td>file_formats</td>
+<td>single_bigint</td>
+<td>zlib</td>
+<td>orc</td>
+<td>100</td>
+<td>282</td>
+<td>269</td>
+<td>23</td>
+<td>38990</td>
+<td>39030</td>
+<td>282</td>
+<td>37574</td>
+<td>37496</td>
+<td>156</td>
+</tr>
+</tbody>
+</table>
 <p>The driver can add additional columns to the output by extracting values from
 the schema name or SQL files. In the suite file above, the schema names
 contain named regular expression capturing groups for <tt class="docutils literal"><span class="pre">compression</span></tt>,
 <tt class="docutils literal"><span class="pre">format</span></tt>, and <tt class="docutils literal"><span class="pre">scale</span></tt>, so if we ran the queries in a catalog containing the
 schemas <tt class="docutils literal"><span class="pre">tpch_sf100_orc_none</span></tt>, <tt class="docutils literal"><span class="pre">tpch_sf100_orc_snappy</span></tt>, and
-<tt class="docutils literal"><span class="pre">tpch_sf100_orc_zlib</span></tt>, we get the above output.</p>
+<tt class="docutils literal"><span class="pre">tpch_sf100_orc_zlib</span></tt>, we got the above output.</p>
 <p>Another way to create additional output columns is by adding tags to the
 SQL files. For example, the following SQL file declares two tags,
 <tt class="docutils literal"><span class="pre">projection</span></tt> and <tt class="docutils literal"><span class="pre">filter</span></tt>:</p>
-<div class="highlight-none"><div class="highlight"><pre>projection=true
+<div class="highlight-text"><div class="highlight"><pre>projection=true
 filter=false
 =================
 SELECT SUM(LENGTH(comment))

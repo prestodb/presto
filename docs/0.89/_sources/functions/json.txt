@@ -1,3 +1,5 @@
+.. _json_functions:
+
 ==============
 JSON Functions
 ==============

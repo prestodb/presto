@@ -1,3 +1,5 @@
+.. _presto_verifier:
+
 ===============
 Presto Verifier
 ===============
