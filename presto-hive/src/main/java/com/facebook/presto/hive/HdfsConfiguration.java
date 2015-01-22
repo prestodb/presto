@@ -56,6 +56,7 @@ public class HdfsConfiguration
     private final List<String> resourcePaths;
     private final boolean verifyChecksum;
     private final boolean parquetColumnIndexAccess;
+    private final boolean parquetStrictTypeChecking;
 
     @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<Configuration> hadoopConfiguration = new ThreadLocal<Configuration>()
@@ -94,6 +95,7 @@ public class HdfsConfiguration
         this.resourcePaths = hiveClientConfig.getResourceConfigFiles();
         this.verifyChecksum = hiveClientConfig.isVerifyChecksum();
         this.parquetColumnIndexAccess = hiveClientConfig.isParquetColumnIndexAccess();
+        this.parquetStrictTypeChecking = hiveClientConfig.isParquetStrictTypeChecking();
     }
 
     public boolean verifyChecksum()
@@ -170,6 +172,7 @@ public class HdfsConfiguration
 
         // set config for parquet
         config.setBoolean(ParquetHiveRecordCursor.PARQUET_COLUMN_INDEX_ACCESS, parquetColumnIndexAccess);
+        config.setBoolean(ParquetHiveRecordCursor.PARQUET_STRICT_TYPE_CHECKING, parquetStrictTypeChecking);
 
         updateConfiguration(config);
 
