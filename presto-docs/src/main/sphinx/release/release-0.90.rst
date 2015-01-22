@@ -19,6 +19,9 @@ General Changes
   to the coordinator and worker config properties. Enabling this option will
   allow certain queries to run slowly rather than failing.
 
+* Improve :doc:`/installation/jdbc` conformance. In particular, all unimplemented
+  methods now throw ``SQLException`` rather than ``UnsupportedOperationException``.
+
 SPI Changes
 -----------
 * Add ``getColumnTypes`` to ``RecordSink``.
