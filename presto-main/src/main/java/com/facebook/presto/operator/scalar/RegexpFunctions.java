@@ -123,7 +123,10 @@ public final class RegexpFunctions
             return null;
         }
         String extracted = matcher.group(Ints.checkedCast(group));
-        return Slices.copiedBuffer(extracted, UTF_8);
+        if (extracted == null) {
+            return null;
+        }
+        return Slices.utf8Slice(extracted);
     }
 
     private static void validateGroup(long group, Matcher matcher)
