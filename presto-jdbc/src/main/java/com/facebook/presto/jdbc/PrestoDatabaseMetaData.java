@@ -78,7 +78,7 @@ public class PrestoDatabaseMetaData
             throws SQLException
     {
         // TODO: determine null sort order
-        throw new UnsupportedOperationException("nullsAreSortedHigh");
+        throw new NotImplementedException("DatabaseMetaData", "nullsAreSortedHigh");
     }
 
     @Override
@@ -86,7 +86,7 @@ public class PrestoDatabaseMetaData
             throws SQLException
     {
         // TODO: determine null sort order
-        throw new UnsupportedOperationException("nullsAreSortedLow");
+        throw new NotImplementedException("DatabaseMetaData", "nullsAreSortedLow");
     }
 
     @Override
@@ -94,7 +94,7 @@ public class PrestoDatabaseMetaData
             throws SQLException
     {
         // TODO: determine null sort order
-        throw new UnsupportedOperationException("nullsAreSortedAtStart");
+        throw new NotImplementedException("DatabaseMetaData", "nullsAreSortedAtStart");
     }
 
     @Override
@@ -102,7 +102,7 @@ public class PrestoDatabaseMetaData
             throws SQLException
     {
         // TODO: determine null sort order
-        throw new UnsupportedOperationException("nullsAreSortedAtEnd");
+        throw new NotImplementedException("DatabaseMetaData", "nullsAreSortedAtEnd");
     }
 
     @Override
@@ -1154,7 +1154,7 @@ public class PrestoDatabaseMetaData
             throws SQLException
     {
         // TODO: implement this
-        throw new UnsupportedOperationException("getTypeInfo");
+        throw new NotImplementedException("DatabaseMetaData", "getTypeInfo");
     }
 
     @Override
@@ -1438,7 +1438,7 @@ public class PrestoDatabaseMetaData
             throws SQLException
     {
         // TODO: implement this
-        throw new UnsupportedOperationException("getClientInfoProperties");
+        throw new NotImplementedException("DatabaseMetaData", "getClientInfoProperties");
     }
 
     @Override
@@ -1446,7 +1446,7 @@ public class PrestoDatabaseMetaData
             throws SQLException
     {
         // TODO: implement this
-        throw new UnsupportedOperationException("getFunctions");
+        throw new NotImplementedException("DatabaseMetaData", "getFunctions");
     }
 
     @Override
@@ -1454,14 +1454,15 @@ public class PrestoDatabaseMetaData
             throws SQLException
     {
         // TODO: implement this
-        throw new UnsupportedOperationException("getFunctionColumns");
+        throw new NotImplementedException("DatabaseMetaData", "getFunctionColumns");
     }
 
     @Override
     public ResultSet getPseudoColumns(String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("pseudo columns not supported");
+        // TODO: implement this
+        throw new NotImplementedException("DatabaseMetaData", "getPseudoColumns");
     }
 
     @Override
