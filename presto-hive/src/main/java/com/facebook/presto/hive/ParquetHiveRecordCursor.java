@@ -77,6 +77,8 @@ import static parquet.schema.OriginalType.MAP_KEY_VALUE;
 class ParquetHiveRecordCursor
         extends HiveRecordCursor
 {
+    public static final String PARQUET_COLUMN_INDEX_ACCESS = "presto.parquet.column.index.access";
+
     private final ParquetRecordReader<Void> recordReader;
 
     @SuppressWarnings("FieldCanBeLocal") // include names for debugging
@@ -426,10 +428,14 @@ class ParquetHiveRecordCursor
                 Map<String, String> keyValueMetaData,
                 MessageType messageType)
         {
+            HiveClientConfig defaults = new HiveClientConfig();
             ImmutableList.Builder<parquet.schema.Type> fields = ImmutableList.builder();
             for (HiveColumnHandle column : columns) {
                 if (!column.isPartitionKey() && column.getHiveColumnIndex() < messageType.getFieldCount()) {
-                    fields.add(messageType.getType(column.getName()));
+                    fields.add(configuration.getBoolean(PARQUET_COLUMN_INDEX_ACCESS,
+                                                        defaults.isParquetColumnIndexAccess()) ?
+                                messageType.getType(column.getHiveColumnIndex()) :
+                                messageType.getType(column.getName()));
                 }
             }
             MessageType requestedProjection = new MessageType(messageType.getName(), fields.build());
