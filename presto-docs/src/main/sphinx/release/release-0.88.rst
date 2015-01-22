@@ -16,4 +16,3 @@ General Changes
 * Fix an issue that could cause queries using :func:`row_number()` and ``LIMIT`` to never terminate.
 * Fix an issue that could cause queries with :func:`row_number()` and specific filters to produce incorrect results.
 * Fixed an issue that caused the Cassandra plugin to fail to load with a SecurityException.
-* Fix a NullPointerException when accessing S3 data.
