@@ -27,6 +27,7 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
+import com.facebook.presto.execution.SharedBufferInfo;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskId;
@@ -429,11 +430,12 @@ public class StatementResource
 
         private synchronized void updateExchangeClient(StageInfo outputStage)
         {
-            // if the output stage is not done, update the exchange client with any additional locations
+            // add any additional output locations
             if (!outputStage.getState().isDone()) {
                 for (TaskInfo taskInfo : outputStage.getTasks()) {
-                    List<BufferInfo> buffers = taskInfo.getOutputBuffers().getBuffers();
-                    if (buffers.isEmpty()) {
+                    SharedBufferInfo outputBuffers = taskInfo.getOutputBuffers();
+                    List<BufferInfo> buffers = outputBuffers.getBuffers();
+                    if (buffers.isEmpty() || outputBuffers.getState().canAddBuffers()) {
                         // output buffer has not been created yet
                         continue;
                     }
@@ -447,10 +449,29 @@ public class StatementResource
                     exchangeClient.addLocation(uri);
                 }
             }
-            // if the output stage has finished scheduling, set no more locations
-            if ((outputStage.getState() != StageState.PLANNED) && (outputStage.getState() != StageState.SCHEDULING)) {
+
+            if (allOutputBuffersCreated(outputStage)) {
                 exchangeClient.noMoreLocations();
             }
+        }
+
+        private static boolean allOutputBuffersCreated(StageInfo outputStage)
+        {
+            StageState stageState = outputStage.getState();
+
+            // if the stage is already done, then there will be no more buffers
+            if (stageState.isDone()) {
+                return true;
+            }
+
+            // has the stage finished scheduling?
+            if (stageState == StageState.PLANNED || stageState == StageState.SCHEDULING) {
+                return false;
+            }
+
+            // have all tasks finished adding buffers
+            return outputStage.getTasks().stream()
+                    .allMatch(taskInfo -> !taskInfo.getOutputBuffers().getState().canAddBuffers());
         }
 
         private synchronized URI createNextResultsUri(UriInfo uriInfo)
