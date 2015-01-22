@@ -13,6 +13,7 @@ General Changes
 * Add :func:`year_of_week` function.
 * Add :func:`regexp_extract_all` function.
 * Update the :func:`approx_distinct` documentation with correct standard error bounds.
+* Add presto version to query creation and completion events.
 
 * Disable falling back to the interpreter when expressions fail to be compiled
   to bytecode. To enable this option, add ``compiler.interpreter-enabled=true``
