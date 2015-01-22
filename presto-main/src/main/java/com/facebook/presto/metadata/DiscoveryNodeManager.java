@@ -65,6 +65,9 @@ public final class DiscoveryNodeManager
     @GuardedBy("this")
     private PrestoNode currentNode;
 
+    @GuardedBy("this")
+    private Set<Node> coordinators;
+
     @Inject
     public DiscoveryNodeManager(@ServiceType("presto") ServiceSelector serviceSelector, NodeInfo nodeInfo, FailureDetector failureDetector, NodeVersion expectedNodeVersion)
     {
@@ -92,6 +95,7 @@ public final class DiscoveryNodeManager
 
         ImmutableSet.Builder<Node> activeNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<Node> inactiveNodesBuilder = ImmutableSet.builder();
+        ImmutableSet.Builder<Node> coordinatorsBuilder = ImmutableSet.builder();
         ImmutableSetMultimap.Builder<String, Node> byDataSourceBuilder = ImmutableSetMultimap.builder();
 
         for (ServiceDescriptor service : services) {
@@ -108,6 +112,9 @@ public final class DiscoveryNodeManager
 
                 if (isActive(node)) {
                     activeNodesBuilder.add(node);
+                    if (Boolean.parseBoolean(service.getProperties().get("coordinator"))) {
+                        coordinatorsBuilder.add(node);
+                    }
 
                     // record available active nodes organized by data source
                     String dataSources = service.getProperties().get("datasources");
@@ -129,6 +136,7 @@ public final class DiscoveryNodeManager
 
         allNodes = new AllNodes(activeNodesBuilder.build(), inactiveNodesBuilder.build());
         activeNodesByDataSource = byDataSourceBuilder.build();
+        coordinators = coordinatorsBuilder.build();
 
         checkState(currentNode != null, "INVARIANT: current node not returned from service selector");
     }
@@ -170,6 +178,13 @@ public final class DiscoveryNodeManager
     {
         refreshIfNecessary();
         return currentNode;
+    }
+
+    @Override
+    public synchronized Set<Node> getCoordinators()
+    {
+        refreshIfNecessary();
+        return coordinators;
     }
 
     private static URI getHttpUri(ServiceDescriptor descriptor)

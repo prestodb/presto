@@ -82,6 +82,13 @@ public class InMemoryNodeManager
     }
 
     @Override
+    public Set<Node> getCoordinators()
+    {
+        // always use localNode as coordinator
+        return ImmutableSet.of(localNode);
+    }
+
+    @Override
     public void refreshNodes()
     {
         // no-op

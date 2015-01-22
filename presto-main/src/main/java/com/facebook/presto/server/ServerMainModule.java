@@ -242,6 +242,7 @@ public class ServerMainModule
         // presto announcement
         discoveryBinder(binder).bindHttpAnnouncement("presto")
                 .addProperty("node_version", nodeVersion.toString())
+                .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()))
                 .addProperty("datasources", nullToEmpty(serverConfig.getDataSources()));
 
         // statement resource

@@ -107,6 +107,12 @@ public class TestKafkaPlugin
         {
             return LOCAL_NODE;
         }
+
+        @Override
+        public Set<Node> getCoordinators()
+        {
+            return ImmutableSet.of(LOCAL_NODE);
+        }
     }
 
     private static class TestingNode
