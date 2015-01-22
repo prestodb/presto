@@ -552,13 +552,17 @@ public class TestSqlParser
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: expression is too large \\(stack overflow while parsing\\)")
     public void testStackOverflowExpression()
     {
-        SQL_PARSER.createExpression(Joiner.on(" OR ").join(nCopies(3000, "x = y")));
+        for (int size = 3000; size <= 100_000; size *= 2) {
+            SQL_PARSER.createExpression(Joiner.on(" OR ").join(nCopies(size, "x = y")));
+        }
     }
 
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: statement is too large \\(stack overflow while parsing\\)")
     public void testStackOverflowStatement()
     {
-        SQL_PARSER.createStatement("SELECT " + Joiner.on(" OR ").join(nCopies(6000, "x = y")));
+        for (int size = 6000; size <= 100_000; size *= 2) {
+            SQL_PARSER.createStatement("SELECT " + Joiner.on(" OR ").join(nCopies(size, "x = y")));
+        }
     }
 
     @Test
