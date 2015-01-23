@@ -49,6 +49,12 @@ public class PrestoBenchmarkDriver
     public static void main(String[] args)
             throws Exception
     {
+        new PrestoBenchmarkDriver().run(args);
+    }
+
+    protected void run(String[] args)
+            throws Exception
+    {
         PrestoBenchmarkDriver prestoBenchmarkDriver = singleCommand(PrestoBenchmarkDriver.class).parse(args);
 
         if (prestoBenchmarkDriver.helpOption.showHelpIfRequested()) {
@@ -89,7 +95,7 @@ public class PrestoBenchmarkDriver
         }
 
         // create results store
-        BenchmarkResultsStore resultsStore = new BenchmarkResultsPrinter(suites, queries);
+        BenchmarkResultsStore resultsStore = getResultsStore(suites, queries);
 
         // create session
         ClientSession session = driverOptions.getClientSession();
@@ -107,6 +113,11 @@ public class PrestoBenchmarkDriver
                 benchmarkDriver.run(suite);
             }
         }
+    }
+
+    protected BenchmarkResultsStore getResultsStore(List<Suite> suites, Set<BenchmarkQuery> queries)
+    {
+        return new BenchmarkResultsPrinter(suites, queries);
     }
 
     private static List<BenchmarkQuery> readQueries(File queriesDir)
