@@ -12,6 +12,9 @@ General Changes
 * Add standard SQL function :func:`every` as an alias for :func:`bool_and`.
 * Add :func:`year_of_week` function.
 * Add :func:`regexp_extract_all` function.
+* Add :func:`map_agg` function.
+* Add support for casting ``JSON`` to ``ARRAY`` or ``MAP`` types.
+* Fix failure when accessing elements in an empty array.
 * Update the :func:`approx_distinct` documentation with correct standard error bounds.
 * Add presto version to query creation and completion events.
 * Fix *"Remote page is too large"* errors
