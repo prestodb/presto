@@ -55,6 +55,8 @@ public class HdfsConfiguration
     private final File s3StagingDirectory;
     private final List<String> resourcePaths;
     private final boolean verifyChecksum;
+    private final boolean parquetColumnIndexAccess;
+    private final boolean parquetStrictTypeChecking;
 
     @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<Configuration> hadoopConfiguration = new ThreadLocal<Configuration>()
@@ -92,6 +94,8 @@ public class HdfsConfiguration
         this.s3StagingDirectory = hiveClientConfig.getS3StagingDirectory();
         this.resourcePaths = hiveClientConfig.getResourceConfigFiles();
         this.verifyChecksum = hiveClientConfig.isVerifyChecksum();
+        this.parquetColumnIndexAccess = hiveClientConfig.isParquetColumnIndexAccess();
+        this.parquetStrictTypeChecking = hiveClientConfig.isParquetStrictTypeChecking();
     }
 
     public boolean verifyChecksum()
@@ -165,6 +169,10 @@ public class HdfsConfiguration
         config.setInt(PrestoS3FileSystem.S3_MAX_CONNECTIONS, s3MaxConnections);
         config.setLong(PrestoS3FileSystem.S3_MULTIPART_MIN_FILE_SIZE, s3MultipartMinFileSize.toBytes());
         config.setLong(PrestoS3FileSystem.S3_MULTIPART_MIN_PART_SIZE, s3MultipartMinPartSize.toBytes());
+
+        // set config for parquet
+        config.setBoolean(ParquetHiveRecordCursor.PARQUET_COLUMN_INDEX_ACCESS, parquetColumnIndexAccess);
+        config.setBoolean(ParquetHiveRecordCursor.PARQUET_STRICT_TYPE_CHECKING, parquetStrictTypeChecking);
 
         updateConfiguration(config);
 

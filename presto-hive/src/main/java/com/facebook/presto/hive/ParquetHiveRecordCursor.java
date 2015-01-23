@@ -54,6 +54,12 @@ import java.util.Map;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static com.facebook.presto.hive.HiveType.HIVE_BOOLEAN;
+import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
+import static com.facebook.presto.hive.HiveType.HIVE_FLOAT;
+import static com.facebook.presto.hive.HiveType.HIVE_INT;
+import static com.facebook.presto.hive.HiveType.HIVE_LONG;
+import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
@@ -77,6 +83,9 @@ import static parquet.schema.OriginalType.MAP_KEY_VALUE;
 class ParquetHiveRecordCursor
         extends HiveRecordCursor
 {
+    public static final String PARQUET_COLUMN_INDEX_ACCESS = "presto.parquet.column.index.access";
+    public static final String PARQUET_STRICT_TYPE_CHECKING = "presto.parquet.strict.typing";
+
     private final ParquetRecordReader<Void> recordReader;
 
     @SuppressWarnings("FieldCanBeLocal") // include names for debugging
@@ -95,6 +104,8 @@ class ParquetHiveRecordCursor
     private final long totalBytes;
     private long completedBytes;
     private boolean closed;
+    private final boolean isColumnIndexAccess;
+    private final boolean strictTypeChecking;
 
     public ParquetHiveRecordCursor(
             Configuration configuration,
@@ -130,6 +141,10 @@ class ParquetHiveRecordCursor
         this.slices = new Slice[size];
         this.nulls = new boolean[size];
         this.nullsRowDefault = new boolean[size];
+
+        HiveClientConfig defaults = new HiveClientConfig();
+        this.isColumnIndexAccess = configuration.getBoolean(PARQUET_COLUMN_INDEX_ACCESS, defaults.isParquetColumnIndexAccess());
+        this.strictTypeChecking = configuration.getBoolean(PARQUET_STRICT_TYPE_CHECKING, defaults.isParquetStrictTypeChecking());
 
         for (int i = 0; i < columns.size(); i++) {
             HiveColumnHandle column = columns.get(i);
@@ -392,7 +407,7 @@ class ParquetHiveRecordCursor
                 if (!column.isPartitionKey() && column.getHiveColumnIndex() < messageType.getFieldCount()) {
                     parquet.schema.Type parquetType = messageType.getFields().get(column.getHiveColumnIndex());
                     if (parquetType.isPrimitive()) {
-                        converters.add(new ParquetPrimitiveColumnConverter(i));
+                        converters.add(new ParquetPrimitiveColumnConverter(i, column.getHiveType()));
                     }
                     else {
                         GroupType groupType = parquetType.asGroupType();
@@ -429,7 +444,9 @@ class ParquetHiveRecordCursor
             ImmutableList.Builder<parquet.schema.Type> fields = ImmutableList.builder();
             for (HiveColumnHandle column : columns) {
                 if (!column.isPartitionKey() && column.getHiveColumnIndex() < messageType.getFieldCount()) {
-                    fields.add(messageType.getType(column.getName()));
+                    fields.add(isColumnIndexAccess ?
+                                messageType.getType(column.getHiveColumnIndex()) :
+                                messageType.getType(column.getName()));
                 }
             }
             MessageType requestedProjection = new MessageType(messageType.getName(), fields.build());
@@ -511,10 +528,12 @@ class ParquetHiveRecordCursor
             extends PrimitiveConverter
     {
         private final int fieldIndex;
+        private final HiveType requestType;
 
-        private ParquetPrimitiveColumnConverter(int fieldIndex)
+        private ParquetPrimitiveColumnConverter(int fieldIndex, HiveType requestType)
         {
             this.fieldIndex = fieldIndex;
+            this.requestType = requestType;
         }
 
         @Override
@@ -548,43 +567,157 @@ class ParquetHiveRecordCursor
         @Override
         public void addBoolean(boolean value)
         {
+            if (strictTypeChecking
+                && !requestType.equals(HIVE_BOOLEAN)) {
+                throw new UnsupportedOperationException("Strict Type Checking for Parquet, Could not convert Boolean to " + requestType.toString());
+            }
+
             nulls[fieldIndex] = false;
-            booleans[fieldIndex] = value;
+            if (requestType.equals(HIVE_BOOLEAN)) {
+                booleans[fieldIndex] = value;
+            }
+            else if (requestType.equals(HIVE_INT) || requestType.equals(HIVE_LONG)) {
+                longs[fieldIndex] = (value ? 1L : 0L);
+            }
+            else if (requestType.equals(HIVE_FLOAT) || requestType.equals(HIVE_DOUBLE)) {
+                doubles[fieldIndex] = (value ? 1.0d : 0.0d);
+            }
+            else if (requestType.equals(HIVE_STRING)) {
+                slices[fieldIndex] = Slices.utf8Slice(Boolean.toString(value));
+            }
+            else {
+                throw new UnsupportedOperationException("Could not convert Boolean to " + requestType.toString());
+            }
         }
 
         @Override
         public void addDouble(double value)
         {
+            if (strictTypeChecking
+                && !requestType.equals(HIVE_DOUBLE)) {
+                throw new UnsupportedOperationException("Strict Type Checking for Parquet, Could not convert Double to " + requestType.toString());
+            }
+
             nulls[fieldIndex] = false;
-            doubles[fieldIndex] = value;
+            if (requestType.equals(HIVE_BOOLEAN)) {
+                booleans[fieldIndex] = (value != 0);
+            }
+            else if (requestType.equals(HIVE_INT) || requestType.equals(HIVE_LONG)) {
+                longs[fieldIndex] = (long) value;
+            }
+            if (requestType.equals(HIVE_FLOAT) || requestType.equals(HIVE_DOUBLE)) {
+                doubles[fieldIndex] = value;
+            }
+            else if (requestType.equals(HIVE_STRING)) {
+                slices[fieldIndex] = Slices.utf8Slice(Double.toString(value));
+            }
+            else {
+                throw new UnsupportedOperationException("Could not convert Double to " + requestType.toString());
+            }
         }
 
         @Override
         public void addLong(long value)
         {
+            if (strictTypeChecking
+                && !requestType.equals(HIVE_LONG)) {
+                throw new UnsupportedOperationException("Strict Type Checking for Parquet, Could not convert Long to " + requestType.toString());
+            }
+
             nulls[fieldIndex] = false;
-            longs[fieldIndex] = value;
+            if (requestType.equals(HIVE_BOOLEAN)) {
+                booleans[fieldIndex] = (value != 0);
+            }
+            else if (requestType.equals(HIVE_INT) || requestType.equals(HIVE_LONG)) {
+                longs[fieldIndex] = value;
+            }
+            else if (requestType.equals(HIVE_FLOAT) || requestType.equals(HIVE_DOUBLE)) {
+                doubles[fieldIndex] = (double) value;
+            }
+            else if (requestType.equals(HIVE_STRING)) {
+                slices[fieldIndex] = Slices.utf8Slice(Long.toString(value));
+            }
+            else {
+                throw new UnsupportedOperationException("Could not convert Long to " + requestType.toString());
+            }
         }
 
         @Override
         public void addBinary(Binary value)
         {
+            if (strictTypeChecking
+                && !requestType.equals(HIVE_STRING)) {
+                throw new UnsupportedOperationException("Strict Type Checking for Parquet, Could not convert Binary to " + requestType.toString());
+            }
+
             nulls[fieldIndex] = false;
-            slices[fieldIndex] = Slices.wrappedBuffer(value.getBytes());
+            if (requestType.equals(HIVE_BOOLEAN)) {
+                booleans[fieldIndex] = Boolean.parseBoolean(value.toStringUsingUTF8());
+            }
+            else if (requestType.equals(HIVE_INT) || requestType.equals(HIVE_LONG)) {
+                longs[fieldIndex] = Long.parseLong(value.toStringUsingUTF8());
+            }
+            else if (requestType.equals(HIVE_FLOAT) || requestType.equals(HIVE_DOUBLE)) {
+                doubles[fieldIndex] = Double.parseDouble(value.toStringUsingUTF8());
+            }
+            else if (requestType.equals(HIVE_STRING)) {
+                slices[fieldIndex] = Slices.wrappedBuffer(value.getBytes());
+            }
+            else {
+                throw new UnsupportedOperationException("Could not convert Binary to " + requestType.toString());
+            }
         }
 
         @Override
         public void addFloat(float value)
         {
+            if (strictTypeChecking
+                && !requestType.equals(HIVE_FLOAT)) {
+                throw new UnsupportedOperationException("Strict Type Checking for Parquet, Could not convert Float to " + requestType.toString());
+            }
+
             nulls[fieldIndex] = false;
-            doubles[fieldIndex] = value;
+            if (requestType.equals(HIVE_BOOLEAN)) {
+                booleans[fieldIndex] = (value != 0);
+            }
+            else if (requestType.equals(HIVE_INT) || requestType.equals(HIVE_LONG)) {
+                longs[fieldIndex] = (long) value;
+            }
+            else if (requestType.equals(HIVE_FLOAT) || requestType.equals(HIVE_DOUBLE)) {
+                doubles[fieldIndex] = value;
+            }
+            else if (requestType.equals(HIVE_STRING)) {
+                slices[fieldIndex] = Slices.utf8Slice(Float.toString(value));
+            }
+            else {
+                throw new UnsupportedOperationException("Could not convert Float to " + requestType.toString());
+            }
         }
 
         @Override
         public void addInt(int value)
         {
+            if (strictTypeChecking
+                && !requestType.equals(HIVE_INT)) {
+                throw new UnsupportedOperationException("Strict Type Checking for Parquet, Could not convert Integer to " + requestType.toString());
+            }
+
             nulls[fieldIndex] = false;
-            longs[fieldIndex] = value;
+            if (requestType.equals(HIVE_BOOLEAN)) {
+                booleans[fieldIndex] = (value != 0);
+            }
+            else if (requestType.equals(HIVE_INT) || requestType.equals(HIVE_LONG)) {
+                longs[fieldIndex] = value;
+            }
+            else if (requestType.equals(HIVE_FLOAT) || requestType.equals(HIVE_DOUBLE)) {
+                doubles[fieldIndex] = (double) value;
+            }
+            else if (requestType.equals(HIVE_STRING)) {
+                slices[fieldIndex] = Slices.utf8Slice(Integer.toString(value));
+            }
+            else {
+                throw new UnsupportedOperationException("Could not convert Integer to " + requestType.toString());
+            }
         }
     }
 

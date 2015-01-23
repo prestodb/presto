@@ -80,6 +80,9 @@ public class HiveClientConfig
     private DataSize s3MultipartMinFileSize = new DataSize(16, MEGABYTE);
     private DataSize s3MultipartMinPartSize = new DataSize(5, MEGABYTE);
 
+    private boolean parquetColumnIndexAccess = false;
+    private boolean parquetStrictTypeChecking = true;
+
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
 
     private List<String> resourceConfigFiles;
@@ -623,6 +626,30 @@ public class HiveClientConfig
     public HiveClientConfig setOrcMaxMergeDistance(DataSize orcMaxMergeDistance)
     {
         this.orcMaxMergeDistance = orcMaxMergeDistance;
+        return this;
+    }
+
+    public boolean isParquetColumnIndexAccess()
+    {
+        return parquetColumnIndexAccess;
+    }
+
+    @Config("hive.parquet.column.index.access")
+    public HiveClientConfig setParquetColumnIndexAccess(boolean parquetColumnIndexAccess)
+    {
+        this.parquetColumnIndexAccess = parquetColumnIndexAccess;
+        return this;
+    }
+
+    public boolean isParquetStrictTypeChecking()
+    {
+        return parquetStrictTypeChecking;
+    }
+
+    @Config("hive.parquet.strict.typing")
+    public HiveClientConfig setParquetStrictTypeChecking(boolean parquetStrictTypeChecking)
+    {
+        this.parquetStrictTypeChecking = parquetStrictTypeChecking;
         return this;
     }
 }
