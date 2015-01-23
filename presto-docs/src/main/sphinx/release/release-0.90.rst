@@ -27,6 +27,7 @@ General Changes
   key columns.
 * Fix a bug when optimizing constant expressions involving binary types.
 * Add support for unparenthesized expressions in ``VALUES`` clause.
+* Fix bug where a table writer commits partial results while cleaning up a failed query.
 
 * Disable falling back to the interpreter when expressions fail to be compiled
   to bytecode. To enable this option, add ``compiler.interpreter-enabled=true``
