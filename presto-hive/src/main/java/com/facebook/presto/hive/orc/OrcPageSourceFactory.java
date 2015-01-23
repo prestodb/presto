@@ -185,6 +185,9 @@ public class OrcPageSourceFactory
             }
             catch (IOException ignored) {
             }
+            if (e instanceof PrestoException) {
+                throw (PrestoException) e;
+            }
             String message = splitError(e, path, start, length);
             if (e.getClass().getSimpleName().equals("BlockMissingException")) {
                 throw new PrestoException(HIVE_MISSING_DATA, message, e);
