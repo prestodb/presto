@@ -41,6 +41,7 @@ public class TaskManagerConfig
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
     private int writerCount = 1;
+    private int httpNotificationThreads = 25;
 
     public boolean isVerboseStats()
     {
@@ -197,6 +198,19 @@ public class TaskManagerConfig
     public TaskManagerConfig setWriterCount(int writerCount)
     {
         this.writerCount = writerCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getHttpNotificationThreads()
+    {
+        return httpNotificationThreads;
+    }
+
+    @Config("task.http-notification-threads")
+    public TaskManagerConfig setHttpNotificationThreads(int httpNotificationThreads)
+    {
+        this.httpNotificationThreads = httpNotificationThreads;
         return this;
     }
 }
