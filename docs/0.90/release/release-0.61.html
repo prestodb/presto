@@ -1,0 +1,169 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>9.30. Release 0.61 &mdash; Presto 0.90 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.90',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.90 Documentation" href="../index.html" />
+    <link rel="up" title="9. Release Notes" href="../release.html" />
+    <link rel="next" title="9.31. Release 0.60" href="release-0.60.html" />
+    <link rel="prev" title="9.29. Release 0.62" href="release-0.62.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.90 Documentation</span></a></h1>
+    <h2 class="heading"><span>9.30. Release 0.61</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.62.html">9.29. Release 0.62</a>
+    </span>
+    <span class="right">
+        <a href="release-0.60.html">9.31. Release 0.60</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-61">
+<h1>9.30. Release 0.61</h1>
+<div class="section" id="add-support-for-table-value-constructors">
+<h2>Add support for Table Value Constructors</h2>
+<p>Presto now supports the SQL table value constructor syntax to create inline tables.
+The <tt class="docutils literal"><span class="pre">VALUES</span></tt> clause can be used anywhere a <tt class="docutils literal"><span class="pre">SELECT</span></tt> statement is allowed.
+For example, as a top-level query:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">VALUES</span> <span class="p">(</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">);</span>
+</pre></div>
+</div>
+<div class="highlight-none"><div class="highlight"><pre> _col0 | _col1
+-------+-------
+ a     |     1
+ b     |     2
+(2 rows)
+</pre></div>
+</div>
+<p>Alternatively, in the <tt class="docutils literal"><span class="pre">FROM</span></tt> clause:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="o">*</span>
+<span class="k">FROM</span> <span class="p">(</span>
+  <span class="k">VALUES</span>
+    <span class="p">(</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;ape&#39;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="s1">&#39;bear&#39;</span><span class="p">)</span>
+<span class="p">)</span> <span class="k">AS</span> <span class="n">animal</span> <span class="p">(</span><span class="n">letter</span><span class="p">,</span> <span class="n">animal</span><span class="p">)</span>
+<span class="k">JOIN</span> <span class="p">(</span>
+  <span class="k">VALUES</span>
+    <span class="p">(</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;apple&#39;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="s1">&#39;banana&#39;</span><span class="p">)</span>
+<span class="p">)</span> <span class="k">AS</span> <span class="n">fruit</span> <span class="p">(</span><span class="n">letter</span><span class="p">,</span> <span class="n">fruit</span><span class="p">)</span>
+<span class="k">USING</span> <span class="p">(</span><span class="n">letter</span><span class="p">);</span>
+</pre></div>
+</div>
+<div class="highlight-none"><div class="highlight"><pre> letter | animal | letter |  fruit
+--------+--------+--------+---------
+ a      | ape    | a      | apple
+ b      | bear   | b      | banana
+(2 rows)
+</pre></div>
+</div>
+</div>
+<div class="section" id="cassandra">
+<h2>Cassandra</h2>
+<ul class="simple">
+<li>Add support for upper-case schema, table, and columns names.</li>
+<li>Add support for <tt class="docutils literal"><span class="pre">DECIMAL</span></tt> type.</li>
+</ul>
+</div>
+<div class="section" id="amazon-s3-support">
+<h2>Amazon S3 support</h2>
+<ul class="simple">
+<li>Completely rewritten Hadoop FileSystem implementation for S3 using the Amazon AWS SDK,
+with major performance and reliability improvements.</li>
+<li>Add support for writing data to S3.</li>
+</ul>
+</div>
+<div class="section" id="approximate-aggregation-queries">
+<h2>Approximate Aggregation Queries</h2>
+<p>We have added experimental support for aggregate queries that return
+approximate results with error bounds. This feature is designed to be
+used with sampled tables generated using the <tt class="docutils literal"><span class="pre">TABLESAMPLE</span> <span class="pre">POISSONIZED</span> <span class="pre">RESCALED</span></tt>.
+For example, the following query will create a 1% sample:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">lineitems_sample</span> <span class="k">AS</span>
+<span class="k">SELECT</span> <span class="o">*</span>
+<span class="k">FROM</span> <span class="n">tpch</span><span class="p">.</span><span class="n">sf10</span><span class="p">.</span><span class="n">lineitems</span> <span class="n">TABLESAMPLE</span> <span class="n">POISSONIZED</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="n">RESCALED</span>
+</pre></div>
+</div>
+<p>Then, to run an approximate query:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span>
+<span class="k">FROM</span> <span class="n">lineitems_sample</span>
+<span class="n">APPROXIMATE</span> <span class="k">AT</span> <span class="mi">95</span><span class="p">.</span><span class="mi">0</span> <span class="n">CONFIDENCE</span>
+</pre></div>
+</div>
+<div class="highlight-none"><div class="highlight"><pre>           _col0
+----------------------------
+ 5.991790345E7 +/- 14835.75
+(1 row)
+</pre></div>
+</div>
+<p>To enable this feature you must add <tt class="docutils literal"><span class="pre">analyzer.experimental-syntax-enabled=true</span></tt> to your config.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The syntax and functionality for approximate queries is experimental and will likely
+change in future versions.</p>
+</div>
+</div>
+<div class="section" id="miscellaneous">
+<h2>Miscellaneous</h2>
+<ul class="simple">
+<li>General improvements to the JDBC driver, specifically with respect to metadata handling.</li>
+<li>Fix division by zero errors in variance aggregation functions (<tt class="docutils literal"><span class="pre">VARIANCE</span></tt>, <tt class="docutils literal"><span class="pre">STDDEV</span></tt>, etc.).</li>
+<li>Fix a bug when using <tt class="docutils literal"><span class="pre">DISTINCT</span></tt> aggregations in the <tt class="docutils literal"><span class="pre">HAVING</span></tt> clause.</li>
+<li>Fix an out of memory issue when writing large tables.</li>
+<li>Fix a bug when using <tt class="docutils literal"><span class="pre">ORDER</span> <span class="pre">BY</span> <span class="pre">rand()</span></tt> in a <tt class="docutils literal"><span class="pre">JOIN</span></tt> query.</li>
+<li>Fix handling of timestamps in maps and lists in Hive connector.</li>
+<li>Add instrumentation for Hive metastore and HDFS API calls to track failures and latency. These metrics are exposed via JMX.</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.62.html">9.29. Release 0.62</a>
+    </span>
+    <span class="right">
+        <a href="release-0.60.html">9.31. Release 0.60</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

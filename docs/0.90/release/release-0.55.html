@@ -1,0 +1,169 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>9.36. Release 0.55 &mdash; Presto 0.90 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.90',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.90 Documentation" href="../index.html" />
+    <link rel="up" title="9. Release Notes" href="../release.html" />
+    <link rel="next" title="9.37. Release 0.54" href="release-0.54.html" />
+    <link rel="prev" title="9.35. Release 0.56" href="release-0.56.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.90 Documentation</span></a></h1>
+    <h2 class="heading"><span>9.36. Release 0.55</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.56.html">9.35. Release 0.56</a>
+    </span>
+    <span class="right">
+        <a href="release-0.54.html">9.37. Release 0.54</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-55">
+<h1>9.36. Release 0.55</h1>
+<div class="section" id="rc-binary-2-4x-gain-in-cpu-efficiency">
+<h2>RC Binary 2-4x Gain in CPU Efficiency</h2>
+<p>Presto uses custom fast-path decoding logic for specific Hive file
+formats.  In this release we have added a fast path for for RCFile when using
+the Binary SerDe (<tt class="docutils literal"><span class="pre">LazyBinaryColumnarSerDe</span></tt>).  In our
+micro benchmarks, we see a gain between 2x and 4x in CPU efficiency compared
+to the generic (slow) path.  Since Hive data decoding accounts for a
+significant portion of the CPU time, this should
+result in measurable gains for most queries over RC Binary encoded data.
+Note that this optimization may not result in a reduction in latency
+if your cluster is network or disk I/O bound.</p>
+</div>
+<div class="section" id="hash-distributed-aggregations">
+<h2>Hash Distributed Aggregations</h2>
+<p><tt class="docutils literal"><span class="pre">GROUP</span> <span class="pre">BY</span></tt> aggregations are now distributed across a fixed number of machines.
+This is controlled by the property <tt class="docutils literal"><span class="pre">query.initial-hash-partitions</span></tt>  set in
+<tt class="docutils literal"><span class="pre">etc/config.properties</span></tt> of the coordinator and workers. If the value is
+larger than the number of machines available during query scheduling, Presto
+will use all available machines.  The default value is <tt class="docutils literal"><span class="pre">8</span></tt>.</p>
+<p>The maximum memory size of an aggregation is now
+<tt class="docutils literal"><span class="pre">query.initial-hash-partitions</span></tt> times <tt class="docutils literal"><span class="pre">task.max-memory</span></tt>.</p>
+</div>
+<div class="section" id="simple-distinct-aggregations">
+<h2>Simple Distinct Aggregations</h2>
+<p>We have added support for the <tt class="docutils literal"><span class="pre">DISTINCT</span></tt> argument qualifier for aggregation
+functions. This is currently limited to queries without a <tt class="docutils literal"><span class="pre">GROUP</span> <span class="pre">BY</span></tt> clause and
+where all the aggregation functions have the same input expression. For example:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="k">count</span><span class="p">(</span><span class="k">DISTINCT</span> <span class="n">country</span><span class="p">)</span>
+<span class="k">FROM</span> <span class="n">users</span>
+</pre></div>
+</div>
+<p>Support for complete <tt class="docutils literal"><span class="pre">DISTINCT</span></tt> functionality is in our roadmap.</p>
+</div>
+<div class="section" id="range-predicate-pushdown">
+<h2>Range Predicate Pushdown</h2>
+<p>We&#8217;ve modified the connector API to support range predicates in addition to simple equality predicates.
+This lays the ground work for adding connectors to systems that support range
+scans (e.g., HBase, Cassandra, JDBC, etc).</p>
+<p>In addition to receiving range predicates, the connector can also communicate
+back the ranges of each partition for use in the query optimizer.  This can be a
+major performance gain for <tt class="docutils literal"><span class="pre">JOIN</span></tt> queries where one side of the join has
+only a few partitions.  For example:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">data_1_year</span> <span class="k">JOIN</span> <span class="n">data_1_week</span> <span class="k">USING</span> <span class="p">(</span><span class="n">ds</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>If <tt class="docutils literal"><span class="pre">data_1_year</span></tt> and <tt class="docutils literal"><span class="pre">data_1_week</span></tt> are both partitioned on <tt class="docutils literal"><span class="pre">ds</span></tt>, the
+connector will report back that one table has partitions for 365 days and the
+other table has partitions for only 7 days.  Then the optimizer will limit
+the scan of the <tt class="docutils literal"><span class="pre">data_1_year</span></tt> table to only the 7 days that could possible
+match.  These constraints are combined with other predicates in the
+query to further limit the data scanned.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This is a backwards incompatible change with the previous connector SPI,
+so if you have written a connector, you will need to update your code
+before deploying this release.</p>
+</div>
+</div>
+<div class="section" id="json-array-get-function">
+<h2>json_array_get Function</h2>
+<p>The <a class="reference internal" href="../functions/json.html#json_array_get" title="json_array_get"><tt class="xref py py-func docutils literal"><span class="pre">json_array_get()</span></tt></a> function makes it simple to fetch a single element from a
+scalar json array.</p>
+</div>
+<div class="section" id="non-reserved-keywords">
+<h2>Non-reserved Keywords</h2>
+<p>The keywords <tt class="docutils literal"><span class="pre">DATE</span></tt>, <tt class="docutils literal"><span class="pre">TIME</span></tt>, <tt class="docutils literal"><span class="pre">TIMESTAMP</span></tt>, and <tt class="docutils literal"><span class="pre">INTERVAL</span></tt> are no longer
+reserved keywords in the grammar.  This means that you can access a column
+named <tt class="docutils literal"><span class="pre">date</span></tt> without quoting the identifier.</p>
+</div>
+<div class="section" id="cli-source-option">
+<h2>CLI source Option</h2>
+<p>The Presto CLI now has an option to set the query source.  The source
+value is shown in the UI and is recorded in events.   When using the CLI in
+shell scripts it is useful to set the <tt class="docutils literal"><span class="pre">--source</span></tt> option to distinguish shell
+scripts from normal users.</p>
+</div>
+<div class="section" id="show-schemas-from">
+<h2>SHOW SCHEMAS FROM</h2>
+<p>Although the documentation included the syntax <tt class="docutils literal"><span class="pre">SHOW</span> <span class="pre">SCHEMAS</span> <span class="pre">[FROM</span> <span class="pre">catalog]</span></tt>,
+it was not implemented.  This release now implements this statement correctly.</p>
+</div>
+<div class="section" id="hive-bucketed-table-fixes">
+<h2>Hive Bucketed Table Fixes</h2>
+<p>For queries over Hive bucketed tables, Presto will attempt to limit scans to
+the buckets that could possible contain rows that match the WHERE clause.
+Unfortunately, the algorithm we were using to select the buckets was not
+correct, and sometimes we would either select the wrong files or fail to
+select any files.  We have aligned
+the algorithm with Hive and now the optimization works as expected.</p>
+<p>We have also improved the algorithm for detecting tables that are not properly
+bucketed.  It is common for tables to declare bucketing in the Hive metadata, but
+not actually be bucketed in HDFS.  When Presto detects this case, it fallback to a full scan of the
+partition.  Not only does this change make bucketing safer, but it makes it easier
+to migrate a table to use bucketing without rewriting all of the data.</p>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.56.html">9.35. Release 0.56</a>
+    </span>
+    <span class="right">
+        <a href="release-0.54.html">9.37. Release 0.54</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
