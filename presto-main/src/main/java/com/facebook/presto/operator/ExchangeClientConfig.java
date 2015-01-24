@@ -31,6 +31,7 @@ public class ExchangeClientConfig
     private int concurrentRequestMultiplier = 3;
     private Duration minErrorDuration = new Duration(1, TimeUnit.MINUTES);
     private DataSize maxResponseSize = new HttpClientConfig().getMaxContentLength();
+    private int clientThreads = 25;
 
     @NotNull
     public DataSize getMaxBufferSize()
@@ -82,6 +83,19 @@ public class ExchangeClientConfig
     public ExchangeClientConfig setMaxResponseSize(DataSize maxResponseSize)
     {
         this.maxResponseSize = maxResponseSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getClientThreads()
+    {
+        return clientThreads;
+    }
+
+    @Config("exchange.client-threads")
+    public ExchangeClientConfig setClientThreads(int clientThreads)
+    {
+        this.clientThreads = clientThreads;
         return this;
     }
 }
