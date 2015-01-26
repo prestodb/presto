@@ -26,6 +26,8 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import org.testng.annotations.Test;
 
+import java.util.Map;
+
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.metadata.Signature.withVariadicBound;
@@ -34,6 +36,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -143,6 +146,23 @@ public class TestSignature
         assertNotNull(signature.bindTypeParameters(ImmutableList.of(DOUBLE, DOUBLE), true, typeManager));
         assertNotNull(signature.bindTypeParameters(ImmutableList.of(BIGINT, BIGINT), true, typeManager));
         assertNotNull(signature.bindTypeParameters(ImmutableList.of(VARCHAR, BIGINT), true, typeManager));
+        assertNull(signature.bindTypeParameters(ImmutableList.of(BIGINT, VARCHAR), true, typeManager));
+    }
+
+    @Test
+    public void testUnknownCoercion()
+            throws Exception
+    {
+        TypeManager typeManager = new TypeRegistry();
+        Signature signature = new Signature("foo", ImmutableList.of(typeParameter("T")), "boolean", ImmutableList.of("T", "T"), false, true);
+        assertNotNull(signature.bindTypeParameters(ImmutableList.of(UNKNOWN, UNKNOWN), true, typeManager));
+        assertNotNull(signature.bindTypeParameters(ImmutableList.of(UNKNOWN, BIGINT), true, typeManager));
+        assertNull(signature.bindTypeParameters(ImmutableList.of(BIGINT, VARCHAR), true, typeManager));
+
+        signature = new Signature("foo", ImmutableList.of(comparableTypeParameter("T")), "boolean", ImmutableList.of("T", "T"), false, true);
+        Map<String, Type> boundParameters = signature.bindTypeParameters(ImmutableList.of(UNKNOWN, BIGINT), true, typeManager);
+        assertNotNull(boundParameters);
+        assertEquals(boundParameters.get("T"), BIGINT);
         assertNull(signature.bindTypeParameters(ImmutableList.of(BIGINT, VARCHAR), true, typeManager));
     }
 }

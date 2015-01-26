@@ -102,7 +102,7 @@ public class TestAnalyzer
     public void testNonComparableWindowPartition()
             throws Exception
     {
-        assertFails(TYPE_MISMATCH, "SELECT row_number() OVER (PARTITION BY t.x) FROM (VALUES(null)) AS t(x)");
+        assertFails(TYPE_MISMATCH, "SELECT row_number() OVER (PARTITION BY t.x) FROM (VALUES(CAST (NULL AS HyperLogLog))) AS t(x)");
     }
 
     @Test

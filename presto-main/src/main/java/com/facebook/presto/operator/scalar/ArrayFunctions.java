@@ -16,6 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import javax.annotation.Nullable;
 
@@ -23,6 +24,13 @@ public final class ArrayFunctions
 {
     private ArrayFunctions()
     {
+    }
+
+    @ScalarFunction(hidden = true)
+    @SqlType("array<unknown>")
+    public static Slice arrayConstructor()
+    {
+        return Slices.utf8Slice("[]");
     }
 
     @Nullable
