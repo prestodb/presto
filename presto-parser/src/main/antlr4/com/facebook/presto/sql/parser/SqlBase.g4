@@ -51,6 +51,12 @@ statement
         (WHERE booleanExpression)?
         (ORDER BY sortItem (',' sortItem)*)?
         (LIMIT limit=INTEGER_VALUE)?                                   #showPartitions
+    | CREATE FUNCTION qualifiedName
+      '(' parameterDeclaration (',' parameterDeclaration)* ')'
+      returnsClause routineCharacteristic* routineStatement            #createFunction
+    | CREATE PROCEDURE qualifiedName
+      '(' parameterDeclaration (',' parameterDeclaration)* ')'
+      routineCharacteristic* routineStatement                          #createProcedure
     ;
 
 query
@@ -75,10 +81,10 @@ queryTerm
     ;
 
 queryPrimary
-    : querySpecification                   #queryPrimaryDefault
-    | TABLE qualifiedName                  #table
-    | VALUES expression (',' expression)*  #inlineTable
-    | '(' queryNoWith  ')'                 #subquery
+    : querySpecification                      #queryPrimaryDefault
+    | TABLE qualifiedName                     #table
+    | VALUES expression (',' expression)*     #inlineTable
+    | '(' queryNoWith  ')'                    #subquery
     ;
 
 sortItem
@@ -86,11 +92,15 @@ sortItem
     ;
 
 querySpecification
-    : SELECT setQuantifier? selectItem (',' selectItem)*
+    : SELECT setQuantifier? selectItem (',' selectItem)* targetSpecification?
       (FROM relation (',' relation)*)?
       (WHERE where=booleanExpression)?
       (GROUP BY groupBy+=expression (',' groupBy+=expression)*)?
       (HAVING having=booleanExpression)?
+    ;
+
+targetSpecification
+    : INTO qualifiedName (',' qualifiedName)*
     ;
 
 namedQuery
@@ -285,14 +295,147 @@ frameBound
     | expression boundType=(PRECEDING | FOLLOWING)  #boundedFrame // expression should be unsignedLiteral
     ;
 
-
 explainOption
     : FORMAT value=(TEXT | GRAPHVIZ | JSON)  #explainFormat
     | TYPE value=(LOGICAL | DISTRIBUTED)     #explainType
     ;
 
+parameterDeclaration
+    : parameterMode? identifier? type (DEFAULT valueExpression)?
+    ;
+
+parameterMode
+    : IN | OUT | INOUT
+    ;
+
+returnsClause
+    : RETURNS returnType=type (CAST FROM castFromType=type)?
+    ;
+
+routineCharacteristic
+    : SPECIFIC value=qualifiedName             #specificCharacteristic
+    | DETERMINISTIC                            #isDeterministicCharacteristic
+    | NOT DETERMINISTIC                        #isNotDeterministicCharacteristic
+    | NO SQL                                   #noSqlAccessCharacteristic
+    | CONTAINS SQL                             #containsSqlAccessCharacteristic
+    | READS SQL DATA                           #readsSqlDataAccessCharacteristic
+    | MODIFIES SQL DATA                        #modifiesSqlDataAccessCharacteristic
+    | RETURNS NULL ON NULL INPUT               #returnsNullOnNullInputCharacteristic
+    | CALLED ON NULL INPUT                     #calledOnNullInputCharacteristic
+    | DYNAMIC RESULT SETS value=INTEGER_VALUE  #returnedResultSetsCharacteristic
+    ;
+
+routineStatement
+    : controlStatement | statement
+    ;
+
+controlStatement
+    : callStatement
+    | returnStatement
+    | compoundStatement
+    | variableDeclaration
+    | assignmentStatement
+    | caseStatement
+    | ifStatement
+    | iterateStatement
+    | leaveStatement
+    | loopStatement
+    | whileStatement
+    | repeatStatement
+    ;
+
+callStatement
+    : CALL qualifiedName '(' (expression (',' expression)*)? ')'
+    ;
+
+returnStatement
+    : RETURN valueExpression
+    ;
+
+compoundStatement
+    : (beginningLabel=labelWithColon)? BEGIN
+      (variableDeclaration ';')*
+      sqlStatementList?
+      END (endingLabel=identifier)?
+    ;
+
+variableDeclaration
+    : DECLARE identifier (',' identifier)* type (DEFAULT valueExpression)?
+    ;
+
+sqlStatementList
+    : (routineStatement ';')+
+    ;
+
+assignmentStatement
+    : SET ('(' qualifiedName (',' qualifiedName)* ')' | qualifiedName) EQ expression
+    ;
+
+caseStatement
+    : simpleCaseStatement | searchedCaseStatement
+    ;
+
+simpleCaseStatement
+    : CASE expression caseStatementWhenClause+ elseClause? END CASE
+    ;
+
+searchedCaseStatement
+    : CASE caseStatementWhenClause+ elseClause? END CASE
+    ;
+
+caseStatementWhenClause
+    : WHEN expression THEN sqlStatementList
+    ;
+
+ifStatement
+    : IF expression THEN sqlStatementList elseifClause* elseClause? END IF
+    ;
+
+elseClause
+    : ELSE sqlStatementList
+    ;
+
+elseifClause
+    : ELSIF expression THEN sqlStatementList
+    ;
+
+iterateStatement
+    : ITERATE identifier
+    ;
+
+leaveStatement
+    : LEAVE identifier
+    ;
+
+loopStatement
+    : (beginningLabel=labelWithColon)? LOOP
+      sqlStatementList
+      END LOOP (endingLabel=identifier)?
+    ;
+
+whileStatement
+    : (beginningLabel=labelWithColon)? WHILE expression DO
+      sqlStatementList
+      END WHILE (endingLabel=identifier)?
+    ;
+
+repeatStatement
+    : (beginningLabel=labelWithColon)? REPEAT
+      sqlStatementList
+      UNTIL expression
+      END REPEAT (endingLabel=identifier)?
+    ;
+
 qualifiedName
     : identifier ('.' identifier)*
+    ;
+
+labelWithColon
+    : IDENTIFIER ':'?           #unquotedLabel
+    | quotedIdentifier ':'      #quotedLabel
+    | nonReserved ':'           #unquotedLabel
+    | BACKQUOTED_IDENTIFIER ':' #backQuotedLabel
+    | DIGIT_IDENTIFIER ':'?     #digitLabel
     ;
 
 identifier
@@ -323,6 +466,10 @@ nonReserved
     | SET | RESET
     | VIEW | REPLACE
     | IF | NULLIF | COALESCE
+    | FUNCTION | PROCEDURE | OUT| INOUT | DEFAULT | SPECIFIC | DETERMINISTIC | SQL
+    | CONTAINS | READS | DATA | MODIFIES | RETURNS | INPUT | CALLED | DYNAMIC | RESULT
+    | SETS | CALL | RETURN | BEGIN | END | ITERATE | LEAVE | LOOP | WHILE | DO
+    | REPEAT | UNTIL
     ;
 
 SELECT: 'SELECT';
@@ -453,6 +600,38 @@ SESSION: 'SESSION';
 IF: 'IF';
 NULLIF: 'NULLIF';
 COALESCE: 'COALESCE';
+
+FUNCTION: 'FUNCTION';
+PROCEDURE: 'PROCEDURE';
+OUT: 'OUT';
+INOUT: 'INOUT';
+DEFAULT: 'DEFAULT';
+SPECIFIC: 'SPECIFIC';
+DETERMINISTIC: 'DETERMINISTIC';
+NO: 'NO';
+SQL: 'SQL';
+CONTAINS: 'CONTAINS';
+READS: 'READS';
+DATA: 'DATA';
+MODIFIES: 'MODIFIES';
+RETURNS: 'RETURNS';
+INPUT: 'INPUT';
+CALLED: 'CALLED';
+DYNAMIC: 'DYNAMIC';
+RESULT: 'RESULT';
+SETS: 'SETS';
+CALL: 'CALL';
+RETURN: 'RETURN';
+BEGIN: 'BEGIN';
+DECLARE: 'DECLARE';
+ITERATE: 'ITERATE';
+LEAVE: 'LEAVE';
+ELSIF: 'ELSIF';
+LOOP: 'LOOP';
+WHILE: 'WHILE';
+DO: 'DO';
+REPEAT: 'REPEAT';
+UNTIL: 'UNTIL';
 
 EQ  : '=';
 NEQ : '<>' | '!=';

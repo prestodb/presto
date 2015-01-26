@@ -500,6 +500,11 @@ public class TestSqlParser
         SQL_PARSER.createStatement("select foo(,1)");
     }
 
+    public void testFunctionWithoutRelation()
+    {
+        SQL_PARSER.createStatement("select foo(1)");
+    }
+
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:20: no viable alternative at input\\E.*")
     public void testInvalidArguments2()
     {
@@ -758,7 +763,7 @@ public class TestSqlParser
 
     private static void assertStatement(String query, Statement expected)
     {
-        assertParsed(query, expected, SQL_PARSER.createStatement(query));
+            assertParsed(query, expected, SQL_PARSER.createStatement(query));
     }
 
     private static void assertExpression(String expression, Expression expected)
