@@ -24,7 +24,7 @@ public class LazyFixedWidthBlock
         extends AbstractFixedWidthBlock
 {
     private final int positionCount;
-    private final LazyBlockLoader<LazyFixedWidthBlock> loader;
+    private LazyBlockLoader<LazyFixedWidthBlock> loader;
     private Slice slice;
     private boolean[] valueIsNull;
 
@@ -102,6 +102,9 @@ public class LazyFixedWidthBlock
         if (slice == null) {
             throw new IllegalArgumentException("Lazy block loader did not load this block");
         }
+
+        // clear reference to loader to free resources, since load was successful
+        loader = null;
     }
 
     public void setRawSlice(Slice slice)

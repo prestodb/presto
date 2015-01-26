@@ -25,7 +25,7 @@ public class LazySliceArrayBlock
         extends AbstractVariableWidthBlock
 {
     private final int positionCount;
-    private final LazyBlockLoader<LazySliceArrayBlock> loader;
+    private LazyBlockLoader<LazySliceArrayBlock> loader;
     private Slice[] values;
     private final AtomicInteger sizeInBytes = new AtomicInteger(-1);
 
@@ -124,6 +124,9 @@ public class LazySliceArrayBlock
         if (values == null) {
             throw new IllegalArgumentException("Lazy block loader did not load this block");
         }
+
+        // clear reference to loader to free resources, since load was successful
+        loader = null;
     }
 
     @Override
