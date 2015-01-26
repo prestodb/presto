@@ -173,7 +173,7 @@ public abstract class AbstractTestType
         verifyInvalidPositionHandling(block);
 
         if (block.isNull(position)) {
-            if (type.isOrderable()) {
+            if (type.isOrderable() && type.getJavaType() != void.class) {
                 Block nonNullValue = toBlock(getNonNullValue());
                 assertTrue(ASC_NULLS_FIRST.compareBlockValue(type, block, position, nonNullValue, 0) < 0);
                 assertTrue(ASC_NULLS_LAST.compareBlockValue(type, block, position, nonNullValue, 0) > 0);
@@ -288,7 +288,7 @@ public abstract class AbstractTestType
         catch (RuntimeException expected) {
         }
 
-        if (type.isComparable()) {
+        if (type.isComparable() && type.getJavaType() != void.class) {
             Block other = toBlock(getNonNullValue());
             try {
                 type.equalTo(block, -1, other, 0);
@@ -304,7 +304,7 @@ public abstract class AbstractTestType
             }
         }
 
-        if (type.isOrderable()) {
+        if (type.isOrderable() && type.getJavaType() != void.class) {
             Block other = toBlock(getNonNullValue());
             try {
                 ASC_NULLS_FIRST.compareBlockValue(type, block, -1, other, 0);

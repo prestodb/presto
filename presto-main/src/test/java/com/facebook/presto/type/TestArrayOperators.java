@@ -273,7 +273,7 @@ public class TestArrayOperators
         assertFunction("ARRAY_SORT(ARRAY [ARRAY [1], ARRAY [2]])", ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(2L)));
 
         try {
-            assertFunction("ARRAY_SORT(ARRAY[NULL, NULL, NULL])", null);
+            assertFunction("ARRAY_SORT(ARRAY[color('red'), color('blue')])", null);
             fail("ARRAY_SORT is not supported for arrays with incomparable elements");
         }
         catch (RuntimeException e) {
