@@ -1782,6 +1782,10 @@ class StatementAnalyzer
 
     private List<Expression> analyzeSelect(QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context)
     {
+        if (!node.getSelect().getTargets().isEmpty()) {
+            throw new SemanticException(NOT_SUPPORTED, node, "SELECT INTO is not supported in this context");
+        }
+
         ImmutableList.Builder<Expression> outputExpressionBuilder = ImmutableList.builder();
 
         for (SelectItem item : node.getSelect().getSelectItems()) {

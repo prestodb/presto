@@ -16,10 +16,17 @@ package com.facebook.presto.sql;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.AssignmentStatement;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.CallArgument;
+import com.facebook.presto.sql.tree.CallStatement;
+import com.facebook.presto.sql.tree.CaseStatement;
+import com.facebook.presto.sql.tree.CaseStatementWhenClause;
 import com.facebook.presto.sql.tree.Commit;
+import com.facebook.presto.sql.tree.CompoundStatement;
+import com.facebook.presto.sql.tree.CreateFunction;
+import com.facebook.presto.sql.tree.CreateProcedure;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
@@ -27,6 +34,8 @@ import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
+import com.facebook.presto.sql.tree.ElseClause;
+import com.facebook.presto.sql.tree.ElseIfClause;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
@@ -34,15 +43,20 @@ import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Grant;
+import com.facebook.presto.sql.tree.IfStatement;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Isolation;
+import com.facebook.presto.sql.tree.IterateStatement;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
+import com.facebook.presto.sql.tree.LeaveStatement;
+import com.facebook.presto.sql.tree.LoopStatement;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.ParameterDeclaration;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
@@ -50,9 +64,13 @@ import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameTable;
+import com.facebook.presto.sql.tree.RepeatStatement;
 import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.ReturnClause;
+import com.facebook.presto.sql.tree.ReturnStatement;
 import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.Rollback;
+import com.facebook.presto.sql.tree.RoutineCharacteristics;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
@@ -68,6 +86,7 @@ import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.StartTransaction;
+import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TransactionAccessMode;
@@ -75,6 +94,8 @@ import com.facebook.presto.sql.tree.TransactionMode;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Values;
+import com.facebook.presto.sql.tree.VariableDeclaration;
+import com.facebook.presto.sql.tree.WhileStatement;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
@@ -84,6 +105,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
@@ -275,6 +297,10 @@ public final class SqlFormatter
             else {
                 builder.append(' ');
                 process(getOnlyElement(node.getSelectItems()), indent);
+            }
+            if (!node.getTargets().isEmpty()) {
+                builder.append(" INTO ");
+                Joiner.on(", ").appendTo(builder, node.getTargets());
             }
 
             builder.append('\n');
@@ -969,6 +995,331 @@ public final class SqlFormatter
             return null;
         }
 
+        @Override
+        protected Void visitCreateFunction(CreateFunction node, Integer indent)
+        {
+            builder.append("CREATE FUNCTION ")
+                    .append(node.getName())
+                    .append("(");
+            processParameters(node.getParameters(), indent);
+            builder.append(")\n");
+            process(node.getReturnClause(), indent);
+            builder.append("\n");
+            process(node.getRoutineCharacteristics(), indent);
+            process(node.getStatement(), indent);
+
+            return null;
+        }
+
+        @Override
+        protected Void visitCreateProcedure(CreateProcedure node, Integer indent)
+        {
+            builder.append("CREATE PROCEDURE ")
+                    .append(node.getName())
+                    .append("(");
+            processParameters(node.getParameters(), indent);
+            builder.append(")\n");
+            process(node.getRoutineCharacteristics(), indent);
+            process(node.getStatement(), indent);
+
+            return null;
+        }
+
+        @Override
+        protected Void visitParameterDeclaration(ParameterDeclaration node, Integer indent)
+        {
+            if (node.getMode().isPresent()) {
+                builder.append(node.getMode().get())
+                        .append(" ");
+            }
+            if (node.getName().isPresent()) {
+                builder.append(node.getName().get())
+                        .append(" ");
+            }
+            builder.append(node.getType());
+            if (node.getDefaultValue().isPresent()) {
+                builder.append(" DEFAULT");
+                process(node.getDefaultValue().get(), indent);
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitRoutineCharacteristics(RoutineCharacteristics node, Integer indent)
+        {
+            for (QualifiedName qualifiedName : node.getSpecificCharacteristics()) {
+                builder.append("SPECIFIC ")
+                        .append(qualifiedName)
+                        .append("\n");
+            }
+            if (node.isDeterministic().isPresent()) {
+                if (!node.isDeterministic().get()) {
+                    builder.append("NOT ");
+                }
+                builder.append("DETERMINISTIC\n");
+            }
+            if (node.getSqlDataAccessType().isPresent()) {
+                switch (node.getSqlDataAccessType().get()) {
+                    case NO_SQL:
+                        builder.append("NO SQL\n");
+                        break;
+                    case CONTAINS_SQL:
+                        builder.append("CONTAINS SQL\n");
+                        break;
+                    case READS_SQL_DATA:
+                        builder.append("READS SQL DATA\n");
+                        break;
+                    case MODIFIES_SQL_DATA:
+                        builder.append("MODIFIES SQL DATA\n");
+                        break;
+                }
+            }
+            if (node.isReturnsNullOnNullInput().isPresent()) {
+                if (node.isReturnsNullOnNullInput().get()) {
+                    builder.append("RETURNS NULL ON NULL INPUT\n");
+                }
+                else {
+                    builder.append("CALLED ON NULL INPUT\n");
+                }
+            }
+            if (node.getDynamicResultSets().isPresent()) {
+                builder.append("DYNAMIC RESULT SETS ")
+                        .append(node.getDynamicResultSets())
+                        .append("\n");
+            }
+
+            return null;
+        }
+
+        @Override
+        protected Void visitReturnClause(ReturnClause node, Integer indent)
+        {
+            builder.append("RETURNS ")
+                    .append(node.getReturnType());
+            if (node.getCastFromType().isPresent()) {
+                builder.append(" CAST FROM ")
+                        .append(node.getCastFromType().get());
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitCallStatement(CallStatement node, Integer indent)
+        {
+            builder.append("CALL ")
+                    .append(node.getName());
+            return null;
+        }
+
+        @Override
+        protected Void visitReturnStatement(ReturnStatement node, Integer context)
+        {
+            builder.append("RETURN ")
+                    .append(node.getValue());
+            return null;
+        }
+
+        @Override
+        protected Void visitCompoundStatement(CompoundStatement node, Integer indent)
+        {
+            appendBeginLabel(node.getLabel());
+            builder.append("BEGIN\n");
+            for (VariableDeclaration variableDeclaration : node.getVariableDeclarations()) {
+                builder.append(indentString(indent + 1));
+                process(variableDeclaration, indent + 1);
+                builder.append(";\n");
+            }
+            for (Statement statement : node.getStatements()) {
+                builder.append(indentString(indent + 1));
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            append(indent, "END");
+            if (node.getLabel().isPresent()) {
+                builder.append(" ")
+                        .append(node.getLabel().get());
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitVariableDeclaration(VariableDeclaration node, Integer indent)
+        {
+            builder.append("DECLARE ");
+            Joiner.on(", ").appendTo(builder, node.getNames());
+            builder.append(" ")
+                    .append(node.getType());
+            if (node.getDefaultValue().isPresent()) {
+                builder.append(" DEFAULT ")
+                        .append(formatExpression(node.getDefaultValue().get()));
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitAssignmentStatement(AssignmentStatement node, Integer indent)
+        {
+            builder.append("SET ");
+            if (node.getTargets().size() == 1) {
+                builder.append(getOnlyElement(node.getTargets()));
+            }
+            else {
+                builder.append("(");
+                Joiner.on(", ").appendTo(builder, node.getTargets());
+                builder.append(")");
+            }
+            builder.append(" = ")
+                    .append(formatExpression(node.getValue()));
+            return null;
+        }
+
+        @Override
+        protected Void visitCaseStatement(CaseStatement node, Integer indent)
+        {
+            builder.append("CASE");
+            if (node.getExpression().isPresent()) {
+                builder.append(" ")
+                        .append(formatExpression(node.getExpression().get()));
+            }
+            builder.append("\n");
+            for (CaseStatementWhenClause whenClause : node.getWhenClauses()) {
+                builder.append(indentString(indent + 1));
+                process(whenClause, indent + 1);
+            }
+            if (node.getElseClause().isPresent()) {
+                builder.append(indentString(indent + 1));
+                process(node.getElseClause().get(), indent + 1);
+            }
+            append(indent, "END CASE");
+            return null;
+        }
+
+        @Override
+        protected Void visitCaseStatementWhenClause(CaseStatementWhenClause node, Integer indent)
+        {
+            builder.append("WHEN ")
+                    .append(formatExpression(node.getExpression()))
+                    .append(" THEN\n");
+            for (Statement statement : node.getStatements()) {
+                builder.append(indentString(indent + 1));
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitIfStatement(IfStatement node, Integer indent)
+        {
+            builder.append("IF ")
+                    .append(formatExpression(node.getExpression()))
+                    .append(" THEN\n");
+            for (Statement statement : node.getStatements()) {
+                builder.append(indentString(indent + 1));
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            for (ElseIfClause elseIfClause : node.getElseIfClauses()) {
+                builder.append(indentString(indent));
+                process(elseIfClause, indent);
+            }
+            if (node.getElseClause().isPresent()) {
+                builder.append(indentString(indent));
+                process(node.getElseClause().get(), indent);
+            }
+            append(indent, "END IF");
+            return null;
+        }
+
+        @Override
+        protected Void visitElseIfClause(ElseIfClause node, Integer indent)
+        {
+            builder.append("ELSEIF ")
+                    .append(formatExpression(node.getExpression()))
+                    .append(" THEN\n");
+            for (Statement statement : node.getStatements()) {
+                builder.append(indentString(indent + 1));
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitElseClause(ElseClause node, Integer indent)
+        {
+            builder.append("ELSE\n");
+            for (Statement statement : node.getStatements()) {
+                builder.append(indentString(indent + 1));
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitIterateStatement(IterateStatement node, Integer indent)
+        {
+            builder.append("ITERATE ")
+                    .append(node.getLabel());
+            return null;
+        }
+
+        @Override
+        protected Void visitLeaveStatement(LeaveStatement node, Integer indent)
+        {
+            builder.append("LEAVE ")
+                    .append(node.getLabel());
+            return null;
+        }
+
+        @Override
+        protected Void visitLoopStatement(LoopStatement node, Integer indent)
+        {
+            appendBeginLabel(node.getLabel());
+            builder.append("LOOP\n");
+            for (Statement statement : node.getStatements()) {
+                builder.append(indentString(indent + 1));
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            append(indent, "END LOOP");
+            return null;
+        }
+
+        @Override
+        protected Void visitWhileStatement(WhileStatement node, Integer indent)
+        {
+            appendBeginLabel(node.getLabel());
+            builder.append("WHILE ")
+                    .append(formatExpression(node.getExpression()))
+                    .append(" DO\n");
+            for (Statement statement : node.getStatements()) {
+                builder.append(indentString(indent + 1));
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            append(indent, "END WHILE");
+            return null;
+        }
+
+        @Override
+        protected Void visitRepeatStatement(RepeatStatement node, Integer indent)
+        {
+            appendBeginLabel(node.getLabel());
+            builder.append("REPEAT\n");
+            for (Statement statement : node.getStatements()) {
+                builder.append(indentString(indent + 1));
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            append(indent, "UNTIL ")
+                    .append(formatExpression(node.getCondition()))
+                    .append("\n");
+            append(indent, "END REPEAT");
+            return null;
+        }
+
         private void processRelation(Relation relation, Integer indent)
         {
             // TODO: handle this properly
@@ -979,6 +1330,25 @@ public final class SqlFormatter
             }
             else {
                 process(relation, indent);
+            }
+        }
+
+        private void processParameters(List<ParameterDeclaration> parameters, Integer indent)
+        {
+            Iterator<ParameterDeclaration> iterator = parameters.iterator();
+            while (iterator.hasNext()) {
+                process(iterator.next(), indent);
+                if (iterator.hasNext()) {
+                    builder.append(", ");
+                }
+            }
+        }
+
+        private void appendBeginLabel(Optional<String> label)
+        {
+            if (label.isPresent()) {
+                builder.append(label.get())
+                        .append(": ");
             }
         }
 

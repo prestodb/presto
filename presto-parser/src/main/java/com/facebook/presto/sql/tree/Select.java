@@ -27,22 +27,24 @@ public class Select
 {
     private final boolean distinct;
     private final List<SelectItem> selectItems;
+    private final List<QualifiedName> targets;
 
-    public Select(boolean distinct, List<SelectItem> selectItems)
+    public Select(boolean distinct, List<SelectItem> selectItems, List<QualifiedName> targets)
     {
-        this(Optional.empty(), distinct, selectItems);
+        this(Optional.empty(), distinct, selectItems, targets);
     }
 
-    public Select(NodeLocation location, boolean distinct, List<SelectItem> selectItems)
+    public Select(NodeLocation location, boolean distinct, List<SelectItem> selectItems, List<QualifiedName> targets)
     {
-        this(Optional.of(location), distinct, selectItems);
+        this(Optional.of(location), distinct, selectItems, targets);
     }
 
-    private Select(Optional<NodeLocation> location, boolean distinct, List<SelectItem> selectItems)
+    private Select(Optional<NodeLocation> location, boolean distinct, List<SelectItem> selectItems, List<QualifiedName> targets)
     {
         super(location);
         this.distinct = distinct;
         this.selectItems = ImmutableList.copyOf(requireNonNull(selectItems, "selectItems"));
+        this.targets = ImmutableList.copyOf(requireNonNull(targets, "targets"));
     }
 
     public boolean isDistinct()
@@ -53,6 +55,11 @@ public class Select
     public List<SelectItem> getSelectItems()
     {
         return selectItems;
+    }
+
+    public List<QualifiedName> getTargets()
+    {
+        return targets;
     }
 
     @Override
@@ -67,6 +74,7 @@ public class Select
         return toStringHelper(this)
                 .add("distinct", distinct)
                 .add("selectItems", selectItems)
+                .add("targets", targets)
                 .omitNullValues()
                 .toString();
     }
@@ -83,12 +91,13 @@ public class Select
 
         Select select = (Select) o;
         return (distinct == select.distinct) &&
-                Objects.equals(selectItems, select.selectItems);
+                Objects.equals(selectItems, select.selectItems) &&
+                Objects.equals(targets, select.targets);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(distinct, selectItems);
+        return Objects.hash(distinct, selectItems, targets);
     }
 }

@@ -27,6 +27,7 @@ import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.misc.Pair;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
+import org.antlr.v4.runtime.tree.TerminalNode;
 
 import javax.inject.Inject;
 
@@ -113,35 +114,19 @@ public class SqlParser
         @Override
         public void exitUnquotedIdentifier(SqlBaseParser.UnquotedIdentifierContext context)
         {
-            String identifier = context.IDENTIFIER().getText();
-            for (IdentifierSymbol identifierSymbol : EnumSet.complementOf(allowedIdentifierSymbols)) {
-                char symbol = identifierSymbol.getSymbol();
-                if (identifier.indexOf(symbol) >= 0) {
-                    throw new ParsingException("identifiers must not contain '" + identifierSymbol.getSymbol() + "'", null, context.IDENTIFIER().getSymbol().getLine(), context.IDENTIFIER().getSymbol().getCharPositionInLine());
-                }
-            }
+            checkUnquotedIdentifier(context.IDENTIFIER().getText(), context.IDENTIFIER().getSymbol());
         }
 
         @Override
         public void exitBackQuotedIdentifier(SqlBaseParser.BackQuotedIdentifierContext context)
         {
-            Token token = context.BACKQUOTED_IDENTIFIER().getSymbol();
-            throw new ParsingException(
-                    "backquoted identifiers are not supported; use double quotes to quote identifiers",
-                    null,
-                    token.getLine(),
-                    token.getCharPositionInLine());
+            checkBackQuotedIdentifier(context.BACKQUOTED_IDENTIFIER());
         }
 
         @Override
         public void exitDigitIdentifier(SqlBaseParser.DigitIdentifierContext context)
         {
-            Token token = context.DIGIT_IDENTIFIER().getSymbol();
-            throw new ParsingException(
-                    "identifiers must not start with a digit; surround the identifier with double quotes",
-                    null,
-                    token.getLine(),
-                    token.getCharPositionInLine());
+            checkDigitIdentifier(context.DIGIT_IDENTIFIER());
         }
 
         @Override
@@ -172,6 +157,78 @@ public class SqlParser
                     token.getChannel(),
                     token.getStartIndex(),
                     token.getStopIndex()));
+        }
+
+        @Override
+        public void exitUnquotedLabel(SqlBaseParser.UnquotedLabelContext context)
+        {
+            String text = context.getText();
+            checkForTrailingColon(text, context.IDENTIFIER().getSymbol());
+
+            text = text.substring(0, text.length() - 1);
+            checkUnquotedIdentifier(text, context.IDENTIFIER().getSymbol());
+
+            // remove trailing colon
+            Token token = (Token) context.getChild(0).getPayload();
+
+            CommonToken newToken = new CommonToken(
+                    new Pair<>(token.getTokenSource(), token.getInputStream()),
+                    SqlBaseLexer.IDENTIFIER,
+                    token.getChannel(),
+                    token.getStartIndex(),
+                    token.getStopIndex() - 1);
+            newToken.setText(text);
+            context.removeLastChild();
+            context.addChild(newToken);
+        }
+
+        @Override
+        public void exitBackQuotedLabel(SqlBaseParser.BackQuotedLabelContext context)
+        {
+            checkBackQuotedIdentifier(context.BACKQUOTED_IDENTIFIER());
+        }
+
+        @Override
+        public void exitDigitLabel(SqlBaseParser.DigitLabelContext context)
+        {
+            checkDigitIdentifier(context.DIGIT_IDENTIFIER());
+        }
+
+        private void checkForTrailingColon(String text, Token token)
+        {
+            if (!text.endsWith(":")) {
+                throw new ParsingException("missing ':' after the beginning label", null, token.getLine(), token.getCharPositionInLine());
+            }
+        }
+
+        private void checkUnquotedIdentifier(String identifier, Token token)
+        {
+            for (IdentifierSymbol identifierSymbol : EnumSet.complementOf(allowedIdentifierSymbols)) {
+                char symbol = identifierSymbol.getSymbol();
+                if (identifier.indexOf(symbol) >= 0) {
+                    throw new ParsingException("identifiers must not contain '" + symbol + "'", null, token.getLine(), token.getCharPositionInLine());
+                }
+            }
+        }
+
+        private void checkBackQuotedIdentifier(TerminalNode node)
+        {
+            Token token = node.getSymbol();
+            throw new ParsingException(
+                    "backquoted identifiers are not supported; use double quotes to quote identifiers",
+                    null,
+                    token.getLine(),
+                    token.getCharPositionInLine());
+        }
+
+        private void checkDigitIdentifier(TerminalNode node)
+        {
+            Token token = node.getSymbol();
+            throw new ParsingException(
+                    "identifiers must not start with a digit; surround the identifier with double quotes",
+                    null,
+                    token.getLine(),
+                    token.getCharPositionInLine());
         }
     }
 }

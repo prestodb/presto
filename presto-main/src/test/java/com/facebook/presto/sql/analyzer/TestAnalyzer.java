@@ -407,6 +407,12 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testSelectIntoNotSupported()
+    {
+        assertFails(NOT_SUPPORTED, "SELECT a INTO x FROM t1");
+    }
+
+    @Test
     public void testNaturalJoinNotSupported()
             throws Exception
     {

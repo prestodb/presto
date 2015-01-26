@@ -78,6 +78,10 @@ statement
         (LIMIT limit=(INTEGER_VALUE | ALL))?                           #showPartitions
     | PREPARE identifier FROM statement                                #prepare
     | DEALLOCATE PREPARE identifier                                    #deallocate
+    | CREATE FUNCTION qualifiedName parameterDeclarations
+      returnsClause routineCharacteristic* routineStatement            #createFunction
+    | CREATE PROCEDURE qualifiedName parameterDeclarations
+      routineCharacteristic* routineStatement                          #createProcedure
     ;
 
 query
@@ -126,6 +130,7 @@ sortItem
 
 querySpecification
     : SELECT setQuantifier? selectItem (',' selectItem)*
+      (INTO into+=qualifiedName (',' into+=qualifiedName)*)?
       (FROM relation (',' relation)*)?
       (WHERE where=booleanExpression)?
       (GROUP BY groupBy)?
@@ -356,7 +361,6 @@ frameBound
     | expression boundType=(PRECEDING | FOLLOWING)  #boundedFrame // expression should be unsignedLiteral
     ;
 
-
 explainOption
     : FORMAT value=(TEXT | GRAPHVIZ)         #explainFormat
     | TYPE value=(LOGICAL | DISTRIBUTED)     #explainType
@@ -383,8 +387,90 @@ privilege
     : SELECT | DELETE | INSERT | identifier
     ;
 
+parameterDeclarations
+    : '(' (parameterDeclaration (',' parameterDeclaration)*)? ')'
+    ;
+
+parameterDeclaration
+    : parameterMode? identifier? type (DEFAULT valueExpression)?
+    ;
+
+parameterMode
+    : IN | OUT | INOUT
+    ;
+
+returnsClause
+    : RETURNS returnType=type (CAST FROM castFromType=type)?
+    ;
+
+routineCharacteristic
+    : SPECIFIC value=qualifiedName             #specificCharacteristic
+    | DETERMINISTIC                            #isDeterministicCharacteristic
+    | NOT DETERMINISTIC                        #isNotDeterministicCharacteristic
+    | NO SQL                                   #noSqlAccessCharacteristic
+    | CONTAINS SQL                             #containsSqlAccessCharacteristic
+    | READS SQL DATA                           #readsSqlDataAccessCharacteristic
+    | MODIFIES SQL DATA                        #modifiesSqlDataAccessCharacteristic
+    | RETURNS NULL ON NULL INPUT               #returnsNullOnNullInputCharacteristic
+    | CALLED ON NULL INPUT                     #calledOnNullInputCharacteristic
+    | DYNAMIC RESULT SETS value=INTEGER_VALUE  #returnedResultSetsCharacteristic
+    ;
+
+routineStatement
+    : controlStatement | statement
+    ;
+
+controlStatement
+    : CALL qualifiedName '(' (expression (',' expression)*)? ')'                        #callStatement
+    | RETURN valueExpression                                                            #returnStatement
+    | SET ('(' qualifiedName (',' qualifiedName)* ')' | qualifiedName) EQ expression    #assignmentStatement
+    | CASE expression caseStatementWhenClause+ elseClause? END CASE                     #simpleCaseStatement
+    | CASE caseStatementWhenClause+ elseClause? END CASE                                #searchedCaseStatement
+    | IF expression THEN sqlStatementList elseIfClause* elseClause? END IF              #ifStatement
+    | ITERATE identifier                                                                #iterateStatement
+    | LEAVE identifier                                                                  #leaveStatement
+    | variableDeclaration                                                               #variableDeclarationStatement
+    | (beginningLabel=labelWithColon)? BEGIN
+        (variableDeclaration ';')* sqlStatementList?
+        END (endingLabel=identifier)?                                                   #compoundStatement
+    | (beginningLabel=labelWithColon)? LOOP sqlStatementList
+        END LOOP (endingLabel=identifier)?                                              #loopStatement
+    | (beginningLabel=labelWithColon)? WHILE expression DO sqlStatementList
+        END WHILE (endingLabel=identifier)?                                             #whileStatement
+    | (beginningLabel=labelWithColon)? REPEAT sqlStatementList
+        UNTIL expression END REPEAT (endingLabel=identifier)?                           #repeatStatement
+    ;
+
+variableDeclaration
+    : DECLARE identifier (',' identifier)* type (DEFAULT valueExpression)?
+    ;
+
+sqlStatementList
+    : (routineStatement ';')+
+    ;
+
+caseStatementWhenClause
+    : WHEN expression THEN sqlStatementList
+    ;
+
+elseIfClause
+    : ELSEIF expression THEN sqlStatementList
+    ;
+
+elseClause
+    : ELSE sqlStatementList
+    ;
+
 qualifiedName
     : identifier ('.' identifier)*
+    ;
+
+labelWithColon
+    : IDENTIFIER ':'?           #unquotedLabel
+    | quotedIdentifier ':'      #quotedLabel
+    | nonReserved ':'           #unquotedLabel
+    | BACKQUOTED_IDENTIFIER ':' #backQuotedLabel
+    | DIGIT_IDENTIFIER ':'?     #digitLabel
     ;
 
 identifier
@@ -425,6 +511,10 @@ nonReserved
     | CALL
     | GRANT | REVOKE | PRIVILEGES | PUBLIC | OPTION
     | SUBSTRING
+    | FUNCTION | PROCEDURE | OUT| INOUT | DEFAULT | SPECIFIC | DETERMINISTIC | SQL
+    | CONTAINS | READS | DATA | MODIFIES | RETURNS | INPUT | CALLED | DYNAMIC | RESULT
+    | SETS | CALL | RETURN | BEGIN | END | ITERATE | LEAVE | LOOP | WHILE | DO
+    | REPEAT | UNTIL | ELSEIF
     ;
 
 normalForm
@@ -600,6 +690,34 @@ NFKC : 'NFKC';
 IF: 'IF';
 NULLIF: 'NULLIF';
 COALESCE: 'COALESCE';
+
+FUNCTION: 'FUNCTION';
+PROCEDURE: 'PROCEDURE';
+OUT: 'OUT';
+INOUT: 'INOUT';
+DEFAULT: 'DEFAULT';
+SPECIFIC: 'SPECIFIC';
+DETERMINISTIC: 'DETERMINISTIC';
+SQL: 'SQL';
+CONTAINS: 'CONTAINS';
+READS: 'READS';
+MODIFIES: 'MODIFIES';
+RETURNS: 'RETURNS';
+INPUT: 'INPUT';
+CALLED: 'CALLED';
+DYNAMIC: 'DYNAMIC';
+RESULT: 'RESULT';
+RETURN: 'RETURN';
+BEGIN: 'BEGIN';
+DECLARE: 'DECLARE';
+ITERATE: 'ITERATE';
+LEAVE: 'LEAVE';
+LOOP: 'LOOP';
+WHILE: 'WHILE';
+DO: 'DO';
+REPEAT: 'REPEAT';
+UNTIL: 'UNTIL';
+ELSEIF: 'ELSEIF';
 
 EQ  : '=';
 NEQ : '<>' | '!=';
