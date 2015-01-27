@@ -26,6 +26,7 @@ import com.google.common.base.Throwables;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
+import io.airlift.json.JsonModule;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.management.MBeanServer;
@@ -78,6 +79,7 @@ public class RaptorConnectorFactory
     {
         try {
             Bootstrap app = new Bootstrap(
+                    new JsonModule(),
                     new MBeanModule(),
                     binder -> {
                         CurrentNodeId currentNodeId = new CurrentNodeId(nodeManager.getCurrentNode().getNodeIdentifier());

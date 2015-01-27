@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.MetadataDaoUtils;
+import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
-import com.facebook.presto.raptor.metadata.ShardNode;
 import com.facebook.presto.raptor.metadata.Table;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.raptor.metadata.ViewResult;
@@ -35,11 +36,11 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimaps;
+import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -51,11 +52,9 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.raptor.RaptorColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
@@ -76,16 +75,14 @@ import static java.util.stream.Collectors.toList;
 public class RaptorMetadata
         implements ConnectorMetadata
 {
-    private static final Splitter NODE_SHARD_SPLITTER = Splitter.on(':').limit(2);
-    private static final Splitter SHARD_SPLITTER = Splitter.on(',');
-
     private final IDBI dbi;
     private final MetadataDao dao;
     private final ShardManager shardManager;
+    private final JsonCodec<ShardInfo> shardInfoCodec;
     private final String connectorId;
 
     @Inject
-    public RaptorMetadata(RaptorConnectorId connectorId, @ForMetadata IDBI dbi, ShardManager shardManager)
+    public RaptorMetadata(RaptorConnectorId connectorId, @ForMetadata IDBI dbi, ShardManager shardManager, JsonCodec<ShardInfo> shardInfoCodec)
     {
         checkNotNull(connectorId, "connectorId is null");
 
@@ -93,6 +90,7 @@ public class RaptorMetadata
         this.dbi = checkNotNull(dbi, "dbi is null");
         this.dao = dbi.onDemand(MetadataDao.class);
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
+        this.shardInfoCodec = checkNotNull(shardInfoCodec, "shardInfoCodec is null");
 
         createMetadataTablesWithRetry(dao);
     }
@@ -329,7 +327,11 @@ public class RaptorMetadata
             return tableId;
         });
 
-        shardManager.commitTable(newTableId, parseFragments(fragments), Optional.empty());
+        List<ColumnInfo> columns = table.getColumnHandles().stream().map(ColumnInfo::fromHandle).collect(toList());
+
+        // TODO: refactor this to avoid creating an empty table on failure
+        shardManager.createTable(newTableId, columns);
+        shardManager.commitShards(newTableId, columns, parseFragments(fragments), Optional.empty());
     }
 
     @Override
@@ -371,8 +373,9 @@ public class RaptorMetadata
         RaptorInsertTableHandle handle = checkType(insertHandle, RaptorInsertTableHandle.class, "insertHandle");
         long tableId = handle.getTableId();
         Optional<String> externalBatchId = Optional.ofNullable(handle.getExternalBatchId());
+        List<ColumnInfo> columns = handle.getColumnHandles().stream().map(ColumnInfo::fromHandle).collect(toList());
 
-        shardManager.commitTable(tableId, parseFragments(fragments), externalBatchId);
+        shardManager.commitShards(tableId, columns, parseFragments(fragments), externalBatchId);
     }
 
     @Override
@@ -442,21 +445,11 @@ public class RaptorMetadata
         return new RaptorColumnHandle(connectorId, tableColumn.getColumnName(), tableColumn.getColumnId(), tableColumn.getDataType());
     }
 
-    private static Iterable<ShardNode> parseFragments(Iterable<Slice> fragments)
+    private Collection<ShardInfo> parseFragments(Collection<Slice> fragments)
     {
-        // Format of each fragment: nodeId:shardUuid1,shardUuid2,shardUuid3
-        ImmutableList.Builder<ShardNode> shards = ImmutableList.builder();
-        for (Slice fragment : fragments) {
-            Iterator<String> split = NODE_SHARD_SPLITTER.split(fragment.toStringUtf8()).iterator();
-            String nodeId = split.next();
-            checkArgument(split.hasNext(), "fragment not formatted correctly");
-            String uuids = split.next();
-            for (String uuidString : SHARD_SPLITTER.trimResults().omitEmptyStrings().split(uuids)) {
-                UUID shardUuid = UUID.fromString(uuidString);
-                shards.add(new ShardNode(shardUuid, nodeId));
-            }
-        }
-        return shards.build();
+        return fragments.stream()
+                .map(fragment -> shardInfoCodec.fromJson(fragment.getBytes()))
+                .collect(toList());
     }
 
     private static Predicate<ColumnMetadata> isSampleWeightColumn()

@@ -68,6 +68,7 @@ public class TestRaptorDistributedQueries
                 .put("metadata.db.type", "h2")
                 .put("metadata.db.filename", new File(baseDir, "db").getAbsolutePath())
                 .put("storage.data-directory", new File(baseDir, "data").getAbsolutePath())
+                .put("storage.rows-per-shard", "2000")
                 .build();
 
         queryRunner.createCatalog("default", "raptor", raptorProperties);

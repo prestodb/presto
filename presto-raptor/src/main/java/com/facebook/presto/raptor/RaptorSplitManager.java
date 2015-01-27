@@ -88,7 +88,7 @@ public class RaptorSplitManager
         Map<String, Node> nodesById = uniqueIndex(nodeManager.getActiveNodes(), Node::getNodeIdentifier);
 
         List<ConnectorSplit> splits = new ArrayList<>();
-        for (ShardNodes shardNode : shardManager.getShardNodes(raptorTableHandle.getTableId())) {
+        for (ShardNodes shardNode : shardManager.getShardNodes(raptorTableHandle.getTableId(), effectivePredicate)) {
             UUID shardId = shardNode.getShardUuid();
             Collection<String> nodeIds = shardNode.getNodeIdentifiers();
             List<HostAddress> addresses = getAddressesForNodes(nodesById, nodeIds);

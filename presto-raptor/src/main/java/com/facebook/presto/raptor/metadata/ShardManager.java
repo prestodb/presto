@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.spi.TupleDomain;
+
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -20,14 +25,19 @@ import java.util.UUID;
 public interface ShardManager
 {
     /**
-     * Commit an unpartitioned table.
+     * Create a table.
      */
-    void commitTable(long tableId, Iterable<ShardNode> shardNodes, Optional<String> externalBatchId);
+    void createTable(long tableId, List<ColumnInfo> columns);
+
+    /**
+     * Commit data for a table.
+     */
+    void commitShards(long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Optional<String> externalBatchId);
 
     /**
      * Return the shard nodes a given table.
      */
-    Iterable<ShardNodes> getShardNodes(long tableId);
+    Iterable<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate);
 
     /**
      * Return the shards for a given node
