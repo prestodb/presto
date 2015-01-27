@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.storage.StoragePageSink;
 import com.facebook.presto.spi.ConnectorPageSink;
@@ -22,18 +23,19 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
+import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.stream.Collectors.toList;
 
 public class RaptorPageSink
@@ -41,6 +43,7 @@ public class RaptorPageSink
 {
     private final String nodeId;
     private final StoragePageSink storagePageSink;
+    private final JsonCodec<ShardInfo> shardInfoCodec;
     private final int sampleWeightField;
 
     private final PageSorter pageSorter;
@@ -58,6 +61,7 @@ public class RaptorPageSink
             String nodeId,
             PageSorter pageSorter,
             StorageManager storageManager,
+            JsonCodec<ShardInfo> shardInfoCodec,
             List<Long> columnIds,
             List<Type> columnTypes,
             Optional<Long> sampleWeightColumnId,
@@ -70,6 +74,7 @@ public class RaptorPageSink
 
         checkNotNull(storageManager, "storageManager is null");
         this.storagePageSink = storageManager.createStoragePageSink(columnIds, columnTypes);
+        this.shardInfoCodec = checkNotNull(shardInfoCodec, "shardInfoCodec is null");
 
         checkNotNull(sampleWeightColumnId, "sampleWeightColumnId is null");
         this.sampleWeightField = columnIds.indexOf(sampleWeightColumnId.orElse(-1L));
@@ -101,12 +106,14 @@ public class RaptorPageSink
     public Collection<Slice> commit()
     {
         flushPages(pageBuffer.getPages());
-        List<UUID> shardUuids = storagePageSink.commit();
+        List<ShardInfo> shards = storagePageSink.commit();
 
-        // Format of each fragment: nodeId:shardUuid
-        return shardUuids.stream()
-                .map(shardUuid -> utf8Slice(nodeId + ":" + shardUuid))
-                .collect(toList());
+        ImmutableList.Builder<Slice> fragments = ImmutableList.builder();
+        for (ShardInfo shard : shards) {
+            ShardInfo updated = new ShardInfo(shard.getShardUuid(), ImmutableSet.of(nodeId), shard.getColumns());
+            fragments.add(Slices.wrappedBuffer(shardInfoCodec.toJsonBytes(updated)));
+        }
+        return fragments.build();
     }
 
     @Override

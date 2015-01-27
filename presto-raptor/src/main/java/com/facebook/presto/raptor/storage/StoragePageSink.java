@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.spi.Page;
 
 import java.util.List;
-import java.util.UUID;
 
 public interface StoragePageSink
 {
@@ -26,5 +26,5 @@ public interface StoragePageSink
 
     void flush();
 
-    List<UUID> commit();
+    List<ShardInfo> commit();
 }

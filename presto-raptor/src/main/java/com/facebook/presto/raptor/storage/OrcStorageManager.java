@@ -22,6 +22,8 @@ import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.raptor.metadata.ColumnStats;
+import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
@@ -51,6 +53,7 @@ import java.util.concurrent.TimeoutException;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
+import static com.facebook.presto.raptor.storage.ShardStats.computeColumnStats;
 import static com.facebook.presto.raptor.util.FileUtil.copyFile;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -205,6 +208,22 @@ public class OrcStorageManager
         }
     }
 
+    private List<ColumnStats> computeShardStats(File file, List<Long> columnIds, List<Type> types)
+    {
+        try (OrcDataSource dataSource = new FileOrcDataSource(file, orcMaxMergeDistance)) {
+            OrcReader reader = new OrcReader(dataSource, new OrcMetadataReader());
+
+            ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();
+            for (int i = 0; i < columnIds.size(); i++) {
+                computeColumnStats(reader, columnIds.get(i), types.get(i)).ifPresent(list::add);
+            }
+            return list.build();
+        }
+        catch (IOException e) {
+            throw new PrestoException(RAPTOR_ERROR, "Failed to read file: " + file, e);
+        }
+    }
+
     private static OrcPredicate getPredicate(TupleDomain<RaptorColumnHandle> effectivePredicate, Map<Long, Integer> indexMap)
     {
         ImmutableList.Builder<ColumnReference<RaptorColumnHandle>> columns = ImmutableList.builder();
@@ -232,7 +251,7 @@ public class OrcStorageManager
         private final List<Long> columnIds;
         private final List<Type> columnTypes;
 
-        private final List<UUID> shardUuids = new ArrayList<>();
+        private final List<ShardInfo> shards = new ArrayList<>();
 
         private boolean committed;
         private OrcFileWriter writer;
@@ -263,7 +282,10 @@ public class OrcStorageManager
         {
             if (writer != null) {
                 writer.close();
-                shardUuids.add(shardUuid);
+
+                File stagingFile = storageService.getStagingFile(shardUuid);
+                List<ColumnStats> columns = computeShardStats(stagingFile, columnIds, columnTypes);
+                shards.add(new ShardInfo(shardUuid, ImmutableSet.of(), columns));
 
                 writer = null;
                 shardUuid = null;
@@ -271,16 +293,16 @@ public class OrcStorageManager
         }
 
         @Override
-        public List<UUID> commit()
+        public List<ShardInfo> commit()
         {
             checkState(!committed, "already committed");
             committed = true;
 
             flush();
-            for (UUID uuid : shardUuids) {
-                writeShard(uuid);
+            for (ShardInfo shard : shards) {
+                writeShard(shard.getShardUuid());
             }
-            return ImmutableList.copyOf(shardUuids);
+            return ImmutableList.copyOf(shards);
         }
 
         private void createWriterIfNecessary()

@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder;
 import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.metadata.PrestoNode;
+import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.RaptorMetadata;
 import com.facebook.presto.raptor.RaptorSplitManager;
@@ -40,6 +41,7 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
+import io.airlift.json.JsonCodec;
 import io.airlift.testing.FileUtils;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -57,17 +59,21 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.shardInfo;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Locale.ENGLISH;
+import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestRaptorSplitManager
 {
+    private static final JsonCodec<ShardInfo> SHARD_INFO_CODEC = jsonCodec(ShardInfo.class);
     private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
     private static final ConnectorTableMetadata TEST_TABLE = TableMetadataBuilder.tableMetadataBuilder("demo", "test_table")
             .partitionKeyColumn("ds", VARCHAR)
@@ -108,20 +114,26 @@ public class TestRaptorSplitManager
         nodeManager.addNode("raptor", new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN));
 
         RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
-        RaptorMetadata metadata = new RaptorMetadata(connectorId, dbi, shardManager);
+        RaptorMetadata metadata = new RaptorMetadata(connectorId, dbi, shardManager, SHARD_INFO_CODEC);
 
         tableHandle = metadata.createTable(SESSION, TEST_TABLE);
 
-        List<ShardNode> shardNodes = ImmutableList.<ShardNode>builder()
-                .add(new ShardNode(UUID.randomUUID(), nodeName))
-                .add(new ShardNode(UUID.randomUUID(), nodeName))
-                .add(new ShardNode(UUID.randomUUID(), nodeName))
-                .add(new ShardNode(UUID.randomUUID(), nodeName))
+        List<ShardInfo> shards = ImmutableList.<ShardInfo>builder()
+                .add(shardInfo(UUID.randomUUID(), nodeName))
+                .add(shardInfo(UUID.randomUUID(), nodeName))
+                .add(shardInfo(UUID.randomUUID(), nodeName))
+                .add(shardInfo(UUID.randomUUID(), nodeName))
                 .build();
 
         long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
 
-        shardManager.commitTable(tableId, shardNodes, Optional.empty());
+        List<ColumnInfo> columns = metadata.getColumnHandles(tableHandle).values().stream()
+                .map(handle -> checkType(handle, RaptorColumnHandle.class, "columnHandle"))
+                .map(ColumnInfo::fromHandle)
+                .collect(toList());
+
+        shardManager.createTable(tableId, columns);
+        shardManager.commitShards(tableId, columns, shards, Optional.empty());
 
         raptorSplitManager = new RaptorSplitManager(connectorId, nodeManager, shardManager, storageManager);
     }
