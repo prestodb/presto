@@ -100,9 +100,12 @@ public class SqlTask
                 }
 
                 // make sure buffers are cleaned up
-                if (taskState != TaskState.FAILED && taskState != TaskState.ABORTED) {
+                if (taskState == TaskState.FAILED || taskState == TaskState.ABORTED) {
                     // don't close buffers for a failed query
                     // closed buffers signal to upstream tasks that everything finished cleanly
+                    sharedBuffer.fail();
+                }
+                else {
                     sharedBuffer.destroy();
                 }
 
