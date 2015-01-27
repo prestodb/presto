@@ -152,6 +152,12 @@ public class OrcReader
         return bufferSize;
     }
 
+    public OrcRecordReader createRecordReader(Set<Integer> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone)
+            throws IOException
+    {
+        return createRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone);
+    }
+
     public OrcRecordReader createRecordReader(
             Set<Integer> includedColumns,
             OrcPredicate predicate,
