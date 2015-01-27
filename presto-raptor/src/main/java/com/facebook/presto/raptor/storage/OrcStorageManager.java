@@ -106,12 +106,7 @@ public class OrcStorageManager
 
             OrcPredicate predicate = getPredicate(effectivePredicate, indexMap);
 
-            OrcRecordReader recordReader = reader.createRecordReader(
-                    includedColumns.build(),
-                    predicate,
-                    0,
-                    dataSource.getSize(),
-                    UTC);
+            OrcRecordReader recordReader = reader.createRecordReader(includedColumns.build(), predicate, UTC);
 
             return new OrcPageSource(recordReader, dataSource, columnIds, columnTypes, columnIndexes.build());
         }

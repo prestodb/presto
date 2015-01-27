@@ -400,12 +400,7 @@ public class OrcTester
 
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
 
-        return orcReader.createRecordReader(
-                ImmutableSet.of(0),
-                predicate,
-                0,
-                tempFile.getFile().length(),
-                HIVE_STORAGE_TIME_ZONE);
+        return orcReader.createRecordReader(ImmutableSet.of(0), predicate, HIVE_STORAGE_TIME_ZONE);
     }
 
     public static DataSize writeOrcColumn(File outputFile, Format format, Compression compression, ObjectInspector columnObjectInspector, Iterator<?> values)
