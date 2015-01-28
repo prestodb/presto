@@ -14,7 +14,6 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.storage.StorageManager;
-import com.facebook.presto.raptor.storage.StorageOutputHandle;
 import com.facebook.presto.raptor.storage.StoragePageSink;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
@@ -41,8 +40,7 @@ public class RaptorPageSink
         implements ConnectorPageSink
 {
     private final String nodeId;
-    private final StorageManager storageManager;
-    private final StorageOutputHandle storageOutputHandle;
+    private final StoragePageSink storagePageSink;
     private final int sampleWeightField;
 
     private final PageSorter pageSorter;
@@ -54,7 +52,6 @@ public class RaptorPageSink
     private final long maxRowCount;
     private final PageBuffer pageBuffer;
 
-    private StoragePageSink storagePageSink;
     private long rowCount;
 
     public RaptorPageSink(
@@ -71,8 +68,8 @@ public class RaptorPageSink
         this.pageSorter = checkNotNull(pageSorter, "pageSorter is null");
         this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
 
-        this.storageManager = checkNotNull(storageManager, "storageManager is null");
-        this.storageOutputHandle = storageManager.createStorageOutputHandle(columnIds, columnTypes);
+        checkNotNull(storageManager, "storageManager is null");
+        this.storagePageSink = storageManager.createStoragePageSink(columnIds, columnTypes);
 
         checkNotNull(sampleWeightColumnId, "sampleWeightColumnId is null");
         this.sampleWeightField = columnIds.indexOf(sampleWeightColumnId.orElse(-1L));
@@ -84,7 +81,6 @@ public class RaptorPageSink
         this.maxRowCount = storageManager.getMaxRowCount();
         this.pageBuffer = new PageBuffer(storageManager.getMaxBufferSize().toBytes());
 
-        this.storagePageSink = createStoragePageSink(storageManager, storageOutputHandle);
         this.rowCount = 0;
     }
 
@@ -105,8 +101,7 @@ public class RaptorPageSink
     public Collection<Slice> commit()
     {
         flushPages(pageBuffer.getPages());
-        storagePageSink.close();
-        List<UUID> shardUuids = storageManager.commit(storageOutputHandle);
+        List<UUID> shardUuids = storagePageSink.commit();
 
         // Format of each fragment: nodeId:shardUuid
         return shardUuids.stream()
@@ -152,12 +147,11 @@ public class RaptorPageSink
     private void flushPageBufferIfNecessary(int rowsToAdd)
     {
         if (rowCount >= maxRowCount) {
-            // This StoragePageSink is full, create a new one for the next batch of pages
+            // This StoragePageSink is full, flush it for the next batch of pages
             flushPages(pageBuffer.getPages());
             pageBuffer.reset();
             rowCount = 0;
-            storagePageSink.close();
-            storagePageSink = createStoragePageSink(storageManager, storageOutputHandle);
+            storagePageSink.flush();
             return;
         }
 
@@ -190,10 +184,5 @@ public class RaptorPageSink
 
             storagePageSink.appendPages(pages, orderedPageIndex, orderedPositionIndex);
         }
-    }
-
-    private static StoragePageSink createStoragePageSink(StorageManager storageManager, StorageOutputHandle storageOutputHandle)
-    {
-        return storageManager.createStoragePageSink(storageOutputHandle);
     }
 }

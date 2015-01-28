@@ -146,17 +146,16 @@ public class TestOrcStorageManager
         List<Long> columnIds = ImmutableList.of(3L, 7L);
         List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR);
 
-        StorageOutputHandle handle = manager.createStorageOutputHandle(columnIds, columnTypes);
+        StoragePageSink sink = manager.createStoragePageSink(columnIds, columnTypes);
         List<Page> pages = RowPagesBuilder.rowPagesBuilder(columnTypes)
                 .row(123, "hello")
                 .row(456, "bye")
                 .build();
-        StoragePageSink storagePageSink = handle.createStoragePageSink();
-        storagePageSink.appendPages(pages);
-        storagePageSink.close();
-        manager.commit(handle);
+        sink.appendPages(pages);
+        List<UUID> uuids = sink.commit();
 
-        UUID shardUuid = Iterables.getOnlyElement(handle.getShardUuids());
+        assertEquals(uuids.size(), 1);
+        UUID shardUuid = Iterables.getOnlyElement(uuids);
         File file = storageService.getStorageFile(shardUuid);
         File backupFile = storageService.getBackupFile(shardUuid);
 
@@ -204,7 +203,7 @@ public class TestOrcStorageManager
         byte[] bytes1 = octets(0x00, 0xFE, 0xFF);
         byte[] bytes3 = octets(0x01, 0x02, 0x19, 0x80);
 
-        StorageOutputHandle handle = manager.createStorageOutputHandle(columnIds, columnTypes);
+        StoragePageSink sink = manager.createStoragePageSink(columnIds, columnTypes);
 
         List<Page> pages = RowPagesBuilder.rowPagesBuilder(columnTypes)
                 .row(123, "hello", wrappedBuffer(bytes1), dateValue(new DateTime(2001, 8, 22, 0, 0, 0, 0, UTC)), true, 123.45)
@@ -212,15 +211,16 @@ public class TestOrcStorageManager
                 .row(456, "bye", wrappedBuffer(bytes3), dateValue(new DateTime(2005, 4, 22, 0, 0, 0, 0, UTC)), false, 987.65)
                 .build();
 
-        StoragePageSink storagePageSink = handle.createStoragePageSink();
-        storagePageSink.appendPages(pages);
-        storagePageSink.close();
-        manager.commit(handle);
+        sink.appendPages(pages);
+        List<UUID> uuids = sink.commit();
+
+        assertEquals(uuids.size(), 1);
+        UUID uuid = Iterables.getOnlyElement(uuids);
 
         // no tuple domain (all)
         TupleDomain<RaptorColumnHandle> tupleDomain = TupleDomain.all();
 
-        try (ConnectorPageSource pageSource = manager.getPageSource(Iterables.getOnlyElement(handle.getShardUuids()), columnIds, columnTypes, tupleDomain)) {
+        try (ConnectorPageSource pageSource = manager.getPageSource(uuid, columnIds, columnTypes, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
             assertEquals(result.getRowCount(), 3);
 
@@ -238,7 +238,7 @@ public class TestOrcStorageManager
                 .put(new RaptorColumnHandle("test", "c1", 2, BIGINT), 124L)
                 .build());
 
-        try (ConnectorPageSource pageSource = manager.getPageSource(Iterables.getOnlyElement(handle.getShardUuids()), columnIds, columnTypes, tupleDomain)) {
+        try (ConnectorPageSource pageSource = manager.getPageSource(uuid, columnIds, columnTypes, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
             assertEquals(result.getRowCount(), 3);
         }
@@ -248,7 +248,7 @@ public class TestOrcStorageManager
                 .put(new RaptorColumnHandle("test", "c1", 2, BIGINT), 122L)
                 .build());
 
-        try (ConnectorPageSource pageSource = manager.getPageSource(Iterables.getOnlyElement(handle.getShardUuids()), columnIds, columnTypes, tupleDomain)) {
+        try (ConnectorPageSource pageSource = manager.getPageSource(uuid, columnIds, columnTypes, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
             assertEquals(result.getRowCount(), 0);
         }
