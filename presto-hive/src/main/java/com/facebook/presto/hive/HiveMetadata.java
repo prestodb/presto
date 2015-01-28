@@ -56,6 +56,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
 import static com.facebook.presto.hive.HiveSessionProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
@@ -337,9 +338,7 @@ public class HiveMetadata
     @Override
     public HiveOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        checkArgument(allowCorruptWritesForTesting || timeZone.equals(DateTimeZone.getDefault()),
-                "To write Hive data, your JVM timezone must match the Hive storage timezone. Add -Duser.timezone=%s to your JVM arguments",
-                timeZone.getID());
+        verifyJvmTimeZone();
 
         checkArgument(!isNullOrEmpty(tableMetadata.getOwner()), "Table owner is null or empty");
 
@@ -656,9 +655,7 @@ public class HiveMetadata
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        checkArgument(allowCorruptWritesForTesting || timeZone.equals(DateTimeZone.getDefault()),
-                "To write Hive data, your JVM timezone must match the Hive storage timezone. Add -Duser.timezone=%s to your JVM arguments",
-                timeZone.getID());
+        verifyJvmTimeZone();
 
         throw new PrestoException(NOT_SUPPORTED, "INSERT not yet supported for Hive");
     }
@@ -675,6 +672,15 @@ public class HiveMetadata
         return toStringHelper(this)
                 .add("clientId", connectorId)
                 .toString();
+    }
+
+    private void verifyJvmTimeZone()
+    {
+        if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
+            throw new PrestoException(HIVE_TIMEZONE_MISMATCH, format(
+                    "To write Hive data, your JVM timezone must match the Hive storage timezone. Add -Duser.timezone=%s to your JVM arguments.",
+                    timeZone.getID()));
+        }
     }
 
     private static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter(Table table, final TypeManager typeManager)
