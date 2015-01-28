@@ -3483,6 +3483,12 @@ public abstract class AbstractTestQueries
         computeActual("SELECT length(1)");
     }
 
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\QUnexpected parameters (color) for function greatest. Expected: greatest(E) E:orderable\\E.*")
+    public void testFunctionArgumentTypeConstraint()
+    {
+        computeActual("SELECT greatest(rgb(255, 0, 0))");
+    }
+
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\QOperator NOT_EQUAL(bigint, varchar) not registered\\E")
     public void testTypeMismatch()
     {
