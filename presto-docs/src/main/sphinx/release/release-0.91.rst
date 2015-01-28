@@ -2,6 +2,8 @@
 Release 0.91
 ============
 
+.. warning:: This release has a memory leak and should not be used.
+
 General Changes
 ---------------
 
