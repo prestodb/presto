@@ -92,6 +92,19 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testNonDeterministicFilter()
+    {
+        MaterializedResult materializedResult = computeActual("SELECT u FROM ( SELECT if(rand() > 0.5, 0, 1) AS u ) WHERE u <> u");
+        assertEquals(materializedResult.getRowCount(), 0);
+
+        materializedResult = computeActual("SELECT u, v FROM ( SELECT if(rand() > 0.5, 0, 1) AS u, 4*4 as v ) WHERE u <> u and v > 10");
+        assertEquals(materializedResult.getRowCount(), 0);
+
+        materializedResult = computeActual("SELECT u, v, w FROM ( SELECT if(rand() > 0.5, 0, 1) AS u, 4*4 as v, 'abc' as w ) WHERE v > 10");
+        assertEquals(materializedResult.getRowCount(), 1);
+    }
+
+    @Test
     public void testVarbinary()
             throws Exception
     {
