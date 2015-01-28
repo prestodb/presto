@@ -660,13 +660,13 @@ public class HiveMetadata
                 "To write Hive data, your JVM timezone must match the Hive storage timezone. Add -Duser.timezone=%s to your JVM arguments",
                 timeZone.getID());
 
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "INSERT not yet supported for Hive");
     }
 
     @Override
     public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "INSERT not yet supported for Hive");
     }
 
     @Override
