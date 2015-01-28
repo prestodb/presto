@@ -26,13 +26,9 @@ public interface StorageManager
 {
     ConnectorPageSource getPageSource(UUID shardUuid, List<Long> columnIds, List<Type> columnTypes, TupleDomain<RaptorColumnHandle> effectivePredicate);
 
-    StorageOutputHandle createStorageOutputHandle(List<Long> columnIds, List<Type> columnTypes);
-
-    StoragePageSink createStoragePageSink(StorageOutputHandle storageOutputHandle);
+    StoragePageSink createStoragePageSink(List<Long> columnIds, List<Type> columnTypes);
 
     boolean isBackupAvailable();
-
-    List<UUID> commit(StorageOutputHandle storageOutputHandle);
 
     long getMaxRowCount();
 

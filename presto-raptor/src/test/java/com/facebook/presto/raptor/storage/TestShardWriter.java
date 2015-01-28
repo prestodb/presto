@@ -47,7 +47,7 @@ import static io.airlift.testing.FileUtils.deleteRecursively;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
-public class TestOrcStoragePageSink
+public class TestShardWriter
 {
     private File directory;
 
@@ -81,8 +81,8 @@ public class TestOrcStoragePageSink
                 .row(456, "bye", wrappedBuffer(bytes3), Double.NaN, false);
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(new EmptyClassLoader());
-             StoragePageSink sink = new OrcStoragePageSink(columnIds, columnTypes, file)) {
-            sink.appendPages(rowPagesBuilder.build());
+             OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
+            writer.appendPages(rowPagesBuilder.build());
         }
 
         try (FileOrcDataSource dataSource = new FileOrcDataSource(file, new DataSize(1, Unit.MEGABYTE))) {
@@ -147,7 +147,7 @@ public class TestOrcStoragePageSink
 
         File file = new File(directory, System.nanoTime() + ".orc");
 
-        try (StoragePageSink ignored = new OrcStoragePageSink(columnIds, columnTypes, file)) {
+        try (OrcFileWriter ignored = new OrcFileWriter(columnIds, columnTypes, file)) {
             // no rows
         }
 

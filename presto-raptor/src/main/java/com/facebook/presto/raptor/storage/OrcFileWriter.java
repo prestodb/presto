@@ -35,6 +35,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspect
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.mapred.JobConf;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
@@ -42,7 +43,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
@@ -51,6 +51,7 @@ import static com.google.common.base.Functions.toStringFunction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
 import static org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
@@ -62,8 +63,8 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 
-public class OrcStoragePageSink
-        implements StoragePageSink
+public class OrcFileWriter
+        implements Closeable
 {
     private static final JobConf JOB_CONF = createJobConf();
     private static final Constructor<? extends RecordWriter> WRITER_CONSTRUCTOR = getOrcWriterConstructor();
@@ -76,14 +77,14 @@ public class OrcStoragePageSink
     private final List<StructField> structFields;
     private final Object row;
 
-    public OrcStoragePageSink(List<Long> columnIds, List<Type> columnTypes, File target)
+    public OrcFileWriter(List<Long> columnIds, List<Type> columnTypes, File target)
     {
         this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
         checkArgument(columnIds.size() == columnTypes.size(), "ids and types mismatch");
         checkArgument(isUnique(columnIds), "ids must be unique");
 
         List<StorageType> storageTypes = ImmutableList.copyOf(toStorageTypes(columnTypes));
-        Iterable<String> hiveTypeNames = storageTypes.stream().map(StorageType::getHiveTypeName).collect(Collectors.toList());
+        Iterable<String> hiveTypeNames = storageTypes.stream().map(StorageType::getHiveTypeName).collect(toList());
         List<String> columnNames = ImmutableList.copyOf(transform(columnIds, toStringFunction()));
 
         Properties properties = new Properties();
@@ -98,7 +99,6 @@ public class OrcStoragePageSink
         row = tableInspector.create();
     }
 
-    @Override
     public void appendPages(List<Page> pages)
     {
         for (Page page : pages) {
@@ -108,7 +108,6 @@ public class OrcStoragePageSink
         }
     }
 
-    @Override
     public void appendPages(List<Page> inputPages, int[] pageIndexes, int[] positionIndexes)
     {
         checkArgument(pageIndexes.length == positionIndexes.length, "pageIndexes and positionIndexes do not match");
@@ -190,7 +189,7 @@ public class OrcStoragePageSink
 
     private static List<ObjectInspector> getJavaObjectInspectors(List<StorageType> types)
     {
-        return types.stream().map(OrcStoragePageSink::getJavaObjectInspector).collect(Collectors.toList());
+        return types.stream().map(OrcFileWriter::getJavaObjectInspector).collect(toList());
     }
 
     private static ObjectInspector getJavaObjectInspector(StorageType type)
@@ -217,7 +216,7 @@ public class OrcStoragePageSink
 
     private static List<StorageType> toStorageTypes(List<Type> columnTypes)
     {
-        return columnTypes.stream().map(OrcStoragePageSink::toStorageType).collect(Collectors.toList());
+        return columnTypes.stream().map(OrcFileWriter::toStorageType).collect(toList());
     }
 
     private static StorageType toStorageType(Type type)
