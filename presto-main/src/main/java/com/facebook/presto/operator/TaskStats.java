@@ -64,12 +64,12 @@ public class TaskStats
 
     private final List<PipelineStats> pipelines;
 
-    public TaskStats(DateTime createTime)
+    public TaskStats(DateTime createTime, DateTime endTime)
     {
         this(createTime,
                 null,
                 null,
-                null,
+                endTime,
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 0,
