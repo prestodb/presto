@@ -165,7 +165,9 @@ public class SqlTask
                 noMoreSplits = taskExecution.getNoMoreSplits();
             }
             else {
-                taskStats = new TaskStats(taskStateMachine.getCreatedTime());
+                // if the task completed without creation, set end time
+                DateTime endTime = state.isDone() ? DateTime.now() : null;
+                taskStats = new TaskStats(taskStateMachine.getCreatedTime(), endTime);
                 noMoreSplits = ImmutableSet.of();
             }
         }
