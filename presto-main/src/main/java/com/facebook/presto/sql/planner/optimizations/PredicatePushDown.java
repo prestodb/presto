@@ -164,8 +164,26 @@ public class PredicatePushDown
         @Override
         public PlanNode visitProject(ProjectNode node, RewriteContext<Expression> context)
         {
-            Expression inlinedPredicate = ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(node.getAssignments()), context.get());
-            return context.defaultRewrite(node, inlinedPredicate);
+            Set<Symbol> deterministicSymbols = node.getAssignments().entrySet().stream()
+                    .filter(entry -> DeterminismEvaluator.isDeterministic(entry.getValue()))
+                    .map(Map.Entry::getKey)
+                    .collect(Collectors.toSet());
+
+            java.util.function.Predicate<Expression> deterministic = conjunct -> DependencyExtractor.extractAll(conjunct).stream()
+                    .allMatch(deterministicSymbols::contains);
+
+            Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(deterministic));
+
+            // Push down conjuncts from the inherited predicate that don't depend on non-deterministic assignments
+            PlanNode rewrittenNode = context.defaultRewrite(node,
+                    ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(node.getAssignments()), combineConjuncts(conjuncts.get(true))));
+
+            // All non-deterministic conjuncts, if any, will be in the filter node.
+            if (!conjuncts.get(false).isEmpty()) {
+                rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, combineConjuncts(conjuncts.get(false)));
+            }
+
+            return rewrittenNode;
         }
 
         @Override
