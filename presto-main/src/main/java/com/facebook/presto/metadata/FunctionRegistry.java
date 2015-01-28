@@ -399,7 +399,10 @@ public class FunctionRegistry
 
         List<String> expectedParameters = new ArrayList<>();
         for (ParametricFunction function : candidates) {
-            expectedParameters.add(format("%s(%s)", name, Joiner.on(", ").join(function.getSignature().getArgumentTypes())));
+            expectedParameters.add(format("%s(%s) %s",
+                                    name,
+                                    Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
+                                    Joiner.on(", ").join(function.getSignature().getTypeParameters())));
         }
         String parameters = Joiner.on(", ").join(parameterTypes);
         String message = format("Function %s not registered", name);
