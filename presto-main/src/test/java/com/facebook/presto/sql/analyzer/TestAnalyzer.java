@@ -109,7 +109,7 @@ public class TestAnalyzer
     public void testNonComparableWindowOrder()
             throws Exception
     {
-        assertFails(TYPE_MISMATCH, "SELECT row_number() OVER (ORDER BY t.x) FROM (VALUES(null)) AS t(x)");
+        assertFails(TYPE_MISMATCH, "SELECT row_number() OVER (ORDER BY t.x) FROM (VALUES(color('red'))) AS t(x)");
     }
 
     @Test
