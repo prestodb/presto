@@ -24,6 +24,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -55,6 +56,7 @@ import org.joda.time.format.ISODateTimeFormat;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Base64;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
@@ -514,5 +516,10 @@ public final class HiveUtil
         }
 
         return columns.build();
+    }
+
+    public static Slice base64Decode(byte[] bytes)
+    {
+        return Slices.wrappedBuffer(Base64.getDecoder().decode(bytes));
     }
 }
