@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.shaded.com.google.common.io.Closeables;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -451,7 +450,7 @@ class ParquetHiveRecordCursor
                 throws IOException
         {
             for (Closeable closeable : converterCloseables) {
-                Closeables.closeQuietly(closeable);
+                closeQuietly(closeable);
             }
         }
     }
@@ -646,7 +645,7 @@ class ParquetHiveRecordCursor
         public void close()
                 throws IOException
         {
-            Closeables.closeQuietly(jsonConverter);
+            closeQuietly(jsonConverter);
         }
     }
 
@@ -750,7 +749,7 @@ class ParquetHiveRecordCursor
                 throws IOException
         {
             for (JsonConverter converter : converters) {
-                Closeables.closeQuietly(converter);
+                closeQuietly(converter);
             }
         }
     }
@@ -823,7 +822,7 @@ class ParquetHiveRecordCursor
         public void close()
                 throws IOException
         {
-            Closeables.closeQuietly(elementConverter);
+            closeQuietly(elementConverter);
         }
     }
 
@@ -888,7 +887,7 @@ class ParquetHiveRecordCursor
         public void close()
                 throws IOException
         {
-            Closeables.closeQuietly(elementConverter);
+            closeQuietly(elementConverter);
         }
     }
 
@@ -971,7 +970,7 @@ class ParquetHiveRecordCursor
         public void close()
                 throws IOException
         {
-            Closeables.closeQuietly(entryConverter);
+            closeQuietly(entryConverter);
         }
     }
 
@@ -1055,8 +1054,8 @@ class ParquetHiveRecordCursor
         public void close()
                 throws IOException
         {
-            Closeables.closeQuietly(keyConverter);
-            Closeables.closeQuietly(valueConverter);
+            closeQuietly(keyConverter);
+            closeQuietly(valueConverter);
         }
     }
 
@@ -1344,6 +1343,17 @@ class ParquetHiveRecordCursor
     {
         if (fieldName != null) {
             generator.writeFieldName(fieldName);
+        }
+    }
+
+    private static void closeQuietly(Closeable closeable)
+    {
+        try {
+            if (closeable != null) {
+                closeable.close();
+            }
+        }
+        catch (IOException ignored) {
         }
     }
 }
