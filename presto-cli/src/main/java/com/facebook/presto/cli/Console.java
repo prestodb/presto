@@ -101,7 +101,7 @@ public class Console
             }
         }
 
-        try (QueryRunner queryRunner = QueryRunner.create(session)) {
+        try (QueryRunner queryRunner = QueryRunner.create(session, Optional.ofNullable(clientOptions.socksProxy))) {
             if (hasQuery) {
                 executeCommand(queryRunner, query, clientOptions.outputFormat);
             }

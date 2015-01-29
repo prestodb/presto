@@ -67,6 +67,9 @@ public class ClientOptions
     @Option(name = "--session", title = "session", description = "Session property (property can be used multiple times; format is key=value)")
     public final List<ClientSessionProperty> sessionProperties = new ArrayList<>();
 
+    @Option(name = "--socks-proxy", title = "socks-proxy", description = "SOCKS proxy to use for server connections")
+    public HostAndPort socksProxy;
+
     public enum OutputFormat
     {
         ALIGNED,
