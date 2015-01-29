@@ -29,12 +29,17 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.NullLiteral;
+import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -94,6 +99,18 @@ public class LimitPushDown
         @Override
         public PlanNode visitLimit(LimitNode node, RewriteContext<LimitContext> context)
         {
+            // replace nodes with empty ValuesNode in case of limit 0
+            if (node.getCount() == 0) {
+                List<Expression> values = node.getOutputSymbols().stream()
+                        .map(symbol -> new NullLiteral())
+                        .collect(toImmutableList());
+
+                ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(),
+                                                        node.getOutputSymbols(),
+                                                        ImmutableList.of(values));
+                return new LimitNode(idAllocator.getNextId(), valuesNode, node.getCount());
+            }
+
             LimitContext limit = context.get();
             if (limit != null && limit.getCount() < node.getCount()) {
                 return context.rewrite(node.getSource(), limit);
