@@ -910,6 +910,11 @@ public class LocalExecutionPlanner
                 outputTypes.add(type);
             }
 
+            if (node.getRows().size() == 0) {
+                OperatorFactory operatorFactory = new ValuesOperatorFactory(context.getNextOperatorId(), outputTypes, ImmutableList.of());
+                return new PhysicalOperation(operatorFactory, makeLayout(node));
+            }
+
             PageBuilder pageBuilder = new PageBuilder(outputTypes);
             for (List<Expression> row : node.getRows()) {
                 pageBuilder.declarePosition();
