@@ -46,7 +46,24 @@ public class HiveMetastoreClientFactory
         this(config.getMetastoreSocksProxy(), config.getMetastoreTimeout());
     }
 
+    private static Socket createSocksSocket(HostAndPort proxy)
+    {
+        SocketAddress address = InetSocketAddress.createUnresolved(proxy.getHostText(), proxy.getPort());
+        return new Socket(new Proxy(Proxy.Type.SOCKS, address));
+    }
+
+    private static TTransportException rewriteException(TTransportException e, String host)
+    {
+        return new TTransportException(e.getType(), String.format("%s: %s", host, e.getMessage()), e.getCause());
+    }
+
     public HiveMetastoreClient create(String host, int port)
+            throws TTransportException
+    {
+        return new HiveMetastoreClient(createTransport(host, port));
+    }
+
+    protected TTransport createTransport(String host, int port)
             throws TTransportException
     {
         TTransport transport;
@@ -70,19 +87,7 @@ public class HiveMetastoreClientFactory
                 throw rewriteException(e, host);
             }
         }
-
-        return new HiveMetastoreClient(transport);
-    }
-
-    private static Socket createSocksSocket(HostAndPort proxy)
-    {
-        SocketAddress address = InetSocketAddress.createUnresolved(proxy.getHostText(), proxy.getPort());
-        return new Socket(new Proxy(Proxy.Type.SOCKS, address));
-    }
-
-    private static TTransportException rewriteException(TTransportException e, String host)
-    {
-        return new TTransportException(e.getType(), String.format("%s: %s", host, e.getMessage()), e.getCause());
+        return transport;
     }
 
     private static class TTransportWrapper
