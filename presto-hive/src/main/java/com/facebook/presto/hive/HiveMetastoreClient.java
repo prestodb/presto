@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.shaded.org.apache.thrift.protocol.TBinaryProtocol;
-import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TTransport;
 import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
+import org.apache.thrift.protocol.TBinaryProtocol;
+import org.apache.thrift.transport.TTransport;
 
 import java.io.Closeable;
 

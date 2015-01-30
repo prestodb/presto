@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TSocket;
-import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TTransport;
-import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TTransportException;
 import com.google.common.net.HostAndPort;
 import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
+import org.apache.thrift.transport.TSocket;
+import org.apache.thrift.transport.TTransport;
+import org.apache.thrift.transport.TTransportException;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.presto.hive.shaded.org.apache.thrift.TException;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.TimeStat;
 import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.apache.thrift.TException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 

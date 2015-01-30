@@ -14,7 +14,6 @@
 package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.HiveMetastoreClient;
-import com.facebook.presto.hive.shaded.org.apache.thrift.TException;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -26,6 +25,7 @@ import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.thrift.TException;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;

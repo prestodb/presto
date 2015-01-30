@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc.metadata;
 
-import com.facebook.presto.hive.shaded.com.google.protobuf.CodedInputStream;
+import com.facebook.presto.hive.protobuf.CodedInputStream;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
