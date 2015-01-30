@@ -234,8 +234,8 @@ public class PlanFragmenter
         public FragmentProperties setSourceDistribution(PlanNodeId source)
         {
             if (distribution.isPresent()) {
-                // If already SINGLE, leave it as is (this is for single-node execution)
-                checkState(distribution.get() == PlanDistribution.SINGLE,
+                // If already SINGLE or COORDINATOR_ONLY, leave it as is (this is for single-node execution)
+                checkState(distribution.get() == PlanDistribution.SINGLE || distribution.get() == PlanDistribution.COORDINATOR_ONLY,
                         "Cannot overwrite distribution with %s (currently set to %s)",
                         PlanDistribution.SOURCE,
                         distribution.get());
