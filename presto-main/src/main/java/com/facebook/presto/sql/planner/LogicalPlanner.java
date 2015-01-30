@@ -38,6 +38,7 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -133,7 +134,7 @@ public class LogicalPlanner
                 plan.getRoot(),
                 target,
                 plan.getOutputSymbols(),
-                getColumnNames(tableMetadata),
+                getVisibleColumnNames(tableMetadata),
                 writerOutputs,
                 plan.getSampleWeight());
 
@@ -194,12 +195,11 @@ public class LogicalPlanner
         return columns.build();
     }
 
-    private static List<String> getColumnNames(TableMetadata tableMetadata)
+    private static List<String> getVisibleColumnNames(TableMetadata tableMetadata)
     {
-        ImmutableList.Builder<String> list = ImmutableList.builder();
-        for (ColumnMetadata column : tableMetadata.getColumns()) {
-            list.add(column.getName());
-        }
-        return list.build();
+        return tableMetadata.getColumns().stream()
+                .filter(column -> !column.isHidden())
+                .map(ColumnMetadata::getName)
+                .collect(toImmutableList());
     }
 }
