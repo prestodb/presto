@@ -198,4 +198,7 @@ public interface MetadataDao
             @Bind("catalogName") String catalogName,
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
+
+    @SqlQuery("SELECT table_id FROM tables\n")
+    List<Long> getAllTableIds();
 }

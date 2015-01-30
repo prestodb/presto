@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import io.airlift.units.Duration;
+
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -43,4 +45,10 @@ public interface ShardManager
      * Assign a shard to a node.
      */
     void assignShard(UUID shardUuid, String nodeIdentifier);
+
+    /**
+     * Check if nodeIdentifier is the shard reassigner and update it if the existing one has gone stale
+     * @return true if nodeIdentifier is the shard reassigner, false otherwise
+     */
+    boolean compareAndUpdateShardReassigner(String nodeIdentifier, Duration interval);
 }

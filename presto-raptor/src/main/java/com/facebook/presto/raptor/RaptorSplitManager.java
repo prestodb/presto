@@ -15,6 +15,7 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardNodes;
+import com.facebook.presto.raptor.storage.ShardReassigner;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
@@ -38,13 +39,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_NO_HOST_FOR_SHARD;
 import static com.facebook.presto.raptor.util.Types.checkType;
-import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -58,14 +56,16 @@ public class RaptorSplitManager
     private final NodeManager nodeManager;
     private final ShardManager shardManager;
     private final StorageManager storageManager;
+    private final ShardReassigner shardReassigner;
 
     @Inject
-    public RaptorSplitManager(RaptorConnectorId connectorId, NodeManager nodeManager, ShardManager shardManager, StorageManager storageManager)
+    public RaptorSplitManager(RaptorConnectorId connectorId, NodeManager nodeManager, ShardManager shardManager, StorageManager storageManager, ShardReassigner shardReassigner)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
+        this.shardReassigner = checkNotNull(shardReassigner, "shardReassigner is null");
     }
 
     @Override
@@ -98,14 +98,7 @@ public class RaptorSplitManager
                     throw new PrestoException(RAPTOR_NO_HOST_FOR_SHARD, format("no host for shard %s found: %s", shardId, nodeIds));
                 }
 
-                // Pick a random node and optimistically assign the shard to it.
-                // That node will restore the shard from the backup location.
-                Set<Node> activeDatasourceNodes = nodeManager.getActiveDatasourceNodes(connectorId);
-                if (activeDatasourceNodes.isEmpty()) {
-                    throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
-                }
-                Node node = selectRandom(activeDatasourceNodes);
-                shardManager.assignShard(shardId, node.getNodeIdentifier());
+                Node node = shardReassigner.reassignShard(shardId);
                 addresses = ImmutableList.of(node.getHostAndPort());
             }
 
@@ -143,11 +136,5 @@ public class RaptorSplitManager
                 return checkType(handle, RaptorColumnHandle.class, "columnHandle");
             }
         });
-    }
-
-    private static <T> T selectRandom(Iterable<T> elements)
-    {
-        List<T> list = ImmutableList.copyOf(elements);
-        return list.get(ThreadLocalRandom.current().nextInt(list.size()));
     }
 }
