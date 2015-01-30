@@ -19,7 +19,6 @@ import com.facebook.presto.hive.HiveCluster;
 import com.facebook.presto.hive.HiveMetastoreClient;
 import com.facebook.presto.hive.HiveViewNotSupportedException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
-import com.facebook.presto.hive.shaded.org.apache.thrift.TException;
 import com.facebook.presto.hive.util.BackgroundCacheLoader;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -47,6 +46,7 @@ import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.api.UnknownDBException;
+import org.apache.thrift.TException;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TTransportException;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
+import org.apache.thrift.transport.TTransportException;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
