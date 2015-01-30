@@ -26,6 +26,7 @@ import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
+import org.apache.thrift.transport.TTransport;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -44,7 +45,7 @@ public class MockHiveMetastoreClient
 
     MockHiveMetastoreClient()
     {
-        super(null);
+        super((TTransport) null);
     }
 
     public void setThrowException(boolean throwException)
