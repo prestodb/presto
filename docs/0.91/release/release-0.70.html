@@ -1,0 +1,159 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>9.22. Release 0.70 &mdash; Presto 0.91 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.91',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.91 Documentation" href="../index.html" />
+    <link rel="up" title="9. Release Notes" href="../release.html" />
+    <link rel="next" title="9.23. Release 0.69" href="release-0.69.html" />
+    <link rel="prev" title="9.21. Release 0.71" href="release-0.71.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.91 Documentation</span></a></h1>
+    <h2 class="heading"><span>9.22. Release 0.70</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.71.html">9.21. Release 0.71</a>
+    </span>
+    <span class="right">
+        <a href="release-0.69.html">9.23. Release 0.69</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-70">
+<h1>9.22. Release 0.70</h1>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">This release contained a packaging error that resulted in an
+unusable server tarball. Do not use this release.</p>
+</div>
+<div class="section" id="views">
+<h2>Views</h2>
+<p>We have added support for creating views within Presto.
+Views are defined using Presto syntax but are stored (as blobs)
+by connectors. Currently, views are supported by the
+Raptor and Hive connectors. For the Hive connector, views are
+stored within the Hive metastore as Hive views, but they cannot
+be queried by Hive, nor can Hive views be queried by Presto.</p>
+<p>See <a class="reference internal" href="../sql/create-view.html"><em>CREATE VIEW</em></a> and <a class="reference internal" href="../sql/drop-view.html"><em>DROP VIEW</em></a>
+for details and examples.</p>
+</div>
+<div class="section" id="dual-table">
+<h2>DUAL Table</h2>
+<p>The synthetic <tt class="docutils literal"><span class="pre">DUAL</span></tt> table is no longer supported. As an alternative, please
+write your queries without a <tt class="docutils literal"><span class="pre">FROM</span></tt> clause or use the <tt class="docutils literal"><span class="pre">VALUES</span></tt> syntax.</p>
+</div>
+<div class="section" id="presto-verifier">
+<h2>Presto Verifier</h2>
+<p>There is a new project, <a class="reference internal" href="../installation/verifier.html"><em>Presto Verifier</em></a>, which can be used to
+verify a set of queries against two different clusters.</p>
+</div>
+<div class="section" id="connector-improvements">
+<h2>Connector Improvements</h2>
+<ul class="simple">
+<li>Connectors can now add hidden columns to a table. Hidden columns are not
+displayed in <tt class="docutils literal"><span class="pre">DESCRIBE</span></tt> or <tt class="docutils literal"><span class="pre">information_schema</span></tt>, and are not
+considered for <tt class="docutils literal"><span class="pre">SELECT</span> <span class="pre">*</span></tt>.  As an example, we have added a hidden
+<tt class="docutils literal"><span class="pre">row_number</span></tt> column to the <tt class="docutils literal"><span class="pre">tpch</span></tt> connector.</li>
+<li>Presto contains an extensive test suite to verify the correctness.  This test
+suite has been extracted into the <tt class="docutils literal"><span class="pre">presto-test</span></tt> module for use during
+connector development. For an example, see <tt class="docutils literal"><span class="pre">TestRaptorDistributedQueries</span></tt>.</li>
+</ul>
+</div>
+<div class="section" id="machine-learning-functions">
+<h2>Machine Learning Functions</h2>
+<p>We have added two new machine learning functions, which can be used
+by advanced users familiar with LIBSVM. The functions are
+<tt class="docutils literal"><span class="pre">learn_libsvm_classifier</span></tt> and <tt class="docutils literal"><span class="pre">learn_libsvm_regressor</span></tt>. Both take a
+parameters string which has the form <tt class="docutils literal"><span class="pre">key=value,key=value</span></tt></p>
+</div>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>New comparison functions: <a class="reference internal" href="../functions/comparison.html#greatest" title="greatest"><tt class="xref py py-func docutils literal"><span class="pre">greatest()</span></tt></a> and <a class="reference internal" href="../functions/comparison.html#least" title="least"><tt class="xref py py-func docutils literal"><span class="pre">least()</span></tt></a></li>
+<li>New window functions: <a class="reference internal" href="../functions/window.html#first_value" title="first_value"><tt class="xref py py-func docutils literal"><span class="pre">first_value()</span></tt></a>, <a class="reference internal" href="../functions/window.html#last_value" title="last_value"><tt class="xref py py-func docutils literal"><span class="pre">last_value()</span></tt></a>, and <a class="reference internal" href="../functions/window.html#nth_value" title="nth_value"><tt class="xref py py-func docutils literal"><span class="pre">nth_value()</span></tt></a></li>
+<li>We have added a config option to disable falling back to the interpreter when
+expressions fail to be compiled to bytecode. To set this option, add&nbsp;
+<tt class="docutils literal"><span class="pre">compiler.interpreter-enabled=false</span></tt> to <tt class="docutils literal"><span class="pre">etc/config.properties</span></tt>.
+This will force certain queries to fail rather than running slowly.</li>
+<li><tt class="docutils literal"><span class="pre">DATE</span></tt> values are now implicitly coerced to <tt class="docutils literal"><span class="pre">TIMESTAMP</span></tt> and <tt class="docutils literal"><span class="pre">TIMESTAMP</span> <span class="pre">WITH</span> <span class="pre">TIME</span> <span class="pre">ZONE</span></tt>
+by setting the hour/minute/seconds to <tt class="docutils literal"><span class="pre">0</span></tt> with respect to the session timezone.</li>
+<li>Minor performance optimization when planning queries over tables with tens of
+thousands of partitions or more.</li>
+<li>Fixed a bug when planning <tt class="docutils literal"><span class="pre">ORDER</span> <span class="pre">BY</span> <span class="pre">...</span> <span class="pre">LIMIT</span></tt> queries which could result in
+duplicate and un-ordered results under rare conditions.</li>
+<li>Reduce the size of stats collected from tasks, which dramatically reduces
+garbage generation and improves coordinator stability.</li>
+<li>Fix compiler cache for expressions.</li>
+<li>Fix processing of empty or commented out statements in the CLI.</li>
+</ul>
+</div>
+<div class="section" id="hive-changes">
+<h2>Hive Changes</h2>
+<ul class="simple">
+<li>There are two new configuration options for the Hive connector,
+<tt class="docutils literal"><span class="pre">hive.max-initial-split-size</span></tt>, which configures the size of the
+initial splits, and <tt class="docutils literal"><span class="pre">hive.max-initial-splits</span></tt>, which configures
+the number of initial splits. This can be useful for speeding up small
+queries, which would otherwise have low parallelism.</li>
+<li>The Hive connector will now consider all tables with a non-empty value
+for the table property <tt class="docutils literal"><span class="pre">presto_offline</span></tt> to be offline. The value of the
+property will be used in the error message.</li>
+<li>We have added support for for <tt class="docutils literal"><span class="pre">DROP</span> <span class="pre">TABLE</span></tt> in the hive connector.
+By default, this feature is not enabled.  To enable it, set
+<tt class="docutils literal"><span class="pre">hive.allow-drop-table=true</span></tt> in your Hive catalog properties file.</li>
+<li>Ignore subdirectories when generating splits
+(this now matches the non-recursive behavior of Hive).</li>
+<li>Fix handling of maps with null keys.</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.71.html">9.21. Release 0.71</a>
+    </span>
+    <span class="right">
+        <a href="release-0.69.html">9.23. Release 0.69</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
