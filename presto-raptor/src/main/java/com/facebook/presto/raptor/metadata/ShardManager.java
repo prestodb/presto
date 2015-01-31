@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.raptor.util.CloseableIterator;
 import com.facebook.presto.spi.TupleDomain;
 
 import java.util.Collection;
@@ -37,7 +38,7 @@ public interface ShardManager
     /**
      * Return the shard nodes a given table.
      */
-    Iterable<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate);
+    CloseableIterator<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate);
 
     /**
      * Return the shards for a given node
