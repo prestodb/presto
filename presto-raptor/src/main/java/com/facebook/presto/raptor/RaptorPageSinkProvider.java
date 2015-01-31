@@ -15,7 +15,6 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.storage.StorageManager;
-import com.facebook.presto.raptor.util.CurrentNodeId;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
@@ -36,15 +35,13 @@ public class RaptorPageSinkProvider
         implements ConnectorPageSinkProvider
 {
     private final StorageManager storageManager;
-    private final String nodeId;
     private final PageSorter pageSorter;
     private final JsonCodec<ShardInfo> shardInfoCodec;
 
     @Inject
-    public RaptorPageSinkProvider(StorageManager storageManager, CurrentNodeId currentNodeId, PageSorter pageSorter, JsonCodec<ShardInfo> shardInfoCodec)
+    public RaptorPageSinkProvider(StorageManager storageManager, PageSorter pageSorter, JsonCodec<ShardInfo> shardInfoCodec)
     {
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
-        this.nodeId = checkNotNull(currentNodeId, "currentNodeId is null").toString();
         this.pageSorter = checkNotNull(pageSorter, "pageSorter is null");
         this.shardInfoCodec = checkNotNull(shardInfoCodec, "shardInfoCodec is null");
     }
@@ -54,7 +51,6 @@ public class RaptorPageSinkProvider
     {
         RaptorOutputTableHandle handle = checkType(tableHandle, RaptorOutputTableHandle.class, "tableHandle");
         return new RaptorPageSink(
-                nodeId,
                 pageSorter,
                 storageManager,
                 shardInfoCodec,
@@ -70,7 +66,6 @@ public class RaptorPageSinkProvider
     {
         RaptorInsertTableHandle handle = checkType(tableHandle, RaptorInsertTableHandle.class, "tableHandle");
         return new RaptorPageSink(
-                nodeId,
                 pageSorter,
                 storageManager,
                 shardInfoCodec,

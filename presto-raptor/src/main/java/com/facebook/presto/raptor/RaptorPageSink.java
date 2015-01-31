@@ -23,7 +23,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
@@ -41,7 +40,6 @@ import static java.util.stream.Collectors.toList;
 public class RaptorPageSink
         implements ConnectorPageSink
 {
-    private final String nodeId;
     private final StoragePageSink storagePageSink;
     private final JsonCodec<ShardInfo> shardInfoCodec;
     private final int sampleWeightField;
@@ -58,7 +56,6 @@ public class RaptorPageSink
     private long rowCount;
 
     public RaptorPageSink(
-            String nodeId,
             PageSorter pageSorter,
             StorageManager storageManager,
             JsonCodec<ShardInfo> shardInfoCodec,
@@ -68,7 +65,6 @@ public class RaptorPageSink
             List<Long> sortColumnIds,
             List<SortOrder> sortOrders)
     {
-        this.nodeId = checkNotNull(nodeId, "nodeId is null");
         this.pageSorter = checkNotNull(pageSorter, "pageSorter is null");
         this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
 
@@ -110,8 +106,7 @@ public class RaptorPageSink
 
         ImmutableList.Builder<Slice> fragments = ImmutableList.builder();
         for (ShardInfo shard : shards) {
-            ShardInfo updated = new ShardInfo(shard.getShardUuid(), ImmutableSet.of(nodeId), shard.getColumns());
-            fragments.add(Slices.wrappedBuffer(shardInfoCodec.toJsonBytes(updated)));
+            fragments.add(Slices.wrappedBuffer(shardInfoCodec.toJsonBytes(shard)));
         }
         return fragments.build();
     }
