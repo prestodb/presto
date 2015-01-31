@@ -23,7 +23,6 @@ import com.facebook.presto.raptor.RaptorMetadata;
 import com.facebook.presto.raptor.RaptorSplitManager;
 import com.facebook.presto.raptor.RaptorTableHandle;
 import com.facebook.presto.raptor.storage.FileStorageService;
-import com.facebook.presto.raptor.storage.OrcStorageManager;
 import com.facebook.presto.raptor.storage.ShardRecoveryManager;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.storage.StorageService;
@@ -43,7 +42,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import io.airlift.json.JsonCodec;
 import io.airlift.testing.FileUtils;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -60,11 +58,11 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.shardInfo;
+import static com.facebook.presto.raptor.storage.TestOrcStorageManager.createOrcStorageManager;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
@@ -80,10 +78,6 @@ public class TestRaptorSplitManager
             .column("foo", VARCHAR)
             .column("bar", BigintType.BIGINT)
             .build();
-    private static final DataSize ORC_MAX_MERGE_DISTANCE = new DataSize(1, MEGABYTE);
-    private static final Duration SHARD_RECOVERY_TIMEOUT = new Duration(30, TimeUnit.SECONDS);
-    private static final DataSize MAX_BUFFER_SIZE = new DataSize(256, MEGABYTE);
-    private static final int ROWS_PER_SHARD = 100;
 
     private Handle dummyHandle;
     private File dataDir;
@@ -107,8 +101,8 @@ public class TestRaptorSplitManager
         StorageService storageService = new FileStorageService(dataDir, Optional.empty());
         StorageService storageServiceWithBackup = new FileStorageService(dataDir, Optional.of(Files.createTempDir()));
         ShardRecoveryManager recoveryManager = new ShardRecoveryManager(storageServiceWithBackup, new InMemoryNodeManager(), shardManager, new Duration(5, TimeUnit.MINUTES), 10);
-        StorageManager storageManager = new OrcStorageManager(storageService, ORC_MAX_MERGE_DISTANCE, recoveryManager, SHARD_RECOVERY_TIMEOUT, ROWS_PER_SHARD, MAX_BUFFER_SIZE);
-        storageManagerWithBackup = new OrcStorageManager(storageServiceWithBackup, ORC_MAX_MERGE_DISTANCE, recoveryManager, SHARD_RECOVERY_TIMEOUT, ROWS_PER_SHARD, MAX_BUFFER_SIZE);
+        StorageManager storageManager = createOrcStorageManager(storageService, recoveryManager);
+        storageManagerWithBackup = createOrcStorageManager(storageServiceWithBackup, recoveryManager);
 
         String nodeName = UUID.randomUUID().toString();
         nodeManager.addNode("raptor", new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN));
