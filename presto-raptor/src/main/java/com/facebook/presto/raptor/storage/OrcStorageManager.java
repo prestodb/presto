@@ -24,6 +24,7 @@ import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.metadata.ColumnStats;
 import com.facebook.presto.raptor.metadata.ShardInfo;
+import com.facebook.presto.raptor.util.CurrentNodeId;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
@@ -64,6 +65,7 @@ import static org.joda.time.DateTimeZone.UTC;
 public class OrcStorageManager
         implements StorageManager
 {
+    private final String nodeId;
     private final StorageService storageService;
     private final DataSize orcMaxMergeDistance;
     private final ShardRecoveryManager recoveryManager;
@@ -72,13 +74,31 @@ public class OrcStorageManager
     private final DataSize maxBufferSize;
 
     @Inject
-    public OrcStorageManager(StorageService storageService, StorageManagerConfig config, ShardRecoveryManager recoveryManager)
+    public OrcStorageManager(
+            CurrentNodeId currentNodeId,
+            StorageService storageService,
+            StorageManagerConfig config,
+            ShardRecoveryManager recoveryManager)
     {
-        this(storageService, config.getOrcMaxMergeDistance(), recoveryManager, config.getShardRecoveryTimeout(), config.getRowsPerShard(), config.getMaxBufferSize());
+        this(currentNodeId.toString(),
+                storageService,
+                config.getOrcMaxMergeDistance(),
+                recoveryManager,
+                config.getShardRecoveryTimeout(),
+                config.getRowsPerShard(),
+                config.getMaxBufferSize());
     }
 
-    public OrcStorageManager(StorageService storageService, DataSize orcMaxMergeDistance, ShardRecoveryManager recoveryManager, Duration shardRecoveryTimeout, long rowsPerShard, DataSize maxBufferSize)
+    public OrcStorageManager(
+            String nodeId,
+            StorageService storageService,
+            DataSize orcMaxMergeDistance,
+            ShardRecoveryManager recoveryManager,
+            Duration shardRecoveryTimeout,
+            long rowsPerShard,
+            DataSize maxBufferSize)
     {
+        this.nodeId = checkNotNull(nodeId, "nodeId is null");
         this.storageService = checkNotNull(storageService, "storageService is null");
         this.orcMaxMergeDistance = checkNotNull(orcMaxMergeDistance, "orcMaxMergeDistance is null");
         this.recoveryManager = checkNotNull(recoveryManager, "recoveryManager is null");
@@ -285,7 +305,7 @@ public class OrcStorageManager
 
                 File stagingFile = storageService.getStagingFile(shardUuid);
                 List<ColumnStats> columns = computeShardStats(stagingFile, columnIds, columnTypes);
-                shards.add(new ShardInfo(shardUuid, ImmutableSet.of(), columns));
+                shards.add(new ShardInfo(shardUuid, ImmutableSet.of(nodeId), columns));
 
                 writer = null;
                 shardUuid = null;

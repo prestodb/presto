@@ -88,6 +88,7 @@ public class TestOrcStorageManager
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstance(UTC);
     private static final DateTime EPOCH = new DateTime(0, UTC_CHRONOLOGY);
     private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
+    private static final String CURRENT_NODE = "node";
     private static final DataSize ORC_MAX_MERGE_DISTANCE = new DataSize(1, MEGABYTE);
     private static final Duration SHARD_RECOVERY_TIMEOUT = new Duration(30, TimeUnit.SECONDS);
     private static final DataSize MAX_BUFFER_SIZE = new DataSize(256, MEGABYTE);
@@ -378,7 +379,7 @@ public class TestOrcStorageManager
 
     public static OrcStorageManager createOrcStorageManager(StorageService storageService, ShardRecoveryManager recoveryManager)
     {
-        return new OrcStorageManager(storageService, ORC_MAX_MERGE_DISTANCE, recoveryManager, SHARD_RECOVERY_TIMEOUT, ROWS_PER_SHARD, MAX_BUFFER_SIZE);
+        return new OrcStorageManager(CURRENT_NODE, storageService, ORC_MAX_MERGE_DISTANCE, recoveryManager, SHARD_RECOVERY_TIMEOUT, ROWS_PER_SHARD, MAX_BUFFER_SIZE);
     }
 
     private static void assertColumnStats(List<ColumnStats> list, long columnId, Object min, Object max)
