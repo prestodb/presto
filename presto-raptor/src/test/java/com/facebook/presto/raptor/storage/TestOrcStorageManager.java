@@ -88,10 +88,10 @@ public class TestOrcStorageManager
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstance(UTC);
     private static final DateTime EPOCH = new DateTime(0, UTC_CHRONOLOGY);
     private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
-    private static final DataSize ORC_MERGE_DISTANCE = new DataSize(1, MEGABYTE);
+    private static final DataSize ORC_MAX_MERGE_DISTANCE = new DataSize(1, MEGABYTE);
     private static final Duration SHARD_RECOVERY_TIMEOUT = new Duration(30, TimeUnit.SECONDS);
     private static final DataSize MAX_BUFFER_SIZE = new DataSize(256, MEGABYTE);
-    public static final int ROWS_PER_SHARD = 100;
+    private static final int ROWS_PER_SHARD = 100;
 
     private final NodeManager nodeManager = new InMemoryNodeManager();
     private Handle dummyHandle;
@@ -148,7 +148,7 @@ public class TestOrcStorageManager
     public void testWriter()
             throws Exception
     {
-        OrcStorageManager manager = new OrcStorageManager(storageService, ORC_MERGE_DISTANCE, recoveryManager, SHARD_RECOVERY_TIMEOUT, ROWS_PER_SHARD, MAX_BUFFER_SIZE);
+        OrcStorageManager manager = createOrcStorageManager(storageService, recoveryManager);
 
         List<Long> columnIds = ImmutableList.of(3L, 7L);
         List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR);
@@ -202,7 +202,7 @@ public class TestOrcStorageManager
     public void testReader()
             throws Exception
     {
-        OrcStorageManager manager = new OrcStorageManager(storageService, ORC_MERGE_DISTANCE, recoveryManager, SHARD_RECOVERY_TIMEOUT, ROWS_PER_SHARD, MAX_BUFFER_SIZE);
+        OrcStorageManager manager = createOrcStorageManager(storageService, recoveryManager);
 
         List<Long> columnIds = ImmutableList.of(2L, 4L, 6L, 7L, 8L, 9L);
         List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR, VARBINARY, DATE, BOOLEAN, DOUBLE);
@@ -376,6 +376,11 @@ public class TestOrcStorageManager
         assertColumnStats(stats, 2, minTimestamp, maxTimestamp);
     }
 
+    public static OrcStorageManager createOrcStorageManager(StorageService storageService, ShardRecoveryManager recoveryManager)
+    {
+        return new OrcStorageManager(storageService, ORC_MAX_MERGE_DISTANCE, recoveryManager, SHARD_RECOVERY_TIMEOUT, ROWS_PER_SHARD, MAX_BUFFER_SIZE);
+    }
+
     private static void assertColumnStats(List<ColumnStats> list, long columnId, Object min, Object max)
     {
         for (ColumnStats stats : list) {
@@ -413,7 +418,7 @@ public class TestOrcStorageManager
         }
         List<Long> columnIds = list.build();
 
-        OrcStorageManager manager = new OrcStorageManager(storageService, ORC_MERGE_DISTANCE, recoveryManager, SHARD_RECOVERY_TIMEOUT, ROWS_PER_SHARD, MAX_BUFFER_SIZE);
+        OrcStorageManager manager = createOrcStorageManager(storageService, recoveryManager);
         StoragePageSink sink = manager.createStoragePageSink(columnIds, columnTypes);
         sink.appendPages(rowPagesBuilder(columnTypes).rows(rows).build());
         List<ShardInfo> shards = sink.commit();
