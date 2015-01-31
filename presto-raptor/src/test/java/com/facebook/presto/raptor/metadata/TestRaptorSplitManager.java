@@ -160,7 +160,7 @@ public class TestRaptorSplitManager
         assertEquals(splitCount, 4);
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "no host for shard .* found: \\[\\]")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "No host for shard .* found: \\[\\]")
     public void testNoHostForShard()
             throws InterruptedException
     {
@@ -168,7 +168,7 @@ public class TestRaptorSplitManager
 
         ConnectorPartitionResult result = raptorSplitManager.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
 
-        raptorSplitManager.getPartitionSplits(tableHandle, result.getPartitions());
+        raptorSplitManager.getPartitionSplits(tableHandle, result.getPartitions()).getNextBatch(1000);
     }
 
     @Test
@@ -194,6 +194,6 @@ public class TestRaptorSplitManager
         RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), new InMemoryNodeManager(), shardManager, storageManagerWithBackup);
         dummyHandle.execute("DELETE FROM shard_nodes");
         ConnectorPartitionResult result = raptorSplitManagerWithBackup.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
-        raptorSplitManagerWithBackup.getPartitionSplits(tableHandle, result.getPartitions());
+        raptorSplitManagerWithBackup.getPartitionSplits(tableHandle, result.getPartitions()).getNextBatch(1000);
     }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.raptor.util.CloseableIterator;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Range;
@@ -101,7 +102,7 @@ public class TestDatabaseShardManager
         shardManager.createTable(tableId, columns);
         shardManager.commitShards(tableId, columns, shards, Optional.empty());
 
-        Set<ShardNodes> actual = ImmutableSet.copyOf(shardManager.getShardNodes(tableId, TupleDomain.all()));
+        Set<ShardNodes> actual = getShardNodes(tableId, TupleDomain.all());
         assertEquals(actual, toShardNodes(shards));
     }
 
@@ -116,12 +117,12 @@ public class TestDatabaseShardManager
         shardManager.createTable(tableId, columns);
         shardManager.commitShards(tableId, columns, shardNodes, Optional.empty());
 
-        ShardNodes actual = getOnlyElement(shardManager.getShardNodes(tableId, TupleDomain.all()));
+        ShardNodes actual = getOnlyElement(getShardNodes(tableId, TupleDomain.all()));
         assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node1")));
 
         shardManager.assignShard(shard, "node2");
 
-        actual = getOnlyElement(shardManager.getShardNodes(tableId, TupleDomain.all()));
+        actual = getOnlyElement(getShardNodes(tableId, TupleDomain.all()));
         assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node1", "node2")));
     }
 
@@ -334,6 +335,13 @@ public class TestDatabaseShardManager
         shardAssertion(tableId).equal(c1, 3).expected(shards);
     }
 
+    private Set<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> predicate)
+    {
+        try (CloseableIterator<ShardNodes> iterator = shardManager.getShardNodes(tableId, predicate)) {
+            return ImmutableSet.copyOf(iterator);
+        }
+    }
+
     static ShardInfo shardInfo(UUID shardUuid, String nodeIdentifier)
     {
         return new ShardInfo(shardUuid, ImmutableSet.of(nodeIdentifier), ImmutableList.of());
@@ -395,7 +403,7 @@ public class TestDatabaseShardManager
         public void expected(List<ShardInfo> shards)
         {
             TupleDomain<RaptorColumnHandle> predicate = TupleDomain.withColumnDomains(domains);
-            Set<ShardNodes> actual = ImmutableSet.copyOf(shardManager.getShardNodes(tableId, predicate));
+            Set<ShardNodes> actual = getShardNodes(tableId, predicate);
             assertEquals(actual, toShardNodes(shards));
         }
     }

@@ -14,11 +14,10 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.raptor.util.CloseableIterator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -28,8 +27,6 @@ import org.skife.jdbi.v2.VoidTransactionCallback;
 import javax.inject.Inject;
 
 import java.sql.JDBCType;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.List;
@@ -39,7 +36,6 @@ import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
 
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
 import static com.facebook.presto.raptor.metadata.ShardManagerDaoUtils.createShardTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.ShardPredicate.jdbcType;
@@ -47,7 +43,6 @@ import static com.facebook.presto.raptor.metadata.ShardPredicate.maxColumn;
 import static com.facebook.presto.raptor.metadata.ShardPredicate.minColumn;
 import static com.facebook.presto.raptor.metadata.SqlUtils.runIgnoringConstraintViolation;
 import static com.facebook.presto.raptor.storage.ShardStats.MAX_BINARY_INDEX_SIZE;
-import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
@@ -141,51 +136,9 @@ public class DatabaseShardManager
     }
 
     @Override
-    public Iterable<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate)
+    public CloseableIterator<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate)
     {
-        ShardPredicate predicate = ShardPredicate.create(effectivePredicate);
-
-        String sql = "" +
-                "SELECT shard_uuid, node_identifier\n" +
-                "FROM " + shardIndexTable(tableId) + " t\n" +
-                "LEFT JOIN shard_nodes sn ON (t.shard_id = sn.shard_id)\n" +
-                "LEFT JOIN nodes n ON (sn.node_id = n.node_id)\n" +
-                "WHERE " + predicate.getPredicate() + "\n" +
-                "ORDER BY shard_uuid";
-
-        try (Handle handle = dbi.open();
-                PreparedStatement statement = handle.getConnection().prepareStatement(sql)) {
-            predicate.bind(statement);
-
-            try (ResultSet rs = statement.executeQuery()) {
-                ImmutableList.Builder<ShardNodes> list = ImmutableList.builder();
-                UUID currentShardId = null;
-                ImmutableSet.Builder<String> nodes = ImmutableSet.builder();
-
-                while (rs.next()) {
-                    UUID shardId = uuidFromBytes(rs.getBytes("shard_uuid"));
-                    String nodeId = rs.getString("node_identifier");
-
-                    if ((currentShardId != null) && !shardId.equals(currentShardId)) {
-                        list.add(new ShardNodes(currentShardId, nodes.build()));
-                        nodes = ImmutableSet.builder();
-                    }
-
-                    currentShardId = shardId;
-                    if (nodeId != null) {
-                        nodes.add(nodeId);
-                    }
-                }
-
-                if (currentShardId != null) {
-                    list.add(new ShardNodes(currentShardId, nodes.build()));
-                }
-                return list.build();
-            }
-        }
-        catch (SQLException e) {
-            throw new PrestoException(RAPTOR_ERROR, e);
-        }
+        return new ShardIterator(tableId, effectivePredicate, dbi.open().getConnection());
     }
 
     @Override

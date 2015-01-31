@@ -16,6 +16,7 @@ package com.facebook.presto.raptor;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardNodes;
 import com.facebook.presto.raptor.storage.StorageManager;
+import com.facebook.presto.raptor.util.CloseableIterator;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
@@ -23,7 +24,6 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
@@ -33,9 +33,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -48,6 +46,8 @@ import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Iterators.limit;
+import static com.google.common.collect.Iterators.transform;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.String.format;
 
@@ -85,39 +85,7 @@ public class RaptorSplitManager
         RaptorPartition partition = checkType(getOnlyElement(partitions), RaptorPartition.class, "partition");
         TupleDomain<RaptorColumnHandle> effectivePredicate = toRaptorTupleDomain(partition.getEffectivePredicate());
 
-        Map<String, Node> nodesById = uniqueIndex(nodeManager.getActiveNodes(), Node::getNodeIdentifier);
-
-        List<ConnectorSplit> splits = new ArrayList<>();
-        for (ShardNodes shardNode : shardManager.getShardNodes(raptorTableHandle.getTableId(), effectivePredicate)) {
-            UUID shardId = shardNode.getShardUuid();
-            Collection<String> nodeIds = shardNode.getNodeIdentifiers();
-            List<HostAddress> addresses = getAddressesForNodes(nodesById, nodeIds);
-
-            if (addresses.isEmpty()) {
-                if (!storageManager.isBackupAvailable()) {
-                    throw new PrestoException(RAPTOR_NO_HOST_FOR_SHARD, format("no host for shard %s found: %s", shardId, nodeIds));
-                }
-
-                // Pick a random node and optimistically assign the shard to it.
-                // That node will restore the shard from the backup location.
-                Set<Node> activeDatasourceNodes = nodeManager.getActiveDatasourceNodes(connectorId);
-                if (activeDatasourceNodes.isEmpty()) {
-                    throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
-                }
-                Node node = selectRandom(activeDatasourceNodes);
-                shardManager.assignShard(shardId, node.getNodeIdentifier());
-                addresses = ImmutableList.of(node.getHostAndPort());
-            }
-
-            splits.add(new RaptorSplit(shardId, addresses, effectivePredicate));
-        }
-
-        // The query engine assumes that splits are returned in a somewhat random fashion. The Raptor split manager,
-        // because it loads the data from a database table, will return the splits somewhat ordered by node ID,
-        // so only a subset of nodes are fired up. Shuffle the splits to ensure random distribution.
-        Collections.shuffle(splits);
-
-        return new FixedSplitSource(connectorId, splits);
+        return new RaptorSplitSource(raptorTableHandle.getTableId(), effectivePredicate);
     }
 
     private static List<HostAddress> getAddressesForNodes(Map<String, Node> nodeMap, Iterable<String> nodeIdentifiers)
@@ -149,5 +117,69 @@ public class RaptorSplitManager
     {
         List<T> list = ImmutableList.copyOf(elements);
         return list.get(ThreadLocalRandom.current().nextInt(list.size()));
+    }
+
+    private class RaptorSplitSource
+            implements ConnectorSplitSource
+    {
+        private final Map<String, Node> nodesById = uniqueIndex(nodeManager.getActiveNodes(), Node::getNodeIdentifier);
+        private final TupleDomain<RaptorColumnHandle> effectivePredicate;
+        private final CloseableIterator<ShardNodes> iterator;
+
+        public RaptorSplitSource(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate)
+        {
+            this.effectivePredicate = checkNotNull(effectivePredicate, "effectivePredicate is null");
+            this.iterator = shardManager.getShardNodes(tableId, effectivePredicate);
+        }
+
+        @Override
+        public String getDataSourceName()
+        {
+            return connectorId;
+        }
+
+        @Override
+        public List<ConnectorSplit> getNextBatch(int maxSize)
+        {
+            return ImmutableList.copyOf(transform(limit(iterator, maxSize), this::createSplit));
+        }
+
+        @Override
+        public void close()
+        {
+            iterator.close();
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            return !iterator.hasNext();
+        }
+
+        private ConnectorSplit createSplit(ShardNodes shard)
+        {
+            UUID shardId = shard.getShardUuid();
+            Collection<String> nodeIds = shard.getNodeIdentifiers();
+
+            List<HostAddress> addresses = getAddressesForNodes(nodesById, nodeIds);
+
+            if (addresses.isEmpty()) {
+                if (!storageManager.isBackupAvailable()) {
+                    throw new PrestoException(RAPTOR_NO_HOST_FOR_SHARD, format("No host for shard %s found: %s", shardId, nodeIds));
+                }
+
+                // Pick a random node and optimistically assign the shard to it.
+                // That node will restore the shard from the backup location.
+                Set<Node> availableNodes = nodeManager.getActiveDatasourceNodes(connectorId);
+                if (availableNodes.isEmpty()) {
+                    throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
+                }
+                Node node = selectRandom(availableNodes);
+                shardManager.assignShard(shardId, node.getNodeIdentifier());
+                addresses = ImmutableList.of(node.getHostAndPort());
+            }
+
+            return new RaptorSplit(shardId, addresses, effectivePredicate);
+        }
     }
 }
