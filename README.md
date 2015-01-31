@@ -2,7 +2,7 @@
 
 Presto is a distributed SQL query engine for big data.
 
-See the [User Manual](http://prestodb.io/docs/current/) for deployment instructions and end user documentation.
+See the [User Manual](https://prestodb.io/docs/current/) for deployment instructions and end user documentation.
 
 ## Requirements
 
