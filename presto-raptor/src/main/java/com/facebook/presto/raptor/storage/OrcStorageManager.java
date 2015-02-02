@@ -51,6 +51,7 @@ import java.util.concurrent.TimeoutException;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
+import static com.facebook.presto.raptor.util.FileUtil.copyFile;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -148,7 +149,7 @@ public class OrcStorageManager
             File backupFile = storageService.getBackupFile(shardUuid);
             storageService.createParents(backupFile);
             try {
-                Files.copy(storageFile.toPath(), backupFile.toPath());
+                copyFile(storageFile.toPath(), backupFile.toPath());
             }
             catch (IOException e) {
                 throw new PrestoException(RAPTOR_ERROR, "Failed to create backup shard file", e);

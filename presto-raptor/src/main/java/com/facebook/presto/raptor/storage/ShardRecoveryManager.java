@@ -49,6 +49,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
+import static com.facebook.presto.raptor.util.FileUtil.copyFile;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -162,7 +163,7 @@ public class ShardRecoveryManager
         long start = System.nanoTime();
 
         try {
-            Files.copy(backupFile.toPath(), stagingFile.toPath());
+            copyFile(backupFile.toPath(), stagingFile.toPath());
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to copy backup shard: " + shardUuid, e);
