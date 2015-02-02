@@ -25,6 +25,7 @@ import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
+import com.google.common.net.HostAndPort;
 import io.airlift.command.Command;
 import io.airlift.command.HelpOption;
 import io.airlift.log.Logging;
@@ -101,7 +102,7 @@ public class Console
             }
         }
 
-        try (QueryRunner queryRunner = QueryRunner.create(session)) {
+        try (QueryRunner queryRunner = QueryRunner.create(session, Optional.ofNullable(clientOptions.socksProxy))) {
             if (hasQuery) {
                 executeCommand(queryRunner, query, clientOptions.outputFormat);
             }
