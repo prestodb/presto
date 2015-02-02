@@ -152,9 +152,8 @@ public class OrcFileWriter
 
     private static RecordWriter createRecordWriter(Path target, JobConf conf)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader())) {
-            FileSystem fileSystem = target.getFileSystem(conf);
-            fileSystem.setWriteChecksum(false);
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader());
+                FileSystem fileSystem = new SyncingFileSystem()) {
             OrcFile.WriterOptions options = OrcFile.writerOptions(conf)
                     .fileSystem(fileSystem)
                     .compress(SNAPPY);
