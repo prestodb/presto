@@ -100,6 +100,10 @@ import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharOperators;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Throwables;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -109,6 +113,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.primitives.Primitives;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -193,11 +198,24 @@ public class FunctionRegistry
     private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class);
 
     private final TypeManager typeManager;
+    private final LoadingCache<SpecializedFunctionKey, FunctionInfo> specializedFunctionCache;
     private volatile FunctionMap functions = new FunctionMap();
 
     public FunctionRegistry(TypeManager typeManager, boolean experimentalSyntaxEnabled)
     {
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
+
+        specializedFunctionCache = CacheBuilder.newBuilder()
+                .maximumSize(1000)
+                .build(new CacheLoader<SpecializedFunctionKey, FunctionInfo>()
+                {
+                    @Override
+                    public FunctionInfo load(SpecializedFunctionKey key)
+                            throws Exception
+                    {
+                        return key.getFunction().specialize(key.getBoundTypeParameters(), key.getArity(), typeManager, FunctionRegistry.this);
+                    }
+                });
 
         FunctionListBuilder builder = new FunctionListBuilder(typeManager)
                 .window("row_number", BIGINT, ImmutableList.<Type>of(), RowNumberFunction.class)
@@ -347,7 +365,12 @@ public class FunctionRegistry
             Map<String, Type> boundTypeParameters = function.getSignature().bindTypeParameters(resolvedTypes, false, typeManager);
             if (boundTypeParameters != null) {
                 checkArgument(match == null, "Ambiguous call to %s with parameters %s", name, parameterTypes);
-                match = function.specialize(boundTypeParameters, resolvedTypes.size(), typeManager, this);
+                try {
+                    match = specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(function, boundTypeParameters, resolvedTypes.size()));
+                }
+                catch (UncheckedExecutionException e) {
+                    throw Throwables.propagate(e.getCause());
+                }
             }
         }
 
@@ -360,7 +383,12 @@ public class FunctionRegistry
             Map<String, Type> boundTypeParameters = function.getSignature().bindTypeParameters(resolvedTypes, true, typeManager);
             if (boundTypeParameters != null) {
                 // TODO: This should also check for ambiguities
-                return function.specialize(boundTypeParameters, resolvedTypes.size(), typeManager, this);
+                try {
+                    return specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(function, boundTypeParameters, resolvedTypes.size()));
+                }
+                catch (UncheckedExecutionException e) {
+                    throw Throwables.propagate(e.getCause());
+                }
             }
         }
 
@@ -416,7 +444,12 @@ public class FunctionRegistry
                     Map<String, Type> boundTypeParameters = function.getSignature().bindTypeParameters(resolvedTypes, false, typeManager);
                     if (boundTypeParameters != null) {
                         checkArgument(match == null, "Ambiguous call to %s with parameters %s", name, parameterTypes);
-                        match = function.specialize(boundTypeParameters, resolvedTypes.size(), typeManager, this);
+                        try {
+                            match = specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(function, boundTypeParameters, resolvedTypes.size()));
+                        }
+                        catch (UncheckedExecutionException e) {
+                            throw Throwables.propagate(e.getCause());
+                        }
                     }
                 }
 
@@ -438,7 +471,12 @@ public class FunctionRegistry
             List<Type> argumentTypes = resolveTypes(signature.getArgumentTypes(), typeManager);
             Map<String, Type> boundTypeParameters = operator.getSignature().bindTypeParameters(returnType, argumentTypes, false, typeManager);
             if (boundTypeParameters != null) {
-                return operator.specialize(boundTypeParameters, signature.getArgumentTypes().size(), typeManager, this);
+                try {
+                    return specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(operator, boundTypeParameters, signature.getArgumentTypes().size()));
+                }
+                catch (UncheckedExecutionException e) {
+                    throw Throwables.propagate(e.getCause());
+                }
             }
         }
         return null;
