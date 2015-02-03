@@ -329,11 +329,7 @@ public class SqlQueryManager
             QueryId queryId = queryInfo.getQueryId();
 
             log.debug("Remove query %s", queryId);
-            QueryExecution query = queries.remove(queryId);
-            if (query != null) {
-                log.error("Query %s is %s, but still has a QueryExecution registered", queryId, queryInfo.getState());
-                query.fail(new AbandonedException("Query " + queryId, queryInfo.getQueryStats().getLastHeartbeat(), DateTime.now()));
-            }
+            queries.remove(queryId);
             expirationQueue.remove();
         }
     }
