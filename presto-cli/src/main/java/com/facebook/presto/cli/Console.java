@@ -137,6 +137,7 @@ public class Console
 
                 // exit on EOF
                 if (line == null) {
+                    System.out.println();
                     return;
                 }
 
