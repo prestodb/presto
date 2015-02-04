@@ -229,6 +229,7 @@ public class Query
             renderStack(results, out);
         }
         renderErrorLocation(client.getQuery(), results, out);
+        out.println();
     }
 
     private static void renderErrorLocation(String query, QueryResults results, PrintStream out)
@@ -266,7 +267,7 @@ public class Query
             }
 
             ansi.reset();
-            out.println(ansi);
+            out.print(ansi);
         }
         else {
             String prefix = format("LINE %s: ", location.getLineNumber());
