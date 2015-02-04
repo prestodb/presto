@@ -272,7 +272,7 @@ public final class HiveUtil
     public static Deserializer getDeserializer(Properties schema)
     {
         String name = schema.getProperty(SERIALIZATION_LIB);
-        checkArgument(name != null, "missing property: %s", SERIALIZATION_LIB);
+        checkArgument(name != null, "Table or partition is missing Hive deserializer property: %s", SERIALIZATION_LIB);
 
         Deserializer deserializer = createDeserializer(getDeserializerClass(name));
         initializeDeserializer(deserializer, schema);
