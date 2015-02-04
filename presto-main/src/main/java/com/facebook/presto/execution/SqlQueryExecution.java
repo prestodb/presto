@@ -204,20 +204,23 @@ public class SqlQueryExecution
 
         // analyze query
         Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, Optional.of(queryExplainer), experimentalSyntaxEnabled);
-
         Analysis analysis = analyzer.analyze(statement);
-        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+
         // plan query
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata);
         Plan plan = logicalPlanner.plan(analysis);
 
+        // extract inputs
         List<Input> inputs = new InputExtractor(metadata).extract(plan.getRoot());
         stateMachine.setInputs(inputs);
 
         // fragment the plan
         SubPlan subplan = new PlanFragmenter().createSubPlans(plan);
 
+        // record analysis time
         stateMachine.recordAnalysisTime(analysisStart);
+
         return subplan;
     }
 
