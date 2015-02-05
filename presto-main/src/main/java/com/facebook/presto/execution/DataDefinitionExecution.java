@@ -150,6 +150,7 @@ public class DataDefinitionExecution<T extends Statement>
         {
             DataDefinitionTask<T> task = getTask(statement);
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
+            stateMachine.setUpdateType(task.getName());
             return new DataDefinitionExecution<>(task, statement, session, metadata, stateMachine);
         }
 

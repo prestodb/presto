@@ -225,6 +225,7 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitUse(Use node, AnalysisContext context)
     {
+        analysis.setUpdateType("USE");
         throw new SemanticException(NOT_SUPPORTED, node, "USE statement is not supported");
     }
 
@@ -353,6 +354,8 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitInsert(Insert insert, AnalysisContext context)
     {
+        analysis.setUpdateType("INSERT");
+
         // analyze the query that creates the data
         TupleDescriptor descriptor = process(insert.getQuery(), context);
 
@@ -383,6 +386,8 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitCreateTable(CreateTable node, AnalysisContext context)
     {
+        analysis.setUpdateType("CREATE TABLE");
+
         // turn this into a query that has a new table writer node on top.
         QualifiedTableName targetTable = MetadataUtil.createQualifiedTableName(session, node.getName());
         analysis.setCreateTableDestination(targetTable);
@@ -403,6 +408,8 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitCreateView(CreateView node, AnalysisContext context)
     {
+        analysis.setUpdateType("CREATE VIEW");
+
         // analyze the query that creates the view
         TupleDescriptor descriptor = process(node.getQuery(), context);
 

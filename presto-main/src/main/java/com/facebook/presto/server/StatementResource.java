@@ -235,6 +235,9 @@ public class StatementResource
         @GuardedBy("this")
         private Set<String> resetSessionProperties;
 
+        @GuardedBy("this")
+        private Long updateCount;
+
         public Query(Session session,
                 String query,
                 QueryManager queryManager,
@@ -313,6 +316,16 @@ public class StatementResource
                 queryInfo = queryManager.getQueryInfo(queryId);
             }
 
+            // TODO: figure out a better way to do this
+            // grab the update count for non-queries
+            if ((data != null) && (queryInfo.getUpdateType() != null) && (updateCount == null) &&
+                    (columns.size() == 1) && (columns.get(0).getType().equals(StandardTypes.BIGINT))) {
+                Iterator<List<Object>> iterator = data.iterator();
+                if (iterator.hasNext()) {
+                    updateCount = ((Number) iterator.next()).longValue();
+                }
+            }
+
             // close exchange client if the query has failed
             if (queryInfo.getState().isDone()) {
                 if (queryInfo.getState() != QueryState.FINISHED) {
@@ -323,11 +336,7 @@ public class StatementResource
                     // so close the exchange as soon as the query is done.
                     exchangeClient.close();
 
-                    // this is a hack to suppress the warn message in the client saying that there are no columns.
-                    // The reason for this is that the current API definition assumes that everything is a query,
-                    // so statements without results produce an error in the client otherwise.
-                    //
-                    // TODO: add support to the API for non-query statements.
+                    // Return a single value for clients that require a result.
                     columns = ImmutableList.of(new Column("result", "boolean", new ClientTypeSignature(StandardTypes.BOOLEAN, ImmutableList.<ClientTypeSignature>of(), ImmutableList.<Object>of())));
                     data = ImmutableSet.<List<Object>>of(ImmutableList.<Object>of(true));
                 }
@@ -352,7 +361,9 @@ public class StatementResource
                     columns,
                     data,
                     toStatementStats(queryInfo),
-                    toQueryError(queryInfo));
+                    toQueryError(queryInfo),
+                    queryInfo.getUpdateType(),
+                    updateCount);
 
             // cache the last results
             if (lastResult != null) {

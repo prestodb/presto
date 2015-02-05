@@ -197,6 +197,8 @@ public class SqlQueryExecution
         Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, Optional.of(queryExplainer), experimentalSyntaxEnabled);
         Analysis analysis = analyzer.analyze(statement);
 
+        stateMachine.setUpdateType(analysis.getUpdateType());
+
         // plan query
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata);
