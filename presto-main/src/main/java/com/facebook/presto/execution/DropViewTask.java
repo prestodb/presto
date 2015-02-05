@@ -29,6 +29,12 @@ public class DropViewTask
         implements DataDefinitionTask<DropView>
 {
     @Override
+    public String getName()
+    {
+        return "DROP VIEW";
+    }
+
+    @Override
     public void execute(DropView statement, Session session, Metadata metadata, QueryStateMachine stateMachine)
     {
         QualifiedTableName name = createQualifiedTableName(session, statement.getName());

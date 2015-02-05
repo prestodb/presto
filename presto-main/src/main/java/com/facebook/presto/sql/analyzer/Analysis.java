@@ -46,6 +46,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class Analysis
 {
     private Query query;
+    private String updateType;
 
     private final IdentityHashMap<Table, Query> namedQueries = new IdentityHashMap<>();
 
@@ -90,6 +91,16 @@ public class Analysis
     public void setQuery(Query query)
     {
         this.query = query;
+    }
+
+    public String getUpdateType()
+    {
+        return updateType;
+    }
+
+    public void setUpdateType(String updateType)
+    {
+        this.updateType = updateType;
     }
 
     public void addResolvedNames(Expression expression, Map<QualifiedName, Integer> mappings)

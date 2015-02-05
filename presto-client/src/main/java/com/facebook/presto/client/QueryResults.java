@@ -64,6 +64,8 @@ public class QueryResults
     private final Iterable<List<Object>> data;
     private final StatementStats stats;
     private final QueryError error;
+    private final String updateType;
+    private final Long updateCount;
 
     @JsonCreator
     public QueryResults(
@@ -74,9 +76,11 @@ public class QueryResults
             @JsonProperty("columns") List<Column> columns,
             @JsonProperty("data") List<List<Object>> data,
             @JsonProperty("stats") StatementStats stats,
-            @JsonProperty("error") QueryError error)
+            @JsonProperty("error") QueryError error,
+            @JsonProperty("updateType") String updateType,
+            @JsonProperty("updateCount") Long updateCount)
     {
-        this(id, infoUri, partialCancelUri, nextUri, columns, fixData(columns, data), stats, error);
+        this(id, infoUri, partialCancelUri, nextUri, columns, fixData(columns, data), stats, error, updateType, updateCount);
     }
 
     public QueryResults(
@@ -87,7 +91,9 @@ public class QueryResults
             List<Column> columns,
             Iterable<List<Object>> data,
             StatementStats stats,
-            QueryError error)
+            QueryError error,
+            String updateType,
+            Long updateCount)
     {
         this.id = checkNotNull(id, "id is null");
         this.infoUri = checkNotNull(infoUri, "infoUri is null");
@@ -97,6 +103,8 @@ public class QueryResults
         this.data = (data != null) ? unmodifiableIterable(data) : null;
         this.stats = checkNotNull(stats, "stats is null");
         this.error = error;
+        this.updateType = updateType;
+        this.updateCount = updateCount;
     }
 
     @NotNull
@@ -155,6 +163,20 @@ public class QueryResults
         return error;
     }
 
+    @Nullable
+    @JsonProperty
+    public String getUpdateType()
+    {
+        return updateType;
+    }
+
+    @Nullable
+    @JsonProperty
+    public Long getUpdateCount()
+    {
+        return updateCount;
+    }
+
     @Override
     public String toString()
     {
@@ -167,6 +189,8 @@ public class QueryResults
                 .add("hasData", data != null)
                 .add("stats", stats)
                 .add("error", error)
+                .add("updateType", updateType)
+                .add("updateCount", updateCount)
                 .toString();
     }
 

@@ -48,6 +48,7 @@ public class QueryInfo
     private final QueryStats queryStats;
     private final Map<String, String> setSessionProperties;
     private final Set<String> resetSessionProperties;
+    private final String updateType;
     private final StageInfo outputStage;
     private final FailureInfo failureInfo;
     private final ErrorType errorType;
@@ -66,6 +67,7 @@ public class QueryInfo
             @JsonProperty("queryStats") QueryStats queryStats,
             @JsonProperty("setSessionProperties") Map<String, String> setSessionProperties,
             @JsonProperty("resetSessionProperties") Set<String> resetSessionProperties,
+            @JsonProperty("updateType") String updateType,
             @JsonProperty("outputStage") StageInfo outputStage,
             @JsonProperty("failureInfo") FailureInfo failureInfo,
             @JsonProperty("errorCode") ErrorCode errorCode,
@@ -92,6 +94,7 @@ public class QueryInfo
         this.queryStats = queryStats;
         this.setSessionProperties = ImmutableMap.copyOf(setSessionProperties);
         this.resetSessionProperties = ImmutableSet.copyOf(resetSessionProperties);
+        this.updateType = updateType;
         this.outputStage = outputStage;
         this.failureInfo = failureInfo;
         this.errorType = errorCode == null ? null : toErrorType(errorCode.getCode());
@@ -157,6 +160,13 @@ public class QueryInfo
     public Set<String> getResetSessionProperties()
     {
         return resetSessionProperties;
+    }
+
+    @Nullable
+    @JsonProperty
+    public String getUpdateType()
+    {
+        return updateType;
     }
 
     @JsonProperty

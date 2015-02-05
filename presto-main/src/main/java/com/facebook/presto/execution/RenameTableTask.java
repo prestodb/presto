@@ -31,6 +31,12 @@ public class RenameTableTask
         implements DataDefinitionTask<RenameTable>
 {
     @Override
+    public String getName()
+    {
+        return "RENAME TABLE";
+    }
+
+    @Override
     public void execute(RenameTable statement, Session session, Metadata metadata, QueryStateMachine stateMachine)
     {
         QualifiedTableName tableName = createQualifiedTableName(session, statement.getSource());
