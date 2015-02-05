@@ -217,19 +217,18 @@ public class TestOrcStorageManager
         assertEquals(uuids.size(), 1);
         UUID uuid = Iterables.getOnlyElement(uuids);
 
+        MaterializedResult expected = resultBuilder(SESSION, columnTypes)
+                .row(123, "hello", sqlBinary(bytes1), sqlDate(2001, 8, 22), true, 123.45)
+                .row(null, null, null, null, null, null)
+                .row(456, "bye", sqlBinary(bytes3), sqlDate(2005, 4, 22), false, 987.65)
+                .build();
+
         // no tuple domain (all)
         TupleDomain<RaptorColumnHandle> tupleDomain = TupleDomain.all();
 
         try (ConnectorPageSource pageSource = manager.getPageSource(uuid, columnIds, columnTypes, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
-            assertEquals(result.getRowCount(), 3);
-
-            MaterializedResult expected = resultBuilder(SESSION, columnTypes)
-                    .row(123, "hello", sqlBinary(bytes1), sqlDate(2001, 8, 22), true, 123.45)
-                    .row(null, null, null, null, null, null)
-                    .row(456, "bye", sqlBinary(bytes3), sqlDate(2005, 4, 22), false, 987.65)
-                    .build();
-
+            assertEquals(result.getRowCount(), expected.getRowCount());
             assertEquals(result, expected);
         }
 
@@ -240,7 +239,7 @@ public class TestOrcStorageManager
 
         try (ConnectorPageSource pageSource = manager.getPageSource(uuid, columnIds, columnTypes, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
-            assertEquals(result.getRowCount(), 3);
+            assertEquals(result.getRowCount(), expected.getRowCount());
         }
 
         // tuple domain outside the column range
