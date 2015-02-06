@@ -581,6 +581,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testOrderByLimitZero()
+            throws Exception
+    {
+        assertQuery("SELECT custkey, totalprice FROM orders ORDER BY orderkey LIMIT 0");
+    }
+
+    @Test
     public void testRepeatedAggregations()
             throws Exception
     {
