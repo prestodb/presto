@@ -129,7 +129,7 @@ public class TopNOperator
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.types = checkNotNull(types, "types is null");
 
-        checkArgument(n > 0, "n must be greater than zero");
+        checkArgument(n >= 0, "n must be positive");
         this.n = n;
 
         this.sortTypes = checkNotNull(sortTypes, "sortTypes is null");
@@ -141,6 +141,10 @@ public class TopNOperator
         this.memoryManager = new TopNMemoryManager(checkNotNull(operatorContext, "operatorContext is null"));
 
         this.pageBuilder = new PageBuilder(types);
+
+        if (n == 0) {
+            finishing = true;
+        }
     }
 
     @Override
