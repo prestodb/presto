@@ -30,6 +30,7 @@ public class QueryManagerConfig
     private int maxQueuedQueries = 5000;
     private int maxConcurrentBigQueries = 10;
     private int maxQueuedBigQueries = 500;
+    private String queueConfigFile;
     private int maxPendingSplitsPerNode = 100;
 
     private int initialHashPartitions = 8;
@@ -44,6 +45,18 @@ public class QueryManagerConfig
     private Duration remoteTaskMinErrorDuration = new Duration(2, TimeUnit.MINUTES);
     private int remoteTaskMaxCallbackThreads = 1000;
 
+    public String getQueueConfigFile()
+    {
+        return queueConfigFile;
+    }
+
+    @Config("query.queue-config-file")
+    public QueryManagerConfig setQueueConfigFile(String queueConfigFile)
+    {
+        this.queueConfigFile = queueConfigFile;
+        return this;
+    }
+
     @Min(1)
     public int getScheduleSplitBatchSize()
     {
@@ -57,12 +70,14 @@ public class QueryManagerConfig
         return this;
     }
 
+    @Deprecated
     @Min(1)
     public int getMaxConcurrentBigQueries()
     {
         return maxConcurrentBigQueries;
     }
 
+    @Deprecated
     @Config("experimental.max-concurrent-big-queries")
     public QueryManagerConfig setMaxConcurrentBigQueries(int maxConcurrentBigQueries)
     {
@@ -70,12 +85,14 @@ public class QueryManagerConfig
         return this;
     }
 
+    @Deprecated
     @Min(1)
     public int getMaxQueuedBigQueries()
     {
         return maxQueuedBigQueries;
     }
 
+    @Deprecated
     @Config("experimental.max-queued-big-queries")
     public QueryManagerConfig setMaxQueuedBigQueries(int maxQueuedBigQueries)
     {
@@ -83,12 +100,14 @@ public class QueryManagerConfig
         return this;
     }
 
+    @Deprecated
     @Min(1)
     public int getMaxConcurrentQueries()
     {
         return maxConcurrentQueries;
     }
 
+    @Deprecated
     @Config("query.max-concurrent-queries")
     public QueryManagerConfig setMaxConcurrentQueries(int maxConcurrentQueries)
     {
@@ -96,12 +115,14 @@ public class QueryManagerConfig
         return this;
     }
 
+    @Deprecated
     @Min(1)
     public int getMaxQueuedQueries()
     {
         return maxQueuedQueries;
     }
 
+    @Deprecated
     @Config("query.max-queued-queries")
     public QueryManagerConfig setMaxQueuedQueries(int maxQueuedQueries)
     {
