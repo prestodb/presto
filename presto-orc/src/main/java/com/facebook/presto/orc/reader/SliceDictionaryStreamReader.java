@@ -228,27 +228,15 @@ public class SliceDictionaryStreamReader
     private static void readDictionary(@Nullable ByteArrayStream dictionaryDataStream, int dictionarySize, int[] dictionaryLength, Slice[] dictionary)
             throws IOException
     {
-        // sum lengths
-        int totalLength = 0;
-        for (int i = 0; i < dictionarySize; i++) {
-            totalLength += dictionaryLength[i];
-        }
-
-        // read dictionary data
-        byte[] dictionaryData = new byte[0];
-        if (totalLength > 0) {
-            if (dictionaryDataStream == null) {
-                throw new OrcCorruptionException("Dictionary length is not zero but dictionary data stream is not present");
-            }
-            dictionaryData = dictionaryDataStream.next(totalLength);
-        }
-
         // build dictionary slices
-        int offset = 0;
         for (int i = 0; i < dictionarySize; i++) {
             int length = dictionaryLength[i];
-            dictionary[i] = Slices.wrappedBuffer(dictionaryData, offset, length);
-            offset += length;
+            if (length == 0) {
+                dictionary[i] = Slices.EMPTY_SLICE;
+            }
+            else {
+                dictionary[i] = Slices.wrappedBuffer(dictionaryDataStream.next(length));
+            }
         }
     }
 

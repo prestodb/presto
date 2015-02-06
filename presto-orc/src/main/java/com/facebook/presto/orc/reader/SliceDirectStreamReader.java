@@ -125,30 +125,18 @@ public class SliceDirectStreamReader
             }
         }
 
-        int totalLength = 0;
         for (int i = 0; i < nextBatchSize; i++) {
-            if (!isNullVector[i]) {
-                totalLength += lengthVector[i];
-            }
-        }
-
-        byte[] data = new byte[0];
-        if (totalLength > 0) {
-            if (dataStream == null) {
-                throw new OrcCorruptionException("Value is not null but data stream is not present");
-            }
-            data = dataStream.next(totalLength);
-        }
-
-        int offset = 0;
-        for (int i = 0; i < nextBatchSize; i++) {
-            if (!isNullVector[i]) {
-                int length = lengthVector[i];
-                sliceVector.vector[i] = Slices.wrappedBuffer(data, offset, length);
-                offset += length;
+            if (isNullVector[i]) {
+                sliceVector.vector[i] = null;
             }
             else {
-                sliceVector.vector[i] = null;
+                int length = lengthVector[i];
+                if (length == 0) {
+                    sliceVector.vector[i] = Slices.EMPTY_SLICE;
+                }
+                else {
+                    sliceVector.vector[i] = Slices.wrappedBuffer(dataStream.next(length));
+                }
             }
         }
 
