@@ -127,7 +127,7 @@ public class SqlQueryManager
 
         queryManagementExecutor = Executors.newScheduledThreadPool(config.getQueryManagerExecutorPoolSize(), threadsNamed("query-management-%d"));
         queryManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryManagementExecutor);
-        queryManagementExecutor.scheduleAtFixedRate(new Runnable()
+        queryManagementExecutor.scheduleWithFixedDelay(new Runnable()
         {
             @Override
             public void run()

@@ -118,7 +118,7 @@ public class SqlTaskManager
     @PostConstruct
     public void start()
     {
-        taskManagementExecutor.scheduleAtFixedRate(new Runnable()
+        taskManagementExecutor.scheduleWithFixedDelay(new Runnable()
         {
             @Override
             public void run()
@@ -138,7 +138,7 @@ public class SqlTaskManager
             }
         }, 200, 200, TimeUnit.MILLISECONDS);
 
-        taskManagementExecutor.scheduleAtFixedRate(new Runnable()
+        taskManagementExecutor.scheduleWithFixedDelay(new Runnable()
         {
             @Override
             public void run()
