@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.fasterxml.jackson.core.JsonFactory;
@@ -395,20 +396,23 @@ class ParquetHiveRecordCursor
                     }
                     else {
                         GroupType groupType = parquetType.asGroupType();
-                        switch (groupType.getOriginalType()) {
-                            case LIST:
+                        switch (column.getTypeSignature().getBase()) {
+                            case StandardTypes.ARRAY:
                                 ParquetJsonColumnConverter listConverter = new ParquetJsonColumnConverter(new ParquetListJsonConverter(groupType.getName(), null, groupType), i);
                                 converters.add(listConverter);
                                 closeableBuilder.add(listConverter);
                                 break;
-                            case MAP:
-                            case MAP_KEY_VALUE: // original versions of Parquet have map and entry swapped
+                            case StandardTypes.MAP:
                                 ParquetJsonColumnConverter mapConverter = new ParquetJsonColumnConverter(new ParquetMapJsonConverter(groupType.getName(), null, groupType), i);
                                 converters.add(mapConverter);
                                 closeableBuilder.add(mapConverter);
                                 break;
-                            case UTF8:
-                            case ENUM:
+                            case StandardTypes.ROW:
+                                ParquetJsonColumnConverter rowConverter = new ParquetJsonColumnConverter(new ParquetStructJsonConverter(groupType.getName(), null, groupType), i);
+                                converters.add(rowConverter);
+                                closeableBuilder.add(rowConverter);
+                                break;
+                            default:
                                 throw new IllegalArgumentException("Group column " + groupType.getName() + " type " + groupType.getOriginalType() + " not supported");
                         }
                     }
