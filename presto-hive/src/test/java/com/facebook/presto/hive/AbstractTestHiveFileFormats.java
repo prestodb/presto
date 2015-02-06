@@ -67,8 +67,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.HiveType.getType;
-import static com.facebook.presto.hive.HiveUtil.isArrayType;
-import static com.facebook.presto.hive.HiveUtil.isMapType;
+import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -201,6 +200,10 @@ public abstract class AbstractTestHiveFileFormats
                     getStandardListObjectInspector(javaTimestampObjectInspector),
                     ImmutableList.of(new Timestamp(TIMESTAMP)),
                     String.format("[%d]", TIMESTAMP)))
+            .add(new TestColumn("t_struct_bigint",
+                    getStandardStructObjectInspector(ImmutableList.of("s_bigint"), ImmutableList.of(javaLongObjectInspector)),
+                    new Long[] {1L},
+                    "[1]"))
             .add(new TestColumn("t_complex",
                     getStandardMapObjectInspector(
                             javaStringObjectInspector,
@@ -342,7 +345,7 @@ public abstract class AbstractTestHiveFileFormats
                 else if (TimestampType.TIMESTAMP.equals(type)) {
                     fieldFromCursor = cursor.getLong(i);
                 }
-                else if (isArrayType(type) || isMapType(type)) {
+                else if (isStructuralType(type)) {
                     fieldFromCursor = cursor.getSlice(i);
                 }
                 else {
