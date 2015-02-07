@@ -36,7 +36,6 @@ import static com.facebook.presto.sql.relational.Signatures.IN;
 import static com.facebook.presto.sql.relational.Signatures.IS_NULL;
 import static com.facebook.presto.sql.relational.Signatures.NULL_IF;
 import static com.facebook.presto.sql.relational.Signatures.SWITCH;
-import static com.facebook.presto.sql.relational.Signatures.TRY_CAST;
 
 public class ByteCodeExpressionVisitor
         implements RowExpressionVisitor<CompilerContext, ByteCodeNode>
@@ -75,9 +74,6 @@ public class ByteCodeExpressionVisitor
                 case SWITCH:
                     // (SWITCH <expr> (WHEN <expr> <expr>) (WHEN <expr> <expr>) <expr>)
                     generator = new SwitchCodeGenerator();
-                    break;
-                case TRY_CAST:
-                    generator = new TryCastCodeGenerator();
                     break;
                 // functions that take null as input
                 case IS_NULL:
