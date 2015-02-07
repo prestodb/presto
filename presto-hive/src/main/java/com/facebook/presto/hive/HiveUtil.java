@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SerializableNativeValue;
@@ -63,7 +64,9 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.HiveType.HIVE_BOOLEAN;
 import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
@@ -82,7 +85,6 @@ import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.transform;
@@ -206,7 +208,7 @@ public final class HiveUtil
     static String getInputFormatName(Properties schema)
     {
         String name = schema.getProperty(FILE_INPUT_FORMAT);
-        checkArgument(name != null, "missing property: %s", FILE_INPUT_FORMAT);
+        checkCondition(name != null, HIVE_INVALID_METADATA, "Table or partition is missing Hive input format property: %s", FILE_INPUT_FORMAT);
         return name;
     }
 
@@ -272,7 +274,7 @@ public final class HiveUtil
     public static Deserializer getDeserializer(Properties schema)
     {
         String name = schema.getProperty(SERIALIZATION_LIB);
-        checkArgument(name != null, "Table or partition is missing Hive deserializer property: %s", SERIALIZATION_LIB);
+        checkCondition(name != null, HIVE_INVALID_METADATA, "Table or partition is missing Hive deserializer property: %s", SERIALIZATION_LIB);
 
         Deserializer deserializer = createDeserializer(getDeserializerClass(name));
         initializeDeserializer(deserializer, schema);
@@ -402,8 +404,8 @@ public final class HiveUtil
 
     public static String decodeViewData(String data)
     {
-        checkArgument(data.startsWith(VIEW_PREFIX), "View data missing prefix: %s", data);
-        checkArgument(data.endsWith(VIEW_SUFFIX), "View data missing suffix: %s", data);
+        checkCondition(data.startsWith(VIEW_PREFIX), HIVE_INVALID_VIEW_DATA, "View data missing prefix: %s", data);
+        checkCondition(data.endsWith(VIEW_SUFFIX), HIVE_INVALID_VIEW_DATA, "View data missing suffix: %s", data);
         data = data.substring(VIEW_PREFIX.length());
         data = data.substring(0, data.length() - VIEW_SUFFIX.length());
         return new String(base64().decode(data), UTF_8);
@@ -491,7 +493,7 @@ public final class HiveUtil
             HiveType hiveType = getHiveType(field.getFieldObjectInspector());
             if (hiveType != null && (includeSampleWeight || !field.getFieldName().equals(SAMPLE_WEIGHT_COLUMN_NAME))) {
                 Type type = getType(field.getFieldObjectInspector(), typeManager);
-                checkNotNull(type, "Unsupported hive type: %s", field.getFieldObjectInspector().getTypeName());
+                checkCondition(type != null, NOT_SUPPORTED, "Unsupported Hive type: %s", field.getFieldObjectInspector().getTypeName());
                 columns.add(new HiveColumnHandle(connectorId, field.getFieldName(), hiveColumnIndex, hiveType, type.getTypeSignature(), hiveColumnIndex, false));
             }
             hiveColumnIndex++;
@@ -521,5 +523,12 @@ public final class HiveUtil
     public static Slice base64Decode(byte[] bytes)
     {
         return Slices.wrappedBuffer(Base64.getDecoder().decode(bytes));
+    }
+
+    public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, String formatString, Object... args)
+    {
+        if (!condition) {
+            throw new PrestoException(errorCode, format(formatString, args));
+        }
     }
 }
