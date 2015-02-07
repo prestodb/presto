@@ -543,8 +543,13 @@ public class TestExpressionCompiler
         assertExecute("try_cast('foo' as varchar)", "foo");
         assertExecute("try_cast('foo' as bigint)", null);
         assertExecute("try_cast(bound_string as bigint)", null);
+        assertExecute("try_cast(cast(null as varchar) as bigint)", null);
+        assertExecute("try_cast(bound_long / 13  as bigint)", 94);
         assertExecute("coalesce(try_cast('123' as bigint), 456)", 123L);
         assertExecute("coalesce(try_cast('foo' as bigint), 456)", 456L);
+        assertExecute("concat('foo', cast('bar' as varchar))", "foobar");
+        assertExecute("try_cast(try_cast(123 as varchar) as bigint)", 123L);
+        assertExecute("try_cast('foo' as varchar) || try_cast('bar' as varchar)", "foobar");
 
         Futures.allAsList(futures).get();
     }
