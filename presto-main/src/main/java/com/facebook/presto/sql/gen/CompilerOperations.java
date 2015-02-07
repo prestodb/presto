@@ -59,14 +59,6 @@ public final class CompilerOperations
         return left > right;
     }
 
-    public static void propagateInterruptedException(Throwable throwable)
-    {
-        if (throwable instanceof InterruptedException) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(throwable);
-        }
-    }
-
     public static boolean in(Object value, Set<?> set)
     {
         return set.contains(value);
