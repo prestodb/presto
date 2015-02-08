@@ -114,11 +114,13 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.all;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
@@ -340,6 +342,34 @@ public abstract class AbstractTestHiveClient
     {
         List<SchemaTableName> tables = metadata.listTables(SESSION, database);
         assertTrue(tables.contains(tablePartitionFormat));
+        assertTrue(tables.contains(tableUnpartitioned));
+    }
+
+    @Test
+    public void testGetAllTableNames()
+            throws Exception
+    {
+        List<SchemaTableName> tables = metadata.listTables(SESSION, null);
+        assertTrue(tables.contains(tablePartitionFormat));
+        assertTrue(tables.contains(tableUnpartitioned));
+    }
+
+    @Test
+    public void testGetAllTableColumns()
+    {
+        Map<SchemaTableName, List<ColumnMetadata>> allColumns
+                = metadata.listTableColumns(SESSION, new SchemaTablePrefix());
+        assertTrue(allColumns.containsKey(tablePartitionFormat));
+        assertTrue(allColumns.containsKey(tableUnpartitioned));
+    }
+
+    @Test
+    public void testGetAllTableColumnsInSchema()
+    {
+        Map<SchemaTableName, List<ColumnMetadata>> allColumns
+                = metadata.listTableColumns(SESSION, new SchemaTablePrefix(database));
+        assertTrue(allColumns.containsKey(tablePartitionFormat));
+        assertTrue(allColumns.containsKey(tableUnpartitioned));
     }
 
     @Test
@@ -1144,6 +1174,12 @@ public abstract class AbstractTestHiveClient
                 assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
             }
         }
+    }
+
+    @Test
+    public void testListTables()
+    {
+        // metadata.listTableColumns(ConnectorSession session, SchemaTablePrefix prefix);
     }
 
     private void createDummyTable(SchemaTableName tableName)
