@@ -42,6 +42,52 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testInformationSchemaTablesWithoutEqualityConstraint()
+            throws Exception
+    {
+        @Language("SQL")
+        String actual = "" +
+                "SELECT LOWER(table_name) FROM " +
+                "  information_schema.tables " +
+                "WHERE " +
+                "  table_catalog = 'hive' " +
+                "  and table_schema LIKE 'tpch' " +
+                "  and table_name LIKE '%orders'";
+
+        @Language("SQL")
+        String expected = "" +
+                "SELECT LOWER(table_name) FROM " +
+                "  information_schema.tables " +
+                "WHERE " +
+                "  table_name LIKE '%ORDERS'";
+
+        assertQuery(actual, expected);
+    }
+
+    @Test
+    public void testInformationSchemaColumnsWithoutEqualityConstraint()
+            throws Exception
+    {
+        @Language("SQL")
+        String actual = "" +
+                "SELECT LOWER(table_name), LOWER(column_name) FROM " +
+                "  information_schema.columns " +
+                "WHERE " +
+                "  table_catalog = 'hive' " +
+                "  and table_schema = 'tpch' " +
+                "  and table_name LIKE '%orders%'";
+
+        @Language("SQL")
+        String expected = "" +
+                "SELECT LOWER(table_name), LOWER(column_name) FROM " +
+                "  information_schema.columns " +
+                "WHERE " +
+                "  table_name LIKE '%ORDERS%'";
+
+        assertQuery(actual, expected);
+    }
+
+    @Test
     public void createTableWithEveryType()
             throws Exception
     {

@@ -341,6 +341,34 @@ public abstract class AbstractTestHiveClient
     {
         List<SchemaTableName> tables = metadata.listTables(SESSION, database);
         assertTrue(tables.contains(tablePartitionFormat));
+        assertTrue(tables.contains(tableUnpartitioned));
+    }
+
+    @Test
+    public void testGetAllTableNames()
+            throws Exception
+    {
+        List<SchemaTableName> tables = metadata.listTables(SESSION, null);
+        assertTrue(tables.contains(tablePartitionFormat));
+        assertTrue(tables.contains(tableUnpartitioned));
+    }
+
+    @Test
+    public void testGetAllTableColumns()
+    {
+        Map<SchemaTableName, List<ColumnMetadata>> allColumns
+                = metadata.listTableColumns(SESSION, new SchemaTablePrefix());
+        assertTrue(allColumns.containsKey(tablePartitionFormat));
+        assertTrue(allColumns.containsKey(tableUnpartitioned));
+    }
+
+    @Test
+    public void testGetAllTableColumnsInSchema()
+    {
+        Map<SchemaTableName, List<ColumnMetadata>> allColumns
+                = metadata.listTableColumns(SESSION, new SchemaTablePrefix(database));
+        assertTrue(allColumns.containsKey(tablePartitionFormat));
+        assertTrue(allColumns.containsKey(tableUnpartitioned));
     }
 
     @Test
