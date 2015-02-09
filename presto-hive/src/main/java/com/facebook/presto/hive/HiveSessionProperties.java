@@ -24,6 +24,7 @@ public final class HiveSessionProperties
     public static final String STORAGE_FORMAT_PROPERTY = "storage_format";
     private static final String OPTIMIZED_READER_ENABLED = "optimized_reader_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
+    private static final String ORC_MAX_READ_SIZE = "orc_max_read_size";
 
     private HiveSessionProperties()
     {
@@ -61,6 +62,21 @@ public final class HiveSessionProperties
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_SESSION_PROPERTY, ORC_MAX_MERGE_DISTANCE + " is invalid: " + maxMergeDistanceString);
+        }
+    }
+
+    public static DataSize getOrcMaxReadSize(ConnectorSession session, DataSize defaultValue)
+    {
+        String maxReadSizeString = session.getProperties().get(ORC_MAX_READ_SIZE);
+        if (maxReadSizeString == null) {
+            return defaultValue;
+        }
+
+        try {
+            return DataSize.valueOf(maxReadSizeString);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, ORC_MAX_READ_SIZE + " is invalid: " + maxReadSizeString);
         }
     }
 

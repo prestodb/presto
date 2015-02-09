@@ -16,6 +16,7 @@ package com.facebook.presto.orc;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 
 import java.io.File;
 import java.io.IOException;
@@ -99,7 +100,7 @@ public class FileOrcDataSource
         // 1) sort ranges and perform one read per range
         // 2) single read with transferTo() using custom WritableByteChannel
 
-        Iterable<DiskRange> mergedRanges = mergeAdjacentDiskRanges(diskRanges.values(), maxMergeDistance);
+        Iterable<DiskRange> mergedRanges = mergeAdjacentDiskRanges(diskRanges.values(), maxMergeDistance, new DataSize(8, Unit.MEGABYTE));
 
         // read ranges
         Map<DiskRange, byte[]> buffers = new LinkedHashMap<>();
