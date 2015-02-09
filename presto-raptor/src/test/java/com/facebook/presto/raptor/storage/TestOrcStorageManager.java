@@ -211,6 +211,8 @@ public class TestOrcStorageManager
                 {883, "nan", null, null, null, Double.NaN},
                 {884, "min", null, null, null, Double.MIN_VALUE},
                 {885, "max", null, null, null, Double.MAX_VALUE},
+                {886, "pzero", null, null, null, 0.0},
+                {887, "nzero", null, null, null, -0.0},
         };
 
         List<Page> pages = RowPagesBuilder.rowPagesBuilder(columnTypes)
