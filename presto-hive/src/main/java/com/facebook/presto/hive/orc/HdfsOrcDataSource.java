@@ -37,9 +37,10 @@ public class HdfsOrcDataSource
     private final String path;
     private final long size;
     private final DataSize maxMergeDistance;
+    private final DataSize maxReadSize;
     private long readTimeNanos;
 
-    public HdfsOrcDataSource(String path, FSDataInputStream inputStream, long size, DataSize maxMergeDistance)
+    public HdfsOrcDataSource(String path, FSDataInputStream inputStream, long size, DataSize maxMergeDistance, DataSize maxReadSize)
     {
         this.path = checkNotNull(path, "path is null");
         this.inputStream = checkNotNull(inputStream, "inputStream is null");
@@ -47,6 +48,7 @@ public class HdfsOrcDataSource
         checkArgument(size >= 0, "size is negative");
 
         this.maxMergeDistance = checkNotNull(maxMergeDistance, "maxMergeDistance is null");
+        this.maxReadSize = checkNotNull(maxReadSize, "maxReadSize is null");
     }
 
     @Override
@@ -96,7 +98,7 @@ public class HdfsOrcDataSource
             return ImmutableMap.of();
         }
 
-        Iterable<DiskRange> mergedRanges = mergeAdjacentDiskRanges(diskRanges.values(), maxMergeDistance);
+        Iterable<DiskRange> mergedRanges = mergeAdjacentDiskRanges(diskRanges.values(), maxMergeDistance, maxReadSize);
 
         // read ranges
         Map<DiskRange, byte[]> buffers = new LinkedHashMap<>();

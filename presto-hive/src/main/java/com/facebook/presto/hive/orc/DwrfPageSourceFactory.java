@@ -24,7 +24,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.Deserializer;
@@ -37,10 +36,12 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadSize;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedReaderEnabled;
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 import static com.facebook.presto.hive.orc.OrcPageSourceFactory.createOrcPageSource;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class DwrfPageSourceFactory
         implements HivePageSourceFactory
@@ -48,24 +49,26 @@ public class DwrfPageSourceFactory
     private final TypeManager typeManager;
     private final boolean enabled;
     private final DataSize orcMaxMergeDistance;
+    private final DataSize orcMaxReadSize;
 
     @Inject
     public DwrfPageSourceFactory(TypeManager typeManager, HiveClientConfig config)
     {
         //noinspection deprecation
-        this(typeManager, config.isOptimizedReaderEnabled(), config.getOrcMaxMergeDistance());
+        this(typeManager, config.isOptimizedReaderEnabled(), config.getOrcMaxMergeDistance(), config.getOrcMaxReadSize());
     }
 
     public DwrfPageSourceFactory(TypeManager typeManager)
     {
-        this(typeManager, true, new DataSize(1, Unit.MEGABYTE));
+        this(typeManager, true, new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE));
     }
 
-    public DwrfPageSourceFactory(TypeManager typeManager, boolean enabled, DataSize orcMaxMergeDistance)
+    public DwrfPageSourceFactory(TypeManager typeManager, boolean enabled, DataSize orcMaxMergeDistance, DataSize orcMaxReadSize)
     {
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
         this.enabled = enabled;
         this.orcMaxMergeDistance = checkNotNull(orcMaxMergeDistance, "orcMaxMergeDistance is null");
+        this.orcMaxReadSize = checkNotNull(orcMaxReadSize, "orcMaxReadSize is null");
     }
 
     @Override
@@ -101,6 +104,7 @@ public class DwrfPageSourceFactory
                 effectivePredicate,
                 hiveStorageTimeZone,
                 typeManager,
-                getOrcMaxMergeDistance(session, orcMaxMergeDistance)));
+                getOrcMaxMergeDistance(session, orcMaxMergeDistance),
+                getOrcMaxReadSize(session, orcMaxReadSize)));
     }
 }
