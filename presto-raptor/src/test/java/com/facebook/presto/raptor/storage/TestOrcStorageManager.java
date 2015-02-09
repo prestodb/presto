@@ -205,15 +205,19 @@ public class TestOrcStorageManager
 
         StoragePageSink sink = manager.createStoragePageSink(columnIds, columnTypes);
 
+        Object[][] doubles = {
+                {881, "-inf", null, null, null, Double.NEGATIVE_INFINITY},
+                {882, "+inf", null, null, null, Double.POSITIVE_INFINITY},
+                {883, "nan", null, null, null, Double.NaN},
+                {884, "min", null, null, null, Double.MIN_VALUE},
+                {885, "max", null, null, null, Double.MAX_VALUE},
+        };
+
         List<Page> pages = RowPagesBuilder.rowPagesBuilder(columnTypes)
                 .row(123, "hello", wrappedBuffer(bytes1), dateValue(new DateTime(2001, 8, 22, 0, 0, 0, 0, UTC)), true, 123.45)
                 .row(null, null, null, null, null, null)
                 .row(456, "bye", wrappedBuffer(bytes3), dateValue(new DateTime(2005, 4, 22, 0, 0, 0, 0, UTC)), false, 987.65)
-                .row(881, "-inf", null, null, null, Double.NEGATIVE_INFINITY)
-                .row(882, "+inf", null, null, null, Double.POSITIVE_INFINITY)
-                .row(883, "nan", null, null, null, Double.NaN)
-                .row(884, "min", null, null, null, Double.MIN_VALUE)
-                .row(885, "max", null, null, null, Double.MAX_VALUE)
+                .rows(doubles)
                 .build();
 
         sink.appendPages(pages);
@@ -226,11 +230,7 @@ public class TestOrcStorageManager
                 .row(123, "hello", sqlBinary(bytes1), sqlDate(2001, 8, 22), true, 123.45)
                 .row(null, null, null, null, null, null)
                 .row(456, "bye", sqlBinary(bytes3), sqlDate(2005, 4, 22), false, 987.65)
-                .row(881, "-inf", null, null, null, Double.NEGATIVE_INFINITY)
-                .row(882, "+inf", null, null, null, Double.POSITIVE_INFINITY)
-                .row(883, "nan", null, null, null, Double.NaN)
-                .row(884, "min", null, null, null, Double.MIN_VALUE)
-                .row(885, "max", null, null, null, Double.MAX_VALUE)
+                .rows(doubles)
                 .build();
 
         // no tuple domain (all)
