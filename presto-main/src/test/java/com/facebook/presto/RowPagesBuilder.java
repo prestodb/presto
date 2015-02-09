@@ -93,6 +93,14 @@ public class RowPagesBuilder
         return this;
     }
 
+    public RowPagesBuilder rows(Object[]... rows)
+    {
+        for (Object[] row : rows) {
+            row(row);
+        }
+        return this;
+    }
+
     public RowPagesBuilder pageBreak()
     {
         if (!builder.isEmpty()) {

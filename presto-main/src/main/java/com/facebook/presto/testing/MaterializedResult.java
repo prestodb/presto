@@ -251,6 +251,14 @@ public class MaterializedResult
             return this;
         }
 
+        public Builder rows(Object[][] rows)
+        {
+            for (Object[] row : rows) {
+                row(row);
+            }
+            return this;
+        }
+
         public Builder pages(Iterable<Page> pages)
         {
             for (Page page : pages) {
