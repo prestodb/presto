@@ -68,7 +68,7 @@ public class TaskExecutorSimulator
 
     public TaskExecutorSimulator()
     {
-        executor = listeningDecorator(newCachedThreadPool(threadsNamed(getClass().getSimpleName() + "-%d")));
+        executor = listeningDecorator(newCachedThreadPool(threadsNamed(getClass().getSimpleName() + "-%s")));
 
         taskExecutor = new TaskExecutor(24, new Ticker()
         {

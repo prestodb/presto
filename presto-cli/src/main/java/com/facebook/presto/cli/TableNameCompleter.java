@@ -42,7 +42,7 @@ public class TableNameCompleter
 {
     private static final long RELOAD_TIME_MINUTES = 2;
 
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("completer-%d"));
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("completer-%s"));
     private final QueryRunner queryRunner;
     private final LoadingCache<String, List<String>> tableCache;
     private final LoadingCache<String, List<String>> functionCache;

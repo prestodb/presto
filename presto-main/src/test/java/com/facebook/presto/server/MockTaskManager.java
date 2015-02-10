@@ -61,7 +61,7 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 public class MockTaskManager
         implements TaskManager
 {
-    private final ScheduledExecutorService stateNotificationExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-%d"));
+    private final ScheduledExecutorService stateNotificationExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-%s"));
 
     private final HttpServerInfo httpServerInfo;
     private final DataSize maxBufferSize;

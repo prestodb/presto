@@ -117,7 +117,7 @@ public class TaskExecutor
         checkArgument(runnerThreads > 0, "runnerThreads must be at least 1");
 
         // we manages thread pool size directly, so create an unlimited pool
-        this.executor = newCachedThreadPool(threadsNamed("task-processor-%d"));
+        this.executor = newCachedThreadPool(threadsNamed("task-processor-%s"));
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
         this.runnerThreads = runnerThreads;
 

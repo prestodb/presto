@@ -57,7 +57,7 @@ public class TestRowNumberOperator
     @BeforeClass
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
     }
 
     @AfterClass
