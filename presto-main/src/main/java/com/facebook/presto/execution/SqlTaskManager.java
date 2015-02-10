@@ -86,10 +86,10 @@ public class SqlTaskManager
 
         final DataSize maxBufferSize = config.getSinkMaxBufferSize();
 
-        taskNotificationExecutor = newCachedThreadPool(threadsNamed("task-notification-%d"));
+        taskNotificationExecutor = newCachedThreadPool(threadsNamed("task-notification-%s"));
         taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
 
-        taskManagementExecutor = newScheduledThreadPool(5, threadsNamed("task-management-%d"));
+        taskManagementExecutor = newScheduledThreadPool(5, threadsNamed("task-management-%s"));
         taskManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskManagementExecutor);
 
         final SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, queryMonitor, config);

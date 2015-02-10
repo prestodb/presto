@@ -114,7 +114,7 @@ public class CoordinatorModule
 
         // query execution
         binder.bind(ExecutorService.class).annotatedWith(ForQueryExecution.class)
-                .toInstance(newCachedThreadPool(threadsNamed("query-execution-%d")));
+                .toInstance(newCachedThreadPool(threadsNamed("query-execution-%s")));
         binder.bind(QueryExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(QueryExecutionMBean.class).as(generatedNameOf(QueryExecution.class));
 

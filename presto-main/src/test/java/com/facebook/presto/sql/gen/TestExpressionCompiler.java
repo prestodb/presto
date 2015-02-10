@@ -121,7 +121,7 @@ public class TestExpressionCompiler
     {
         Logging.initialize();
         if (PARALLEL) {
-            executor = listeningDecorator(newFixedThreadPool(getRuntime().availableProcessors() * 2, daemonThreadsNamed("completer-%d")));
+            executor = listeningDecorator(newFixedThreadPool(getRuntime().availableProcessors() * 2, daemonThreadsNamed("completer-%s")));
         }
         else {
             executor = listeningDecorator(sameThreadExecutor());

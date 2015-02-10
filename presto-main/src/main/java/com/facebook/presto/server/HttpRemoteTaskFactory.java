@@ -69,7 +69,7 @@ public class HttpRemoteTaskFactory
         this.taskUpdateRequestCodec = taskUpdateRequestCodec;
         this.maxConsecutiveErrorCount = config.getRemoteTaskMaxConsecutiveErrorCount();
         this.minErrorDuration = config.getRemoteTaskMinErrorDuration();
-        ExecutorService coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%d"));
+        ExecutorService coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%s"));
         this.executor = ExecutorServiceAdapter.from(new BoundedExecutor(coreExecutor, config.getRemoteTaskMaxCallbackThreads()));
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
     }
