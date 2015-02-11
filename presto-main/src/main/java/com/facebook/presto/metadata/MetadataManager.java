@@ -431,6 +431,12 @@ public class MetadataManager
     }
 
     @Override
+    public void rollbackCreateTable(OutputTableHandle tableHandle)
+    {
+        lookupConnectorFor(tableHandle).rollbackCreateTable(tableHandle.getConnectorHandle());
+    }
+
+    @Override
     public InsertTableHandle beginInsert(Session session, TableHandle tableHandle)
     {
         // assume connectorId and catalog are the same
@@ -443,6 +449,12 @@ public class MetadataManager
     public void commitInsert(InsertTableHandle tableHandle, Collection<Slice> fragments)
     {
         lookupConnectorFor(tableHandle).commitInsert(tableHandle.getConnectorHandle(), fragments);
+    }
+
+    @Override
+    public void rollbackInsert(InsertTableHandle tableHandle)
+    {
+        lookupConnectorFor(tableHandle).rollbackInsert(tableHandle.getConnectorHandle());
     }
 
     @Override
