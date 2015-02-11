@@ -20,6 +20,8 @@ import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.util.Base64;
+
 public final class VarbinaryFunctions
 {
     private VarbinaryFunctions() {}
@@ -37,7 +39,7 @@ public final class VarbinaryFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice toBase64(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
-        return Slices.utf8Slice(BaseEncoding.base64().encode(slice.getBytes()));
+        return Slices.wrappedBuffer(Base64.getEncoder().encode(slice.getBytes()));
     }
 
     @Description("decode base64 encoded binary data")
@@ -45,7 +47,7 @@ public final class VarbinaryFunctions
     @SqlType(StandardTypes.VARBINARY)
     public static Slice fromBase64Varchar(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
-        return Slices.wrappedBuffer(BaseEncoding.base64().decode(slice.toStringUtf8()));
+        return Slices.wrappedBuffer(Base64.getDecoder().decode(slice.getBytes()));
     }
 
     @Description("decode base64 encoded binary data")
@@ -53,7 +55,7 @@ public final class VarbinaryFunctions
     @SqlType(StandardTypes.VARBINARY)
     public static Slice fromBase64Varbinary(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
-        return Slices.wrappedBuffer(BaseEncoding.base64().decode(slice.toStringUtf8()));
+        return Slices.wrappedBuffer(Base64.getDecoder().decode(slice.getBytes()));
     }
 
     @Description("encode binary data as base64 using the URL safe alphabet")
@@ -61,7 +63,7 @@ public final class VarbinaryFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice toBase64Url(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
-        return Slices.utf8Slice(BaseEncoding.base64Url().encode(slice.getBytes()));
+        return Slices.wrappedBuffer(Base64.getUrlEncoder().encode(slice.getBytes()));
     }
 
     @Description("decode URL safe base64 encoded binary data")
@@ -69,7 +71,7 @@ public final class VarbinaryFunctions
     @SqlType(StandardTypes.VARBINARY)
     public static Slice fromBase64UrlVarchar(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
-        return Slices.wrappedBuffer(BaseEncoding.base64Url().decode(slice.toStringUtf8()));
+        return Slices.wrappedBuffer(Base64.getUrlDecoder().decode(slice.getBytes()));
     }
 
     @Description("decode URL safe base64 encoded binary data")
@@ -77,7 +79,7 @@ public final class VarbinaryFunctions
     @SqlType(StandardTypes.VARBINARY)
     public static Slice fromBase64UrlVarbinary(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
-        return Slices.wrappedBuffer(BaseEncoding.base64Url().decode(slice.toStringUtf8()));
+        return Slices.wrappedBuffer(Base64.getUrlDecoder().decode(slice.getBytes()));
     }
 
     @Description("encode binary data as hex")

@@ -23,7 +23,6 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.google.common.base.Throwables;
-import com.google.common.io.BaseEncoding;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -31,6 +30,7 @@ import io.airlift.slice.Slices;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Base64;
 
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.type.TypeJsonUtils.getDoubleValue;
@@ -68,7 +68,7 @@ public class MapUnnester
             else if (keyType.getJavaType() == Slice.class) {
                 Slice slice;
                 if (keyType.equals(VARBINARY)) {
-                    slice = Slices.wrappedBuffer(BaseEncoding.base64().decode(value));
+                    slice = Slices.wrappedBuffer(Base64.getDecoder().decode(value));
                 }
                 else {
                    slice = Slices.utf8Slice(value);

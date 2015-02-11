@@ -17,7 +17,6 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.BaseEncoding;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -25,6 +24,7 @@ import javax.validation.constraints.NotNull;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -277,7 +277,7 @@ public class QueryResults
                 // for now we assume that only the explicit types above are passed
                 // as a plain text and everything else is base64 encoded binary
                 if (value instanceof String) {
-                    return BaseEncoding.base64().decode((String) value);
+                    return Base64.getDecoder().decode((String) value);
                 }
                 return value;
         }
