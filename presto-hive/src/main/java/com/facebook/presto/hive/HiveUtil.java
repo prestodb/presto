@@ -88,7 +88,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.transform;
-import static com.google.common.io.BaseEncoding.base64;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.Double.parseDouble;
@@ -399,7 +398,7 @@ public final class HiveUtil
 
     public static String encodeViewData(String data)
     {
-        return VIEW_PREFIX + base64().encode(data.getBytes(UTF_8)) + VIEW_SUFFIX;
+        return VIEW_PREFIX + Base64.getEncoder().encodeToString(data.getBytes(UTF_8)) + VIEW_SUFFIX;
     }
 
     public static String decodeViewData(String data)
@@ -408,7 +407,7 @@ public final class HiveUtil
         checkCondition(data.endsWith(VIEW_SUFFIX), HIVE_INVALID_VIEW_DATA, "View data missing suffix: %s", data);
         data = data.substring(VIEW_PREFIX.length());
         data = data.substring(0, data.length() - VIEW_SUFFIX.length());
-        return new String(base64().decode(data), UTF_8);
+        return new String(Base64.getDecoder().decode(data), UTF_8);
     }
 
     public static boolean isArrayType(Type type)

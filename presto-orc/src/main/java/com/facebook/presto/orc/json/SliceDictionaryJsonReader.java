@@ -22,13 +22,13 @@ import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.RowGroupDictionaryLengthStream;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Ints;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Base64;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
@@ -107,7 +107,7 @@ public class SliceDictionaryJsonReader
         byte[] value = getNextValue();
 
         if (writeBinary) {
-            return BaseEncoding.base64().encode(value);
+            return Base64.getEncoder().encodeToString(value);
         }
         else {
             return new String(value, UTF_8);
