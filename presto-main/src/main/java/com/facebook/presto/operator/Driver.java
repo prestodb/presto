@@ -310,7 +310,7 @@ public class Driver
         }
     }
 
-    private  ListenableFuture<?> processInternal()
+    private ListenableFuture<?> processInternal()
     {
         checkLockHeld("Lock must be held to call processInternal");
 
@@ -336,28 +336,27 @@ public class Driver
                     return blocked;
                 }
 
+                // if the current operator is not finished and next operator needs input...
+                if (!current.isFinished() && next.needsInput()) {
+                    // get an output page from current operator
+                    current.getOperatorContext().startIntervalTimer();
+                    Page page = current.getOutput();
+                    current.getOperatorContext().recordGetOutput(page);
+
+                    // if we got an output page, add it to the next operator
+                    if (page != null) {
+                        next.getOperatorContext().startIntervalTimer();
+                        next.addInput(page);
+                        next.getOperatorContext().recordAddInput(page);
+                    }
+                }
+
                 // if current operator is finished...
                 if (current.isFinished()) {
                     // let next operator know there will be no more data
                     next.getOperatorContext().startIntervalTimer();
                     next.finish();
                     next.getOperatorContext().recordFinish();
-                }
-                else {
-                    // if next operator needs input...
-                    if (next.needsInput()) {
-                        // get an output page from current operator
-                        current.getOperatorContext().startIntervalTimer();
-                        Page page = current.getOutput();
-                        current.getOperatorContext().recordGetOutput(page);
-
-                        // if we got an output page, add it to the next operator
-                        if (page != null) {
-                            next.getOperatorContext().startIntervalTimer();
-                            next.addInput(page);
-                            next.getOperatorContext().recordAddInput(page);
-                        }
-                    }
                 }
             }
             return NOT_BLOCKED;
