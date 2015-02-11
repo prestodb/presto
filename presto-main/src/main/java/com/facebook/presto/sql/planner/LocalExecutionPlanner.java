@@ -1521,6 +1521,20 @@ public class LocalExecutionPlanner
                     throw new AssertionError("Unhandled target type: " + target.getClass().getName());
                 }
             }
+
+            @Override
+            public void rollbackTable()
+            {
+                if (target instanceof CreateHandle) {
+                    metadata.rollbackCreateTable(((CreateHandle) target).getHandle());
+                }
+                else if (target instanceof InsertHandle) {
+                    metadata.rollbackInsert(((InsertHandle) target).getHandle());
+                }
+                else {
+                    throw new AssertionError("Unhandled target type: " + target.getClass().getName());
+                }
+            }
         };
     }
 

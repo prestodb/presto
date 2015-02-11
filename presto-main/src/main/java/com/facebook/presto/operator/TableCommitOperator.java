@@ -77,6 +77,8 @@ public class TableCommitOperator
 
     private State state = State.RUNNING;
     private long rowCount;
+    private boolean committed;
+    private boolean closed;
     private final ImmutableList.Builder<Slice> fragmentBuilder = ImmutableList.builder();
 
     public TableCommitOperator(OperatorContext operatorContext, TableCommitter tableCommitter)
@@ -144,6 +146,7 @@ public class TableCommitOperator
         state = State.FINISHED;
 
         tableCommitter.commitTable(fragmentBuilder.build());
+        committed = true;
 
         PageBuilder page = new PageBuilder(getTypes());
         page.declarePosition();
@@ -151,8 +154,21 @@ public class TableCommitOperator
         return page.build();
     }
 
+    @Override
+    public void close()
+            throws Exception
+    {
+        if (!closed) {
+            closed = true;
+            if (!committed) {
+                tableCommitter.rollbackTable();
+            }
+        }
+    }
+
     public interface TableCommitter
     {
         void commitTable(Collection<Slice> fragments);
+        void rollbackTable();
     }
 }

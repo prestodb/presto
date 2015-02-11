@@ -102,6 +102,13 @@ public interface ConnectorMetadata
     void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments);
 
     /**
+     * Rollback a table creation
+     */
+    default void rollbackCreateTable(ConnectorOutputTableHandle tableHandle)
+    {
+    }
+
+    /**
      * Begin insert query
      */
     ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle);
@@ -110,6 +117,13 @@ public interface ConnectorMetadata
      * Commit insert query
      */
     void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments);
+
+    /**
+     * Rollback insert query
+     */
+    default void rollbackInsert(ConnectorInsertTableHandle insertHandle)
+    {
+    }
 
     /**
      * Create the specified view. The data for the view is opaque to the connector.
