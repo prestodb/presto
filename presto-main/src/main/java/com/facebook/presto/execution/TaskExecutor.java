@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.util.CpuTimer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
@@ -605,7 +606,13 @@ public class TaskExecutor
                         }
                     }
                     catch (Throwable t) {
-                        log.error(t, "Error processing %s", split.getInfo());
+                        if (t instanceof PrestoException) {
+                            PrestoException e = (PrestoException) t;
+                            log.error("Error processing %s: %s: %s", split.getInfo(), e.getErrorCode().getName(), e.getMessage());
+                        }
+                        else {
+                            log.error(t, "Error processing %s", split.getInfo());
+                        }
                         splitFinished(split);
                     }
                 }
