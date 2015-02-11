@@ -19,13 +19,21 @@ import io.airlift.slice.Slice;
 public class SliceVector
         implements Vector
 {
-    public final Slice[] vector = new Slice[MAX_VECTOR_LENGTH];
+    public final Slice[] vector;
+
+    public SliceVector(int length)
+    {
+        if (length > MAX_VECTOR_LENGTH) {
+            throw new IllegalArgumentException("length greater than max vector length");
+        }
+        vector = new Slice[length];
+    }
 
     @Override
     @VisibleForTesting
     public ObjectVector toObjectVector(int size)
     {
-        ObjectVector objectVector = new ObjectVector();
+        ObjectVector objectVector = new ObjectVector(vector.length);
         for (int i = 0; i < size; i++) {
             if (vector[i] != null) {
                 objectVector.vector[i] = vector[i].toStringUtf8();
