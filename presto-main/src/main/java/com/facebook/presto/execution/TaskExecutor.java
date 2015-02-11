@@ -81,7 +81,7 @@ public class TaskExecutor
     private final ThreadPoolExecutorMBean executorMBean;
 
     private final int runnerThreads;
-    private final int minimumNumberOfTasks;
+    private final int minimumNumberOfDrivers;
 
     private final Ticker ticker;
 
@@ -123,7 +123,7 @@ public class TaskExecutor
 
         this.ticker = checkNotNull(ticker, "ticker is null");
 
-        this.minimumNumberOfTasks = minDrivers;
+        this.minimumNumberOfDrivers = minDrivers;
         this.pendingSplits = new PriorityBlockingQueue<>(Runtime.getRuntime().availableProcessors() * 10);
         this.tasks = new LinkedList<>();
     }
@@ -245,7 +245,7 @@ public class TaskExecutor
     private synchronized void addNewEntrants()
     {
         int running = allSplits.size();
-        for (int i = 0; i < minimumNumberOfTasks - running; i++) {
+        for (int i = 0; i < minimumNumberOfDrivers - running; i++) {
             PrioritizedSplitRunner split = pollNextSplitWorker();
             if (split == null) {
                 break;
@@ -642,9 +642,9 @@ public class TaskExecutor
     }
 
     @Managed
-    public int getMinimumNumberOfTasks()
+    public int getMinimumNumberOfDrivers()
     {
-        return minimumNumberOfTasks;
+        return minimumNumberOfDrivers;
     }
 
     @Managed
