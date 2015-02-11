@@ -103,16 +103,16 @@ public class TaskExecutor
     @Inject
     public TaskExecutor(TaskManagerConfig config)
     {
-        this(checkNotNull(config, "config is null").getMaxShardProcessorThreads());
+        this(checkNotNull(config, "config is null").getMaxShardProcessorThreads(), config.getMinDrivers());
     }
 
-    public TaskExecutor(int runnerThreads)
+    public TaskExecutor(int runnerThreads, int minDrivers)
     {
-        this(runnerThreads, Ticker.systemTicker());
+        this(runnerThreads, minDrivers, Ticker.systemTicker());
     }
 
     @VisibleForTesting
-    public TaskExecutor(int runnerThreads, Ticker ticker)
+    public TaskExecutor(int runnerThreads, int minDrivers, Ticker ticker)
     {
         checkArgument(runnerThreads > 0, "runnerThreads must be at least 1");
 
@@ -123,8 +123,7 @@ public class TaskExecutor
 
         this.ticker = checkNotNull(ticker, "ticker is null");
 
-        // we assume we need at least two tasks per runner thread to keep the system busy
-        this.minimumNumberOfTasks = 2 * this.runnerThreads;
+        this.minimumNumberOfTasks = minDrivers;
         this.pendingSplits = new PriorityBlockingQueue<>(Runtime.getRuntime().availableProcessors() * 10);
         this.tasks = new LinkedList<>();
     }

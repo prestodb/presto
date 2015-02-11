@@ -33,7 +33,7 @@ public class TaskExecutorTest
     public void test()
             throws Exception
     {
-        TaskExecutor taskExecutor = new TaskExecutor(4);
+        TaskExecutor taskExecutor = new TaskExecutor(4, 8);
         taskExecutor.start();
 
         try {

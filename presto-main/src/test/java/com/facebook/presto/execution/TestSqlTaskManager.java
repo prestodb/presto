@@ -56,7 +56,7 @@ public class TestSqlTaskManager
 
     public TestSqlTaskManager()
     {
-        taskExecutor = new TaskExecutor(8);
+        taskExecutor = new TaskExecutor(8, 16);
         taskExecutor.start();
     }
 
