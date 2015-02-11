@@ -239,7 +239,7 @@ public class PerfTest
 
             HttpClientConfig clientConfig = new HttpClientConfig();
             clientConfig.setConnectTimeout(new Duration(10, TimeUnit.SECONDS));
-            clientConfig.setReadTimeout(new Duration(timeout, TimeUnit.SECONDS));
+            clientConfig.setIdleTimeout(new Duration(timeout, TimeUnit.SECONDS));
             clientConfig.setKeepAliveInterval(new Duration(timeout, TimeUnit.SECONDS));
             httpClient = new JettyHttpClient(clientConfig);
         }
