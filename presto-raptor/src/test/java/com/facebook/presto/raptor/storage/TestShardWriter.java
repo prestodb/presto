@@ -93,7 +93,7 @@ public class TestShardWriter
             assertEquals(reader.nextBatch(), 3);
             assertEquals(reader.getPosition(), 3);
 
-            LongVector longVector = new LongVector();
+            LongVector longVector = new LongVector(3);
             reader.readVector(0, longVector);
             assertEquals(longVector.isNull[0], false);
             assertEquals(longVector.isNull[1], true);
@@ -101,19 +101,19 @@ public class TestShardWriter
             assertEquals(longVector.vector[0], 123L);
             assertEquals(longVector.vector[2], 456L);
 
-            SliceVector stringVector = new SliceVector();
+            SliceVector stringVector = new SliceVector(3);
             reader.readVector(1, stringVector);
             assertEquals(stringVector.vector[0], utf8Slice("hello"));
             assertEquals(stringVector.vector[1], utf8Slice("world"));
             assertEquals(stringVector.vector[2], utf8Slice("bye"));
 
-            SliceVector sliceVector = new SliceVector();
+            SliceVector sliceVector = new SliceVector(3);
             reader.readVector(2, sliceVector);
             assertEquals(sliceVector.vector[0], wrappedBuffer(bytes1));
             assertEquals(sliceVector.vector[1], null);
             assertEquals(sliceVector.vector[2], wrappedBuffer(bytes3));
 
-            DoubleVector doubleVector = new DoubleVector();
+            DoubleVector doubleVector = new DoubleVector(3);
             reader.readVector(3, doubleVector);
             assertEquals(doubleVector.isNull[0], false);
             assertEquals(doubleVector.isNull[1], false);
@@ -122,7 +122,7 @@ public class TestShardWriter
             assertEquals(doubleVector.vector[1], Double.POSITIVE_INFINITY);
             assertEquals(doubleVector.vector[2], Double.NaN);
 
-            BooleanVector booleanVector = new BooleanVector();
+            BooleanVector booleanVector = new BooleanVector(3);
             reader.readVector(4, booleanVector);
             assertEquals(booleanVector.isNull[0], false);
             assertEquals(booleanVector.isNull[1], true);

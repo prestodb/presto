@@ -175,14 +175,14 @@ public class TestOrcStorageManager
 
             assertEquals(reader.nextBatch(), 2);
 
-            LongVector longVector = new LongVector();
+            LongVector longVector = new LongVector(2);
             reader.readVector(0, longVector);
             assertEquals(longVector.isNull[0], false);
             assertEquals(longVector.isNull[1], false);
             assertEquals(longVector.vector[0], 123L);
             assertEquals(longVector.vector[1], 456L);
 
-            SliceVector stringVector = new SliceVector();
+            SliceVector stringVector = new SliceVector(2);
             reader.readVector(1, stringVector);
             assertEquals(stringVector.vector[0], utf8Slice("hello"));
             assertEquals(stringVector.vector[1], utf8Slice("bye"));
