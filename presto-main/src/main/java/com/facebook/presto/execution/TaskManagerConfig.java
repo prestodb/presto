@@ -35,6 +35,7 @@ public class TaskManagerConfig
     private DataSize operatorPreAllocatedMemory = new DataSize(16, Unit.MEGABYTE);
     private DataSize maxTaskIndexMemoryUsage = new DataSize(64, Unit.MEGABYTE);
     private int maxShardProcessorThreads = Runtime.getRuntime().availableProcessors() * 4;
+    private Integer minDrivers;
 
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
 
@@ -144,6 +145,22 @@ public class TaskManagerConfig
     public TaskManagerConfig setMaxShardProcessorThreads(int maxShardProcessorThreads)
     {
         this.maxShardProcessorThreads = maxShardProcessorThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getMinDrivers()
+    {
+        if (minDrivers == null) {
+            return 2 * maxShardProcessorThreads;
+        }
+        return minDrivers;
+    }
+
+    @Config("task.min-drivers")
+    public TaskManagerConfig setMinDrivers(int minDrivers)
+    {
+        this.minDrivers = minDrivers;
         return this;
     }
 
