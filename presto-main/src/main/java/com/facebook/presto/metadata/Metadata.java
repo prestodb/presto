@@ -145,6 +145,11 @@ public interface Metadata
     void commitCreateTable(OutputTableHandle tableHandle, Collection<Slice> fragments);
 
     /**
+     * Rollback a table creation
+     */
+    void rollbackCreateTable(OutputTableHandle tableHandle);
+
+    /**
      * Begin insert query
      */
     InsertTableHandle beginInsert(Session session, TableHandle tableHandle);
@@ -153,6 +158,11 @@ public interface Metadata
      * Commit insert query
      */
     void commitInsert(InsertTableHandle tableHandle, Collection<Slice> fragments);
+
+    /**
+     * Rollback insert query
+     */
+    void rollbackInsert(InsertTableHandle tableHandle);
 
     /**
      * Gets all the loaded catalogs

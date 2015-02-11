@@ -128,12 +128,14 @@ import com.google.common.collect.Ordering;
 import com.google.common.collect.SetMultimap;
 import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -1525,15 +1527,34 @@ public class LocalExecutionPlanner
     private static TableCommitter createTableCommitter(TableCommitNode node, Metadata metadata)
     {
         WriterTarget target = node.getTarget();
-        return fragments -> {
-            if (target instanceof CreateHandle) {
-                metadata.commitCreateTable(((CreateHandle) target).getHandle(), fragments);
+        return new TableCommitter()
+        {
+            @Override
+            public void commitTable(Collection<Slice> fragments)
+            {
+                if (target instanceof CreateHandle) {
+                    metadata.commitCreateTable(((CreateHandle) target).getHandle(), fragments);
+                }
+                else if (target instanceof InsertHandle) {
+                    metadata.commitInsert(((InsertHandle) target).getHandle(), fragments);
+                }
+                else {
+                    throw new AssertionError("Unhandled target type: " + target.getClass().getName());
+                }
             }
-            else if (target instanceof InsertHandle) {
-                metadata.commitInsert(((InsertHandle) target).getHandle(), fragments);
-            }
-            else {
-                throw new AssertionError("Unhandled target type: " + target.getClass().getName());
+
+            @Override
+            public void rollbackTable()
+            {
+                if (target instanceof CreateHandle) {
+                    metadata.rollbackCreateTable(((CreateHandle) target).getHandle());
+                }
+                else if (target instanceof InsertHandle) {
+                    metadata.rollbackInsert(((InsertHandle) target).getHandle());
+                }
+                else {
+                    throw new AssertionError("Unhandled target type: " + target.getClass().getName());
+                }
             }
         };
     }
