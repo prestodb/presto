@@ -44,6 +44,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class SliceDirectStreamReader
         implements StreamReader
 {
+    private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
+
     private final StreamDescriptor streamDescriptor;
 
     private int readOffset;
@@ -125,18 +127,30 @@ public class SliceDirectStreamReader
             }
         }
 
+        int totalLength = 0;
         for (int i = 0; i < nextBatchSize; i++) {
-            if (isNullVector[i]) {
-                sliceVector.vector[i] = null;
+            if (!isNullVector[i]) {
+                totalLength += lengthVector[i];
+            }
+        }
+
+        byte[] data = EMPTY_BYTE_ARRAY;
+        if (totalLength > 0) {
+            if (dataStream == null) {
+                throw new OrcCorruptionException("Value is not null but data stream is not present");
+            }
+            data = dataStream.next(totalLength);
+        }
+
+        int offset = 0;
+        for (int i = 0; i < nextBatchSize; i++) {
+            if (!isNullVector[i]) {
+                int length = lengthVector[i];
+                sliceVector.vector[i] = Slices.wrappedBuffer(data, offset, length);
+                offset += length;
             }
             else {
-                int length = lengthVector[i];
-                if (length == 0) {
-                    sliceVector.vector[i] = Slices.EMPTY_SLICE;
-                }
-                else {
-                    sliceVector.vector[i] = Slices.wrappedBuffer(dataStream.next(length));
-                }
+                sliceVector.vector[i] = null;
             }
         }
 
