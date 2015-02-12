@@ -13,14 +13,22 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.hive.$internal.com.google.common.primitives.Ints;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.ChunkedSliceInput;
+import io.airlift.slice.ChunkedSliceInput.BufferReference;
+import io.airlift.slice.ChunkedSliceInput.SliceLoader;
+import io.airlift.slice.RuntimeIOException;
+import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.orc.OrcDataSourceUtils.getDiskRangeSlice;
 import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
@@ -33,10 +41,11 @@ public abstract class AbstractOrcDataSource
     private final String name;
     private final long size;
     private final DataSize maxMergeDistance;
-    private final DataSize maxReadSize;
+    private final DataSize maxBufferSize;
+    private final DataSize streamBufferSize;
     private long readTimeNanos;
 
-    public AbstractOrcDataSource(String name, long size, DataSize maxMergeDistance, DataSize maxReadSize)
+    public AbstractOrcDataSource(String name, long size, DataSize maxMergeDistance, DataSize maxBufferSize, DataSize streamBufferSize)
     {
         this.name = checkNotNull(name, "name is null");
 
@@ -44,7 +53,8 @@ public abstract class AbstractOrcDataSource
         checkArgument(size >= 0, "size is negative");
 
         this.maxMergeDistance = checkNotNull(maxMergeDistance, "maxMergeDistance is null");
-        this.maxReadSize = checkNotNull(maxReadSize, "maxReadSize is null");
+        this.maxBufferSize = checkNotNull(maxBufferSize, "maxBufferSize is null");
+        this.streamBufferSize = checkNotNull(streamBufferSize, "streamBufferSize is null");
     }
 
     protected abstract void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
@@ -81,7 +91,7 @@ public abstract class AbstractOrcDataSource
     }
 
     @Override
-    public final <K> Map<K, Slice> readFully(Map<K, DiskRange> diskRanges)
+    public final <K> Map<K, FixedLengthSliceInput> readFully(Map<K, DiskRange> diskRanges)
             throws IOException
     {
         checkNotNull(diskRanges, "diskRanges is null");
@@ -90,7 +100,30 @@ public abstract class AbstractOrcDataSource
             return ImmutableMap.of();
         }
 
-        Iterable<DiskRange> mergedRanges = mergeAdjacentDiskRanges(diskRanges.values(), maxMergeDistance, maxReadSize);
+        ImmutableMap.Builder<K, FixedLengthSliceInput> slices = ImmutableMap.builder();
+
+        long maxReadSizeBytes = maxBufferSize.toBytes();
+        Map<K, DiskRange> smallRanges = diskRanges.entrySet().stream()
+                .filter(entry -> entry.getValue().getLength() <= maxReadSizeBytes)
+                .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+        slices.putAll(readSmallDiskRanges(smallRanges));
+
+        Map<K, DiskRange> largeRanges = diskRanges.entrySet().stream()
+                .filter(entry -> entry.getValue().getLength() > maxReadSizeBytes)
+                .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+        slices.putAll(readLargeDiskRanges(largeRanges));
+
+        return slices.build();
+    }
+
+    private <K> Map<K, FixedLengthSliceInput> readSmallDiskRanges(Map<K, DiskRange> diskRanges)
+            throws IOException
+    {
+        if (diskRanges.isEmpty()) {
+            return ImmutableMap.of();
+        }
+
+        Iterable<DiskRange> mergedRanges = mergeAdjacentDiskRanges(diskRanges.values(), maxMergeDistance, maxBufferSize);
 
         // read ranges
         Map<DiskRange, byte[]> buffers = new LinkedHashMap<>();
@@ -101,9 +134,24 @@ public abstract class AbstractOrcDataSource
             buffers.put(mergedRange, buffer);
         }
 
-        ImmutableMap.Builder<K, Slice> slices = ImmutableMap.builder();
+        ImmutableMap.Builder<K, FixedLengthSliceInput> slices = ImmutableMap.builder();
         for (Entry<K, DiskRange> entry : diskRanges.entrySet()) {
-            slices.put(entry.getKey(), getDiskRangeSlice(entry.getValue(), buffers));
+            slices.put(entry.getKey(), getDiskRangeSlice(entry.getValue(), buffers).getInput());
+        }
+        return slices.build();
+    }
+
+    private <K> Map<K, FixedLengthSliceInput> readLargeDiskRanges(Map<K, DiskRange> diskRanges)
+            throws IOException
+    {
+        if (diskRanges.isEmpty()) {
+            return ImmutableMap.of();
+        }
+
+        ImmutableMap.Builder<K, FixedLengthSliceInput> slices = ImmutableMap.builder();
+        for (Entry<K, DiskRange> entry : diskRanges.entrySet()) {
+            ChunkedSliceInput sliceInput = new ChunkedSliceInput(new HdfsSliceLoader(entry.getValue()), Ints.checkedCast(streamBufferSize.toBytes()));
+            slices.put(entry.getKey(), sliceInput);
         }
         return slices.build();
     }
@@ -112,5 +160,68 @@ public abstract class AbstractOrcDataSource
     public final String toString()
     {
         return name;
+    }
+
+    private class HdfsSliceLoader
+            implements SliceLoader<SliceBufferReference>
+    {
+        private final DiskRange diskRange;
+
+        public HdfsSliceLoader(DiskRange diskRange)
+        {
+            this.diskRange = diskRange;
+        }
+
+        @Override
+        public SliceBufferReference createBuffer(int bufferSize)
+        {
+            return new SliceBufferReference(bufferSize);
+        }
+
+        @Override
+        public long getSize()
+        {
+            return diskRange.getLength();
+        }
+
+        @Override
+        public void load(long position, SliceBufferReference bufferReference, int length)
+        {
+            try {
+                readFully(diskRange.getOffset() + position, bufferReference.getBuffer(), 0, length);
+            }
+            catch (IOException e) {
+                new RuntimeIOException(e);
+            }
+        }
+
+        @Override
+        public void close()
+        {
+        }
+    }
+
+    private static class SliceBufferReference
+            implements BufferReference
+    {
+        private final byte[] buffer;
+        private final Slice slice;
+
+        public SliceBufferReference(int bufferSize)
+        {
+            this.buffer = new byte[bufferSize];
+            this.slice = Slices.wrappedBuffer(buffer);
+        }
+
+        public byte[] getBuffer()
+        {
+            return buffer;
+        }
+
+        @Override
+        public Slice getSlice()
+        {
+            return slice;
+        }
     }
 }

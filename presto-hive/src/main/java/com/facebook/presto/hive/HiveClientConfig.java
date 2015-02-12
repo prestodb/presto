@@ -90,7 +90,8 @@ public class HiveClientConfig
     private boolean assumeCanonicalPartitionKeys;
 
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
-    private DataSize orcMaxReadSize = new DataSize(8, MEGABYTE);
+    private DataSize orcMaxBufferSize = new DataSize(8, MEGABYTE);
+    private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
 
     public int getMaxInitialSplits()
     {
@@ -631,15 +632,28 @@ public class HiveClientConfig
     }
 
     @NotNull
-    public DataSize getOrcMaxReadSize()
+    public DataSize getOrcMaxBufferSize()
     {
-        return orcMaxReadSize;
+        return orcMaxBufferSize;
     }
 
-    @Config("hive.orc.max-read-size")
-    public HiveClientConfig setOrcMaxReadSize(DataSize orcMaxReadSize)
+    @Config("hive.orc.max-buffer-size")
+    public HiveClientConfig setOrcMaxBufferSize(DataSize orcMaxBufferSize)
     {
-        this.orcMaxReadSize = orcMaxReadSize;
+        this.orcMaxBufferSize = orcMaxBufferSize;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getOrcStreamBufferSize()
+    {
+        return orcStreamBufferSize;
+    }
+
+    @Config("hive.orc.stream-buffer-size")
+    public HiveClientConfig setOrcStreamBufferSize(DataSize orcStreamBufferSize)
+    {
+        this.orcStreamBufferSize = orcStreamBufferSize;
         return this;
     }
 

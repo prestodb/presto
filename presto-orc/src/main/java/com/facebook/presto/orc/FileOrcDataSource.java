@@ -29,13 +29,13 @@ public class FileOrcDataSource
     public FileOrcDataSource(File path, DataSize maxMergeDistance)
             throws IOException
     {
-        this(path, maxMergeDistance, new DataSize(Integer.MAX_VALUE, Unit.BYTE));
+        this(path, maxMergeDistance, new DataSize(Integer.MAX_VALUE, Unit.BYTE), new DataSize(0, Unit.BYTE));
     }
 
-    public FileOrcDataSource(File path, DataSize maxMergeDistance, DataSize maxReadSize)
+    public FileOrcDataSource(File path, DataSize maxMergeDistance, DataSize maxReadSize, DataSize streamBufferSize)
             throws FileNotFoundException
     {
-        super(path.getPath(), path.length(), maxMergeDistance, maxReadSize);
+        super(path.getPath(), path.length(), maxMergeDistance, maxReadSize, streamBufferSize);
         this.input = new RandomAccessFile(path, "r");
     }
 
