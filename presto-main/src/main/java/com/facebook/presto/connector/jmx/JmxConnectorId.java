@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 public class JmxConnectorId
 {
@@ -33,7 +33,7 @@ public class JmxConnectorId
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(id);
+        return Objects.hash(id);
     }
 
     @Override
@@ -46,6 +46,6 @@ public class JmxConnectorId
             return false;
         }
         final JmxConnectorId other = (JmxConnectorId) obj;
-        return Objects.equal(this.id, other.id);
+        return Objects.equals(this.id, other.id);
     }
 }

@@ -16,12 +16,12 @@ package com.facebook.presto;
 import com.facebook.presto.execution.TaskId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -68,7 +68,7 @@ public final class OutputBuffers
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(version, noMoreBufferIds, buffers);
+        return Objects.hash(version, noMoreBufferIds, buffers);
     }
 
     @Override
@@ -81,9 +81,9 @@ public final class OutputBuffers
             return false;
         }
         final OutputBuffers other = (OutputBuffers) obj;
-        return Objects.equal(this.version, other.version) &&
-                Objects.equal(this.noMoreBufferIds, other.noMoreBufferIds) &&
-                Objects.equal(this.buffers, other.buffers);
+        return Objects.equals(this.version, other.version) &&
+                Objects.equals(this.noMoreBufferIds, other.noMoreBufferIds) &&
+                Objects.equals(this.buffers, other.buffers);
     }
 
     @Override

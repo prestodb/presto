@@ -18,7 +18,6 @@ import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.client.StatementStats;
-import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
@@ -35,6 +34,7 @@ import io.airlift.units.Duration;
 import java.io.Closeable;
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;

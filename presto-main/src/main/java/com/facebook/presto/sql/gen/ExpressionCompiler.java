@@ -19,7 +19,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.sql.relational.RowExpression;
-import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -30,6 +29,7 @@ import org.weakref.jmx.Managed;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.facebook.presto.byteCode.Access.FINAL;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
@@ -168,7 +168,7 @@ public class ExpressionCompiler
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(filter, projections, uniqueKey);
+            return Objects.hash(filter, projections, uniqueKey);
         }
 
         @Override
@@ -181,9 +181,9 @@ public class ExpressionCompiler
                 return false;
             }
             CacheKey other = (CacheKey) obj;
-            return Objects.equal(this.filter, other.filter) &&
-                    Objects.equal(this.projections, other.projections) &&
-                    Objects.equal(this.uniqueKey, other.uniqueKey);
+            return Objects.equals(this.filter, other.filter) &&
+                    Objects.equals(this.projections, other.projections) &&
+                    Objects.equals(this.uniqueKey, other.uniqueKey);
         }
 
         @Override

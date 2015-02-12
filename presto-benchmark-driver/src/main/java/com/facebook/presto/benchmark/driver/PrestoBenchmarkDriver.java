@@ -14,7 +14,6 @@
 package com.facebook.presto.benchmark.driver;
 
 import com.facebook.presto.client.ClientSession;
-import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.command.Command;
@@ -29,6 +28,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -108,7 +108,7 @@ public class PrestoBenchmarkDriver
                 driverOptions.runs,
                 driverOptions.debug,
                 driverOptions.maxFailures,
-                Optional.fromNullable(driverOptions.socksProxy))) {
+                Optional.ofNullable(driverOptions.socksProxy))) {
             for (Suite suite : suites) {
                 benchmarkDriver.run(suite);
             }

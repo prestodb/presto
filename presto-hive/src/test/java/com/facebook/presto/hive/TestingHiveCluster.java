@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.hive;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import org.apache.thrift.transport.TTransportException;
+
+import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -55,13 +56,13 @@ public class TestingHiveCluster
         }
         TestingHiveCluster o = (TestingHiveCluster) obj;
 
-        return Objects.equal(this.host, o.host) &&
-                Objects.equal(this.port, o.port);
+        return Objects.equals(this.host, o.host) &&
+                Objects.equals(this.port, o.port);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(host, port);
+        return Objects.hash(host, port);
     }
 }

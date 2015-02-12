@@ -14,10 +14,10 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.google.common.base.Objects;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
@@ -108,15 +108,15 @@ public class QualifiedTablePrefix
             return false;
         }
         QualifiedTablePrefix o = (QualifiedTablePrefix) obj;
-        return Objects.equal(catalogName, o.catalogName) &&
-                Objects.equal(schemaName, o.schemaName) &&
-                Objects.equal(tableName, o.tableName);
+        return Objects.equals(catalogName, o.catalogName) &&
+                Objects.equals(schemaName, o.schemaName) &&
+                Objects.equals(tableName, o.tableName);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(catalogName, schemaName, tableName);
+        return Objects.hash(catalogName, schemaName, tableName);
     }
 
     @Override

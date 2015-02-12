@@ -25,10 +25,10 @@ import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.tpch.TpchHandleResolver;
 import com.facebook.presto.tpch.TpchSplitManager;
-import com.google.common.base.Objects;
 
 import java.util.Map;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SampledTpchConnectorFactory
@@ -105,7 +105,7 @@ public class SampledTpchConnectorFactory
     private int getSplitsPerNode(Map<String, String> properties)
     {
         try {
-            return Integer.parseInt(Objects.firstNonNull(properties.get("tpch.splits-per-node"), String.valueOf(defaultSplitsPerNode)));
+            return Integer.parseInt(firstNonNull(properties.get("tpch.splits-per-node"), String.valueOf(defaultSplitsPerNode)));
         }
         catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid property tpch.splits-per-node");

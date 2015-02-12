@@ -18,8 +18,9 @@ import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 import com.google.common.primitives.Ints;
+
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -167,7 +168,7 @@ public final class KafkaColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(connectorId, ordinalPosition, name, type, mapping, dataFormat, formatHint, keyDecoder, hidden, internal);
+        return Objects.hash(connectorId, ordinalPosition, name, type, mapping, dataFormat, formatHint, keyDecoder, hidden, internal);
     }
 
     @Override
@@ -181,16 +182,16 @@ public final class KafkaColumnHandle
         }
 
         KafkaColumnHandle other = (KafkaColumnHandle) obj;
-        return Objects.equal(this.connectorId, other.connectorId) &&
-                Objects.equal(this.ordinalPosition, other.ordinalPosition) &&
-                Objects.equal(this.name, other.name) &&
-                Objects.equal(this.type, other.type) &&
-                Objects.equal(this.mapping, other.mapping) &&
-                Objects.equal(this.dataFormat, other.dataFormat) &&
-                Objects.equal(this.formatHint, other.formatHint) &&
-                Objects.equal(this.keyDecoder, other.keyDecoder) &&
-                Objects.equal(this.hidden, other.hidden) &&
-                Objects.equal(this.internal, other.internal);
+        return Objects.equals(this.connectorId, other.connectorId) &&
+                Objects.equals(this.ordinalPosition, other.ordinalPosition) &&
+                Objects.equals(this.name, other.name) &&
+                Objects.equals(this.type, other.type) &&
+                Objects.equals(this.mapping, other.mapping) &&
+                Objects.equals(this.dataFormat, other.dataFormat) &&
+                Objects.equals(this.formatHint, other.formatHint) &&
+                Objects.equals(this.keyDecoder, other.keyDecoder) &&
+                Objects.equals(this.hidden, other.hidden) &&
+                Objects.equals(this.internal, other.internal);
     }
 
     @Override

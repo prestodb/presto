@@ -14,7 +14,6 @@
 package com.facebook.presto.verifier;
 
 import com.facebook.presto.verifier.Validator.ChangedRow.Changed;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
@@ -392,8 +391,8 @@ public class Validator
 
         try {
             Iterable<ChangedRow> diff = ImmutableSortedMultiset.<ChangedRow>naturalOrder()
-                    .addAll(Iterables.transform(Multisets.difference(control, test), ChangedRow.changedRows(Changed.REMOVED)))
-                    .addAll(Iterables.transform(Multisets.difference(test, control), ChangedRow.changedRows(Changed.ADDED)))
+                    .addAll(Iterables.transform(Multisets.difference(control, test), row -> new ChangedRow(Changed.REMOVED, row)))
+                    .addAll(Iterables.transform(Multisets.difference(test, control), row -> new ChangedRow(Changed.ADDED, row)))
                     .build();
             diff = Iterables.limit(diff, 100);
 
@@ -506,18 +505,6 @@ public class Validator
         public enum Changed
         {
             ADDED, REMOVED
-        }
-
-        public static Function<List<Object>, ChangedRow> changedRows(final Changed changed)
-        {
-            return new Function<List<Object>, ChangedRow>()
-            {
-                @Override
-                public ChangedRow apply(List<Object> row)
-                {
-                    return new ChangedRow(changed, row);
-                }
-            };
         }
 
         private final Changed changed;

@@ -16,10 +16,10 @@ package com.facebook.presto.execution;
 import com.facebook.presto.PagePartitionFunction;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.spi.Page;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -84,7 +84,7 @@ public class BufferResult
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(token, nextToken, bufferClosed, pages, partitionFunction);
+        return Objects.hash(token, nextToken, bufferClosed, pages, partitionFunction);
     }
 
     @Override
@@ -97,11 +97,11 @@ public class BufferResult
             return false;
         }
         final BufferResult other = (BufferResult) obj;
-        return Objects.equal(this.token, other.token) &&
-                Objects.equal(this.nextToken, other.nextToken) &&
-                Objects.equal(this.bufferClosed, other.bufferClosed) &&
-                Objects.equal(this.pages, other.pages) &&
-                Objects.equal(this.partitionFunction, other.partitionFunction);
+        return Objects.equals(this.token, other.token) &&
+                Objects.equals(this.nextToken, other.nextToken) &&
+                Objects.equals(this.bufferClosed, other.bufferClosed) &&
+                Objects.equals(this.pages, other.pages) &&
+                Objects.equals(this.partitionFunction, other.partitionFunction);
     }
 
     @Override

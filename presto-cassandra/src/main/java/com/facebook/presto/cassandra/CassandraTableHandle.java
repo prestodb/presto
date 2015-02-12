@@ -17,7 +17,8 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
+
+import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -65,7 +66,7 @@ public class CassandraTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(connectorId, schemaName, tableName);
+        return Objects.hash(connectorId, schemaName, tableName);
     }
 
     @Override
@@ -78,9 +79,9 @@ public class CassandraTableHandle
             return false;
         }
         CassandraTableHandle other = (CassandraTableHandle) obj;
-        return Objects.equal(this.connectorId, other.connectorId) &&
-                Objects.equal(this.schemaName, other.schemaName) &&
-                Objects.equal(this.tableName, other.tableName);
+        return Objects.equals(this.connectorId, other.connectorId) &&
+                Objects.equals(this.schemaName, other.schemaName) &&
+                Objects.equals(this.tableName, other.tableName);
     }
 
     @Override

@@ -14,8 +14,6 @@
 package com.facebook.presto.benchmark.driver;
 
 import com.facebook.presto.client.ClientSession;
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
@@ -28,6 +26,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.TimeZone;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -138,7 +138,7 @@ public class BenchmarkDriverOptions
             List<String> nameParts = NAME_SPLITTER.splitToList(nameValue.get(0));
             checkArgument(nameParts.size() == 1 || nameParts.size() == 2, "Invalid session property: %s", property);
             if (nameParts.size() == 1) {
-                catalog = Optional.absent();
+                catalog = Optional.empty();
                 name = nameParts.get(0);
             }
             else {
@@ -165,8 +165,8 @@ public class BenchmarkDriverOptions
             checkArgument(!name.isEmpty(), "Session property name is empty");
 
             CharsetEncoder charsetEncoder = US_ASCII.newEncoder();
-            checkArgument(catalog.or("").indexOf('=') < 0, "Session property catalog must not contain '=': %s", name);
-            checkArgument(charsetEncoder.canEncode(catalog.or("")), "Session property catalog is not US_ASCII: %s", name);
+            checkArgument(catalog.orElse("").indexOf('=') < 0, "Session property catalog must not contain '=': %s", name);
+            checkArgument(charsetEncoder.canEncode(catalog.orElse("")), "Session property catalog is not US_ASCII: %s", name);
             checkArgument(name.indexOf('=') < 0, "Session property name must not contain '=': %s", name);
             checkArgument(charsetEncoder.canEncode(name), "Session property name is not US_ASCII: %s", name);
             checkArgument(charsetEncoder.canEncode(value), "Session property value is not US_ASCII: %s", value);
@@ -196,7 +196,7 @@ public class BenchmarkDriverOptions
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(catalog, name, value);
+            return Objects.hash(catalog, name, value);
         }
 
         @Override
@@ -209,9 +209,9 @@ public class BenchmarkDriverOptions
                 return false;
             }
             ClientSessionProperty other = (ClientSessionProperty) obj;
-            return Objects.equal(this.catalog, other.catalog) &&
-                    Objects.equal(this.name, other.name) &&
-                    Objects.equal(this.value, other.value);
+            return Objects.equals(this.catalog, other.catalog) &&
+                    Objects.equals(this.name, other.name) &&
+                    Objects.equals(this.value, other.value);
         }
     }
 }

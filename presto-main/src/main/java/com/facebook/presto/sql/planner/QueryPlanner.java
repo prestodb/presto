@@ -48,7 +48,6 @@ import com.facebook.presto.sql.tree.SortItem.Ordering;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -65,6 +64,7 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 
 class QueryPlanner
@@ -225,7 +225,7 @@ class QueryPlanner
 
         for (Expression expression : expressions) {
             Type coercion = analysis.getCoercion(expression);
-            Symbol symbol = symbolAllocator.newSymbol(expression, Objects.firstNonNull(coercion, analysis.getType(expression)));
+            Symbol symbol = symbolAllocator.newSymbol(expression, firstNonNull(coercion, analysis.getType(expression)));
             Expression rewritten = subPlan.rewrite(expression);
             if (coercion != null) {
                 rewritten = new Cast(rewritten, coercion.getTypeSignature().toString());

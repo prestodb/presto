@@ -16,9 +16,10 @@ package com.facebook.presto.raptor;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 
 import javax.annotation.Nullable;
+
+import java.util.Objects;
 
 import static com.facebook.presto.raptor.util.MetadataUtil.checkSchemaName;
 import static com.facebook.presto.raptor.util.MetadataUtil.checkTableName;
@@ -93,7 +94,7 @@ public final class RaptorTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(schemaName, tableName, tableId);
+        return Objects.hash(schemaName, tableName, tableId);
     }
 
     @Override
@@ -106,8 +107,8 @@ public final class RaptorTableHandle
             return false;
         }
         RaptorTableHandle other = (RaptorTableHandle) obj;
-        return Objects.equal(this.schemaName, other.schemaName) &&
-                Objects.equal(this.tableName, other.tableName) &&
-                Objects.equal(this.tableId, other.tableId);
+        return Objects.equals(this.schemaName, other.schemaName) &&
+                Objects.equals(this.tableName, other.tableName) &&
+                Objects.equals(this.tableId, other.tableId);
     }
 }

@@ -14,7 +14,6 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientSession;
-import com.google.common.base.Objects;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
@@ -27,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.TimeZone;
 
@@ -198,7 +198,7 @@ public class ClientOptions
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(catalog, name, value);
+            return Objects.hash(catalog, name, value);
         }
 
         @Override
@@ -211,9 +211,9 @@ public class ClientOptions
                 return false;
             }
             ClientSessionProperty other = (ClientSessionProperty) obj;
-            return Objects.equal(this.catalog, other.catalog) &&
-                    Objects.equal(this.name, other.name) &&
-                    Objects.equal(this.value, other.value);
+            return Objects.equals(this.catalog, other.catalog) &&
+                    Objects.equals(this.name, other.name) &&
+                    Objects.equals(this.value, other.value);
         }
     }
 }

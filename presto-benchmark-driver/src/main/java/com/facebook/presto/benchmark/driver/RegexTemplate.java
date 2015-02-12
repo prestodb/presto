@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.benchmark.driver;
 
-import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
@@ -23,6 +22,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -79,7 +79,7 @@ public class RegexTemplate
 
         Matcher matcher = pattern.matcher(value);
         if (!matcher.matches()) {
-            return Optional.absent();
+            return Optional.empty();
         }
 
         ImmutableMap.Builder<String, String> fieldsBuilder = ImmutableMap.builder();

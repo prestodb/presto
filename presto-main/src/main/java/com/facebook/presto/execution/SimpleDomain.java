@@ -17,12 +17,12 @@ import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Range;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -96,14 +96,14 @@ public final class SimpleDomain
 
         SimpleDomain that = (SimpleDomain) o;
 
-        return Objects.equal(this.nullAllowed, that.nullAllowed) &&
-                Objects.equal(this.ranges, that.ranges);
+        return Objects.equals(this.nullAllowed, that.nullAllowed) &&
+                Objects.equals(this.ranges, that.ranges);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(nullAllowed, ranges);
+        return Objects.hash(nullAllowed, ranges);
     }
 
     @Override

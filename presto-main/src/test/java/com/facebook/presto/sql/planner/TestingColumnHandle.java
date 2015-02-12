@@ -16,8 +16,9 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -41,7 +42,7 @@ public class TestingColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(name);
+        return Objects.hash(name);
     }
 
     @Override
@@ -54,7 +55,7 @@ public class TestingColumnHandle
             return false;
         }
         final TestingColumnHandle other = (TestingColumnHandle) obj;
-        return Objects.equal(this.name, other.name);
+        return Objects.equals(this.name, other.name);
     }
 
     @Override

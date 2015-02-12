@@ -41,7 +41,7 @@ public class ResetSession
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(name);
+        return Objects.hash(name);
     }
 
     @Override

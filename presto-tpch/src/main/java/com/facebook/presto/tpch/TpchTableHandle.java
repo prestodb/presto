@@ -16,7 +16,8 @@ package com.facebook.presto.tpch;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
+
+import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -64,7 +65,7 @@ public class TpchTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(connectorId, tableName, scaleFactor);
+        return Objects.hash(connectorId, tableName, scaleFactor);
     }
 
     @Override
@@ -77,8 +78,8 @@ public class TpchTableHandle
             return false;
         }
         TpchTableHandle other = (TpchTableHandle) obj;
-        return Objects.equal(this.tableName, other.tableName) &&
-                Objects.equal(this.scaleFactor, other.scaleFactor) &&
-                Objects.equal(this.connectorId, other.connectorId);
+        return Objects.equals(this.tableName, other.tableName) &&
+                Objects.equals(this.scaleFactor, other.scaleFactor) &&
+                Objects.equals(this.connectorId, other.connectorId);
     }
 }

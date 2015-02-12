@@ -16,16 +16,16 @@ package com.facebook.presto.benchmark.driver;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Files;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -115,7 +115,7 @@ public class Suite
     {
         checkNotNull(file, "file is null");
         checkArgument(file.canRead(), "Can not read file: %s" + file);
-        byte[] json = Files.toByteArray(file);
+        byte[] json = Files.readAllBytes(file.toPath());
         Map<String, OptionsJson> options = mapJsonCodec(String.class, OptionsJson.class).fromJson(json);
         ImmutableList.Builder<Suite> runOptions = ImmutableList.builder();
         for (Entry<String, OptionsJson> entry : options.entrySet()) {

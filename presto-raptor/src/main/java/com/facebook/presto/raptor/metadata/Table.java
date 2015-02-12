@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import com.google.common.base.Objects;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -39,7 +39,7 @@ public final class Table
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(tableId);
+        return Objects.hash(tableId);
     }
 
     @Override

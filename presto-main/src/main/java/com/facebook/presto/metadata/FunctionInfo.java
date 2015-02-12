@@ -21,13 +21,13 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static com.facebook.presto.operator.WindowFunctionDefinition.window;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -229,15 +229,15 @@ public final class FunctionInfo
             return false;
         }
         FunctionInfo other = (FunctionInfo) obj;
-        return Objects.equal(this.signature, other.signature) &&
-                Objects.equal(this.isAggregate, other.isAggregate) &&
-                Objects.equal(this.isWindow, other.isWindow);
+        return Objects.equals(this.signature, other.signature) &&
+                Objects.equals(this.isAggregate, other.isAggregate) &&
+                Objects.equals(this.isWindow, other.isWindow);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(signature, isAggregate, isWindow);
+        return Objects.hash(signature, isAggregate, isWindow);
     }
 
     @Override

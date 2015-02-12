@@ -23,7 +23,6 @@ import com.facebook.presto.hive.util.BackgroundCacheLoader;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.LoadingCache;
@@ -57,6 +56,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -705,15 +705,15 @@ public class CachingHiveMetastore
                 return false;
             }
 
-            HiveTableName that = (HiveTableName) o;
-
-            return Objects.equal(databaseName, that.databaseName) && Objects.equal(tableName, that.tableName);
+            HiveTableName other = (HiveTableName) o;
+            return Objects.equals(databaseName, other.databaseName) &&
+                    Objects.equals(tableName, other.tableName);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(databaseName, tableName);
+            return Objects.hash(databaseName, tableName);
         }
     }
 
@@ -762,15 +762,15 @@ public class CachingHiveMetastore
                 return false;
             }
 
-            HivePartitionName that = (HivePartitionName) o;
-
-            return Objects.equal(hiveTableName, that.hiveTableName) && Objects.equal(partitionName, that.partitionName);
+            HivePartitionName other = (HivePartitionName) o;
+            return Objects.equals(hiveTableName, other.hiveTableName) &&
+                    Objects.equals(partitionName, other.partitionName);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(hiveTableName, partitionName);
+            return Objects.hash(hiveTableName, partitionName);
         }
     }
 
@@ -819,15 +819,15 @@ public class CachingHiveMetastore
                 return false;
             }
 
-            PartitionFilter that = (PartitionFilter) o;
-
-            return Objects.equal(hiveTableName, that.hiveTableName) && Objects.equal(parts, that.parts);
+            PartitionFilter other = (PartitionFilter) o;
+            return Objects.equals(hiveTableName, other.hiveTableName) &&
+                    Objects.equals(parts, other.parts);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(hiveTableName, parts);
+            return Objects.hash(hiveTableName, parts);
         }
     }
 }

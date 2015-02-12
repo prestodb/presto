@@ -15,7 +15,6 @@ package com.facebook.presto.jdbc;
 
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.StatementClient;
-import com.google.common.base.Objects;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
@@ -49,6 +48,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -572,7 +572,7 @@ public class PrestoConnection
     {
         URI uri = createHttpUri(address);
 
-        String source = Objects.firstNonNull(clientInfo.get("ApplicationName"), "presto-jdbc");
+        String source = firstNonNull(clientInfo.get("ApplicationName"), "presto-jdbc");
 
         ClientSession session = new ClientSession(
                 uri,
