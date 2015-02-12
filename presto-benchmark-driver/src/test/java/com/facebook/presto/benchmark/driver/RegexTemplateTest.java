@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.benchmark.driver;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static org.testng.Assert.assertEquals;
 
@@ -30,13 +31,13 @@ public class RegexTemplateTest
 
         assertEquals(regexTemplate.getFieldNames(), ImmutableList.of("scale", "format", "compression"));
         assertEquals(regexTemplate.parse("tpch_sf100_orc_zlib"), Optional.of(ImmutableMap.of("scale", "100", "format", "orc", "compression", "zlib")));
-        assertEquals(regexTemplate.parse("foo_tpch_sf100_orc_zlib"), Optional.absent());
-        assertEquals(regexTemplate.parse("tpch_sf100_orc"), Optional.absent());
-        assertEquals(regexTemplate.parse(""), Optional.absent());
+        assertEquals(regexTemplate.parse("foo_tpch_sf100_orc_zlib"), Optional.empty());
+        assertEquals(regexTemplate.parse("tpch_sf100_orc"), Optional.empty());
+        assertEquals(regexTemplate.parse(""), Optional.empty());
 
         regexTemplate = new RegexTemplate("tpch_sf(?<scale>.*?)_(?<format>.*?)_(?<compression>.*?)\\.sql");
         assertEquals(regexTemplate.parse("tpch_sf100_orc_zlib.sql"), Optional.of(ImmutableMap.of("scale", "100", "format", "orc", "compression", "zlib")));
-        assertEquals(regexTemplate.parse("tpch_sf100_orc_zlibXsql"), Optional.absent());
-        assertEquals(regexTemplate.parse("tpch_sf100_orc_zlib.sqlFoo"), Optional.absent());
+        assertEquals(regexTemplate.parse("tpch_sf100_orc_zlibXsql"), Optional.empty());
+        assertEquals(regexTemplate.parse("tpch_sf100_orc_zlib.sqlFoo"), Optional.empty());
     }
 }
