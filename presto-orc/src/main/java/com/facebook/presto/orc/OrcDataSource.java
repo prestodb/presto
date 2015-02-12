@@ -34,4 +34,10 @@ public interface OrcDataSource
 
     <K> Map<K, Slice> readFully(Map<K, DiskRange> diskRanges)
             throws IOException;
+
+    @Override
+    default void close()
+            throws IOException
+    {
+    }
 }
