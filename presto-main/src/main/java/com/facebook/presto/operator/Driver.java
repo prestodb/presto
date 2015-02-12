@@ -18,6 +18,7 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -319,13 +320,15 @@ public class Driver
                 processNewSources();
             }
 
+            ListenableFuture<?> blockedOperator = null;
             for (int i = 0; i < operators.size() - 1 && !driverContext.isDone(); i++) {
                 // check if current operator is blocked
                 Operator current = operators.get(i);
                 ListenableFuture<?> blocked = current.isBlocked();
                 if (!blocked.isDone()) {
                     current.getOperatorContext().recordBlocked(blocked);
-                    return blocked;
+                    blockedOperator = MoreObjects.firstNonNull(blockedOperator, blocked);
+                    continue;
                 }
 
                 // check if next operator is blocked
@@ -333,7 +336,8 @@ public class Driver
                 blocked = next.isBlocked();
                 if (!blocked.isDone()) {
                     next.getOperatorContext().recordBlocked(blocked);
-                    return blocked;
+                    blockedOperator = MoreObjects.firstNonNull(blockedOperator, blocked);
+                    continue;
                 }
 
                 // if the current operator is not finished and next operator needs input...
@@ -348,6 +352,8 @@ public class Driver
                         next.getOperatorContext().startIntervalTimer();
                         next.addInput(page);
                         next.getOperatorContext().recordAddInput(page);
+                        // if we made any progress, mark as not blocked
+                        blockedOperator = NOT_BLOCKED;
                     }
                 }
 
@@ -359,7 +365,7 @@ public class Driver
                     next.getOperatorContext().recordFinish();
                 }
             }
-            return NOT_BLOCKED;
+            return MoreObjects.firstNonNull(blockedOperator, NOT_BLOCKED);
         }
         catch (Throwable t) {
             driverContext.failed(t);
