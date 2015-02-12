@@ -191,7 +191,7 @@ public class TaskExecutor
                 // Note: we do not record queued time for forced splits
                 startSplit(prioritizedSplitRunner);
                 // add the runner to the handle so it can be destroyed if the task is canceled
-                taskHandle.recordRunningSplit(prioritizedSplitRunner);
+                taskHandle.recordForcedRunningSplit(prioritizedSplitRunner);
             }
             else {
                 // add this to the work queue for the task
@@ -287,6 +287,7 @@ public class TaskExecutor
         private final TaskId taskId;
         private final Queue<PrioritizedSplitRunner> queuedSplits = new ArrayDeque<>(10);
         private final List<PrioritizedSplitRunner> runningSplits = new ArrayList<>(10);
+        private final List<PrioritizedSplitRunner> forcedRunningSplits = new ArrayList<>(10);
         private final AtomicLong taskThreadUsageNanos = new AtomicLong();
 
         private final AtomicInteger nextSplitId = new AtomicInteger();
@@ -308,6 +309,11 @@ public class TaskExecutor
 
         private void destroy()
         {
+            for (PrioritizedSplitRunner runningSplit : forcedRunningSplits) {
+                runningSplit.destroy();
+            }
+            forcedRunningSplits.clear();
+
             for (PrioritizedSplitRunner runningSplit : runningSplits) {
                 runningSplit.destroy();
             }
@@ -324,12 +330,13 @@ public class TaskExecutor
             queuedSplits.add(split);
         }
 
-        private void recordRunningSplit(PrioritizedSplitRunner split)
+        private void recordForcedRunningSplit(PrioritizedSplitRunner split)
         {
-            runningSplits.add(split);
+            forcedRunningSplits.add(split);
         }
 
-        private int getRunningSplits()
+        @VisibleForTesting
+        int getRunningSplits()
         {
             return runningSplits.size();
         }
@@ -350,6 +357,7 @@ public class TaskExecutor
 
         private void splitComplete(PrioritizedSplitRunner split)
         {
+            forcedRunningSplits.remove(split);
             runningSplits.remove(split);
         }
 
