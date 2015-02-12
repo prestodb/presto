@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.hive.$internal.com.google.common.primitives.Ints;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.google.common.base.MoreObjects;
-import io.airlift.slice.BasicSliceInput;
+import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.iq80.snappy.Snappy;
@@ -40,19 +41,17 @@ import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 public final class OrcInputStream
         extends InputStream
 {
-    public static final int BLOCK_HEADER_SIZE = 3;
-
     private final String source;
-    private final BasicSliceInput compressedSliceInput;
+    private final FixedLengthSliceInput compressedSliceInput;
     private final CompressionKind compressionKind;
     private final int bufferSize;
 
     private int currentCompressedBlockOffset;
-    private BasicSliceInput current;
+    private FixedLengthSliceInput current;
 
     private Slice buffer;
 
-    public OrcInputStream(String source, BasicSliceInput sliceInput, CompressionKind compressionKind, int bufferSize)
+    public OrcInputStream(String source, FixedLengthSliceInput sliceInput, CompressionKind compressionKind, int bufferSize)
     {
         this.source = checkNotNull(source, "source is null");
 
@@ -120,7 +119,7 @@ public final class OrcInputStream
             return -1;
         }
 
-        if (!current.isReadable()) {
+        if (current.remaining() == 0) {
             advance();
             if (current == null) {
                 return -1;
@@ -133,11 +132,11 @@ public final class OrcInputStream
     public long getCheckpoint()
     {
         // if the decompressed buffer is empty, return a checkpoint starting at the next block
-        if (current == null || (current.position() == 0 && current.available() == 0)) {
-            return createInputStreamCheckpoint(compressedSliceInput.position(), 0);
+        if (current == null || (current.position() == 0 && current.remaining() == 0)) {
+            return createInputStreamCheckpoint(Ints.checkedCast(compressedSliceInput.position()), 0);
         }
         // otherwise return a checkpoint at the last compressed block read and the current position in the buffer
-        return createInputStreamCheckpoint(currentCompressedBlockOffset, current.position());
+        return createInputStreamCheckpoint(currentCompressedBlockOffset, Ints.checkedCast(current.position()));
     }
 
     public boolean seekToCheckpoint(long checkpoint)
@@ -160,8 +159,8 @@ public final class OrcInputStream
 
         if (decompressedOffset != current.position()) {
             current.setPosition(0);
-            if (current.available() < decompressedOffset)  {
-                decompressedOffset -= current.available();
+            if (current.remaining() < decompressedOffset)  {
+                decompressedOffset -= current.remaining();
                 advance();
             }
             current.setPosition(decompressedOffset);
@@ -191,14 +190,14 @@ public final class OrcInputStream
     private void advance()
             throws IOException
     {
-        if (compressedSliceInput == null || compressedSliceInput.available() == 0) {
+        if (compressedSliceInput == null || compressedSliceInput.remaining() == 0) {
             current = null;
             return;
         }
 
         // 3 byte header
         // NOTE: this must match BLOCK_HEADER_SIZE
-        currentCompressedBlockOffset = compressedSliceInput.position();
+        currentCompressedBlockOffset = Ints.checkedCast(compressedSliceInput.position());
         int b0 = compressedSliceInput.readUnsignedByte();
         int b1 = compressedSliceInput.readUnsignedByte();
         int b2 = compressedSliceInput.readUnsignedByte();

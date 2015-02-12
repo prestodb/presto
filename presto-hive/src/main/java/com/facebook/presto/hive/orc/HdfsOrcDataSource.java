@@ -24,9 +24,9 @@ public class HdfsOrcDataSource
 {
     private final FSDataInputStream inputStream;
 
-    public HdfsOrcDataSource(String name, long size, DataSize maxMergeDistance, DataSize maxReadSize, FSDataInputStream inputStream)
+    public HdfsOrcDataSource(String name, long size, DataSize maxMergeDistance, DataSize maxReadSize, DataSize streamBufferSize, FSDataInputStream inputStream)
     {
-        super(name, size, maxMergeDistance, maxReadSize);
+        super(name, size, maxMergeDistance, maxReadSize, streamBufferSize);
         this.inputStream = inputStream;
     }
 

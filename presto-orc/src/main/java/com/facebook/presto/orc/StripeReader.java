@@ -36,7 +36,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Ints;
-import io.airlift.slice.Slice;
+import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
@@ -147,9 +147,9 @@ public class StripeReader
         // transform ranges to have an absolute offset in file
         diskRanges = Maps.transformValues(diskRanges, diskRange -> new DiskRange(stripeOffset + diskRange.getOffset(), diskRange.getLength()));
 
-        Map<StreamId, Slice> streamsData = orcDataSource.readFully(diskRanges);
+        Map<StreamId, FixedLengthSliceInput> streamsData = orcDataSource.readFully(diskRanges);
 
-        return ImmutableMap.copyOf(Maps.transformValues(streamsData, input -> new OrcInputStream(orcDataSource.toString(), input.getInput(), compressionKind, bufferSize)));
+        return ImmutableMap.copyOf(Maps.transformValues(streamsData, input -> new OrcInputStream(orcDataSource.toString(), input, compressionKind, bufferSize)));
     }
 
     private Map<StreamId, ValueStream<?>> createValueStreams(Map<StreamId, Stream> streams, Map<StreamId, OrcInputStream> streamsData, List<ColumnEncoding> columnEncodings)
