@@ -113,6 +113,35 @@ public class TaskExecutorTest
         }
     }
 
+    @Test
+    public void testTaskHandle()
+            throws Exception
+    {
+        TaskExecutor taskExecutor = new TaskExecutor(4, 8);
+        taskExecutor.start();
+
+        try {
+            TaskHandle taskHandle = taskExecutor.addTask(new TaskId("test", "test", "test"));
+
+            Phaser beginPhase = new Phaser();
+            beginPhase.register();
+            Phaser verificationComplete = new Phaser();
+            verificationComplete.register();
+            TestingJob driver = new TestingJob(beginPhase, verificationComplete, 10);
+
+            // force enqueue a split
+            taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver));
+            assertEquals(taskHandle.getRunningSplits(), 0);
+
+            // normal enqueue a split
+            taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(driver));
+            assertEquals(taskHandle.getRunningSplits(), 1);
+        }
+        finally {
+            taskExecutor.stop();
+        }
+    }
+
     private static class TestingJob
             implements SplitRunner
     {
