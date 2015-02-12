@@ -15,13 +15,13 @@ package com.facebook.presto.execution;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.google.common.base.Objects;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -59,7 +59,7 @@ public class QueryId
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(id);
+        return Objects.hash(id);
     }
 
     @Override
@@ -72,7 +72,7 @@ public class QueryId
             return false;
         }
         final QueryId other = (QueryId) obj;
-        return Objects.equal(this.id, other.id);
+        return Objects.equals(this.id, other.id);
     }
 
     //

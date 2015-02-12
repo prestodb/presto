@@ -15,12 +15,12 @@ package com.facebook.presto.execution;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -87,16 +87,16 @@ public final class Input
 
         Input that = (Input) o;
 
-        return Objects.equal(this.connectorId, that.connectorId) &&
-                Objects.equal(this.schema, that.schema) &&
-                Objects.equal(this.table, that.table) &&
-                Objects.equal(this.columns, that.columns);
+        return Objects.equals(this.connectorId, that.connectorId) &&
+                Objects.equals(this.schema, that.schema) &&
+                Objects.equals(this.table, that.table) &&
+                Objects.equals(this.columns, that.columns);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(connectorId, schema, table, columns);
+        return Objects.hash(connectorId, schema, table, columns);
     }
 
     @Override

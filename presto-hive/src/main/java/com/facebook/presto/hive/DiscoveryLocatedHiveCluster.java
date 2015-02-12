@@ -13,9 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.google.common.base.Predicate;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.net.HostAndPort;
 import io.airlift.discovery.client.DiscoveryException;
 import io.airlift.discovery.client.ServiceDescriptor;
@@ -31,6 +28,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.stream.Collectors.toList;
 
 public class DiscoveryLocatedHiveCluster
         implements HiveCluster
@@ -48,7 +46,9 @@ public class DiscoveryLocatedHiveCluster
     @Override
     public HiveMetastoreClient createMetastoreClient()
     {
-        List<ServiceDescriptor> descriptors = Lists.newArrayList(Iterables.filter(selector.selectAllServices(), runningPredicate()));
+        List<ServiceDescriptor> descriptors = selector.selectAllServices().stream()
+                .filter(input -> input.getState() != ServiceState.STOPPED)
+                .collect(toList());
         if (descriptors.isEmpty()) {
             throw new DiscoveryException("No metastore servers available for pool: " + selector.getPool());
         }
@@ -73,17 +73,5 @@ public class DiscoveryLocatedHiveCluster
         }
 
         throw new DiscoveryException("Unable to connect to any metastore servers in pool: " + selector.getPool(), lastException);
-    }
-
-    private static Predicate<? super ServiceDescriptor> runningPredicate()
-    {
-        return new Predicate<ServiceDescriptor>()
-        {
-            @Override
-            public boolean apply(ServiceDescriptor input)
-            {
-                return input.getState() != ServiceState.STOPPED;
-            }
-        };
     }
 }

@@ -17,7 +17,6 @@ import com.facebook.presto.spi.NotFoundException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.LoadingCache;
@@ -34,6 +33,7 @@ import javax.inject.Inject;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -337,7 +337,7 @@ public class CachingCassandraSchemaProvider
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(table, filterPrefix);
+            return Objects.hash(table, filterPrefix);
         }
 
         @Override
@@ -350,7 +350,8 @@ public class CachingCassandraSchemaProvider
                 return false;
             }
             PartitionListKey other = (PartitionListKey) obj;
-            return Objects.equal(this.table, other.table) && Objects.equal(this.filterPrefix, other.filterPrefix);
+            return Objects.equals(this.table, other.table) &&
+                    Objects.equals(this.filterPrefix, other.filterPrefix);
         }
     }
 }

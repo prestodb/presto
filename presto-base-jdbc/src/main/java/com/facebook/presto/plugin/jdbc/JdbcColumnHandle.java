@@ -18,7 +18,8 @@ import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
+
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -83,14 +84,14 @@ public final class JdbcColumnHandle
             return false;
         }
         JdbcColumnHandle o = (JdbcColumnHandle) obj;
-        return Objects.equal(this.connectorId, o.connectorId) &&
-                Objects.equal(this.columnName, o.columnName);
+        return Objects.equals(this.connectorId, o.connectorId) &&
+                Objects.equals(this.columnName, o.columnName);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(connectorId, columnName);
+        return Objects.hash(connectorId, columnName);
     }
 
     @Override

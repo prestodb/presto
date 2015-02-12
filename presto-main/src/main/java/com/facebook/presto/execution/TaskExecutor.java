@@ -17,8 +17,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.util.CpuTimer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
-import com.google.common.primitives.Ints;
-import com.google.common.primitives.Longs;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.SetThreadName;
@@ -479,7 +477,7 @@ public class TaskExecutor
         {
             int level = priorityLevel.get();
 
-            int result = Ints.compare(level, o.priorityLevel.get());
+            int result = Integer.compare(level, o.priorityLevel.get());
             if (result != 0) {
                 return result;
             }
@@ -494,7 +492,7 @@ public class TaskExecutor
                 return result;
             }
 
-            return Longs.compare(workerId, o.workerId);
+            return Long.compare(workerId, o.workerId);
         }
 
         public int getSplitId()

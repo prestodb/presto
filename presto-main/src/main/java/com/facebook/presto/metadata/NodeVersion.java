@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -39,13 +39,13 @@ public class NodeVersion
         }
 
         NodeVersion that = (NodeVersion) o;
-        return Objects.equal(version, that.version);
+        return Objects.equals(version, that.version);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(version);
+        return Objects.hash(version);
     }
 
     @Override

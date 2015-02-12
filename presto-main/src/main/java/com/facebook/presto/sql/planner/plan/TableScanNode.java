@@ -22,7 +22,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -34,6 +33,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.DomainUtils.columnHandleToSymbol;
@@ -236,7 +236,7 @@ public class TableScanNode
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(tupleDomainInput, partitions);
+            return Objects.hash(tupleDomainInput, partitions);
         }
 
         @Override
@@ -248,8 +248,9 @@ public class TableScanNode
             if (obj == null || getClass() != obj.getClass()) {
                 return false;
             }
-            final GeneratedPartitions other = (GeneratedPartitions) obj;
-            return Objects.equal(this.tupleDomainInput, other.tupleDomainInput) && Objects.equal(this.partitions, other.partitions);
+            GeneratedPartitions other = (GeneratedPartitions) obj;
+            return Objects.equals(this.tupleDomainInput, other.tupleDomainInput) &&
+                    Objects.equals(this.partitions, other.partitions);
         }
     }
 }

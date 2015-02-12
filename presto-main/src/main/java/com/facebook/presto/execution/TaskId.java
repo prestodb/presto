@@ -15,9 +15,9 @@ package com.facebook.presto.execution;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.google.common.base.Objects;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.facebook.presto.execution.QueryId.validateId;
 
@@ -74,7 +74,7 @@ public class TaskId
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(fullId);
+        return Objects.hash(fullId);
     }
 
     @Override
@@ -87,6 +87,6 @@ public class TaskId
             return false;
         }
         TaskId other = (TaskId) obj;
-        return Objects.equal(this.fullId, other.fullId);
+        return Objects.equals(this.fullId, other.fullId);
     }
 }

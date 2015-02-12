@@ -24,7 +24,6 @@ import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -38,6 +37,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -109,16 +109,16 @@ public class MaterializedResult
             return false;
         }
         MaterializedResult o = (MaterializedResult) obj;
-        return Objects.equal(types, o.types) &&
-                Objects.equal(rows, o.rows) &&
-                Objects.equal(setSessionProperties, o.setSessionProperties) &&
-                Objects.equal(resetSessionProperties, o.resetSessionProperties);
+        return Objects.equals(types, o.types) &&
+                Objects.equals(rows, o.rows) &&
+                Objects.equals(setSessionProperties, o.setSessionProperties) &&
+                Objects.equals(resetSessionProperties, o.resetSessionProperties);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(rows, types, setSessionProperties, resetSessionProperties);
+        return Objects.hash(rows, types, setSessionProperties, resetSessionProperties);
     }
 
     @Override

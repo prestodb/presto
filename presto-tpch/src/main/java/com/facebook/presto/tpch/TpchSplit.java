@@ -17,10 +17,10 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -89,30 +89,24 @@ public class TpchSplit
     }
 
     @Override
-    public boolean equals(Object o)
+    public boolean equals(Object obj)
     {
-        if (this == o) {
+        if (this == obj) {
             return true;
         }
-        if (!(o instanceof TpchSplit)) {
+        if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
-
-        TpchSplit tpchSplit = (TpchSplit) o;
-
-        if (tableHandle.equals(tpchSplit.tableHandle)
-                && partNumber == tpchSplit.partNumber
-                && totalParts == tpchSplit.totalParts) {
-            return true;
-        }
-
-        return false;
+        TpchSplit other = (TpchSplit) obj;
+        return Objects.equals(this.tableHandle, other.tableHandle) &&
+                Objects.equals(this.totalParts, other.totalParts) &&
+                Objects.equals(this.partNumber, other.partNumber);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(tableHandle, partNumber, totalParts);
+        return Objects.hash(tableHandle, totalParts, partNumber);
     }
 
     @Override
