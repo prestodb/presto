@@ -35,11 +35,13 @@ public class HdfsEnvironment
     }
 
     private final HdfsConfiguration hdfsConfiguration;
+    private final boolean verifyChecksum;
 
     @Inject
-    public HdfsEnvironment(HdfsConfiguration hdfsConfiguration)
+    public HdfsEnvironment(HdfsConfiguration hdfsConfiguration, HiveClientConfig config)
     {
         this.hdfsConfiguration = checkNotNull(hdfsConfiguration, "hdfsConfiguration is null");
+        this.verifyChecksum = checkNotNull(config, "config is null").isVerifyChecksum();
     }
 
     public Configuration getConfiguration(Path path)
@@ -58,7 +60,7 @@ public class HdfsEnvironment
             throws IOException
     {
         FileSystem fileSystem = path.getFileSystem(getConfiguration(path));
-        fileSystem.setVerifyChecksum(hdfsConfiguration.verifyChecksum());
+        fileSystem.setVerifyChecksum(verifyChecksum);
 
         return fileSystem;
     }
