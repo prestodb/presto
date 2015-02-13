@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
+import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -78,8 +79,10 @@ public class SqlTaskManager
             final LocationFactory locationFactory,
             TaskExecutor taskExecutor,
             QueryMonitor queryMonitor,
+            NodeInfo nodeInfo,
             TaskManagerConfig config)
     {
+        checkNotNull(nodeInfo, "nodeInfo is null");
         checkNotNull(config, "config is null");
         infoCacheTime = config.getInfoMaxAge();
         clientTimeout = config.getClientTimeout();
@@ -102,6 +105,7 @@ public class SqlTaskManager
             {
                 return new SqlTask(
                         taskId,
+                        nodeInfo.getInstanceId(),
                         locationFactory.createLocalTaskLocation(taskId),
                         sqlTaskExecutionFactory,
                         taskNotificationExecutor,

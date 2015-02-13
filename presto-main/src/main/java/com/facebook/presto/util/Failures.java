@@ -34,10 +34,12 @@ import static java.util.Arrays.asList;
 
 public final class Failures
 {
-    public static final String WORKER_NODE_ERROR = "" +
-            "Encountered too many errors talking to a worker node. " +
-            "The node may have crashed or be under too much load. " +
+    private static final String NODE_CRASHED_ERROR = "The node may have crashed or be under too much load. " +
             "This is probably a transient issue, so please retry your query in a few minutes.";
+
+    public static final String WORKER_NODE_ERROR = "Encountered too many errors talking to a worker node. " + NODE_CRASHED_ERROR;
+
+    public static final String WORKER_RESTARTED_ERROR = "A worker node running your query has restarted. " + NODE_CRASHED_ERROR;
 
     private Failures() {}
 

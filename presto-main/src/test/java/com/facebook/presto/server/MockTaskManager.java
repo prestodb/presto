@@ -44,6 +44,7 @@ import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
@@ -271,6 +272,7 @@ public class MockTaskManager
 
             return new TaskInfo(
                     taskStateMachine.getTaskId(),
+                    Optional.empty(),
                     nextTaskInfoVersion.getAndIncrement(),
                     state,
                     location,
