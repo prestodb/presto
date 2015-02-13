@@ -278,6 +278,7 @@ public class TestSqlTask
 
         return new SqlTask(
                 taskId,
+                "test",
                 location,
                 sqlTaskExecutionFactory,
                 taskNotificationExecutor,

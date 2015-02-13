@@ -245,6 +245,7 @@ public class TestSqlTaskManager
                 new MockLocationFactory(),
                 taskExecutor,
                 new QueryMonitor(new ObjectMapperProvider().get(), new NullEventClient(), new NodeInfo("test"), new NodeVersion("testVersion")),
+                new NodeInfo("test"),
                 config);
     }
 

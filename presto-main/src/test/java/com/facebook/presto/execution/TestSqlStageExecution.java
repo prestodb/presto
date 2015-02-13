@@ -442,6 +442,7 @@ public class TestSqlStageExecution
 
                 return new TaskInfo(
                         taskStateMachine.getTaskId(),
+                        Optional.empty(),
                         nextTaskInfoVersion.getAndIncrement(),
                         state,
                         location,

@@ -67,6 +67,7 @@ import java.net.URI;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
@@ -82,7 +83,9 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
+import static com.facebook.presto.spi.StandardErrorCode.WORKER_RESTARTED;
 import static com.facebook.presto.util.Failures.WORKER_NODE_ERROR;
+import static com.facebook.presto.util.Failures.WORKER_RESTARTED_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -188,6 +191,7 @@ public class HttpRemoteTask
 
             taskInfo = new StateMachine<>("task " + taskId, executor, new TaskInfo(
                     taskId,
+                    Optional.empty(),
                     TaskInfo.MIN_VERSION,
                     TaskState.PLANNED,
                     location,
@@ -322,7 +326,14 @@ public class HttpRemoteTask
         }
 
         // change to new value if old value is not changed and new value has a newer version
+        AtomicBoolean workerRestarted = new AtomicBoolean();
         taskInfo.setIf(newValue, oldValue -> {
+            // did the worker restart
+            if (oldValue.getNodeInstanceId().isPresent() && !oldValue.getNodeInstanceId().equals(newValue.getNodeInstanceId())) {
+                workerRestarted.set(true);
+                return false;
+            }
+
             if (oldValue.getState().isDone()) {
                 // never update if the task has reached a terminal state
                 return false;
@@ -333,6 +344,12 @@ public class HttpRemoteTask
             }
             return true;
         });
+
+        if (workerRestarted.get()) {
+            PrestoException exception = new PrestoException(WORKER_RESTARTED, format("%s (%s)", WORKER_RESTARTED_ERROR, newValue.getSelf()));
+            failTask(exception);
+            abort();
+        }
 
         // remove acknowledged splits, which frees memory
         for (TaskSource source : sources) {
@@ -465,6 +482,7 @@ public class HttpRemoteTask
             TaskInfo taskInfo = getTaskInfo();
             URI uri = taskInfo.getSelf();
             updateTaskInfo(new TaskInfo(taskInfo.getTaskId(),
+                    taskInfo.getNodeInstanceId(),
                     TaskInfo.MAX_VERSION,
                     TaskState.ABORTED,
                     uri,
@@ -521,6 +539,7 @@ public class HttpRemoteTask
             log.debug(cause, "Remote task failed: %s", taskInfo.getSelf());
         }
         updateTaskInfo(new TaskInfo(taskInfo.getTaskId(),
+                taskInfo.getNodeInstanceId(),
                 TaskInfo.MAX_VERSION,
                 TaskState.FAILED,
                 taskInfo.getSelf(),

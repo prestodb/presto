@@ -162,6 +162,7 @@ public class MockRemoteTaskFactory
 
             return new TaskInfo(
                     taskStateMachine.getTaskId(),
+                    Optional.empty(),
                     nextTaskInfoVersion.getAndIncrement(),
                     state,
                     location,
