@@ -749,12 +749,11 @@ ident
 
 DIM_IDENT
     :
-    '@' '{'?
-        (('[' (IdChar | ' ')+ ']') | IdChar+) ('.' (('[' (IdChar | ' ')+ ']') | IdChar+))?
-    '}'?
+	'@'
+		(('[' .+ ']') | IdChar+) ('.' (('[' .+ ']') | IdChar+))?
     ;
 
-fragment IdChar: ('#'|'_'|'A'..'Z'|'a'..'z'|'0'..'9' IdChar*) ;
+fragment IdChar: ('#'|'_'|'A'..'Z'|'a'..'z'|'0'..'9' IdChar*);
 
 number
     : DECIMAL_VALUE

@@ -76,11 +76,13 @@ public class TestSqlParser
     public void testYulin()
             throws Exception
     {
-        SQL_PARSER.createExpression("1+sum(@{[#abc #ab].asds})");
+        SQL_PARSER.createExpression("1+sum(@[#abc #ab].asds)");
         SQL_PARSER.createExpression("1+sum(@[#abc #ab].asds)");
         SQL_PARSER.createExpression("1+sum(@asds)");
-        SQL_PARSER.createExpression("@{m1}");
-        SQL_PARSER.createExpression("@{[QBKZ70D4M].[Revenue]}");
+        SQL_PARSER.createExpression("@m1");
+        SQL_PARSER.createExpression("@[QBKZ70D4M].[Revenue]");
+        SQL_PARSER.createExpression("@abc/@dce");
+        SQL_PARSER.createExpression("@[abc/dce]");
     }
 
     @Test
