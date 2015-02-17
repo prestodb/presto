@@ -126,14 +126,16 @@ public class ExpressionOptimizer
                     method = method.bindTo(session);
                 }
 
+                int index = 0;
                 List<Object> constantArguments = new ArrayList<>();
                 for (RowExpression argument : arguments) {
                     Object value = ((ConstantExpression) argument).getValue();
                     // if any argument is null, return null
-                    if (value == null) {
+                    if (value == null && !function.getNullableArguments().get(index)) {
                         return constantNull(call.getType());
                     }
                     constantArguments.add(value);
+                    index++;
                 }
 
                 try {
