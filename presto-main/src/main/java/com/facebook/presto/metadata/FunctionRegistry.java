@@ -194,7 +194,7 @@ public class FunctionRegistry
 {
     private static final String MAGIC_LITERAL_FUNCTION_PREFIX = "$literal$";
     private static final String OPERATOR_PREFIX = "$operator$";
-    private static final String FIELD_ACCESSOR_PREFIX = "$field_accessor$";
+    private static final String FIELD_REFERENCE_PREFIX = "$field_reference$";
 
     // hack: java classes for types that can be used with magic literals
     private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class);
@@ -684,9 +684,9 @@ public class FunctionRegistry
         return OPERATOR_PREFIX + operatorName;
     }
 
-    public static String mangleFieldAccessor(String fieldName)
+    public static String mangleFieldReference(String fieldName)
     {
-        return FIELD_ACCESSOR_PREFIX + fieldName;
+        return FIELD_REFERENCE_PREFIX + fieldName;
     }
 
     @VisibleForTesting

@@ -126,7 +126,7 @@ public class ExpressionAnalyzer
     private final IdentityHashMap<FunctionCall, FunctionInfo> resolvedFunctions = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> expressionTypes = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> expressionCoercions = new IdentityHashMap<>();
-    private final IdentityHashMap<Expression, Boolean> rowFieldAccessors = new IdentityHashMap<>();
+    private final IdentityHashMap<Expression, Boolean> rowFieldReferences = new IdentityHashMap<>();
     private final Set<InPredicate> subqueryInPredicates = newIdentityHashSet();
 
     public ExpressionAnalyzer(Analysis analysis, Session session, Metadata metadata, SqlParser sqlParser, boolean experimentalSyntaxEnabled)
@@ -158,9 +158,9 @@ public class ExpressionAnalyzer
         return expressionCoercions;
     }
 
-    public IdentityHashMap<Expression, Boolean> getRowFieldAccessors()
+    public IdentityHashMap<Expression, Boolean> getRowFieldReferences()
     {
-        return rowFieldAccessors;
+        return rowFieldReferences;
     }
 
     public Set<InPredicate> getSubqueryInPredicates()
@@ -321,7 +321,7 @@ public class ExpressionAnalyzer
                 int fieldIndex = tupleDescriptor.indexOf(field);
                 resolvedNames.put(node.getName(), fieldIndex);
                 expressionTypes.put(node, rowFieldType);
-                rowFieldAccessors.put(node, true);
+                rowFieldReferences.put(node, true);
 
                 return rowFieldType;
             }
@@ -1025,7 +1025,7 @@ public class ExpressionAnalyzer
         analysis.addTypes(expressionTypes);
         analysis.addCoercions(expressionCoercions);
         analysis.addFunctionInfos(resolvedFunctions);
-        analysis.addRowFieldAccessors(analyzer.getRowFieldAccessors());
+        analysis.addRowFieldReferences(analyzer.getRowFieldReferences());
 
         for (Expression subExpression : expressionTypes.keySet()) {
             analysis.addResolvedNames(subExpression, analyzer.getResolvedNames());
