@@ -29,7 +29,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.FunctionRegistry.mangleFieldReference;
+import static com.facebook.presto.sql.QueryUtil.mangleFieldReference;
 import static com.facebook.presto.type.RowType.RowField;
 import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.google.common.base.Preconditions.checkNotNull;

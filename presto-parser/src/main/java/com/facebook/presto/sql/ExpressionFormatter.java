@@ -68,6 +68,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
+import static com.google.common.base.Preconditions.checkState;
 
 public final class ExpressionFormatter
 {
@@ -75,34 +76,39 @@ public final class ExpressionFormatter
 
     public static String formatExpression(Expression expression)
     {
-        return new Formatter().process(expression, null);
+        return formatExpression(expression, true);
+    }
+
+    public static String formatExpression(Expression expression, boolean unmangleNames)
+    {
+        return new Formatter().process(expression, unmangleNames);
     }
 
     public static class Formatter
-            extends AstVisitor<String, Void>
+            extends AstVisitor<String, Boolean>
     {
         @Override
-        protected String visitNode(Node node, Void context)
+        protected String visitNode(Node node, Boolean unmangleNames)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        protected String visitRow(Row node, Void context)
+        protected String visitRow(Row node, Boolean unmangleNames)
         {
             return "ROW (" + Joiner.on(", ").join(node.getItems().stream()
-                            .map((child) -> process(child, context))
+                            .map((child) -> process(child, unmangleNames))
                             .collect(Collectors.toList())) + ")";
         }
 
         @Override
-        protected String visitExpression(Expression node, Void context)
+        protected String visitExpression(Expression node, Boolean unmangleNames)
         {
             throw new UnsupportedOperationException(String.format("not yet implemented: %s.visit%s", getClass().getName(), node.getClass().getSimpleName()));
         }
 
         @Override
-        protected String visitCurrentTime(CurrentTime node, Void context)
+        protected String visitCurrentTime(CurrentTime node, Boolean unmangleNames)
         {
             StringBuilder builder = new StringBuilder();
 
@@ -118,25 +124,25 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitExtract(Extract node, Void context)
+        protected String visitExtract(Extract node, Boolean unmangleNames)
         {
-            return "EXTRACT(" + node.getField() + " FROM " + process(node.getExpression(), context) + ")";
+            return "EXTRACT(" + node.getField() + " FROM " + process(node.getExpression(), unmangleNames) + ")";
         }
 
         @Override
-        protected String visitBooleanLiteral(BooleanLiteral node, Void context)
+        protected String visitBooleanLiteral(BooleanLiteral node, Boolean unmangleNames)
         {
             return String.valueOf(node.getValue());
         }
 
         @Override
-        protected String visitStringLiteral(StringLiteral node, Void context)
+        protected String visitStringLiteral(StringLiteral node, Boolean unmangleNames)
         {
             return formatStringLiteral(node.getValue());
         }
 
         @Override
-        protected String visitArrayConstructor(ArrayConstructor node, Void context)
+        protected String visitArrayConstructor(ArrayConstructor node, Boolean unmangleNames)
         {
             ImmutableList.Builder<String> valueStrings = ImmutableList.builder();
             for (Expression value : node.getValues()) {
@@ -146,49 +152,49 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitSubscriptExpression(SubscriptExpression node, Void context)
+        protected String visitSubscriptExpression(SubscriptExpression node, Boolean unmangleNames)
         {
             return formatSql(node.getBase()) + "[" + formatSql(node.getIndex()) + "]";
         }
 
         @Override
-        protected String visitLongLiteral(LongLiteral node, Void context)
+        protected String visitLongLiteral(LongLiteral node, Boolean unmangleNames)
         {
             return Long.toString(node.getValue());
         }
 
         @Override
-        protected String visitDoubleLiteral(DoubleLiteral node, Void context)
+        protected String visitDoubleLiteral(DoubleLiteral node, Boolean unmangleNames)
         {
             return Double.toString(node.getValue());
         }
 
         @Override
-        protected String visitGenericLiteral(GenericLiteral node, Void context)
+        protected String visitGenericLiteral(GenericLiteral node, Boolean unmangleNames)
         {
             return node.getType() + " '" + node.getValue() + "'";
         }
 
         @Override
-        protected String visitTimeLiteral(TimeLiteral node, Void context)
+        protected String visitTimeLiteral(TimeLiteral node, Boolean unmangleNames)
         {
             return "TIME '" + node.getValue() + "'";
         }
 
         @Override
-        protected String visitTimestampLiteral(TimestampLiteral node, Void context)
+        protected String visitTimestampLiteral(TimestampLiteral node, Boolean unmangleNames)
         {
             return "TIMESTAMP '" + node.getValue() + "'";
         }
 
         @Override
-        protected String visitNullLiteral(NullLiteral node, Void context)
+        protected String visitNullLiteral(NullLiteral node, Boolean unmangleNames)
         {
             return "null";
         }
 
         @Override
-        protected String visitIntervalLiteral(IntervalLiteral node, Void context)
+        protected String visitIntervalLiteral(IntervalLiteral node, Boolean unmangleNames)
         {
             String sign = (node.getSign() == IntervalLiteral.Sign.NEGATIVE) ? "- " : "";
             StringBuilder builder = new StringBuilder()
@@ -204,19 +210,19 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitSubqueryExpression(SubqueryExpression node, Void context)
+        protected String visitSubqueryExpression(SubqueryExpression node, Boolean unmangleNames)
         {
             return "(" + formatSql(node.getQuery()) + ")";
         }
 
         @Override
-        protected String visitExists(ExistsPredicate node, Void context)
+        protected String visitExists(ExistsPredicate node, Boolean unmangleNames)
         {
             return "EXISTS (" + formatSql(node.getSubquery()) + ")";
         }
 
         @Override
-        protected String visitQualifiedNameReference(QualifiedNameReference node, Void context)
+        protected String visitQualifiedNameReference(QualifiedNameReference node, Boolean unmangleNames)
         {
             return formatQualifiedName(node.getName());
         }
@@ -231,18 +237,18 @@ public final class ExpressionFormatter
         }
 
         @Override
-        public String visitInputReference(InputReference node, Void context)
+        public String visitInputReference(InputReference node, Boolean unmangleNames)
         {
             // add colon so this won't parse
             return ":input(" + node.getChannel() + ")";
         }
 
         @Override
-        protected String visitFunctionCall(FunctionCall node, Void context)
+        protected String visitFunctionCall(FunctionCall node, Boolean unmangleNames)
         {
             StringBuilder builder = new StringBuilder();
 
-            String arguments = joinExpressions(node.getArguments());
+            String arguments = joinExpressions(node.getArguments(), unmangleNames);
             if (node.getArguments().isEmpty() && "count".equalsIgnoreCase(node.getName().getSuffix())) {
                 arguments = "*";
             }
@@ -250,78 +256,85 @@ public final class ExpressionFormatter
                 arguments = "DISTINCT " + arguments;
             }
 
-            builder.append(formatQualifiedName(node.getName()))
-                    .append('(').append(arguments).append(')');
+            if (unmangleNames && node.getName().toString().startsWith(QueryUtil.FIELD_REFERENCE_PREFIX)) {
+                checkState(node.getArguments().size() == 1, "Expected only one argument to field reference");
+                QualifiedName name = QualifiedName.of(QueryUtil.unmangleFieldReference(node.getName().toString()));
+                builder.append(arguments).append(".").append(name);
+            }
+            else {
+                builder.append(formatQualifiedName(node.getName()))
+                        .append('(').append(arguments).append(')');
+            }
 
             if (node.getWindow().isPresent()) {
-                builder.append(" OVER ").append(visitWindow(node.getWindow().get(), null));
+                builder.append(" OVER ").append(visitWindow(node.getWindow().get(), unmangleNames));
             }
 
             return builder.toString();
         }
 
         @Override
-        protected String visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
+        protected String visitLogicalBinaryExpression(LogicalBinaryExpression node, Boolean unmangleNames)
         {
-            return formatBinaryExpression(node.getType().toString(), node.getLeft(), node.getRight());
+            return formatBinaryExpression(node.getType().toString(), node.getLeft(), node.getRight(), unmangleNames);
         }
 
         @Override
-        protected String visitNotExpression(NotExpression node, Void context)
+        protected String visitNotExpression(NotExpression node, Boolean unmangleNames)
         {
-            return "(NOT " + process(node.getValue(), null) + ")";
+            return "(NOT " + process(node.getValue(), unmangleNames) + ")";
         }
 
         @Override
-        protected String visitComparisonExpression(ComparisonExpression node, Void context)
+        protected String visitComparisonExpression(ComparisonExpression node, Boolean unmangleNames)
         {
-            return formatBinaryExpression(node.getType().getValue(), node.getLeft(), node.getRight());
+            return formatBinaryExpression(node.getType().getValue(), node.getLeft(), node.getRight(), unmangleNames);
         }
 
         @Override
-        protected String visitIsNullPredicate(IsNullPredicate node, Void context)
+        protected String visitIsNullPredicate(IsNullPredicate node, Boolean unmangleNames)
         {
-            return "(" + process(node.getValue(), null) + " IS NULL)";
+            return "(" + process(node.getValue(), unmangleNames) + " IS NULL)";
         }
 
         @Override
-        protected String visitIsNotNullPredicate(IsNotNullPredicate node, Void context)
+        protected String visitIsNotNullPredicate(IsNotNullPredicate node, Boolean unmangleNames)
         {
-            return "(" + process(node.getValue(), null) + " IS NOT NULL)";
+            return "(" + process(node.getValue(), unmangleNames) + " IS NOT NULL)";
         }
 
         @Override
-        protected String visitNullIfExpression(NullIfExpression node, Void context)
+        protected String visitNullIfExpression(NullIfExpression node, Boolean unmangleNames)
         {
-            return "NULLIF(" + process(node.getFirst(), null) + ", " + process(node.getSecond(), null) + ')';
+            return "NULLIF(" + process(node.getFirst(), unmangleNames) + ", " + process(node.getSecond(), unmangleNames) + ')';
         }
 
         @Override
-        protected String visitIfExpression(IfExpression node, Void context)
+        protected String visitIfExpression(IfExpression node, Boolean unmangleNames)
         {
             StringBuilder builder = new StringBuilder();
             builder.append("IF(")
-                    .append(process(node.getCondition(), context))
+                    .append(process(node.getCondition(), unmangleNames))
                     .append(", ")
-                    .append(process(node.getTrueValue(), context));
+                    .append(process(node.getTrueValue(), unmangleNames));
             if (node.getFalseValue().isPresent()) {
                 builder.append(", ")
-                        .append(process(node.getFalseValue().get(), context));
+                        .append(process(node.getFalseValue().get(), unmangleNames));
             }
             builder.append(")");
             return builder.toString();
         }
 
         @Override
-        protected String visitCoalesceExpression(CoalesceExpression node, Void context)
+        protected String visitCoalesceExpression(CoalesceExpression node, Boolean unmangleNames)
         {
-            return "COALESCE(" + joinExpressions(node.getOperands()) + ")";
+            return "COALESCE(" + joinExpressions(node.getOperands(), unmangleNames) + ")";
         }
 
         @Override
-        protected String visitArithmeticUnary(ArithmeticUnaryExpression node, Void context)
+        protected String visitArithmeticUnary(ArithmeticUnaryExpression node, Boolean unmangleNames)
         {
-            String value = process(node.getValue(), null);
+            String value = process(node.getValue(), unmangleNames);
 
             switch (node.getSign()) {
                 case MINUS:
@@ -336,24 +349,24 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitArithmeticBinary(ArithmeticBinaryExpression node, Void context)
+        protected String visitArithmeticBinary(ArithmeticBinaryExpression node, Boolean unmangleNames)
         {
-            return formatBinaryExpression(node.getType().getValue(), node.getLeft(), node.getRight());
+            return formatBinaryExpression(node.getType().getValue(), node.getLeft(), node.getRight(), unmangleNames);
         }
 
         @Override
-        protected String visitLikePredicate(LikePredicate node, Void context)
+        protected String visitLikePredicate(LikePredicate node, Boolean unmangleNames)
         {
             StringBuilder builder = new StringBuilder();
 
             builder.append('(')
-                    .append(process(node.getValue(), null))
+                    .append(process(node.getValue(), unmangleNames))
                     .append(" LIKE ")
-                    .append(process(node.getPattern(), null));
+                    .append(process(node.getPattern(), unmangleNames));
 
             if (node.getEscape() != null) {
                 builder.append(" ESCAPE ")
-                        .append(process(node.getEscape(), null));
+                        .append(process(node.getEscape(), unmangleNames));
             }
 
             builder.append(')');
@@ -362,7 +375,7 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitAllColumns(AllColumns node, Void context)
+        protected String visitAllColumns(AllColumns node, Boolean unmangleNames)
         {
             if (node.getPrefix().isPresent()) {
                 return node.getPrefix().get() + ".*";
@@ -372,23 +385,23 @@ public final class ExpressionFormatter
         }
 
         @Override
-        public String visitCast(Cast node, Void context)
+        public String visitCast(Cast node, Boolean unmangleNames)
         {
             return (node.isSafe() ? "TRY_CAST" : "CAST") +
-                    "(" + process(node.getExpression(), context) + " AS " + node.getType() + ")";
+                    "(" + process(node.getExpression(), unmangleNames) + " AS " + node.getType() + ")";
         }
 
         @Override
-        protected String visitSearchedCaseExpression(SearchedCaseExpression node, Void context)
+        protected String visitSearchedCaseExpression(SearchedCaseExpression node, Boolean unmangleNames)
         {
             ImmutableList.Builder<String> parts = ImmutableList.builder();
             parts.add("CASE");
             for (WhenClause whenClause : node.getWhenClauses()) {
-                parts.add(process(whenClause, context));
+                parts.add(process(whenClause, unmangleNames));
             }
 
             node.getDefaultValue()
-                    .ifPresent((value) -> parts.add("ELSE").add(process(value, context)));
+                    .ifPresent((value) -> parts.add("ELSE").add(process(value, unmangleNames)));
 
             parts.add("END");
 
@@ -396,19 +409,19 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitSimpleCaseExpression(SimpleCaseExpression node, Void context)
+        protected String visitSimpleCaseExpression(SimpleCaseExpression node, Boolean unmangleNames)
         {
             ImmutableList.Builder<String> parts = ImmutableList.builder();
 
             parts.add("CASE")
-                    .add(process(node.getOperand(), context));
+                    .add(process(node.getOperand(), unmangleNames));
 
             for (WhenClause whenClause : node.getWhenClauses()) {
-                parts.add(process(whenClause, context));
+                parts.add(process(whenClause, unmangleNames));
             }
 
             node.getDefaultValue()
-                    .ifPresent((value) -> parts.add("ELSE").add(process(value, context)));
+                    .ifPresent((value) -> parts.add("ELSE").add(process(value, unmangleNames)));
 
             parts.add("END");
 
@@ -416,50 +429,50 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitWhenClause(WhenClause node, Void context)
+        protected String visitWhenClause(WhenClause node, Boolean unmangleNames)
         {
-            return "WHEN " + process(node.getOperand(), context) + " THEN " + process(node.getResult(), context);
+            return "WHEN " + process(node.getOperand(), unmangleNames) + " THEN " + process(node.getResult(), unmangleNames);
         }
 
         @Override
-        protected String visitBetweenPredicate(BetweenPredicate node, Void context)
+        protected String visitBetweenPredicate(BetweenPredicate node, Boolean unmangleNames)
         {
-            return "(" + process(node.getValue(), context) + " BETWEEN " +
-                    process(node.getMin(), context) + " AND " + process(node.getMax(), context) + ")";
+            return "(" + process(node.getValue(), unmangleNames) + " BETWEEN " +
+                    process(node.getMin(), unmangleNames) + " AND " + process(node.getMax(), unmangleNames) + ")";
         }
 
         @Override
-        protected String visitInPredicate(InPredicate node, Void context)
+        protected String visitInPredicate(InPredicate node, Boolean unmangleNames)
         {
-            return "(" + process(node.getValue(), context) + " IN " + process(node.getValueList(), context) + ")";
+            return "(" + process(node.getValue(), unmangleNames) + " IN " + process(node.getValueList(), unmangleNames) + ")";
         }
 
         @Override
-        protected String visitInListExpression(InListExpression node, Void context)
+        protected String visitInListExpression(InListExpression node, Boolean unmangleNames)
         {
-            return "(" + joinExpressions(node.getValues()) + ")";
+            return "(" + joinExpressions(node.getValues(), unmangleNames) + ")";
         }
 
         @Override
-        public String visitWindow(Window node, Void context)
+        public String visitWindow(Window node, Boolean unmangleNames)
         {
             List<String> parts = new ArrayList<>();
 
             if (!node.getPartitionBy().isEmpty()) {
-                parts.add("PARTITION BY " + joinExpressions(node.getPartitionBy()));
+                parts.add("PARTITION BY " + joinExpressions(node.getPartitionBy(), unmangleNames));
             }
             if (!node.getOrderBy().isEmpty()) {
-                parts.add("ORDER BY " + formatSortItems(node.getOrderBy()));
+                parts.add("ORDER BY " + formatSortItems(node.getOrderBy(), unmangleNames));
             }
             if (node.getFrame().isPresent()) {
-                parts.add(process(node.getFrame().get(), null));
+                parts.add(process(node.getFrame().get(), unmangleNames));
             }
 
             return '(' + Joiner.on(' ').join(parts) + ')';
         }
 
         @Override
-        public String visitWindowFrame(WindowFrame node, Void context)
+        public String visitWindowFrame(WindowFrame node, Boolean unmangleNames)
         {
             StringBuilder builder = new StringBuilder();
 
@@ -467,44 +480,44 @@ public final class ExpressionFormatter
 
             if (node.getEnd().isPresent()) {
                 builder.append("BETWEEN ")
-                        .append(process(node.getStart(), null))
+                        .append(process(node.getStart(), unmangleNames))
                         .append(" AND ")
-                        .append(process(node.getEnd().get(), null));
+                        .append(process(node.getEnd().get(), unmangleNames));
             }
             else {
-                builder.append(process(node.getStart(), null));
+                builder.append(process(node.getStart(), unmangleNames));
             }
 
             return builder.toString();
         }
 
         @Override
-        public String visitFrameBound(FrameBound node, Void context)
+        public String visitFrameBound(FrameBound node, Boolean unmangleNames)
         {
             switch (node.getType()) {
                 case UNBOUNDED_PRECEDING:
                     return "UNBOUNDED PRECEDING";
                 case PRECEDING:
-                    return process(node.getValue().get(), null) + " PRECEDING";
+                    return process(node.getValue().get(), unmangleNames) + " PRECEDING";
                 case CURRENT_ROW:
                     return "CURRENT ROW";
                 case FOLLOWING:
-                    return process(node.getValue().get(), null) + " FOLLOWING";
+                    return process(node.getValue().get(), unmangleNames) + " FOLLOWING";
                 case UNBOUNDED_FOLLOWING:
                     return "UNBOUNDED FOLLOWING";
             }
             throw new IllegalArgumentException("unhandled type: " + node.getType());
         }
 
-        private String formatBinaryExpression(String operator, Expression left, Expression right)
+        private String formatBinaryExpression(String operator, Expression left, Expression right, boolean unmangleNames)
         {
-            return '(' + process(left, null) + ' ' + operator + ' ' + process(right, null) + ')';
+            return '(' + process(left, unmangleNames) + ' ' + operator + ' ' + process(right, unmangleNames) + ')';
         }
 
-        private String joinExpressions(List<Expression> expressions)
+        private String joinExpressions(List<Expression> expressions, boolean unmangleNames)
         {
             return Joiner.on(", ").join(expressions.stream()
-                    .map((e) -> process(e, null))
+                    .map((e) -> process(e, unmangleNames))
                     .iterator());
         }
 
@@ -522,17 +535,22 @@ public final class ExpressionFormatter
 
     static String formatSortItems(List<SortItem> sortItems)
     {
+        return formatSortItems(sortItems, true);
+    }
+
+    static String formatSortItems(List<SortItem> sortItems, boolean unmangleNames)
+    {
         return Joiner.on(", ").join(sortItems.stream()
-                .map(sortItemFormatterFunction())
+                .map(sortItemFormatterFunction(unmangleNames))
                 .iterator());
     }
 
-    private static Function<SortItem, String> sortItemFormatterFunction()
+    private static Function<SortItem, String> sortItemFormatterFunction(boolean unmangleNames)
     {
         return input -> {
             StringBuilder builder = new StringBuilder();
 
-            builder.append(formatExpression(input.getSortKey()));
+            builder.append(formatExpression(input.getSortKey(), unmangleNames));
 
             switch (input.getOrdering()) {
                 case ASCENDING:

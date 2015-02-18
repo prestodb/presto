@@ -114,6 +114,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.sql.QueryUtil.mangleFieldReference;
+
 class AstBuilder
         extends SqlBaseBaseVisitor<Node>
 {
@@ -766,6 +768,13 @@ class AstBuilder
     public Node visitSubscript(@NotNull SqlBaseParser.SubscriptContext context)
     {
         return new SubscriptExpression((Expression) visit(context.value), (Expression) visit(context.index));
+    }
+
+    @Override
+    public Node visitFieldReference(@NotNull SqlBaseParser.FieldReferenceContext context)
+    {
+        // TODO: This should be done during the conversion to RowExpression
+        return new FunctionCall(new QualifiedName(mangleFieldReference(context.fieldName.getText())), ImmutableList.of((Expression) visit(context.value)));
     }
 
     @Override

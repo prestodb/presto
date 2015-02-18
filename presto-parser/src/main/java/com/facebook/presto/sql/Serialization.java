@@ -38,7 +38,7 @@ public final class Serialization
         public void serialize(Expression expression, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
                 throws IOException
         {
-            jsonGenerator.writeString(ExpressionFormatter.formatExpression(expression));
+            jsonGenerator.writeString(ExpressionFormatter.formatExpression(expression, false));
         }
     }
 

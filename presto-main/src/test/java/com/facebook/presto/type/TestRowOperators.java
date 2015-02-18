@@ -25,7 +25,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.metadata.FunctionRegistry.mangleFieldReference;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -71,10 +70,10 @@ public class TestRowOperators
     public void testFieldAccessor()
             throws Exception
     {
-        String mangledName1 = mangleFieldReference("col0");
-        String mangledName2 = mangleFieldReference("col1");
-        assertFunction('"' + mangledName1 + "\"(test_row(1, 2))", 1);
-        assertFunction('"' + mangledName2 + "\"(test_row(1, 'kittens'))", "kittens");
+        assertFunction("test_row(1, 2).col0", 1);
+        assertFunction("test_row(1, 'kittens').col1", "kittens");
+        assertFunction("test_row(1, 2).\"col1\"", 2);
+        assertFunction("array[test_row(1, 2)][1].col1", 2);
     }
 
     @Test
