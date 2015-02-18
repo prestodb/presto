@@ -30,7 +30,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.FunctionRegistry.mangleFieldReference;
+import static com.facebook.presto.sql.QueryUtil.mangleFieldReference;
 
 /**
  * Keeps track of fields and expressions and their mapping to symbols in the current plan
