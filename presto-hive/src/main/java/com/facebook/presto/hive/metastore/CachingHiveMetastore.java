@@ -91,6 +91,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.StreamSupport.stream;
+import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_FILTER_FIELD_PARAMS;
 
@@ -895,10 +896,10 @@ public class CachingHiveMetastore
                             PrincipalType principalType;
 
                             if (metastoreClient.getRoleNames().contains(identity.getUser())) {
-                                principalType = PrincipalType.ROLE;
+                                principalType = ROLE;
                             }
                             else {
-                                principalType = PrincipalType.USER;
+                                principalType = USER;
                             }
 
                             ImmutableList.Builder<HiveObjectPrivilege> privilegeBagBuilder = ImmutableList.builder();

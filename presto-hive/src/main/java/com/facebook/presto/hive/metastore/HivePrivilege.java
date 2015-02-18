@@ -47,14 +47,12 @@ public enum HivePrivilege
 
     public static HivePrivilege parsePrestoPrivilege(Privilege privilege)
     {
-        switch (privilege.name()) {
-            case "SELECT":
+        switch (privilege) {
+            case SELECT:
                 return SELECT;
-            case "INSERT":
+            case INSERT:
                 return INSERT;
-            case "UPDATE":
-                return UPDATE;
-            case "DELETE":
+            case DELETE:
                 return DELETE;
         }
         return null;
