@@ -30,7 +30,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.FunctionRegistry.mangleFieldAccessor;
+import static com.facebook.presto.metadata.FunctionRegistry.mangleFieldReference;
 
 /**
  * Keeps track of fields and expressions and their mapping to symbols in the current plan
@@ -198,8 +198,8 @@ class TranslationMap
 
                 Expression rewrittenExpression = new QualifiedNameReference(symbol.toQualifiedName());
 
-                if (analysis.isRowFieldAccessor(node)) {
-                    QualifiedName mangledName = QualifiedName.of(mangleFieldAccessor(node.getName().getSuffix()));
+                if (analysis.isRowFieldReference(node)) {
+                    QualifiedName mangledName = QualifiedName.of(mangleFieldReference(node.getName().getSuffix()));
                     rewrittenExpression = new FunctionCall(mangledName, ImmutableList.of(rewrittenExpression));
                 }
 

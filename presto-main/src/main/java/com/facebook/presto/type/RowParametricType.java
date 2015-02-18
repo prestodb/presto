@@ -14,7 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.metadata.ParametricFunction;
-import com.facebook.presto.operator.scalar.RowFieldAccessor;
+import com.facebook.presto.operator.scalar.RowFieldReference;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -65,7 +65,7 @@ public final class RowParametricType
         ImmutableList.Builder<ParametricFunction> builder = ImmutableList.builder();
         for (RowField field : rowType.getFields()) {
             field.getName()
-                    .ifPresent(name -> builder.add(new RowFieldAccessor(rowType, field.getName().get())));
+                    .ifPresent(name -> builder.add(new RowFieldReference(rowType, field.getName().get())));
         }
         return builder.build();
     }

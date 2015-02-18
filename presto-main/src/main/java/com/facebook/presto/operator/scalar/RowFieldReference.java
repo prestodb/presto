@@ -29,13 +29,13 @@ import java.lang.invoke.MethodHandle;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.FunctionRegistry.mangleFieldAccessor;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
+import static com.facebook.presto.metadata.FunctionRegistry.mangleFieldReference;
 import static com.facebook.presto.type.RowType.RowField;
+import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-public class RowFieldAccessor
+public class RowFieldReference
         extends ParametricScalar
 {
     private static final Map<String, MethodHandle> METHOD_HANDLE_MAP;
@@ -45,14 +45,14 @@ public class RowFieldAccessor
 
     static {
         ImmutableMap.Builder<String, MethodHandle> builder = ImmutableMap.builder();
-        builder.put("long", Reflection.methodHandle(RowFieldAccessor.class, "longAccessor", Type.class, Integer.class, Slice.class));
-        builder.put("double", Reflection.methodHandle(RowFieldAccessor.class, "doubleAccessor", Type.class, Integer.class, Slice.class));
-        builder.put("boolean", Reflection.methodHandle(RowFieldAccessor.class, "booleanAccessor", Type.class, Integer.class, Slice.class));
-        builder.put("slice", Reflection.methodHandle(RowFieldAccessor.class, "sliceAccessor", Type.class, Integer.class, Slice.class));
+        builder.put("long", Reflection.methodHandle(RowFieldReference.class, "longAccessor", Type.class, Integer.class, Slice.class));
+        builder.put("double", Reflection.methodHandle(RowFieldReference.class, "doubleAccessor", Type.class, Integer.class, Slice.class));
+        builder.put("boolean", Reflection.methodHandle(RowFieldReference.class, "booleanAccessor", Type.class, Integer.class, Slice.class));
+        builder.put("slice", Reflection.methodHandle(RowFieldReference.class, "sliceAccessor", Type.class, Integer.class, Slice.class));
         METHOD_HANDLE_MAP = builder.build();
     }
 
-    public RowFieldAccessor(RowType type, String fieldName)
+    public RowFieldReference(RowType type, String fieldName)
     {
         Type returnType = null;
         int index = 0;
@@ -64,7 +64,7 @@ public class RowFieldAccessor
             index++;
         }
         checkNotNull(returnType, "%s not found in row type %s", fieldName, type);
-        signature = new Signature(mangleFieldAccessor(fieldName), returnType.getTypeSignature(), type.getTypeSignature());
+        signature = new Signature(mangleFieldReference(fieldName), returnType.getTypeSignature(), type.getTypeSignature());
 
         String stackType = returnType.getJavaType().getSimpleName().toLowerCase();
         checkState(METHOD_HANDLE_MAP.containsKey(stackType), "method handle missing for %s stack type", stackType);
