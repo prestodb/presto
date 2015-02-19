@@ -139,6 +139,10 @@ public class TestAnalyzer
             throws Exception
     {
         assertFails(NOT_SUPPORTED, "SELECT 'a', (VALUES (1)) GROUP BY 1");
+        assertFails(NOT_SUPPORTED, "SELECT 'a', (SELECT (1))");
+        assertFails(NOT_SUPPORTED, "SELECT * FROM t1 WHERE (VALUES 1) = 2");
+        assertFails(NOT_SUPPORTED, "SELECT * FROM t1 WHERE (VALUES 1) IN (VALUES 1)");
+        analyze("SELECT * FROM (SELECT 1) t1(x) WHERE x IN (SELECT 1)");
     }
 
     @Test

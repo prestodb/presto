@@ -34,6 +34,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
@@ -173,9 +174,35 @@ public class ExpressionAnalyzer
      */
     public Type analyze(Expression expression, TupleDescriptor tupleDescriptor, AnalysisContext context)
     {
-        Visitor visitor = new Visitor(tupleDescriptor);
+        ScalarSubqueryDetector scalarSubqueryDetector = new ScalarSubqueryDetector();
+        expression.accept(scalarSubqueryDetector, null);
 
+        Visitor visitor = new Visitor(tupleDescriptor);
         return expression.accept(visitor, context);
+    }
+
+    private static class ScalarSubqueryDetector
+            extends DefaultTraversalVisitor<Void, Void>
+    {
+        @Override
+        protected Void visitInPredicate(InPredicate node, Void context)
+        {
+            Expression valueList = node.getValueList();
+            if (valueList instanceof SubqueryExpression) {
+                process(node.getValue(), context);
+                super.visitSubqueryExpression((SubqueryExpression) valueList, context);
+            }
+            else {
+                super.visitInPredicate(node, context);
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitSubqueryExpression(SubqueryExpression node, Void context)
+        {
+            throw new SemanticException(SemanticErrorCode.NOT_SUPPORTED, node, "Scalar subqueries not yet supported");
+        }
     }
 
     private class Visitor
