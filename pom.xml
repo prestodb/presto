@@ -923,7 +923,7 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration combine.children="append">
-                            <argLine>${argLine} -Duser.timezone=${test.timezone} -Xmx1280m -Xms1280m</argLine>
+                            <argLine>${argLine} -Duser.timezone=${test.timezone} -Xmx2g -Xms2g</argLine>
                             <parallel />
                             <threadCount>1</threadCount>
                         </configuration>
