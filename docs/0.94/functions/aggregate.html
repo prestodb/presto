@@ -55,7 +55,7 @@
 <p>Except for <a class="reference internal" href="#count" title="count"><tt class="xref py py-func docutils literal"><span class="pre">count()</span></tt></a>, <a class="reference internal" href="#count_if" title="count_if"><tt class="xref py py-func docutils literal"><span class="pre">count_if()</span></tt></a>, <a class="reference internal" href="#max_by" title="max_by"><tt class="xref py py-func docutils literal"><span class="pre">max_by()</span></tt></a> and <a class="reference internal" href="#approx_distinct" title="approx_distinct"><tt class="xref py py-func docutils literal"><span class="pre">approx_distinct()</span></tt></a>, all
 of these aggregate functions ignore null values and return null for no input
 rows or when all values are null. For example, <a class="reference internal" href="#sum" title="sum"><tt class="xref py py-func docutils literal"><span class="pre">sum()</span></tt></a> returns null
-rather than zero and <a class="reference internal" href="#avg" title="avg"><tt class="xref py py-func docutils literal"><span class="pre">avg()</span></tt></a> does include null values in the count.
+rather than zero and <a class="reference internal" href="#avg" title="avg"><tt class="xref py py-func docutils literal"><span class="pre">avg()</span></tt></a> does not include null values in the count.
 The <tt class="docutils literal"><span class="pre">coalesce</span></tt> function can be used to convert null into zero.</p>
 <div class="section" id="general-aggregate-functions">
 <h2>General Aggregate Functions</h2>
