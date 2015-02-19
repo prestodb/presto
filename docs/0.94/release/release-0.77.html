@@ -1,0 +1,119 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>9.18. Release 0.77 &mdash; Presto 0.94 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.94',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.94 Documentation" href="../index.html" />
+    <link rel="up" title="9. Release Notes" href="../release.html" />
+    <link rel="next" title="9.19. Release 0.76" href="release-0.76.html" />
+    <link rel="prev" title="9.17. Release 0.78" href="release-0.78.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.94 Documentation</span></a></h1>
+    <h2 class="heading"><span>9.18. Release 0.77</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.78.html">9.17. Release 0.78</a>
+    </span>
+    <span class="right">
+        <a href="release-0.76.html">9.19. Release 0.76</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-77">
+<h1>9.18. Release 0.77</h1>
+<div class="section" id="parametric-types">
+<h2>Parametric Types</h2>
+<p>Presto now has a framework for implementing parametric types and functions.
+Support for <a class="reference internal" href="../language/types.html#array-type"><em>ARRAY</em></a> and <a class="reference internal" href="../language/types.html#map-type"><em>MAP</em></a> types has been added, including the element accessor
+operator <tt class="docutils literal"><span class="pre">[]</span></tt>, and new <a class="reference internal" href="../functions/array.html"><em>Array Functions and Operators</em></a>.</p>
+</div>
+<div class="section" id="streaming-index-joins">
+<h2>Streaming Index Joins</h2>
+<p>Index joins will now switch to use a key-by-key streaming join if index
+results fail to fit in the allocated index memory space.</p>
+</div>
+<div class="section" id="distributed-joins">
+<h2>Distributed Joins</h2>
+<p>Joins where both tables are distributed are now supported. This allows larger tables to be joined,
+and can be enabled with the <tt class="docutils literal"><span class="pre">distributed-joins-enabled</span></tt> flag. It may perform worse than the existing
+broadcast join implementation because it requires redistributing both tables.
+This feature is still experimental, and should be used with caution.</p>
+</div>
+<div class="section" id="hive-changes">
+<h2>Hive Changes</h2>
+<ul class="simple">
+<li>Handle spurious <tt class="docutils literal"><span class="pre">AbortedException</span></tt> when closing S3 input streams</li>
+<li>Add support for ORC, DWRF and Parquet in Hive</li>
+<li>Add support for <tt class="docutils literal"><span class="pre">DATE</span></tt> type in Hive</li>
+<li>Fix performance regression in Hive when reading <tt class="docutils literal"><span class="pre">VARCHAR</span></tt> columns</li>
+</ul>
+</div>
+<div class="section" id="kafka-changes">
+<h2>Kafka Changes</h2>
+<ul class="simple">
+<li>Fix Kafka handling of default port</li>
+<li>Add support for Kafka messages with a null key</li>
+</ul>
+</div>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Fix race condition in scheduler that could cause queries to hang</li>
+<li>Add ConnectorPageSource which is a more efficient interface for column-oriented sources</li>
+<li>Add support for string partition keys in Cassandra</li>
+<li>Add support for variable arity functions</li>
+<li>Add support for <a class="reference internal" href="../functions/aggregate.html#count" title="count"><tt class="xref py py-func docutils literal"><span class="pre">count()</span></tt></a> for all types</li>
+<li>Fix bug in HashAggregation that could cause the operator to go in an infinite loop</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.78.html">9.17. Release 0.78</a>
+    </span>
+    <span class="right">
+        <a href="release-0.76.html">9.19. Release 0.76</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
