@@ -754,6 +754,7 @@ public class ExpressionAnalyzer
             return type; // TODO: this really should a be relation type
         }
 
+        @SuppressWarnings("ConstantConditions")
         @Override
         protected Type visitSubqueryExpression(SubqueryExpression node, AnalysisContext context)
         {
@@ -766,6 +767,10 @@ public class ExpressionAnalyzer
                         node,
                         "Subquery expression must produce only one field. Found %s",
                         descriptor.getVisibleFieldCount());
+            }
+
+            if (true) {
+                throw new SemanticException(SemanticErrorCode.NOT_SUPPORTED, node, "Scalar subqueries not yet supported");
             }
 
             Type type = Iterables.getOnlyElement(descriptor.getVisibleFields()).getType();

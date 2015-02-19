@@ -139,6 +139,7 @@ public class TestAnalyzer
             throws Exception
     {
         assertFails(NOT_SUPPORTED, "SELECT 'a', (VALUES (1)) GROUP BY 1");
+        assertFails(NOT_SUPPORTED, "SELECT 'a', (SELECT (1))");
     }
 
     @Test
