@@ -18,6 +18,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
@@ -302,7 +303,8 @@ class ParquetHiveRecordCursor
         }
     }
 
-    private ParquetRecordReader<Void> createParquetRecordReader(Configuration configuration, Path path, long start, long length, List<HiveColumnHandle> columns)
+    @VisibleForTesting
+    protected ParquetRecordReader<Void> createParquetRecordReader(Configuration configuration, Path path, long start, long length, List<HiveColumnHandle> columns)
     {
         try {
             ParquetMetadata parquetMetadata = ParquetFileReader.readFooter(configuration, path);
@@ -628,8 +630,8 @@ class ParquetHiveRecordCursor
         @Override
         public void end()
         {
-            jsonConverter.end();
             jsonConverter.afterValue();
+            jsonConverter.end();
 
             nulls[fieldIndex] = false;
             try {
@@ -681,7 +683,8 @@ class ParquetHiveRecordCursor
         throw new IllegalArgumentException("Unsupported type " + type);
     }
 
-    private static class ParquetStructJsonConverter
+    @VisibleForTesting
+    public static class ParquetStructJsonConverter
             extends GroupedJsonConverter
     {
         private final String fieldName;
