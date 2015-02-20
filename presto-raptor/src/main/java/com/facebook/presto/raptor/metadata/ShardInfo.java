@@ -23,6 +23,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ShardInfo
@@ -30,12 +31,16 @@ public class ShardInfo
     private final UUID shardUuid;
     private final Set<String> nodeIdentifiers;
     private final List<ColumnStats> columnStats;
+    private final long rowCount;
+    private final long dataSize;
 
     @JsonCreator
     public ShardInfo(
             @JsonProperty("shardUuid") UUID shardUuid,
             @JsonProperty("nodeIdentifiers") Set<String> nodeIdentifiers,
-            @JsonProperty("columnStats") List<ColumnStats> columnStats)
+            @JsonProperty("columnStats") List<ColumnStats> columnStats,
+            @JsonProperty("rowCount") long rowCount,
+            @JsonProperty("dataSize") long dataSize)
     {
         this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
         this.nodeIdentifiers = ImmutableSet.copyOf(checkNotNull(nodeIdentifiers, "nodeIdentifiers is null"));
@@ -65,6 +70,18 @@ public class ShardInfo
         return columnStats;
     }
 
+    @JsonProperty
+    public long getRowCount()
+    {
+        return rowCount;
+    }
+
+    @JsonProperty
+    public long getDataSize()
+    {
+        return dataSize;
+    }
+
     @Override
     public String toString()
     {
@@ -72,6 +89,8 @@ public class ShardInfo
                 .add("shardUuid", shardUuid)
                 .add("nodeIdentifiers", nodeIdentifiers)
                 .add("columnStats", columnStats)
+                .add("rowCount", rowCount)
+                .add("dataSize", dataSize)
                 .toString();
     }
 }

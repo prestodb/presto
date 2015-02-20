@@ -163,9 +163,14 @@ public class TestOrcStorageManager
         List<ShardInfo> shards = sink.commit();
 
         assertEquals(shards.size(), 1);
-        UUID shardUuid = Iterables.getOnlyElement(shards).getShardUuid();
+        ShardInfo shardInfo = Iterables.getOnlyElement(shards);
+
+        UUID shardUuid = shardInfo.getShardUuid();
         File file = storageService.getStorageFile(shardUuid);
         File backupFile = storageService.getBackupFile(shardUuid);
+
+        assertEquals(shardInfo.getRowCount(), 2);
+        assertEquals(shardInfo.getDataSize(), file.length());
 
         // verify primary and backup shard exist
         assertFile(file, "primary shard");

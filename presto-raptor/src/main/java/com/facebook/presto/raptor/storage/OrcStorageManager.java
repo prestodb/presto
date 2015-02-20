@@ -46,6 +46,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -305,7 +306,11 @@ public class OrcStorageManager
 
                 File stagingFile = storageService.getStagingFile(shardUuid);
                 List<ColumnStats> columns = computeShardStats(stagingFile, columnIds, columnTypes);
-                shards.add(new ShardInfo(shardUuid, ImmutableSet.of(nodeId), columns));
+                Set<String> nodes = ImmutableSet.of(nodeId);
+                long rowCount = writer.getRowCount();
+                long dataSize = stagingFile.length();
+
+                shards.add(new ShardInfo(shardUuid, nodes, columns, rowCount, dataSize));
 
                 writer = null;
                 shardUuid = null;

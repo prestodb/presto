@@ -28,6 +28,7 @@ import javax.sql.DataSource;
 
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.metadata.ShardManagerDaoUtils.createShardTablesWithRetry;
@@ -104,6 +105,22 @@ public class TestShardManagerDao
     }
 
     @Test
+    public void testInsertShard()
+    {
+        long shardId = dao.insertShard(UUID.randomUUID(), 13, 42);
+
+        List<Map<String, Object>> shards = handle.select(
+                "SELECT row_count, data_size FROM shards WHERE shard_id = ?",
+                shardId);
+
+        assertEquals(shards.size(), 1);
+        Map<String, Object> shard = shards.get(0);
+
+        assertEquals(shard.get("row_count"), 13L);
+        assertEquals(shard.get("data_size"), 42L);
+    }
+
+    @Test
     public void testInsertShardNodeUsingShardUuid()
             throws Exception
     {
@@ -111,7 +128,7 @@ public class TestShardManagerDao
         long nodeId = dao.getNodeId("node");
 
         UUID shard = UUID.randomUUID();
-        long shardId = dao.insertShard(shard);
+        long shardId = dao.insertShard(shard, 0, 0);
 
         long tableId = 1;
         dao.insertTableShard(tableId, shardId);
@@ -144,10 +161,10 @@ public class TestShardManagerDao
         UUID shardUuid3 = UUID.randomUUID();
         UUID shardUuid4 = UUID.randomUUID();
 
-        long shardId1 = dao.insertShard(shardUuid1);
-        long shardId2 = dao.insertShard(shardUuid2);
-        long shardId3 = dao.insertShard(shardUuid3);
-        long shardId4 = dao.insertShard(shardUuid4);
+        long shardId1 = dao.insertShard(shardUuid1, 0, 0);
+        long shardId2 = dao.insertShard(shardUuid2, 0, 0);
+        long shardId3 = dao.insertShard(shardUuid3, 0, 0);
+        long shardId4 = dao.insertShard(shardUuid4, 0, 0);
 
         assertEquals(dao.getNodeShards(nodeName1).size(), 0);
         assertEquals(dao.getNodeShards(nodeName2).size(), 0);
@@ -190,10 +207,10 @@ public class TestShardManagerDao
         UUID shardUuid3 = UUID.randomUUID();
         UUID shardUuid4 = UUID.randomUUID();
 
-        long shardId1 = dao.insertShard(shardUuid1);
-        long shardId2 = dao.insertShard(shardUuid2);
-        long shardId3 = dao.insertShard(shardUuid3);
-        long shardId4 = dao.insertShard(shardUuid4);
+        long shardId1 = dao.insertShard(shardUuid1, 0, 0);
+        long shardId2 = dao.insertShard(shardUuid2, 0, 0);
+        long shardId3 = dao.insertShard(shardUuid3, 0, 0);
+        long shardId4 = dao.insertShard(shardUuid4, 0, 0);
 
         dao.insertTableShard(tableId, shardId1);
         dao.insertTableShard(tableId, shardId2);

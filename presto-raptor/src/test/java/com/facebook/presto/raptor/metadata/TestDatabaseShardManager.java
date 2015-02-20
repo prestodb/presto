@@ -154,9 +154,9 @@ public class TestDatabaseShardManager
     public void testShardPruning()
             throws Exception
     {
-        ShardInfo shard1 = new ShardInfo(
+        ShardInfo shard1 = shardInfo(
                 UUID.randomUUID(),
-                ImmutableSet.of("node1"),
+                "node1",
                 ImmutableList.<ColumnStats>builder()
                         .add(new ColumnStats(1, 5, 10))
                         .add(new ColumnStats(2, -20.0, 20.0))
@@ -166,9 +166,9 @@ public class TestDatabaseShardManager
                         .add(new ColumnStats(6, false, true))
                         .build());
 
-        ShardInfo shard2 = new ShardInfo(
+        ShardInfo shard2 = shardInfo(
                 UUID.randomUUID(),
-                ImmutableSet.of("node2"),
+                "node2",
                 ImmutableList.<ColumnStats>builder()
                         .add(new ColumnStats(1, 2, 8))
                         .add(new ColumnStats(2, null, 50.0))
@@ -178,9 +178,9 @@ public class TestDatabaseShardManager
                         .add(new ColumnStats(6, true, true))
                         .build());
 
-        ShardInfo shard3 = new ShardInfo(
+        ShardInfo shard3 = shardInfo(
                 UUID.randomUUID(),
-                ImmutableSet.of("node3"),
+                "node3",
                 ImmutableList.<ColumnStats>builder()
                         .add(new ColumnStats(1, 15, 20))
                         .add(new ColumnStats(2, null, null))
@@ -286,7 +286,7 @@ public class TestDatabaseShardManager
         String prefix = repeat("x", MAX_BINARY_INDEX_SIZE);
 
         ColumnStats stats = new ColumnStats(1, prefix + "a", prefix + "z");
-        ShardInfo shard = new ShardInfo(UUID.randomUUID(), ImmutableSet.of("node"), ImmutableList.of(stats));
+        ShardInfo shard = shardInfo(UUID.randomUUID(), "node", ImmutableList.of(stats));
 
         List<ShardInfo> shards = ImmutableList.of(shard);
 
@@ -321,7 +321,7 @@ public class TestDatabaseShardManager
     public void testShardPruningNoStats()
             throws Exception
     {
-        ShardInfo shard = new ShardInfo(UUID.randomUUID(), ImmutableSet.of("node"), ImmutableList.of());
+        ShardInfo shard = shardInfo(UUID.randomUUID(), "node");
         List<ShardInfo> shards = ImmutableList.of(shard);
 
         long tableId = 1;
@@ -344,7 +344,12 @@ public class TestDatabaseShardManager
 
     static ShardInfo shardInfo(UUID shardUuid, String nodeIdentifier)
     {
-        return new ShardInfo(shardUuid, ImmutableSet.of(nodeIdentifier), ImmutableList.of());
+        return shardInfo(shardUuid, nodeIdentifier, ImmutableList.of());
+    }
+
+    private static ShardInfo shardInfo(UUID shardUuid, String nodeId, List<ColumnStats> columnStats)
+    {
+        return new ShardInfo(shardUuid, ImmutableSet.of(nodeId), columnStats, 0, 0);
     }
 
     private static Set<ShardNodes> toShardNodes(List<ShardInfo> shards)
