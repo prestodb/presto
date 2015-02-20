@@ -1173,7 +1173,7 @@ class ParquetHiveRecordCursor
                 writeFieldNameIfSet(generator, fieldName);
                 // todo don't assume binary is a utf-8 string
                 byte[] bytes = value.getBytes();
-                generator.writeUTF8String(value.getBytes(), 0, bytes.length);
+                generator.writeUTF8String(bytes, 0, bytes.length);
                 wroteValue = true;
             }
             catch (IOException e) {
