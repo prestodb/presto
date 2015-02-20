@@ -36,20 +36,20 @@ import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator
  * This class is based on io.airlift.concurrent.BoundedExecutor
  */
 @ThreadSafe
-public class PrioritizedFifoExecutor
+public class PrioritizedFifoExecutor<T extends Runnable>
 {
     private static final Logger log = Logger.get(PrioritizedFifoExecutor.class);
 
-    private final Queue<FifoRunnableTask> queue;
+    private final Queue<FifoRunnableTask<T>> queue;
     private final AtomicInteger queueSize = new AtomicInteger(0);
     private final AtomicLong sequenceNumber = new AtomicLong(0);
     private final Runnable triggerTask = this::executeOrMerge;
 
     private final ListeningExecutorService listeningExecutorService;
     private final int maxThreads;
-    private final Comparator<Runnable> taskComparator;
+    private final Comparator<T> taskComparator;
 
-    public PrioritizedFifoExecutor(ExecutorService coreExecutor, int maxThreads, Comparator<Runnable> taskComparator)
+    public PrioritizedFifoExecutor(ExecutorService coreExecutor, int maxThreads, Comparator<T> taskComparator)
     {
         checkNotNull(coreExecutor, "coreExecutor is null");
         checkArgument(maxThreads > 0, "maxThreads must be greater than zero");
@@ -60,9 +60,9 @@ public class PrioritizedFifoExecutor
         this.queue = new PriorityBlockingQueue<>(maxThreads);
     }
 
-    public ListenableFuture<?> submit(Runnable task)
+    public ListenableFuture<?> submit(T task)
     {
-        queue.add(new FifoRunnableTask(task, sequenceNumber.incrementAndGet(), taskComparator));
+        queue.add(new FifoRunnableTask<>(task, sequenceNumber.incrementAndGet(), taskComparator));
         return listeningExecutorService.submit(triggerTask);
     }
 
@@ -83,27 +83,27 @@ public class PrioritizedFifoExecutor
         while (queueSize.getAndDecrement() > maxThreads);
     }
 
-    private static class FifoRunnableTask
-            implements Comparable<FifoRunnableTask>
+    private static class FifoRunnableTask<T extends Runnable>
+            implements Comparable<FifoRunnableTask<T>>
     {
-        private final Runnable task;
+        private final T task;
         private final long sequenceNumber;
-        private final Comparator<Runnable> taskComparator;
+        private final Comparator<T> taskComparator;
 
-        public FifoRunnableTask(Runnable task, long sequenceNumber, Comparator<Runnable> taskComparator)
+        public FifoRunnableTask(T task, long sequenceNumber, Comparator<T> taskComparator)
         {
             this.task = checkNotNull(task, "task is null");
             this.sequenceNumber = checkNotNull(sequenceNumber, "sequenceNumber is null");
             this.taskComparator = checkNotNull(taskComparator, "taskComparator is null");
         }
 
-        public Runnable getTask()
+        public T getTask()
         {
             return task;
         }
 
         @Override
-        public int compareTo(FifoRunnableTask other)
+        public int compareTo(FifoRunnableTask<T> other)
         {
             return ComparisonChain.start()
                     .compare(this.task, other.task, taskComparator)
@@ -121,7 +121,7 @@ public class PrioritizedFifoExecutor
                 return false;
             }
 
-            FifoRunnableTask other = (FifoRunnableTask) o;
+            FifoRunnableTask<?> other = (FifoRunnableTask<?>) o;
             return Objects.equals(this.task, other.task) &&
                     Objects.equals(this.sequenceNumber, other.sequenceNumber);
         }
