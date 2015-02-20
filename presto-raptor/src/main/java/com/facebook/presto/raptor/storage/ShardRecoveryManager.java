@@ -87,7 +87,7 @@ public class ShardRecoveryManager
         this.nodeIdentifier = checkNotNull(nodeManager, "nodeManager is null").getCurrentNode().getNodeIdentifier();
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
         this.missingShardDiscoveryInterval = checkNotNull(missingShardDiscoveryInterval, "missingShardDiscoveryInterval is null");
-        this.shardQueue = new MissingShardsQueue(new PrioritizedFifoExecutor(executorService, recoveryThreads, new MissingShardComparator()));
+        this.shardQueue = new MissingShardsQueue(new PrioritizedFifoExecutor<>(executorService, recoveryThreads, new MissingShardComparator()));
     }
 
     @PostConstruct
@@ -189,18 +189,15 @@ public class ShardRecoveryManager
 
     @VisibleForTesting
     static class MissingShardComparator
-            implements Comparator<Runnable>
+            implements Comparator<MissingShardRunnable>
     {
         @Override
-        public int compare(Runnable runnable1, Runnable runnable2)
+        public int compare(MissingShardRunnable shard1, MissingShardRunnable shard2)
         {
-            MissingShardRunnable shard1 = (MissingShardRunnable) runnable1;
-            MissingShardRunnable shard2 = (MissingShardRunnable) runnable2;
             if (shard1.isActive() == shard2.isActive()) {
                 return 0;
             }
             return shard1.isActive() ? -1 : 1;
-
         }
     }
 
@@ -302,7 +299,7 @@ public class ShardRecoveryManager
     {
         private final LoadingCache<MissingShard, Future<?>> queuedMissingShards;
 
-        public MissingShardsQueue(PrioritizedFifoExecutor shardRecoveryExecutor)
+        public MissingShardsQueue(PrioritizedFifoExecutor<MissingShardRunnable> shardRecoveryExecutor)
         {
             checkNotNull(shardRecoveryExecutor, "shardRecoveryExecutor is null");
             this.queuedMissingShards = CacheBuilder.newBuilder().build(new CacheLoader<MissingShard, Future<?>>()
