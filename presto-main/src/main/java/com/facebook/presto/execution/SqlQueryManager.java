@@ -157,6 +157,22 @@ public class SqlQueryManager
     }
 
     @Override
+    public List<QueryId> getAllQueryIds()
+    {
+        return queries.values().stream()
+                .map(queryExecution -> {
+                    try {
+                        return queryExecution.getQueryId();
+                    }
+                    catch (RuntimeException ignored) {
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .collect(toImmutableList());
+    }
+
+    @Override
     public List<QueryInfo> getAllQueryInfo()
     {
         return queries.values().stream()

@@ -95,7 +95,6 @@ import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.collect.Iterables.transform;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -700,8 +699,7 @@ public class StatementResource
                 // registered between fetching the live queries and inspecting the queryIds set.
 
                 Set<QueryId> queryIdsSnapshot = ImmutableSet.copyOf(queries.keySet());
-                // do not call queryManager.getQueryInfo() since it updates the heartbeat time
-                Set<QueryId> liveQueries = ImmutableSet.copyOf(transform(queryManager.getAllQueryInfo(), QueryInfo::getQueryId));
+                Set<QueryId> liveQueries = ImmutableSet.copyOf(queryManager.getAllQueryIds());
 
                 Set<QueryId> deadQueries = Sets.difference(queryIdsSnapshot, liveQueries);
                 for (QueryId deadQueryId : deadQueries) {
