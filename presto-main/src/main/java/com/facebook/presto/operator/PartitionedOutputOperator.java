@@ -23,6 +23,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -30,9 +31,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.operator.PartitionGenerator.createHashPartitionGenerator;
 import static com.facebook.presto.operator.PartitionGenerator.createRoundRobinPartitionGenerator;
+import static com.facebook.presto.sql.planner.PlanFragment.NullPartitioning.REPLICATE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.getUnchecked;
@@ -175,6 +178,7 @@ public class PartitionedOutputOperator
         private final PartitionGenerator partitionGenerator;
         private final int partitionCount;
         private final List<PageBuilder> pageBuilders;
+        private final OptionalInt nullChannel; // when present, send the position to every partition if this channel is null.
 
         public PartitionFunction(SharedBuffer sharedBuffer, List<Type> sourceTypes, OutputBuffers outputBuffers)
         {
@@ -203,9 +207,18 @@ public class PartitionedOutputOperator
             if (partitionFunction instanceof HashPagePartitionFunction) {
                 HashPagePartitionFunction hashPartitionFunction = (HashPagePartitionFunction) partitionFunction;
                 partitionGenerator = createHashPartitionGenerator(hashPartitionFunction.getHashChannel(), hashPartitionFunction.getPartitioningChannels(), hashPartitionFunction.getTypes());
+                if (hashPartitionFunction.getNullPartitioning() == REPLICATE) {
+                    List<Integer> partitioningChannels = hashPartitionFunction.getPartitioningChannels();
+                    checkState(partitioningChannels.size() == 1);
+                    nullChannel = OptionalInt.of(Iterables.getOnlyElement(partitioningChannels));
+                }
+                else {
+                    nullChannel = OptionalInt.empty();
+                }
             }
             else {
                 partitionGenerator = createRoundRobinPartitionGenerator();
+                nullChannel = OptionalInt.empty();
             }
 
             partitionCount = partitionFunction.getPartitionCount();
@@ -222,13 +235,26 @@ public class PartitionedOutputOperator
             requireNonNull(page, "page is null");
 
             for (int position = 0; position < page.getPositionCount(); position++) {
-                int partitionHashBucket = partitionGenerator.getPartitionBucket(partitionCount, position, page);
-                PageBuilder pageBuilder = pageBuilders.get(partitionHashBucket);
-                pageBuilder.declarePosition();
+                if (nullChannel.isPresent() && page.getBlock(nullChannel.getAsInt()).isNull(position)) {
+                    for (int i = 0; i < partitionCount; i++) {
+                        PageBuilder pageBuilder = pageBuilders.get(i);
+                        pageBuilder.declarePosition();
 
-                for (int channel = 0; channel < sourceTypes.size(); channel++) {
-                    Type type = sourceTypes.get(channel);
-                    type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
+                        for (int channel = 0; channel < sourceTypes.size(); channel++) {
+                            Type type = sourceTypes.get(channel);
+                            type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
+                        }
+                    }
+                }
+                else {
+                    int partitionHashBucket = partitionGenerator.getPartitionBucket(partitionCount, position, page);
+                    PageBuilder pageBuilder = pageBuilders.get(partitionHashBucket);
+                    pageBuilder.declarePosition();
+
+                    for (int channel = 0; channel < sourceTypes.size(); channel++) {
+                        Type type = sourceTypes.get(channel);
+                        type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
+                    }
                 }
             }
             return flush(false);

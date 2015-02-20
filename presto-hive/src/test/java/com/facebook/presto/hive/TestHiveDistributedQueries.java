@@ -48,4 +48,11 @@ public class TestHiveDistributedQueries
     {
         // Hive connector currently does not support delete
     }
+
+    @Override
+    public void testDeleteSemiJoin()
+            throws Exception
+    {
+        // Hive connector currently does not support delete
+    }
 }

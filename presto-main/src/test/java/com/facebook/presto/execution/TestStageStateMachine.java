@@ -330,6 +330,7 @@ public class TestStageStateMachine
                 valuesNodeId,
                 OutputPartitioning.NONE,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         return planFragment;

@@ -314,6 +314,7 @@ public class TestSqlStageExecution
                 new PlanNodeId(planId),
                 OutputPartitioning.NONE,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         return new StageExecutionPlan(joinPlan,
@@ -343,6 +344,7 @@ public class TestSqlStageExecution
                 PlanDistribution.SOURCE,
                 tableScanNodeId,
                 OutputPartitioning.NONE,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 

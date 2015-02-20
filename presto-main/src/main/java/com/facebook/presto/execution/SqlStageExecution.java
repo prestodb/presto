@@ -30,6 +30,7 @@ import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
+import com.facebook.presto.sql.planner.PlanFragment.NullPartitioning;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -283,10 +284,12 @@ public final class SqlStageExecution
         else if (fragment.getOutputPartitioning() == OutputPartitioning.HASH) {
             checkArgument(noMoreParentNodes, "Hash partitioned output requires all parent nodes be added in a single call");
 
+            NullPartitioning nullPartitioning = fragment.getNullPartitionPolicy().get();
+
             ImmutableMap.Builder<TaskId, PagePartitionFunction> buffers = ImmutableMap.builder();
             for (int nodeIndex = 0; nodeIndex < parentTasks.size(); nodeIndex++) {
                 TaskId taskId = parentTasks.get(nodeIndex);
-                buffers.put(taskId, new HashPagePartitionFunction(nodeIndex, parentTasks.size(), getPartitioningChannels(fragment).get(), getHashChannel(fragment), fragment.getTypes()));
+                buffers.put(taskId, new HashPagePartitionFunction(nodeIndex, parentTasks.size(), getPartitioningChannels(fragment).get(), getHashChannel(fragment), fragment.getTypes(), nullPartitioning));
             }
 
             newOutputBuffers = startingOutputBuffers

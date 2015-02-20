@@ -93,6 +93,7 @@ public class MockRemoteTaskFactory
                 tableScanNodeId,
                 PlanFragment.OutputPartitioning.NONE,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty()
         );
 

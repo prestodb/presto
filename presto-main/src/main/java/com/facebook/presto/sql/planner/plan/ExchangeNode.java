@@ -34,6 +34,7 @@ public class ExchangeNode
     {
         GATHER,
         REPARTITION,
+        REPARTITION_WITH_NULL_REPLICATION,
         REPLICATE
     }
 
@@ -79,6 +80,18 @@ public class ExchangeNode
         this.hashSymbol = hashSymbol;
         this.outputs = ImmutableList.copyOf(outputs);
         this.inputs = ImmutableList.copyOf(inputs);
+    }
+
+    public static ExchangeNode partitionedExchangeNullReplicate(PlanNodeId id, PlanNode child, Symbol partitionKey, Optional<Symbol> hashSymbol)
+    {
+        return new ExchangeNode(
+                id,
+                ExchangeNode.Type.REPARTITION_WITH_NULL_REPLICATION,
+                Optional.of(ImmutableList.of(partitionKey)),
+                hashSymbol,
+                ImmutableList.of(child),
+                child.getOutputSymbols(),
+                ImmutableList.of(child.getOutputSymbols()));
     }
 
     public static ExchangeNode partitionedExchange(PlanNodeId id, PlanNode child, Optional<List<Symbol>> partitionKeys, Optional<Symbol> hashSymbol)

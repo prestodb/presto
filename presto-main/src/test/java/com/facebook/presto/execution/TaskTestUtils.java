@@ -78,6 +78,7 @@ public final class TaskTestUtils
             TABLE_SCAN_NODE_ID,
             OutputPartitioning.NONE,
             Optional.empty(),
+            Optional.empty(),
             Optional.empty());
 
     public static LocalExecutionPlanner createTestingPlanner()
