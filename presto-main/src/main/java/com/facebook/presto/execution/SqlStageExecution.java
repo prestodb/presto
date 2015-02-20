@@ -928,12 +928,10 @@ public class SqlStageExecution
             // check if the stage already completed naturally
             doUpdateState();
             synchronized (this) {
-                if (stageState.get().isDone()) {
-                    return;
+                if (!stageState.get().isDone()) {
+                    log.debug("Cancelling stage %s", stageId);
+                    stageState.set(StageState.CANCELED);
                 }
-
-                log.debug("Cancelling stage %s", stageId);
-                stageState.set(StageState.CANCELED);
             }
 
             // cancel all tasks
