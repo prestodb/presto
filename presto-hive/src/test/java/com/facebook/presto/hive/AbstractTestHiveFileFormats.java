@@ -61,6 +61,7 @@ import java.io.IOException;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
@@ -217,6 +218,10 @@ public abstract class AbstractTestHiveFileFormats
                     ImmutableMap.of("test", ImmutableList.<Object>of(new Integer[] {1})),
                     "{\"test\":[[1]]}"
             ))
+            .add(new TestColumn("t_struct_nested", getStandardStructObjectInspector(ImmutableList.of("struct_field") ,
+                    ImmutableList.of(getStandardListObjectInspector(javaStringObjectInspector))), Arrays.asList(Arrays.asList("1", "2", "3")) , "[[\"1\",\"2\",\"3\"]]"))
+            .add(new TestColumn("t_struct_null", getStandardStructObjectInspector(ImmutableList.of("struct_field") ,
+                    ImmutableList.of(javaStringObjectInspector)), Arrays.asList(new Object[] {null}) , "[null]"))
             .build();
 
     protected List<HiveColumnHandle> getColumnHandles(List<TestColumn> testColumns)

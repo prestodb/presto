@@ -632,8 +632,8 @@ class ParquetHiveRecordCursor
         @Override
         public void end()
         {
-            jsonConverter.end();
             jsonConverter.afterValue();
+            jsonConverter.end();
 
             nulls[fieldIndex] = false;
             try {
