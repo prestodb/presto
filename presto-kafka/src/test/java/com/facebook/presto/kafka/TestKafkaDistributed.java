@@ -115,6 +115,12 @@ public class TestKafkaDistributed
     {
     }
 
+    @Override
+    public void testDeleteSemiJoin()
+            throws Exception
+    {
+    }
+
     //
     // Kafka connector does not table rename.
     //

@@ -34,6 +34,8 @@ import java.util.function.Function;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.Objects.requireNonNull;
 
@@ -109,6 +111,12 @@ class ActualProperties
     public boolean isDistributed()
     {
         return global.isDistributed();
+    }
+
+    public boolean isNullReplication()
+    {
+        checkState(global.getPartitioningProperties().isPresent());
+        return global.getPartitioningProperties().get().isReplicateNulls();
     }
 
     public boolean isPartitionedOn(Collection<Symbol> columns)
@@ -366,26 +374,39 @@ class ActualProperties
     {
         private final Set<Symbol> partitioningColumns;
         private final Optional<List<Symbol>> hashingOrder; // If populated, this list will contain the same symbols as partitioningColumns
+        private final boolean replicateNulls;
 
-        private Partitioning(Set<Symbol> partitioningColumns, Optional<List<Symbol>> hashingOrder)
+        private Partitioning(Set<Symbol> partitioningColumns, Optional<List<Symbol>> hashingOrder, boolean replicateNulls)
         {
             this.partitioningColumns = ImmutableSet.copyOf(Objects.requireNonNull(partitioningColumns, "partitioningColumns is null"));
             this.hashingOrder = Objects.requireNonNull(hashingOrder, "hashingOrder is null").map(ImmutableList::copyOf);
+            this.replicateNulls = replicateNulls;
+            checkArgument(!replicateNulls || partitioningColumns.size() == 1, "replicateNulls can only be set for partitioning of exactly 1 column");
         }
 
         public static Partitioning hashPartitioned(List<Symbol> columns)
         {
-            return new Partitioning(ImmutableSet.copyOf(columns), Optional.of(columns));
+            return new Partitioning(ImmutableSet.copyOf(columns), Optional.of(columns), false);
+        }
+
+        public static Partitioning hashPartitionedWithReplicatedNulls(List<Symbol> columns)
+        {
+            return new Partitioning(ImmutableSet.copyOf(columns), Optional.of(columns), true);
         }
 
         public static Partitioning partitioned(Set<Symbol> columns)
         {
-            return new Partitioning(columns, Optional.<List<Symbol>>empty());
+            return new Partitioning(columns, Optional.<List<Symbol>>empty(), false);
         }
 
         public static Partitioning singlePartition()
         {
             return partitioned(ImmutableSet.of());
+        }
+
+        public boolean isReplicateNulls()
+        {
+            return replicateNulls;
         }
 
         public boolean isPartitionedOn(Collection<Symbol> columns, Set<Symbol> knownConstants)
@@ -435,7 +456,7 @@ class ActualProperties
                     .map(Optional::get)
                     .collect(toImmutableList()));
 
-            return Optional.of(new Partitioning(newPartitioningColumns.build(), newHashingOrder));
+            return Optional.of(new Partitioning(newPartitioningColumns.build(), newHashingOrder, replicateNulls));
         }
 
         @Override
@@ -464,6 +485,7 @@ class ActualProperties
             return MoreObjects.toStringHelper(this)
                     .add("partitioningColumns", partitioningColumns)
                     .add("hashingOrder", hashingOrder)
+                    .add("replicateNulls", replicateNulls)
                     .toString();
         }
     }

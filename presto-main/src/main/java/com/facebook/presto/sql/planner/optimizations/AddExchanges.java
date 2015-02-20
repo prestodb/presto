@@ -36,6 +36,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ChildReplacer;
+import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -74,6 +75,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.jetbrains.annotations.NotNull;
 
@@ -100,6 +102,7 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchangeNullReplicate;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
@@ -132,27 +135,41 @@ public class AddExchanges
         boolean distributedJoinEnabled = SystemSessionProperties.isDistributedJoinEnabled(session, distributedJoins);
         boolean redistributeWrites = SystemSessionProperties.isRedistributeWrites(session, this.redistributeWrites);
         boolean preferStreamingOperators = SystemSessionProperties.preferStreamingOperators(session, false);
-        PlanWithProperties result = plan.accept(new Rewriter(symbolAllocator, idAllocator, symbolAllocator, session, distributedIndexJoins, distributedJoinEnabled, preferStreamingOperators, redistributeWrites), new Context(PreferredProperties.any()));
+        PlanWithProperties result = plan.accept(new Rewriter(symbolAllocator, idAllocator, symbolAllocator, session, distributedIndexJoins, distributedJoinEnabled, preferStreamingOperators, redistributeWrites), new Context(PreferredProperties.any(), false));
         return result.getNode();
     }
 
     private static class Context
     {
         private PreferredProperties preferredProperties;
+        // For delete queries, the TableScan node that corresponds to the table being deleted on must be collocated with the Delete node.
+        // Care must be taken so that Exchange node is not introduced between the two. For now, only SemiJoin may introduce it.
+        private boolean downstreamIsDelete;
 
-        Context(PreferredProperties preferredProperties)
+        Context(PreferredProperties preferredProperties, boolean downstreamIsDelete)
         {
             this.preferredProperties = preferredProperties;
+            this.downstreamIsDelete = downstreamIsDelete;
         }
 
         Context withPreferredProperties(PreferredProperties preferredProperties)
         {
-            return new Context(preferredProperties);
+            return new Context(preferredProperties, downstreamIsDelete);
+        }
+
+        Context withHashPartitionedSemiJoinBanned(boolean hashPartitionedSemiJoinBanned)
+        {
+            return new Context(preferredProperties, hashPartitionedSemiJoinBanned);
         }
 
         PreferredProperties getPreferredProperties()
         {
             return preferredProperties;
+        }
+
+        boolean isDownstreamIsDelete()
+        {
+            return downstreamIsDelete;
         }
     }
 
@@ -184,6 +201,13 @@ public class AddExchanges
         protected PlanWithProperties visitPlan(PlanNode node, Context context)
         {
             return rebaseAndDeriveProperties(node, planChild(node, context));
+        }
+
+        @Override
+        public PlanWithProperties visitDelete(DeleteNode node, Context context)
+        {
+            // Delete operator does not work unless it is co-located with the corresponding TableScan.
+            return rebaseAndDeriveProperties(node, planChild(node, context.withHashPartitionedSemiJoinBanned(true)));
         }
 
         @Override
@@ -766,29 +790,58 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitSemiJoin(SemiJoinNode node, Context context)
         {
-            PlanWithProperties source = node.getSource().accept(this, context.withPreferredProperties(PreferredProperties.any()));
-            PlanWithProperties filteringSource = node.getFilteringSource().accept(this, context.withPreferredProperties(PreferredProperties.any()));
+            PlanWithProperties source;
+            PlanWithProperties filteringSource;
 
-            // make filtering source match requirements of source
-            if (source.getProperties().isDistributed()) {
+            if (distributedJoins && !context.isDownstreamIsDelete()) {
+                List<Symbol> sourceSymbols = ImmutableList.of(node.getSourceJoinSymbol());
+                List<Symbol> filteringSourceSymbols = ImmutableList.of(node.getFilteringSourceJoinSymbol());
+
+                source = node.getSource().accept(this, context.withPreferredProperties(PreferredProperties.hashPartitioned(sourceSymbols)));
+                // Child will not satisfy hash with null replicate anyways, and repartition is always necessary.
+                // Therefore, tell the filtering source pick whatever partition it likes.
+                filteringSource = node.getFilteringSource().accept(this, context.withPreferredProperties(PreferredProperties.any()));
+
+                // force partitioning if source isn't already partitioned on sourceSymbols
+                if (!source.getProperties().isHashPartitionedOn(sourceSymbols)) {
+                    source = withDerivedProperties(
+                            partitionedExchange(idAllocator.getNextId(), source.getNode(), Optional.of(sourceSymbols), node.getSourceHashSymbol()),
+                            source.getProperties());
+                }
+
+                // The following statements would normally be written as: if (condition) { filteringSource = ...; }
+                // However, the if-condition will always evaluate to true in this case because no externally-visible node produces partition with null replicate.
+                // As a result, it is written as checkState instead.
+                checkState(!filteringSource.getProperties().isHashPartitionedOn(filteringSourceSymbols) || !filteringSource.getProperties().isNullReplication());
                 filteringSource = withDerivedProperties(
-                        new ExchangeNode(
-                                idAllocator.getNextId(),
-                                ExchangeNode.Type.REPLICATE,
-                                Optional.empty(),
-                                Optional.<Symbol>empty(),
-                                ImmutableList.of(filteringSource.getNode()),
-                                filteringSource.getNode().getOutputSymbols(),
-                                ImmutableList.of(filteringSource.getNode().getOutputSymbols())),
+                        partitionedExchangeNullReplicate(idAllocator.getNextId(), filteringSource.getNode(), Iterables.getOnlyElement(filteringSourceSymbols), node.getFilteringSourceHashSymbol()),
                         filteringSource.getProperties());
             }
             else {
-                filteringSource = withDerivedProperties(
-                        gatheringExchange(idAllocator.getNextId(), filteringSource.getNode()),
-                        filteringSource.getProperties());
-            }
+                source = node.getSource().accept(this, context.withPreferredProperties(PreferredProperties.any()));
+                // Delete operator works fine even if TableScans on the filtering (right) side is not co-located with itself. It only cares about the corresponding TableScan,
+                // which is always on the source (left) side. Therefore, hash-partitioned semi-join is always allowed on the filtering side.
+                filteringSource = node.getFilteringSource().accept(this, context.withPreferredProperties(PreferredProperties.any()).withHashPartitionedSemiJoinBanned(false));
 
-            // TODO: add support for hash-partitioned semijoins
+                // make filtering source match requirements of source
+                if (source.getProperties().isDistributed()) {
+                    filteringSource = withDerivedProperties(
+                            new ExchangeNode(
+                                    idAllocator.getNextId(),
+                                    ExchangeNode.Type.REPLICATE,
+                                    Optional.empty(),
+                                    Optional.<Symbol>empty(),
+                                    ImmutableList.of(filteringSource.getNode()),
+                                    filteringSource.getNode().getOutputSymbols(),
+                                    ImmutableList.of(filteringSource.getNode().getOutputSymbols())),
+                            filteringSource.getProperties());
+                }
+                else {
+                    filteringSource = withDerivedProperties(
+                            gatheringExchange(idAllocator.getNextId(), filteringSource.getNode()),
+                            filteringSource.getProperties());
+                }
+            }
 
             return rebaseAndDeriveProperties(node, ImmutableList.of(source, filteringSource));
         }
