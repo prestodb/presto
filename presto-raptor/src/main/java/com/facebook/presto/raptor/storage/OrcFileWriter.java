@@ -77,6 +77,8 @@ public class OrcFileWriter
     private final List<StructField> structFields;
     private final Object row;
 
+    private long rowCount;
+
     public OrcFileWriter(List<Long> columnIds, List<Type> columnTypes, File target)
     {
         this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
@@ -130,6 +132,7 @@ public class OrcFileWriter
         catch (IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to write record", e);
         }
+        rowCount++;
     }
 
     @Override
@@ -141,6 +144,11 @@ public class OrcFileWriter
         catch (IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to close writer", e);
         }
+    }
+
+    public long getRowCount()
+    {
+        return rowCount;
     }
 
     private static OrcSerde createSerializer(Configuration conf, Properties properties)
