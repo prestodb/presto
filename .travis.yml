@@ -15,4 +15,4 @@ cache:
 
 install: mvn install -DskipTests=true -Dmaven.javadoc.skip=true -B -V -q
 
-script: mvn test -P travis -Dair.check.skip-dependency=true
+script: mvn test -Dair.check.skip-dependency=true
