@@ -20,6 +20,8 @@ import java.util.List;
 
 public interface QueryManager
 {
+    List<QueryId> getAllQueryIds();
+
     List<QueryInfo> getAllQueryInfo();
 
     Duration waitForStateChange(QueryId queryId, QueryState currentState, Duration maxWait)

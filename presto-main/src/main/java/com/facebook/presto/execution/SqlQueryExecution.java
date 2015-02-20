@@ -298,6 +298,12 @@ public class SqlQueryExecution
     }
 
     @Override
+    public QueryId getQueryId()
+    {
+        return stateMachine.getQueryId();
+    }
+
+    @Override
     public QueryInfo getQueryInfo()
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {

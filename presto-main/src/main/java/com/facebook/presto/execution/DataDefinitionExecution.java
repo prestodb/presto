@@ -105,6 +105,12 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public QueryId getQueryId()
+    {
+        return stateMachine.getQueryId();
+    }
+
+    @Override
     public QueryInfo getQueryInfo()
     {
         return stateMachine.getQueryInfoWithoutDetails();
