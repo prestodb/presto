@@ -62,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION_WITH_NULL_REPLICATION;
 import static com.google.common.collect.Maps.immutableEnumMap;
 import static java.lang.String.format;
 
@@ -294,7 +295,7 @@ public final class GraphvizPrinter
         public Void visitExchange(ExchangeNode node, Void context)
         {
             List<Symbol> symbols = node.getOutputSymbols();
-            if (node.getType() == REPARTITION) {
+            if (node.getType() == REPARTITION || node.getType() == REPARTITION_WITH_NULL_REPLICATION) {
                 symbols = node.getPartitionKeys().orElseGet(() -> ImmutableList.of(new Symbol("(absent)")));
             }
             String columns = Joiner.on(", ").join(symbols);

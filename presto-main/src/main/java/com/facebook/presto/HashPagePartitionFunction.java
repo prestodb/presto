@@ -14,6 +14,7 @@
 package com.facebook.presto;
 
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.PlanFragment.NullPartitioning;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -32,6 +33,7 @@ public final class HashPagePartitionFunction
     private final List<Integer> partitioningChannels;
     private final List<Type> types;
     private final Optional<Integer> hashChannel;
+    private final NullPartitioning nullPartitioning;
 
     @JsonCreator
     public HashPagePartitionFunction(
@@ -39,7 +41,8 @@ public final class HashPagePartitionFunction
             @JsonProperty("partitionCount") int partitionCount,
             @JsonProperty("partitioningChannels") List<Integer> partitioningChannels,
             @JsonProperty("hashChannel") Optional<Integer> hashChannel,
-            @JsonProperty("types") List<Type> types)
+            @JsonProperty("types") List<Type> types,
+            @JsonProperty("nullPartitioning") NullPartitioning nullPartitioning)
     {
         super(partition, partitionCount);
 
@@ -47,9 +50,12 @@ public final class HashPagePartitionFunction
         checkArgument(!partitioningChannels.isEmpty(), "partitioningChannels is empty");
         this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
         checkArgument(!hashChannel.isPresent() || hashChannel.get() < types.size(), "invalid hashChannel");
+        checkArgument(nullPartitioning == NullPartitioning.HASH || partitioningChannels.size() == 1,
+                "size of partitioningChannels is not 1 when nullPartition is REPLICATE.");
 
         this.partitioningChannels = ImmutableList.copyOf(partitioningChannels);
         this.types = ImmutableList.copyOf(types);
+        this.nullPartitioning = nullPartitioning;
     }
 
     @JsonProperty
@@ -68,6 +74,12 @@ public final class HashPagePartitionFunction
     public Optional<Integer> getHashChannel()
     {
         return hashChannel;
+    }
+
+    @JsonProperty
+    public NullPartitioning getNullPartitioning()
+    {
+        return nullPartitioning;
     }
 
     @Override
