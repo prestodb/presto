@@ -14,8 +14,8 @@
 package com.facebook.presto.raptor.storage;
 
 import com.google.common.collect.ComparisonChain;
+import com.google.common.util.concurrent.ExecutionList;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.log.Logger;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -23,14 +23,15 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.Comparator;
 import java.util.Objects;
 import java.util.Queue;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 
 /**
  * This class is based on io.airlift.concurrent.BoundedExecutor
@@ -45,25 +46,26 @@ public class PrioritizedFifoExecutor<T extends Runnable>
     private final AtomicLong sequenceNumber = new AtomicLong(0);
     private final Runnable triggerTask = this::executeOrMerge;
 
-    private final ListeningExecutorService listeningExecutorService;
+    private final ExecutorService executorService;
     private final int maxThreads;
     private final Comparator<T> taskComparator;
 
     public PrioritizedFifoExecutor(ExecutorService coreExecutor, int maxThreads, Comparator<T> taskComparator)
     {
-        checkNotNull(coreExecutor, "coreExecutor is null");
         checkArgument(maxThreads > 0, "maxThreads must be greater than zero");
 
         this.taskComparator = checkNotNull(taskComparator, "taskComparator is null");
-        this.listeningExecutorService = listeningDecorator(coreExecutor);
+        this.executorService = checkNotNull(coreExecutor, "coreExecutor is null");
         this.maxThreads = maxThreads;
         this.queue = new PriorityBlockingQueue<>(maxThreads);
     }
 
     public ListenableFuture<?> submit(T task)
     {
-        queue.add(new FifoRunnableTask<>(task, sequenceNumber.incrementAndGet(), taskComparator));
-        return listeningExecutorService.submit(triggerTask);
+        FifoRunnableTask<T> fifoTask = new FifoRunnableTask<>(task, sequenceNumber.incrementAndGet(), taskComparator);
+        queue.add(fifoTask);
+        executorService.submit(triggerTask);
+        return fifoTask;
     }
 
     private void executeOrMerge()
@@ -74,7 +76,7 @@ public class PrioritizedFifoExecutor<T extends Runnable>
         }
         do {
             try {
-                queue.poll().getTask().run();
+                queue.poll().run();
             }
             catch (Throwable e) {
                 log.error(e, "Task failed");
@@ -84,22 +86,32 @@ public class PrioritizedFifoExecutor<T extends Runnable>
     }
 
     private static class FifoRunnableTask<T extends Runnable>
-            implements Comparable<FifoRunnableTask<T>>
+            extends FutureTask<Void>
+            implements ListenableFuture<Void>, Comparable<FifoRunnableTask<T>>
     {
+        private final ExecutionList executionList = new ExecutionList();
         private final T task;
         private final long sequenceNumber;
         private final Comparator<T> taskComparator;
 
         public FifoRunnableTask(T task, long sequenceNumber, Comparator<T> taskComparator)
         {
-            this.task = checkNotNull(task, "task is null");
+            super(checkNotNull(task, "task is null"), null);
+            this.task = task;
             this.sequenceNumber = checkNotNull(sequenceNumber, "sequenceNumber is null");
             this.taskComparator = checkNotNull(taskComparator, "taskComparator is null");
         }
 
-        public T getTask()
+        @Override
+        public void addListener(Runnable listener, Executor executor)
         {
-            return task;
+            executionList.add(listener, executor);
+        }
+
+        @Override
+        protected void done()
+        {
+            executionList.execute();
         }
 
         @Override
