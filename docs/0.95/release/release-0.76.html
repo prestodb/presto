@@ -1,0 +1,136 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>9.20. Release 0.76 &mdash; Presto 0.95 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.95',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.95 Documentation" href="../index.html" />
+    <link rel="up" title="9. Release Notes" href="../release.html" />
+    <link rel="next" title="9.21. Release 0.75" href="release-0.75.html" />
+    <link rel="prev" title="9.19. Release 0.77" href="release-0.77.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.95 Documentation</span></a></h1>
+    <h2 class="heading"><span>9.20. Release 0.76</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.77.html">9.19. Release 0.77</a>
+    </span>
+    <span class="right">
+        <a href="release-0.75.html">9.21. Release 0.75</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-76">
+<h1>9.20. Release 0.76</h1>
+<div class="section" id="kafka-connector">
+<h2>Kafka Connector</h2>
+<p>This release adds a connector that allows querying of <a class="reference external" href="https://kafka.apache.org/">Apache Kafka</a> topic data
+from Presto. Topics can be live and repeated queries will pick up new data.</p>
+<p>Apache Kafka 0.8+ is supported although Apache Kafka 0.8.1+ is recommended.
+There is extensive <a class="reference internal" href="../connector/kafka.html"><em>documentation</em></a> about configuring
+the connector and a <a class="reference internal" href="../connector/kafka-tutorial.html"><em>tutorial</em></a> to get started.</p>
+</div>
+<div class="section" id="mysql-and-postgresql-connectors">
+<h2>MySQL and PostgreSQL Connectors</h2>
+<p>This release adds the <a class="reference internal" href="../connector/mysql.html"><em>MySQL Connector</em></a> and <a class="reference internal" href="../connector/postgresql.html"><em>PostgreSQL Connector</em></a>
+for querying and creating tables in external relational databases. These can
+be used to join or copy data between different systems like MySQL and Hive,
+or between two different MySQL or PostgreSQL instances, or any combination.</p>
+</div>
+<div class="section" id="cassandra-changes">
+<h2>Cassandra Changes</h2>
+<p>The <a class="reference internal" href="../connector/cassandra.html"><em>Cassandra Connector</em></a> configuration properties
+<tt class="docutils literal"><span class="pre">cassandra.client.read-timeout</span></tt> and <tt class="docutils literal"><span class="pre">cassandra.client.connect-timeout</span></tt>
+are now specified using a duration rather than milliseconds (this makes
+them consistent with all other such properties in Presto). If you were
+previously specifying a value such as <tt class="docutils literal"><span class="pre">25</span></tt>, change it to <tt class="docutils literal"><span class="pre">25ms</span></tt>.</p>
+<p>The retry policy for the Cassandra client is now configurable via the
+<tt class="docutils literal"><span class="pre">cassandra.retry-policy</span></tt> property. In particular, the custom <tt class="docutils literal"><span class="pre">BACKOFF</span></tt>
+retry policy may be useful.</p>
+</div>
+<div class="section" id="hive-changes">
+<h2>Hive Changes</h2>
+<p>The new <a class="reference internal" href="../connector/hive.html"><em>Hive Connector</em></a> configuration property <tt class="docutils literal"><span class="pre">hive.s3.socket-timeout</span></tt>
+allows changing the socket timeout for queries that read or write to Amazon S3.
+Additionally, the previously added <tt class="docutils literal"><span class="pre">hive.s3.max-connections</span></tt> property
+was not respected and always used the default of <tt class="docutils literal"><span class="pre">500</span></tt>.</p>
+<p>Hive allows the partitions in a table to have a different schema than the
+table. In particular, it allows changing the type of a column without
+changing the column type of existing partitions. The Hive connector does
+not support this and could previously return garbage data for partitions
+stored using the RCFile Text format if the column type was converted from
+a non-numeric type such as <tt class="docutils literal"><span class="pre">STRING</span></tt> to a numeric type such as <tt class="docutils literal"><span class="pre">BIGINT</span></tt>
+and the actual data in existing partitions was not numeric. The Hive
+connector now detects this scenario and fails the query after the
+partition metadata has been read.</p>
+<p>The property <tt class="docutils literal"><span class="pre">hive.storage-format</span></tt> is broken and has been disabled. It
+sets the storage format on the metadata but always writes the table using
+<tt class="docutils literal"><span class="pre">RCBINARY</span></tt>. This will be implemented in a future release.</p>
+</div>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Fix hang in verifier when an exception occurs.</li>
+<li>Fix <a class="reference internal" href="../functions/string.html#chr" title="chr"><tt class="xref py py-func docutils literal"><span class="pre">chr()</span></tt></a> function to work with Unicode code points instead of ASCII code points.</li>
+<li>The JDBC driver no longer hangs the JVM on shutdown (all threads are daemon threads).</li>
+<li>Fix incorrect parsing of function arguments.</li>
+<li>The bytecode compiler now caches generated code for join and group byqueries,
+which should improve performance and CPU efficiency for these types of queries.</li>
+<li>Improve planning performance for certain trivial queries over tables with lots of partitions.</li>
+<li>Avoid creating large output pages. This should mitigate some cases of
+<em>&#8220;Remote page is too large&#8221;</em> errors.</li>
+<li>The coordinator/worker communication layer is now fully asynchronous.
+Specifically, long-poll requests no longer tie up a thread on the worker.
+This makes heavily loaded clusters more efficient.</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.77.html">9.19. Release 0.77</a>
+    </span>
+    <span class="right">
+        <a href="release-0.75.html">9.21. Release 0.75</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

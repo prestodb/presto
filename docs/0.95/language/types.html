@@ -1,0 +1,181 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>5.1. Data Types &mdash; Presto 0.95 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.95',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.95 Documentation" href="../index.html" />
+    <link rel="up" title="5. SQL Language" href="../language.html" />
+    <link rel="next" title="6. SQL Statement Syntax" href="../sql.html" />
+    <link rel="prev" title="5. SQL Language" href="../language.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.95 Documentation</span></a></h1>
+    <h2 class="heading"><span>5.1. Data Types</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../language.html">5. SQL Language</a>
+    </span>
+    <span class="right">
+        <a href="../sql.html">6. SQL Statement Syntax</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="data-types">
+<h1>5.1. Data Types</h1>
+<p>Presto currently supports a limited set of data types.
+These types can be used with the standard <tt class="docutils literal"><span class="pre">CAST</span></tt> operator.</p>
+<div class="section" id="boolean">
+<h2>BOOLEAN</h2>
+<blockquote>
+<div>This type captures boolean values <tt class="docutils literal"><span class="pre">true</span></tt> and <tt class="docutils literal"><span class="pre">false</span></tt>.</div></blockquote>
+</div>
+<div class="section" id="bigint">
+<h2>BIGINT</h2>
+<blockquote>
+<div>A 64-bit signed two&#8217;s complement integer with a minimum value of
+<tt class="docutils literal"><span class="pre">-2^63</span></tt> and a maximum value of <tt class="docutils literal"><span class="pre">2^63</span> <span class="pre">-</span> <span class="pre">1</span></tt>.</div></blockquote>
+</div>
+<div class="section" id="double">
+<h2>DOUBLE</h2>
+<blockquote>
+<div>A double is a 64-bit inexact, variable-precision implementing the
+IEEE Standard 754 for Binary Floating-Point Arithmetic.</div></blockquote>
+</div>
+<div class="section" id="varchar">
+<h2>VARCHAR</h2>
+<blockquote>
+<div>Variable length character data.</div></blockquote>
+</div>
+<div class="section" id="varbinary">
+<h2>VARBINARY</h2>
+<blockquote>
+<div>Variable length binary data.</div></blockquote>
+</div>
+<div class="section" id="json">
+<h2>JSON</h2>
+<blockquote>
+<div>Variable length json data.</div></blockquote>
+</div>
+<div class="section" id="date">
+<h2>DATE</h2>
+<blockquote>
+<div><p>Calendar date (year, month, day).</p>
+<p>Example: <tt class="docutils literal"><span class="pre">DATE</span> <span class="pre">'2001-08-22'</span></tt></p>
+</div></blockquote>
+</div>
+<div class="section" id="time">
+<h2>TIME</h2>
+<blockquote>
+<div><p>Time of day (hour, minute, second, millisecond) without a time zone.
+Values of this type are parsed and rendered in the session time zone.</p>
+<p>Example: <tt class="docutils literal"><span class="pre">TIME</span> <span class="pre">'01:02:03.456'</span></tt></p>
+</div></blockquote>
+</div>
+<div class="section" id="time-with-time-zone">
+<h2>TIME WITH TIME ZONE</h2>
+<blockquote>
+<div><p>Time of day (hour, minute, second, millisecond) with a time zone.
+Values of this type are rendered using the time zone from the value.</p>
+<p>Example: <tt class="docutils literal"><span class="pre">TIME</span> <span class="pre">'01:02:03.456</span> <span class="pre">America/Los_Angeles'</span></tt></p>
+</div></blockquote>
+</div>
+<div class="section" id="timestamp">
+<h2>TIMESTAMP</h2>
+<blockquote>
+<div><p>Instant in time that includes the date and time of day without a time zone.
+Values of this type are parsed and rendered in the session time zone.</p>
+<p>Example: <tt class="docutils literal"><span class="pre">TIMESTAMP</span> <span class="pre">'2001-08-22</span> <span class="pre">03:04:05.321'</span></tt></p>
+</div></blockquote>
+</div>
+<div class="section" id="timestamp-with-time-zone">
+<h2>TIMESTAMP WITH TIME ZONE</h2>
+<blockquote>
+<div><p>Instant in time that includes the date and time of day with a time zone.
+Values of this type are rendered using the time zone from the value.</p>
+<p>Example: <tt class="docutils literal"><span class="pre">TIMESTAMP</span> <span class="pre">'2001-08-22</span> <span class="pre">03:04:05.321</span> <span class="pre">America/Los_Angeles'</span></tt></p>
+</div></blockquote>
+</div>
+<div class="section" id="interval-year-to-month">
+<h2>INTERVAL YEAR TO MONTH</h2>
+<blockquote>
+<div><p>Span of years and months.</p>
+<p>Example: <tt class="docutils literal"><span class="pre">INTERVAL</span> <span class="pre">'3'</span> <span class="pre">MONTH</span></tt></p>
+</div></blockquote>
+</div>
+<div class="section" id="interval-day-to-second">
+<h2>INTERVAL DAY TO SECOND</h2>
+<blockquote>
+<div><p>Span of days, hours, minutes, seconds and milliseconds.</p>
+<p>Example: <tt class="docutils literal"><span class="pre">INTERVAL</span> <span class="pre">'2'</span> <span class="pre">DAY</span></tt></p>
+</div></blockquote>
+</div>
+<div class="section" id="array">
+<span id="array-type"></span><h2>ARRAY</h2>
+<blockquote>
+<div><p>An array of the given component type.</p>
+<p>Example: <tt class="docutils literal"><span class="pre">ARRAY[1,</span> <span class="pre">2,</span> <span class="pre">3]</span></tt></p>
+</div></blockquote>
+</div>
+<div class="section" id="map">
+<span id="map-type"></span><h2>MAP</h2>
+<blockquote>
+<div>A map between the given component types.</div></blockquote>
+</div>
+<div class="section" id="row">
+<span id="row-type"></span><h2>ROW</h2>
+<blockquote>
+<div><p>A structure made up of named fields. The fields may be of any SQL type, and are
+accessed with field reference operator <tt class="docutils literal"><span class="pre">.</span></tt></p>
+<p>Example: <tt class="docutils literal"><span class="pre">my_column.my_field</span></tt></p>
+</div></blockquote>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../language.html">5. SQL Language</a>
+    </span>
+    <span class="right">
+        <a href="../sql.html">6. SQL Statement Syntax</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

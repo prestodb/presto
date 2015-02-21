@@ -1,0 +1,212 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>3.2. Hive Connector &mdash; Presto 0.95 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.95',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.95 Documentation" href="../index.html" />
+    <link rel="up" title="3. Connectors" href="../connector.html" />
+    <link rel="next" title="3.3. JMX Connector" href="jmx.html" />
+    <link rel="prev" title="3.1. Cassandra Connector" href="cassandra.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.95 Documentation</span></a></h1>
+    <h2 class="heading"><span>3.2. Hive Connector</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="cassandra.html">3.1. Cassandra Connector</a>
+    </span>
+    <span class="right">
+        <a href="jmx.html">3.3. JMX Connector</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="hive-connector">
+<h1>3.2. Hive Connector</h1>
+<p>The Hive connector allows querying data stored in a Hive
+data warehouse. Hive is a combination of three components:</p>
+<ul class="simple">
+<li>Data files in varying formats that are typically stored in the
+Hadoop Distributed File System (HDFS) or in Amazon S3.</li>
+<li>Metadata about how the data files are mapped to schemas and tables.
+This metadata is stored in a database such as MySQL and is accessed
+via the Hive metastore service.</li>
+<li>A query language called HiveQL. This query language is executed
+on a distributed computing framework such as MapReduce or Tez.</li>
+</ul>
+<p>Presto only uses the first two components: the data and the metadata.
+It does not use HiveQL or any part of Hive&#8217;s execution environment.</p>
+<div class="section" id="configuration">
+<h2>Configuration</h2>
+<p>Presto includes Hive connectors for multiple versions of Hadoop:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">hive-hadoop1</span></tt>: Apache Hadoop 1.x</li>
+<li><tt class="docutils literal"><span class="pre">hive-hadoop2</span></tt>: Apache Hadoop 2.x</li>
+<li><tt class="docutils literal"><span class="pre">hive-cdh4</span></tt>: Cloudera CDH 4</li>
+<li><tt class="docutils literal"><span class="pre">hive-cdh5</span></tt>: Cloudera CDH 5</li>
+</ul>
+<p>Create <tt class="docutils literal"><span class="pre">etc/catalog/hive.properties</span></tt> with the following contents
+to mount the <tt class="docutils literal"><span class="pre">hive-cdh4</span></tt> connector as the <tt class="docutils literal"><span class="pre">hive</span></tt> catalog,
+replacing <tt class="docutils literal"><span class="pre">hive-cdh4</span></tt> with the proper connector for your version
+of Hadoop and <tt class="docutils literal"><span class="pre">example.net:9083</span></tt> with the correct host and port
+for your Hive metastore Thrift service:</p>
+<div class="highlight-none"><div class="highlight"><pre>connector.name=hive-cdh4
+hive.metastore.uri=thrift://example.net:9083
+</pre></div>
+</div>
+<div class="section" id="multiple-hive-clusters">
+<h3>Multiple Hive Clusters</h3>
+<p>You can have as many catalogs as you need, so if you have additional
+Hive clusters, simply add another properties file to <tt class="docutils literal"><span class="pre">etc/catalog</span></tt>
+with a different name (making sure it ends in <tt class="docutils literal"><span class="pre">.properties</span></tt>). For
+example, if you name the property file <tt class="docutils literal"><span class="pre">sales.properties</span></tt>, Presto
+will create a catalog named <tt class="docutils literal"><span class="pre">sales</span></tt> using the configured connector.
+If you are connecting to more than one Hive metastore, you can create
+any number of properties files configuring multiple instances of
+the Hive connector.</p>
+</div>
+<div class="section" id="hdfs-configuration">
+<h3>HDFS Configuration</h3>
+<p>Presto configures the HDFS client automatically for most setups and
+does not require any configuration files. In some rare cases, such
+as when using federated HDFS, it may be necessary to specify additional
+HDFS client options in order to access your HDFS cluster. To do so, add
+the <tt class="docutils literal"><span class="pre">hive.config.resources</span></tt> property to reference your HDFS config files:</p>
+<div class="highlight-none"><div class="highlight"><pre>hive.config.resources=/etc/hadoop/conf/core-site.xml,/etc/hadoop/conf/hdfs-site.xml
+</pre></div>
+</div>
+<p>Only specify additional configuration files if absolutely necessary.
+We also recommend reducing the configuration files to have the minimum
+set of required properties, as additional properties may cause problems.</p>
+</div>
+</div>
+<div class="section" id="configuration-properties">
+<h2>Configuration Properties</h2>
+<table border="1" class="docutils">
+<colgroup>
+<col width="36%" />
+<col width="44%" />
+<col width="20%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Property Name</th>
+<th class="head">Description</th>
+<th class="head">Example</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">hive.metastore.uri</span></tt></td>
+<td>The URI of the Hive Metastore to connect to using
+the Thrift protocol. This property is required.</td>
+<td><tt class="docutils literal"><span class="pre">thrift://192.0.2.3:9083</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">hive.config.resources</span></tt></td>
+<td>An optional comma-separated list of HDFS
+configuration files. These files must exist on the
+machines running Presto. Only specify this if
+absolutely necessary to access HDFS.</td>
+<td><tt class="docutils literal"><span class="pre">/etc/hdfs-site.xml</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">hive.storage-format</span></tt></td>
+<td>The default file format used when creating new tables</td>
+<td><tt class="docutils literal"><span class="pre">RCBINARY</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">hive.force-local-scheduling</span></tt></td>
+<td>Force splits to be scheduled on the same node as the Hadoop
+DataNode process serving the split data.  This is useful for
+installations where Presto is collocated with every
+DataNode.</td>
+<td><tt class="docutils literal"><span class="pre">true</span></tt></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="querying-hive-tables">
+<h2>Querying Hive Tables</h2>
+<p>The following table is an example Hive table from the <a class="reference external" href="https://cwiki.apache.org/confluence/display/Hive/Tutorial#Tutorial-UsageandExamples">Hive Tutorial</a>.
+It can be created in Hive (not in Presto) using the following
+Hive <tt class="docutils literal"><span class="pre">CREATE</span> <span class="pre">TABLE</span></tt> command:</p>
+<div class="highlight-none"><div class="highlight"><pre>hive&gt; CREATE TABLE page_view (
+    &gt;   viewTime INT,
+    &gt;   userid BIGINT,
+    &gt;   page_url STRING,
+    &gt;   referrer_url STRING,
+    &gt;   ip STRING COMMENT &#39;IP Address of the User&#39;)
+    &gt; COMMENT &#39;This is the page view table&#39;
+    &gt; PARTITIONED BY (dt STRING, country STRING)
+    &gt; STORED AS SEQUENCEFILE;
+OK
+Time taken: 3.644 seconds
+</pre></div>
+</div>
+<p>Assuming that this table was created in the <tt class="docutils literal"><span class="pre">web</span></tt> schema in
+Hive, this table can be described in Presto:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">DESCRIBE</span> <span class="n">hive</span><span class="p">.</span><span class="n">web</span><span class="p">.</span><span class="n">page_view</span><span class="p">;</span>
+</pre></div>
+</div>
+<div class="highlight-none"><div class="highlight"><pre>    Column    |  Type   | Null | Partition Key |        Comment
+--------------+---------+------+---------------+------------------------
+ viewtime     | bigint  | true | false         |
+ userid       | bigint  | true | false         |
+ page_url     | varchar | true | false         |
+ referrer_url | varchar | true | false         |
+ ip           | varchar | true | false         | IP Address of the User
+ dt           | varchar | true | true          |
+ country      | varchar | true | true          |
+(7 rows)
+</pre></div>
+</div>
+<p>This table can then be queried in Presto:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">hive</span><span class="p">.</span><span class="n">web</span><span class="p">.</span><span class="n">page_view</span><span class="p">;</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="cassandra.html">3.1. Cassandra Connector</a>
+    </span>
+    <span class="right">
+        <a href="jmx.html">3.3. JMX Connector</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
