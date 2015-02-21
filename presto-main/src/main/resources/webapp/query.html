@@ -43,6 +43,11 @@
         #tasks td:nth-child(12) {
             text-align: right;
         }
+
+        #failureMessage pre {
+            font-size: 10px;
+            line-height: 14px;
+        }
     </style>
 </head>
 
@@ -170,7 +175,8 @@ d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
     }
 
     if (query.failureInfo) {
-        d3.select('#failureMessage').text(query.failureInfo.type + ": " + query.failureInfo.message);
+        var s = formatStackTrace(query.failureInfo);
+        d3.select('#failureMessage').html("<pre>" + htmlEscape(s) + "</pre>");
     }
     else {
         d3.select('#failureMessage').html("&nbsp;");
@@ -222,6 +228,62 @@ d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
 
     renderTable('tasks', getTasks(query.outputStage).sort(taskIdComparator));
 });
+
+function formatStackTrace(info) {
+    return doFormatStackTrace(info, [], "", "");
+}
+
+function doFormatStackTrace(info, parentStack, prefix, linePrefix) {
+    var s = linePrefix + prefix + failureInfoToString(info) + "\n";
+
+    if (info.stack != null) {
+        var sharedStackFrames = 0;
+        if (parentStack != null) {
+            sharedStackFrames = countSharedStackFrames(info.stack, parentStack);
+        }
+
+        for (var i = 0; i < info.stack.length - sharedStackFrames; i++) {
+            s += linePrefix + "\tat " + info.stack[i] + "\n";
+        }
+        if (sharedStackFrames !== 0) {
+            s += linePrefix + "\t... " + sharedStackFrames + " more" + "\n";
+        }
+    }
+
+    if (info.suppressed != null) {
+        for (var i = 0; i < info.suppressed.length; i++) {
+            s += doFormatStackTrace(info.suppressed[i], info.stack, "Suppressed: ", linePrefix + "\t");
+        }
+    }
+
+    if (info.cause != null) {
+        s += doFormatStackTrace(info.cause, info.stack, "Caused by: ", linePrefix);
+    }
+
+    return s;
+}
+
+function countSharedStackFrames(stack, parentStack) {
+    var n = 0;
+    var minStackLength = Math.min(stack.length, parentStack.length);
+    while (n < minStackLength && stack[stack.length - 1 - n] === parentStack[parentStack.length - 1 - n]) {
+        n++;
+    }
+    return n;
+}
+
+function failureInfoToString(t) {
+    return (t.message != null) ? (t.type + ": " + t.message) : t.type;
+}
+
+function htmlEscape(str) {
+    return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+}
 
 function removeQueryId(id)
 {
