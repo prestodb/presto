@@ -301,8 +301,8 @@ public class TestHttpPageBufferClient
     public void testExceptionFromResponseHandler()
             throws Exception
     {
-        final TestingTicker ticker = new TestingTicker();
-        final AtomicReference<Duration> tickerIncrement = new AtomicReference<>(new Duration(0, TimeUnit.SECONDS));
+        TestingTicker ticker = new TestingTicker();
+        AtomicReference<Duration> tickerIncrement = new AtomicReference<>(new Duration(0, TimeUnit.SECONDS));
 
         Function<Request, Response> processor = (input) -> {
             Duration delta = tickerIncrement.get();
@@ -400,7 +400,7 @@ public class TestHttpPageBufferClient
             implements ClientCallback
     {
         private final CyclicBarrier done;
-        private final List<Page> pages = Collections.synchronizedList(new ArrayList<Page>());
+        private final List<Page> pages = Collections.synchronizedList(new ArrayList<>());
         private final AtomicInteger completedRequests = new AtomicInteger();
         private final AtomicInteger finishedBuffers = new AtomicInteger();
         private final AtomicInteger failedBuffers = new AtomicInteger();
