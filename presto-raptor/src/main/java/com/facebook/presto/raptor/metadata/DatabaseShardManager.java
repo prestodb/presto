@@ -18,7 +18,13 @@ import com.facebook.presto.raptor.util.CloseableIterator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Throwables;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.ExecutionError;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionStatus;
@@ -55,6 +61,17 @@ public class DatabaseShardManager
 
     private final IDBI dbi;
     private final ShardManagerDao dao;
+
+    private final LoadingCache<String, Long> nodeIdCache = CacheBuilder.newBuilder()
+            .maximumSize(10_000)
+            .build(new CacheLoader<String, Long>()
+            {
+                @Override
+                public Long load(String nodeIdentifier)
+                {
+                    return loadNodeId(nodeIdentifier);
+                }
+            });
 
     @Inject
     public DatabaseShardManager(@ForMetadata IDBI dbi)
@@ -163,6 +180,16 @@ public class DatabaseShardManager
     }
 
     private long getOrCreateNodeId(String nodeIdentifier)
+    {
+        try {
+            return nodeIdCache.getUnchecked(nodeIdentifier);
+        }
+        catch (UncheckedExecutionException | ExecutionError e) {
+            throw Throwables.propagate(e.getCause());
+        }
+    }
+
+    private long loadNodeId(String nodeIdentifier)
     {
         Long id = dao.getNodeId(nodeIdentifier);
         if (id != null) {
