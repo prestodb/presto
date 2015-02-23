@@ -187,7 +187,9 @@ public class SqlTaskManager
     {
         checkNotNull(taskId, "taskId is null");
 
-        return tasks.getUnchecked(taskId).getTaskInfo();
+        SqlTask sqlTask = tasks.getUnchecked(taskId);
+        sqlTask.recordHeartbeat();
+        return sqlTask.getTaskInfo();
     }
 
     @Override
@@ -196,7 +198,9 @@ public class SqlTaskManager
         checkNotNull(taskId, "taskId is null");
         checkNotNull(currentState, "currentState is null");
 
-        return tasks.getUnchecked(taskId).getTaskInfo(currentState);
+        SqlTask sqlTask = tasks.getUnchecked(taskId);
+        sqlTask.recordHeartbeat();
+        return sqlTask.getTaskInfo(currentState);
     }
 
     @Override
@@ -208,7 +212,9 @@ public class SqlTaskManager
         checkNotNull(sources, "sources is null");
         checkNotNull(outputBuffers, "outputBuffers is null");
 
-        return tasks.getUnchecked(taskId).updateTask(session, fragment, sources, outputBuffers);
+        SqlTask sqlTask = tasks.getUnchecked(taskId);
+        sqlTask.recordHeartbeat();
+        return sqlTask.updateTask(session, fragment, sources, outputBuffers);
     }
 
     @Override

@@ -133,10 +133,13 @@ public class SqlTask
         return taskStateMachine.getTaskId();
     }
 
-    public TaskInfo getTaskInfo()
+    public void recordHeartbeat()
     {
         lastHeartbeat.set(DateTime.now());
+    }
 
+    public TaskInfo getTaskInfo()
+    {
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             return createTaskInfo(taskHolderReference.get());
         }
@@ -192,7 +195,6 @@ public class SqlTask
     public ListenableFuture<TaskInfo> getTaskInfo(TaskState callersCurrentState)
     {
         checkNotNull(callersCurrentState, "callersCurrentState is null");
-        lastHeartbeat.set(DateTime.now());
 
         // If the caller's current state is already done, just return the current
         // state of this task as it will either be done or possibly still running
@@ -224,8 +226,6 @@ public class SqlTask
                 }
             }
 
-            lastHeartbeat.set(DateTime.now());
-
             if (taskExecution != null) {
                 // addSources checks for task completion, so update the buffers first and the task might complete earlier
                 sharedBuffer.setOutputBuffers(outputBuffers);
@@ -248,16 +248,12 @@ public class SqlTask
         checkNotNull(outputName, "outputName is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
 
-        lastHeartbeat.set(DateTime.now());
-
         return sharedBuffer.get(outputName, startingSequenceId, maxSize);
     }
 
     public TaskInfo abortTaskResults(TaskId outputId)
     {
         checkNotNull(outputId, "outputId is null");
-
-        lastHeartbeat.set(DateTime.now());
 
         log.debug("Aborting task %s output %s", taskId, outputId);
         sharedBuffer.abort(outputId);
@@ -274,16 +270,12 @@ public class SqlTask
 
     public TaskInfo cancel()
     {
-        lastHeartbeat.set(DateTime.now());
-
         taskStateMachine.cancel();
         return getTaskInfo();
     }
 
     public TaskInfo abort()
     {
-        lastHeartbeat.set(DateTime.now());
-
         taskStateMachine.abort();
         return getTaskInfo();
     }
