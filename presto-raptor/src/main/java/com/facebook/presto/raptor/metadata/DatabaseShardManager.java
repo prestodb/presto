@@ -156,7 +156,10 @@ public class DatabaseShardManager
     @Override
     public void assignShard(UUID shardUuid, String nodeIdentifier)
     {
-        dao.insertShardNode(shardUuid, getOrCreateNodeId(nodeIdentifier));
+        long nodeId = getOrCreateNodeId(nodeIdentifier);
+
+        // assigning a shard is idempotent
+        runIgnoringConstraintViolation(() -> dao.insertShardNode(shardUuid, nodeId));
     }
 
     private long getOrCreateNodeId(String nodeIdentifier)
