@@ -19,10 +19,10 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -40,7 +40,7 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.cassandra.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static com.google.common.cache.CacheLoader.asyncReloading;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -97,12 +97,10 @@ public class CachingCassandraSchemaProvider
         long expiresAfterWriteMillis = checkNotNull(cacheTtl, "cacheTtl is null").toMillis();
         long refreshMills = checkNotNull(refreshInterval, "refreshInterval is null").toMillis();
 
-        ListeningExecutorService listeningExecutor = listeningDecorator(executor);
-
         schemaNamesCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<String, Map<String, String>>(listeningExecutor)
+                .build(asyncReloading(new CacheLoader<String, Map<String, String>>()
                 {
                     @Override
                     public Map<String, String> load(String key)
@@ -110,12 +108,12 @@ public class CachingCassandraSchemaProvider
                     {
                         return loadAllSchemas();
                     }
-                });
+                }, executor));
 
         tableNamesCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<String, Map<String, String>>(listeningExecutor)
+                .build(asyncReloading(new CacheLoader<String, Map<String, String>>()
                 {
                     @Override
                     public Map<String, String> load(String databaseName)
@@ -123,13 +121,12 @@ public class CachingCassandraSchemaProvider
                     {
                         return loadAllTables(databaseName);
                     }
-                });
+                }, executor));
 
-        tableCache = CacheBuilder
-                .newBuilder()
+        tableCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<SchemaTableName, CassandraTable>(listeningExecutor)
+                .build(asyncReloading(new CacheLoader<SchemaTableName, CassandraTable>()
                 {
                     @Override
                     public CassandraTable load(SchemaTableName tableName)
@@ -137,13 +134,12 @@ public class CachingCassandraSchemaProvider
                     {
                         return loadTable(tableName);
                     }
-                });
+                }, executor));
 
-        partitionsCache = CacheBuilder
-                .newBuilder()
+        partitionsCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<PartitionListKey, List<CassandraPartition>>(listeningExecutor)
+                .build(asyncReloading(new CacheLoader<PartitionListKey, List<CassandraPartition>>()
                 {
                     @Override
                     public List<CassandraPartition> load(PartitionListKey key)
@@ -151,12 +147,11 @@ public class CachingCassandraSchemaProvider
                     {
                         return loadPartitions(key);
                     }
-                });
+                }, executor));
 
-        partitionsCacheFull = CacheBuilder
-                .newBuilder()
+        partitionsCacheFull = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
-                .build(new BackgroundCacheLoader<PartitionListKey, List<CassandraPartition>>(listeningExecutor)
+                .build(asyncReloading(new CacheLoader<PartitionListKey, List<CassandraPartition>>()
                 {
                     @Override
                     public List<CassandraPartition> load(PartitionListKey key)
@@ -164,7 +159,7 @@ public class CachingCassandraSchemaProvider
                     {
                         return loadPartitions(key);
                     }
-                });
+                }, executor));
     }
 
     @Managed
@@ -232,7 +227,7 @@ public class CachingCassandraSchemaProvider
 
     public String getCaseSensitiveTableName(SchemaTableName schemaTableName)
     {
-        String  caseSensitiveTableName = getCacheValue(tableNamesCache, schemaTableName.getSchemaName(), SchemaNotFoundException.class).get(schemaTableName.getTableName().toLowerCase(ENGLISH));
+        String caseSensitiveTableName = getCacheValue(tableNamesCache, schemaTableName.getSchemaName(), SchemaNotFoundException.class).get(schemaTableName.getTableName().toLowerCase(ENGLISH));
         return caseSensitiveTableName == null ? schemaTableName.getTableName() : caseSensitiveTableName;
     }
 

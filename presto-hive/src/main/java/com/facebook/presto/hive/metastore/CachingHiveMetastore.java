@@ -19,18 +19,16 @@ import com.facebook.presto.hive.HiveCluster;
 import com.facebook.presto.hive.HiveMetastoreClient;
 import com.facebook.presto.hive.HiveViewNotSupportedException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
-import com.facebook.presto.hive.util.BackgroundCacheLoader;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
 import org.apache.hadoop.hive.common.FileUtils;
@@ -68,6 +66,7 @@ import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_FILTER_FIELD_PARAMS;
@@ -106,12 +105,10 @@ public class CachingHiveMetastore
         long expiresAfterWriteMillis = checkNotNull(cacheTtl, "cacheTtl is null").toMillis();
         long refreshMills = checkNotNull(refreshInterval, "refreshInterval is null").toMillis();
 
-        ListeningExecutorService listeningExecutor = MoreExecutors.listeningDecorator(executor);
-
         databaseNamesCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<String, List<String>>(listeningExecutor)
+                .build(asyncReloading(new CacheLoader<String, List<String>>()
                 {
                     @Override
                     public List<String> load(String key)
@@ -119,12 +116,12 @@ public class CachingHiveMetastore
                     {
                         return loadAllDatabases();
                     }
-                });
+                }, executor));
 
         databaseCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<String, Database>(listeningExecutor)
+                .build(asyncReloading(new CacheLoader<String, Database>()
                 {
                     @Override
                     public Database load(String databaseName)
@@ -132,12 +129,12 @@ public class CachingHiveMetastore
                     {
                         return loadDatabase(databaseName);
                     }
-                });
+                }, executor));
 
         tableNamesCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<String, List<String>>(listeningExecutor)
+                .build(asyncReloading(new CacheLoader<String, List<String>>()
                 {
                     @Override
                     public List<String> load(String databaseName)
@@ -145,12 +142,12 @@ public class CachingHiveMetastore
                     {
                         return loadAllTables(databaseName);
                     }
-                });
+                }, executor));
 
         tableCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<HiveTableName, Table>(listeningExecutor)
+                .build(asyncReloading(new CacheLoader<HiveTableName, Table>()
                 {
                     @Override
                     public Table load(HiveTableName hiveTableName)
@@ -158,12 +155,12 @@ public class CachingHiveMetastore
                     {
                         return loadTable(hiveTableName);
                     }
-                });
+                }, executor));
 
         viewNamesCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<String, List<String>>(listeningExecutor)
+                .build(asyncReloading(new CacheLoader<String, List<String>>()
                 {
                     @Override
                     public List<String> load(String databaseName)
@@ -171,12 +168,12 @@ public class CachingHiveMetastore
                     {
                         return loadAllViews(databaseName);
                     }
-                });
+                }, executor));
 
         partitionNamesCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<HiveTableName, List<String>>(listeningExecutor)
+                .build(asyncReloading(new CacheLoader<HiveTableName, List<String>>()
                 {
                     @Override
                     public List<String> load(HiveTableName hiveTableName)
@@ -184,12 +181,12 @@ public class CachingHiveMetastore
                     {
                         return loadPartitionNames(hiveTableName);
                     }
-                });
+                }, executor));
 
         partitionFilterCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<PartitionFilter, List<String>>(listeningExecutor)
+                .build(asyncReloading(new CacheLoader<PartitionFilter, List<String>>()
                 {
                     @Override
                     public List<String> load(PartitionFilter partitionFilter)
@@ -197,12 +194,12 @@ public class CachingHiveMetastore
                     {
                         return loadPartitionNamesByParts(partitionFilter);
                     }
-                });
+                }, executor));
 
         partitionCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<HivePartitionName, Partition>(listeningExecutor)
+                .build(asyncReloading(new CacheLoader<HivePartitionName, Partition>()
                 {
                     @Override
                     public Partition load(HivePartitionName partitionName)
@@ -217,7 +214,7 @@ public class CachingHiveMetastore
                     {
                         return loadPartitionsByNames(partitionNames);
                     }
-                });
+                }, executor));
     }
 
     @Managed
