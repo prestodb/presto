@@ -188,6 +188,7 @@ public class ExpressionAnalyzer
         {
             Expression valueList = node.getValueList();
             if (valueList instanceof SubqueryExpression) {
+                process(node.getValue(), context);
                 super.visitSubqueryExpression((SubqueryExpression) valueList, context);
             }
             else {
