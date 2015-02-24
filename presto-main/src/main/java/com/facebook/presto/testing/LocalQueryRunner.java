@@ -269,7 +269,7 @@ public class LocalQueryRunner
         }
 
         @Override
-        public OperatorFactory createOutputOperator(final int operatorId, final List<Type> sourceType)
+        public OperatorFactory createOutputOperator(int operatorId, List<Type> sourceType)
         {
             checkNotNull(sourceType, "sourceType is null");
 
@@ -465,7 +465,7 @@ public class LocalQueryRunner
 
     public OperatorFactory createTableScanOperator(
             Session session,
-            final int operatorId,
+            int operatorId,
             String tableName,
             String... columnNames)
     {
@@ -484,11 +484,11 @@ public class LocalQueryRunner
             ColumnMetadata columnMetadata = metadata.getColumnMetadata(tableHandle, columnHandle);
             columnTypesBuilder.add(columnMetadata.getType());
         }
-        final List<ColumnHandle> columnHandles = columnHandlesBuilder.build();
-        final List<Type> columnTypes = columnTypesBuilder.build();
+        List<ColumnHandle> columnHandles = columnHandlesBuilder.build();
+        List<Type> columnTypes = columnTypesBuilder.build();
 
         // get the split for this table
-        final Split split = getLocalQuerySplit(tableHandle);
+        Split split = getLocalQuerySplit(tableHandle);
 
         return new OperatorFactory()
         {
@@ -513,13 +513,13 @@ public class LocalQueryRunner
         };
     }
 
-    public OperatorFactory createHashProjectOperator(int operatorId, List<Type> columnTypes, List<Integer> channelsToHash)
+    public OperatorFactory createHashProjectOperator(int operatorId, List<Type> columnTypes)
     {
         ImmutableList.Builder<ProjectionFunction> projectionFunctions = ImmutableList.builder();
         for (int i = 0; i < columnTypes.size(); i++) {
             projectionFunctions.add(ProjectionFunctions.singleColumn(columnTypes.get(i), i));
         }
-        projectionFunctions.add(new HashProjectionFunction(columnTypes, channelsToHash));
+        projectionFunctions.add(new HashProjectionFunction(columnTypes));
         return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 operatorId,
                 new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, projectionFunctions.build()),
@@ -547,12 +547,10 @@ public class LocalQueryRunner
             implements ProjectionFunction
     {
         private final List<Type> columnTypes;
-        private final List<Integer> hashChannels;
 
-        public HashProjectionFunction(List<Type> columnTypes, List<Integer> hashChannels)
+        public HashProjectionFunction(List<Type> columnTypes)
         {
             this.columnTypes = columnTypes;
-            this.hashChannels = hashChannels;
         }
 
         @Override

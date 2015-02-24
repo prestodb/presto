@@ -62,9 +62,9 @@ public abstract class AbstractOperatorBenchmark
         return localQueryRunner.createTableScanOperator(operatorId, tableName, columnNames);
     }
 
-    protected OperatorFactory createHashProjectOperator(int operatorId, List<Type> types, List<Integer> hashChannels)
+    protected OperatorFactory createHashProjectOperator(int operatorId, List<Type> types)
     {
-        return localQueryRunner.createHashProjectOperator(operatorId, types, hashChannels);
+        return localQueryRunner.createHashProjectOperator(operatorId, types);
     }
 
     protected abstract List<Driver> createDrivers(TaskContext taskContext);
