@@ -140,6 +140,8 @@ public class TestAnalyzer
     {
         assertFails(NOT_SUPPORTED, "SELECT 'a', (VALUES (1)) GROUP BY 1");
         assertFails(NOT_SUPPORTED, "SELECT 'a', (SELECT (1))");
+        analyze("SELECT * FROM (SELECT 1) t1(x) JOIN (SELECT 1) t2(x) ON t1.x=t2.x");
+        analyze("SELECT * FROM (SELECT 1) t1(x) WHERE x IN (SELECT 1)");
     }
 
     @Test
