@@ -58,7 +58,7 @@ public class HashBuildAndJoinBenchmark
         OperatorFactory source = ordersTableScan;
         Optional<Integer> hashChannel = Optional.empty();
         if (hashEnabled) {
-            source = createHashProjectOperator(1, ImmutableList.<Type>of(BIGINT, DOUBLE), Ints.asList(0));
+            source = createHashProjectOperator(1, ImmutableList.<Type>of(BIGINT, DOUBLE));
             driversBuilder.add(source);
             hashChannel = Optional.of(2);
         }
@@ -75,7 +75,7 @@ public class HashBuildAndJoinBenchmark
         source = lineItemTableScan;
         hashChannel = Optional.empty();
         if (hashEnabled) {
-            source = createHashProjectOperator(1, ImmutableList.<Type>of(BIGINT, BIGINT), Ints.asList(0));
+            source = createHashProjectOperator(1, ImmutableList.<Type>of(BIGINT, BIGINT));
             joinDriversBuilder.add(source);
             hashChannel = Optional.of(2);
         }
