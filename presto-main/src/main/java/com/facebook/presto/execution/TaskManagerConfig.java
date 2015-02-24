@@ -39,7 +39,7 @@ public class TaskManagerConfig
 
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
 
-    private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
+    private Duration clientTimeout = new Duration(2, TimeUnit.MINUTES);
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
     private int writerCount = 1;
     private int httpNotificationThreads = 25;

@@ -37,7 +37,7 @@ public class TestTaskManagerConfig
                 .setMaxShardProcessorThreads(Runtime.getRuntime().availableProcessors() * 4)
                 .setMinDrivers(Runtime.getRuntime().availableProcessors() * 4 * 2)
                 .setInfoMaxAge(new Duration(15, TimeUnit.MINUTES))
-                .setClientTimeout(new Duration(5, TimeUnit.MINUTES))
+                .setClientTimeout(new Duration(2, TimeUnit.MINUTES))
                 .setMaxTaskMemoryUsage(new DataSize(256, Unit.MEGABYTE))
                 .setBigQueryMaxTaskMemoryUsage(null)
                 .setMaxTaskIndexMemoryUsage(new DataSize(64, Unit.MEGABYTE))
