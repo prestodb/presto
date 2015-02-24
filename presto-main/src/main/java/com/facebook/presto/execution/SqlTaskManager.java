@@ -122,37 +122,27 @@ public class SqlTaskManager
     @PostConstruct
     public void start()
     {
-        taskManagementExecutor.scheduleWithFixedDelay(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                try {
-                    removeOldTasks();
-                }
-                catch (Throwable e) {
-                    log.warn(e, "Error removing old tasks");
-                }
-                try {
-                    failAbandonedTasks();
-                }
-                catch (Throwable e) {
-                    log.warn(e, "Error canceling abandoned tasks");
-                }
+        taskManagementExecutor.scheduleWithFixedDelay(() -> {
+            try {
+                removeOldTasks();
+            }
+            catch (Throwable e) {
+                log.warn(e, "Error removing old tasks");
+            }
+            try {
+                failAbandonedTasks();
+            }
+            catch (Throwable e) {
+                log.warn(e, "Error canceling abandoned tasks");
             }
         }, 200, 200, TimeUnit.MILLISECONDS);
 
-        taskManagementExecutor.scheduleWithFixedDelay(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                try {
-                    updateStats();
-                }
-                catch (Throwable e) {
-                    log.warn(e, "Error updating stats");
-                }
+        taskManagementExecutor.scheduleWithFixedDelay(() -> {
+            try {
+                updateStats();
+            }
+            catch (Throwable e) {
+                log.warn(e, "Error updating stats");
             }
         }, 0, 1, TimeUnit.SECONDS);
     }
@@ -304,15 +294,14 @@ public class SqlTaskManager
         SqlTaskIoStats tempIoStats = new SqlTaskIoStats();
         tempIoStats.merge(finishedTaskStats);
 
-        for (SqlTask task : tasks.asMap().values()) {
-            // there is a race here between task completion, which merges stats into
-            // finishedTaskStats, and getting the stats from the task.  Since we have
-            // already merged the final stats, we could miss the stats from this task
-            // which would result in an under-count, but we will not get an over-count.
-            if (!task.getTaskInfo().getState().isDone()) {
-                tempIoStats.merge(task.getIoStats());
-            }
-        }
+        // there is a race here between task completion, which merges stats into
+        // finishedTaskStats, and getting the stats from the task.  Since we have
+        // already merged the final stats, we could miss the stats from this task
+        // which would result in an under-count, but we will not get an over-count.
+        tasks.asMap().values().stream()
+                .filter(task -> !task.getTaskInfo().getState().isDone())
+                .forEach(task -> tempIoStats.merge(task.getIoStats()));
+
         cachedStats.resetTo(tempIoStats);
     }
 }
