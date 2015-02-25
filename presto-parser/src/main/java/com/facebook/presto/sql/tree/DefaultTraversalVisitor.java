@@ -29,7 +29,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitArithmeticExpression(ArithmeticExpression node, C context)
+    protected R visitArithmeticBinary(ArithmeticBinaryExpression node, C context)
     {
         process(node.getLeft(), context);
         process(node.getRight(), context);
@@ -211,9 +211,9 @@ public abstract class DefaultTraversalVisitor<R, C>
         for (WhenClause clause : node.getWhenClauses()) {
             process(clause, context);
         }
-        if (node.getDefaultValue() != null) {
-            process(node.getDefaultValue(), context);
-        }
+
+        node.getDefaultValue()
+                .ifPresent(value -> process(value, context));
 
         return null;
     }
@@ -250,7 +250,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitNegativeExpression(NegativeExpression node, C context)
+    protected R visitArithmeticUnary(ArithmeticUnaryExpression node, C context)
     {
         return process(node.getValue(), context);
     }
@@ -267,9 +267,8 @@ public abstract class DefaultTraversalVisitor<R, C>
         for (WhenClause clause : node.getWhenClauses()) {
             process(clause, context);
         }
-        if (node.getDefaultValue() != null) {
-            process(node.getDefaultValue(), context);
-        }
+        node.getDefaultValue()
+                .ifPresent(value -> process(value, context));
 
         return null;
     }
@@ -370,7 +369,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     @Override
     protected R visitValues(Values node, C context)
     {
-        for (Row row : node.getRows()) {
+        for (Expression row : node.getRows()) {
             process(row, context);
         }
         return null;

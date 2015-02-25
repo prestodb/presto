@@ -22,7 +22,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -80,7 +80,7 @@ public class TestInterpretedProjectionFunction
     @Test
     public void testArithmeticExpressionWithNulls()
     {
-        for (ArithmeticExpression.Type type : ArithmeticExpression.Type.values()) {
+        for (ArithmeticBinaryExpression.Type type : ArithmeticBinaryExpression.Type.values()) {
             assertProjection("NULL " + type.getValue() + " NULL", null);
 
             assertProjection("42 " + type.getValue() + " NULL", null);

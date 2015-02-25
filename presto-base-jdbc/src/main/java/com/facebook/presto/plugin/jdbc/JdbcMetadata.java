@@ -26,6 +26,7 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 
 import javax.inject.Inject;
 
@@ -146,7 +147,7 @@ public class JdbcMetadata
     }
 
     @Override
-    public void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<String> fragments)
+    public void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         JdbcOutputTableHandle handle = checkType(tableHandle, JdbcOutputTableHandle.class, "tableHandle");
         jdbcClient.commitCreateTable(handle, fragments);
@@ -165,7 +166,7 @@ public class JdbcMetadata
     }
 
     @Override
-    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
+    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
         throw new UnsupportedOperationException();
     }

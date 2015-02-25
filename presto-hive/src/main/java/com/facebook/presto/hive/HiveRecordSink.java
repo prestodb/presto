@@ -11,20 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorSession;
@@ -40,6 +26,7 @@ import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
@@ -56,6 +43,7 @@ import org.apache.hadoop.mapred.Reporter;
 import java.io.IOException;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
@@ -191,7 +179,7 @@ public class HiveRecordSink
     }
 
     @Override
-    public String commit()
+    public Collection<Slice> commit()
     {
         checkState(field == -1, "record not finished");
 
@@ -202,7 +190,19 @@ public class HiveRecordSink
             throw Throwables.propagate(e);
         }
 
-        return ""; // the committer can list the directory
+        // the committer can list the directory
+        return ImmutableList.of();
+    }
+
+    @Override
+    public void rollback()
+    {
+        try {
+            recordWriter.close(true);
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     @Override

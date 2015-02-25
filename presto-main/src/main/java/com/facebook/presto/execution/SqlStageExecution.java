@@ -894,7 +894,7 @@ public class SqlStageExecution
                     else if (any(taskStates, equalTo(TaskState.ABORTED))) {
                         // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
                         stageState.set(StageState.FAILED);
-                        failureCauses.add(new PrestoException(StandardErrorCode.INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
+                        failureCauses.add(new PrestoException(StandardErrorCode.INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + currentState));
                     }
                     else if (currentState != StageState.PLANNED && currentState != StageState.SCHEDULING) {
                         // all tasks are now scheduled, so we can check the finished state
@@ -928,12 +928,10 @@ public class SqlStageExecution
             // check if the stage already completed naturally
             doUpdateState();
             synchronized (this) {
-                if (stageState.get().isDone()) {
-                    return;
+                if (!stageState.get().isDone()) {
+                    log.debug("Cancelling stage %s", stageId);
+                    stageState.set(StageState.CANCELED);
                 }
-
-                log.debug("Cancelling stage %s", stageId);
-                stageState.set(StageState.CANCELED);
             }
 
             // cancel all tasks

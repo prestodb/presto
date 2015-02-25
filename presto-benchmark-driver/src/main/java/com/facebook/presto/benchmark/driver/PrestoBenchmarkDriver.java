@@ -14,7 +14,6 @@
 package com.facebook.presto.benchmark.driver;
 
 import com.facebook.presto.client.ClientSession;
-import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.command.Command;
@@ -29,6 +28,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -47,6 +47,12 @@ public class PrestoBenchmarkDriver
     public BenchmarkDriverOptions benchmarkDriverOptions = new BenchmarkDriverOptions();
 
     public static void main(String[] args)
+            throws Exception
+    {
+        new PrestoBenchmarkDriver().run(args);
+    }
+
+    protected void run(String[] args)
             throws Exception
     {
         PrestoBenchmarkDriver prestoBenchmarkDriver = singleCommand(PrestoBenchmarkDriver.class).parse(args);
@@ -89,7 +95,7 @@ public class PrestoBenchmarkDriver
         }
 
         // create results store
-        BenchmarkResultsStore resultsStore = new BenchmarkResultsPrinter(suites, queries);
+        BenchmarkResultsStore resultsStore = getResultsStore(suites, queries);
 
         // create session
         ClientSession session = driverOptions.getClientSession();
@@ -102,11 +108,16 @@ public class PrestoBenchmarkDriver
                 driverOptions.runs,
                 driverOptions.debug,
                 driverOptions.maxFailures,
-                Optional.fromNullable(driverOptions.socksProxy))) {
+                Optional.ofNullable(driverOptions.socksProxy))) {
             for (Suite suite : suites) {
                 benchmarkDriver.run(suite);
             }
         }
+    }
+
+    protected BenchmarkResultsStore getResultsStore(List<Suite> suites, Set<BenchmarkQuery> queries)
+    {
+        return new BenchmarkResultsPrinter(suites, queries);
     }
 
     private static List<BenchmarkQuery> readQueries(File queriesDir)

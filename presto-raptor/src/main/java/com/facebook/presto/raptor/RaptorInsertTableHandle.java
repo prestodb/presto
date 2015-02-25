@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -35,6 +36,8 @@ public class RaptorInsertTableHandle
     private final List<Type> columnTypes;
     @Nullable
     private final String externalBatchId;
+    private final List<RaptorColumnHandle> sortColumnHandles;
+    private final List<SortOrder> sortOrders;
 
     @JsonCreator
     public RaptorInsertTableHandle(
@@ -42,7 +45,9 @@ public class RaptorInsertTableHandle
             @JsonProperty("tableId") long tableId,
             @JsonProperty("columnHandles") List<RaptorColumnHandle> columnHandles,
             @JsonProperty("columnTypes") List<Type> columnTypes,
-            @JsonProperty("externalBatchId") @Nullable String externalBatchId)
+            @JsonProperty("externalBatchId") @Nullable String externalBatchId,
+            @JsonProperty("sortColumnHandles") List<RaptorColumnHandle> sortColumnHandles,
+            @JsonProperty("sortOrders") List<SortOrder> sortOrders)
     {
         checkArgument(tableId > 0, "tableId must be greater than zero");
 
@@ -51,6 +56,9 @@ public class RaptorInsertTableHandle
         this.columnHandles = ImmutableList.copyOf(checkNotNull(columnHandles, "columnHandles is null"));
         this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
         this.externalBatchId = externalBatchId;
+
+        this.sortOrders = ImmutableList.copyOf(checkNotNull(sortOrders, "sortOrders is null"));
+        this.sortColumnHandles = ImmutableList.copyOf(checkNotNull(sortColumnHandles, "sortColumnHandles is null"));
     }
 
     @JsonProperty
@@ -82,6 +90,18 @@ public class RaptorInsertTableHandle
     public String getExternalBatchId()
     {
         return externalBatchId;
+    }
+
+    @JsonProperty
+    public List<RaptorColumnHandle> getSortColumnHandles()
+    {
+        return sortColumnHandles;
+    }
+
+    @JsonProperty
+    public List<SortOrder> getSortOrders()
+    {
+        return sortOrders;
     }
 
     @Override

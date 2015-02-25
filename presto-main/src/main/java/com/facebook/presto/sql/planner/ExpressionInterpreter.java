@@ -23,7 +23,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
+import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -41,13 +42,13 @@ import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
-import com.facebook.presto.sql.tree.NegativeExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
@@ -247,7 +248,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitSearchedCaseExpression(SearchedCaseExpression node, Object context)
         {
-            Expression resultClause = node.getDefaultValue();
+            Expression resultClause = node.getDefaultValue().orElse(null);
             for (WhenClause whenClause : node.getWhenClauses()) {
                 Object value = process(whenClause.getOperand(), context);
                 if (value instanceof Expression) {
@@ -281,7 +282,7 @@ public class ExpressionInterpreter
                 return node;
             }
 
-            Expression resultClause = node.getDefaultValue();
+            Expression resultClause = node.getDefaultValue().orElse(null);
             if (operand != null) {
                 for (WhenClause whenClause : node.getWhenClauses()) {
                     Object value = process(whenClause.getOperand(), context);
@@ -406,34 +407,41 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitNegativeExpression(NegativeExpression node, Object context)
+        protected Object visitArithmeticUnary(ArithmeticUnaryExpression node, Object context)
         {
             Object value = process(node.getValue(), context);
             if (value == null) {
                 return null;
             }
             if (value instanceof Expression) {
-                return new NegativeExpression(toExpression(value, expressionTypes.get(node.getValue())));
+                return new ArithmeticUnaryExpression(node.getSign(), toExpression(value, expressionTypes.get(node.getValue())));
             }
 
-            FunctionInfo operatorInfo = metadata.resolveOperator(OperatorType.NEGATION, types(node.getValue()));
+            switch (node.getSign()) {
+                case PLUS:
+                    return value;
+                case MINUS:
+                    FunctionInfo operatorInfo = metadata.resolveOperator(OperatorType.NEGATION, types(node.getValue()));
 
-            MethodHandle handle = operatorInfo.getMethodHandle();
-            if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
-                handle = handle.bindTo(session);
+                    MethodHandle handle = operatorInfo.getMethodHandle();
+                    if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
+                        handle = handle.bindTo(session);
+                    }
+                    try {
+                        return handle.invokeWithArguments(value);
+                    }
+                    catch (Throwable throwable) {
+                        Throwables.propagateIfInstanceOf(throwable, RuntimeException.class);
+                        Throwables.propagateIfInstanceOf(throwable, Error.class);
+                        throw new RuntimeException(throwable.getMessage(), throwable);
+                    }
             }
-            try {
-                return handle.invokeWithArguments(value);
-            }
-            catch (Throwable throwable) {
-                Throwables.propagateIfInstanceOf(throwable, RuntimeException.class);
-                Throwables.propagateIfInstanceOf(throwable, Error.class);
-                throw new RuntimeException(throwable.getMessage(), throwable);
-            }
+
+            throw new UnsupportedOperationException("Unsupported unary operator: " + node.getSign());
         }
 
         @Override
-        protected Object visitArithmeticExpression(ArithmeticExpression node, Object context)
+        protected Object visitArithmeticBinary(ArithmeticBinaryExpression node, Object context)
         {
             Object left = process(node.getLeft(), context);
             if (left == null) {
@@ -445,7 +453,7 @@ public class ExpressionInterpreter
             }
 
             if (hasUnresolvedValue(left, right)) {
-                return new ArithmeticExpression(node.getType(), toExpression(left, expressionTypes.get(node.getLeft())), toExpression(right, expressionTypes.get(node.getRight())));
+                return new ArithmeticBinaryExpression(node.getType(), toExpression(left, expressionTypes.get(node.getLeft())), toExpression(right, expressionTypes.get(node.getRight())));
             }
 
             return invokeOperator(OperatorType.valueOf(node.getType().name()), types(node.getLeft(), node.getRight()), ImmutableList.of(left, right));
@@ -631,7 +639,7 @@ public class ExpressionInterpreter
 
             // do not optimize non-deterministic functions
             if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues))) {
-                return new FunctionCall(node.getName(), node.getWindow().orElse(null), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
+                return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
             }
             return invoke(session, function.getMethodHandle(), argumentValues);
         }
@@ -764,6 +772,12 @@ public class ExpressionInterpreter
         protected Object visitArrayConstructor(ArrayConstructor node, Object context)
         {
             return visitFunctionCall(new FunctionCall(QualifiedName.of(ArrayConstructor.ARRAY_CONSTRUCTOR), node.getValues()), context);
+        }
+
+        @Override
+        protected Object visitRow(Row node, Object context)
+        {
+            throw new UnsupportedOperationException("Row expressions not yet supported");
         }
 
         @Override

@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class FunctionCall
         extends Expression
 {
@@ -27,13 +29,17 @@ public class FunctionCall
 
     public FunctionCall(QualifiedName name, List<Expression> arguments)
     {
-        this(name, null, false, arguments);
+        this(name, Optional.<Window>empty(), false, arguments);
     }
 
-    public FunctionCall(QualifiedName name, Window window, boolean distinct, List<Expression> arguments)
+    public FunctionCall(QualifiedName name, Optional<Window> window, boolean distinct, List<Expression> arguments)
     {
+        checkNotNull(name, "name is null");
+        checkNotNull(window, "window is null");
+        checkNotNull(arguments, "arguments is null");
+
         this.name = name;
-        this.window = Optional.ofNullable(window);
+        this.window = window;
         this.distinct = distinct;
         this.arguments = arguments;
     }

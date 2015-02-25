@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.block.PagesSerde;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.google.common.base.Throwables;
 import com.google.common.reflect.TypeToken;
 import io.airlift.slice.OutputStreamSliceOutput;
+import io.airlift.slice.RuntimeIOException;
 
 import javax.inject.Inject;
 import javax.ws.rs.Produces;
@@ -28,6 +29,7 @@ import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.ext.MessageBodyWriter;
 import javax.ws.rs.ext.Provider;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.annotation.Annotation;
@@ -85,6 +87,15 @@ public class PagesResponseWriter
             OutputStream output)
             throws IOException, WebApplicationException
     {
-        PagesSerde.writePages(blockEncodingSerde, new OutputStreamSliceOutput(output), pages);
+        try {
+            PagesSerde.writePages(blockEncodingSerde, new OutputStreamSliceOutput(output), pages);
+        }
+        catch (RuntimeIOException e) {
+            // EOF exception occurs when the client disconnects while writing data
+            // This is not a "server" problem so we don't want to log this
+            if (!(e.getCause() instanceof EOFException)) {
+                throw e;
+            }
+        }
     }
 }

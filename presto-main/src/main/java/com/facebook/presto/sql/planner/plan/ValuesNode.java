@@ -42,7 +42,8 @@ public class ValuesNode
         this.rows = ImmutableList.copyOf(rows);
 
         for (List<Expression> row : rows) {
-            checkArgument(row.size() == outputSymbols.size(), "Expected row to have %s values, but row has %s values", outputSymbols.size(), row.size());
+            checkArgument(row.size() == outputSymbols.size() || row.size() == 0,
+                            "Expected row to have %s values, but row has %s values", outputSymbols.size(), row.size());
         }
     }
 

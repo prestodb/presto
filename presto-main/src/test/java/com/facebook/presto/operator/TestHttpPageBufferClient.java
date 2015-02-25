@@ -51,6 +51,7 @@ import static com.facebook.presto.spi.StandardErrorCode.PAGE_TOO_LARGE;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
 import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
+import static com.facebook.presto.util.Failures.WORKER_NODE_ERROR;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertContains;
@@ -300,8 +301,8 @@ public class TestHttpPageBufferClient
     public void testExceptionFromResponseHandler()
             throws Exception
     {
-        final TestingTicker ticker = new TestingTicker();
-        final AtomicReference<Duration> tickerIncrement = new AtomicReference<>(new Duration(0, TimeUnit.SECONDS));
+        TestingTicker ticker = new TestingTicker();
+        AtomicReference<Duration> tickerIncrement = new AtomicReference<>(new Duration(0, TimeUnit.SECONDS));
 
         Function<Request, Response> processor = (input) -> {
             Duration delta = tickerIncrement.get();
@@ -357,8 +358,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getFinishedBuffers(), 0);
         assertEquals(callback.getFailedBuffers(), 1);
         assertInstanceOf(callback.getFailure(), PageTransportTimeoutException.class);
-        assertContains(callback.getFailure().getMessage(), "");
-        assertContains(callback.getFailure().getMessage(), "Requests to http://localhost:8080/0 failed for 61000.00ms");
+        assertContains(callback.getFailure().getMessage(), WORKER_NODE_ERROR + " (http://localhost:8080/0 - requests failed for 61.00s)");
         assertStatus(client, location, "queued", 0, 3, 3, 3, "not scheduled");
     }
 
@@ -400,7 +400,7 @@ public class TestHttpPageBufferClient
             implements ClientCallback
     {
         private final CyclicBarrier done;
-        private final List<Page> pages = Collections.synchronizedList(new ArrayList<Page>());
+        private final List<Page> pages = Collections.synchronizedList(new ArrayList<>());
         private final AtomicInteger completedRequests = new AtomicInteger();
         private final AtomicInteger finishedBuffers = new AtomicInteger();
         private final AtomicInteger failedBuffers = new AtomicInteger();

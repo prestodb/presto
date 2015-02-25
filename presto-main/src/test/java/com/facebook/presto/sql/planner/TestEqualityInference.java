@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -336,7 +336,7 @@ public class TestEqualityInference
 
     private static Expression add(Expression expression1, Expression expression2)
     {
-        return new ArithmeticExpression(ArithmeticExpression.Type.ADD, expression1, expression2);
+        return new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.ADD, expression1, expression2);
     }
 
     private static Expression multiply(String symbol1, String symbol2)
@@ -346,7 +346,7 @@ public class TestEqualityInference
 
     private static Expression multiply(Expression expression1, Expression expression2)
     {
-        return new ArithmeticExpression(ArithmeticExpression.Type.MULTIPLY, expression1, expression2);
+        return new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.MULTIPLY, expression1, expression2);
     }
 
     private static Expression equals(String symbol1, String symbol2)

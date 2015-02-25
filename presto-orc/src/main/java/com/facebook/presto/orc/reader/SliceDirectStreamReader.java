@@ -33,10 +33,10 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.orc.reader.OrcReaderUtils.castOrcVector;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.OrcReaderUtils.castOrcVector;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -44,6 +44,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class SliceDirectStreamReader
         implements StreamReader
 {
+    private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
+
     private final StreamDescriptor streamDescriptor;
 
     private int readOffset;
@@ -132,7 +134,7 @@ public class SliceDirectStreamReader
             }
         }
 
-        byte[] data = new byte[0];
+        byte[] data = EMPTY_BYTE_ARRAY;
         if (totalLength > 0) {
             if (dataStream == null) {
                 throw new OrcCorruptionException("Value is not null but data stream is not present");

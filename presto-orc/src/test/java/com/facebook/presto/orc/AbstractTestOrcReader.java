@@ -19,7 +19,6 @@ import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
-import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Shorts;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
@@ -28,6 +27,7 @@ import org.testng.annotations.Test;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -445,7 +445,7 @@ public abstract class AbstractTestOrcReader
         if (input == null) {
             return null;
         }
-        return BaseEncoding.base64().encode(input);
+        return Base64.getEncoder().encodeToString(input);
     }
 
     private static String byteArrayToString(byte[] input)

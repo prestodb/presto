@@ -38,7 +38,6 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Relation;
-import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
@@ -56,6 +55,7 @@ import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
@@ -143,25 +143,25 @@ class StatementAnalyzer
         String catalogName = session.getCatalog();
         String schemaName = session.getSchema();
 
-        QualifiedName schema = showTables.getSchema();
-        if (schema != null) {
-            List<String> parts = schema.getParts();
+        Optional<QualifiedName> schema = showTables.getSchema();
+        if (schema.isPresent()) {
+            List<String> parts = schema.get().getParts();
             if (parts.size() > 2) {
                 throw new SemanticException(INVALID_SCHEMA_NAME, showTables, "too many parts in schema name: %s", schema);
             }
             if (parts.size() == 2) {
                 catalogName = parts.get(0);
             }
-            schemaName = schema.getSuffix();
+            schemaName = schema.get().getSuffix();
         }
 
         // TODO: throw SemanticException if schema does not exist
 
         Expression predicate = equal(nameReference("table_schema"), new StringLiteral(schemaName));
 
-        String likePattern = showTables.getLikePattern();
-        if (likePattern != null) {
-            Expression likePredicate = new LikePredicate(nameReference("table_name"), new StringLiteral(likePattern), null);
+        Optional<String> likePattern = showTables.getLikePattern();
+        if (likePattern.isPresent()) {
+            Expression likePredicate = new LikePredicate(nameReference("table_name"), new StringLiteral(likePattern.get()), null);
             predicate = logicalAnd(predicate, likePredicate);
         }
 
@@ -225,6 +225,7 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitUse(Use node, AnalysisContext context)
     {
+        analysis.setUpdateType("USE");
         throw new SemanticException(NOT_SUPPORTED, node, "USE statement is not supported");
     }
 
@@ -317,7 +318,7 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitShowSession(ShowSession node, AnalysisContext context)
     {
-        ImmutableList.Builder<Row> rows = ImmutableList.builder();
+        ImmutableList.Builder<Expression> rows = ImmutableList.builder();
         for (Entry<String, String> property : new TreeMap<>(session.getSystemProperties()).entrySet()) {
             rows.add(row(
                     new StringLiteral(property.getKey()),
@@ -353,6 +354,8 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitInsert(Insert insert, AnalysisContext context)
     {
+        analysis.setUpdateType("INSERT");
+
         // analyze the query that creates the data
         TupleDescriptor descriptor = process(insert.getQuery(), context);
 
@@ -365,7 +368,9 @@ class StatementAnalyzer
         analysis.setInsertTarget(targetTableHandle.get());
 
         List<ColumnMetadata> columns = metadata.getTableMetadata(targetTableHandle.get()).getColumns();
-        Iterable<Type> tableTypes = transform(columns, ColumnMetadata::getType);
+        Iterable<Type> tableTypes = FluentIterable.from(columns)
+                .filter(column -> !column.isHidden())
+                .transform(ColumnMetadata::getType);
 
         Iterable<Type> queryTypes = transform(descriptor.getVisibleFields(), Field::getType);
 
@@ -381,6 +386,8 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitCreateTable(CreateTable node, AnalysisContext context)
     {
+        analysis.setUpdateType("CREATE TABLE");
+
         // turn this into a query that has a new table writer node on top.
         QualifiedTableName targetTable = MetadataUtil.createQualifiedTableName(session, node.getName());
         analysis.setCreateTableDestination(targetTable);
@@ -401,6 +408,8 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitCreateView(CreateView node, AnalysisContext context)
     {
+        analysis.setUpdateType("CREATE VIEW");
+
         // analyze the query that creates the view
         TupleDescriptor descriptor = process(node.getQuery(), context);
 

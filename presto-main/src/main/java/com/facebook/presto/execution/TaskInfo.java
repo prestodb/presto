@@ -24,6 +24,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -50,6 +51,7 @@ public class TaskInfo
     public static final long MAX_VERSION = Long.MAX_VALUE;
 
     private final TaskId taskId;
+    private final Optional<String> nodeInstanceId;
     private final long version;
     private final TaskState state;
     private final URI self;
@@ -61,6 +63,7 @@ public class TaskInfo
 
     @JsonCreator
     public TaskInfo(@JsonProperty("taskId") TaskId taskId,
+            @JsonProperty("nodeInstanceId") Optional<String> nodeInstanceId,
             @JsonProperty("version") long version,
             @JsonProperty("state") TaskState state,
             @JsonProperty("self") URI self,
@@ -71,6 +74,7 @@ public class TaskInfo
             @JsonProperty("failures") List<ExecutionFailureInfo> failures)
     {
         this.taskId = checkNotNull(taskId, "taskId is null");
+        this.nodeInstanceId = checkNotNull(nodeInstanceId, "nodeInstanceId is null");
         this.version = checkNotNull(version, "version is null");
         this.state = checkNotNull(state, "state is null");
         this.self = checkNotNull(self, "self is null");
@@ -91,6 +95,12 @@ public class TaskInfo
     public TaskId getTaskId()
     {
         return taskId;
+    }
+
+    @JsonProperty
+    public Optional<String> getNodeInstanceId()
+    {
+        return nodeInstanceId;
     }
 
     @JsonProperty
@@ -143,7 +153,7 @@ public class TaskInfo
 
     public TaskInfo summarize()
     {
-        return new TaskInfo(taskId, version, state, self, lastHeartbeat, outputBuffers, noMoreSplits, stats.summarize(), failures);
+        return new TaskInfo(taskId, nodeInstanceId, version, state, self, lastHeartbeat, outputBuffers, noMoreSplits, stats.summarize(), failures);
     }
 
     @Override

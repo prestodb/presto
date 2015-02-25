@@ -7,7 +7,7 @@ Aggregate functions operate on a set of values to compute a single result.
 Except for :func:`count`, :func:`count_if`, :func:`max_by` and :func:`approx_distinct`, all
 of these aggregate functions ignore null values and return null for no input
 rows or when all values are null. For example, :func:`sum` returns null
-rather than zero and :func:`avg` does include null values in the count.
+rather than zero and :func:`avg` does not include null values in the count.
 The ``coalesce`` function can be used to convert null into zero.
 
 General Aggregate Functions
@@ -97,7 +97,7 @@ Approximate Aggregate Functions
     is the standard deviation of the (approximately normal) error distribution
     over all possible sets. It does not guarantee an upper bound on the error
     for any specific input set. The current implementation of this function
-    requires that ``e`` be in the range: [0.01149, 0.26000].
+    requires that ``e`` be in the range: [0.01150, 0.26000].
 
 .. function:: approx_percentile(x, p) -> [same as input]
 

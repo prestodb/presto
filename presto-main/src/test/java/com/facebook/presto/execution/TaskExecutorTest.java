@@ -33,7 +33,7 @@ public class TaskExecutorTest
     public void test()
             throws Exception
     {
-        TaskExecutor taskExecutor = new TaskExecutor(4);
+        TaskExecutor taskExecutor = new TaskExecutor(4, 8);
         taskExecutor.start();
 
         try {
@@ -107,6 +107,35 @@ public class TaskExecutorTest
             assertEquals(driver1.getLastPhase(), 10);
             assertEquals(driver2.getLastPhase(), 10);
             assertEquals(driver3.getLastPhase(), 12);
+        }
+        finally {
+            taskExecutor.stop();
+        }
+    }
+
+    @Test
+    public void testTaskHandle()
+            throws Exception
+    {
+        TaskExecutor taskExecutor = new TaskExecutor(4, 8);
+        taskExecutor.start();
+
+        try {
+            TaskHandle taskHandle = taskExecutor.addTask(new TaskId("test", "test", "test"));
+
+            Phaser beginPhase = new Phaser();
+            beginPhase.register();
+            Phaser verificationComplete = new Phaser();
+            verificationComplete.register();
+            TestingJob driver = new TestingJob(beginPhase, verificationComplete, 10);
+
+            // force enqueue a split
+            taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver));
+            assertEquals(taskHandle.getRunningSplits(), 0);
+
+            // normal enqueue a split
+            taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(driver));
+            assertEquals(taskHandle.getRunningSplits(), 1);
         }
         finally {
             taskExecutor.stop();

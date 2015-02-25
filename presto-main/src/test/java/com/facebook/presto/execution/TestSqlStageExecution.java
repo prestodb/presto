@@ -197,9 +197,9 @@ public class TestSqlStageExecution
 
     private SqlStageExecution createSqlStageExecution(NodeScheduler nodeScheduler, int splitBatchSize, StageExecutionPlan tableScanPlan)
     {
-        ExecutorService remoteTaskExecutor = newCachedThreadPool(daemonThreadsNamed("remoteTaskExecutor"));
+        ExecutorService remoteTaskExecutor = newCachedThreadPool(daemonThreadsNamed("remoteTaskExecutor-%s"));
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor);
-        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stageExecutor"));
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%s"));
 
         OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
                 .withBuffer(OUT, new UnpartitionedPagePartitionFunction())
@@ -222,7 +222,7 @@ public class TestSqlStageExecution
     public void testYieldCausesFullSchedule()
             throws Exception
     {
-        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
         SqlStageExecution stageExecution = null;
         try {
             StageExecutionPlan joinPlan = createJoinPlan("A");
@@ -442,6 +442,7 @@ public class TestSqlStageExecution
 
                 return new TaskInfo(
                         taskStateMachine.getTaskId(),
+                        Optional.empty(),
                         nextTaskInfoVersion.getAndIncrement(),
                         state,
                         location,

@@ -20,7 +20,8 @@ import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
-import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
+import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -42,7 +43,6 @@ import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.NegativeExpression;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
@@ -269,7 +269,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitArithmeticExpression(ArithmeticExpression node, Void context)
+        protected RowExpression visitArithmeticBinary(ArithmeticBinaryExpression node, Void context)
         {
             RowExpression left = process(node.getLeft(), context);
             RowExpression right = process(node.getRight(), context);
@@ -282,14 +282,21 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitNegativeExpression(NegativeExpression node, Void context)
+        protected RowExpression visitArithmeticUnary(ArithmeticUnaryExpression node, Void context)
         {
             RowExpression expression = process(node.getValue(), context);
 
-            return call(
-                    arithmeticNegationSignature(types.get(node), expression.getType()),
-                    types.get(node),
-                    expression);
+            switch (node.getSign()) {
+                case PLUS:
+                    return expression;
+                case MINUS:
+                    return call(
+                            arithmeticNegationSignature(types.get(node), expression.getType()),
+                            types.get(node),
+                            expression);
+            }
+
+            throw new UnsupportedOperationException("Unsupported unary operator: " + node.getSign());
         }
 
         @Override
@@ -340,12 +347,10 @@ public final class SqlToRowExpressionTranslator
             }
 
             Type returnType = types.get(node);
-            if (node.getDefaultValue() != null) {
-                arguments.add(process(node.getDefaultValue(), context));
-            }
-            else {
-                arguments.add(constantNull(returnType));
-            }
+
+            arguments.add(node.getDefaultValue()
+                    .map((value) -> process(value, context))
+                    .orElse(constantNull(returnType)));
 
             return call(switchSignature(returnType), returnType, arguments.build());
         }
@@ -373,11 +378,9 @@ public final class SqlToRowExpressionTranslator
                                     value4)))
 
              */
-            RowExpression expression = constantNull(types.get(node));
-
-            if (node.getDefaultValue() != null) {
-                expression = process(node.getDefaultValue(), context);
-            }
+            RowExpression expression = node.getDefaultValue()
+                    .map((value) -> process(value, context))
+                    .orElse(constantNull(types.get(node)));
 
             for (WhenClause clause : Lists.reverse(node.getWhenClauses())) {
                 expression = call(

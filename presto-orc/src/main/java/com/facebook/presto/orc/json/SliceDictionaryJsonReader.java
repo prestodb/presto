@@ -22,13 +22,13 @@ import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.RowGroupDictionaryLengthStream;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Ints;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Base64;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
@@ -45,17 +45,19 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public class SliceDictionaryJsonReader
         implements JsonMapKeyReader
 {
+    private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
+
     private final StreamDescriptor streamDescriptor;
     private final boolean writeBinary;
 
     @Nonnull
-    private DictionaryEntry[] dictionary = new DictionaryEntry[0];
+    private byte[][] dictionary = new byte[0][];
 
     @Nonnull
     private int[] dictionaryLength = new int[0];
 
     @Nonnull
-    private DictionaryEntry[] rowGroupDictionary = new DictionaryEntry[0];
+    private byte[][] rowGroupDictionary = new byte[0][];
 
     @Nonnull
     private int[] rowGroupDictionaryLength = new int[0];
@@ -84,16 +86,13 @@ public class SliceDictionaryJsonReader
             return;
         }
 
-        DictionaryEntry value = getNextValue();
+        byte[] value = getNextValue();
 
-        byte[] data = value.getData();
-        int offset = value.getOffset();
-        int length = value.length();
         if (writeBinary) {
-            generator.writeBinary(data, offset, length);
+            generator.writeBinary(value);
         }
         else {
-            generator.writeUTF8String(data, offset, length);
+            generator.writeUTF8String(value, 0, value.length);
         }
     }
 
@@ -105,20 +104,17 @@ public class SliceDictionaryJsonReader
             return null;
         }
 
-        DictionaryEntry value = getNextValue();
+        byte[] value = getNextValue();
 
-        byte[] data = value.getData();
-        int offset = value.getOffset();
-        int length = value.length();
         if (writeBinary) {
-            return BaseEncoding.base64().encode(data, offset, length);
+            return Base64.getEncoder().encodeToString(value);
         }
         else {
-            return new String(data, offset, length, UTF_8);
+            return new String(value, UTF_8);
         }
     }
 
-    private DictionaryEntry getNextValue()
+    private byte[] getNextValue()
             throws IOException
     {
         if (dataStream == null) {
@@ -127,7 +123,7 @@ public class SliceDictionaryJsonReader
 
         int dictionaryIndex = Ints.checkedCast(dataStream.next());
 
-        DictionaryEntry value;
+        byte[] value;
         if (inDictionaryStream == null || inDictionaryStream.nextBit()) {
             value = dictionary[dictionaryIndex];
         }
@@ -169,7 +165,7 @@ public class SliceDictionaryJsonReader
         if (dictionarySize > 0) {
             // resize the dictionary array if necessary
             if (dictionary.length < dictionarySize) {
-                dictionary = new DictionaryEntry[dictionarySize];
+                dictionary = new byte[dictionarySize][];
                 dictionaryLength = new int[dictionarySize];
             }
 
@@ -207,7 +203,7 @@ public class SliceDictionaryJsonReader
 
             // resize the dictionary array if necessary
             if (rowGroupDictionary.length < dictionaryEntryCount) {
-                rowGroupDictionary = new DictionaryEntry[dictionaryEntryCount];
+                rowGroupDictionary = new byte[dictionaryEntryCount][];
                 rowGroupDictionaryLength = new int[dictionaryEntryCount];
             }
 
@@ -222,30 +218,18 @@ public class SliceDictionaryJsonReader
         dataStream = dataStreamSources.getStreamSource(streamDescriptor, DATA, LongStream.class).openStream();
     }
 
-    private static void readDictionary(ByteArrayStream dictionaryDataStream, int dictionarySize, int[] dictionaryLength, DictionaryEntry[] dictionary)
+    private static void readDictionary(ByteArrayStream dictionaryDataStream, int dictionarySize, int[] dictionaryLength, byte[][] dictionary)
             throws IOException
     {
-        // sum lengths
-        int totalLength = 0;
-        for (int i = 0; i < dictionarySize; i++) {
-            totalLength += dictionaryLength[i];
-        }
-
-        // read dictionary data
-        byte[] dictionaryData = new byte[0];
-        if (totalLength > 0) {
-            if (dictionaryDataStream == null) {
-                throw new OrcCorruptionException("Dictionary length is not zero but dictionary data stream is not present");
-            }
-            dictionaryData = dictionaryDataStream.next(totalLength);
-        }
-
         // build dictionary slices
-        int offset = 0;
         for (int i = 0; i < dictionarySize; i++) {
             int length = dictionaryLength[i];
-            dictionary[i] = new DictionaryEntry(dictionaryData, offset, length);
-            offset += length;
+            if (length == 0) {
+                dictionary[i] = EMPTY_BYTE_ARRAY;
+            }
+            else {
+                dictionary[i] = dictionaryDataStream.next(length);
+            }
         }
     }
 
@@ -255,34 +239,5 @@ public class SliceDictionaryJsonReader
         return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
-    }
-
-    private static class DictionaryEntry
-    {
-        private final byte[] dictionary;
-        private final int offset;
-        private final int length;
-
-        public DictionaryEntry(byte[] dictionary, int offset, int length)
-        {
-            this.dictionary = dictionary;
-            this.offset = offset;
-            this.length = length;
-        }
-
-        public int length()
-        {
-            return length;
-        }
-
-        public byte[] getData()
-        {
-            return dictionary;
-        }
-
-        public int getOffset()
-        {
-            return offset;
-        }
     }
 }

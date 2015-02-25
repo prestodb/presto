@@ -40,6 +40,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimaps;
+import io.airlift.slice.Slice;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionStatus;
@@ -64,10 +65,12 @@ import static com.facebook.presto.raptor.metadata.SqlUtils.runIgnoringConstraint
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
+import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 
 public class RaptorMetadata
@@ -305,11 +308,13 @@ public class RaptorMetadata
                 tableMetadata.getTable().getTableName(),
                 columnHandles.build(),
                 columnTypes.build(),
-                sampleWeightColumnHandle);
+                sampleWeightColumnHandle,
+                ImmutableList.of(),
+                ImmutableList.of());
     }
 
     @Override
-    public void commitCreateTable(ConnectorOutputTableHandle outputTableHandle, Collection<String> fragments)
+    public void commitCreateTable(ConnectorOutputTableHandle outputTableHandle, Collection<Slice> fragments)
     {
         RaptorOutputTableHandle table = checkType(outputTableHandle, RaptorOutputTableHandle.class, "outputTableHandle");
 
@@ -340,12 +345,28 @@ public class RaptorMetadata
         }
 
         String externalBatchId = session.getProperties().get("external_batch_id");
+        List<RaptorColumnHandle> sortColumnHandles = getSortColumnHandles(tableId);
+        return new RaptorInsertTableHandle(connectorId,
+                tableId,
+                columnHandles.build(),
+                columnTypes.build(),
+                externalBatchId,
+                sortColumnHandles,
+                nCopies(sortColumnHandles.size(), ASC_NULLS_FIRST));
+    }
 
-        return new RaptorInsertTableHandle(connectorId, tableId, columnHandles.build(), columnTypes.build(), externalBatchId);
+    private List<RaptorColumnHandle> getSortColumnHandles(long tableId)
+    {
+        ImmutableList.Builder<RaptorColumnHandle> builder = ImmutableList.builder();
+        for (TableColumn tableColumn : dao.listSortColumns(tableId)) {
+            checkArgument(!tableColumn.getColumnName().equals(SAMPLE_WEIGHT_COLUMN_NAME), "sample weight column may not be a sort column");
+            builder.add(getRaptorColumnHandle(tableColumn));
+        }
+        return builder.build();
     }
 
     @Override
-    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
+    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
         RaptorInsertTableHandle handle = checkType(insertHandle, RaptorInsertTableHandle.class, "insertHandle");
         long tableId = handle.getTableId();
@@ -421,12 +442,12 @@ public class RaptorMetadata
         return new RaptorColumnHandle(connectorId, tableColumn.getColumnName(), tableColumn.getColumnId(), tableColumn.getDataType());
     }
 
-    private static List<ShardNode> parseFragments(Collection<String> fragments)
+    private static Iterable<ShardNode> parseFragments(Iterable<Slice> fragments)
     {
         // Format of each fragment: nodeId:shardUuid1,shardUuid2,shardUuid3
         ImmutableList.Builder<ShardNode> shards = ImmutableList.builder();
-        for (String fragment : fragments) {
-            Iterator<String> split = NODE_SHARD_SPLITTER.split(fragment).iterator();
+        for (Slice fragment : fragments) {
+            Iterator<String> split = NODE_SHARD_SPLITTER.split(fragment.toStringUtf8()).iterator();
             String nodeId = split.next();
             checkArgument(split.hasNext(), "fragment not formatted correctly");
             String uuids = split.next();

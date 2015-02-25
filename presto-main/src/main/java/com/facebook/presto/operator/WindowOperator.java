@@ -218,7 +218,7 @@ public class WindowOperator
 
         this.types = toTypes(sourceTypes, outputChannels, windowFunctions);
 
-        this.pagesIndex = new PagesIndex(sourceTypes, expectedPositions, operatorContext);
+        this.pagesIndex = new PagesIndex(sourceTypes, expectedPositions);
         this.pageBuilder = new PageBuilder(this.types);
     }
 
@@ -278,6 +278,7 @@ public class WindowOperator
         checkNotNull(page, "page is null");
 
         pagesIndex.addPage(page);
+        operatorContext.setMemoryReservation(pagesIndex.getEstimatedSize().toBytes());
     }
 
     @Override

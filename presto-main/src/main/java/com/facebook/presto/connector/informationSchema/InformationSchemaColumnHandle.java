@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import java.util.Objects;
 
 public class InformationSchemaColumnHandle
         implements ConnectorColumnHandle
@@ -43,7 +43,7 @@ public class InformationSchemaColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(columnName);
+        return Objects.hash(columnName);
     }
 
     @Override
@@ -56,7 +56,7 @@ public class InformationSchemaColumnHandle
             return false;
         }
         final InformationSchemaColumnHandle other = (InformationSchemaColumnHandle) obj;
-        return Objects.equal(this.columnName, other.columnName);
+        return Objects.equals(this.columnName, other.columnName);
     }
 
     @Override

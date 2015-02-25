@@ -21,12 +21,12 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
 import com.google.common.base.MoreObjects.ToStringHelper;
-import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -147,7 +147,7 @@ public class CassandraColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(
+        return Objects.hash(
                 connectorId,
                 name,
                 ordinalPosition,
@@ -169,15 +169,15 @@ public class CassandraColumnHandle
             return false;
         }
         CassandraColumnHandle other = (CassandraColumnHandle) obj;
-        return Objects.equal(this.connectorId, other.connectorId)
-                && Objects.equal(this.name, other.name)
-                && Objects.equal(this.ordinalPosition, other.ordinalPosition)
-                && Objects.equal(this.cassandraType, other.cassandraType)
-                && Objects.equal(this.typeArguments, other.typeArguments)
-                && Objects.equal(this.partitionKey, other.partitionKey)
-                && Objects.equal(this.clusteringKey, other.clusteringKey)
-                && Objects.equal(this.indexed, other.indexed)
-                && Objects.equal(this.hidden, other.hidden);
+        return Objects.equals(this.connectorId, other.connectorId) &&
+                Objects.equals(this.name, other.name) &&
+                Objects.equals(this.ordinalPosition, other.ordinalPosition) &&
+                Objects.equals(this.cassandraType, other.cassandraType) &&
+                Objects.equals(this.typeArguments, other.typeArguments) &&
+                Objects.equals(this.partitionKey, other.partitionKey) &&
+                Objects.equals(this.clusteringKey, other.clusteringKey) &&
+                Objects.equals(this.indexed, other.indexed) &&
+                Objects.equals(this.hidden, other.hidden);
     }
 
     @Override

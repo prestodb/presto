@@ -14,7 +14,8 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
+import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -33,7 +34,6 @@ import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
-import com.facebook.presto.sql.tree.NegativeExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
@@ -196,7 +196,7 @@ public class AggregationAnalyzer
         }
 
         @Override
-        protected Boolean visitArithmeticExpression(ArithmeticExpression node, Void context)
+        protected Boolean visitArithmeticBinary(ArithmeticBinaryExpression node, Void context)
         {
             return process(node.getLeft(), context) && process(node.getRight(), context);
         }
@@ -343,7 +343,7 @@ public class AggregationAnalyzer
         }
 
         @Override
-        protected Boolean visitNegativeExpression(NegativeExpression node, Void context)
+        protected Boolean visitArithmeticUnary(ArithmeticUnaryExpression node, Void context)
         {
             return process(node.getValue(), context);
         }
@@ -387,7 +387,7 @@ public class AggregationAnalyzer
                 }
             }
 
-            if (node.getDefaultValue() != null && !process(node.getDefaultValue(), context)) {
+            if (node.getDefaultValue().isPresent() && !process(node.getDefaultValue().get(), context)) {
                 return false;
             }
 
@@ -403,7 +403,7 @@ public class AggregationAnalyzer
                 }
             }
 
-            if (node.getDefaultValue() != null && !process(node.getDefaultValue(), context)) {
+            if (node.getDefaultValue().isPresent() && !process(node.getDefaultValue().get(), context)) {
                 return false;
             }
 

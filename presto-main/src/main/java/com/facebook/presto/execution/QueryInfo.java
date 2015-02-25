@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.StandardErrorCode.ErrorType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.spi.StandardErrorCode.toErrorType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 @Immutable
@@ -46,8 +48,10 @@ public class QueryInfo
     private final QueryStats queryStats;
     private final Map<String, String> setSessionProperties;
     private final Set<String> resetSessionProperties;
+    private final String updateType;
     private final StageInfo outputStage;
     private final FailureInfo failureInfo;
+    private final ErrorType errorType;
     private final ErrorCode errorCode;
     private final Set<Input> inputs;
 
@@ -63,6 +67,7 @@ public class QueryInfo
             @JsonProperty("queryStats") QueryStats queryStats,
             @JsonProperty("setSessionProperties") Map<String, String> setSessionProperties,
             @JsonProperty("resetSessionProperties") Set<String> resetSessionProperties,
+            @JsonProperty("updateType") String updateType,
             @JsonProperty("outputStage") StageInfo outputStage,
             @JsonProperty("failureInfo") FailureInfo failureInfo,
             @JsonProperty("errorCode") ErrorCode errorCode,
@@ -89,16 +94,12 @@ public class QueryInfo
         this.queryStats = queryStats;
         this.setSessionProperties = ImmutableMap.copyOf(setSessionProperties);
         this.resetSessionProperties = ImmutableSet.copyOf(resetSessionProperties);
+        this.updateType = updateType;
         this.outputStage = outputStage;
         this.failureInfo = failureInfo;
+        this.errorType = errorCode == null ? null : toErrorType(errorCode.getCode());
         this.errorCode = errorCode;
         this.inputs = ImmutableSet.copyOf(inputs);
-    }
-
-    @JsonProperty
-    public ErrorCode getErrorCode()
-    {
-        return errorCode;
     }
 
     @JsonProperty
@@ -161,6 +162,13 @@ public class QueryInfo
         return resetSessionProperties;
     }
 
+    @Nullable
+    @JsonProperty
+    public String getUpdateType()
+    {
+        return updateType;
+    }
+
     @JsonProperty
     public StageInfo getOutputStage()
     {
@@ -172,6 +180,20 @@ public class QueryInfo
     public FailureInfo getFailureInfo()
     {
         return failureInfo;
+    }
+
+    @Nullable
+    @JsonProperty
+    public ErrorType getErrorType()
+    {
+        return errorType;
+    }
+
+    @Nullable
+    @JsonProperty
+    public ErrorCode getErrorCode()
+    {
+        return errorCode;
     }
 
     @JsonProperty

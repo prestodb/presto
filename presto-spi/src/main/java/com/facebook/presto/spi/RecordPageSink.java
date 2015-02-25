@@ -17,6 +17,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
+import java.util.Collection;
 import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -33,9 +34,15 @@ public class RecordPageSink
     }
 
     @Override
-    public String commit()
+    public Collection<Slice> commit()
     {
         return recordSink.commit();
+    }
+
+    @Override
+    public void rollback()
+    {
+        recordSink.rollback();
     }
 
     @Override

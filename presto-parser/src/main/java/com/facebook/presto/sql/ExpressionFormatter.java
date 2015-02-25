@@ -14,7 +14,8 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.sql.tree.AllColumns;
-import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
+import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -40,13 +41,13 @@ import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.NegativeExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SortItem;
@@ -64,6 +65,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 
@@ -83,6 +85,14 @@ public final class ExpressionFormatter
         protected String visitNode(Node node, Void context)
         {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        protected String visitRow(Row node, Void context)
+        {
+            return "ROW (" + Joiner.on(", ").join(node.getItems().stream()
+                            .map((child) -> process(child, context))
+                            .collect(Collectors.toList())) + ")";
         }
 
         @Override
@@ -187,8 +197,8 @@ public final class ExpressionFormatter
                     .append(" '").append(node.getValue()).append("' ")
                     .append(node.getStartField());
 
-            if (node.getEndField() != null)  {
-                builder.append(" TO ").append(node.getEndField());
+            if (node.getEndField().isPresent())  {
+                builder.append(" TO ").append(node.getEndField().get());
             }
             return builder.toString();
         }
@@ -342,15 +352,24 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitNegativeExpression(NegativeExpression node, Void context)
+        protected String visitArithmeticUnary(ArithmeticUnaryExpression node, Void context)
         {
             String value = process(node.getValue(), null);
-            String separator = value.startsWith("-") ? " " : "";
-            return "-" + separator + value;
+
+            switch (node.getSign()) {
+                case MINUS:
+                    // this is to avoid turning a sequence of "-" into a comment (i.e., "-- comment")
+                    String separator = value.startsWith("-") ? " " : "";
+                    return "-" + separator + value;
+                case PLUS:
+                    return "+" + value;
+                default:
+                    throw new UnsupportedOperationException("Unsupported sign: " + node.getSign());
+            }
         }
 
         @Override
-        protected String visitArithmeticExpression(ArithmeticExpression node, Void context)
+        protected String visitArithmeticBinary(ArithmeticBinaryExpression node, Void context)
         {
             return formatBinaryExpression(node.getType().getValue(), node.getLeft(), node.getRight());
         }
@@ -400,10 +419,10 @@ public final class ExpressionFormatter
             for (WhenClause whenClause : node.getWhenClauses()) {
                 parts.add(process(whenClause, context));
             }
-            if (node.getDefaultValue() != null) {
-                parts.add("ELSE")
-                        .add(process(node.getDefaultValue(), context));
-            }
+
+            node.getDefaultValue()
+                    .ifPresent((value) -> parts.add("ELSE").add(process(value, context)));
+
             parts.add("END");
 
             return "(" + Joiner.on(' ').join(parts.build()) + ")";
@@ -420,10 +439,10 @@ public final class ExpressionFormatter
             for (WhenClause whenClause : node.getWhenClauses()) {
                 parts.add(process(whenClause, context));
             }
-            if (node.getDefaultValue() != null) {
-                parts.add("ELSE")
-                        .add(process(node.getDefaultValue(), context));
-            }
+
+            node.getDefaultValue()
+                    .ifPresent((value) -> parts.add("ELSE").add(process(value, context)));
+
             parts.add("END");
 
             return "(" + Joiner.on(' ').join(parts.build()) + ")";

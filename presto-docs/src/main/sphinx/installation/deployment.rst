@@ -77,18 +77,13 @@ The following provides a good starting point for creating ``etc/jvm.config``:
     -Xmx16G
     -XX:+UseConcMarkSweepGC
     -XX:+ExplicitGCInvokesConcurrent
-    -XX:+CMSClassUnloadingEnabled
     -XX:+AggressiveOpts
     -XX:+HeapDumpOnOutOfMemoryError
     -XX:OnOutOfMemoryError=kill -9 %p
-    -XX:ReservedCodeCacheSize=150M
 
 Because an ``OutOfMemoryError`` will typically leave the JVM in an
 inconsistent state, we write a heap dump (for debugging) and forcibly
 terminate the process when this occurs.
-
-Presto compiles queries to bytecode at runtime and thus produces many classes,
-so we enable class unloading.
 
 
 .. _config_properties:

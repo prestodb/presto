@@ -24,7 +24,8 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
+import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -33,6 +34,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
@@ -48,13 +50,13 @@ import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.NegativeExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SortItem;
@@ -172,9 +174,35 @@ public class ExpressionAnalyzer
      */
     public Type analyze(Expression expression, TupleDescriptor tupleDescriptor, AnalysisContext context)
     {
-        Visitor visitor = new Visitor(tupleDescriptor);
+        ScalarSubqueryDetector scalarSubqueryDetector = new ScalarSubqueryDetector();
+        expression.accept(scalarSubqueryDetector, null);
 
+        Visitor visitor = new Visitor(tupleDescriptor);
         return expression.accept(visitor, context);
+    }
+
+    private static class ScalarSubqueryDetector
+            extends DefaultTraversalVisitor<Void, Void>
+    {
+        @Override
+        protected Void visitInPredicate(InPredicate node, Void context)
+        {
+            Expression valueList = node.getValueList();
+            if (valueList instanceof SubqueryExpression) {
+                process(node.getValue(), context);
+                super.visitSubqueryExpression((SubqueryExpression) valueList, context);
+            }
+            else {
+                super.visitInPredicate(node, context);
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitSubqueryExpression(SubqueryExpression node, Void context)
+        {
+            throw new SemanticException(SemanticErrorCode.NOT_SUPPORTED, node, "Scalar subqueries not yet supported");
+        }
     }
 
     private class Visitor
@@ -196,6 +224,19 @@ public class ExpressionAnalyzer
                 return type;
             }
             return super.process(node, context);
+        }
+
+        @Override
+        protected Type visitRow(Row node, AnalysisContext context)
+        {
+            List<Type> types = node.getItems().stream()
+                    .map((child) -> process(child, context))
+                    .collect(toImmutableList());
+
+            Type type = new RowType(types, Optional.empty());
+            expressionTypes.put(node, type);
+
+            return type;
         }
 
         @Override
@@ -269,7 +310,7 @@ public class ExpressionAnalyzer
                 RowType rowType = checkType(field.getType(), RowType.class, "field.getType()");
                 Type rowFieldType = null;
                 for (RowField rowField : rowType.getFields()) {
-                    if (rowField.getName().equals(node.getName().getSuffix())) {
+                    if (rowField.getName().equals(Optional.of(node.getName().getSuffix()))) {
                         rowFieldType = rowField.getType();
                         break;
                     }
@@ -415,15 +456,13 @@ public class ExpressionAnalyzer
             return type;
         }
 
-        private List<Expression> getCaseResultExpressions(List<WhenClause> whenClauses, Expression defaultValue)
+        private List<Expression> getCaseResultExpressions(List<WhenClause> whenClauses, Optional<Expression> defaultValue)
         {
             List<Expression> resultExpressions = new ArrayList<>();
             for (WhenClause whenClause : whenClauses) {
                 resultExpressions.add(whenClause.getResult());
             }
-            if (defaultValue != null) {
-                resultExpressions.add(defaultValue);
-            }
+            defaultValue.ifPresent(resultExpressions::add);
             return resultExpressions;
         }
 
@@ -437,13 +476,28 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitNegativeExpression(NegativeExpression node, AnalysisContext context)
+        protected Type visitArithmeticUnary(ArithmeticUnaryExpression node, AnalysisContext context)
         {
-            return getOperator(context, node, OperatorType.NEGATION, node.getValue());
+            switch (node.getSign()) {
+                case PLUS:
+                    Type type = process(node.getValue(), context);
+
+                    if (!type.equals(BIGINT) && !type.equals(DOUBLE)) {
+                        // TODO: figure out a type-agnostic way of dealing with this. Maybe add a special unary operator
+                        // that types can chose to implement, or piggyback on the existence of the negation operator
+                        throw new SemanticException(TYPE_MISMATCH, node, "Unary '+' operator cannot by applied to %s type", type);
+                    }
+                    expressionTypes.put(node, type);
+                    break;
+                case MINUS:
+                    return getOperator(context, node, OperatorType.NEGATION, node.getValue());
+            }
+
+            throw new UnsupportedOperationException("Unsupported unary operator: " + node.getSign());
         }
 
         @Override
-        protected Type visitArithmeticExpression(ArithmeticExpression node, AnalysisContext context)
+        protected Type visitArithmeticBinary(ArithmeticBinaryExpression node, AnalysisContext context)
         {
             return getOperator(context, node, OperatorType.valueOf(node.getType().name()), node.getLeft(), node.getRight());
         }
@@ -587,8 +641,8 @@ public class ExpressionAnalyzer
                 for (SortItem sortItem : node.getWindow().get().getOrderBy()) {
                     process(sortItem.getSortKey(), context);
                     Type type = expressionTypes.get(sortItem.getSortKey());
-                    if (!type.isComparable()) {
-                        throw new SemanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in window function ORDER BY", type);
+                    if (!type.isOrderable()) {
+                        throw new SemanticException(TYPE_MISMATCH, node, "%s is not orderable, and therefore cannot be used in window function ORDER BY", type);
                     }
                 }
 

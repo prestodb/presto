@@ -36,6 +36,7 @@ import io.airlift.slice.Slice;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.type.TypeJsonUtils.createBlock;
@@ -44,6 +45,9 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
+/**
+ * As defined in ISO/IEC FCD 9075-2 (SQL 2011), section 4.8
+ */
 public class RowType
         extends AbstractVariableWidthType
 {
@@ -51,12 +55,20 @@ public class RowType
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
     private static final CollectionType COLLECTION_TYPE = OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, Object.class);
 
-    public RowType(List<Type> fieldTypes, List<String> fieldNames)
+    public RowType(List<Type> fieldTypes, Optional<List<String>> fieldNames)
     {
-        super(new TypeSignature("row", Lists.transform(fieldTypes, Type::getTypeSignature), ImmutableList.<Object>copyOf(fieldNames)), Slice.class);
+        super(new TypeSignature(
+                        "row",
+                        Lists.transform(fieldTypes, Type::getTypeSignature),
+                        fieldNames.orElse(ImmutableList.of()).stream()
+                                .map(Object.class::cast)
+                                .collect(toImmutableList())),
+                Slice.class);
+
         ImmutableList.Builder<RowField> builder = ImmutableList.builder();
         for (int i = 0; i < fieldTypes.size(); i++) {
-            builder.add(new RowField(fieldTypes.get(i), fieldNames.get(i)));
+            final int index = i;
+            builder.add(new RowField(fieldTypes.get(i), fieldNames.map((names) -> names.get(index))));
         }
         fields = builder.build();
     }
@@ -67,7 +79,13 @@ public class RowType
         // Convert to standard sql name
         List<String> fields = new ArrayList<>();
         for (int i = 0; i < this.fields.size(); i++) {
-            fields.add(this.fields.get(i).getName() + " " + this.fields.get(i).getType().getDisplayName());
+            RowField field = this.fields.get(i);
+            if (field.getName().isPresent()) {
+                fields.add(field.getName() + " " + field.getType().getDisplayName());
+            }
+            else {
+                fields.add(field.getType().getDisplayName());
+            }
         }
         return "ROW(" + Joiner.on(", ").join(fields) + ")";
     }
@@ -135,9 +153,9 @@ public class RowType
     public static class RowField
     {
         private final Type type;
-        private final String name;
+        private final Optional<String> name;
 
-        public RowField(Type type, String name)
+        public RowField(Type type, Optional<String> name)
         {
             this.type = checkNotNull(type, "type is null");
             this.name = checkNotNull(name, "name is null");
@@ -148,7 +166,7 @@ public class RowType
             return type;
         }
 
-        public String getName()
+        public Optional<String> getName()
         {
             return name;
         }
@@ -157,7 +175,8 @@ public class RowType
     @Override
     public boolean isComparable()
     {
-        return Iterables.all(fields, new Predicate<RowField>() {
+        return Iterables.all(fields, new Predicate<RowField>()
+        {
             @Override
             public boolean apply(RowField field)
             {

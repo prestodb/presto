@@ -17,9 +17,11 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
@@ -30,7 +32,6 @@ import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.NegativeExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.StringLiteral;
@@ -46,6 +47,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
@@ -110,7 +112,7 @@ public final class LiteralInterpreter
                 return new FunctionCall(new QualifiedName("nan"), ImmutableList.<Expression>of());
             }
             else if (value.equals(Double.NEGATIVE_INFINITY)) {
-                return new NegativeExpression(new FunctionCall(new QualifiedName("infinity"), ImmutableList.<Expression>of()));
+                return ArithmeticUnaryExpression.negative(new FunctionCall(new QualifiedName("infinity"), ImmutableList.<Expression>of()));
             }
             else if (value.equals(Double.POSITIVE_INFINITY)) {
                 return new FunctionCall(new QualifiedName("infinity"), ImmutableList.<Expression>of());
@@ -132,6 +134,13 @@ public final class LiteralInterpreter
 
         if (type.equals(BOOLEAN)) {
             return new BooleanLiteral(object.toString());
+        }
+
+        if (type.equals(VARBINARY) && object instanceof Slice) {
+            // HACK: we need to serialize VARBINARY in a format that can be embedded in an expression to be
+            // able to encode it in the plan that gets sent to workers.
+            // We do this by transforming the in-memory varbinary into a call to from_base64(<base64-encoded value>)
+            return new FunctionCall(new QualifiedName("from_base64"), ImmutableList.of(new StringLiteral(VarbinaryFunctions.toBase64((Slice) object).toStringUtf8())));
         }
 
         Signature signature = FunctionRegistry.getMagicLiteralFunctionSignature(type);

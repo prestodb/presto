@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
@@ -42,6 +43,7 @@ public class TestRaptorPlugin
         plugin.setNodeManager(new InMemoryNodeManager());
         plugin.setBlockEncodingSerde(createTestingBlockEncodingManager());
         plugin.setTypeManager(new TypeRegistry());
+        plugin.setPageSorter(new PagesIndexPageSorter());
 
         List<ConnectorFactory> factories = plugin.getServices(ConnectorFactory.class);
         ConnectorFactory factory = getOnlyElement(factories);

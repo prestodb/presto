@@ -35,7 +35,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -47,6 +46,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
@@ -456,7 +456,7 @@ public class JoinProbeCompiler
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(types, probeChannels, enableOuterJoin);
+            return Objects.hash(types, probeChannels, enableOuterJoin);
         }
 
         @Override
@@ -469,10 +469,10 @@ public class JoinProbeCompiler
                 return false;
             }
             JoinOperatorCacheKey other = (JoinOperatorCacheKey) obj;
-            return Objects.equal(this.types, other.types) &&
-                    Objects.equal(this.probeChannels, other.probeChannels) &&
-                    Objects.equal(this.probeHashChannel, other.probeHashChannel) &&
-                    Objects.equal(this.enableOuterJoin, other.enableOuterJoin);
+            return Objects.equals(this.types, other.types) &&
+                    Objects.equals(this.probeChannels, other.probeChannels) &&
+                    Objects.equals(this.probeHashChannel, other.probeHashChannel) &&
+                    Objects.equals(this.enableOuterJoin, other.enableOuterJoin);
         }
     }
 

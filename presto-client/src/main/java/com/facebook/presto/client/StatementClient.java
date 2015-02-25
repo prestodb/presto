@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.client;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -38,6 +37,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
@@ -65,7 +65,7 @@ public class StatementClient
     private static final Splitter SESSION_HEADER_SPLITTER = Splitter.on('=').limit(2).trimResults();
     private static final String USER_AGENT_VALUE = StatementClient.class.getSimpleName() +
             "/" +
-            Objects.firstNonNull(StatementClient.class.getPackage().getImplementationVersion(), "unknown");
+            firstNonNull(StatementClient.class.getPackage().getImplementationVersion(), "unknown");
 
     private final HttpClient httpClient;
     private final FullJsonResponseHandler<QueryResults> responseHandler;

@@ -17,21 +17,23 @@ import com.facebook.presto.spi.type.SqlVarbinary;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Base64;
+
 import static com.google.common.io.BaseEncoding.base16;
-import static com.google.common.io.BaseEncoding.base64;
-import static com.google.common.io.BaseEncoding.base64Url;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class TestVarbinaryFunctions
 {
     private static final byte[] ALL_BYTES;
+
     static {
         ALL_BYTES = new byte[256];
         for (int i = 0; i < ALL_BYTES.length; i++) {
             ALL_BYTES[i] = (byte) i;
         }
     }
+
     private FunctionAssertions functionAssertions;
 
     @BeforeClass
@@ -74,7 +76,7 @@ public class TestVarbinaryFunctions
         assertFunction("from_base64(CAST(to_base64(CAST('' AS VARBINARY)) AS VARBINARY))", sqlVarbinary(""));
         assertFunction("from_base64(CAST(to_base64(CAST('a' AS VARBINARY)) AS VARBINARY))", sqlVarbinary("a"));
         assertFunction("from_base64(CAST(to_base64(CAST('abc' AS VARBINARY)) AS VARBINARY))", sqlVarbinary("abc"));
-        assertFunction(format("to_base64(from_base64('%s'))", base64().encode(ALL_BYTES)), base64().encode(ALL_BYTES));
+        assertFunction(format("to_base64(from_base64('%s'))", encodeBase64(ALL_BYTES)), encodeBase64(ALL_BYTES));
     }
 
     @Test
@@ -97,7 +99,7 @@ public class TestVarbinaryFunctions
         assertFunction("from_base64url(CAST(to_base64url(CAST('' AS VARBINARY)) AS VARBINARY))", sqlVarbinary(""));
         assertFunction("from_base64url(CAST(to_base64url(CAST('a' AS VARBINARY)) AS VARBINARY))", sqlVarbinary("a"));
         assertFunction("from_base64url(CAST(to_base64url(CAST('abc' AS VARBINARY)) AS VARBINARY))", sqlVarbinary("abc"));
-        assertFunction(format("to_base64url(from_base64url('%s'))", base64Url().encode(ALL_BYTES)), base64Url().encode(ALL_BYTES));
+        assertFunction(format("to_base64url(from_base64url('%s'))", encodeBase64Url(ALL_BYTES)), encodeBase64Url(ALL_BYTES));
     }
 
     @Test
@@ -123,14 +125,24 @@ public class TestVarbinaryFunctions
         assertFunction(format("to_hex(from_hex('%s'))", base16().encode(ALL_BYTES)), base16().encode(ALL_BYTES));
     }
 
+    private static String encodeBase64(byte[] value)
+    {
+        return Base64.getEncoder().encodeToString(value);
+    }
+
     private static String encodeBase64(String value)
     {
-        return base64().encode(value.getBytes(UTF_8));
+        return encodeBase64(value.getBytes(UTF_8));
+    }
+
+    private static String encodeBase64Url(byte[] value)
+    {
+        return Base64.getUrlEncoder().encodeToString(value);
     }
 
     private static String encodeBase64Url(String value)
     {
-        return base64Url().encode(value.getBytes(UTF_8));
+        return encodeBase64Url(value.getBytes(UTF_8));
     }
 
     private static String encodeHex(String value)

@@ -15,6 +15,7 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.TypeManager;
@@ -42,6 +43,7 @@ public class RaptorPlugin
 
     private Map<String, String> optionalConfig = ImmutableMap.of();
     private NodeManager nodeManager;
+    private PageSorter pageSorter;
     private BlockEncodingSerde blockEncodingSerde;
     private TypeManager typeManager;
 
@@ -75,6 +77,12 @@ public class RaptorPlugin
     }
 
     @Inject
+    public void setPageSorter(PageSorter pageSorter)
+    {
+        this.pageSorter = pageSorter;
+    }
+
+    @Inject
     public void setBlockEncodingSerde(BlockEncodingSerde blockEncodingSerde)
     {
         this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingSerde is null");
@@ -99,6 +107,7 @@ public class RaptorPlugin
                     module,
                     optionalConfig,
                     nodeManager,
+                    pageSorter,
                     blockEncodingSerde,
                     typeManager)));
         }

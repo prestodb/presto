@@ -44,7 +44,8 @@ public class TestStorageManagerConfig
                 .setShardRecoveryTimeout(new Duration(30, SECONDS))
                 .setMissingShardDiscoveryInterval(new Duration(5, MINUTES))
                 .setRecoveryThreads(10)
-                .setRowsPerShard(1_000_000));
+                .setRowsPerShard(1_000_000)
+                .setMaxBufferSize(new DataSize(256, MEGABYTE)));
 
     }
 
@@ -59,6 +60,7 @@ public class TestStorageManagerConfig
                 .put("storage.missing-shard-discovery-interval", "4m")
                 .put("storage.max-recovery-threads", "12")
                 .put("storage.rows-per-shard", "10000")
+                .put("storage.max-buffer-size", "512MB")
                 .build();
 
         StorageManagerConfig expected = new StorageManagerConfig()
@@ -68,7 +70,8 @@ public class TestStorageManagerConfig
                 .setShardRecoveryTimeout(new Duration(1, MINUTES))
                 .setMissingShardDiscoveryInterval(new Duration(4, MINUTES))
                 .setRecoveryThreads(12)
-                .setRowsPerShard(10_000);
+                .setRowsPerShard(10_000)
+                .setMaxBufferSize(new DataSize(512, MEGABYTE));
 
         assertFullMapping(properties, expected);
     }

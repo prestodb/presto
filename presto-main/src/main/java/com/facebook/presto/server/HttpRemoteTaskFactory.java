@@ -23,6 +23,7 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ForScheduler;
+import com.facebook.presto.spi.Node;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
@@ -68,7 +69,7 @@ public class HttpRemoteTaskFactory
         this.taskUpdateRequestCodec = taskUpdateRequestCodec;
         this.maxConsecutiveErrorCount = config.getRemoteTaskMaxConsecutiveErrorCount();
         this.minErrorDuration = config.getRemoteTaskMinErrorDuration();
-        ExecutorService coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%d"));
+        ExecutorService coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%s"));
         this.executor = ExecutorServiceAdapter.from(new BoundedExecutor(coreExecutor, config.getRemoteTaskMaxCallbackThreads()));
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
     }
@@ -83,7 +84,7 @@ public class HttpRemoteTaskFactory
     @Override
     public RemoteTask createRemoteTask(Session session,
             TaskId taskId,
-            com.facebook.presto.spi.Node node,
+            Node node,
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers)

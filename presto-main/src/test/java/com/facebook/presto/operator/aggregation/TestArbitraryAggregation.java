@@ -16,15 +16,15 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.FluentIterable;
 import org.testng.annotations.Test;
 
 import java.util.Set;
 
-import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
+import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;

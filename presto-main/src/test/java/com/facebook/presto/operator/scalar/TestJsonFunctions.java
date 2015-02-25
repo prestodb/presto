@@ -17,8 +17,10 @@ import com.facebook.presto.spi.PrestoException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public class TestJsonFunctions
@@ -42,6 +44,7 @@ public class TestJsonFunctions
         assertFunction("JSON_ARRAY_LENGTH(CAST('[1]' AS JSON))", 1);
         assertFunction("JSON_ARRAY_LENGTH(CAST('[1, \"foo\", null]' AS JSON))", 3);
         assertFunction("JSON_ARRAY_LENGTH(CAST('[2, 4, {\"a\": [8, 9]}, [], [5], 4]' AS JSON))", 6);
+        assertFunction("JSON_ARRAY_LENGTH(null)", null);
     }
 
     @Test
@@ -65,6 +68,9 @@ public class TestJsonFunctions
         assertFunction("JSON_ARRAY_CONTAINS(CAST('[[true]]' AS JSON), true)", false);
         assertFunction("JSON_ARRAY_CONTAINS(CAST('[1, \"foo\", null, \"true\"]' AS JSON), true)", false);
         assertFunction("JSON_ARRAY_CONTAINS(CAST('[2, 4, {\"a\": [8, 9]}, [], [5], false]' AS JSON), false)", true);
+        assertFunction("JSON_ARRAY_CONTAINS(null, true)", null);
+        assertFunction("JSON_ARRAY_CONTAINS(null, null)", null);
+        assertFunction("JSON_ARRAY_CONTAINS('[]', null)", null);
     }
 
     @Test
@@ -86,6 +92,9 @@ public class TestJsonFunctions
         assertFunction("JSON_ARRAY_CONTAINS(CAST('[1, \"foo\", null, \"8\"]' AS JSON), 8)", false);
         assertFunction("JSON_ARRAY_CONTAINS(CAST('[2, 4, {\"a\": [8, 9]}, [], [5], 6]' AS JSON), 6)", true);
         assertFunction("JSON_ARRAY_CONTAINS(CAST('[92233720368547758071]' AS JSON), -9)", false);
+        assertFunction("JSON_ARRAY_CONTAINS(null, 1)", null);
+        assertFunction("JSON_ARRAY_CONTAINS(null, null)", null);
+        assertFunction("JSON_ARRAY_CONTAINS('[3]', null)", null);
     }
 
     @Test
@@ -107,6 +116,9 @@ public class TestJsonFunctions
         assertFunction("JSON_ARRAY_CONTAINS(CAST('[1, \"foo\", null, \"8.2\"]' AS JSON), 8.2)", false);
         assertFunction("JSON_ARRAY_CONTAINS(CAST('[2, 4, {\"a\": [8, 9]}, [], [5], 6.1]' AS JSON), 6.1)", true);
         assertFunction("JSON_ARRAY_CONTAINS(CAST('[9.6E400]' AS JSON), 4.2)", false);
+        assertFunction("JSON_ARRAY_CONTAINS(null, 1.5)", null);
+        assertFunction("JSON_ARRAY_CONTAINS(null, null)", null);
+        assertFunction("JSON_ARRAY_CONTAINS('[3.5]', null)", null);
     }
 
     @Test
@@ -126,6 +138,12 @@ public class TestJsonFunctions
         assertFunction("JSON_ARRAY_CONTAINS(CAST('[1, \"foo\", null]' AS JSON), 'foo')", true);
         assertFunction("JSON_ARRAY_CONTAINS(CAST('[1, 5]' AS JSON), '5')", false);
         assertFunction("JSON_ARRAY_CONTAINS(CAST('[2, 4, {\"a\": [8, 9]}, [], [5], \"6\"]' AS JSON), '6')", true);
+        assertFunction("JSON_ARRAY_CONTAINS(null, 'x')", null);
+        assertFunction("JSON_ARRAY_CONTAINS(null, '')", null);
+        assertFunction("JSON_ARRAY_CONTAINS(null, null)", null);
+        assertFunction("JSON_ARRAY_CONTAINS('[\"\"]', null)", null);
+        assertFunction("JSON_ARRAY_CONTAINS('[\"\"]', '')", true);
+        assertFunction("JSON_ARRAY_CONTAINS('[\"\"]', 'x')", false);
     }
 
     @Test
@@ -149,6 +167,11 @@ public class TestJsonFunctions
         assertFunction("JSON_ARRAY_GET(CAST('[2, 7, 4, 6, 8, 1, 0]' AS JSON), -2)", utf8Slice(String.valueOf(1)));
         assertFunction("JSON_ARRAY_GET(CAST('[2, 7, 4, 6, 8, 1, 0]' AS JSON), -7)", utf8Slice(String.valueOf(2)));
         assertFunction("JSON_ARRAY_GET(CAST('[2, 7, 4, 6, 8, 1, 0]' AS JSON), -8)", null);
+        assertFunction("JSON_ARRAY_GET('[]', null)", null);
+        assertFunction("JSON_ARRAY_GET('[1]', null)", null);
+        assertFunction("JSON_ARRAY_GET('', null)", null);
+        assertFunction("JSON_ARRAY_GET('', 1)", null);
+        assertFunction("JSON_ARRAY_GET('', -1)", null);
     }
 
     @Test
@@ -162,6 +185,10 @@ public class TestJsonFunctions
         assertFunction("JSON_ARRAY_GET(CAST('[\"jhfa\", null]' AS JSON), 1)", null);
         assertFunction("JSON_ARRAY_GET(CAST('[\"as\", \"fgs\", \"tehgf\"]' AS JSON), 1)", "fgs");
         assertFunction("JSON_ARRAY_GET(CAST('[\"as\", \"fgs\", \"tehgf\", \"gjyj\", \"jut\"]' AS JSON), 4)", "jut");
+        assertFunction("JSON_ARRAY_GET('[\"\"]', 0)", "");
+        assertFunction("JSON_ARRAY_GET('[]', 0)", null);
+        assertFunction("JSON_ARRAY_GET('[null]', 0)", null);
+        assertFunction("JSON_ARRAY_GET('[]', null)", null);
     }
 
     @Test
@@ -175,6 +202,8 @@ public class TestJsonFunctions
         assertFunction("JSON_ARRAY_GET(CAST('[3.14, null]' AS JSON), 1)", null);
         assertFunction("JSON_ARRAY_GET(CAST('[1.12, 3.54, 2.89]' AS JSON), 1)", utf8Slice(String.valueOf(3.54)));
         assertFunction("JSON_ARRAY_GET(CAST('[0.58, 9.7, 7.6, 11.2, 5.02]' AS JSON), 4)", utf8Slice(String.valueOf(5.02)));
+        assertFunction("JSON_ARRAY_GET('[1.0]', -1)", utf8Slice(String.valueOf(1.0)));
+        assertFunction("JSON_ARRAY_GET('[1.0]', null)", null);
     }
 
     @Test
@@ -194,6 +223,7 @@ public class TestJsonFunctions
                 "JSON_ARRAY_GET(CAST('[true, false, false, true, true, false]' AS JSON), 5)",
                 utf8Slice(String.valueOf(false))
         );
+        assertFunction("JSON_ARRAY_GET('[true]', -1)", utf8Slice(String.valueOf(true)));
     }
 
     @Test
@@ -205,6 +235,11 @@ public class TestJsonFunctions
         assertFunction("JSON_ARRAY_GET('[{\"hello\":\"world\"}, {\"a\":[{\"x\":99}]}]', 1)", utf8Slice(String.valueOf("{\"a\":[{\"x\":99}]}")));
         assertFunction("JSON_ARRAY_GET('[{\"hello\":\"world\"}, {\"a\":[{\"x\":99}]}]', -1)", utf8Slice(String.valueOf("{\"a\":[{\"x\":99}]}")));
         assertFunction("JSON_ARRAY_GET('[{\"hello\": null}]', 0)", utf8Slice(String.valueOf("{\"hello\":null}")));
+        assertFunction("JSON_ARRAY_GET('[{\"\":\"\"}]', 0)", utf8Slice(String.valueOf("{\"\":\"\"}")));
+        assertFunction("JSON_ARRAY_GET('[{null:null}]', 0)", null);
+        assertFunction("JSON_ARRAY_GET('[{null:\"\"}]', 0)", null);
+        assertFunction("JSON_ARRAY_GET('[{\"\":null}]', 0)", utf8Slice(String.valueOf("{\"\":null}")));
+        assertFunction("JSON_ARRAY_GET('[{\"\":null}]', -1)", utf8Slice(String.valueOf("{\"\":null}")));
     }
 
     @Test
@@ -247,6 +282,10 @@ public class TestJsonFunctions
         assertFunction(format("JSON_SIZE(CAST('%s' AS JSON), '%s')", "[1,2,3]", "$"), 3);
         assertFunction(format("JSON_SIZE(null, '%s')", "$"), null);
         assertFunction(format("JSON_SIZE(CAST('%s' AS JSON), null)", "[1,2,3]"), null);
+        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", ""), "Invalid JSON path: ''");
+        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", "."), "Invalid JSON path: '.'");
+        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", "null"), "Invalid JSON path: 'null'");
+        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", null), "Invalid JSON path: 'null'");
     }
 
     @Test
@@ -275,5 +314,16 @@ public class TestJsonFunctions
     private void assertFunction(String projection, Object expected)
     {
         functionAssertions.assertFunction(projection, expected);
+    }
+
+    private void assertInvalidFunction(String projection, String message)
+    {
+        try {
+            assertFunction(projection, null);
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
+            assertEquals(e.getMessage(), message);
+        }
     }
 }

@@ -152,7 +152,8 @@ public final class ByteCodeUtils
         MethodType methodType = binding.getType();
 
         Signature signature = function.getSignature();
-        Class<?> unboxedReturnType = Primitives.unwrap(methodType.returnType());
+        Class<?> returnType = methodType.returnType();
+        Class<?> unboxedReturnType = Primitives.unwrap(returnType);
 
         LabelNode end = new LabelNode("end");
         Block block = new Block(context)
@@ -181,23 +182,35 @@ public final class ByteCodeUtils
         block.append(invoke(context, binding, function.getSignature()));
 
         if (function.isNullable()) {
-            if (unboxedReturnType.isPrimitive() && unboxedReturnType != void.class) {
-                LabelNode notNull = new LabelNode("notNull");
-                block.dup(methodType.returnType())
-                        .ifNotNullGoto(notNull)
-                        .putVariable("wasNull", true)
-                        .comment("swap boxed null with unboxed default")
-                        .pop(methodType.returnType())
-                        .pushJavaDefault(unboxedReturnType)
-                        .gotoLabel(end)
-                        .visitLabel(notNull)
-                        .append(unboxPrimitive(context, unboxedReturnType));
-            }
-            else {
-                block.dup(methodType.returnType())
-                        .ifNotNullGoto(end)
-                        .putVariable("wasNull", true);
-            }
+            block.append(unboxPrimitiveIfNecessary(context, returnType));
+        }
+        block.visitLabel(end);
+
+        return block;
+    }
+
+    public static Block unboxPrimitiveIfNecessary(CompilerContext context, Class<?> boxedType)
+    {
+        Block block = new Block(context);
+        LabelNode end = new LabelNode("end");
+        Class<?> unboxedType = Primitives.unwrap(boxedType);
+
+        if (unboxedType.isPrimitive() && unboxedType != void.class) {
+            LabelNode notNull = new LabelNode("notNull");
+            block.dup(boxedType)
+                    .ifNotNullGoto(notNull)
+                    .putVariable("wasNull", true)
+                    .comment("swap boxed null with unboxed default")
+                    .pop(boxedType)
+                    .pushJavaDefault(unboxedType)
+                    .gotoLabel(end)
+                    .visitLabel(notNull)
+                    .append(unboxPrimitive(context, unboxedType));
+        }
+        else {
+            block.dup(boxedType)
+                    .ifNotNullGoto(end)
+                    .putVariable("wasNull", true);
         }
         block.visitLabel(end);
 

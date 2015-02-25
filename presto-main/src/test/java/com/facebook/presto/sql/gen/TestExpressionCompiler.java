@@ -121,7 +121,7 @@ public class TestExpressionCompiler
     {
         Logging.initialize();
         if (PARALLEL) {
-            executor = listeningDecorator(newFixedThreadPool(getRuntime().availableProcessors() * 2, daemonThreadsNamed("completer-%d")));
+            executor = listeningDecorator(newFixedThreadPool(getRuntime().availableProcessors() * 2, daemonThreadsNamed("completer-%s")));
         }
         else {
             executor = listeningDecorator(sameThreadExecutor());
@@ -543,8 +543,13 @@ public class TestExpressionCompiler
         assertExecute("try_cast('foo' as varchar)", "foo");
         assertExecute("try_cast('foo' as bigint)", null);
         assertExecute("try_cast(bound_string as bigint)", null);
+        assertExecute("try_cast(cast(null as varchar) as bigint)", null);
+        assertExecute("try_cast(bound_long / 13  as bigint)", 94);
         assertExecute("coalesce(try_cast('123' as bigint), 456)", 123L);
         assertExecute("coalesce(try_cast('foo' as bigint), 456)", 456L);
+        assertExecute("concat('foo', cast('bar' as varchar))", "foobar");
+        assertExecute("try_cast(try_cast(123 as varchar) as bigint)", 123L);
+        assertExecute("try_cast('foo' as varchar) || try_cast('bar' as varchar)", "foobar");
 
         Futures.allAsList(futures).get();
     }
@@ -968,6 +973,9 @@ public class TestExpressionCompiler
             case DAY_OF_WEEK:
             case DOW:
                 return DateTimeFunctions.dayOfWeekFromTimestamp(session, value);
+            case YEAR_OF_WEEK:
+            case YOW:
+                return DateTimeFunctions.yearOfWeekFromTimestamp(session, value);
             case DAY_OF_YEAR:
             case DOY:
                 return DateTimeFunctions.dayOfYearFromTimestamp(session, value);

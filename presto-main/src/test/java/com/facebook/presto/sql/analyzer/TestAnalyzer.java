@@ -102,14 +102,14 @@ public class TestAnalyzer
     public void testNonComparableWindowPartition()
             throws Exception
     {
-        assertFails(TYPE_MISMATCH, "SELECT row_number() OVER (PARTITION BY t.x) FROM (VALUES(null)) AS t(x)");
+        assertFails(TYPE_MISMATCH, "SELECT row_number() OVER (PARTITION BY t.x) FROM (VALUES(CAST (NULL AS HyperLogLog))) AS t(x)");
     }
 
     @Test
     public void testNonComparableWindowOrder()
             throws Exception
     {
-        assertFails(TYPE_MISMATCH, "SELECT row_number() OVER (ORDER BY t.x) FROM (VALUES(null)) AS t(x)");
+        assertFails(TYPE_MISMATCH, "SELECT row_number() OVER (ORDER BY t.x) FROM (VALUES(color('red'))) AS t(x)");
     }
 
     @Test
@@ -139,6 +139,10 @@ public class TestAnalyzer
             throws Exception
     {
         assertFails(NOT_SUPPORTED, "SELECT 'a', (VALUES (1)) GROUP BY 1");
+        assertFails(NOT_SUPPORTED, "SELECT 'a', (SELECT (1))");
+        assertFails(NOT_SUPPORTED, "SELECT * FROM t1 WHERE (VALUES 1) = 2");
+        assertFails(NOT_SUPPORTED, "SELECT * FROM t1 WHERE (VALUES 1) IN (VALUES 1)");
+        analyze("SELECT * FROM (SELECT 1) t1(x) WHERE x IN (SELECT 1)");
     }
 
     @Test
@@ -481,6 +485,22 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testInsert()
+            throws Exception
+    {
+        analyze("INSERT INTO t1 SELECT * FROM t1");
+        analyze("INSERT INTO t3 SELECT * FROM t3");
+        analyze("INSERT INTO t3 SELECT a, b FROM t3");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t1 VALUES (1, 2)");
+
+        // ignore t5 hidden column
+        analyze("INSERT INTO t5 VALUES (1)");
+
+        // fail if hidden column provided
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t5 VALUES (1, 2)");
+    }
+
+    @Test
     public void testDuplicateWithQuery()
             throws Exception
     {
@@ -544,8 +564,9 @@ public class TestAnalyzer
         assertFails(TYPE_MISMATCH, "SELECT TRY_CAST(date '2014-01-01' AS bigint)");
         assertFails(TYPE_MISMATCH, "SELECT CAST(null AS UNKNOWN)");
 
-        // arithmetic negation
+        // arithmetic unary
         assertFails(TYPE_MISMATCH, "SELECT -'a' FROM t1");
+        assertFails(TYPE_MISMATCH, "SELECT +'a' FROM t1");
 
         // arithmetic addition/subtraction
         assertFails(TYPE_MISMATCH, "SELECT 'a' + 1 FROM t1");
@@ -750,13 +771,21 @@ public class TestAnalyzer
         metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table3,
                 ImmutableList.<ColumnMetadata>of(
                         new ColumnMetadata("a", BIGINT, 0, false),
-                        new ColumnMetadata("b", BIGINT, 1, false)))));
+                        new ColumnMetadata("b", BIGINT, 1, false),
+                        new ColumnMetadata("x", BIGINT, 2, false, null, true)))));
 
         // table in different catalog
         SchemaTableName table4 = new SchemaTableName("s2", "t4");
         metadata.createTable(SESSION, "c2", new TableMetadata("tpch", new ConnectorTableMetadata(table4,
                 ImmutableList.<ColumnMetadata>of(
                         new ColumnMetadata("a", BIGINT, 0, false)))));
+
+        // table with a hidden column
+        SchemaTableName table5 = new SchemaTableName("default", "t5");
+        metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table5,
+                ImmutableList.<ColumnMetadata>of(
+                        new ColumnMetadata("a", BIGINT, 0, false),
+                        new ColumnMetadata("b", BIGINT, 1, false, null, true)))));
 
         // valid view referencing table in same schema
         String viewData1 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(

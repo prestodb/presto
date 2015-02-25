@@ -22,8 +22,8 @@ import com.facebook.presto.operator.aggregation.ApproximateLongPercentileAggrega
 import com.facebook.presto.operator.aggregation.ApproximateSetAggregation;
 import com.facebook.presto.operator.aggregation.ApproximateSumAggregations;
 import com.facebook.presto.operator.aggregation.AverageAggregations;
-import com.facebook.presto.operator.aggregation.BooleanOrAggregation;
 import com.facebook.presto.operator.aggregation.BooleanAndAggregation;
+import com.facebook.presto.operator.aggregation.BooleanOrAggregation;
 import com.facebook.presto.operator.aggregation.CountAggregation;
 import com.facebook.presto.operator.aggregation.CountIfAggregation;
 import com.facebook.presto.operator.aggregation.DoubleMaxAggregation;
@@ -100,6 +100,10 @@ import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharOperators;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Throwables;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -109,6 +113,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.primitives.Primitives;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -125,9 +130,9 @@ import java.util.Set;
 
 import static com.facebook.presto.operator.aggregation.ArbitraryAggregation.ARBITRARY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.CountColumn.COUNT_COLUMN;
+import static com.facebook.presto.operator.aggregation.MapAggregation.MAP_AGG;
 import static com.facebook.presto.operator.aggregation.MaxBy.MAX_BY;
 import static com.facebook.presto.operator.aggregation.MinBy.MIN_BY;
-import static com.facebook.presto.operator.aggregation.MapAggregation.MAP_AGG;
 import static com.facebook.presto.operator.scalar.ArrayCardinalityFunction.ARRAY_CARDINALITY;
 import static com.facebook.presto.operator.scalar.ArrayConcatFunction.ARRAY_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayConstructor.ARRAY_CONSTRUCTOR;
@@ -145,10 +150,14 @@ import static com.facebook.presto.operator.scalar.ArrayToJsonCast.ARRAY_TO_JSON;
 import static com.facebook.presto.operator.scalar.ElementToArrayConcatFunction.ELEMENT_TO_ARRAY_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.Greatest.GREATEST;
 import static com.facebook.presto.operator.scalar.IdentityCast.IDENTITY_CAST;
+import static com.facebook.presto.operator.scalar.JsonToArrayCast.JSON_TO_ARRAY;
+import static com.facebook.presto.operator.scalar.JsonToMapCast.JSON_TO_MAP;
 import static com.facebook.presto.operator.scalar.Least.LEAST;
 import static com.facebook.presto.operator.scalar.MapCardinalityFunction.MAP_CARDINALITY;
 import static com.facebook.presto.operator.scalar.MapConstructor.MAP_CONSTRUCTOR;
+import static com.facebook.presto.operator.scalar.MapEqualOperator.MAP_EQUAL;
 import static com.facebook.presto.operator.scalar.MapKeys.MAP_KEYS;
+import static com.facebook.presto.operator.scalar.MapNotEqualOperator.MAP_NOT_EQUAL;
 import static com.facebook.presto.operator.scalar.MapSubscriptOperator.MAP_SUBSCRIPT;
 import static com.facebook.presto.operator.scalar.MapToJsonCast.MAP_TO_JSON;
 import static com.facebook.presto.operator.scalar.MapValues.MAP_VALUES;
@@ -156,6 +165,7 @@ import static com.facebook.presto.operator.scalar.RowEqualOperator.ROW_EQUAL;
 import static com.facebook.presto.operator.scalar.RowHashCodeOperator.ROW_HASH_CODE;
 import static com.facebook.presto.operator.scalar.RowNotEqualOperator.ROW_NOT_EQUAL;
 import static com.facebook.presto.operator.scalar.RowToJsonCast.ROW_TO_JSON;
+import static com.facebook.presto.operator.scalar.TryCastFunction.TRY_CAST;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -191,11 +201,24 @@ public class FunctionRegistry
     private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class);
 
     private final TypeManager typeManager;
+    private final LoadingCache<SpecializedFunctionKey, FunctionInfo> specializedFunctionCache;
     private volatile FunctionMap functions = new FunctionMap();
 
     public FunctionRegistry(TypeManager typeManager, boolean experimentalSyntaxEnabled)
     {
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
+
+        specializedFunctionCache = CacheBuilder.newBuilder()
+                .maximumSize(1000)
+                .build(new CacheLoader<SpecializedFunctionKey, FunctionInfo>()
+                {
+                    @Override
+                    public FunctionInfo load(SpecializedFunctionKey key)
+                            throws Exception
+                    {
+                        return key.getFunction().specialize(key.getBoundTypeParameters(), key.getArity(), typeManager, FunctionRegistry.this);
+                    }
+                });
 
         FunctionListBuilder builder = new FunctionListBuilder(typeManager)
                 .window("row_number", BIGINT, ImmutableList.<Type>of(), RowNumberFunction.class)
@@ -288,8 +311,10 @@ public class FunctionRegistry
                 .scalar(CombineHashFunction.class)
                 .scalar(JsonOperators.class)
                 .functions(ARRAY_HASH_CODE, ARRAY_EQUAL, ARRAY_NOT_EQUAL, ARRAY_LESS_THAN, ARRAY_LESS_THAN_OR_EQUAL, ARRAY_GREATER_THAN, ARRAY_GREATER_THAN_OR_EQUAL)
-                .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_CARDINALITY, ARRAY_CONCAT_FUNCTION, ARRAY_TO_ELEMENT_CONCAT_FUNCTION, ELEMENT_TO_ARRAY_CONCAT_FUNCTION, ARRAY_SORT_FUNCTION, ARRAY_TO_JSON)
-                .functions(MAP_CONSTRUCTOR, MAP_CARDINALITY, MAP_SUBSCRIPT, MAP_TO_JSON, MAP_KEYS, MAP_VALUES, MAP_AGG)
+                .functions(ARRAY_CONCAT_FUNCTION, ARRAY_TO_ELEMENT_CONCAT_FUNCTION, ELEMENT_TO_ARRAY_CONCAT_FUNCTION)
+                .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_CARDINALITY, ARRAY_SORT_FUNCTION, ARRAY_TO_JSON, JSON_TO_ARRAY)
+                .functions(MAP_EQUAL, MAP_NOT_EQUAL)
+                .functions(MAP_CONSTRUCTOR, MAP_CARDINALITY, MAP_SUBSCRIPT, MAP_TO_JSON, JSON_TO_MAP, MAP_KEYS, MAP_VALUES, MAP_AGG)
                 .function(IDENTITY_CAST)
                 .function(ARBITRARY_AGGREGATION)
                 .function(LEAST)
@@ -297,7 +322,8 @@ public class FunctionRegistry
                 .function(MAX_BY)
                 .function(MIN_BY)
                 .function(COUNT_COLUMN)
-                .functions(ROW_HASH_CODE, ROW_TO_JSON, ROW_EQUAL, ROW_NOT_EQUAL);
+                .functions(ROW_HASH_CODE, ROW_TO_JSON, ROW_EQUAL, ROW_NOT_EQUAL)
+                .function(TRY_CAST);
 
         if (experimentalSyntaxEnabled) {
             builder.aggregate(ApproximateAverageAggregations.class)
@@ -331,7 +357,7 @@ public class FunctionRegistry
         return Iterables.any(functions.get(name), ParametricFunction::isAggregate);
     }
 
-    public FunctionInfo resolveFunction(QualifiedName name, List<TypeSignature> parameterTypes, final boolean approximate)
+    public FunctionInfo resolveFunction(QualifiedName name, List<TypeSignature> parameterTypes, boolean approximate)
     {
         List<ParametricFunction> candidates = functions.get(name).stream()
                 .filter(function -> function.isScalar() || function.isApproximate() == approximate)
@@ -344,7 +370,12 @@ public class FunctionRegistry
             Map<String, Type> boundTypeParameters = function.getSignature().bindTypeParameters(resolvedTypes, false, typeManager);
             if (boundTypeParameters != null) {
                 checkArgument(match == null, "Ambiguous call to %s with parameters %s", name, parameterTypes);
-                match = function.specialize(boundTypeParameters, resolvedTypes.size(), typeManager, this);
+                try {
+                    match = specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(function, boundTypeParameters, resolvedTypes.size()));
+                }
+                catch (UncheckedExecutionException e) {
+                    throw Throwables.propagate(e.getCause());
+                }
             }
         }
 
@@ -357,7 +388,12 @@ public class FunctionRegistry
             Map<String, Type> boundTypeParameters = function.getSignature().bindTypeParameters(resolvedTypes, true, typeManager);
             if (boundTypeParameters != null) {
                 // TODO: This should also check for ambiguities
-                return function.specialize(boundTypeParameters, resolvedTypes.size(), typeManager, this);
+                try {
+                    return specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(function, boundTypeParameters, resolvedTypes.size()));
+                }
+                catch (UncheckedExecutionException e) {
+                    throw Throwables.propagate(e.getCause());
+                }
             }
         }
 
@@ -413,7 +449,12 @@ public class FunctionRegistry
                     Map<String, Type> boundTypeParameters = function.getSignature().bindTypeParameters(resolvedTypes, false, typeManager);
                     if (boundTypeParameters != null) {
                         checkArgument(match == null, "Ambiguous call to %s with parameters %s", name, parameterTypes);
-                        match = function.specialize(boundTypeParameters, resolvedTypes.size(), typeManager, this);
+                        try {
+                            match = specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(function, boundTypeParameters, resolvedTypes.size()));
+                        }
+                        catch (UncheckedExecutionException e) {
+                            throw Throwables.propagate(e.getCause());
+                        }
                     }
                 }
 
@@ -435,7 +476,12 @@ public class FunctionRegistry
             List<Type> argumentTypes = resolveTypes(signature.getArgumentTypes(), typeManager);
             Map<String, Type> boundTypeParameters = operator.getSignature().bindTypeParameters(returnType, argumentTypes, false, typeManager);
             if (boundTypeParameters != null) {
-                return operator.specialize(boundTypeParameters, signature.getArgumentTypes().size(), typeManager, this);
+                try {
+                    return specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(operator, boundTypeParameters, signature.getArgumentTypes().size()));
+                }
+                catch (UncheckedExecutionException e) {
+                    throw Throwables.propagate(e.getCause());
+                }
             }
         }
         return null;
@@ -444,7 +490,7 @@ public class FunctionRegistry
     @VisibleForTesting
     public List<ParametricFunction> listOperators()
     {
-        final Set<String> operatorNames = Arrays.asList(OperatorType.values()).stream()
+        Set<String> operatorNames = Arrays.asList(OperatorType.values()).stream()
                 .map(FunctionRegistry::mangleOperatorName)
                 .collect(toImmutableSet());
 
@@ -471,16 +517,11 @@ public class FunctionRegistry
 
     public FunctionInfo getCoercion(Type fromType, Type toType)
     {
-        return getExactOperator(OperatorType.CAST, ImmutableList.of(fromType), toType);
-    }
-
-    private FunctionInfo getExactOperator(OperatorType operatorType, List<? extends Type> argumentTypes, Type returnType)
-            throws OperatorNotFoundException
-    {
-        FunctionInfo functionInfo = getExactFunction(Signature.internalOperator(operatorType.name(), returnType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature)));
+        List<? extends Type> argumentTypes = ImmutableList.of(fromType);
+        FunctionInfo functionInfo = getExactFunction(Signature.internalOperator(OperatorType.CAST.name(), toType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature)));
 
         if (functionInfo == null) {
-            throw new OperatorNotFoundException(operatorType, argumentTypes, returnType);
+            throw new OperatorNotFoundException(OperatorType.CAST, argumentTypes, toType);
         }
         return functionInfo;
     }

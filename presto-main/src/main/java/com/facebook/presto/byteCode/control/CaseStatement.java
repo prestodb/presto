@@ -14,10 +14,10 @@
 package com.facebook.presto.byteCode.control;
 
 import com.facebook.presto.byteCode.instruction.LabelNode;
-import com.google.common.base.Objects;
-import com.google.common.primitives.Ints;
 
 import javax.annotation.concurrent.Immutable;
+
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -52,7 +52,7 @@ public class CaseStatement
     @Override
     public int compareTo(CaseStatement o)
     {
-        return Ints.compare(key, o.key);
+        return Integer.compare(key, o.key);
     }
 
     @Override
@@ -70,8 +70,8 @@ public class CaseStatement
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final CaseStatement other = (CaseStatement) obj;
-        return Objects.equal(this.key, other.key);
+        CaseStatement other = (CaseStatement) obj;
+        return Objects.equals(this.key, other.key);
     }
 
     @Override

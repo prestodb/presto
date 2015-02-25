@@ -47,6 +47,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -710,13 +711,27 @@ public class TestDriver
     {
         try (Connection connection = createConnection()) {
             try (Statement statement = connection.createStatement()) {
-                assertTrue(statement.execute("SELECT 123 x, 'foo' y"));
+                assertTrue(statement.execute("SELECT 123 x, 'foo' y, CAST(NULL AS bigint) z"));
                 ResultSet rs = statement.getResultSet();
                 assertTrue(rs.next());
+
                 assertEquals(rs.getLong(1), 123);
+                assertFalse(rs.wasNull());
                 assertEquals(rs.getLong("x"), 123);
+                assertFalse(rs.wasNull());
+
+                assertEquals(rs.getLong(3), 0);
+                assertTrue(rs.wasNull());
+                assertEquals(rs.getLong("z"), 0);
+                assertTrue(rs.wasNull());
+                assertNull(rs.getObject("z"));
+                assertTrue(rs.wasNull());
+
                 assertEquals(rs.getString(2), "foo");
+                assertFalse(rs.wasNull());
                 assertEquals(rs.getString("y"), "foo");
+                assertFalse(rs.wasNull());
+
                 assertFalse(rs.next());
             }
         }

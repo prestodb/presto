@@ -23,6 +23,7 @@ import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -39,6 +40,7 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -49,8 +51,10 @@ import java.util.concurrent.TimeoutException;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
+import static com.facebook.presto.raptor.util.FileUtil.copyFile;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static org.joda.time.DateTimeZone.UTC;
 
@@ -62,21 +66,24 @@ public class OrcStorageManager
     private final ShardRecoveryManager recoveryManager;
     private final Duration recoveryTimeout;
     private final long rowsPerShard;
+    private final DataSize maxBufferSize;
 
     @Inject
     public OrcStorageManager(StorageService storageService, StorageManagerConfig config, ShardRecoveryManager recoveryManager)
     {
-        this(storageService, config.getOrcMaxMergeDistance(), recoveryManager, config.getShardRecoveryTimeout(), config.getRowsPerShard());
+        this(storageService, config.getOrcMaxMergeDistance(), recoveryManager, config.getShardRecoveryTimeout(), config.getRowsPerShard(), config.getMaxBufferSize());
     }
 
-    public OrcStorageManager(StorageService storageService, DataSize orcMaxMergeDistance, ShardRecoveryManager recoveryManager, Duration shardRecoveryTimeout, long rowsPerShard)
+    public OrcStorageManager(StorageService storageService, DataSize orcMaxMergeDistance, ShardRecoveryManager recoveryManager, Duration shardRecoveryTimeout, long rowsPerShard, DataSize maxBufferSize)
     {
         this.storageService = checkNotNull(storageService, "storageService is null");
         this.orcMaxMergeDistance = checkNotNull(orcMaxMergeDistance, "orcMaxMergeDistance is null");
         this.recoveryManager = checkNotNull(recoveryManager, "recoveryManager is null");
         this.recoveryTimeout = checkNotNull(shardRecoveryTimeout, "shardRecoveryTimeout is null");
+
         checkArgument(rowsPerShard > 0, "rowsPerShard must be > 0");
         this.rowsPerShard = rowsPerShard;
+        this.maxBufferSize = checkNotNull(maxBufferSize, "maxBufferSize is null");
     }
 
     @Override
@@ -103,12 +110,7 @@ public class OrcStorageManager
 
             OrcPredicate predicate = getPredicate(effectivePredicate, indexMap);
 
-            OrcRecordReader recordReader = reader.createRecordReader(
-                    includedColumns.build(),
-                    predicate,
-                    0,
-                    dataSource.getSize(),
-                    UTC);
+            OrcRecordReader recordReader = reader.createRecordReader(includedColumns.build(), predicate, UTC);
 
             return new OrcPageSource(recordReader, dataSource, columnIds, columnTypes, columnIndexes.build());
         }
@@ -119,29 +121,14 @@ public class OrcStorageManager
             catch (IOException ex) {
                 e.addSuppressed(ex);
             }
-            throw new PrestoException(RAPTOR_ERROR, "Failed to create page source", e);
+            throw new PrestoException(RAPTOR_ERROR, "Failed to create page source for shard " + shardUuid, e);
         }
     }
 
-    @SuppressWarnings("resource")
     @Override
-    public StorageOutputHandle createStorageOutputHandle(List<Long> columnIds, List<Type> columnTypes)
+    public StoragePageSink createStoragePageSink(List<Long> columnIds, List<Type> columnTypes)
     {
-        return new StorageOutputHandle(new OrcStoragePageSinkProvider(columnIds, columnTypes, storageService));
-    }
-
-    @Override
-    public StoragePageSink createStoragePageSink(StorageOutputHandle storageOutputHandle)
-    {
-        return storageOutputHandle.createStoragePageSink();
-    }
-
-    @Override
-    public List<UUID> commit(StorageOutputHandle storageOutputHandle)
-    {
-        List<UUID> shardUuids = storageOutputHandle.getShardUuids();
-        shardUuids.forEach(this::writeShard);
-        return shardUuids;
+        return new OrcStoragePageSink(columnIds, columnTypes);
     }
 
     private void writeShard(UUID shardUuid)
@@ -162,7 +149,7 @@ public class OrcStorageManager
             File backupFile = storageService.getBackupFile(shardUuid);
             storageService.createParents(backupFile);
             try {
-                Files.copy(storageFile.toPath(), backupFile.toPath());
+                copyFile(storageFile.toPath(), backupFile.toPath());
             }
             catch (IOException e) {
                 throw new PrestoException(RAPTOR_ERROR, "Failed to create backup shard file", e);
@@ -174,6 +161,12 @@ public class OrcStorageManager
     public long getMaxRowCount()
     {
         return rowsPerShard;
+    }
+
+    @Override
+    public DataSize getMaxBufferSize()
+    {
+        return maxBufferSize;
     }
 
     @Override
@@ -231,5 +224,73 @@ public class OrcStorageManager
             map.put(Long.valueOf(columnNames.get(i)), i);
         }
         return map.build();
+    }
+
+    private class OrcStoragePageSink
+            implements StoragePageSink
+    {
+        private final List<Long> columnIds;
+        private final List<Type> columnTypes;
+
+        private final List<UUID> shardUuids = new ArrayList<>();
+
+        private boolean committed;
+        private OrcFileWriter writer;
+        private UUID shardUuid;
+
+        public OrcStoragePageSink(List<Long> columnIds, List<Type> columnTypes)
+        {
+            this.columnIds = ImmutableList.copyOf(checkNotNull(columnIds, "columnIds is null"));
+            this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
+        }
+
+        @Override
+        public void appendPages(List<Page> pages)
+        {
+            createWriterIfNecessary();
+            writer.appendPages(pages);
+        }
+
+        @Override
+        public void appendPages(List<Page> inputPages, int[] pageIndexes, int[] positionIndexes)
+        {
+            createWriterIfNecessary();
+            writer.appendPages(inputPages, pageIndexes, positionIndexes);
+        }
+
+        @Override
+        public void flush()
+        {
+            if (writer != null) {
+                writer.close();
+                shardUuids.add(shardUuid);
+
+                writer = null;
+                shardUuid = null;
+            }
+        }
+
+        @Override
+        public List<UUID> commit()
+        {
+            checkState(!committed, "already committed");
+            committed = true;
+
+            flush();
+            for (UUID uuid : shardUuids) {
+                writeShard(uuid);
+            }
+            return ImmutableList.copyOf(shardUuids);
+        }
+
+        private void createWriterIfNecessary()
+        {
+            if (writer == null) {
+                shardUuid = UUID.randomUUID();
+                File stagingFile = storageService.getStagingFile(shardUuid);
+                storageService.createParents(stagingFile);
+                writer = new OrcFileWriter(columnIds, columnTypes, stagingFile);
+            }
+        }
     }
 }

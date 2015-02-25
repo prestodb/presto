@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import static com.facebook.presto.byteCode.ParameterizedType.type;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class CompilerContext
 {
@@ -73,12 +74,7 @@ public class CompilerContext
     public Variable getVariable(String name)
     {
         Variable variable = variables.get(name);
-        try {
-            Preconditions.checkArgument(variable != null, "Variable %s not defined", name);
-        }
-        catch (Exception e) {
-            System.out.println("hello");
-        }
+        checkArgument(variable != null, "Variable %s not defined", name);
         return variable;
     }
 
@@ -105,19 +101,6 @@ public class CompilerContext
         variables.put("this", variable);
     }
 
-    public Variable declareParameter(ParameterizedType type, String parameterName)
-    {
-        Preconditions.checkArgument(!variables.containsKey(parameterName), "There is already a parameter named %s", parameterName);
-
-        Variable variable = new Variable(parameterName, nextSlot, type);
-        nextSlot += Type.getType(type.getType()).getSize();
-
-        allVariables.add(variable);
-        variables.put(parameterName, variable);
-
-        return variable;
-    }
-
     public Variable declareVariable(Class<?> type, String variableName)
     {
         return declareVariable(type(type), variableName);
@@ -125,7 +108,7 @@ public class CompilerContext
 
     public Variable declareVariable(ParameterizedType type, String variableName)
     {
-        Preconditions.checkArgument(!variables.containsKey(variableName), "There is already a parameter named %s", variableName);
+        checkArgument(!variables.containsKey(variableName), "There is already a variable named %s", variableName);
 
         Variable variable = new Variable(variableName, nextSlot, type);
         nextSlot += Type.getType(type.getType()).getSize();

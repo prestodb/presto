@@ -94,6 +94,6 @@ public final class RaptorColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(columnId);
+        return Objects.hash(columnId);
     }
 }

@@ -102,7 +102,7 @@ public class TestExchangeClient
         assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "closed", 3, 2, 2, "not scheduled");
     }
 
-    @Test
+    @Test(timeOut = 10000)
     public void testAddLocation()
             throws Exception
     {
@@ -153,7 +153,11 @@ public class TestExchangeClient
         assertEquals(exchangeClient.isClosed(), false);
 
         exchangeClient.noMoreLocations();
-        assertEquals(exchangeClient.isClosed(), true);
+        // The transition to closed may happen asynchronously, since it requires that all the HTTP clients
+        // receive a final GONE response, so just spin until it's closed or the test times out.
+        while (!exchangeClient.isClosed()) {
+            Thread.sleep(1);
+        }
 
         ImmutableMap<URI, PageBufferClientStatus> statuses = uniqueIndex(exchangeClient.getStatus().getPageBufferClientStatuses(), PageBufferClientStatus::getUri);
         assertStatus(statuses.get(location1), location1, "closed", 3, 2, 2, "not scheduled");

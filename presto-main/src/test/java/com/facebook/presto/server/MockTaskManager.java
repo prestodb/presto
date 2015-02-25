@@ -44,6 +44,7 @@ import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
@@ -61,7 +62,7 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 public class MockTaskManager
         implements TaskManager
 {
-    private final ScheduledExecutorService stateNotificationExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-%d"));
+    private final ScheduledExecutorService stateNotificationExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-%s"));
 
     private final HttpServerInfo httpServerInfo;
     private final DataSize maxBufferSize;
@@ -271,6 +272,7 @@ public class MockTaskManager
 
             return new TaskInfo(
                     taskStateMachine.getTaskId(),
+                    Optional.empty(),
                     nextTaskInfoVersion.getAndIncrement(),
                     state,
                     location,

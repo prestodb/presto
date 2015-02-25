@@ -20,12 +20,17 @@ public class ExpressionRewriter<C>
         return null;
     }
 
-    public Expression rewriteNegativeExpression(NegativeExpression node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    public Expression rewriteRow(Row node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);
     }
 
-    public Expression rewriteArithmeticExpression(ArithmeticExpression node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    public Expression rewriteArithmeticUnary(ArithmeticUnaryExpression node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
+    public Expression rewriteArithmeticBinary(ArithmeticBinaryExpression node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);
     }

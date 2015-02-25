@@ -17,7 +17,6 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.BaseEncoding;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -25,6 +24,7 @@ import javax.validation.constraints.NotNull;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -64,6 +64,8 @@ public class QueryResults
     private final Iterable<List<Object>> data;
     private final StatementStats stats;
     private final QueryError error;
+    private final String updateType;
+    private final Long updateCount;
 
     @JsonCreator
     public QueryResults(
@@ -74,9 +76,11 @@ public class QueryResults
             @JsonProperty("columns") List<Column> columns,
             @JsonProperty("data") List<List<Object>> data,
             @JsonProperty("stats") StatementStats stats,
-            @JsonProperty("error") QueryError error)
+            @JsonProperty("error") QueryError error,
+            @JsonProperty("updateType") String updateType,
+            @JsonProperty("updateCount") Long updateCount)
     {
-        this(id, infoUri, partialCancelUri, nextUri, columns, fixData(columns, data), stats, error);
+        this(id, infoUri, partialCancelUri, nextUri, columns, fixData(columns, data), stats, error, updateType, updateCount);
     }
 
     public QueryResults(
@@ -87,7 +91,9 @@ public class QueryResults
             List<Column> columns,
             Iterable<List<Object>> data,
             StatementStats stats,
-            QueryError error)
+            QueryError error,
+            String updateType,
+            Long updateCount)
     {
         this.id = checkNotNull(id, "id is null");
         this.infoUri = checkNotNull(infoUri, "infoUri is null");
@@ -97,6 +103,8 @@ public class QueryResults
         this.data = (data != null) ? unmodifiableIterable(data) : null;
         this.stats = checkNotNull(stats, "stats is null");
         this.error = error;
+        this.updateType = updateType;
+        this.updateCount = updateCount;
     }
 
     @NotNull
@@ -155,6 +163,20 @@ public class QueryResults
         return error;
     }
 
+    @Nullable
+    @JsonProperty
+    public String getUpdateType()
+    {
+        return updateType;
+    }
+
+    @Nullable
+    @JsonProperty
+    public Long getUpdateCount()
+    {
+        return updateCount;
+    }
+
     @Override
     public String toString()
     {
@@ -167,6 +189,8 @@ public class QueryResults
                 .add("hasData", data != null)
                 .add("stats", stats)
                 .add("error", error)
+                .add("updateType", updateType)
+                .add("updateCount", updateCount)
                 .toString();
     }
 
@@ -253,7 +277,7 @@ public class QueryResults
                 // for now we assume that only the explicit types above are passed
                 // as a plain text and everything else is base64 encoded binary
                 if (value instanceof String) {
-                    return BaseEncoding.base64().decode((String) value);
+                    return Base64.getDecoder().decode((String) value);
                 }
                 return value;
         }

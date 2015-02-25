@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.shaded.org.apache.commons.codec.binary.Base64;
 import com.facebook.presto.hive.util.SerDeUtils;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
@@ -40,6 +39,7 @@ import java.util.Properties;
 import static com.facebook.presto.hive.HiveBooleanParser.isFalse;
 import static com.facebook.presto.hive.HiveBooleanParser.isTrue;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static com.facebook.presto.hive.HiveUtil.base64Decode;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
@@ -501,7 +501,7 @@ class ColumnarTextHiveRecordCursor<K>
             // this is unbelievably stupid but Hive base64 encodes binary data in a binary file format
             if (hiveTypes[column].equals(HiveType.HIVE_BINARY)) {
                 // and yes we end up with an extra copy here because the Base64 only handles whole arrays
-                slices[column] = Slices.wrappedBuffer(Base64.decodeBase64(slices[column].getBytes()));
+                slices[column] = base64Decode(slices[column].getBytes());
             }
             wasNull = false;
         }

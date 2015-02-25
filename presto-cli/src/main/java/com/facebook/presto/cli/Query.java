@@ -114,20 +114,15 @@ public class Query
 
         if ((!client.isFailed()) && (!client.isGone()) && (!client.isClosed())) {
             QueryResults results = client.isValid() ? client.current() : client.finalResults();
-            if (results.getColumns() == null) {
+            if (results.getUpdateType() != null) {
+                renderUpdate(out, results);
+            }
+            else if (results.getColumns() == null) {
                 errorChannel.printf("Query %s has no columns\n", results.getId());
                 return;
             }
-
-            try {
-                renderResults(out, outputFormat, interactive, results);
-            }
-            catch (QueryAbortedException e) {
-                System.out.println("(query aborted by user)");
-                client.close();
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
+            else {
+                renderResults(out, outputFormat, interactive, results.getColumns());
             }
         }
 
@@ -153,10 +148,45 @@ public class Query
         }
     }
 
-    private void renderResults(PrintStream out, OutputFormat format, boolean interactive, QueryResults results)
+    private void renderUpdate(PrintStream out, QueryResults results)
+    {
+        String status = results.getUpdateType();
+        if (results.getUpdateCount() != null) {
+            long count = results.getUpdateCount();
+            status += format(": %s row%s", count, (count != 1) ? "s" : "");
+        }
+        out.println(status);
+        discardResults();
+    }
+
+    private void discardResults()
+    {
+        try (OutputHandler handler = new OutputHandler(new NullPrinter())) {
+            handler.processRows(client);
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    private void renderResults(PrintStream out, OutputFormat outputFormat, boolean interactive, List<Column> columns)
+    {
+        try {
+            doRenderResults(out, outputFormat, interactive, columns);
+        }
+        catch (QueryAbortedException e) {
+            System.out.println("(query aborted by user)");
+            client.close();
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    private void doRenderResults(PrintStream out, OutputFormat format, boolean interactive, List<Column> columns)
             throws IOException
     {
-        List<String> fieldNames = Lists.transform(results.getColumns(), Column::getName);
+        List<String> fieldNames = Lists.transform(columns, Column::getName);
         if (interactive) {
             pageOutput(format, fieldNames);
         }
@@ -229,6 +259,7 @@ public class Query
             renderStack(results, out);
         }
         renderErrorLocation(client.getQuery(), results, out);
+        out.println();
     }
 
     private static void renderErrorLocation(String query, QueryResults results, PrintStream out)
@@ -266,7 +297,7 @@ public class Query
             }
 
             ansi.reset();
-            out.println(ansi);
+            out.print(ansi);
         }
         else {
             String prefix = format("LINE %s: ", location.getLineNumber());

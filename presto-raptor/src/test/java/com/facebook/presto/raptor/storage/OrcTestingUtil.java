@@ -49,7 +49,7 @@ final class OrcTestingUtil
             ordinal++;
         }
 
-        return createRecordReader(dataSource, orcReader, includedColumns);
+        return createRecordReader(orcReader, includedColumns);
     }
 
     public static OrcRecordReader createReaderNoRows(OrcDataSource dataSource)
@@ -59,18 +59,13 @@ final class OrcTestingUtil
 
         assertEquals(orcReader.getColumnNames().size(), 0);
 
-        return createRecordReader(dataSource, orcReader, ImmutableSet.<Integer>of());
+        return createRecordReader(orcReader, ImmutableSet.of());
     }
 
-    public static OrcRecordReader createRecordReader(OrcDataSource dataSource, OrcReader orcReader, Set<Integer> includedColumns)
+    public static OrcRecordReader createRecordReader(OrcReader orcReader, Set<Integer> includedColumns)
             throws IOException
     {
-        return orcReader.createRecordReader(
-                includedColumns,
-                OrcPredicate.TRUE,
-                0,
-                dataSource.getSize(),
-                DateTimeZone.UTC);
+        return orcReader.createRecordReader(includedColumns, OrcPredicate.TRUE, DateTimeZone.UTC);
     }
 
     public static byte[] octets(int... values)

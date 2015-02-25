@@ -18,9 +18,10 @@ import com.facebook.presto.spi.SerializableNativeValue;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 
 import javax.annotation.concurrent.Immutable;
+
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -89,15 +90,15 @@ public final class SimpleMarker
 
         SimpleMarker that = (SimpleMarker) o;
 
-        return Objects.equal(this.inclusive, that.inclusive) &&
-                Objects.equal(this.value, that.value) &&
-                Objects.equal(this.type, that.type);
+        return Objects.equals(this.inclusive, that.inclusive) &&
+                Objects.equals(this.value, that.value) &&
+                Objects.equals(this.type, that.type);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(inclusive, value, type);
+        return Objects.hash(inclusive, value, type);
     }
 
     @Override

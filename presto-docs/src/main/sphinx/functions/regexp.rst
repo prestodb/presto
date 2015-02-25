@@ -6,6 +6,18 @@ All of the regular expression functions use the `Java pattern`_ syntax.
 
     .. _Java pattern: http://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html
 
+    .. _capturing group number: http://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html#gnumber
+
+.. function:: regexp_extract_all(string, pattern) -> array<varchar>
+
+    Returns the substring(s) matched by the regular expression ``pattern``
+    in ``string``.
+
+.. function:: regexp_extract_all(string, pattern, group) -> array<varchar>
+
+    Finds all occurrences of the regular expression ``pattern`` in ``string``
+    and returns the `capturing group number`_ ``group``.
+
 .. function:: regexp_extract(string, pattern) -> varchar
 
     Returns the first substring matched by the regular expression ``pattern``
@@ -15,8 +27,6 @@ All of the regular expression functions use the `Java pattern`_ syntax.
 
     Finds the first occurrence of the regular expression ``pattern`` in
     ``string`` and returns the `capturing group number`_ ``group``.
-
-    .. _capturing group number: http://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html#gnumber
 
 .. function:: regexp_like(string, pattern) -> boolean
 

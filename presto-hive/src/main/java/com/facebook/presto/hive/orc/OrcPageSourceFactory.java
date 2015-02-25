@@ -34,7 +34,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -54,10 +53,13 @@ import java.util.Properties;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedReaderEnabled;
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 
 public class OrcPageSourceFactory
@@ -66,24 +68,28 @@ public class OrcPageSourceFactory
     private final TypeManager typeManager;
     private final boolean enabled;
     private final DataSize orcMaxMergeDistance;
+    private final DataSize orcMaxBufferSize;
+    private final DataSize orcStreamBufferSize;
 
     @Inject
     public OrcPageSourceFactory(TypeManager typeManager, HiveClientConfig config)
     {
         //noinspection deprecation
-        this(typeManager, config.isOptimizedReaderEnabled(), config.getOrcMaxMergeDistance());
+        this(typeManager, config.isOptimizedReaderEnabled(), config.getOrcMaxMergeDistance(), config.getOrcMaxBufferSize(), config.getOrcStreamBufferSize());
     }
 
     public OrcPageSourceFactory(TypeManager typeManager)
     {
-        this(typeManager, true, new DataSize(1, Unit.MEGABYTE));
+        this(typeManager, true, new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(8, MEGABYTE));
     }
 
-    public OrcPageSourceFactory(TypeManager typeManager, boolean enabled, DataSize orcMaxMergeDistance)
+    public OrcPageSourceFactory(TypeManager typeManager, boolean enabled, DataSize orcMaxMergeDistance, DataSize orcMaxBufferSize, DataSize orcStreamBufferSize)
     {
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
         this.enabled = enabled;
         this.orcMaxMergeDistance = checkNotNull(orcMaxMergeDistance, "orcMaxMergeDistance is null");
+        this.orcMaxBufferSize = checkNotNull(orcMaxBufferSize, "orcMaxBufferSize is null");
+        this.orcStreamBufferSize = checkNotNull(orcStreamBufferSize, "orcStreamBufferSize is null");
     }
 
     @Override
@@ -120,7 +126,9 @@ public class OrcPageSourceFactory
                 effectivePredicate,
                 hiveStorageTimeZone,
                 typeManager,
-                getOrcMaxMergeDistance(session, orcMaxMergeDistance)));
+                getOrcMaxMergeDistance(session, orcMaxMergeDistance),
+                getOrcMaxBufferSize(session, orcMaxBufferSize),
+                getOrcStreamBufferSize(session, orcStreamBufferSize)));
     }
 
     public static OrcPageSource createOrcPageSource(MetadataReader metadataReader,
@@ -133,14 +141,16 @@ public class OrcPageSourceFactory
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
-            DataSize maxMergeDistance)
+            DataSize maxMergeDistance,
+            DataSize maxBufferSize,
+            DataSize streamBufferSize)
     {
         OrcDataSource orcDataSource;
         try {
             FileSystem fileSystem = path.getFileSystem(configuration);
             long size = fileSystem.getFileStatus(path).getLen();
             FSDataInputStream inputStream = fileSystem.open(path);
-            orcDataSource = new HdfsOrcDataSource(path.toString(), inputStream, size, maxMergeDistance);
+            orcDataSource = new HdfsOrcDataSource(path.toString(), size, maxMergeDistance, maxBufferSize, streamBufferSize, inputStream);
         }
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
@@ -184,6 +194,9 @@ public class OrcPageSourceFactory
                 orcDataSource.close();
             }
             catch (IOException ignored) {
+            }
+            if (e instanceof PrestoException) {
+                throw (PrestoException) e;
             }
             String message = splitError(e, path, start, length);
             if (e.getClass().getSimpleName().equals("BlockMissingException")) {

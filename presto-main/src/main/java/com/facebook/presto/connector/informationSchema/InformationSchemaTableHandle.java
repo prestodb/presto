@@ -18,7 +18,8 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
+
+import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -81,7 +82,7 @@ public class InformationSchemaTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(session, catalogName, schemaName, tableName);
+        return Objects.hash(session, catalogName, schemaName, tableName);
     }
 
     @Override
@@ -94,9 +95,9 @@ public class InformationSchemaTableHandle
             return false;
         }
         InformationSchemaTableHandle other = (InformationSchemaTableHandle) obj;
-        return Objects.equal(this.session, other.session) &&
-                Objects.equal(this.catalogName, other.catalogName) &&
-                Objects.equal(this.schemaName, other.schemaName) &&
-                Objects.equal(this.tableName, other.tableName);
+        return Objects.equals(this.session, other.session) &&
+                Objects.equals(this.catalogName, other.catalogName) &&
+                Objects.equals(this.schemaName, other.schemaName) &&
+                Objects.equals(this.tableName, other.tableName);
     }
 }

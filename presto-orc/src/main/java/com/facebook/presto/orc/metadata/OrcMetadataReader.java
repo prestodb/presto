@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import com.facebook.presto.hive.protobuf.CodedInputStream;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
-import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
-import com.facebook.presto.hive.shaded.com.google.protobuf.CodedInputStream;
+import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
@@ -219,6 +219,12 @@ public class OrcMetadataReader
             return null;
         }
 
+        // temporarily disable string statistics until we figure out the implications of how UTF-16
+        // strings are compared when they contain surrogate pairs and replacement characters
+        if (true) {
+            return null;
+        }
+
         return new StringStatistics(
                 stringStatistics.hasMinimum() ? stringStatistics.getMinimum() : null,
                 stringStatistics.hasMaximum() ? stringStatistics.getMaximum() : null);
@@ -232,12 +238,6 @@ public class OrcMetadataReader
         }
 
         if (!dateStatistics.hasMinimum() && !dateStatistics.hasMaximum()) {
-            return null;
-        }
-
-        // temporarily disable string statistics until we figure out the implications of how UTF-16
-        // strings are compared when they contain surrogate pairs and replacement characters
-        if (true) {
             return null;
         }
 

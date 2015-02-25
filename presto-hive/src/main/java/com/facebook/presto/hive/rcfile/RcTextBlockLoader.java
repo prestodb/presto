@@ -15,7 +15,6 @@ package com.facebook.presto.hive.rcfile;
 
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.rcfile.RcFilePageSource.RcFileColumnsBatch;
-import com.facebook.presto.hive.shaded.org.apache.commons.codec.binary.Base64;
 import com.facebook.presto.hive.util.SerDeUtils;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.LazyFixedWidthBlock;
@@ -47,6 +46,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
+import static com.facebook.presto.hive.HiveUtil.base64Decode;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.HiveUtil.parseHiveDate;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
@@ -466,7 +466,7 @@ public class RcTextBlockLoader
                     if (!isNull(bytes, start, length)) {
                         // yes we end up with an extra copy here because the Base64 only handles whole arrays
                         byte[] data = Arrays.copyOfRange(bytes, start, start + length);
-                        vector[i] = Slices.wrappedBuffer(Base64.decodeBase64(data));
+                        vector[i] = base64Decode(data);
                     }
                 }
 

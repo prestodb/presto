@@ -18,12 +18,16 @@ public class Query
     private final String catalog;
     private final String schema;
     private final String query;
+    private final String username;
+    private final String password;
 
-    public Query(String catalog, String schema, String query)
+    public Query(String catalog, String schema, String query, String username, String password)
     {
         this.catalog = catalog;
         this.schema = schema;
         this.query = clean(query);
+        this.username = username;
+        this.password = password;
     }
 
     public String getCatalog()
@@ -39,6 +43,16 @@ public class Query
     public String getQuery()
     {
         return query;
+    }
+
+    public String getUsername()
+    {
+        return username;
+    }
+
+    public String getPassword()
+    {
+        return password;
     }
 
     private static String clean(String sql)

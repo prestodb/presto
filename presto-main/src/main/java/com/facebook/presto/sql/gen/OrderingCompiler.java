@@ -28,7 +28,6 @@ import com.facebook.presto.operator.SyntheticAddress;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -41,6 +40,7 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 
 import static com.facebook.presto.byteCode.Access.FINAL;
@@ -256,7 +256,7 @@ public class OrderingCompiler
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(sortTypes, sortChannels, sortOrders);
+            return Objects.hash(sortTypes, sortChannels, sortOrders);
         }
 
         @Override
@@ -269,9 +269,9 @@ public class OrderingCompiler
                 return false;
             }
             PagesIndexComparatorCacheKey other = (PagesIndexComparatorCacheKey) obj;
-            return Objects.equal(this.sortTypes, other.sortTypes) &&
-                    Objects.equal(this.sortChannels, other.sortChannels) &&
-                    Objects.equal(this.sortOrders, other.sortOrders);
+            return Objects.equals(this.sortTypes, other.sortTypes) &&
+                    Objects.equals(this.sortChannels, other.sortChannels) &&
+                    Objects.equals(this.sortOrders, other.sortOrders);
         }
     }
 }

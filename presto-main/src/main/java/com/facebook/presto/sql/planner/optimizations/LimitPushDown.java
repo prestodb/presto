@@ -29,6 +29,8 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -94,6 +96,13 @@ public class LimitPushDown
         @Override
         public PlanNode visitLimit(LimitNode node, RewriteContext<LimitContext> context)
         {
+            // return empty ValuesNode in case of limit 0
+            if (node.getCount() == 0) {
+                return new ValuesNode(idAllocator.getNextId(),
+                                        node.getOutputSymbols(),
+                                        ImmutableList.of());
+            }
+
             LimitContext limit = context.get();
             if (limit != null && limit.getCount() < node.getCount()) {
                 return context.rewrite(node.getSource(), limit);

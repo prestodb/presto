@@ -20,7 +20,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nullable;
 
@@ -34,9 +36,9 @@ import static com.facebook.presto.metadata.FunctionRegistry.canCoerce;
 import static com.facebook.presto.metadata.FunctionRegistry.getCommonSuperType;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 public final class Signature
 {
@@ -197,18 +199,25 @@ public final class Signature
     public Map<String, Type> bindTypeParameters(Type returnType, List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
     {
         Map<String, Type> boundParameters = new HashMap<>();
-        Map<String, TypeParameter> unboundParameters = new HashMap<>();
+        ImmutableMap.Builder<String, TypeParameter> builder = ImmutableMap.builder();
         for (TypeParameter parameter : typeParameters) {
-            unboundParameters.put(parameter.getName(), parameter);
+            builder.put(parameter.getName(), parameter);
         }
 
-        if (!matchAndBind(boundParameters, unboundParameters, this.returnType, returnType, allowCoercion, typeManager)) {
+        ImmutableMap<String, TypeParameter> parameters = builder.build();
+        if (!matchAndBind(boundParameters, parameters, this.returnType, returnType, allowCoercion, typeManager)) {
             return null;
         }
 
-        if (!matchArguments(boundParameters, unboundParameters, argumentTypes, types, allowCoercion, variableArity, typeManager)) {
+        if (!matchArguments(boundParameters, parameters, argumentTypes, types, allowCoercion, variableArity, typeManager)) {
             return null;
         }
+
+        checkState(boundParameters.keySet().equals(parameters.keySet()),
+                "%s matched arguments %s, but type parameters %s are still unbound",
+                this,
+                types,
+                Sets.difference(parameters.keySet(), boundParameters.keySet()));
 
         return boundParameters;
     }
@@ -217,21 +226,24 @@ public final class Signature
     public Map<String, Type> bindTypeParameters(List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
     {
         Map<String, Type> boundParameters = new HashMap<>();
-        Map<String, TypeParameter> unboundParameters = new HashMap<>();
+        ImmutableMap.Builder<String, TypeParameter> builder = ImmutableMap.builder();
         for (TypeParameter parameter : typeParameters) {
-            unboundParameters.put(parameter.getName(), parameter);
+            builder.put(parameter.getName(), parameter);
         }
 
-        if (!matchArguments(boundParameters, unboundParameters, argumentTypes, types, allowCoercion, variableArity, typeManager)) {
+        ImmutableMap<String, TypeParameter> parameters = builder.build();
+        if (!matchArguments(boundParameters, parameters, argumentTypes, types, allowCoercion, variableArity, typeManager)) {
             return null;
         }
+
+        checkState(boundParameters.keySet().equals(parameters.keySet()), "%s matched arguments %s, but type parameters %s are still unbound", this, types, Sets.difference(parameters.keySet(), boundParameters.keySet()));
 
         return boundParameters;
     }
 
     private static boolean matchArguments(
             Map<String, Type> boundParameters,
-            Map<String, TypeParameter> unboundParameters,
+            Map<String, TypeParameter> parameters,
             List<TypeSignature> argumentTypes,
             List<? extends Type> types,
             boolean allowCoercion,
@@ -255,7 +267,7 @@ public final class Signature
             if (!superType.isPresent()) {
                 return false;
             }
-            if (!matchAndBind(boundParameters, unboundParameters, argumentTypes.get(argumentTypes.size() - 1), superType.get(), allowCoercion, typeManager)) {
+            if (!matchAndBind(boundParameters, parameters, argumentTypes.get(argumentTypes.size() - 1), superType.get(), allowCoercion, typeManager)) {
                 return false;
             }
         }
@@ -264,7 +276,7 @@ public final class Signature
             // Get the current argument signature, or the last one, if this is a varargs function
             TypeSignature typeSignature = argumentTypes.get(Math.min(i, argumentTypes.size() - 1));
             Type type = types.get(i);
-            if (!matchAndBind(boundParameters, unboundParameters, typeSignature, type, allowCoercion, typeManager)) {
+            if (!matchAndBind(boundParameters, parameters, typeSignature, type, allowCoercion, typeManager)) {
                 return false;
             }
         }
@@ -272,59 +284,62 @@ public final class Signature
         return true;
     }
 
-    private static boolean matchAndBind(Map<String, Type> boundParameters, Map<String, TypeParameter> unboundParameters, TypeSignature signature, Type type, boolean allowCoercion, TypeManager typeManager)
+    private static boolean matchAndBind(Map<String, Type> boundParameters, Map<String, TypeParameter> typeParameters, TypeSignature parameter, Type type, boolean allowCoercion, TypeManager typeManager)
     {
         // If this parameter is already bound, then match (with coercion)
-        if (boundParameters.containsKey(signature.getBase())) {
-            checkArgument(signature.getParameters().isEmpty(), "Unexpected parameteric type");
+        if (boundParameters.containsKey(parameter.getBase())) {
+            checkArgument(parameter.getParameters().isEmpty(), "Unexpected parameteric type");
             if (allowCoercion) {
-                return canCoerce(type, boundParameters.get(signature.getBase()));
+                if (canCoerce(type, boundParameters.get(parameter.getBase()))) {
+                    return true;
+                }
+                else if (canCoerce(boundParameters.get(parameter.getBase()), type) && typeParameters.get(parameter.getBase()).canBind(type)) {
+                    // Broaden the binding
+                    boundParameters.put(parameter.getBase(), type);
+                    return true;
+                }
+                return false;
             }
             else {
-                return type.equals(boundParameters.get(signature.getBase()));
+                return type.equals(boundParameters.get(parameter.getBase()));
             }
         }
 
         // Recurse into component types
-        if (!signature.getParameters().isEmpty()) {
-            if (type.getTypeParameters().size() != signature.getParameters().size()) {
+        if (!parameter.getParameters().isEmpty()) {
+            if (type.getTypeParameters().size() != parameter.getParameters().size()) {
                 return false;
             }
-            for (int i = 0; i < signature.getParameters().size(); i++) {
+            for (int i = 0; i < parameter.getParameters().size(); i++) {
                 Type componentType = type.getTypeParameters().get(i);
-                TypeSignature componentSignature = signature.getParameters().get(i);
-                if (!matchAndBind(boundParameters, unboundParameters, componentSignature, componentType, allowCoercion, typeManager)) {
+                TypeSignature componentSignature = parameter.getParameters().get(i);
+                if (!matchAndBind(boundParameters, typeParameters, componentSignature, componentType, allowCoercion, typeManager)) {
                     return false;
                 }
             }
         }
 
-        if (type.equals(UNKNOWN) && allowCoercion) {
-            // The unknown type can be coerced to any type, so don't bind the parameters, since nothing can be coerced to the unknown type
-            return true;
-        }
-
         // Bind parameter, if this is a free type parameter
-        if (unboundParameters.containsKey(signature.getBase())) {
-            TypeParameter typeParameter = unboundParameters.get(signature.getBase());
+        if (typeParameters.containsKey(parameter.getBase())) {
+            TypeParameter typeParameter = typeParameters.get(parameter.getBase());
             if (!typeParameter.canBind(type)) {
                 return false;
             }
-            unboundParameters.remove(signature.getBase());
-            boundParameters.put(signature.getBase(), type);
+            boundParameters.put(parameter.getBase(), type);
             return true;
         }
 
         // We've already checked all the components, so just match the base type
-        if (!signature.getParameters().isEmpty()) {
-            return type.getTypeSignature().getBase().equals(signature.getBase());
+        if (!parameter.getParameters().isEmpty()) {
+            return type.getTypeSignature().getBase().equals(parameter.getBase());
         }
 
+        // The parameter is not a type parameter, so it must be a concrete type
         if (allowCoercion) {
-            return canCoerce(type, typeManager.getType(parseTypeSignature(signature.getBase())));
+            return canCoerce(type, typeManager.getType(parseTypeSignature(parameter.getBase())));
         }
         else {
-            return type.equals(typeManager.getType(parseTypeSignature(signature.getBase())));
+            return type.equals(typeManager.getType(parseTypeSignature(parameter.getBase())));
         }
     }
 

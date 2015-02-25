@@ -90,6 +90,9 @@ public class QueryStateMachine
     private final Set<String> resetSessionProperties = new LinkedHashSet<>();
 
     @GuardedBy("this")
+    private String updateType;
+
+    @GuardedBy("this")
     private Throwable failureCause;
 
     @GuardedBy("this")
@@ -252,6 +255,7 @@ public class QueryStateMachine
                 queryStats,
                 setSessionProperties,
                 resetSessionProperties,
+                updateType,
                 rootStage,
                 failureInfo,
                 errorCode,
@@ -288,6 +292,11 @@ public class QueryStateMachine
     public synchronized void addResetSessionProperties(String name)
     {
         resetSessionProperties.add(checkNotNull(name, "name is null"));
+    }
+
+    public synchronized void setUpdateType(String updateType)
+    {
+        this.updateType = updateType;
     }
 
     public synchronized QueryState getQueryState()

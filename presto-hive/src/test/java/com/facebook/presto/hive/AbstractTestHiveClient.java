@@ -74,6 +74,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -84,6 +85,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveSessionProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
@@ -114,7 +116,7 @@ import static com.facebook.presto.testing.MaterializedResult.materializeSourceDa
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.uniqueIndex;
-import static com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -150,6 +152,7 @@ public abstract class AbstractTestHiveClient
     protected SchemaTableName tableBucketedBigintBoolean;
     protected SchemaTableName tableBucketedDoubleFloat;
     protected SchemaTableName tablePartitionSchemaChange;
+    protected SchemaTableName tablePartitionSchemaChangeNonCanonical;
 
     protected SchemaTableName temporaryCreateTable;
     protected SchemaTableName temporaryCreateSampledTable;
@@ -209,6 +212,7 @@ public abstract class AbstractTestHiveClient
         tableBucketedBigintBoolean = new SchemaTableName(database, "presto_test_bucketed_by_bigint_boolean");
         tableBucketedDoubleFloat = new SchemaTableName(database, "presto_test_bucketed_by_double_float");
         tablePartitionSchemaChange = new SchemaTableName(database, "presto_test_partition_schema_change");
+        tablePartitionSchemaChangeNonCanonical = new SchemaTableName(database, "presto_test_partition_schema_change_non_canonical");
 
         temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
         temporaryCreateSampledTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
@@ -284,37 +288,40 @@ public abstract class AbstractTestHiveClient
         }
 
         HiveCluster hiveCluster = new TestingHiveCluster(hiveClientConfig, host, port);
-
         HiveMetastore metastoreClient = new CachingHiveMetastore(hiveCluster, executor, Duration.valueOf("1m"), Duration.valueOf("15s"));
+        HiveConnectorId connectorId = new HiveConnectorId(connectorName);
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
 
-        hdfsEnvironment = new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig));
-        HiveClient client = new HiveClient(
-                new HiveConnectorId(connectorName),
+        hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig);
+        metadata = new HiveMetadata(
+                connectorId,
+                metastoreClient,
+                hdfsEnvironment,
+                timeZone,
+                true,
+                true,
+                true,
+                hiveClientConfig.getHiveStorageFormat(),
+                new TypeRegistry());
+        splitManager = new HiveSplitManager(
+                connectorId,
                 metastoreClient,
                 new NamenodeStats(),
                 hdfsEnvironment,
                 new HadoopDirectoryLister(),
                 timeZone,
-                sameThreadExecutor(),
-                hiveClientConfig.getMaxSplitSize(),
+                newDirectExecutorService(),
                 maxOutstandingSplits,
                 maxThreads,
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
+                hiveClientConfig.getMaxSplitSize(),
                 hiveClientConfig.getMaxInitialSplitSize(),
                 hiveClientConfig.getMaxInitialSplits(),
                 false,
-                true,
-                true,
-                true,
-                hiveClientConfig.getHiveStorageFormat(),
                 false,
-                new TypeRegistry());
-
-        metadata = client;
-        splitManager = client;
-        recordSinkProvider = client;
-
+                false);
+        recordSinkProvider = new HiveRecordSinkProvider(hdfsEnvironment);
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, DEFAULT_HIVE_RECORD_CURSOR_PROVIDER, DEFAULT_HIVE_DATA_STREAM_FACTORIES, TYPE_MANAGER);
     }
 
@@ -872,6 +879,30 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
+    public void testPartitionSchemaNonCanonical()
+            throws Exception
+    {
+        ConnectorTableHandle table = getTableHandle(tablePartitionSchemaChangeNonCanonical);
+        ConnectorColumnHandle column = metadata.getColumnHandles(table).get("t_boolean");
+        assertNotNull(column);
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(table, TupleDomain.withFixedValues(ImmutableMap.of(column, false)));
+        assertEquals(partitionResult.getPartitions().size(), 1);
+        assertEquals(partitionResult.getPartitions().get(0).getPartitionId(), "t_boolean=0");
+
+        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(table, partitionResult.getPartitions());
+        ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
+
+        ImmutableList<ConnectorColumnHandle> columnHandles = ImmutableList.of(column);
+        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(split, columnHandles)) {
+            // TODO coercion of non-canonical values should be supported
+            fail("expected exception");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), HIVE_INVALID_PARTITION_VALUE.toErrorCode());
+        }
+    }
+
+    @Test
     public void testTypesTextFile()
             throws Exception
     {
@@ -1119,7 +1150,7 @@ public abstract class AbstractTestHiveClient
         List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", VARCHAR, 1, false));
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, SESSION.getUser());
         ConnectorOutputTableHandle handle = metadata.beginCreateTable(SESSION, tableMetadata);
-        metadata.commitCreateTable(handle, ImmutableList.<String>of());
+        metadata.commitCreateTable(handle, ImmutableList.of());
     }
 
     private void verifyViewCreation()
@@ -1196,10 +1227,10 @@ public abstract class AbstractTestHiveClient
         sink.appendLong(4);
         sink.finishRecord();
 
-        String fragment = sink.commit();
+        Collection<Slice> fragments = sink.commit();
 
         // commit the table
-        metadata.commitCreateTable(outputHandle, ImmutableList.of(fragment));
+        metadata.commitCreateTable(outputHandle, fragments);
 
         // load the new table
         ConnectorTableHandle tableHandle = getTableHandle(temporaryCreateSampledTable);
@@ -1290,10 +1321,10 @@ public abstract class AbstractTestHiveClient
         sink.appendBoolean(false);
         sink.finishRecord();
 
-        String fragment = sink.commit();
+        Collection<Slice> fragments = sink.commit();
 
         // commit the table
-        metadata.commitCreateTable(outputHandle, ImmutableList.of(fragment));
+        metadata.commitCreateTable(outputHandle, fragments);
 
         // load the new table
         ConnectorTableHandle tableHandle = getTableHandle(temporaryCreateTable);

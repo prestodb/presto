@@ -17,7 +17,8 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
+
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -113,7 +114,7 @@ public final class KafkaTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(connectorId, schemaName, tableName, topicName, keyDataFormat, messageDataFormat);
+        return Objects.hash(connectorId, schemaName, tableName, topicName, keyDataFormat, messageDataFormat);
     }
 
     @Override
@@ -127,12 +128,12 @@ public final class KafkaTableHandle
         }
 
         KafkaTableHandle other = (KafkaTableHandle) obj;
-        return Objects.equal(this.connectorId, other.connectorId)
-                && Objects.equal(this.schemaName, other.schemaName)
-                && Objects.equal(this.tableName, other.tableName)
-                && Objects.equal(this.topicName, other.topicName)
-                && Objects.equal(this.keyDataFormat, other.keyDataFormat)
-                && Objects.equal(this.messageDataFormat, other.messageDataFormat);
+        return Objects.equals(this.connectorId, other.connectorId)
+                && Objects.equals(this.schemaName, other.schemaName)
+                && Objects.equals(this.tableName, other.tableName)
+                && Objects.equals(this.topicName, other.topicName)
+                && Objects.equals(this.keyDataFormat, other.keyDataFormat)
+                && Objects.equals(this.messageDataFormat, other.messageDataFormat);
     }
 
     @Override

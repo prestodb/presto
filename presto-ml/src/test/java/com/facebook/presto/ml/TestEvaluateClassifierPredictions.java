@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.ml;
 
+import com.facebook.presto.RowPageBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.ml.type.ClassifierParametricType;
 import com.facebook.presto.ml.type.ModelType;
 import com.facebook.presto.ml.type.RegressorType;
-import com.facebook.presto.RowPageBuilder;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.Page;

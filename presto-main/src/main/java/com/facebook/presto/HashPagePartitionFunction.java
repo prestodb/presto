@@ -21,10 +21,10 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -144,7 +144,7 @@ public final class HashPagePartitionFunction
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(partition, partitionCount, partitioningChannels, hashGenerator);
+        return Objects.hash(partition, partitionCount, partitioningChannels, hashGenerator);
     }
 
     @Override
@@ -157,10 +157,10 @@ public final class HashPagePartitionFunction
             return false;
         }
         HashPagePartitionFunction other = (HashPagePartitionFunction) obj;
-        return Objects.equal(this.partition, other.partition) &&
-                Objects.equal(this.partitionCount, other.partitionCount) &&
-                Objects.equal(this.partitioningChannels, other.partitioningChannels) &&
-                Objects.equal(hashChannel, other.hashChannel);
+        return Objects.equals(this.partition, other.partition) &&
+                Objects.equals(this.partitionCount, other.partitionCount) &&
+                Objects.equals(this.partitioningChannels, other.partitioningChannels) &&
+                Objects.equals(hashChannel, other.hashChannel);
     }
 
     @Override

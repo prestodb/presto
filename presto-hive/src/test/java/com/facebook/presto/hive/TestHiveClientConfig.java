@@ -77,7 +77,10 @@ public class TestHiveClientConfig
                 .setS3MaxConnections(500)
                 .setS3StagingDirectory(new File(StandardSystemProperty.JAVA_IO_TMPDIR.value()))
                 .setOptimizedReaderEnabled(true)
-                .setOrcMaxMergeDistance(new DataSize(1, Unit.MEGABYTE)));
+                .setAssumeCanonicalPartitionKeys(false)
+                .setOrcMaxMergeDistance(new DataSize(1, Unit.MEGABYTE))
+                .setOrcMaxBufferSize(new DataSize(8, Unit.MEGABYTE))
+                .setOrcStreamBufferSize(new DataSize(8, Unit.MEGABYTE)));
     }
 
     @Test
@@ -108,6 +111,7 @@ public class TestHiveClientConfig
                 .put("hive.max-initial-split-size", "16MB")
                 .put("hive.storage-format", "SEQUENCEFILE")
                 .put("hive.force-local-scheduling", "true")
+                .put("hive.assume-canonical-partition-keys", "true")
                 .put("dfs.domain-socket-path", "/foo")
                 .put("hive.s3.aws-access-key", "abc123")
                 .put("hive.s3.aws-secret-key", "secret")
@@ -124,6 +128,8 @@ public class TestHiveClientConfig
                 .put("hive.s3.staging-directory", "/s3-staging")
                 .put("hive.optimized-reader.enabled", "false")
                 .put("hive.orc.max-merge-distance", "22kB")
+                .put("hive.orc.max-buffer-size", "44kB")
+                .put("hive.orc.stream-buffer-size", "55kB")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -166,7 +172,10 @@ public class TestHiveClientConfig
                 .setS3MaxConnections(77)
                 .setS3StagingDirectory(new File("/s3-staging"))
                 .setOptimizedReaderEnabled(false)
-                .setOrcMaxMergeDistance(new DataSize(22, Unit.KILOBYTE));
+                .setAssumeCanonicalPartitionKeys(true)
+                .setOrcMaxMergeDistance(new DataSize(22, Unit.KILOBYTE))
+                .setOrcMaxBufferSize(new DataSize(44, Unit.KILOBYTE))
+                .setOrcStreamBufferSize(new DataSize(55, Unit.KILOBYTE));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

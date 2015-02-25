@@ -15,9 +15,9 @@ package com.facebook.presto;
 
 import com.facebook.presto.spi.Page;
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.google.common.base.Objects;
 
 import java.util.List;
+import java.util.Objects;
 
 public final class UnpartitionedPagePartitionFunction
         implements PagePartitionFunction
@@ -36,7 +36,7 @@ public final class UnpartitionedPagePartitionFunction
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(getClass());
+        return Objects.hash(getClass());
     }
 
     @Override
@@ -49,7 +49,7 @@ public final class UnpartitionedPagePartitionFunction
             return false;
         }
         final UnpartitionedPagePartitionFunction other = (UnpartitionedPagePartitionFunction) obj;
-        return Objects.equal(this.getClass(), other.getClass());
+        return Objects.equals(this.getClass(), other.getClass());
     }
 
     @Override

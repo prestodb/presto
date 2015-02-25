@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.RowPagesBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import org.testng.annotations.AfterMethod;
@@ -27,8 +27,8 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -43,7 +43,7 @@ public class TestDistinctLimitOperator
     @BeforeMethod
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
         driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, TEST_SESSION)
                 .addPipelineContext(true, true)
                 .addDriverContext();
