@@ -482,14 +482,14 @@
 
             <dependency>
                 <groupId>com.tunnelvisionlabs</groupId>
-                <artifactId>antlr4</artifactId>
+                <artifactId>antlr4-runtime</artifactId>
                 <version>${dep.antlr.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.antlr</groupId>
+                <groupId>com.tunnelvisionlabs</groupId>
                 <artifactId>antlr4-annotations</artifactId>
-                <version>4.3</version>
+                <version>${dep.antlr.version}</version>
             </dependency>
 
             <dependency>

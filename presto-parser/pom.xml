@@ -49,11 +49,11 @@
 
         <dependency>
             <groupId>com.tunnelvisionlabs</groupId>
-            <artifactId>antlr4</artifactId>
+            <artifactId>antlr4-runtime</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.antlr</groupId>
+            <groupId>com.tunnelvisionlabs</groupId>
             <artifactId>antlr4-annotations</artifactId>
         </dependency>
 
