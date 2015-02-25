@@ -53,6 +53,14 @@ Date and Time Functions
     Returns the current time zone in the format defined by IANA
     (e.g., ``America/Los_Angeles``) or as fixed offset from UTC (e.g., ``+08:35``)
 
+.. function:: from_iso8601_timestamp(string) -> timestamp with time zone
+
+    Parses the ISO 8601 formatted ``string`` into a ``timestamp with time zone``.
+
+.. function:: from_iso8601_date(string) -> date
+
+    Parses the ISO 8601 formatted ``string`` into a ``date``.
+
 .. function:: from_unixtime(unixtime) -> timestamp
 
     Returns the UNIX timestamp ``unixtime`` as a timestamp.
@@ -73,6 +81,11 @@ Date and Time Functions
 .. function:: now() -> timestamp with time zone
 
     This is an alias for ``current_timestamp``.
+
+.. function:: to_iso8601(x) -> varchar
+
+    Formats ``x`` as an ISO 8601 string. ``x`` can be date, timestamp, or
+    timestamp with time zone.
 
 .. function:: to_unixtime(timestamp) -> double
 
