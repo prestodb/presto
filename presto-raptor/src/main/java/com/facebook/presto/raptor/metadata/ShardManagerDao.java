@@ -71,6 +71,13 @@ public interface ShardManagerDao
             ")")
     void createTableExternalBatches();
 
+    @SqlUpdate("CREATE TABLE IF NOT EXISTS shard_reassigner (\n" +
+            "  id INT PRIMARY KEY,\n" +
+            "  node_identifier VARCHAR(255) NOT NULL,\n" +
+            "  last_update_time BIGINT NOT NULL\n" +
+            ")")
+    void createShardReassigner();
+
     @SqlUpdate("INSERT INTO nodes (node_identifier) VALUES (:nodeIdentifier)")
     void insertNode(@Bind("nodeIdentifier") String nodeIdentifier);
 
@@ -131,4 +138,18 @@ public interface ShardManagerDao
             "FROM external_batches\n" +
             "WHERE external_batch_id = :externalBatchId")
     boolean externalBatchExists(@Bind("externalBatchId") String externalBatchId);
+
+    @SqlUpdate("INSERT INTO shard_reassigner " +
+            "(id, node_identifier, last_update_time) VALUES (1, :nodeIdentifier, unix_timestamp())\n" +
+            "ON DUPLICATE KEY UPDATE\n" +
+            "node_identifier = VALUES(node_identifier),\n" +
+            "last_update_time = VALUES(last_update_time)")
+    int updateShardReassigner(@Bind("nodeIdentifier") String nodeIdentifier);
+
+    @SqlQuery("SELECT node_identifier, unix_timestamp() - last_update_time AS millis_since_last_update\n" +
+            "FROM shard_reassigner\n" +
+            "WHERE id = 1\n" +
+            "FOR UPDATE")
+    @Mapper(ReassignerNode.Mapper.class)
+    ReassignerNode getCurrentReassignerLocked();
 }

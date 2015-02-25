@@ -35,6 +35,7 @@ public class StorageManagerConfig
     private File backupDirectory;
     private Duration shardRecoveryTimeout = new Duration(30, TimeUnit.SECONDS);
     private Duration missingShardDiscoveryInterval = new Duration(5, TimeUnit.MINUTES);
+    private Duration shardReassignmentInterval = new Duration(10, TimeUnit.MINUTES);
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private int recoveryThreads = 10;
     private long rowsPerShard = 1_000_000;
@@ -104,6 +105,19 @@ public class StorageManagerConfig
     public StorageManagerConfig setMissingShardDiscoveryInterval(Duration missingShardDiscoveryInterval)
     {
         this.missingShardDiscoveryInterval = missingShardDiscoveryInterval;
+        return this;
+    }
+
+    public Duration getShardReassignmentInterval()
+    {
+        return shardReassignmentInterval;
+    }
+
+    @Config("storage.shard-reassignment-interval")
+    @ConfigDescription("How often to check if all shards have an active node assignment")
+    public StorageManagerConfig setShardReassignmentInterval(Duration shardReassignmentInterval)
+    {
+        this.shardReassignmentInterval = shardReassignmentInterval;
         return this;
     }
 

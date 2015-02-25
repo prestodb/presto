@@ -22,6 +22,7 @@ import com.facebook.presto.raptor.RaptorMetadata;
 import com.facebook.presto.raptor.RaptorSplitManager;
 import com.facebook.presto.raptor.RaptorTableHandle;
 import com.facebook.presto.raptor.storage.FileStorageService;
+import com.facebook.presto.raptor.storage.ShardReassigner;
 import com.facebook.presto.raptor.storage.OrcStorageManager;
 import com.facebook.presto.raptor.storage.ShardRecoveryManager;
 import com.facebook.presto.raptor.storage.StorageManager;
@@ -85,6 +86,7 @@ public class TestRaptorSplitManager
     private ConnectorTableHandle tableHandle;
     private ShardManager shardManager;
     private StorageManager storageManagerWithBackup;
+    private ShardReassigner shardReassigner;
 
     @BeforeMethod
     public void setup()
@@ -123,7 +125,8 @@ public class TestRaptorSplitManager
 
         shardManager.commitTable(tableId, shardNodes, Optional.empty());
 
-        raptorSplitManager = new RaptorSplitManager(connectorId, nodeManager, shardManager, storageManager);
+        shardReassigner = new ShardReassigner(dbi, storageService, nodeManager, shardManager, new Duration(5, TimeUnit.MINUTES));
+        raptorSplitManager = new RaptorSplitManager(connectorId, nodeManager, shardManager, storageManager, shardReassigner);
     }
 
     @AfterMethod
@@ -172,7 +175,7 @@ public class TestRaptorSplitManager
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
         PrestoNode node = new PrestoNode(UUID.randomUUID().toString(), new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN);
         nodeManager.addNode("fbraptor", node);
-        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), nodeManager, shardManager, storageManagerWithBackup);
+        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), nodeManager, shardManager, storageManagerWithBackup, shardReassigner);
 
         dummyHandle.execute("DELETE FROM shard_nodes");
 
@@ -185,7 +188,7 @@ public class TestRaptorSplitManager
     public void testNoNodes()
             throws InterruptedException, URISyntaxException
     {
-        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), new InMemoryNodeManager(), shardManager, storageManagerWithBackup);
+        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), new InMemoryNodeManager(), shardManager, storageManagerWithBackup, shardReassigner);
         dummyHandle.execute("DELETE FROM shard_nodes");
         ConnectorPartitionResult result = raptorSplitManagerWithBackup.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
         raptorSplitManagerWithBackup.getPartitionSplits(tableHandle, result.getPartitions());

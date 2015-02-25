@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
+import io.airlift.units.Duration;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionStatus;
@@ -30,12 +31,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
 import static com.facebook.presto.raptor.metadata.ShardManagerDaoUtils.createShardTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.SqlUtils.runIgnoringConstraintViolation;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
 
 public class DatabaseShardManager
         implements ShardManager
@@ -88,6 +91,50 @@ public class DatabaseShardManager
                 }
             }
         });
+    }
+
+    /**
+     * Sets nodeIdentifier to be the shard reassigner if
+     * <ul>
+     * <li>there is no designated shard reassigner</li>
+     * <li>there is a shard reassigner that has gone stale</li>
+     * </ul>
+     * If nodeIdentifier is already the designated shard reassigner, update the timestamp
+     *
+     * @return true if the nodeIdentifier is set as the shard reassigner, false otherwise
+     */
+    @Override
+    public boolean compareAndUpdateShardReassigner(String nodeIdentifier, Duration interval)
+    {
+        final AtomicBoolean updateSuccessful = new AtomicBoolean();
+        dbi.inTransaction(new VoidTransactionCallback()
+        {
+            @Override
+            protected void execute(Handle handle, TransactionStatus status)
+            {
+                ShardManagerDao dao = handle.attach(ShardManagerDao.class);
+                ReassignerNode currentReassigner = dao.getCurrentReassignerLocked();
+                if (currentReassigner == null ||
+                        currentReassigner.getNodeIdentifier().equals(nodeIdentifier) ||
+                        currentReassigner.getDurationSinceLastUpdate().compareTo(interval) >= 0) {
+                    int rowsUpdated = dao.updateShardReassigner(nodeIdentifier);
+                    if (!isUpdateCountExpected(currentReassigner, rowsUpdated)) {
+                        throw new RuntimeException(format("wrong update count (%s) for selecting shard reassigner %s", rowsUpdated, nodeIdentifier));
+                    }
+                    updateSuccessful.set(true);
+                }
+            }
+        });
+        return updateSuccessful.get();
+    }
+
+    private static boolean isUpdateCountExpected(ReassignerNode currentReassigner, int rowsUpdated)
+    {
+        // rowsUpdated must be 1 if a new row is inserted, 2 if an existing row is updated.
+        if (currentReassigner == null) {
+            return rowsUpdated == 1;
+        }
+        return rowsUpdated == 2;
     }
 
     @Override

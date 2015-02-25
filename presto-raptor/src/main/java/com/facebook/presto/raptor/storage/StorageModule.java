@@ -32,5 +32,6 @@ public class StorageModule
         binder.bind(StorageService.class).to(FileStorageService.class).in(Scopes.SINGLETON);
         binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
         binder.bind(ShardRecoveryManager.class).in(Scopes.SINGLETON);
+        binder.bind(ShardReassigner.class).in(Scopes.SINGLETON);
     }
 }
