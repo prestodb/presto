@@ -229,6 +229,8 @@ public final class HiveType
                 return DOUBLE;
             case STRING_TYPE_NAME:
                 return VARCHAR;
+            case DATE_TYPE_NAME:
+                return DATE;
             case TIMESTAMP_TYPE_NAME:
                 return TIMESTAMP;
             case BINARY_TYPE_NAME:
