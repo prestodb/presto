@@ -21,6 +21,7 @@ import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.AsyncSemaphore;
 import io.airlift.concurrent.SetThreadName;
@@ -377,6 +378,7 @@ public class SqlQueryManager
         queryMonitor.createdEvent(execution.getQueryInfo());
         queryMonitor.completionEvent(execution.getQueryInfo());
         stats.queryFinished(execution.getQueryInfo());
+        stats.queryStopped();
         expirationQueue.add(execution);
 
         return execution.getQueryInfo();
@@ -464,6 +466,7 @@ public class SqlQueryManager
                                     queryExecutor.execute(() -> {
                                         try (SetThreadName setThreadName = new SetThreadName("Query-%s", queryExecution.getQueryInfo().getQueryId())) {
                                             stats.queryStarted();
+                                            settableFuture.addListener(stats::queryStopped, MoreExecutors.directExecutor());
                                             queryExecution.start();
                                         }
                                     });
