@@ -34,4 +34,11 @@ public class TestHiveDistributedQueries
     {
         // Hive connector currently does not support insert
     }
+
+    @Override
+    public void testCreateTable()
+            throws Exception
+    {
+        // Hive connector currently does not support create table
+    }
 }
