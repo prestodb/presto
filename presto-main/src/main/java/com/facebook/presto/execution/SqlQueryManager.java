@@ -237,11 +237,9 @@ public class SqlQueryManager
             QueryExecution execution = new FailedQueryExecution(queryId, query, session, self, queryExecutor, e);
 
             queries.put(queryId, execution);
-            stats.queryStarted();
             queryMonitor.createdEvent(execution.getQueryInfo());
             queryMonitor.completionEvent(execution.getQueryInfo());
             stats.queryFinished(execution.getQueryInfo());
-            stats.queryStopped();
             expirationQueue.add(execution);
 
             return execution.getQueryInfo();
