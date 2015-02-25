@@ -255,6 +255,8 @@ simpleType
     : TIME_WITH_TIME_ZONE
     | TIMESTAMP_WITH_TIME_ZONE
     | identifier
+    | identifier LPAREN INTEGER_VALUE RPAREN
+    | identifier LPAREN precision=INTEGER_VALUE COMMA scale=INTEGER_VALUE RPAREN
     ;
 
 whenClause
