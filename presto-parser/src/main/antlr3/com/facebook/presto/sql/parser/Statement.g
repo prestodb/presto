@@ -543,6 +543,9 @@ type
     | BOOLEAN                    -> IDENT["BOOLEAN"]
     | TIME WITH TIME ZONE        -> IDENT["TIME WITH TIME ZONE"]
     | TIMESTAMP WITH TIME ZONE   -> IDENT["TIMESTAMP WITH TIME ZONE"]
+    | ARRAY '<' t=type '>'       -> IDENT["ARRAY<" + $t.text + ">"]
+    | VARCHAR '(' i=integer ')'  -> IDENT["VARCHAR(" + $i.text + ")"]
+    | DECIMAL '(' p=integer ',' s=integer ')'  -> IDENT["DECIMAL(" + $p.text + "," + $s.text + ")"]
     | ident
     ;
 

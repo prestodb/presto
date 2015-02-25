@@ -178,11 +178,23 @@ public class TestSqlParser
         assertCast("time with time zone");
         assertCast("timestamp with time zone");
         assertCast("foo");
+
+        assertCast("ARRAY<bigint>");
+        assertCast("ARRAY<BIGINT>");
+        assertCast("array<bigint>");
+        assertCast("array < bigint  >", "ARRAY<bigint>");
+        assertCast("array<array<bigint>>");
+
+        assertCast("varchar(100)", "VARCHAR(100)");
+        assertCast("decimal(100, 2)", "DECIMAL(100,2)");
     }
 
-    public static void assertCast(String type)
-    {
-        assertExpression("cast(123 as " + type + ")", new Cast(new LongLiteral("123"), type));
+    public static void assertCast(String type, String result) {
+        assertExpression("cast(123 as " + type + ")", new Cast(new LongLiteral("123"), result));
+    }
+
+    public static void assertCast(String type) {
+        assertCast(type, type);
     }
 
     @Test
