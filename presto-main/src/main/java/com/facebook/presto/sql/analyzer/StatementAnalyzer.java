@@ -24,7 +24,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Explain;
@@ -387,7 +387,7 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitCreateTable(CreateTable node, AnalysisContext context)
+    protected TupleDescriptor visitCreateTableAsSelect(CreateTableAsSelect node, AnalysisContext context)
     {
         analysis.setUpdateType("CREATE TABLE");
 
