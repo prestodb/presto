@@ -193,6 +193,9 @@ public class TestSqlParser
         assertCast("boolean array  array ARRAY", "ARRAY<ARRAY<ARRAY<boolean>>>");
         assertCast("boolean ARRAY ARRAY ARRAY", "ARRAY<ARRAY<ARRAY<boolean>>>");
         assertCast("ARRAY<boolean> ARRAY ARRAY", "ARRAY<ARRAY<ARRAY<boolean>>>");
+
+        assertCast("varchar(100)", "VARCHAR(100)");
+        assertCast("decimal(100, 2)", "DECIMAL(100,2)");
     }
 
     @Test
