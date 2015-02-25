@@ -229,18 +229,13 @@ public final class HttpPageBufferClient
         // start before scheduling to include error delay
         errorStopwatch.start();
 
-        executor.schedule(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                try {
-                    initiateRequest();
-                }
-                catch (Throwable t) {
-                    // should not happen, but be safe and fail the operator
-                    clientCallback.clientFailed(HttpPageBufferClient.this, t);
-                }
+        executor.schedule(() -> {
+            try {
+                initiateRequest();
+            }
+            catch (Throwable t) {
+                // should not happen, but be safe and fail the operator
+                clientCallback.clientFailed(HttpPageBufferClient.this, t);
             }
         }, errorDelayMillis, TimeUnit.MILLISECONDS);
 
