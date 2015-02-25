@@ -28,6 +28,7 @@ statement
     | USE schema=identifier                                            #use
     | USE catalog=identifier  schema=identifier                        #use
     | CREATE TABLE qualifiedName AS query                              #createTableAsSelect
+    | CREATE TEMP TABLE qualifiedName AS query                         #createTableAsSelect
     | DROP TABLE qualifiedName                                         #dropTable
     | INSERT INTO qualifiedName query                                  #insertInto
     | ALTER TABLE from=qualifiedName RENAME TO to=qualifiedName        #renameTable

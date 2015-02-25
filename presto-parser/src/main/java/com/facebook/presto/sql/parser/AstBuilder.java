@@ -57,7 +57,7 @@ class AstBuilder
     @Override
     public Node visitCreateTableAsSelect(@NotNull SqlBaseParser.CreateTableAsSelectContext context)
     {
-        return new CreateTable(getQualifiedName(context.qualifiedName()), (Query) visit(context.query()));
+        return new CreateTempTable(getQualifiedName(context.qualifiedName()), (Query) visit(context.query()));
     }
 
     @Override
