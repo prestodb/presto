@@ -20,12 +20,15 @@ import io.airlift.stats.TimeStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class SqlQueryManagerStats
 {
+    private final AtomicInteger runningQueries = new AtomicInteger();
     private final CounterStat startedQueries = new CounterStat();
     private final CounterStat completedQueries = new CounterStat();
     private final CounterStat failedQueries = new CounterStat();
@@ -42,6 +45,12 @@ public class SqlQueryManagerStats
     public void queryStarted()
     {
         startedQueries.update(1);
+        runningQueries.incrementAndGet();
+    }
+
+    public void queryStopped()
+    {
+        runningQueries.decrementAndGet();
     }
 
     public void queryFinished(QueryInfo info)
@@ -90,7 +99,8 @@ public class SqlQueryManagerStats
     @Managed
     public long getRunningQueries()
     {
-        return Math.max(0, startedQueries.getTotalCount() - completedQueries.getTotalCount());
+        // This is not startedQueries - completeQueries, since queries can finish without ever starting (cancelled before started, for example)
+        return runningQueries.get();
     }
 
     @Managed
