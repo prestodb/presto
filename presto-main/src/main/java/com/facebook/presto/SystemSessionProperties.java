@@ -17,6 +17,7 @@ public final class SystemSessionProperties
 {
     private static final String BIG_QUERY = "experimental_big_query";
     private static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
+    private static final String DISTRIBUTED_JOIN = "distributed_join";
 
     private SystemSessionProperties() {}
 
@@ -38,5 +39,10 @@ public final class SystemSessionProperties
     public static boolean isOptimizeHashGenerationEnabled(Session session, boolean defaultValue)
     {
         return isEnabled(OPTIMIZE_HASH_GENERATION, session, defaultValue);
+    }
+
+    public static boolean isDistributedJoinEnabled(Session session, boolean defaultValue)
+    {
+        return isEnabled(DISTRIBUTED_JOIN, session, defaultValue);
     }
 }
