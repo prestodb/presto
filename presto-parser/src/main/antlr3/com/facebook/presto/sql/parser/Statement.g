@@ -791,7 +791,7 @@ DIM_IDENT
     '}'?
     ;
 
-fragment IdChar: ('#'|'_'|'A'..'Z'|'a'..'z'|'0'..'9'|('\\' | '/' ~('@' | '(' | ')')) IdChar*) ;
+fragment IdChar: ('#'|'_'|'A'..'Z'|'a'..'z'|'0'..'9'|('\\' | ':' | '/' ~('@' | '(' | ')')) IdChar*) ;
 
 number
     : DECIMAL_VALUE

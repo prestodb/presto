@@ -85,6 +85,7 @@ public class TestSqlParser
         SQL_PARSER.createExpression("@First/Second");
         SQL_PARSER.createExpression("@First\\Second");
         SQL_PARSER.createExpression("@First / @Second");
+        SQL_PARSER.createExpression("@First:Second");
     }
 
     @Test
