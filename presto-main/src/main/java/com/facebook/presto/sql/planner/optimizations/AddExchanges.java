@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
@@ -83,7 +84,8 @@ public class AddExchanges
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        PlanWithProperties result = plan.accept(new Rewriter(symbolAllocator, idAllocator, session, distributedIndexJoins, distributedJoins), null);
+        boolean distributedJoinEnabled = SystemSessionProperties.isDistributedJoinEnabled(session, distributedJoins);
+        PlanWithProperties result = plan.accept(new Rewriter(symbolAllocator, idAllocator, session, distributedIndexJoins, distributedJoinEnabled), null);
         return result.getNode();
     }
 
