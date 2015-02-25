@@ -406,8 +406,6 @@ public class CachingHiveMetastore
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                             client.create_table(table);
                         }
-                        tableNamesCache.invalidate(table.getDbName());
-                        viewNamesCache.invalidate(table.getDbName());
                         return null;
                     }));
         }
@@ -426,6 +424,10 @@ public class CachingHiveMetastore
             }
             throw Throwables.propagate(e);
         }
+        finally {
+            tableNamesCache.invalidate(table.getDbName());
+            viewNamesCache.invalidate(table.getDbName());
+        }
     }
 
     @Override
@@ -439,9 +441,6 @@ public class CachingHiveMetastore
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                             client.drop_table(databaseName, tableName, true);
                         }
-                        tableCache.invalidate(new HiveTableName(databaseName, tableName));
-                        tableNamesCache.invalidate(databaseName);
-                        viewNamesCache.invalidate(databaseName);
                         return null;
                     }));
         }
@@ -456,6 +455,11 @@ public class CachingHiveMetastore
                 Thread.currentThread().interrupt();
             }
             throw Throwables.propagate(e);
+        }
+        finally {
+            tableCache.invalidate(new HiveTableName(databaseName, tableName));
+            tableNamesCache.invalidate(databaseName);
+            viewNamesCache.invalidate(databaseName);
         }
     }
 
@@ -473,9 +477,6 @@ public class CachingHiveMetastore
                             table.setTableName(newTableName);
                             client.alter_table(databaseName, tableName, table);
                         }
-                        tableCache.invalidate(new HiveTableName(databaseName, tableName));
-                        tableNamesCache.invalidate(databaseName);
-                        viewNamesCache.invalidate(databaseName);
                         return null;
                     }));
         }
@@ -490,6 +491,11 @@ public class CachingHiveMetastore
                 Thread.currentThread().interrupt();
             }
             throw Throwables.propagate(e);
+        }
+        finally {
+            tableCache.invalidate(new HiveTableName(databaseName, tableName));
+            tableNamesCache.invalidate(databaseName);
+            viewNamesCache.invalidate(databaseName);
         }
     }
 
