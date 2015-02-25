@@ -231,7 +231,20 @@ public class SqlQueryManager
             statement = sqlParser.createStatement(query);
         }
         catch (ParsingException e) {
-            return createFailedQuery(session, query, queryId, e);
+            // This is intentionally not a method, since after the state change listener is registered
+            // it's not safe to do any of this, and we had bugs before where people reused this code in a method
+            URI self = locationFactory.createQueryLocation(queryId);
+            QueryExecution execution = new FailedQueryExecution(queryId, query, session, self, queryExecutor, e);
+
+            queries.put(queryId, execution);
+            stats.queryStarted();
+            queryMonitor.createdEvent(execution.getQueryInfo());
+            queryMonitor.completionEvent(execution.getQueryInfo());
+            stats.queryFinished(execution.getQueryInfo());
+            stats.queryStopped();
+            expirationQueue.add(execution);
+
+            return execution.getQueryInfo();
         }
 
         QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(statement.getClass());
@@ -366,22 +379,6 @@ public class SqlQueryManager
         DateTime lastHeartbeat = query.getQueryInfo().getQueryStats().getLastHeartbeat();
 
         return lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat);
-    }
-
-    private QueryInfo createFailedQuery(Session session, String query, QueryId queryId, Throwable cause)
-    {
-        URI self = locationFactory.createQueryLocation(queryId);
-        QueryExecution execution = new FailedQueryExecution(queryId, query, session, self, queryExecutor, cause);
-
-        queries.put(queryId, execution);
-        stats.queryStarted();
-        queryMonitor.createdEvent(execution.getQueryInfo());
-        queryMonitor.completionEvent(execution.getQueryInfo());
-        stats.queryFinished(execution.getQueryInfo());
-        stats.queryStopped();
-        expirationQueue.add(execution);
-
-        return execution.getQueryInfo();
     }
 
     /**
