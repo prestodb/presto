@@ -61,6 +61,7 @@ import java.io.IOException;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
@@ -69,6 +70,7 @@ import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PAR
 import static com.facebook.presto.hive.HiveType.getType;
 import static com.facebook.presto.hive.HiveUtil.isArrayType;
 import static com.facebook.presto.hive.HiveUtil.isMapType;
+import static com.facebook.presto.hive.HiveUtil.isRowType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -214,6 +216,10 @@ public abstract class AbstractTestHiveFileFormats
                     ImmutableMap.of("test", ImmutableList.<Object>of(new Integer[] {1})),
                     "{\"test\":[[1]]}"
             ))
+            .add(new TestColumn("t_struct_nested", getStandardStructObjectInspector(ImmutableList.of("struct_field") ,
+                    ImmutableList.of(getStandardListObjectInspector(javaStringObjectInspector))), Arrays.asList(Arrays.asList("1", "2", "3")) , "[[\"1\",\"2\",\"3\"]]"))
+            .add(new TestColumn("t_struct_null", getStandardStructObjectInspector(ImmutableList.of("struct_field") ,
+                    ImmutableList.of(javaStringObjectInspector)), Arrays.asList(new Object[] {null}) , "[null]"))
             .build();
 
     protected List<HiveColumnHandle> getColumnHandles(List<TestColumn> testColumns)
@@ -342,7 +348,7 @@ public abstract class AbstractTestHiveFileFormats
                 else if (TimestampType.TIMESTAMP.equals(type)) {
                     fieldFromCursor = cursor.getLong(i);
                 }
-                else if (isArrayType(type) || isMapType(type)) {
+                else if (isArrayType(type) || isMapType(type) || isRowType(type)) {
                     fieldFromCursor = cursor.getSlice(i);
                 }
                 else {
