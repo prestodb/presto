@@ -18,7 +18,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
-import com.facebook.presto.util.DateTimeZoneIndex;
 import com.facebook.presto.util.ThreadLocalCache;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
@@ -29,6 +28,7 @@ import org.joda.time.chrono.ISOChronology;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
+import org.joda.time.format.ISODateTimeFormat;
 
 import java.util.Locale;
 
@@ -36,13 +36,16 @@ import static com.facebook.presto.operator.scalar.QuarterOfYearDateTimeField.QUA
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
 import static com.facebook.presto.spi.type.DateTimeEncoding.updateMillisUtc;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
 import static com.facebook.presto.util.DateTimeZoneIndex.extractZoneOffsetMinutes;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
+import static com.facebook.presto.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -157,6 +160,54 @@ public final class DateTimeFunctions
     public static double toUnixTimeFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
         return unpackMillisUtc(timestampWithTimeZone) / 1000.0;
+    }
+
+    @ScalarFunction("to_iso8601")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice toISO8601FromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
+    {
+        DateTimeFormatter formatter = ISODateTimeFormat.dateTime()
+                .withChronology(getChronology(session.getTimeZoneKey()));
+        return utf8Slice(formatter.print(timestamp));
+    }
+
+    @ScalarFunction("to_iso8601")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice toISO8601FromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
+    {
+        long millisUtc = unpackMillisUtc(timestampWithTimeZone);
+        DateTimeFormatter formatter = ISODateTimeFormat.dateTime()
+                .withChronology(getChronology(unpackZoneKey(timestampWithTimeZone)));
+        return utf8Slice(formatter.print(millisUtc));
+    }
+
+    @ScalarFunction("to_iso8601")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice toISO8601FromDate(ConnectorSession session, @SqlType(StandardTypes.DATE) long date)
+    {
+        DateTimeFormatter formatter = ISODateTimeFormat.date()
+                .withChronology(UTC_CHRONOLOGY);
+        return utf8Slice(formatter.print(DAYS.toMillis(date)));
+    }
+
+    @ScalarFunction("from_iso8601_timestamp")
+    @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
+    public static long fromISO8601Timestamp(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice iso8601DateTime)
+    {
+        DateTimeFormatter formatter = ISODateTimeFormat.dateTimeParser()
+                .withChronology(getChronology(session.getTimeZoneKey()))
+                .withOffsetParsed();
+        return packDateTimeWithZone(formatter.parseDateTime(iso8601DateTime.toStringUtf8()));
+    }
+
+    @ScalarFunction("from_iso8601_date")
+    @SqlType(StandardTypes.DATE)
+    public static long fromISO8601Date(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice iso8601DateTime)
+    {
+        DateTimeFormatter formatter = ISODateTimeFormat.dateElementParser()
+                .withChronology(UTC_CHRONOLOGY);
+        DateTime dateTime = formatter.parseDateTime(iso8601DateTime.toStringUtf8());
+        return MILLISECONDS.toDays(dateTime.getMillis());
     }
 
     @ScalarFunction("at_timezone")
@@ -412,7 +463,7 @@ public final class DateTimeFunctions
                 .withLocale(session.getLocale());
 
         String datetimeString = datetime.toString(UTF_8);
-        return DateTimeZoneIndex.packDateTimeWithZone(parseDateTimeHelper(formatter, datetimeString));
+        return packDateTimeWithZone(parseDateTimeHelper(formatter, datetimeString));
     }
 
     private static DateTime parseDateTimeHelper(DateTimeFormatter formatter, String datetimeString)
