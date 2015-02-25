@@ -17,3 +17,4 @@ Hive Changes
   This feature is enabled by default. To disable it, set
   ``hive.s3.use-instance-credentials=false`` in your Hive catalog properties file.
 * Treat ORC files as splittable.
+* Lower the Hive metadata refresh interval from two minutes to one second.

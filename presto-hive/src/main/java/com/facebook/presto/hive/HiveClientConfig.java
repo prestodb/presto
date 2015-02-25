@@ -55,7 +55,7 @@ public class HiveClientConfig
     private boolean allowCorruptWritesForTesting;
 
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
-    private Duration metastoreRefreshInterval = new Duration(2, TimeUnit.MINUTES);
+    private Duration metastoreRefreshInterval = new Duration(1, TimeUnit.SECONDS);
     private int maxMetastoreRefreshThreads = 100;
     private HostAndPort metastoreSocksProxy;
     private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);

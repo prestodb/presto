@@ -47,7 +47,7 @@ public class TestHiveClientConfig
                 .setAllowRenameTable(false)
                 .setAllowCorruptWritesForTesting(false)
                 .setMetastoreCacheTtl(new Duration(1, TimeUnit.HOURS))
-                .setMetastoreRefreshInterval(new Duration(2, TimeUnit.MINUTES))
+                .setMetastoreRefreshInterval(new Duration(1, TimeUnit.SECONDS))
                 .setMaxMetastoreRefreshThreads(100)
                 .setMetastoreSocksProxy(null)
                 .setMetastoreTimeout(new Duration(10, TimeUnit.SECONDS))
