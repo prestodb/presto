@@ -24,7 +24,7 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -142,7 +142,7 @@ class AstBuilder
     @Override
     public Node visitCreateTableAsSelect(@NotNull SqlBaseParser.CreateTableAsSelectContext context)
     {
-        return new CreateTable(getQualifiedName(context.qualifiedName()), (Query) visit(context.query()));
+        return new CreateTableAsSelect(getQualifiedName(context.qualifiedName()), (Query) visit(context.query()));
     }
 
     @Override

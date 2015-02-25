@@ -18,13 +18,13 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class CreateTable
+public class CreateTableAsSelect
         extends Statement
 {
     private final QualifiedName name;
     private final Query query;
 
-    public CreateTable(QualifiedName name, Query query)
+    public CreateTableAsSelect(QualifiedName name, Query query)
     {
         this.name = checkNotNull(name, "name is null");
         this.query = checkNotNull(query, "query is null");
@@ -43,7 +43,7 @@ public class CreateTable
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitCreateTable(this, context);
+        return visitor.visitCreateTableAsSelect(this, context);
     }
 
     @Override
@@ -61,7 +61,7 @@ public class CreateTable
         if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
-        CreateTable o = (CreateTable) obj;
+        CreateTableAsSelect o = (CreateTableAsSelect) obj;
         return Objects.equals(name, o.name)
                 && Objects.equals(query, o.query);
     }

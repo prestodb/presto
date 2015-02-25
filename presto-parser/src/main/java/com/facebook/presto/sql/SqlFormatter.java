@@ -16,7 +16,7 @@ package com.facebook.presto.sql;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AstVisitor;
-import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -571,7 +571,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitCreateTable(CreateTable node, Integer indent)
+        protected Void visitCreateTableAsSelect(CreateTableAsSelect node, Integer indent)
         {
             builder.append("CREATE TABLE ")
                     .append(node.getName())
