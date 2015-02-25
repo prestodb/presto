@@ -105,6 +105,17 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testCreateTable()
+            throws Exception
+    {
+        String tableName = "test_create_table";
+        assertQueryTrue("CREATE TABLE " + tableName
+                        + " (a BOOLEAN, b BIGINT, c DOUBLE, d VARCHAR, e VARBINARY, f TIMESTAMP)");
+
+        assertTrue(queryRunner.tableExists(getSession(), tableName));
+    }
+
+    @Test
     public void testCreateTableAsSelect()
             throws Exception
     {

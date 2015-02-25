@@ -54,6 +54,7 @@ import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
+import com.facebook.presto.sql.tree.TableElement;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
@@ -518,6 +519,24 @@ public final class ExpressionFormatter
     static String formatStringLiteral(String s)
     {
         return "'" + s.replace("'", "''") + "'";
+    }
+
+    static String formatTableElements(List<TableElement> tableElements)
+    {
+        return Joiner.on(", ").join(tableElements.stream()
+                .map(tableElementFormatterFunction())
+                .iterator());
+    }
+
+    private static Function<TableElement, String> tableElementFormatterFunction()
+    {
+        return input -> {
+            StringBuilder builder = new StringBuilder();
+            builder.append(input.getName());
+            builder.append("  ");
+            builder.append(input.getType());
+            return builder.toString();
+        };
     }
 
     static String formatSortItems(List<SortItem> sortItems)

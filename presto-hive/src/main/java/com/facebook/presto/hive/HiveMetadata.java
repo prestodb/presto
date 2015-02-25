@@ -84,6 +84,7 @@ public class HiveMetadata
 
     private final String connectorId;
     private final boolean allowDropTable;
+    private final boolean allowCreateTable;
     private final boolean allowRenameTable;
     private final boolean allowCorruptWritesForTesting;
     private final HiveMetastore metastore;
@@ -108,6 +109,7 @@ public class HiveMetadata
                 DateTimeZone.forTimeZone(hiveClientConfig.getTimeZone()),
                 hiveClientConfig.getAllowDropTable(),
                 hiveClientConfig.getAllowRenameTable(),
+                hiveClientConfig.getAllowCreateTable(),
                 hiveClientConfig.getAllowCorruptWritesForTesting(),
                 hiveClientConfig.getHiveStorageFormat(),
                 typeManager);
@@ -120,6 +122,7 @@ public class HiveMetadata
             DateTimeZone timeZone,
             boolean allowDropTable,
             boolean allowRenameTable,
+            boolean allowCreateTable,
             boolean allowCorruptWritesForTesting,
             HiveStorageFormat hiveStorageFormat,
             TypeManager typeManager)
@@ -128,6 +131,7 @@ public class HiveMetadata
 
         this.allowDropTable = allowDropTable;
         this.allowRenameTable = allowRenameTable;
+        this.allowCreateTable = allowCreateTable;
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
 
         this.metastore = checkNotNull(metastore, "metastore is null");
@@ -299,7 +303,83 @@ public class HiveMetadata
     @Override
     public ConnectorTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        throw new UnsupportedOperationException();
+        if (!allowCreateTable) {
+            throw new PrestoException(PERMISSION_DENIED, "Creating tables is disabled in this Hive catalog");
+        }
+
+        checkArgument(!isNullOrEmpty(tableMetadata.getOwner()), "Table owner is null or empty");
+
+        String schemaName = tableMetadata.getTable().getSchemaName();
+        String tableName = tableMetadata.getTable().getTableName();
+
+        ImmutableList.Builder<String> columnNames = ImmutableList.builder();
+        ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
+        for (ColumnMetadata column : tableMetadata.getColumns()) {
+            columnNames.add(column.getName());
+            columnTypes.add(column.getType());
+        }
+        List<String> types = FluentIterable.from(columnTypes.build())
+                .transform(HiveType::toHiveType)
+                .transform(HiveType::getHiveTypeName)
+                .toList();
+
+        List<String> names = columnNames.build();
+
+        ImmutableList.Builder<FieldSchema> partitionKeys = ImmutableList.builder();
+        ImmutableList.Builder<FieldSchema> columns = ImmutableList.builder();
+        for (int i = 0; i < names.size(); i++) {
+            if (tableMetadata.getColumns().get(i).isPartitionKey()) {
+                partitionKeys.add(new FieldSchema(names.get(i), types.get(i), null));
+            }
+            else {
+                columns.add(new FieldSchema(names.get(i), types.get(i), null));
+            }
+        }
+
+        SerDeInfo serdeInfo = new SerDeInfo();
+        serdeInfo.setName(tableName);
+        serdeInfo.setSerializationLib(this.hiveStorageFormat.getSerDe());
+
+        StorageDescriptor sd = new StorageDescriptor();
+        String location = getDatabase(schemaName).getLocationUri();
+        if (isNullOrEmpty(location)) {
+            throw new RuntimeException(format("Database '%s' location is not set", schemaName));
+        }
+
+        Path databasePath = new Path(location);
+        if (!pathExists(databasePath)) {
+            throw new RuntimeException(format("Database '%s' location does not exist: %s", schemaName, databasePath));
+        }
+        if (!isDirectory(databasePath)) {
+            throw new RuntimeException(format("Database '%s' location is not a directory: %s", schemaName, databasePath));
+        }
+
+        Path targetPath = new Path(databasePath, tableName);
+        if (pathExists(targetPath)) {
+            throw new RuntimeException(format("Target directory for table '%s' already exists: %s", tableMetadata.getTable(), targetPath));
+        }
+        sd.setLocation(targetPath.toString());
+
+        sd.setCols(columns.build());
+        sd.setSerdeInfo(serdeInfo);
+        sd.setInputFormat(this.hiveStorageFormat.getInputFormat());
+        sd.setOutputFormat(this.hiveStorageFormat.getOutputFormat());
+
+        Table table = new Table();
+        table.setDbName(schemaName);
+        table.setTableName(tableName);
+        table.setOwner(tableMetadata.getOwner());
+        table.setTableType(TableType.MANAGED_TABLE.toString());
+        String tableComment = "Created by Presto";
+        if (tableMetadata.isSampled()) {
+            tableComment = "Sampled table created by Presto. Only query this table from Hive if you understand how Presto implements sampling.";
+        }
+        table.setParameters(ImmutableMap.of("comment", tableComment));
+        table.setPartitionKeys(partitionKeys.build());
+        table.setSd(sd);
+
+        metastore.createTable(table);
+        return new HiveTableHandle(connectorId, schemaName, tableName, session);
     }
 
     @Override

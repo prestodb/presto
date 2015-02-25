@@ -17,6 +17,7 @@ import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -68,6 +69,7 @@ import java.util.List;
 import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.ExpressionFormatter.formatSortItems;
 import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
+import static com.facebook.presto.sql.ExpressionFormatter.formatTableElements;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
@@ -579,6 +581,21 @@ public final class SqlFormatter
 
             process(node.getQuery(), indent);
 
+            return null;
+        }
+
+        @Override
+        protected Void visitCreateTable(CreateTable node, Integer indent)
+        {
+            builder.append("CREATE TABLE ")
+                    .append(node.getTable())
+                    .append(" ( ");
+
+            if (!node.getTableElement().isEmpty()) {
+                builder.append(formatTableElements(node.getTableElement()));
+            }
+
+            builder.append(" ) ");
             return null;
         }
 

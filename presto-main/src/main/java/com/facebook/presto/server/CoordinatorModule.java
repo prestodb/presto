@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.CreateTableTask;
 import com.facebook.presto.execution.CreateViewTask;
 import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.execution.DropTableTask;
@@ -37,6 +38,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -139,6 +141,7 @@ public class CoordinatorModule
         bindDataDefinitionTask(binder, executionBinder, RenameTable.class, RenameTableTask.class);
         bindDataDefinitionTask(binder, executionBinder, DropTable.class, DropTableTask.class);
         bindDataDefinitionTask(binder, executionBinder, CreateView.class, CreateViewTask.class);
+        bindDataDefinitionTask(binder, executionBinder, CreateTable.class, CreateTableTask.class);
         bindDataDefinitionTask(binder, executionBinder, DropView.class, DropViewTask.class);
         bindDataDefinitionTask(binder, executionBinder, SetSession.class, SetSessionTask.class);
         bindDataDefinitionTask(binder, executionBinder, ResetSession.class, ResetSessionTask.class);
