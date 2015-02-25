@@ -45,6 +45,7 @@ import parquet.io.api.PrimitiveConverter;
 import parquet.io.api.RecordMaterializer;
 import parquet.schema.GroupType;
 import parquet.schema.MessageType;
+import parquet.schema.OriginalType;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -397,21 +398,24 @@ class ParquetHiveRecordCursor
                     }
                     else {
                         GroupType groupType = parquetType.asGroupType();
-                        switch (groupType.getOriginalType()) {
-                            case LIST:
-                                ParquetJsonColumnConverter listConverter = new ParquetJsonColumnConverter(new ParquetListJsonConverter(groupType.getName(), null, groupType), i);
-                                converters.add(listConverter);
-                                closeableBuilder.add(listConverter);
-                                break;
-                            case MAP:
-                            case MAP_KEY_VALUE: // original versions of Parquet have map and entry swapped
-                                ParquetJsonColumnConverter mapConverter = new ParquetJsonColumnConverter(new ParquetMapJsonConverter(groupType.getName(), null, groupType), i);
-                                converters.add(mapConverter);
-                                closeableBuilder.add(mapConverter);
-                                break;
-                            case UTF8:
-                            case ENUM:
-                                throw new IllegalArgumentException("Group column " + groupType.getName() + " type " + groupType.getOriginalType() + " not supported");
+                        OriginalType originalType = groupType.getOriginalType();
+                        if (originalType == null) { // struct does not have an original type
+                            ParquetJsonColumnConverter structConverter = new ParquetJsonColumnConverter(new ParquetStructJsonConverter(groupType.getName(), null, groupType), i);
+                            converters.add(structConverter);
+                            closeableBuilder.add(structConverter);
+                        }
+                        else if (originalType == LIST) {
+                            ParquetJsonColumnConverter listConverter = new ParquetJsonColumnConverter(new ParquetListJsonConverter(groupType.getName(), null, groupType), i);
+                            converters.add(listConverter);
+                            closeableBuilder.add(listConverter);
+                        }
+                        else if (originalType == MAP || originalType == MAP_KEY_VALUE) { // original versions of Parquet have map and entry swapped
+                            ParquetJsonColumnConverter mapConverter = new ParquetJsonColumnConverter(new ParquetMapJsonConverter(groupType.getName(), null, groupType), i);
+                            converters.add(mapConverter);
+                            closeableBuilder.add(mapConverter);
+                        }
+                        else {
+                            throw new IllegalArgumentException("Group column " + groupType.getName() + " type " + originalType + " not supported");
                         }
                     }
                 }
