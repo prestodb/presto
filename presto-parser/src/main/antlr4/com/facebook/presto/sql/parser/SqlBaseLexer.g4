@@ -22,6 +22,7 @@ PASS_KW: 'PASS' -> pushMode(INSIDE) ;
 PASS: PASS_KW WITHIN_PASS -> mode(DEFAULT_MODE);
 LPAREN: '(';
 RPAREN: ')';
+TEMP: 'TEMP';
 COMMA: ',';
 DOT: '.';
 LBRACKET: '[';
