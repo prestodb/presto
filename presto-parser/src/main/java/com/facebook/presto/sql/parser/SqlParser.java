@@ -16,21 +16,14 @@ package com.facebook.presto.sql.parser;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Statement;
-import org.antlr.v4.runtime.ANTLRInputStream;
-import org.antlr.v4.runtime.BaseErrorListener;
-import org.antlr.v4.runtime.CommonToken;
-import org.antlr.v4.runtime.CommonTokenStream;
-import org.antlr.v4.runtime.ParserRuleContext;
-import org.antlr.v4.runtime.RecognitionException;
-import org.antlr.v4.runtime.Recognizer;
-import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.misc.NotNull;
-import org.antlr.v4.runtime.misc.Pair;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
+import org.antlr.v4.runtime.misc.Tuple2;
 
 import javax.inject.Inject;
-
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.function.Function;
 
@@ -38,11 +31,18 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SqlParser
 {
-    private static final BaseErrorListener ERROR_LISTENER = new BaseErrorListener()
+    private static final ProxyErrorListener<Integer> LEXER_ERROR_LISTENER = new ProxyErrorListener<Integer>(Collections.emptyList())
     {
         @Override
-        public void syntaxError(@NotNull Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, @NotNull String message, RecognitionException e)
-        {
+        public <T extends Integer> void syntaxError(@NotNull Recognizer<T, ?> recognizer, T offendingSymbol, int line, int charPositionInLine, @NotNull String msg, RecognitionException e) {
+            throw new ParsingException(msg, e, line, charPositionInLine);
+        }
+    };
+
+    private static final BaseErrorListener TOKEN_ERROR_LISTENER = new BaseErrorListener()
+    {
+        @Override
+        public <T extends Token> void syntaxError(@NotNull Recognizer<T, ?> recognizer, T offendingSymbol, int line, int charPositionInLine, @NotNull String message, RecognitionException e) {
             throw new ParsingException(message, e, line, charPositionInLine);
         }
     };
@@ -81,10 +81,10 @@ public class SqlParser
             parser.addParseListener(new PostProcessor());
 
             lexer.removeErrorListeners();
-            lexer.addErrorListener(ERROR_LISTENER);
+            lexer.addErrorListener(LEXER_ERROR_LISTENER);
 
             parser.removeErrorListeners();
-            parser.addErrorListener(ERROR_LISTENER);
+            parser.addErrorListener(TOKEN_ERROR_LISTENER);
 
             ParserRuleContext tree;
             try {
@@ -109,7 +109,7 @@ public class SqlParser
     }
 
     private class PostProcessor
-            extends SqlBaseBaseListener
+            extends SqlBaseParserBaseListener
     {
         @Override
         public void exitUnquotedIdentifier(@NotNull SqlBaseParser.UnquotedIdentifierContext context)
@@ -145,6 +145,8 @@ public class SqlParser
                     token.getCharPositionInLine());
         }
 
+
+
         @Override
         public void exitQuotedIdentifier(@NotNull SqlBaseParser.QuotedIdentifierContext context)
         {
@@ -153,7 +155,7 @@ public class SqlParser
 
             Token token = (Token) context.getChild(0).getPayload();
             context.getParent().addChild(new CommonToken(
-                    new Pair<>(token.getTokenSource(), token.getInputStream()),
+                    new Tuple2<>(token.getTokenSource(), token.getInputStream()),
                     SqlBaseLexer.IDENTIFIER,
                     token.getChannel(),
                     token.getStartIndex() + 1,
@@ -168,7 +170,7 @@ public class SqlParser
 
             Token token = (Token) context.getChild(0).getPayload();
             context.getParent().addChild(new CommonToken(
-                    new Pair<>(token.getTokenSource(), token.getInputStream()),
+                    new Tuple2<>(token.getTokenSource(), token.getInputStream()),
                     SqlBaseLexer.IDENTIFIER,
                     token.getChannel(),
                     token.getStartIndex(),

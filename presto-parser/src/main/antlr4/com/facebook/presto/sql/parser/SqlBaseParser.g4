@@ -12,11 +12,8 @@
  * limitations under the License.
  */
 
-grammar SqlBase;
-
-tokens {
-    DELIMITER
-}
+parser grammar SqlBaseParser;
+options { tokenVocab=SqlBaseLexer; }
 
 singleStatement
     : statement EOF
@@ -29,14 +26,14 @@ singleExpression
 statement
     : query                                                            #statementDefault
     | USE schema=identifier                                            #use
-    | USE catalog=identifier '.' schema=identifier                     #use
+    | USE catalog=identifier  schema=identifier                        #use
     | CREATE TABLE qualifiedName AS query                              #createTableAsSelect
     | DROP TABLE qualifiedName                                         #dropTable
     | INSERT INTO qualifiedName query                                  #insertInto
     | ALTER TABLE from=qualifiedName RENAME TO to=qualifiedName        #renameTable
     | CREATE (OR REPLACE)? VIEW qualifiedName AS query                 #createView
     | DROP VIEW qualifiedName                                          #dropView
-    | EXPLAIN ('(' explainOption (',' explainOption)* ')')? statement  #explain
+    | EXPLAIN (LPAREN explainOption (COMMA explainOption)* RPAREN)? statement  #explain
     | SHOW TABLES ((FROM | IN) qualifiedName)? (LIKE pattern=STRING)?  #showTables
     | SHOW SCHEMAS ((FROM | IN) identifier)?                           #showSchemas
     | SHOW CATALOGS                                                    #showCatalogs
@@ -49,7 +46,7 @@ statement
     | RESET SESSION qualifiedName                                      #resetSession
     | SHOW PARTITIONS (FROM | IN) qualifiedName
         (WHERE booleanExpression)?
-        (ORDER BY sortItem (',' sortItem)*)?
+        (ORDER BY sortItem (COMMA sortItem)*)?
         (LIMIT limit=INTEGER_VALUE)?                                   #showPartitions
     ;
 
@@ -58,12 +55,12 @@ query
     ;
 
 with
-    : WITH RECURSIVE? namedQuery (',' namedQuery)*
+    : WITH RECURSIVE? namedQuery (COMMA namedQuery)*
     ;
 
 queryNoWith:
       queryTerm
-      (ORDER BY sortItem (',' sortItem)*)?
+      (ORDER BY sortItem (COMMA sortItem)*)?
       (LIMIT limit=INTEGER_VALUE)?
       (APPROXIMATE AT confidence=number CONFIDENCE)?
     ;
@@ -77,8 +74,8 @@ queryTerm
 queryPrimary
     : querySpecification                   #queryPrimaryDefault
     | TABLE qualifiedName                  #table
-    | VALUES expression (',' expression)*  #inlineTable
-    | '(' queryNoWith  ')'                 #subquery
+    | VALUES expression (COMMA expression)*  #inlineTable
+    | LPAREN queryNoWith  RPAREN                 #subquery
     ;
 
 sortItem
@@ -86,15 +83,15 @@ sortItem
     ;
 
 querySpecification
-    : SELECT setQuantifier? selectItem (',' selectItem)*
-      (FROM relation (',' relation)*)?
+    : SELECT setQuantifier? selectItem (COMMA selectItem)*
+      (FROM relation (COMMA relation)*)?
       (WHERE where=booleanExpression)?
-      (GROUP BY groupBy+=expression (',' groupBy+=expression)*)?
+      (GROUP BY groupBy+=expression (COMMA groupBy+=expression)*)?
       (HAVING having=booleanExpression)?
     ;
 
 namedQuery
-    : name=identifier (columnAliases)? AS '(' query ')'
+    : name=identifier (columnAliases)? AS LPAREN query RPAREN
     ;
 
 setQuantifier
@@ -104,7 +101,7 @@ setQuantifier
 
 selectItem
     : expression (AS? identifier)?  #selectSingle
-    | qualifiedName '.' ASTERISK    #selectAll
+    | qualifiedName DOT ASTERISK    #selectAll
     | ASTERISK                      #selectAll
     ;
 
@@ -126,14 +123,14 @@ joinType
 
 joinCriteria
     : ON booleanExpression
-    | USING '(' identifier (',' identifier)* ')'
+    | USING LPAREN identifier (COMMA identifier)* RPAREN
     ;
 
 sampledRelation
     : aliasedRelation (
-        TABLESAMPLE sampleType '(' percentage=expression ')'
+        TABLESAMPLE sampleType LPAREN percentage=expression RPAREN
         RESCALED?
-        (STRATIFY ON '(' stratify+=expression (',' stratify+=expression)* ')')?
+        (STRATIFY ON LPAREN stratify+=expression (COMMA stratify+=expression)* RPAREN)?
       )?
     ;
 
@@ -148,14 +145,14 @@ aliasedRelation
     ;
 
 columnAliases
-    : '(' identifier (',' identifier)* ')'
+    : LPAREN identifier (COMMA identifier)* RPAREN
     ;
 
 relationPrimary
     : qualifiedName                                #tableName
-    | '(' query ')'                                #subqueryRelation
-    | UNNEST '(' expression (',' expression)* ')'  #unnest
-    | '(' relation ')'                             #parenthesizedRelation
+    | LPAREN query RPAREN                                #subqueryRelation
+    | UNNEST LPAREN expression (COMMA expression)* RPAREN  #unnest
+    | LPAREN relation RPAREN                             #parenthesizedRelation
     ;
 
 expression
@@ -167,7 +164,7 @@ booleanExpression
     | NOT booleanExpression                                        #logicalNot
     | left=booleanExpression operator=AND right=booleanExpression  #logicalBinary
     | left=booleanExpression operator=OR right=booleanExpression   #logicalBinary
-    | EXISTS '(' query ')'                                         #exists
+    | EXISTS LPAREN query RPAREN                                         #exists
     ;
 
 // workaround for:
@@ -180,8 +177,8 @@ predicated
 predicate[ParserRuleContext value]
     : comparisonOperator right=valueExpression                            #comparison
     | NOT? BETWEEN lower=valueExpression AND upper=valueExpression        #between
-    | NOT? IN '(' expression (',' expression)* ')'                        #inList
-    | NOT? IN '(' query ')'                                               #inSubquery
+    | NOT? IN LPAREN expression (COMMA expression)* RPAREN                        #inList
+    | NOT? IN LPAREN query RPAREN                                               #inSubquery
     | NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)?  #like
     | IS NOT? NULL                                                        #nullPredicate
     | IS NOT? DISTINCT FROM right=valueExpression                         #distinctFrom
@@ -203,26 +200,27 @@ primaryExpression
     | number                                                                         #numericLiteral
     | booleanValue                                                                   #booleanLiteral
     | STRING                                                                         #stringLiteral
-    | '(' expression (',' expression)+ ')'                                           #rowConstructor
-    | ROW '(' expression (',' expression)* ')'                                       #rowConstructor
+    | LPAREN expression (COMMA expression)+ RPAREN                                           #rowConstructor
+    | ROW LPAREN expression (COMMA expression)* RPAREN                                       #rowConstructor
     | qualifiedName                                                                  #columnReference
-    | qualifiedName '(' ASTERISK ')' over?                                           #functionCall
-    | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' over?     #functionCall
-    | '(' query ')'                                                                  #subqueryExpression
+    | qualifiedName LPAREN ASTERISK RPAREN over?                                           #functionCall
+    | qualifiedName LPAREN (setQuantifier? expression (COMMA expression)*)? RPAREN over?     #functionCall
+    | LPAREN query RPAREN                                                                  #subqueryExpression
     | CASE valueExpression whenClause+ (ELSE elseExpression=expression)? END         #simpleCase
     | CASE whenClause+ (ELSE elseExpression=expression)? END                         #searchedCase
-    | CAST '(' expression AS type ')'                                                #cast
-    | TRY_CAST '(' expression AS type ')'                                            #cast
-    | ARRAY '[' (expression (',' expression)*)? ']'                                  #arrayConstructor
-    | value=primaryExpression '[' index=valueExpression ']'                          #subscript
+    | CAST LPAREN expression AS type RPAREN                                                #cast
+    | PASS                                                         #passExpression
+    | TRY_CAST LPAREN expression AS type RPAREN                                            #cast
+    | ARRAY LBRACKET (expression (COMMA expression)*)? RBRACKET                                  #arrayConstructor
+    | value=primaryExpression LBRACKET index=valueExpression RBRACKET                          #subscript
     | name=CURRENT_DATE                                                              #specialDateTimeFunction
-    | name=CURRENT_TIME ('(' precision=INTEGER_VALUE ')')?                           #specialDateTimeFunction
-    | name=CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')?                      #specialDateTimeFunction
-    | name=LOCALTIME ('(' precision=INTEGER_VALUE ')')?                              #specialDateTimeFunction
-    | name=LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')?                         #specialDateTimeFunction
-    | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'  #substring
-    | EXTRACT '(' identifier FROM valueExpression ')'                                #extract
-    | '(' expression ')'                                                             #parenthesizedExpression
+    | name=CURRENT_TIME (LPAREN precision=INTEGER_VALUE RPAREN)?                           #specialDateTimeFunction
+    | name=CURRENT_TIMESTAMP (LPAREN precision=INTEGER_VALUE RPAREN)?                      #specialDateTimeFunction
+    | name=LOCALTIME (LPAREN precision=INTEGER_VALUE RPAREN)?                              #specialDateTimeFunction
+    | name=LOCALTIMESTAMP (LPAREN precision=INTEGER_VALUE RPAREN)?                         #specialDateTimeFunction
+    | SUBSTRING LPAREN valueExpression FROM valueExpression (FOR valueExpression)? RPAREN  #substring
+    | EXTRACT LPAREN identifier FROM valueExpression RPAREN                                #extract
+    | LPAREN expression RPAREN                                                             #parenthesizedExpression
     ;
 
 timeZoneSpecifier
@@ -248,8 +246,8 @@ intervalField
 
 type
     : type ARRAY
-    | ARRAY '<' type '>'
-    | MAP '<' type ',' type '>'
+    | ARRAY LT type GT
+    | MAP LT type COMMA type GT
     | simpleType
     ;
 
@@ -264,11 +262,11 @@ whenClause
     ;
 
 over
-    : OVER '('
-        (PARTITION BY partition+=expression (',' partition+=expression)*)?
-        (ORDER BY sortItem (',' sortItem)*)?
+    : OVER LPAREN
+        (PARTITION BY partition+=expression (COMMA partition+=expression)*)?
+        (ORDER BY sortItem (COMMA sortItem)*)?
         windowFrame?
-      ')'
+      RPAREN
     ;
 
 windowFrame
@@ -292,7 +290,7 @@ explainOption
     ;
 
 qualifiedName
-    : identifier ('.' identifier)*
+    : identifier (DOT identifier)*
     ;
 
 identifier
@@ -301,6 +299,7 @@ identifier
     | nonReserved            #unquotedIdentifier
     | BACKQUOTED_IDENTIFIER  #backQuotedIdentifier
     | DIGIT_IDENTIFIER       #digitIdentifier
+    | DIMENSION_IDENTIFIER   #dimensionIdentifier
     ;
 
 quotedIdentifier
@@ -323,217 +322,4 @@ nonReserved
     | SET | RESET
     | VIEW | REPLACE
     | IF | NULLIF | COALESCE
-    ;
-
-SELECT: 'SELECT';
-FROM: 'FROM';
-AS: 'AS';
-ALL: 'ALL';
-SOME: 'SOME';
-ANY: 'ANY';
-DISTINCT: 'DISTINCT';
-WHERE: 'WHERE';
-GROUP: 'GROUP';
-BY: 'BY';
-ORDER: 'ORDER';
-HAVING: 'HAVING';
-LIMIT: 'LIMIT';
-APPROXIMATE: 'APPROXIMATE';
-AT: 'AT';
-CONFIDENCE: 'CONFIDENCE';
-OR: 'OR';
-AND: 'AND';
-IN: 'IN';
-NOT: 'NOT';
-EXISTS: 'EXISTS';
-BETWEEN: 'BETWEEN';
-LIKE: 'LIKE';
-IS: 'IS';
-NULL: 'NULL';
-TRUE: 'TRUE';
-FALSE: 'FALSE';
-NULLS: 'NULLS';
-FIRST: 'FIRST';
-LAST: 'LAST';
-ESCAPE: 'ESCAPE';
-ASC: 'ASC';
-DESC: 'DESC';
-SUBSTRING: 'SUBSTRING';
-FOR: 'FOR';
-DATE: 'DATE';
-TIME: 'TIME';
-TIMESTAMP: 'TIMESTAMP';
-INTERVAL: 'INTERVAL';
-YEAR: 'YEAR';
-MONTH: 'MONTH';
-DAY: 'DAY';
-HOUR: 'HOUR';
-MINUTE: 'MINUTE';
-SECOND: 'SECOND';
-ZONE: 'ZONE';
-CURRENT_DATE: 'CURRENT_DATE';
-CURRENT_TIME: 'CURRENT_TIME';
-CURRENT_TIMESTAMP: 'CURRENT_TIMESTAMP';
-LOCALTIME: 'LOCALTIME';
-LOCALTIMESTAMP: 'LOCALTIMESTAMP';
-EXTRACT: 'EXTRACT';
-CASE: 'CASE';
-WHEN: 'WHEN';
-THEN: 'THEN';
-ELSE: 'ELSE';
-END: 'END';
-JOIN: 'JOIN';
-CROSS: 'CROSS';
-OUTER: 'OUTER';
-INNER: 'INNER';
-LEFT: 'LEFT';
-RIGHT: 'RIGHT';
-FULL: 'FULL';
-NATURAL: 'NATURAL';
-USING: 'USING';
-ON: 'ON';
-OVER: 'OVER';
-PARTITION: 'PARTITION';
-RANGE: 'RANGE';
-ROWS: 'ROWS';
-UNBOUNDED: 'UNBOUNDED';
-PRECEDING: 'PRECEDING';
-FOLLOWING: 'FOLLOWING';
-CURRENT: 'CURRENT';
-ROW: 'ROW';
-WITH: 'WITH';
-RECURSIVE: 'RECURSIVE';
-VALUES: 'VALUES';
-CREATE: 'CREATE';
-TABLE: 'TABLE';
-VIEW: 'VIEW';
-REPLACE: 'REPLACE';
-INSERT: 'INSERT';
-INTO: 'INTO';
-CONSTRAINT: 'CONSTRAINT';
-DESCRIBE: 'DESCRIBE';
-EXPLAIN: 'EXPLAIN';
-FORMAT: 'FORMAT';
-TYPE: 'TYPE';
-TEXT: 'TEXT';
-GRAPHVIZ: 'GRAPHVIZ';
-JSON: 'JSON';
-LOGICAL: 'LOGICAL';
-DISTRIBUTED: 'DISTRIBUTED';
-CAST: 'CAST';
-TRY_CAST: 'TRY_CAST';
-SHOW: 'SHOW';
-TABLES: 'TABLES';
-SCHEMAS: 'SCHEMAS';
-CATALOGS: 'CATALOGS';
-COLUMNS: 'COLUMNS';
-USE: 'USE';
-PARTITIONS: 'PARTITIONS';
-FUNCTIONS: 'FUNCTIONS';
-DROP: 'DROP';
-UNION: 'UNION';
-EXCEPT: 'EXCEPT';
-INTERSECT: 'INTERSECT';
-TO: 'TO';
-SYSTEM: 'SYSTEM';
-BERNOULLI: 'BERNOULLI';
-POISSONIZED: 'POISSONIZED';
-TABLESAMPLE: 'TABLESAMPLE';
-RESCALED: 'RESCALED';
-STRATIFY: 'STRATIFY';
-ALTER: 'ALTER';
-RENAME: 'RENAME';
-UNNEST: 'UNNEST';
-ARRAY: 'ARRAY';
-MAP: 'MAP';
-SET: 'SET';
-RESET: 'RESET';
-SESSION: 'SESSION';
-
-IF: 'IF';
-NULLIF: 'NULLIF';
-COALESCE: 'COALESCE';
-
-EQ  : '=';
-NEQ : '<>' | '!=';
-LT  : '<';
-LTE : '<=';
-GT  : '>';
-GTE : '>=';
-
-PLUS: '+';
-MINUS: '-';
-ASTERISK: '*';
-SLASH: '/';
-PERCENT: '%';
-CONCAT: '||';
-
-STRING
-    : '\'' ( ~'\'' | '\'\'' )* '\''
-    ;
-
-INTEGER_VALUE
-    : DIGIT+
-    ;
-
-DECIMAL_VALUE
-    : DIGIT+ '.' DIGIT*
-    | '.' DIGIT+
-    | DIGIT+ ('.' DIGIT*)? EXPONENT
-    | '.' DIGIT+ EXPONENT
-    ;
-
-IDENTIFIER
-    : (LETTER | '_') (LETTER | DIGIT | '_' | '@' | ':')*
-    ;
-
-DIGIT_IDENTIFIER
-    : DIGIT (LETTER | DIGIT | '_' | '@' | ':')+
-    ;
-
-QUOTED_IDENTIFIER
-    : '"' ( ~'"' | '""' )* '"'
-    ;
-
-BACKQUOTED_IDENTIFIER
-    : '`' ( ~'`' | '``' )* '`'
-    ;
-
-TIME_WITH_TIME_ZONE
-    : 'TIME' WS 'WITH' WS 'TIME' WS 'ZONE'
-    ;
-
-TIMESTAMP_WITH_TIME_ZONE
-    : 'TIMESTAMP' WS 'WITH' WS 'TIME' WS 'ZONE'
-    ;
-
-fragment EXPONENT
-    : 'E' [+-]? DIGIT+
-    ;
-
-fragment DIGIT
-    : [0-9]
-    ;
-
-fragment LETTER
-    : [A-Z]
-    ;
-
-SIMPLE_COMMENT
-    : '--' ~[\r\n]* '\r'? '\n'? -> channel(HIDDEN)
-    ;
-
-BRACKETED_COMMENT
-    : '/*' .*? '*/' -> channel(HIDDEN)
-    ;
-
-WS
-    : [ \r\n\t]+ -> channel(HIDDEN)
-    ;
-
-// Catch-all for anything we can't recognize.
-// We use this to be able to ignore and recover all the text
-// when splitting statements with DelimiterLexer
-UNRECOGNIZED
-    : .+?
     ;

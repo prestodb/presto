@@ -72,7 +72,7 @@ class DelimiterLexer
                     boolean found = false;
                     for (String terminator : delimiters) {
                         if (match(terminator)) {
-                            ttype = SqlBaseParser.DELIMITER;
+                            ttype = SqlBaseLexer.DELIMITER;
                             found = true;
                             break;
                         }

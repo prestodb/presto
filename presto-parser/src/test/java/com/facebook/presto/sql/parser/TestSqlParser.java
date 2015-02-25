@@ -13,71 +13,16 @@
  */
 package com.facebook.presto.sql.parser;
 
-import com.facebook.presto.sql.tree.AllColumns;
-import com.facebook.presto.sql.tree.Approximate;
-import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
-import com.facebook.presto.sql.tree.ArrayConstructor;
-import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.CreateTable;
-import com.facebook.presto.sql.tree.CreateView;
-import com.facebook.presto.sql.tree.CurrentTime;
-import com.facebook.presto.sql.tree.DoubleLiteral;
-import com.facebook.presto.sql.tree.DropTable;
-import com.facebook.presto.sql.tree.DropView;
-import com.facebook.presto.sql.tree.Explain;
-import com.facebook.presto.sql.tree.ExplainFormat;
-import com.facebook.presto.sql.tree.ExplainType;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.GenericLiteral;
-import com.facebook.presto.sql.tree.Insert;
-import com.facebook.presto.sql.tree.Intersect;
-import com.facebook.presto.sql.tree.IntervalLiteral;
+import com.facebook.presto.sql.tree.*;
 import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
 import com.facebook.presto.sql.tree.IntervalLiteral.Sign;
-import com.facebook.presto.sql.tree.Join;
-import com.facebook.presto.sql.tree.JoinCriteria;
-import com.facebook.presto.sql.tree.LogicalBinaryExpression;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.NegativeExpression;
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NotExpression;
-import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.sql.tree.Query;
-import com.facebook.presto.sql.tree.QuerySpecification;
-import com.facebook.presto.sql.tree.RenameTable;
-import com.facebook.presto.sql.tree.ResetSession;
-import com.facebook.presto.sql.tree.SetSession;
-import com.facebook.presto.sql.tree.ShowCatalogs;
-import com.facebook.presto.sql.tree.ShowPartitions;
-import com.facebook.presto.sql.tree.ShowSchemas;
-import com.facebook.presto.sql.tree.ShowSession;
-import com.facebook.presto.sql.tree.ShowTables;
-import com.facebook.presto.sql.tree.SortItem;
-import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.sql.tree.SubscriptExpression;
-import com.facebook.presto.sql.tree.Table;
-import com.facebook.presto.sql.tree.TimeLiteral;
-import com.facebook.presto.sql.tree.TimestampLiteral;
-import com.facebook.presto.sql.tree.Union;
-import com.facebook.presto.sql.tree.With;
-import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.sql.QueryUtil.query;
-import static com.facebook.presto.sql.QueryUtil.row;
-import static com.facebook.presto.sql.QueryUtil.selectList;
-import static com.facebook.presto.sql.QueryUtil.simpleQuery;
-import static com.facebook.presto.sql.QueryUtil.subquery;
-import static com.facebook.presto.sql.QueryUtil.table;
-import static com.facebook.presto.sql.QueryUtil.values;
+import static com.facebook.presto.sql.QueryUtil.*;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
@@ -103,15 +48,15 @@ public class TestSqlParser
     public void testYulin()
             throws Exception
     {
-        SQL_PARSER.createExpression("1+sum(@{[#abc #ab].asds})");
+        SQL_PARSER.createExpression("1+sum(@[#abc #ab].asds)");
         SQL_PARSER.createExpression("1+sum(@[#abc #ab].asds)");
         SQL_PARSER.createExpression("1+sum(@asds)");
-        SQL_PARSER.createExpression("@{m1}");
-        SQL_PARSER.createExpression("@{[QBKZ70D4M].[Revenue]}");
+        SQL_PARSER.createExpression("@m1");
+        SQL_PARSER.createExpression("@[QBKZ70D4M].[Revenue]");
         SQL_PARSER.createExpression("@First/Second");
-        SQL_PARSER.createExpression("@First\\Second");
+        SQL_PARSER.createExpression("@[First Second]");
         SQL_PARSER.createExpression("@First / @Second");
-        SQL_PARSER.createExpression("@First:Second");
+        SQL_PARSER.createExpression("@[First:Second]");
     }
 
     @Test
@@ -264,7 +209,8 @@ public class TestSqlParser
     public void testVeroPass()
             throws Exception
     {
-        assertExpression("pass(ñññññññ)", new StringLiteral("pass(sum(1 + sum(col1))=2"));
+        assertExpression("pass(1(1)(2(3)))", new PassExpression("1(1)(2(3))"));
+        assertExpression("pass(1(2(3+3)))", new PassExpression("1(2(3+3))"));
     }
 
     @Test
@@ -410,7 +356,6 @@ public class TestSqlParser
     {
         SQL_PARSER.createStatement("select * from foo where @what");
     }
-    */
 
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:15: no viable alternative at input\\E.*")
     public void testTokenizeErrorIncompleteToken()

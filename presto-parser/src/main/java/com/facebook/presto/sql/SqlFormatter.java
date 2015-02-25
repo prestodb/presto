@@ -13,51 +13,7 @@
  */
 package com.facebook.presto.sql;
 
-import com.facebook.presto.sql.tree.AliasedRelation;
-import com.facebook.presto.sql.tree.AllColumns;
-import com.facebook.presto.sql.tree.AstVisitor;
-import com.facebook.presto.sql.tree.CreateTable;
-import com.facebook.presto.sql.tree.CreateView;
-import com.facebook.presto.sql.tree.DropTable;
-import com.facebook.presto.sql.tree.DropView;
-import com.facebook.presto.sql.tree.Except;
-import com.facebook.presto.sql.tree.Explain;
-import com.facebook.presto.sql.tree.ExplainFormat;
-import com.facebook.presto.sql.tree.ExplainOption;
-import com.facebook.presto.sql.tree.ExplainType;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Insert;
-import com.facebook.presto.sql.tree.Intersect;
-import com.facebook.presto.sql.tree.Join;
-import com.facebook.presto.sql.tree.JoinCriteria;
-import com.facebook.presto.sql.tree.JoinOn;
-import com.facebook.presto.sql.tree.JoinUsing;
-import com.facebook.presto.sql.tree.NaturalJoin;
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.Query;
-import com.facebook.presto.sql.tree.QuerySpecification;
-import com.facebook.presto.sql.tree.Relation;
-import com.facebook.presto.sql.tree.RenameTable;
-import com.facebook.presto.sql.tree.ResetSession;
-import com.facebook.presto.sql.tree.SampledRelation;
-import com.facebook.presto.sql.tree.Select;
-import com.facebook.presto.sql.tree.SelectItem;
-import com.facebook.presto.sql.tree.SetSession;
-import com.facebook.presto.sql.tree.ShowCatalogs;
-import com.facebook.presto.sql.tree.ShowColumns;
-import com.facebook.presto.sql.tree.ShowFunctions;
-import com.facebook.presto.sql.tree.ShowPartitions;
-import com.facebook.presto.sql.tree.ShowSchemas;
-import com.facebook.presto.sql.tree.ShowSession;
-import com.facebook.presto.sql.tree.ShowTables;
-import com.facebook.presto.sql.tree.SingleColumn;
-import com.facebook.presto.sql.tree.Table;
-import com.facebook.presto.sql.tree.TableSubquery;
-import com.facebook.presto.sql.tree.Union;
-import com.facebook.presto.sql.tree.Unnest;
-import com.facebook.presto.sql.tree.Values;
-import com.facebook.presto.sql.tree.With;
-import com.facebook.presto.sql.tree.WithQuery;
+import com.facebook.presto.sql.tree.*;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 
@@ -65,9 +21,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
-import static com.facebook.presto.sql.ExpressionFormatter.formatSortItems;
-import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
+import static com.facebook.presto.sql.ExpressionFormatter.*;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
@@ -631,6 +585,14 @@ public class SqlFormatter
             builder.append("RESET SESSION ")
                     .append(node.getName());
 
+            return null;
+        }
+
+        @Override
+        protected Void visitPassExpression(PassExpression node, Integer context) {
+            builder.append("PASS(")
+                    .append(node.getValue())
+                    .append(")");
             return null;
         }
 

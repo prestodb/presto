@@ -48,8 +48,8 @@
         </dependency>
 
         <dependency>
-            <groupId>org.antlr</groupId>
-            <artifactId>antlr4-runtime</artifactId>
+            <groupId>com.tunnelvisionlabs</groupId>
+            <artifactId>antlr4</artifactId>
         </dependency>
 
         <dependency>
@@ -68,7 +68,7 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>org.antlr</groupId>
+                <groupId>com.tunnelvisionlabs</groupId>
                 <artifactId>antlr4-maven-plugin</artifactId>
             </plugin>
         </plugins>
