@@ -218,6 +218,13 @@ public class TestSqlParser
     }
 
     @Test
+    public void testVeroPass()
+            throws Exception
+    {
+        assertExpression("pass(ñññññññ)", new StringLiteral("pass(sum(1 + sum(col1))=2"));
+    }
+
+    @Test
     public void testNegativeSign()
     {
         Expression expression = new LongLiteral("9");

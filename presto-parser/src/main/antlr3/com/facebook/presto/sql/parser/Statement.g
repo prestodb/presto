@@ -142,6 +142,7 @@ tokens {
 }
 
 @lexer::members {
+    private int pcount = 0;
     private EnumSet<IdentifierSymbol> allowedIdentifierSymbols = EnumSet.noneOf(IdentifierSymbol.class);
 
     public void setAllowedIdentifierSymbols(EnumSet<IdentifierSymbol> allowedIdentifierSymbols)
@@ -403,7 +404,7 @@ booleanTest
     ;
 
 booleanPrimary
-    : predicate
+    : (pass | predicate)
     | EXISTS subquery -> ^(EXISTS subquery)
     ;
 
@@ -779,6 +780,10 @@ ident
     | nonReserved  -> IDENT[$nonReserved.text]
     ;
 
+pass
+    : PASS PASS_WITHIN ')'
+    ;
+
 DIM_IDENT
     :
     '@' '{'?
@@ -811,6 +816,19 @@ nonReserved
     | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | SET | RESET | JSON | TO
     | RESCALED | APPROXIMATE | AT | CONFIDENCE
     | VIEW | REPLACE
+    ;
+
+PASS
+    : 'pass(' { pcount++; }
+    ;
+PASS_WITHIN
+    : {pcount > 0}?=> (~'(' | ~')')
+    ;
+PASS_RPAREN
+    : {pcount > 0}?=> '(' { pcount++; }
+    ;
+PASS_LPAREN
+    : {pcount > 0}?=> ')' { pcount--; }
     ;
 
 SELECT: 'SELECT';
