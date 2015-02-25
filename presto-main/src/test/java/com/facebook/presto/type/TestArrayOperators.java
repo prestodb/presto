@@ -328,6 +328,22 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testArrayIntersect()
+            throws Exception
+    {
+        assertFunction("ARRAY_INTERSECT(ARRAY [12], ARRAY [10])", new ArrayType(BIGINT), ImmutableList.of());
+        assertFunction("ARRAY_INTERSECT(ARRAY ['foo', 'bar', 'baz'], ARRAY ['foo', 'test', 'bar'])", new ArrayType(VARCHAR), ImmutableList.of("bar", "foo"));
+        assertFunction("ARRAY_INTERSECT(ARRAY [NULL], ARRAY [NULL, NULL])", new ArrayType(UNKNOWN), asList((Object) null));
+        assertFunction("ARRAY_INTERSECT(ARRAY ['abc', NULL, 'xyz', NULL], ARRAY [NULL, 'abc', NULL, NULL])", new ArrayType(VARCHAR), asList(null, "abc"));
+        assertFunction("ARRAY_INTERSECT(ARRAY [1, 5], ARRAY [1])", new ArrayType(BIGINT), ImmutableList.of(1L));
+        assertFunction("ARRAY_INTERSECT(ARRAY [1, 1, 2, 4], ARRAY [1, 1, 4, 4])", new ArrayType(BIGINT), ImmutableList.of(1L, 4L));
+        assertFunction("ARRAY_INTERSECT(ARRAY [2, 8], ARRAY [8, 3])", new ArrayType(BIGINT), ImmutableList.of(8L));
+        assertFunction("ARRAY_INTERSECT(ARRAY [IF (RAND() < 1.0, 7, 1) , 2], ARRAY [7])", new ArrayType(BIGINT), ImmutableList.of(7L));
+        assertFunction("ARRAY_INTERSECT(ARRAY [8.3, 1.6, 4.1, 5.2], ARRAY [4.0, 5.2, 8.3, 9.7, 3.5])", new ArrayType(DOUBLE), ImmutableList.of(5.2, 8.3));
+        assertFunction("ARRAY_INTERSECT(ARRAY [5.1, 7, 3.0, 4.8, 10], ARRAY [6.5, 10.0, 1.9, 5.1, 3.9, 4.8])", new ArrayType(DOUBLE), ImmutableList.of(4.8, 5.1, 10.0));
+    }
+
+    @Test
     public void testComparison()
             throws Exception
     {
