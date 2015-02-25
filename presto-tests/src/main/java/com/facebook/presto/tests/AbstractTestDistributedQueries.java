@@ -319,6 +319,15 @@ public abstract class AbstractTestDistributedQueries
         assertTrue(all.getMaterializedRows().containsAll(sample.getMaterializedRows()));
     }
 
+    @Test
+    public void testSymbolAliasing()
+            throws Exception
+    {
+        assertQueryTrue("CREATE TABLE test_symbol_aliasing AS SELECT 1 foo_1, 2 foo_2_4");
+        assertQuery("SELECT foo_1, foo_2_4 FROM test_symbol_aliasing", "SELECT 1, 2");
+        assertQueryTrue("DROP TABLE test_symbol_aliasing");
+    }
+
     private static void assertContains(MaterializedResult actual, MaterializedResult expected)
     {
         for (MaterializedRow row : expected.getMaterializedRows()) {
