@@ -3489,6 +3489,12 @@ public abstract class AbstractTestQueries
         computeActual("SELECT 1 <> 'x'");
     }
 
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\QUnknown type: ARRAY<FOO>\\E")
+    public void testInvalidType()
+    {
+        computeActual("select cast(null as array<foo>)");
+    }
+
     @Test
     public void testTimeLiterals()
             throws Exception

@@ -122,7 +122,11 @@ public final class TypeRegistry
     {
         ImmutableList.Builder<Type> parameterTypes = ImmutableList.builder();
         for (TypeSignature parameter : signature.getParameters()) {
-            parameterTypes.add(getType(parameter));
+            Type parameterType = getType(parameter);
+            if (parameterType == null) {
+                return null;
+            }
+            parameterTypes.add(parameterType);
         }
 
         ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
