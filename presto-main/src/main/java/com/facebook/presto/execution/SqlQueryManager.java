@@ -16,12 +16,10 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
-import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
-import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.AsyncSemaphore;
@@ -64,6 +62,7 @@ import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -192,8 +191,8 @@ public class SqlQueryManager
     public Duration waitForStateChange(QueryId queryId, QueryState currentState, Duration maxWait)
             throws InterruptedException
     {
-        Preconditions.checkNotNull(queryId, "queryId is null");
-        Preconditions.checkNotNull(maxWait, "maxWait is null");
+        checkNotNull(queryId, "queryId is null");
+        checkNotNull(maxWait, "maxWait is null");
 
         QueryExecution query = queries.get(queryId);
         if (query == null) {
@@ -222,7 +221,7 @@ public class SqlQueryManager
     public QueryInfo createQuery(Session session, String query)
     {
         checkNotNull(query, "query is null");
-        Preconditions.checkArgument(!query.isEmpty(), "query must not be empty string");
+        checkArgument(!query.isEmpty(), "query must not be empty string");
 
         QueryId queryId = queryIdGenerator.createNextQueryId();
 
@@ -235,22 +234,17 @@ public class SqlQueryManager
         }
 
         QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(statement.getClass());
-        Preconditions.checkState(queryExecutionFactory != null, "Unsupported statement type %s", statement.getClass().getName());
-        final QueryExecution queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement);
+        checkState(queryExecutionFactory != null, "Unsupported statement type %s", statement.getClass().getName());
+        QueryExecution queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement);
         queryMonitor.createdEvent(queryExecution.getQueryInfo());
 
-        queryExecution.addStateChangeListener(new StateChangeListener<QueryState>()
-        {
-            @Override
-            public void stateChanged(QueryState newValue)
-            {
-                if (newValue.isDone()) {
-                    QueryInfo info = queryExecution.getQueryInfo();
+        queryExecution.addStateChangeListener(newValue -> {
+            if (newValue.isDone()) {
+                QueryInfo info = queryExecution.getQueryInfo();
 
-                    stats.queryFinished(info);
-                    queryMonitor.completionEvent(info);
-                    expirationQueue.add(queryExecution);
-                }
+                stats.queryFinished(info);
+                queryMonitor.completionEvent(info);
+                expirationQueue.add(queryExecution);
             }
         });
 
@@ -280,7 +274,7 @@ public class SqlQueryManager
     @Override
     public void cancelStage(StageId stageId)
     {
-        Preconditions.checkNotNull(stageId, "stageId is null");
+        checkNotNull(stageId, "stageId is null");
 
         log.debug("Cancel stage %s", stageId);
 
