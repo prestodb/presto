@@ -260,6 +260,8 @@ public class StatementResource
         public void close()
         {
             queryManager.cancelQuery(queryId);
+            // frees buffers in the client
+            exchangeClient.close();
         }
 
         public QueryId getQueryId()
