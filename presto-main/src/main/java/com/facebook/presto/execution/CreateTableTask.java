@@ -31,7 +31,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_TYPE_UNKOWN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_EXISTS;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class CreateTableTask
@@ -57,7 +59,11 @@ public class CreateTableTask
         List<ColumnMetadata> createTableColumnList = new ArrayList<ColumnMetadata>();
         int ordinalPosition = 0;
         for (TableElement element : statement.getTableElement()) {
-            Type columnType = metadata.getType(TypeSignature.parseTypeSignature(element.getType().toLowerCase()));
+            Type columnType = metadata.getType(TypeSignature.parseTypeSignature(element.getType()));
+            if (columnType == null || columnType == UNKNOWN) {
+                throw new SemanticException(COLUMN_TYPE_UNKOWN, statement, "Unknown type for column '%s' ", element.getName());
+            }
+
             ColumnMetadata columnMetadata = new ColumnMetadata(element.getName(), columnType, ordinalPosition, false);
             createTableColumnList.add(columnMetadata);
             ordinalPosition = ordinalPosition + 1;
