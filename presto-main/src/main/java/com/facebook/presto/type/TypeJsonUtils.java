@@ -146,10 +146,10 @@ public final class TypeJsonUtils
             type.writeBoolean(blockBuilder, Boolean.valueOf(jsonKey));
         }
         else if (type.getJavaType() == long.class) {
-            type.writeLong(blockBuilder, Long.valueOf(jsonKey));
+            type.writeLong(blockBuilder, Long.parseLong(jsonKey));
         }
         else if (type.getJavaType() == double.class) {
-            type.writeDouble(blockBuilder, Double.valueOf(jsonKey));
+            type.writeDouble(blockBuilder, Double.parseDouble(jsonKey));
         }
         else if (type.getJavaType() == Slice.class) {
             type.writeSlice(blockBuilder, Slices.utf8Slice(jsonKey));
