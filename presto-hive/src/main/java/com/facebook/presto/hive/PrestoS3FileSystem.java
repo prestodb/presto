@@ -140,12 +140,12 @@ public class PrestoS3FileSystem
         long minFileSize = conf.getLong(S3_MULTIPART_MIN_FILE_SIZE, defaults.getS3MultipartMinFileSize().toBytes());
         long minPartSize = conf.getLong(S3_MULTIPART_MIN_PART_SIZE, defaults.getS3MultipartMinPartSize().toBytes());
 
-        ClientConfiguration configuration = new ClientConfiguration();
-        configuration.setMaxErrorRetry(maxErrorRetries);
-        configuration.setProtocol(sslEnabled ? Protocol.HTTPS : Protocol.HTTP);
-        configuration.setConnectionTimeout(Ints.checkedCast(connectTimeout.toMillis()));
-        configuration.setSocketTimeout(Ints.checkedCast(socketTimeout.toMillis()));
-        configuration.setMaxConnections(maxConnections);
+        ClientConfiguration configuration = new ClientConfiguration()
+                .withMaxErrorRetry(maxErrorRetries)
+                .withProtocol(sslEnabled ? Protocol.HTTPS : Protocol.HTTP)
+                .withConnectionTimeout(Ints.checkedCast(connectTimeout.toMillis()))
+                .withSocketTimeout(Ints.checkedCast(socketTimeout.toMillis()))
+                .withMaxConnections(maxConnections);
 
         this.s3 = new AmazonS3Client(getAwsCredentials(uri, conf), configuration);
 
@@ -352,20 +352,17 @@ public class PrestoS3FileSystem
 
     private Iterator<LocatedFileStatus> statusFromObjects(List<S3ObjectSummary> objects)
     {
-        List<LocatedFileStatus> list = new ArrayList<>();
-        for (S3ObjectSummary object : objects) {
-            if (!object.getKey().endsWith("/")) {
-                FileStatus status = new FileStatus(
+        return objects.stream()
+                .filter(object -> !object.getKey().endsWith("/"))
+                .map(object -> new FileStatus(
                         object.getSize(),
                         false,
                         1,
                         BLOCK_SIZE.toBytes(),
                         object.getLastModified().getTime(),
-                        qualifiedPath(new Path("/" + object.getKey())));
-                list.add(createLocatedFileStatus(status));
-            }
-        }
-        return list.iterator();
+                        qualifiedPath(new Path("/" + object.getKey()))))
+                .map(this::createLocatedFileStatus)
+                .iterator();
     }
 
     /**

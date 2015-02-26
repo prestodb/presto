@@ -78,16 +78,11 @@ public class ParquetRecordCursorProvider
 
     private static Predicate<HiveColumnHandle> isParquetSupportedType()
     {
-        return new Predicate<HiveColumnHandle>()
-        {
-            @Override
-            public boolean apply(HiveColumnHandle columnHandle)
-            {
-                HiveType hiveType = columnHandle.getHiveType();
-                return hiveType != HiveType.HIVE_TIMESTAMP &&
-                        hiveType != HiveType.HIVE_DATE &&
-                        hiveType != HiveType.HIVE_BINARY;
-            }
+        return columnHandle -> {
+            HiveType hiveType = columnHandle.getHiveType();
+            return !hiveType.equals(HiveType.HIVE_TIMESTAMP) &&
+                    !hiveType.equals(HiveType.HIVE_DATE) &&
+                    !hiveType.equals(HiveType.HIVE_BINARY);
         };
     }
 }
