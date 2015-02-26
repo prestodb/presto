@@ -21,6 +21,7 @@ import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.RegexpFunctions;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.sql.tree.Extract.Field;
 import com.facebook.presto.type.LikeFunctions;
@@ -59,6 +60,7 @@ import java.util.concurrent.Callable;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor;
@@ -542,6 +544,7 @@ public class TestExpressionCompiler
         assertExecute("try_cast('123' as bigint)", 123L);
         assertExecute("try_cast('foo' as varchar)", "foo");
         assertExecute("try_cast('foo' as bigint)", null);
+        assertExecute("try_cast('2001-08-22' as timestamp)", new SqlTimestamp(new DateTime(2001, 8, 22, 0, 0, 0, 0, UTC).getMillis(), UTC_KEY));
         assertExecute("try_cast(bound_string as bigint)", null);
         assertExecute("try_cast(cast(null as varchar) as bigint)", null);
         assertExecute("try_cast(bound_long / 13  as bigint)", 94);
