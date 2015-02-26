@@ -12,6 +12,8 @@ General Changes
 * ``MAP`` type is now comparable.
 * Fix output buffer leak in ``StatementResource.Query``.
 * Fix leak in ``SqlTasks`` caused by invalid heartbeats .
+* Fix double logging of queries submitted while the queue is full.
+* Fixed "running queries" JMX stat.
 
 Hive Changes
 ------------
