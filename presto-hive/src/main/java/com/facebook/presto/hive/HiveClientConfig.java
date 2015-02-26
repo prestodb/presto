@@ -69,6 +69,7 @@ public class HiveClientConfig
 
     private String s3AwsAccessKey;
     private String s3AwsSecretKey;
+    private boolean s3UseInstanceCredentials = true;
     private boolean s3SslEnabled = true;
     private int s3MaxClientRetries = 3;
     private int s3MaxErrorRetries = 10;
@@ -450,6 +451,18 @@ public class HiveClientConfig
     public HiveClientConfig setS3AwsSecretKey(String s3AwsSecretKey)
     {
         this.s3AwsSecretKey = s3AwsSecretKey;
+        return this;
+    }
+
+    public boolean isS3UseInstanceCredentials()
+    {
+        return s3UseInstanceCredentials;
+    }
+
+    @Config("hive.s3.use-instance-credentials")
+    public HiveClientConfig setS3UseInstanceCredentials(boolean s3UseInstanceCredentials)
+    {
+        this.s3UseInstanceCredentials = s3UseInstanceCredentials;
         return this;
     }
 
