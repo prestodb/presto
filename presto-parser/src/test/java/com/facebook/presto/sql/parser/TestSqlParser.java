@@ -13,40 +13,11 @@
  */
 package com.facebook.presto.sql.parser;
 
-import com.facebook.presto.sql.tree.AllColumns;
-import com.facebook.presto.sql.tree.ArrayConstructor;
-import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.CurrentTime;
-import com.facebook.presto.sql.tree.DoubleLiteral;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.GenericLiteral;
-import com.facebook.presto.sql.tree.Intersect;
-import com.facebook.presto.sql.tree.IntervalLiteral;
+import com.facebook.presto.sql.tree.*;
 import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
 import com.facebook.presto.sql.tree.IntervalLiteral.Sign;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.NegativeExpression;
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.Query;
-import com.facebook.presto.sql.tree.QuerySpecification;
-import com.facebook.presto.sql.tree.Relation;
-import com.facebook.presto.sql.tree.Row;
-import com.facebook.presto.sql.tree.Select;
-import com.facebook.presto.sql.tree.SelectItem;
-import com.facebook.presto.sql.tree.SingleColumn;
-import com.facebook.presto.sql.tree.SortItem;
-import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.sql.tree.SubscriptExpression;
-import com.facebook.presto.sql.tree.TableSubquery;
-import com.facebook.presto.sql.tree.TimeLiteral;
-import com.facebook.presto.sql.tree.TimestampLiteral;
-import com.facebook.presto.sql.tree.Union;
-import com.facebook.presto.sql.tree.Values;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -186,6 +157,9 @@ public class TestSqlParser
         assertCast("array<array<bigint>>");
 
         assertCast("varchar(100)", "VARCHAR(100)");
+        assertCast("bigint(100)", "BIGINT(100)");
+        assertCast("blabla(100)", "BLABLA(100)");
+        assertCast("blabla(100,2)", "BLABLA(100,2)");
         assertCast("decimal(100, 2)", "DECIMAL(100,2)");
     }
 

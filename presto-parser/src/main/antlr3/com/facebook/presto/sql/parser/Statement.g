@@ -545,7 +545,10 @@ type
     | TIMESTAMP WITH TIME ZONE   -> IDENT["TIMESTAMP WITH TIME ZONE"]
     | ARRAY '<' t=type '>'       -> IDENT["ARRAY<" + $t.text + ">"]
     | VARCHAR '(' i=integer ')'  -> IDENT["VARCHAR(" + $i.text + ")"]
+    | BIGINT  '(' i=integer ')'  -> IDENT["BIGINT(" + $i.text + ")"]
     | DECIMAL '(' p=integer ',' s=integer ')'  -> IDENT["DECIMAL(" + $p.text + "," + $s.text + ")"]
+    | ident '(' i=integer ')'    -> IDENT[$ident.text + "(" + $i.text + ")"]
+    | ident '(' p=integer ',' s=integer ')'  -> IDENT[$ident.text + "(" + $p.text + "," + $s.text + ")"]
     | ident
     ;
 
