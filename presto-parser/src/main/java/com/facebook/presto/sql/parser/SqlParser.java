@@ -74,38 +74,42 @@ public class SqlParser
     private Node invokeParser(String name, String sql, Function<SqlBaseParser, ParserRuleContext> parseFunction)
     {
         try {
-            SqlBaseLexer lexer = new SqlBaseLexer(new CaseInsensitiveStream(new ANTLRInputStream(sql)));
-            CommonTokenStream tokenStream = new CommonTokenStream(lexer);
-            SqlBaseParser parser = new SqlBaseParser(tokenStream);
-
-            parser.addParseListener(new PostProcessor());
-
-            lexer.removeErrorListeners();
-            lexer.addErrorListener(LEXER_ERROR_LISTENER);
-
-            parser.removeErrorListeners();
-            parser.addErrorListener(TOKEN_ERROR_LISTENER);
-
-            ParserRuleContext tree;
-            try {
-                // first, try parsing with potentially faster SLL mode
-                parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
-                tree = parseFunction.apply(parser);
-            }
-            catch (ParseCancellationException ex) {
-                // if we fail, parse with LL mode
-                tokenStream.reset(); // rewind input stream
-                parser.reset();
-
-                parser.getInterpreter().setPredictionMode(PredictionMode.LL);
-                tree = parseFunction.apply(parser);
-            }
-
+            ParserRuleContext tree = parse(sql, parseFunction);
             return new AstBuilder().visit(tree);
         }
         catch (StackOverflowError e) {
             throw new ParsingException(name + " is too large (stack overflow while parsing)");
         }
+    }
+
+    public ParserRuleContext parse(String sql, Function<SqlBaseParser, ParserRuleContext> parseFunction) {
+        SqlBaseLexer lexer = new SqlBaseLexer(new CaseInsensitiveStream(new ANTLRInputStream(sql)));
+        CommonTokenStream tokenStream = new CommonTokenStream(lexer);
+        SqlBaseParser parser = new SqlBaseParser(tokenStream);
+
+        parser.addParseListener(new PostProcessor());
+
+        lexer.removeErrorListeners();
+        lexer.addErrorListener(LEXER_ERROR_LISTENER);
+
+        parser.removeErrorListeners();
+        parser.addErrorListener(TOKEN_ERROR_LISTENER);
+
+        ParserRuleContext tree;
+        try {
+            // first, try parsing with potentially faster SLL mode
+            parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
+            tree = parseFunction.apply(parser);
+        }
+        catch (ParseCancellationException ex) {
+            // if we fail, parse with LL mode
+            tokenStream.reset(); // rewind input stream
+            parser.reset();
+
+            parser.getInterpreter().setPredictionMode(PredictionMode.LL);
+            tree = parseFunction.apply(parser);
+        }
+        return tree;
     }
 
     private class PostProcessor

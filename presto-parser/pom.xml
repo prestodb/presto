@@ -10,7 +10,7 @@
 
     <artifactId>presto-parser</artifactId>
     <name>presto-parser</name>
-    <version>0.90-VERO-SNAPSHOT</version>
+    <version>0.96-VERO-SNAPSHOT</version>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
