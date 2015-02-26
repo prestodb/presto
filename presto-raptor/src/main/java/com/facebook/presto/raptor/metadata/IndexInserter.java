@@ -47,8 +47,8 @@ class IndexInserter
         ImmutableList.Builder<ColumnInfo> columnBuilder = ImmutableList.builder();
         ImmutableMap.Builder<Long, Integer> indexBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Long, JDBCType> typeBuilder = ImmutableMap.builder();
-        StringJoiner nameJoiner = new StringJoiner(", ", ", ", "").setEmptyValue("");
-        StringJoiner valueJoiner = new StringJoiner(", ", ", ", "").setEmptyValue("");
+        StringJoiner nameJoiner = new StringJoiner(", ");
+        StringJoiner valueJoiner = new StringJoiner(", ");
         int index = 1;
 
         nameJoiner.add("shard_id").add("shard_uuid");
