@@ -80,6 +80,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.toArray;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.airlift.units.Duration.valueOf;
 import static java.lang.Math.max;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;
@@ -130,22 +131,22 @@ public class PrestoS3FileSystem
         HiveClientConfig defaults = new HiveClientConfig();
         this.stagingDirectory = new File(conf.get(S3_STAGING_DIRECTORY, defaults.getS3StagingDirectory().toString()));
         this.maxClientRetries = conf.getInt(S3_MAX_CLIENT_RETRIES, defaults.getS3MaxClientRetries());
-        this.maxBackoffTime = Duration.valueOf(conf.get(S3_MAX_BACKOFF_TIME, defaults.getS3MaxBackoffTime().toString()));
-        this.maxRetryTime = Duration.valueOf(conf.get(S3_MAX_RETRY_TIME, defaults.getS3MaxRetryTime().toString()));
+        this.maxBackoffTime = valueOf(conf.get(S3_MAX_BACKOFF_TIME, defaults.getS3MaxBackoffTime().toString()));
+        this.maxRetryTime = valueOf(conf.get(S3_MAX_RETRY_TIME, defaults.getS3MaxRetryTime().toString()));
         int maxErrorRetries = conf.getInt(S3_MAX_ERROR_RETRIES, defaults.getS3MaxErrorRetries());
         boolean sslEnabled = conf.getBoolean(S3_SSL_ENABLED, defaults.isS3SslEnabled());
-        Duration connectTimeout = Duration.valueOf(conf.get(S3_CONNECT_TIMEOUT, defaults.getS3ConnectTimeout().toString()));
-        Duration socketTimeout = Duration.valueOf(conf.get(S3_SOCKET_TIMEOUT, defaults.getS3SocketTimeout().toString()));
+        Duration connectTimeout = valueOf(conf.get(S3_CONNECT_TIMEOUT, defaults.getS3ConnectTimeout().toString()));
+        Duration socketTimeout = valueOf(conf.get(S3_SOCKET_TIMEOUT, defaults.getS3SocketTimeout().toString()));
         int maxConnections = conf.getInt(S3_MAX_CONNECTIONS, defaults.getS3MaxConnections());
         long minFileSize = conf.getLong(S3_MULTIPART_MIN_FILE_SIZE, defaults.getS3MultipartMinFileSize().toBytes());
         long minPartSize = conf.getLong(S3_MULTIPART_MIN_PART_SIZE, defaults.getS3MultipartMinPartSize().toBytes());
 
-        ClientConfiguration configuration = new ClientConfiguration();
-        configuration.setMaxErrorRetry(maxErrorRetries);
-        configuration.setProtocol(sslEnabled ? Protocol.HTTPS : Protocol.HTTP);
-        configuration.setConnectionTimeout(Ints.checkedCast(connectTimeout.toMillis()));
-        configuration.setSocketTimeout(Ints.checkedCast(socketTimeout.toMillis()));
-        configuration.setMaxConnections(maxConnections);
+        ClientConfiguration configuration = new ClientConfiguration()
+                .withMaxErrorRetry(maxErrorRetries)
+                .withProtocol(sslEnabled ? Protocol.HTTPS : Protocol.HTTP)
+                .withConnectionTimeout(Ints.checkedCast(connectTimeout.toMillis()))
+                .withSocketTimeout(Ints.checkedCast(socketTimeout.toMillis()))
+                .withMaxConnections(maxConnections);
 
         this.s3 = new AmazonS3Client(getAwsCredentials(uri, conf), configuration);
 
@@ -353,18 +354,18 @@ public class PrestoS3FileSystem
     private Iterator<LocatedFileStatus> statusFromObjects(List<S3ObjectSummary> objects)
     {
         List<LocatedFileStatus> list = new ArrayList<>();
-        for (S3ObjectSummary object : objects) {
-            if (!object.getKey().endsWith("/")) {
-                FileStatus status = new FileStatus(
-                        object.getSize(),
-                        false,
-                        1,
-                        BLOCK_SIZE.toBytes(),
-                        object.getLastModified().getTime(),
-                        qualifiedPath(new Path("/" + object.getKey())));
-                list.add(createLocatedFileStatus(status));
-            }
-        }
+        objects.stream()
+                .filter(object -> !object.getKey().endsWith("/"))
+                .forEach(object -> {
+                    FileStatus status = new FileStatus(
+                            object.getSize(),
+                            false,
+                            1,
+                            BLOCK_SIZE.toBytes(),
+                            object.getLastModified().getTime(),
+                            qualifiedPath(new Path("/" + object.getKey())));
+                    list.add(createLocatedFileStatus(status));
+                });
         return list.iterator();
     }
 
