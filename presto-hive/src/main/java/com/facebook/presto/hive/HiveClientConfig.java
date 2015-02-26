@@ -69,6 +69,7 @@ public class HiveClientConfig
 
     private String s3AwsAccessKey;
     private String s3AwsSecretKey;
+    private boolean useAwsInstanceCredentials = false;
     private boolean s3SslEnabled = true;
     private int s3MaxClientRetries = 3;
     private int s3MaxErrorRetries = 10;
@@ -666,6 +667,18 @@ public class HiveClientConfig
     public HiveClientConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
     {
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
+        return this;
+    }
+
+    public boolean isUseAwsInstanceCredentials()
+    {
+        return useAwsInstanceCredentials;
+    }
+
+    @Config("hive.s3.use-instance-credentials")
+    public HiveClientConfig setUseAwsInstanceCredentials(boolean useAwsInstanceCredentials)
+    {
+        this.useAwsInstanceCredentials = useAwsInstanceCredentials;
         return this;
     }
 }
