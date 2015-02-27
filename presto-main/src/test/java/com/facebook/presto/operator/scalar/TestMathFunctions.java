@@ -18,6 +18,9 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 public class TestMathFunctions
 {
@@ -427,8 +430,44 @@ public class TestMathFunctions
         functionAssertions.tryEvaluate("least(1.5, 0.0 / 0.0)");
     }
 
+    @Test
+    public void testToBase()
+            throws Exception
+    {
+        assertFunction("to_base(2147483648, 16)", "80000000");
+        assertFunction("to_base(255, 2)", "11111111");
+        assertFunction("to_base(-2147483647, 16)", "-7fffffff");
+        assertInvalidFunction("to_base(255, 1)", "Radix must be between 2 and 36");
+    }
+
+    @Test
+    public void testFromBase()
+            throws Exception
+    {
+        assertFunction("from_base('80000000', 16)", 2147483648L);
+        assertFunction("from_base('11111111', 2)", 255);
+        assertFunction("from_base('-7fffffff', 16)", -2147483647);
+        assertFunction("from_base('9223372036854775807', 10)", 9223372036854775807L);
+        assertFunction("from_base('-9223372036854775808', 10)", -9223372036854775808L);
+        assertInvalidFunction("from_base('Z', 37)", "Radix must be between 2 and 36");
+        assertInvalidFunction("from_base('Z', 35)", "Not a valid base-35 number: Z");
+        assertInvalidFunction("from_base('9223372036854775808', 10)", "Not a valid base-10 number: 9223372036854775808");
+    }
+
     private void assertFunction(String projection, Object expected)
     {
         functionAssertions.assertFunction(projection, expected);
+    }
+
+    private void assertInvalidFunction(String projection, String message)
+    {
+        try {
+            assertFunction(projection, null);
+            fail("Expected to throw an INVALID_FUNCTION_ARGUMENT exception with message " + message);
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
+            assertEquals(e.getMessage(), message);
+        }
     }
 }

@@ -50,6 +50,10 @@ Mathematical Functions
 
     Returns ``x`` rounded down to the nearest integer.
 
+.. function:: from_base(string, radix) -> bigint
+
+    Returns the value of ``string`` interpreted as a base-``radix`` number.
+
 .. function:: ln(x) -> double
 
     Returns the natural logarithm of ``x``.
@@ -101,6 +105,10 @@ Mathematical Functions
 .. function:: sqrt(x) -> double
 
     Returns the square root of ``x``.
+
+.. function:: to_base(x, radix) -> varchar
+
+    Returns the base-``radix`` representation of ``x``.
 
 Trigonometric Functions
 -----------------------
