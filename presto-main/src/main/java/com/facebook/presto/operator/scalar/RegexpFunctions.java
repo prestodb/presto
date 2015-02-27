@@ -59,7 +59,9 @@ public final class RegexpFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean regexpLike(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Pattern pattern)
     {
-        return pattern.matcher(source.toString(UTF_8)).find();
+        Pattern likePattern = Pattern.compile(".*" + pattern.toString() + ".*");
+        Matcher likeMatcher = likePattern.matcher(source.toString(UTF_8));
+        return likeMatcher.matches();
     }
 
     @Description("removes substrings matching a regular expression")
