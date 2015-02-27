@@ -481,6 +481,11 @@ public class HttpRemoteTask
             // mark task as canceled (if not already done)
             TaskInfo taskInfo = getTaskInfo();
             URI uri = taskInfo.getSelf();
+
+            if (uri == null) {
+                return;
+            }
+
             updateTaskInfo(new TaskInfo(taskInfo.getTaskId(),
                     taskInfo.getNodeInstanceId(),
                     TaskInfo.MAX_VERSION,
@@ -491,10 +496,6 @@ public class HttpRemoteTask
                     taskInfo.getNoMoreSplits(),
                     taskInfo.getStats(),
                     ImmutableList.<ExecutionFailureInfo>of()));
-
-            if (uri == null) {
-                return;
-            }
 
             // send abort to task and ignore response
             final long start = System.nanoTime();
