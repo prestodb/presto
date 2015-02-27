@@ -57,13 +57,13 @@ public class MapUnnester
         try {
             String value = jsonParser.getCurrentName();
             if (keyType.getJavaType() == long.class) {
-                keyType.writeLong(keyBlockBuilder, Long.valueOf(value));
+                keyType.writeLong(keyBlockBuilder, Long.parseLong(value));
             }
             else if (keyType.getJavaType() == double.class) {
-                keyType.writeDouble(keyBlockBuilder, Double.valueOf(value));
+                keyType.writeDouble(keyBlockBuilder, Double.parseDouble(value));
             }
             else if (keyType.getJavaType() == boolean.class) {
-                keyType.writeBoolean(keyBlockBuilder, Boolean.valueOf(value));
+                keyType.writeBoolean(keyBlockBuilder, Boolean.parseBoolean(value));
             }
             else if (keyType.getJavaType() == Slice.class) {
                 Slice slice;
