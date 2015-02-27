@@ -9,6 +9,7 @@ General Changes
   need access to session information.
 * Fix planner bug that could result in incorrect results for tables containing columns with the same prefix, underscores and numbers.
 * ``MAP`` type is now comparable.
+* Add ``distributed_join`` session property to enable/disable distributed joins.
 
 Hive Changes
 ------------
