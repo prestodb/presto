@@ -129,9 +129,12 @@ public class MapAggregation
         if (state.get() != null && otherState.get() != null) {
             Block keys = otherState.get().getKeys();
             Block values = otherState.get().getValues();
+            KeyValuePairs pairs = state.get();
+            long startSize = pairs.estimatedInMemorySize();
             for (int i = 0; i < keys.getPositionCount(); i++) {
-                state.get().add(keys, values, i);
+                pairs.add(keys, values, i);
             }
+            state.addMemoryUsage(pairs.estimatedInMemorySize() - startSize);
         }
         else if (state.get() == null) {
             state.set(otherState.get());
