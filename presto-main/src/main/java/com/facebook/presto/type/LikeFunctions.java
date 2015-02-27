@@ -140,10 +140,11 @@ public final class LikeFunctions
 
     private static boolean isAscii(byte[] bytes)
     {
-        boolean high = false;
         for (byte b : bytes) {
-            high |= (b & 0x80) != 0;
+            if (b < 0) {
+                return false;
+            }
         }
-        return !high;
+        return true;
     }
 }
