@@ -14,6 +14,7 @@ General Changes
 * Fix leak in ``SqlTasks`` caused by invalid heartbeats .
 * Fix double logging of queries submitted while the queue is full.
 * Fixed "running queries" JMX stat.
+* Add ``distributed_join`` session property to enable/disable distributed joins.
 
 Hive Changes
 ------------
