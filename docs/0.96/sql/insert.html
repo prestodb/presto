@@ -1,0 +1,106 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>6.8. INSERT &mdash; Presto 0.96 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.96',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.96 Documentation" href="../index.html" />
+    <link rel="up" title="6. SQL Statement Syntax" href="../sql.html" />
+    <link rel="next" title="6.9. RESET SESSION" href="reset-session.html" />
+    <link rel="prev" title="6.7. EXPLAIN" href="explain.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.96 Documentation</span></a></h1>
+    <h2 class="heading"><span>6.8. INSERT</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="explain.html">6.7. EXPLAIN</a>
+    </span>
+    <span class="right">
+        <a href="reset-session.html">6.9. RESET SESSION</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="insert">
+<h1>6.8. INSERT</h1>
+<div class="section" id="synopsis">
+<h2>Synopsis</h2>
+<div class="highlight-none"><div class="highlight"><pre>INSERT INTO table_name query
+</pre></div>
+</div>
+</div>
+<div class="section" id="description">
+<h2>Description</h2>
+<p>Insert new rows into a table.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Currently, the list of column names cannot be specified. Thus,
+the columns produced by the query must exactly match the columns
+in the table being inserted into.</p>
+</div>
+</div>
+<div class="section" id="examples">
+<h2>Examples</h2>
+<p>Load additional rows into the <tt class="docutils literal"><span class="pre">orders</span></tt> table from the <tt class="docutils literal"><span class="pre">new_orders</span></tt> table:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">orders</span>
+<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">new_orders</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>Insert a single row into the <tt class="docutils literal"><span class="pre">cities</span></tt> table:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">cities</span> <span class="k">VALUES</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;San Francisco&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>Insert multiple rows into the <tt class="docutils literal"><span class="pre">cities</span></tt> table:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">cities</span> <span class="k">VALUES</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;San Jose&#39;</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="s1">&#39;Oakland&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="explain.html">6.7. EXPLAIN</a>
+    </span>
+    <span class="right">
+        <a href="reset-session.html">6.9. RESET SESSION</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
