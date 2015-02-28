@@ -61,6 +61,7 @@ public class BenchmarkSuite
                 new Top100SqlBenchmark(localQueryRunner),
                 new SqlHashJoinBenchmark(localQueryRunner),
                 new SqlJoinWithPredicateBenchmark(localQueryRunner),
+                new LongMaxAggregationSqlBenchmark(localQueryRunner),
                 new VarBinaryMaxAggregationSqlBenchmark(localQueryRunner),
                 new SqlDistinctMultipleFields(localQueryRunner),
                 new SqlDistinctSingleField(localQueryRunner),

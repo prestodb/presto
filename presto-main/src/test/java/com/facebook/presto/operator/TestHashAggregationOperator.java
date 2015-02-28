@@ -54,7 +54,6 @@ import static com.facebook.presto.operator.OperatorAssertion.without;
 import static com.facebook.presto.operator.aggregation.AverageAggregations.LONG_AVERAGE;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
-import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -105,6 +104,7 @@ public class TestHashAggregationOperator
         MetadataManager metadata = new MetadataManager();
         InternalAggregationFunction countVarcharColumn = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of(parseTypeSignature(StandardTypes.VARCHAR)), false).getAggregationFunction();
         InternalAggregationFunction countBooleanColumn = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of(parseTypeSignature(StandardTypes.BOOLEAN)), false).getAggregationFunction();
+        InternalAggregationFunction maxVarcharColumn = metadata.resolveFunction(QualifiedName.of("max"), ImmutableList.of(parseTypeSignature(StandardTypes.VARCHAR)), false).getAggregationFunction();
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN);
         List<Page> input = rowPagesBuilder
@@ -121,7 +121,7 @@ public class TestHashAggregationOperator
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty(), Optional.empty(), 1.0),
                         LONG_SUM.bind(ImmutableList.of(3), Optional.empty(), Optional.empty(), 1.0),
                         LONG_AVERAGE.bind(ImmutableList.of(3), Optional.empty(), Optional.empty(), 1.0),
-                        VAR_BINARY_MAX.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0),
+                        maxVarcharColumn.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0),
                         countVarcharColumn.bind(ImmutableList.of(0), Optional.empty(), Optional.empty(), 1.0),
                         countBooleanColumn.bind(ImmutableList.of(4), Optional.empty(), Optional.empty(), 1.0)),
                 rowPagesBuilder.getHashChannel(),
@@ -149,6 +149,9 @@ public class TestHashAggregationOperator
     @Test(dataProvider = "hashEnabledValues", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Task exceeded max memory size of 10B")
     public void testMemoryLimit(boolean hashEnabled)
     {
+        MetadataManager metadata = new MetadataManager();
+        InternalAggregationFunction maxVarcharColumn = metadata.resolveFunction(QualifiedName.of("max"), ImmutableList.of(parseTypeSignature(StandardTypes.VARCHAR)), false).getAggregationFunction();
+
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, VARCHAR, VARCHAR, VARCHAR, BIGINT);
         List<Page> input = rowPagesBuilder
@@ -169,7 +172,7 @@ public class TestHashAggregationOperator
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty(), Optional.empty(), 1.0),
                         LONG_SUM.bind(ImmutableList.of(3), Optional.empty(), Optional.empty(), 1.0),
                         LONG_AVERAGE.bind(ImmutableList.of(3), Optional.empty(), Optional.empty(), 1.0),
-                        VAR_BINARY_MAX.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0)),
+                        maxVarcharColumn.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0)),
                 rowPagesBuilder.getHashChannel(),
                 100_000,
                 new DataSize(16, MEGABYTE));
