@@ -26,6 +26,8 @@ import com.facebook.presto.operator.aggregation.BooleanAndAggregation;
 import com.facebook.presto.operator.aggregation.BooleanOrAggregation;
 import com.facebook.presto.operator.aggregation.CountAggregation;
 import com.facebook.presto.operator.aggregation.CountIfAggregation;
+import com.facebook.presto.operator.aggregation.DateMaxAggregation;
+import com.facebook.presto.operator.aggregation.DateMinAggregation;
 import com.facebook.presto.operator.aggregation.DoubleMaxAggregation;
 import com.facebook.presto.operator.aggregation.DoubleMinAggregation;
 import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
@@ -274,6 +276,8 @@ public class FunctionRegistry
                 .aggregate(DoubleMaxAggregation.class)
                 .aggregate(LongMinAggregation.class)
                 .aggregate(LongMaxAggregation.class)
+                .aggregate(DateMinAggregation.class)
+                .aggregate(DateMaxAggregation.class)
                 .aggregate(VarBinaryMinAggregation.class)
                 .aggregate(VarBinaryMaxAggregation.class)
                 .aggregate(DoubleSumAggregation.class)
