@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 
 import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
 import static com.facebook.presto.raptor.RaptorQueryRunner.createSampledSession;
-import static io.airlift.tpch.TpchTable.getTables;
+import static io.airlift.tpch.TpchTable.ORDERS;
 
-public class TestRaptorDistributedQueries
-        extends AbstractTestDistributedQueries
+public class TestRaptorIntegrationSmokeTest
+        extends AbstractTestIntegrationSmokeTest
 {
-    public TestRaptorDistributedQueries()
+    public TestRaptorIntegrationSmokeTest()
             throws Exception
     {
-        super(createRaptorQueryRunner(getTables()), createSampledSession());
+        super(createRaptorQueryRunner(ORDERS), createSampledSession());
     }
 }
