@@ -13,13 +13,16 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-import io.airlift.slice.Slice;
-
-@AccumulatorStateMetadata(stateSerializerClass = SliceStateSerializer.class)
-public interface SliceState
+@AccumulatorStateMetadata(stateSerializerClass = NullableBooleanStateSerializer.class)
+public interface NullableBooleanState
         extends AccumulatorState
 {
-    Slice getSlice();
+    boolean getBoolean();
 
-    void setSlice(Slice value);
+    void setBoolean(boolean value);
+
+    @InitialBooleanValue(true)
+    boolean isNull();
+
+    void setNull(boolean value);
 }

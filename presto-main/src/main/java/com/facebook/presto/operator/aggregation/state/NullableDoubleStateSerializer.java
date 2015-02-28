@@ -22,10 +22,22 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 public class NullableDoubleStateSerializer
         implements AccumulatorStateSerializer<NullableDoubleState>
 {
+    private final Type type;
+
+    public NullableDoubleStateSerializer()
+    {
+        this(DOUBLE);
+    }
+
+    public NullableDoubleStateSerializer(Type type)
+    {
+        this.type = type;
+    }
+
     @Override
     public Type getSerializedType()
     {
-        return DOUBLE;
+        return type;
     }
 
     @Override
@@ -35,7 +47,7 @@ public class NullableDoubleStateSerializer
             out.appendNull();
         }
         else {
-            out.writeDouble(state.getDouble()).closeEntry();
+            type.writeDouble(out, state.getDouble());
         }
     }
 
@@ -44,7 +56,7 @@ public class NullableDoubleStateSerializer
     {
         state.setNull(block.isNull(index));
         if (!state.isNull()) {
-            state.setDouble(DOUBLE.getDouble(block, index));
+            state.setDouble(type.getDouble(block, index));
         }
     }
 }

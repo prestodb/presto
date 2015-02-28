@@ -17,19 +17,12 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-
-public class NullableLongStateSerializer
-        implements AccumulatorStateSerializer<NullableLongState>
+public class SliceStateSerializer
+        implements AccumulatorStateSerializer<SliceState>
 {
     private final Type type;
 
-    public NullableLongStateSerializer()
-    {
-        this(BIGINT);
-    }
-
-    public NullableLongStateSerializer(Type type)
+    public SliceStateSerializer(Type type)
     {
         this.type = type;
     }
@@ -41,22 +34,19 @@ public class NullableLongStateSerializer
     }
 
     @Override
-    public void serialize(NullableLongState state, BlockBuilder out)
+    public void serialize(SliceState state, BlockBuilder out)
     {
-        if (state.isNull()) {
+        if (state.getSlice() == null) {
             out.appendNull();
         }
         else {
-            type.writeLong(out, state.getLong());
+            type.writeSlice(out, state.getSlice());
         }
     }
 
     @Override
-    public void deserialize(Block block, int index, NullableLongState state)
+    public void deserialize(Block block, int index, SliceState state)
     {
-        state.setNull(block.isNull(index));
-        if (!state.isNull()) {
-            state.setLong(type.getLong(block, index));
-        }
+        state.setSlice(type.getSlice(block, index));
     }
 }
