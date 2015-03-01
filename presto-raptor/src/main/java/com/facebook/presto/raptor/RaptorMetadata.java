@@ -42,10 +42,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimaps;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
-import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
-import org.skife.jdbi.v2.TransactionStatus;
-import org.skife.jdbi.v2.VoidTransactionCallback;
 import org.skife.jdbi.v2.exceptions.UnableToExecuteStatementException;
 
 import javax.annotation.Nullable;
@@ -253,32 +250,22 @@ public class RaptorMetadata
     @Override
     public void dropTable(ConnectorTableHandle tableHandle)
     {
-        final RaptorTableHandle raptorHandle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
-        dbi.inTransaction(new VoidTransactionCallback()
-        {
-            @Override
-            protected void execute(Handle handle, TransactionStatus status)
-                    throws Exception
-            {
-                shardManager.dropTableShards(raptorHandle.getTableId());
-                MetadataDaoUtils.dropTable(dao, raptorHandle.getTableId());
-            }
+        RaptorTableHandle raptorHandle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
+        dbi.inTransaction((handle, status) -> {
+            shardManager.dropTableShards(raptorHandle.getTableId());
+            MetadataDaoUtils.dropTable(dao, raptorHandle.getTableId());
+            return null;
         });
     }
 
     @Override
-    public void renameTable(ConnectorTableHandle tableHandle, final SchemaTableName newTableName)
+    public void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
-        final RaptorTableHandle table = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
-        dbi.inTransaction(new VoidTransactionCallback()
-        {
-            @Override
-            protected void execute(Handle handle, TransactionStatus status)
-                    throws Exception
-            {
-                MetadataDao dao = handle.attach(MetadataDao.class);
-                dao.renameTable(table.getTableId(), newTableName.getSchemaName(), newTableName.getTableName());
-            }
+        RaptorTableHandle table = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
+        dbi.inTransaction((handle, status) -> {
+            MetadataDao dao = handle.attach(MetadataDao.class);
+            dao.renameTable(table.getTableId(), newTableName.getSchemaName(), newTableName.getTableName());
+            return null;
         });
     }
 
@@ -379,22 +366,17 @@ public class RaptorMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, final String viewData, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
     {
-        final String schemaName = viewName.getSchemaName();
-        final String tableName = viewName.getTableName();
+        String schemaName = viewName.getSchemaName();
+        String tableName = viewName.getTableName();
 
         if (replace) {
-            dbi.inTransaction(new VoidTransactionCallback()
-            {
-                @Override
-                protected void execute(Handle handle, TransactionStatus status)
-                        throws Exception
-                {
-                    MetadataDao dao = handle.attach(MetadataDao.class);
-                    dao.dropView(connectorId, schemaName, tableName);
-                    dao.insertView(connectorId, schemaName, tableName, viewData);
-                }
+            dbi.inTransaction((handle, status) -> {
+                MetadataDao dao = handle.attach(MetadataDao.class);
+                dao.dropView(connectorId, schemaName, tableName);
+                dao.insertView(connectorId, schemaName, tableName, viewData);
+                return null;
             });
             return;
         }
