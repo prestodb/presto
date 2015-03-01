@@ -39,9 +39,11 @@ public interface ShardManagerDao
             ")")
     void createTableNodes();
 
+    // TODO: FOREIGN KEY (table_id) REFERENCES tables (table_id)
     @SqlUpdate("CREATE TABLE IF NOT EXISTS shards (\n" +
             "  shard_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
             "  shard_uuid BINARY(16) NOT NULL,\n" +
+            "  table_id BIGINT NOT NULL,\n" +
             "  create_time DATETIME NOT NULL,\n" +
             "  row_count BIGINT NOT NULL,\n" +
             "  data_size BIGINT NOT NULL,\n" +
@@ -58,15 +60,6 @@ public interface ShardManagerDao
             ")")
     void createTableShardNodes();
 
-    // TODO: FOREIGN KEY (table_id) REFERENCES tables (table_id)
-    @SqlUpdate("CREATE TABLE IF NOT EXISTS table_shards (\n" +
-            "  table_id BIGINT NOT NULL,\n" +
-            "  shard_id BIGINT NOT NULL,\n" +
-            "  PRIMARY KEY (table_id, shard_id),\n" +
-            "  FOREIGN KEY (shard_id) REFERENCES shards (shard_id)\n" +
-            ")")
-    void createTableTableShards();
-
     @SqlUpdate("CREATE TABLE IF NOT EXISTS external_batches (\n" +
             "  external_batch_id VARCHAR(255) PRIMARY KEY,\n" +
             "  successful BOOLEAN NOT NULL\n" +
@@ -76,11 +69,12 @@ public interface ShardManagerDao
     @SqlUpdate("INSERT INTO nodes (node_identifier) VALUES (:nodeIdentifier)")
     void insertNode(@Bind("nodeIdentifier") String nodeIdentifier);
 
-    @SqlUpdate("INSERT INTO shards (shard_uuid, create_time, row_count, data_size)\n" +
-            "VALUES (:shardUuid, CURRENT_TIMESTAMP, :rowCount, :dataSize)")
+    @SqlUpdate("INSERT INTO shards (shard_uuid, table_id, create_time, row_count, data_size)\n" +
+            "VALUES (:shardUuid, :tableId, CURRENT_TIMESTAMP, :rowCount, :dataSize)")
     @GetGeneratedKeys
     long insertShard(
             @Bind("shardUuid") UUID shardUuid,
+            @Bind("tableId") long tableId,
             @Bind("rowCount") long rowCount,
             @Bind("dataSize") long dataSize);
 
@@ -92,17 +86,10 @@ public interface ShardManagerDao
             "VALUES ((SELECT shard_id FROM shards WHERE shard_uuid = :shardUuid), :nodeId)")
     void insertShardNode(@Bind("shardUuid") UUID shardUuid, @Bind("nodeId") long nodeId);
 
-    @SqlUpdate("INSERT INTO table_shards (table_id, shard_id)\n" +
-            "VALUES (:tableId, :shardId)\n")
-    void insertTableShard(@Bind("tableId") long tableId, @Bind("shardId") long shardId);
-
     @SqlQuery("SELECT node_id FROM nodes WHERE node_identifier = :nodeIdentifier")
     Long getNodeId(@Bind("nodeIdentifier") String nodeIdentifier);
 
-    @SqlQuery("SELECT s.shard_uuid\n" +
-            "FROM table_shards ts\n" +
-            "JOIN shards s ON (ts.shard_id = s.shard_id)\n" +
-            "WHERE ts.table_id = :tableId")
+    @SqlQuery("SELECT shard_uuid FROM shards WHERE table_id = :tableId")
     List<UUID> getShards(@Bind("tableId") long tableId);
 
     @SqlQuery("SELECT s.shard_uuid\n" +
@@ -113,11 +100,10 @@ public interface ShardManagerDao
     Set<UUID> getNodeShards(@Bind("nodeIdentifier") String nodeIdentifier);
 
     @SqlQuery("SELECT s.shard_uuid, n.node_identifier\n" +
-            "FROM table_shards ts\n" +
-            "JOIN shard_nodes sn ON (ts.shard_id = sn.shard_id)\n" +
-            "JOIN shards s ON (sn.shard_id = s.shard_id)\n" +
+            "FROM shards s\n" +
+            "JOIN shard_nodes sn ON (s.shard_id = sn.shard_id)\n" +
             "JOIN nodes n ON (sn.node_id = n.node_id)\n" +
-            "WHERE ts.table_id = :tableId")
+            "WHERE s.table_id = :tableId")
     @Mapper(ShardNode.Mapper.class)
     List<ShardNode> getShardNodes(@Bind("tableId") long tableId);
 
@@ -125,8 +111,14 @@ public interface ShardManagerDao
     @SqlQuery("SELECT node_identifier FROM nodes")
     Set<String> getAllNodesInUse();
 
-    @SqlUpdate("DELETE FROM table_shards WHERE table_id = :tableId")
-    void dropTableShards(@Bind("tableId") long tableId);
+    @SqlUpdate("DELETE FROM shard_nodes WHERE shard_id IN (\n" +
+            "  SELECT shard_id\n" +
+            "  FROM shards\n" +
+            "  WHERE table_id = :tableId)")
+    void dropShardNodes(@Bind("tableId") long tableId);
+
+    @SqlUpdate("DELETE FROM shards WHERE table_id = :tableId")
+    void dropShards(@Bind("tableId") long tableId);
 
     @SqlUpdate("INSERT INTO external_batches (external_batch_id, successful)\n" +
             "VALUES (:externalBatchId, TRUE)")

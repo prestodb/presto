@@ -132,8 +132,7 @@ public class DatabaseShardManager
 
                 try (IndexInserter indexInserter = new IndexInserter(handle.getConnection(), tableId, columns)) {
                     for (ShardInfo shard : shards) {
-                        long shardId = dao.insertShard(shard.getShardUuid(), shard.getRowCount(), shard.getDataSize());
-                        dao.insertTableShard(tableId, shardId);
+                        long shardId = dao.insertShard(shard.getShardUuid(), tableId, shard.getRowCount(), shard.getDataSize());
 
                         for (String nodeIdentifier : shard.getNodeIdentifiers()) {
                             dao.insertShardNode(shardId, nodeIds.get(nodeIdentifier));
@@ -165,7 +164,12 @@ public class DatabaseShardManager
     @Override
     public void dropTableShards(long tableId)
     {
-        dao.dropTableShards(tableId);
+        dbi.inTransaction((handle, status) -> {
+            ShardManagerDao dao = handle.attach(ShardManagerDao.class);
+            dao.dropShardNodes(tableId);
+            dao.dropShards(tableId);
+            return null;
+        });
     }
 
     @Override

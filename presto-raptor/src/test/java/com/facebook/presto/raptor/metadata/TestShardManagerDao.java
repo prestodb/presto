@@ -107,15 +107,16 @@ public class TestShardManagerDao
     @Test
     public void testInsertShard()
     {
-        long shardId = dao.insertShard(UUID.randomUUID(), 13, 42);
+        long shardId = dao.insertShard(UUID.randomUUID(), 5, 13, 42);
 
         List<Map<String, Object>> shards = handle.select(
-                "SELECT row_count, data_size FROM shards WHERE shard_id = ?",
+                "SELECT table_id , row_count, data_size FROM shards WHERE shard_id = ?",
                 shardId);
 
         assertEquals(shards.size(), 1);
         Map<String, Object> shard = shards.get(0);
 
+        assertEquals(shard.get("table_id"), 5L);
         assertEquals(shard.get("row_count"), 13L);
         assertEquals(shard.get("data_size"), 42L);
     }
@@ -127,11 +128,9 @@ public class TestShardManagerDao
         dao.insertNode("node");
         long nodeId = dao.getNodeId("node");
 
-        UUID shard = UUID.randomUUID();
-        long shardId = dao.insertShard(shard, 0, 0);
-
         long tableId = 1;
-        dao.insertTableShard(tableId, shardId);
+        UUID shard = UUID.randomUUID();
+        dao.insertShard(shard, tableId, 0, 0);
 
         dao.insertShardNode(shard, nodeId);
 
@@ -161,10 +160,14 @@ public class TestShardManagerDao
         UUID shardUuid3 = UUID.randomUUID();
         UUID shardUuid4 = UUID.randomUUID();
 
-        long shardId1 = dao.insertShard(shardUuid1, 0, 0);
-        long shardId2 = dao.insertShard(shardUuid2, 0, 0);
-        long shardId3 = dao.insertShard(shardUuid3, 0, 0);
-        long shardId4 = dao.insertShard(shardUuid4, 0, 0);
+        long tableId = 1;
+
+        long shardId1 = dao.insertShard(shardUuid1, tableId, 0, 0);
+        long shardId2 = dao.insertShard(shardUuid2, tableId, 0, 0);
+        long shardId3 = dao.insertShard(shardUuid3, tableId, 0, 0);
+        long shardId4 = dao.insertShard(shardUuid4, tableId, 0, 0);
+
+        assertEquals(dao.getShards(tableId), ImmutableList.of(shardUuid1, shardUuid2, shardUuid3, shardUuid4));
 
         assertEquals(dao.getNodeShards(nodeName1).size(), 0);
         assertEquals(dao.getNodeShards(nodeName2).size(), 0);
@@ -178,6 +181,14 @@ public class TestShardManagerDao
 
         assertEquals(dao.getNodeShards(nodeName1), ImmutableList.of(shardUuid1, shardUuid2, shardUuid3, shardUuid4));
         assertEquals(dao.getNodeShards(nodeName2), ImmutableList.of(shardUuid1, shardUuid4));
+
+        dao.dropShardNodes(tableId);
+
+        assertEquals(dao.getShardNodes(tableId), ImmutableList.of());
+
+        dao.dropShards(tableId);
+
+        assertEquals(dao.getShards(tableId), ImmutableList.of());
     }
 
     @Test
@@ -207,15 +218,10 @@ public class TestShardManagerDao
         UUID shardUuid3 = UUID.randomUUID();
         UUID shardUuid4 = UUID.randomUUID();
 
-        long shardId1 = dao.insertShard(shardUuid1, 0, 0);
-        long shardId2 = dao.insertShard(shardUuid2, 0, 0);
-        long shardId3 = dao.insertShard(shardUuid3, 0, 0);
-        long shardId4 = dao.insertShard(shardUuid4, 0, 0);
-
-        dao.insertTableShard(tableId, shardId1);
-        dao.insertTableShard(tableId, shardId2);
-        dao.insertTableShard(tableId, shardId3);
-        dao.insertTableShard(tableId, shardId4);
+        long shardId1 = dao.insertShard(shardUuid1, tableId, 0, 0);
+        long shardId2 = dao.insertShard(shardUuid2, tableId, 0, 0);
+        long shardId3 = dao.insertShard(shardUuid3, tableId, 0, 0);
+        long shardId4 = dao.insertShard(shardUuid4, tableId, 0, 0);
 
         List<UUID> shards = dao.getShards(tableId);
         assertEquals(shards.size(), 4);
