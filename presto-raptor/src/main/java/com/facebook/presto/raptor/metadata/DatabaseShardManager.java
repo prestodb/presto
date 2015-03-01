@@ -27,13 +27,10 @@ import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
-import org.skife.jdbi.v2.TransactionStatus;
-import org.skife.jdbi.v2.VoidTransactionCallback;
 
 import javax.inject.Inject;
 
 import java.sql.JDBCType;
-import java.sql.SQLException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -102,10 +99,9 @@ public class DatabaseShardManager
                 "  UNIQUE (shard_uuid)\n" +
                 ")";
 
-        dbi.withHandle(handle -> {
+        try (Handle handle = dbi.open()) {
             handle.execute(sql);
-            return null;
-        });
+        }
     }
 
     @Override
@@ -122,30 +118,25 @@ public class DatabaseShardManager
                 .collect(toSet());
         Map<String, Long> nodeIds = Maps.toMap(identifiers, this::getOrCreateNodeId);
 
-        dbi.inTransaction(new VoidTransactionCallback()
-        {
-            @Override
-            protected void execute(Handle handle, TransactionStatus status)
-                    throws SQLException
-            {
-                ShardManagerDao dao = handle.attach(ShardManagerDao.class);
+        dbi.inTransaction((handle, status) -> {
+            ShardManagerDao dao = handle.attach(ShardManagerDao.class);
 
-                try (IndexInserter indexInserter = new IndexInserter(handle.getConnection(), tableId, columns)) {
-                    for (ShardInfo shard : shards) {
-                        long shardId = dao.insertShard(shard.getShardUuid(), tableId, shard.getRowCount(), shard.getDataSize());
+            try (IndexInserter indexInserter = new IndexInserter(handle.getConnection(), tableId, columns)) {
+                for (ShardInfo shard : shards) {
+                    long shardId = dao.insertShard(shard.getShardUuid(), tableId, shard.getRowCount(), shard.getDataSize());
 
-                        for (String nodeIdentifier : shard.getNodeIdentifiers()) {
-                            dao.insertShardNode(shardId, nodeIds.get(nodeIdentifier));
-                        }
-
-                        indexInserter.insert(shardId, shard.getShardUuid(), shard.getColumnStats());
+                    for (String nodeIdentifier : shard.getNodeIdentifiers()) {
+                        dao.insertShardNode(shardId, nodeIds.get(nodeIdentifier));
                     }
-                }
 
-                if (externalBatchId.isPresent()) {
-                    dao.insertExternalBatch(externalBatchId.get());
+                    indexInserter.insert(shardId, shard.getShardUuid(), shard.getColumnStats());
                 }
             }
+
+            if (externalBatchId.isPresent()) {
+                dao.insertExternalBatch(externalBatchId.get());
+            }
+            return null;
         });
     }
 
