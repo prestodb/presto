@@ -25,11 +25,11 @@ import java.util.Map;
 import java.util.StringJoiner;
 import java.util.UUID;
 
+import static com.facebook.presto.raptor.metadata.DatabaseShardManager.maxColumn;
+import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.metadata.ShardPredicate.bindValue;
 import static com.facebook.presto.raptor.metadata.ShardPredicate.jdbcType;
-import static com.facebook.presto.raptor.metadata.ShardPredicate.maxColumn;
-import static com.facebook.presto.raptor.metadata.ShardPredicate.minColumn;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidToBytes;
 import static io.airlift.slice.Slices.utf8Slice;
 

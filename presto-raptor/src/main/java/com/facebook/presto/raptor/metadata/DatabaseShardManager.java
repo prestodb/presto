@@ -45,8 +45,6 @@ import java.util.UUID;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
 import static com.facebook.presto.raptor.metadata.ShardManagerDaoUtils.createShardTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.ShardPredicate.jdbcType;
-import static com.facebook.presto.raptor.metadata.ShardPredicate.maxColumn;
-import static com.facebook.presto.raptor.metadata.ShardPredicate.minColumn;
 import static com.facebook.presto.raptor.metadata.SqlUtils.runIgnoringConstraintViolation;
 import static com.facebook.presto.raptor.storage.ShardStats.MAX_BINARY_INDEX_SIZE;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
@@ -209,6 +207,16 @@ public class DatabaseShardManager
     static String shardIndexTable(long tableId)
     {
         return INDEX_TABLE_PREFIX + tableId;
+    }
+
+    public static String minColumn(long columnId)
+    {
+        return format("c%s_min", columnId);
+    }
+
+    public static String maxColumn(long columnId)
+    {
+        return format("c%s_max", columnId);
     }
 
     private static String sqlColumnType(Type type)

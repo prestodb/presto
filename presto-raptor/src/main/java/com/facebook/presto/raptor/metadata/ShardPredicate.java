@@ -36,6 +36,8 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.StringJoiner;
 
+import static com.facebook.presto.raptor.metadata.DatabaseShardManager.maxColumn;
+import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn;
 import static com.facebook.presto.raptor.storage.ShardStats.truncateIndexValue;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -186,15 +188,5 @@ class ShardPredicate
             return JDBCType.VARBINARY;
         }
         return null;
-    }
-
-    public static String minColumn(long columnId)
-    {
-        return format("c%s_min", columnId);
-    }
-
-    public static String maxColumn(long columnId)
-    {
-        return format("c%s_max", columnId);
     }
 }
