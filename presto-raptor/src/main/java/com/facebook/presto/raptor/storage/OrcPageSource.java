@@ -47,8 +47,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.wrappedIntArray;
-import static java.lang.Math.max;
-import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class OrcPageSource
@@ -73,8 +71,6 @@ public class OrcPageSource
     private final int[] columnIndexes;
 
     private final AggregatedMemoryContext systemMemoryContext;
-
-    private long completedBytes;
 
     private int batchId;
     private boolean closed;
@@ -129,7 +125,7 @@ public class OrcPageSource
     @Override
     public long getCompletedBytes()
     {
-        return completedBytes;
+        return orcDataSource.getReadBytes();
     }
 
     @Override
@@ -172,8 +168,6 @@ public class OrcPageSource
                     blocks[fieldId] = new LazyBlock(batchSize, new OrcBlockLoader(columnIndexes[fieldId], type));
                 }
             }
-
-            updateCompletedBytes();
 
             return new Page(batchSize, blocks);
         }
@@ -236,13 +230,6 @@ public class OrcPageSource
         catch (RuntimeException e) {
             throwable.addSuppressed(e);
         }
-    }
-
-    @SuppressWarnings("NumericCastThatLosesPrecision")
-    private void updateCompletedBytes()
-    {
-        long newCompletedBytes = (long) (recordReader.getSplitLength() * recordReader.getProgress());
-        completedBytes = min(recordReader.getSplitLength(), max(completedBytes, newCompletedBytes));
     }
 
     private static Block buildSequenceBlock(long start, int count)

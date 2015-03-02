@@ -42,6 +42,12 @@ public class CachingOrcDataSource
     }
 
     @Override
+    public long getReadBytes()
+    {
+        return dataSource.getReadBytes();
+    }
+
+    @Override
     public long getReadTimeNanos()
     {
         return dataSource.getReadTimeNanos();

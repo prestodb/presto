@@ -253,6 +253,12 @@ public class TestCachingOrcDataSource
         public static final FakeOrcDataSource INSTANCE = new FakeOrcDataSource();
 
         @Override
+        public long getReadBytes()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public long getReadTimeNanos()
         {
             throw new UnsupportedOperationException();
