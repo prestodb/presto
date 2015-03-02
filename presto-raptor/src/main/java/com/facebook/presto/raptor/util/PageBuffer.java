@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor;
+package com.facebook.presto.raptor.util;
 
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
@@ -22,7 +22,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-class PageBuffer
+public class PageBuffer
 {
     private final long maxMemoryBytes;
     private final List<Page> pages = new ArrayList<>();
