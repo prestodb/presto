@@ -32,7 +32,6 @@ import com.google.common.collect.Lists;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.ReaderWriterProfiler;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
@@ -48,8 +47,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
+import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.google.common.collect.Iterables.all;
 
 public class DwrfRecordCursorProvider
@@ -70,9 +69,7 @@ public class DwrfRecordCursorProvider
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager)
     {
-        @SuppressWarnings("deprecation")
-        Deserializer deserializer = getDeserializer(schema);
-        if (!(deserializer instanceof OrcSerde)) {
+        if (!isDeserializerClass(schema, OrcSerde.class)) {
             return Optional.empty();
         }
 

@@ -31,7 +31,6 @@ import org.apache.hadoop.hive.ql.io.orc.OrcProto.Type;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.ql.io.orc.Reader;
 import org.apache.hadoop.hive.ql.io.orc.RecordReader;
-import org.apache.hadoop.hive.serde2.Deserializer;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -40,7 +39,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveUtil.getDeserializer;
+import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -85,9 +84,7 @@ public class OrcRecordCursorProvider
             return Optional.empty();
         }
 
-        @SuppressWarnings("deprecation")
-        Deserializer deserializer = getDeserializer(schema);
-        if (!(deserializer instanceof OrcSerde)) {
+        if (!isDeserializerClass(schema, OrcSerde.class)) {
             return Optional.empty();
         }
 

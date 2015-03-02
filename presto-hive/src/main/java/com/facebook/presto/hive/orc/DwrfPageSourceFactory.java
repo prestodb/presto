@@ -26,7 +26,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.serde2.Deserializer;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -35,11 +34,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedReaderEnabled;
-import static com.facebook.presto.hive.HiveUtil.getDeserializer;
+import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.facebook.presto.hive.orc.OrcPageSourceFactory.createOrcPageSource;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -90,9 +89,7 @@ public class DwrfPageSourceFactory
             return Optional.empty();
         }
 
-        @SuppressWarnings("deprecation")
-        Deserializer deserializer = getDeserializer(schema);
-        if (!(deserializer instanceof OrcSerde)) {
+        if (!isDeserializerClass(schema, OrcSerde.class)) {
             return Optional.empty();
         }
 
