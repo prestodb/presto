@@ -25,6 +25,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Wrapper;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
@@ -59,6 +60,7 @@ final class ShardIterator
         this.connection = checkNotNull(connection, "connection is null");
         try {
             statement = connection.prepareStatement(sql);
+            enableStreamingResults(statement);
             predicate.bind(statement);
             resultSet = statement.executeQuery();
         }
@@ -125,5 +127,23 @@ final class ShardIterator
             return new ShardNodes(currentShardId, nodes.build());
         }
         return endOfData();
+    }
+
+    private static void enableStreamingResults(Statement statement)
+            throws SQLException
+    {
+        if (isWrapperFor(statement, com.mysql.jdbc.Statement.class)) {
+            statement.unwrap(com.mysql.jdbc.Statement.class).enableStreamingResults();
+        }
+    }
+
+    private static boolean isWrapperFor(Wrapper wrapper, Class<?> clazz)
+    {
+        try {
+            return wrapper.isWrapperFor(clazz);
+        }
+        catch (SQLException ignored) {
+            return false;
+        }
     }
 }
