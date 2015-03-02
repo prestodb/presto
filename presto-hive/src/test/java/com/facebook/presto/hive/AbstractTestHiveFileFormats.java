@@ -440,20 +440,25 @@ public abstract class AbstractTestHiveFileFormats
 
                     Object actualValue = row.getField(i);
                     Object expectedValue = testColumn.getExpectedValue();
-                    if (actualValue == null) {
-                        assertEquals(null, expectedValue, String.format("Expected non-null for column %d", i));
+
+                    if (expectedValue instanceof Slice) {
+                        expectedValue = ((Slice) expectedValue).toStringUtf8();
+                    }
+
+                    if (actualValue == null || expectedValue == null) {
+                        assertEquals(actualValue, expectedValue, "Wrong value for column " + testColumn.getName());
                     }
                     else if (testColumn.getObjectInspector().getTypeName().equals("float") ||
                             testColumn.getObjectInspector().getTypeName().equals("double")) {
-                        assertEquals((double) actualValue, (double) expectedValue, EPSILON);
+                        assertEquals((double) actualValue, (double) expectedValue, EPSILON, "Wrong value for column " + testColumn.getName());
                     }
                     else if (testColumn.getObjectInspector().getTypeName().equals("date")) {
                         SqlDate expectedDate = new SqlDate(((Long) expectedValue).intValue());
-                        assertEquals(actualValue, expectedDate);
+                        assertEquals(actualValue, expectedDate, "Wrong value for column " + testColumn.getName());
                     }
                     else if (testColumn.getObjectInspector().getTypeName().equals("timestamp")) {
                         SqlTimestamp expectedTimestamp = new SqlTimestamp((Long) expectedValue, SESSION.getTimeZoneKey());
-                        assertEquals(actualValue, expectedTimestamp);
+                        assertEquals(actualValue, expectedTimestamp, "Wrong value for column " + testColumn.getName());
                     }
                     else if (testColumn.getObjectInspector().getCategory() == Category.PRIMITIVE) {
                         if (expectedValue instanceof Slice) {
@@ -466,13 +471,13 @@ public abstract class AbstractTestHiveFileFormats
                         if (actualValue instanceof SqlVarbinary) {
                             actualValue = new String(((SqlVarbinary) actualValue).getBytes(), UTF_8);
                         }
-                        assertEquals(actualValue, expectedValue, String.format("Wrong value for column %d", i));
+                        assertEquals(actualValue, expectedValue, "Wrong value for column " + testColumn.getName());
                     }
                     else {
                         BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
                         type.writeObject(builder, expectedValue);
                         expectedValue = type.getObjectValue(SESSION, builder.build(), 0);
-                        assertEquals(actualValue, expectedValue, String.format("Wrong value for column %s", testColumn.getName()));
+                        assertEquals(actualValue, expectedValue, "Wrong value for column " + testColumn.getName());
                     }
                 }
             }
