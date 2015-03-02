@@ -60,8 +60,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
-import static java.lang.Math.max;
-import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -78,8 +76,6 @@ public class OrcPageSource
 
     private final Block[] constantBlocks;
     private final int[] hiveColumnIndexes;
-
-    private long completedBytes;
 
     private int batchId;
     private boolean closed;
@@ -202,7 +198,7 @@ public class OrcPageSource
     @Override
     public long getCompletedBytes()
     {
-        return completedBytes;
+        return orcDataSource.getReadBytes();
     }
 
     @Override
@@ -238,12 +234,7 @@ public class OrcPageSource
                     blocks[fieldId] = new LazyBlock(batchSize, new OrcBlockLoader(hiveColumnIndexes[fieldId], type));
                 }
             }
-            Page page = new Page(batchSize, blocks);
-
-            long newCompletedBytes = (long) (recordReader.getSplitLength() * recordReader.getProgress());
-            completedBytes = min(recordReader.getSplitLength(), max(completedBytes, newCompletedBytes));
-
-            return page;
+            return new Page(batchSize, blocks);
         }
         catch (PrestoException e) {
             closeWithSuppression(e);

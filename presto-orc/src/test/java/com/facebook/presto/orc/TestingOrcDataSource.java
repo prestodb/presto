@@ -46,6 +46,12 @@ class TestingOrcDataSource
     }
 
     @Override
+    public long getReadBytes()
+    {
+        return delegate.getReadBytes();
+    }
+
+    @Override
     public long getReadTimeNanos()
     {
         return delegate.getReadTimeNanos();
