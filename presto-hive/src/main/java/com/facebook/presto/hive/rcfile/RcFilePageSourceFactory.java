@@ -27,7 +27,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.RCFile;
-import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
 import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
 import org.joda.time.DateTimeZone;
@@ -39,7 +38,7 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedReaderEnabled;
-import static com.facebook.presto.hive.HiveUtil.getDeserializer;
+import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
 import static com.facebook.presto.hive.HiveUtil.setReadColumns;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.not;
@@ -88,14 +87,13 @@ public class RcFilePageSourceFactory
             return Optional.empty();
         }
 
-        @SuppressWarnings("deprecation")
-        Deserializer deserializer = getDeserializer(schema);
+        String deserializerClassName = getDeserializerClassName(schema);
 
         RcFileBlockLoader blockLoader;
-        if (deserializer instanceof LazyBinaryColumnarSerDe) {
+        if (deserializerClassName.equals(LazyBinaryColumnarSerDe.class.getName())) {
             blockLoader = new RcBinaryBlockLoader(DateTimeZone.forID(session.getTimeZoneKey().getId()));
         }
-        else if (deserializer instanceof ColumnarSerDe) {
+        else if (deserializerClassName.equals(ColumnarSerDe.class.getName())) {
             blockLoader = new RcTextBlockLoader(hiveStorageTimeZone, DateTimeZone.forID(session.getTimeZoneKey().getId()));
         }
         else {

@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveUtil.getDeserializer;
+import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 
 public class ColumnarTextHiveRecordCursorProvider
         implements HiveRecordCursorProvider
@@ -47,7 +47,7 @@ public class ColumnarTextHiveRecordCursorProvider
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager)
     {
-        if (!usesColumnarTextSerDe(schema)) {
+        if (!isDeserializerClass(schema, ColumnarSerDe.class)) {
             return Optional.empty();
         }
 
@@ -62,11 +62,6 @@ public class ColumnarTextHiveRecordCursorProvider
                 hiveStorageTimeZone,
                 DateTimeZone.forID(session.getTimeZoneKey().getId()),
                 typeManager));
-    }
-
-    private static boolean usesColumnarTextSerDe(Properties schema)
-    {
-        return getDeserializer(schema) instanceof ColumnarSerDe;
     }
 
     @SuppressWarnings("unchecked")
