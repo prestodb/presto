@@ -68,7 +68,7 @@ public class Console
     public HelpOption helpOption;
 
     @Inject
-    public Version version;
+    public Version version = new Version();
 
     @Inject
     public ClientOptions clientOptions = new ClientOptions();
