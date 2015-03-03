@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -129,6 +130,19 @@ public class TestStringFunctions
 
         assertFunction("SUBSTRING('Quadratically' FROM 5 FOR 6)", "ratica");
         assertFunction("SUBSTRING('Quadratically' FROM 5 FOR 50)", "ratically");
+    }
+
+    @Test
+    public void testSplit()
+    {
+        assertFunction("SPLIT('a.b.c', '.')", ImmutableList.of("a", "b", "c"));
+        assertFunction("SPLIT('a..b..c', '..')", ImmutableList.of("a", "b", "c"));
+        assertFunction("SPLIT('a.b.c', '.', 2)", ImmutableList.of("a", "b.c"));
+        assertFunction("SPLIT('a.b.c', '.', 3)", ImmutableList.of("a", "b", "c"));
+        assertFunction("SPLIT('a.b.c', '.', 4)", ImmutableList.of("a", "b", "c"));
+        assertInvalidFunction("SPLIT('a.b.c', '.', 0)", "Limit must be positive");
+        assertInvalidFunction("SPLIT('a.b.c', '.', -1)", "Limit must be positive");
+        assertInvalidFunction("SPLIT('a.b.c', '.', 2147483648)", "Limit is too large");
     }
 
     @Test

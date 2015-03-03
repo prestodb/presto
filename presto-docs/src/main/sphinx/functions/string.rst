@@ -56,6 +56,16 @@ String Functions
 
     Removes trailing spaces from ``string``.
 
+.. function:: split(string, delimiter) -> array<varchar>
+
+    Splits ``string`` on ``delimiter`` and returns an array.
+
+.. function:: split(string, delimiter, limit) -> array<varchar>
+
+    Splits ``string`` on ``delimiter`` and returns an array of size at most
+    ``limit``. The last element in the array always contain everything
+    left in the ``string``. ``limit`` must be a positive number.
+
 .. function:: split_part(string, delimiter, index) -> varchar
 
     Splits ``string`` on ``delimiter`` and returns the field ``index``.
