@@ -13,22 +13,21 @@
  */
 package com.facebook.presto.cli;
 
-import static io.airlift.command.SingleCommand.singleCommand;
+import io.airlift.command.Option;
 
-public final class Presto
+import static com.google.common.base.MoreObjects.firstNonNull;
+
+public class VersionOption
 {
-    private Presto() {}
+    @Option(name = "--version", description = "Display version information and exit")
+    public Boolean version = false;
 
-    public static void main(String[] args)
-            throws Exception
+    public boolean showVersionIfRequested()
     {
-        Console console = singleCommand(Console.class).parse(args);
-
-        if (console.helpOption.showHelpIfRequested() ||
-                console.versionOption.showVersionIfRequested()) {
-            return;
+        if (version) {
+            String clientVersion = Presto.class.getPackage().getImplementationVersion();
+            System.out.println("Presto CLI " + firstNonNull(clientVersion, "(version unknown)"));
         }
-
-        console.run();
+        return version;
     }
 }
