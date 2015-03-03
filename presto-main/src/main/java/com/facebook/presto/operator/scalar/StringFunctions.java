@@ -18,6 +18,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import com.google.common.base.Ascii;
+import com.google.common.base.Splitter;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -26,8 +27,11 @@ import javax.annotation.Nullable;
 
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
+import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.ArrayType.toStackRepresentation;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -161,6 +165,27 @@ public final class StringFunctions
         }
 
         return slice.slice((int) start, (int) length);
+    }
+
+    @ScalarFunction
+    @SqlType("array<varchar>")
+    public static Slice split(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter)
+    {
+        List<String> result = Splitter.on(delimiter.toStringUtf8())
+                .splitToList(string.toStringUtf8());
+        return toStackRepresentation(result, VARCHAR);
+    }
+
+    @ScalarFunction
+    @SqlType("array<varchar>")
+    public static Slice split(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter, @SqlType(StandardTypes.BIGINT) long limit)
+    {
+        checkCondition(limit > 0, INVALID_FUNCTION_ARGUMENT, "Limit must be positive");
+        checkCondition(limit <= Integer.MAX_VALUE, INVALID_FUNCTION_ARGUMENT, "Limit is too large");
+        List<String> result = Splitter.on(delimiter.toStringUtf8())
+                .limit((int) limit)
+                .splitToList(string.toStringUtf8());
+        return toStackRepresentation(result, VARCHAR);
     }
 
     // TODO: Implement a more efficient string search
