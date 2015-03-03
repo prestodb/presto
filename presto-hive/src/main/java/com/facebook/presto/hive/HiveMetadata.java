@@ -328,17 +328,18 @@ public class HiveMetadata
 
         Path targetPath = getTargetPath(schemaName, tableName, schemaTableName);
 
+        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(session, this.hiveStorageFormat);
         SerDeInfo serdeInfo = new SerDeInfo();
         serdeInfo.setName(tableName);
-        serdeInfo.setSerializationLib(this.hiveStorageFormat.getSerDe());
+        serdeInfo.setSerializationLib(hiveStorageFormat.getSerDe());
 
         StorageDescriptor sd = new StorageDescriptor();
         sd.setLocation(targetPath.toString());
 
         sd.setCols(columnsBuilder.build());
         sd.setSerdeInfo(serdeInfo);
-        sd.setInputFormat(this.hiveStorageFormat.getInputFormat());
-        sd.setOutputFormat(this.hiveStorageFormat.getOutputFormat());
+        sd.setInputFormat(hiveStorageFormat.getInputFormat());
+        sd.setOutputFormat(hiveStorageFormat.getOutputFormat());
 
         Table table = new Table();
         table.setDbName(schemaName);
