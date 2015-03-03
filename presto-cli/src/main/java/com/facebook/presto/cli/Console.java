@@ -68,6 +68,9 @@ public class Console
     public HelpOption helpOption;
 
     @Inject
+    public VersionOption versionOption = new VersionOption();
+
+    @Inject
     public ClientOptions clientOptions = new ClientOptions();
 
     @Override
