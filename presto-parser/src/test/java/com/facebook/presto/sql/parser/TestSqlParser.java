@@ -17,6 +17,7 @@ import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
+import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -294,6 +295,14 @@ public class TestSqlParser
                 ImmutableList.of(),
                 Optional.empty()
         );
+    }
+
+    @Test
+    public void testBetween()
+            throws Exception
+    {
+        assertExpression("1 BETWEEN 2 AND 3", new BetweenPredicate(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("3")));
+        assertExpression("1 NOT BETWEEN 2 AND 3", new NotExpression(new BetweenPredicate(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("3"))));
     }
 
     @Test

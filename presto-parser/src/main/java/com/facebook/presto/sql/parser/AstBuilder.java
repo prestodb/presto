@@ -582,10 +582,16 @@ class AstBuilder
     @Override
     public Node visitBetween(@NotNull SqlBaseParser.BetweenContext context)
     {
-        return new BetweenPredicate(
+        Expression expression = new BetweenPredicate(
                 (Expression) visit(context.value),
                 (Expression) visit(context.lower),
                 (Expression) visit(context.upper));
+
+        if (context.NOT() != null) {
+            expression = new NotExpression(expression);
+        }
+
+        return expression;
     }
 
     @Override

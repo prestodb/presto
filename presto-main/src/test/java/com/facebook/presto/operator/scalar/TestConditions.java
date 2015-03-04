@@ -81,6 +81,28 @@ public class TestConditions
         assertFunction("null between 'b' and 'd'", null);
         assertFunction("'c' between null and 'd'", null);
         assertFunction("'c' between 'b' and null", null);
+
+        assertFunction("3 not between 2 and 4", false);
+        assertFunction("3 not between 3 and 3", false);
+        assertFunction("3 not between 2 and 3", false);
+        assertFunction("3 not between 3 and 4", false);
+        assertFunction("3 not between 4 and 2", true);
+        assertFunction("2 not between 3 and 4", true);
+        assertFunction("5 not between 3 and 4", true);
+        assertFunction("null not between 2 and 4", null);
+        assertFunction("3 not between null and 4", null);
+        assertFunction("3 not between 2 and null", null);
+
+        assertFunction("'c' not between 'b' and 'd'", false);
+        assertFunction("'c' not between 'c' and 'c'", false);
+        assertFunction("'c' not between 'b' and 'c'", false);
+        assertFunction("'c' not between 'c' and 'd'", false);
+        assertFunction("'c' not between 'd' and 'b'", true);
+        assertFunction("'b' not between 'c' and 'd'", true);
+        assertFunction("'e' not between 'c' and 'd'", true);
+        assertFunction("null not between 'b' and 'd'", null);
+        assertFunction("'c' not between null and 'd'", null);
+        assertFunction("'c' not between 'b' and null", null);
     }
 
     @Test
