@@ -71,6 +71,23 @@ public class TestConditions
         assertFunction("'monkey' not like 'monkey' escape null", null);
     }
 
+    @Test
+    public void testDistinctFrom()
+            throws Exception
+    {
+        assertFunction("NULL IS DISTINCT FROM NULL", false);
+        assertFunction("NULL IS DISTINCT FROM 1", true);
+        assertFunction("1 IS DISTINCT FROM NULL", true);
+        assertFunction("1 IS DISTINCT FROM 1", false);
+        assertFunction("1 IS DISTINCT FROM 2", true);
+
+        assertFunction("NULL IS NOT DISTINCT FROM NULL", true);
+        assertFunction("NULL IS NOT DISTINCT FROM 1", false);
+        assertFunction("1 IS NOT DISTINCT FROM NULL", false);
+        assertFunction("1 IS NOT DISTINCT FROM 1", true);
+        assertFunction("1 IS NOT DISTINCT FROM 2", false);
+    }
+
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*escape must be empty or a single character.*")
     public void testLikeInvalidEscape()
     {
