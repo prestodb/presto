@@ -242,26 +242,27 @@ public final class OrcInputStream
     private static int decompressZip(Slice in, Slice buffer)
             throws IOException
     {
-        byte[] outArray = (byte[]) buffer.getBase();
-        int outOffset = 0;
-
-        byte[] inArray = (byte[]) in.getBase();
-        int inOffset = (int) (in.getAddress() - ARRAY_BYTE_BASE_OFFSET);
-        int inLength = in.length();
-
         Inflater inflater = new Inflater(true);
-        inflater.setInput(inArray, inOffset, inLength);
-        while (!(inflater.finished() || inflater.needsDictionary() || inflater.needsInput())) {
-            try {
-                int count = inflater.inflate(outArray, outOffset, outArray.length - outOffset);
-                outOffset += count;
+        try {
+            inflater.setInput((byte[]) in.getBase(), (int) (in.getAddress() - ARRAY_BYTE_BASE_OFFSET), in.length());
+            byte[] outArray = (byte[]) buffer.getBase();
+            int outOffset = (int) (buffer.getAddress() - ARRAY_BYTE_BASE_OFFSET);
+            int outLength = buffer.length();
+
+            int uncompressedLength = inflater.inflate(outArray, outOffset, outLength);
+
+            if (!inflater.finished()) {
+                throw new OrcCorruptionException("Could not decompress all input (output buffer too small?)");
             }
-            catch (DataFormatException e) {
-                throw new OrcCorruptionException(e, "Invalid compressed stream");
-            }
+
+            return uncompressedLength;
         }
-        inflater.end();
-        return outOffset;
+        catch (DataFormatException e) {
+            throw new OrcCorruptionException(e, "Invalid compressed stream");
+        }
+        finally {
+            inflater.end();
+        }
     }
 
     private static int decompressSnappy(Slice in, Slice buffer)
