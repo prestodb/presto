@@ -32,7 +32,6 @@ import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.annotations.VisibleForTesting;
@@ -64,6 +63,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -74,6 +74,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
@@ -107,6 +109,7 @@ public class SqlStageExecution
     private final StageId stageId;
     private final URI location;
     private final PlanFragment fragment;
+    private final Set<PlanNodeId> allSources;
     private final Map<PlanFragmentId, StageExecutionNode> subStages;
 
     private final Multimap<Node, TaskId> localNodeTaskMap = HashMultimap.create();
@@ -208,6 +211,13 @@ public class SqlStageExecution
             this.splitBatchSize = splitBatchSize;
             this.initialHashPartitions = initialHashPartitions;
             this.executor = executor;
+
+            this.allSources = Stream.concat(
+                    Stream.of(fragment.getPartitionedSource()),
+                    fragment.getRemoteSourceNodes().stream()
+                            .map(RemoteSourceNode::getId))
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
 
             ImmutableMap.Builder<PlanFragmentId, StageExecutionNode> subStages = ImmutableMap.builder();
             for (StageExecutionPlan subStagePlan : plan.getSubStages()) {
@@ -459,18 +469,15 @@ public class SqlStageExecution
         Multimap<PlanNodeId, URI> exchangeLocations = this.exchangeLocations.get();
 
         ImmutableMultimap.Builder<PlanNodeId, URI> newExchangeLocations = ImmutableMultimap.builder();
-        for (PlanNode planNode : fragment.getSources()) {
-            if (planNode instanceof RemoteSourceNode) {
-                RemoteSourceNode remoteSourceNode = (RemoteSourceNode) planNode;
-                for (PlanFragmentId planFragmentId : remoteSourceNode.getSourceFragmentIds()) {
-                    StageExecutionNode subStage = subStages.get(planFragmentId);
-                    checkState(subStage != null, "Unknown sub stage %s, known stages %s", planFragmentId, subStages.keySet());
+        for (RemoteSourceNode remoteSourceNode : fragment.getRemoteSourceNodes()) {
+            for (PlanFragmentId planFragmentId : remoteSourceNode.getSourceFragmentIds()) {
+                StageExecutionNode subStage = subStages.get(planFragmentId);
+                checkState(subStage != null, "Unknown sub stage %s, known stages %s", planFragmentId, subStages.keySet());
 
-                    // add new task locations
-                    for (URI taskLocation : subStage.getTaskLocations()) {
-                        if (!exchangeLocations.containsEntry(remoteSourceNode.getId(), taskLocation)) {
-                            newExchangeLocations.putAll(remoteSourceNode.getId(), taskLocation);
-                        }
+                // add new task locations
+                for (URI taskLocation : subStage.getTaskLocations()) {
+                    if (!exchangeLocations.containsEntry(remoteSourceNode.getId(), taskLocation)) {
+                        newExchangeLocations.putAll(remoteSourceNode.getId(), taskLocation);
                     }
                 }
             }
@@ -786,7 +793,7 @@ public class SqlStageExecution
     {
         // get new exchanges and update exchange state
         Set<PlanNodeId> completeSources = updateCompleteSources();
-        boolean allSourceComplete = completeSources.containsAll(fragment.getSourceIds());
+        boolean allSourceComplete = completeSources.containsAll(allSources);
         Multimap<PlanNodeId, URI> newExchangeLocations = getNewExchangeLocations();
         exchangeLocations.set(ImmutableMultimap.<PlanNodeId, URI>builder()
                 .putAll(exchangeLocations.get())
@@ -819,7 +826,7 @@ public class SqlStageExecution
         while (!getState().isDone()) {
             // if next loop will finish, don't wait
             Set<PlanNodeId> completeSources = updateCompleteSources();
-            boolean allSourceComplete = completeSources.containsAll(fragment.getSourceIds());
+            boolean allSourceComplete = completeSources.containsAll(allSources);
             if (allSourceComplete && getCurrentOutputBuffers().isNoMoreBufferIds()) {
                 return;
             }
@@ -846,9 +853,8 @@ public class SqlStageExecution
 
     private Set<PlanNodeId> updateCompleteSources()
     {
-        for (PlanNode planNode : fragment.getSources()) {
-            if (!completeSources.contains(planNode.getId()) && planNode instanceof RemoteSourceNode) {
-                RemoteSourceNode remoteSourceNode = (RemoteSourceNode) planNode;
+        for (RemoteSourceNode remoteSourceNode : fragment.getRemoteSourceNodes()) {
+            if (!completeSources.contains(remoteSourceNode.getId())) {
                 boolean exchangeFinished = true;
                 for (PlanFragmentId planFragmentId : remoteSourceNode.getSourceFragmentIds()) {
                     StageExecutionNode subStage = subStages.get(planFragmentId);
@@ -860,7 +866,7 @@ public class SqlStageExecution
                     }
                 }
                 if (exchangeFinished) {
-                    completeSources.add(planNode.getId());
+                    completeSources.add(remoteSourceNode.getId());
                 }
             }
         }

@@ -33,6 +33,7 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -67,6 +68,7 @@ import java.net.URI;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
@@ -80,6 +82,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
@@ -407,15 +410,23 @@ public class HttpRemoteTask
 
     private synchronized List<TaskSource> getSources()
     {
-        ImmutableList.Builder<TaskSource> sources = ImmutableList.builder();
-        for (PlanNodeId planNodeId : planFragment.getSourceIds()) {
-            Set<ScheduledSplit> splits = pendingSplits.get(planNodeId);
-            boolean noMoreSplits = this.noMoreSplits.contains(planNodeId);
-            if (!splits.isEmpty() || noMoreSplits) {
-                sources.add(new TaskSource(planNodeId, splits, noMoreSplits));
-            }
+        return Stream.concat(Stream.of(planFragment.getPartitionedSourceNode()), planFragment.getRemoteSourceNodes().stream())
+                .filter(Objects::nonNull)
+                .map(PlanNode::getId)
+                .map(this::getSource)
+                .filter(Objects::nonNull)
+                .collect(toImmutableList());
+    }
+
+    private TaskSource getSource(PlanNodeId planNodeId)
+    {
+        Set<ScheduledSplit> splits = pendingSplits.get(planNodeId);
+        boolean noMoreSplits = this.noMoreSplits.contains(planNodeId);
+        TaskSource element = null;
+        if (!splits.isEmpty() || noMoreSplits) {
+            element = new TaskSource(planNodeId, splits, noMoreSplits);
         }
-        return sources.build();
+        return element;
     }
 
     @Override

@@ -14,10 +14,10 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -28,8 +28,8 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -47,7 +47,7 @@ public class PlanFragment
         COORDINATOR_ONLY
     }
 
-    public static enum OutputPartitioning
+    public enum OutputPartitioning
     {
         NONE,
         HASH
@@ -60,8 +60,8 @@ public class PlanFragment
     private final PlanDistribution distribution;
     private final PlanNodeId partitionedSource;
     private final List<Type> types;
-    private final List<PlanNode> sources;
-    private final Set<PlanNodeId> sourceIds;
+    private final PlanNode partitionedSourceNode;
+    private final List<RemoteSourceNode> remoteSourceNodes;
     private final OutputPartitioning outputPartitioning;
     private final List<Symbol> partitionBy;
     private final Optional<Symbol> hash;
@@ -94,18 +94,11 @@ public class PlanFragment
                 .map(symbols::get)
                 .collect(toImmutableList());
 
-        ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
-        findSources(root, sources, partitionedSource);
-        this.sources = sources.build();
+        this.partitionedSourceNode = findSource(root, partitionedSource);
 
-        ImmutableSet.Builder<PlanNodeId> sourceIds = ImmutableSet.builder();
-        for (PlanNode source : this.sources) {
-            sourceIds.add(source.getId());
-        }
-        if (partitionedSource != null) {
-            sourceIds.add(partitionedSource);
-        }
-        this.sourceIds = sourceIds.build();
+        ImmutableList.Builder<RemoteSourceNode> remoteSourceNodes = ImmutableList.builder();
+        findRemoteSourceNodes(root, remoteSourceNodes);
+        this.remoteSourceNodes = remoteSourceNodes.build();
 
         this.outputPartitioning = checkNotNull(outputPartitioning, "outputPartitioning is null");
     }
@@ -169,24 +162,37 @@ public class PlanFragment
         return types;
     }
 
-    public List<PlanNode> getSources()
+    public PlanNode getPartitionedSourceNode()
     {
-        return sources;
+        return partitionedSourceNode;
     }
 
-    public Set<PlanNodeId> getSourceIds()
+    public List<RemoteSourceNode> getRemoteSourceNodes()
     {
-        return sourceIds;
+        return remoteSourceNodes;
     }
 
-    private static void findSources(PlanNode node, Builder<PlanNode> builder, PlanNodeId partitionedSource)
+    private static PlanNode findSource(PlanNode node, PlanNodeId nodeId)
     {
-        for (PlanNode source : node.getSources()) {
-            findSources(source, builder, partitionedSource);
+        if (node.getId().equals(nodeId)) {
+            return node;
         }
 
-        if ((node.getSources().isEmpty() && !(node instanceof IndexSourceNode)) || node.getId().equals(partitionedSource)) {
-            builder.add(node);
+        return node.getSources().stream()
+                .map(source -> findSource(source, nodeId))
+                .filter(Objects::nonNull)
+                .findAny()
+                .orElse(null);
+    }
+
+    private static void findRemoteSourceNodes(PlanNode node, Builder<RemoteSourceNode> builder)
+    {
+        for (PlanNode source : node.getSources()) {
+            findRemoteSourceNodes(source, builder);
+        }
+
+        if (node instanceof RemoteSourceNode) {
+            builder.add((RemoteSourceNode) node);
         }
     }
 
