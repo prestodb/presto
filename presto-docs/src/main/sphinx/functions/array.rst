@@ -28,6 +28,10 @@ Array Functions
 
     Returns true iff the array ``x`` contains the element ``y``.
 
+.. function:: array_distinct(x) -> array
+
+    Remove duplicate values from the array ``x``.
+
 .. function:: array_sort(x) -> array
 
     Sorts and returns the array ``x``. The elements of ``x`` must be orderable.

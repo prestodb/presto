@@ -29,6 +29,8 @@ import io.airlift.slice.Slice;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
+
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -117,7 +119,7 @@ public class TestArrayOperators
         assertFunction("CAST(ARRAY [1.0, 2.5, 3.0] AS JSON)", "[1.0,2.5,3.0]");
         assertFunction("CAST(ARRAY ['puppies', 'kittens'] AS JSON)", "[\"puppies\",\"kittens\"]");
         assertFunction("CAST(ARRAY [TRUE, FALSE] AS JSON)", "[true,false]");
-        assertFunction("CAST(ARRAY [from_unixtime(1)] AS JSON)", "[\"" + new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()).toString() + "\"]");
+        assertFunction("CAST(ARRAY [from_unixtime(1)] AS JSON)", "[\"" + sqlTimestamp(1000).toString() + "\"]");
     }
 
     @Test
@@ -154,8 +156,7 @@ public class TestArrayOperators
         assertFunction("ARRAY ['puppies', 'kittens']", ImmutableList.of("puppies", "kittens"));
         assertFunction("ARRAY [TRUE, FALSE]", ImmutableList.of(true, false));
         assertFunction("ARRAY [from_unixtime(1), from_unixtime(100)]", ImmutableList.of(
-                new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()),
-                new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey())));
+                sqlTimestamp(1000), sqlTimestamp(100_000)));
         assertFunction("ARRAY [sqrt(-1)]", ImmutableList.of(NaN));
         assertFunction("ARRAY [pow(infinity(), 2)]", ImmutableList.of(POSITIVE_INFINITY));
         assertFunction("ARRAY [pow(-infinity(), 1)]", ImmutableList.of(NEGATIVE_INFINITY));
@@ -172,8 +173,7 @@ public class TestArrayOperators
         assertFunction("ARRAY [TRUE] || ARRAY [FALSE]", ImmutableList.of(true, false));
         assertFunction("concat(ARRAY [1] , ARRAY[2,3])", ImmutableList.of(1L, 2L, 3L));
         assertFunction("ARRAY [from_unixtime(1)] || ARRAY[from_unixtime(100)]", ImmutableList.of(
-                new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()),
-                new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey())));
+                sqlTimestamp(1000), sqlTimestamp(100_000)));
         assertFunction("ARRAY [ARRAY[ARRAY[1]]] || ARRAY [ARRAY[ARRAY[2]]]", asList(singletonList(Longs.asList(1)), singletonList(Longs.asList(2))));
         assertFunction("ARRAY [] || ARRAY []", ImmutableList.of());
         assertFunction("ARRAY [TRUE] || ARRAY [FALSE] || ARRAY [TRUE]", ImmutableList.of(true, false, true));
@@ -211,11 +211,9 @@ public class TestArrayOperators
         assertFunction("'puppies' || ARRAY ['kittens']", Lists.newArrayList("puppies", "kittens"));
         assertFunction("ARRAY ['kittens'] || 'puppies'", Lists.newArrayList("kittens", "puppies"));
         assertFunction("ARRAY [from_unixtime(1)] || from_unixtime(100)", ImmutableList.of(
-                new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()),
-                new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey())));
+                sqlTimestamp(1000), sqlTimestamp(100_000)));
         assertFunction("from_unixtime(100) || ARRAY [from_unixtime(1)]", ImmutableList.of(
-                new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey()),
-                new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey())));
+                sqlTimestamp(100_000), sqlTimestamp(1000)));
     }
 
     @Test
@@ -279,7 +277,7 @@ public class TestArrayOperators
         assertFunction("ARRAY ['puppies', 'kittens'][2]", "kittens");
         assertFunction("ARRAY ['puppies', 'kittens', NULL][3]", null);
         assertFunction("ARRAY [TRUE, FALSE][2]", false);
-        assertFunction("ARRAY [from_unixtime(1), from_unixtime(100)][1]", new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()));
+        assertFunction("ARRAY [from_unixtime(1), from_unixtime(100)][1]", sqlTimestamp(1000));
         assertFunction("ARRAY [infinity()][1]", POSITIVE_INFINITY);
         assertFunction("ARRAY [-infinity()][1]", NEGATIVE_INFINITY);
         assertFunction("ARRAY [sqrt(-1)][1]", NaN);
@@ -294,7 +292,7 @@ public class TestArrayOperators
         assertFunction("ARRAY_SORT(ARRAY[TRUE, FALSE])", ImmutableList.of(false, true));
         assertFunction("ARRAY_SORT(ARRAY[22.1, 11.1, 1.1, 44.1])", ImmutableList.of(1.1, 11.1, 22.1, 44.1));
         assertFunction("ARRAY_SORT(ARRAY [from_unixtime(100), from_unixtime(1), from_unixtime(200)])",
-                ImmutableList.of(new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()), new SqlTimestamp(100 * 1000, TEST_SESSION.getTimeZoneKey()), new SqlTimestamp(200 * 1000, TEST_SESSION.getTimeZoneKey())));
+                ImmutableList.of(sqlTimestamp(1000), sqlTimestamp(100 * 1000), sqlTimestamp(200 * 1000)));
         assertFunction("ARRAY_SORT(ARRAY [ARRAY [1], ARRAY [2]])", ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(2L)));
 
         try {
@@ -304,6 +302,29 @@ public class TestArrayOperators
         catch (RuntimeException e) {
             // Expected
         }
+    }
+
+    @Test void testDistinct()
+            throws Exception
+    {
+        assertFunction("ARRAY_DISTINCT(ARRAY [])", ImmutableList.of());
+
+        // Order matters here. Result should be stable.
+        assertFunction("ARRAY_DISTINCT(ARRAY [2, 3, 4, 3, 1, 2, 3])", ImmutableList.of(2L, 3L, 4L, 1L));
+        assertFunction("ARRAY_DISTINCT(ARRAY [2.2, 3.3, 4.4, 3.3, 1, 2.2, 3.3])", ImmutableList.of(2.2, 3.3, 4.4, 1.0));
+        assertFunction("ARRAY_DISTINCT(ARRAY [TRUE, TRUE, TRUE])", ImmutableList.of(true));
+        assertFunction("ARRAY_DISTINCT(ARRAY [TRUE, FALSE, FALSE, TRUE])", ImmutableList.of(true, false));
+        assertFunction("ARRAY_DISTINCT(ARRAY [from_unixtime(100), from_unixtime(1), from_unixtime(100)])",
+                ImmutableList.of(sqlTimestamp(100 * 1000), sqlTimestamp(1000)));
+        assertFunction("ARRAY_DISTINCT(ARRAY ['2', '3', '2'])", ImmutableList.of("2", "3"));
+        assertFunction("ARRAY_DISTINCT(ARRAY ['BB', 'CCC', 'BB'])", ImmutableList.of("BB", "CCC"));
+
+        assertFunction("ARRAY_DISTINCT(ARRAY [NULL, 2.2, 3.3, 4.4, 3.3, 1, 2.2, 3.3])", Arrays.asList(null, 2.2, 3.3, 4.4, 1.0));
+        assertFunction("ARRAY_DISTINCT(ARRAY [2, 3, NULL, 4, 3, 1, 2, 3])", Arrays.asList(2L, 3L, null, 4L, 1L));
+        assertFunction("ARRAY_DISTINCT(ARRAY ['BB', 'CCC', 'BB', NULL])", Arrays.asList("BB", "CCC", null));
+        assertFunction("ARRAY_DISTINCT(ARRAY [NULL])", Arrays.asList((Object) null));
+        assertFunction("ARRAY_DISTINCT(ARRAY [NULL, NULL])", Arrays.asList((Object) null));
+        assertFunction("ARRAY_DISTINCT(ARRAY [NULL, NULL, NULL])", Arrays.asList((Object) null));
     }
 
     @Test
@@ -383,5 +404,10 @@ public class TestArrayOperators
         catch (PrestoException e) {
             assertEquals(e.getErrorCode().getCode(), StandardErrorCode.NOT_SUPPORTED.toErrorCode().getCode());
         }
-   }
+    }
+
+    private SqlTimestamp sqlTimestamp(long millisUtc)
+    {
+        return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
+    }
 }
