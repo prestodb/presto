@@ -85,7 +85,6 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.type.TypeUtils;
@@ -399,13 +398,7 @@ public class LocalQueryRunner
         // generate sources
         List<TaskSource> sources = new ArrayList<>();
         long sequenceId = 0;
-        for (PlanNode sourceNode : subplan.getFragment().getSources()) {
-            if (sourceNode instanceof ValuesNode) {
-                continue;
-            }
-
-            TableScanNode tableScan = (TableScanNode) sourceNode;
-
+        for (TableScanNode tableScan : findTableScanNodes(subplan.getFragment().getRoot())) {
             SplitSource splitSource = splitManager.getPartitionSplits(tableScan.getTable(), getPartitions(tableScan));
 
             ImmutableSet.Builder<ScheduledSplit> scheduledSplits = ImmutableSet.builder();
@@ -540,6 +533,24 @@ public class LocalQueryRunner
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw Throwables.propagate(e);
+        }
+    }
+
+    private static List<TableScanNode> findTableScanNodes(PlanNode node)
+    {
+        ImmutableList.Builder<TableScanNode> tableScanNodes = ImmutableList.builder();
+        findTableScanNodes(node, tableScanNodes);
+        return tableScanNodes.build();
+    }
+
+    private static void findTableScanNodes(PlanNode node, ImmutableList.Builder<TableScanNode> builder)
+    {
+        for (PlanNode source : node.getSources()) {
+            findTableScanNodes(source, builder);
+        }
+
+        if (node instanceof TableScanNode) {
+            builder.add((TableScanNode) node);
         }
     }
 

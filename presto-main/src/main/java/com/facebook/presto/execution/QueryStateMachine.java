@@ -24,7 +24,6 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -198,7 +197,7 @@ public class QueryStateMachine
                 totalUserTime += stageStats.getTotalUserTime().roundTo(NANOSECONDS);
                 totalBlockedTime += stageStats.getTotalBlockedTime().roundTo(NANOSECONDS);
 
-                if (Iterables.any(stageInfo.getPlan().getSources(), Predicates.instanceOf(TableScanNode.class))) {
+                if (stageInfo.getPlan().getPartitionedSourceNode() instanceof TableScanNode) {
                     rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
                     rawInputPositions += stageStats.getRawInputPositions();
 

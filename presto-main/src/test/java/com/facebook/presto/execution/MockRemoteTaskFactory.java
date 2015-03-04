@@ -26,6 +26,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TestingColumnHandle;
 import com.facebook.presto.sql.planner.TestingTableHandle;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.collect.HashMultimap;
@@ -43,10 +44,12 @@ import javax.annotation.concurrent.GuardedBy;
 import java.net.URI;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -191,7 +194,13 @@ public class MockRemoteTaskFactory
         public void noMoreSplits(PlanNodeId sourceId)
         {
             noMoreSplits.add(sourceId);
-            if (noMoreSplits.containsAll(fragment.getSourceIds())) {
+
+            boolean allSourcesComplete = Stream.concat(Stream.of(fragment.getPartitionedSourceNode()), fragment.getRemoteSourceNodes().stream())
+                    .filter(Objects::nonNull)
+                    .map(PlanNode::getId)
+                    .allMatch(noMoreSplits::contains);
+
+            if (allSourcesComplete) {
                 taskStateMachine.finished();
             }
         }

@@ -67,9 +67,7 @@ public class SubPlan
 
     public void sanityCheck()
     {
-        Multiset<PlanFragmentId> exchangeIds = fragment.getSources().stream()
-                .filter(RemoteSourceNode.class::isInstance)
-                .map(RemoteSourceNode.class::cast)
+        Multiset<PlanFragmentId> exchangeIds = fragment.getRemoteSourceNodes().stream()
                 .map(RemoteSourceNode::getSourceFragmentIds)
                 .flatMap(List::stream)
                 .collect(toImmutableMultiset());
