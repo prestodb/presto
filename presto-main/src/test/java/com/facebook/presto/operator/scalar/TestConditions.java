@@ -49,6 +49,26 @@ public class TestConditions
         assertFunction("null like 'monkey'", null);
         assertFunction("'monkey' like null", null);
         assertFunction("'monkey' like 'monkey' escape null", null);
+
+        assertFunction("'_monkey_' not like 'X_monkeyX_' escape 'X'", false);
+
+        assertFunction("'monkey' not like 'monkey'", false);
+        assertFunction("'monkey' not like 'mon%'", false);
+        assertFunction("'monkey' not like 'mon_ey'", false);
+        assertFunction("'monkey' not like 'm____y'", false);
+
+        assertFunction("'monkey' not like 'dain'", true);
+        assertFunction("'monkey' not like 'key'", true);
+
+        assertFunction("'_monkey_' not like '\\_monkey\\_'", true);
+        assertFunction("'_monkey_' not like 'X_monkeyX_' escape 'X'", false);
+        assertFunction("'_monkey_' not like '_monkey_' escape ''", false);
+
+        assertFunction("'*?.(){}+|^$,\\' not like '*?.(){}+|^$,\\' escape ''", false);
+
+        assertFunction("null not like 'monkey'", null);
+        assertFunction("'monkey' not like null", null);
+        assertFunction("'monkey' not like 'monkey' escape null", null);
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*escape must be empty or a single character.*")
