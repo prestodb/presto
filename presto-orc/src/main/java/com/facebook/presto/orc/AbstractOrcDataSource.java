@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.ChunkedSliceInput;
 import io.airlift.slice.ChunkedSliceInput.BufferReference;
 import io.airlift.slice.ChunkedSliceInput.SliceLoader;
-import io.airlift.slice.RuntimeIOException;
 import io.airlift.slice.FixedLengthSliceInput;
+import io.airlift.slice.RuntimeIOException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -28,7 +28,6 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.orc.OrcDataSourceUtils.getDiskRangeSlice;
 import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
@@ -100,17 +99,28 @@ public abstract class AbstractOrcDataSource
             return ImmutableMap.of();
         }
 
-        ImmutableMap.Builder<K, FixedLengthSliceInput> slices = ImmutableMap.builder();
+        //
+        // Note: this code does not use the Java 8 stream APIs to avoid any extra object allocation
+        //
 
+        // split disk ranges into "big" and "small"
         long maxReadSizeBytes = maxBufferSize.toBytes();
-        Map<K, DiskRange> smallRanges = diskRanges.entrySet().stream()
-                .filter(entry -> entry.getValue().getLength() <= maxReadSizeBytes)
-                .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
-        slices.putAll(readSmallDiskRanges(smallRanges));
+        ImmutableMap.Builder<K, DiskRange> smallRangesBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<K, DiskRange> largeRangesBuilder = ImmutableMap.builder();
+        for (Entry<K, DiskRange> entry : diskRanges.entrySet()) {
+            if (entry.getValue().getLength() <= maxReadSizeBytes) {
+                smallRangesBuilder.put(entry);
+            }
+            else {
+                largeRangesBuilder.put(entry);
+            }
+        }
+        Map<K, DiskRange> smallRanges = smallRangesBuilder.build();
+        Map<K, DiskRange> largeRanges = largeRangesBuilder.build();
 
-        Map<K, DiskRange> largeRanges = diskRanges.entrySet().stream()
-                .filter(entry -> entry.getValue().getLength() > maxReadSizeBytes)
-                .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+        // read ranges
+        ImmutableMap.Builder<K, FixedLengthSliceInput> slices = ImmutableMap.builder();
+        slices.putAll(readSmallDiskRanges(smallRanges));
         slices.putAll(readLargeDiskRanges(largeRanges));
 
         return slices.build();
