@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.checkpoint.InvalidCheckpointException;
 import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
@@ -139,45 +140,53 @@ public class StripeReader
             StreamSources dictionaryStreamSources = createDictionaryStreamSources(streams, valueStreams, columnEncodings);
 
             // build the row groups
-            List<RowGroup> rowGroups = createRowGroups(
-                    stripe.getNumberOfRows(),
-                    streams,
-                    valueStreams,
-                    columnIndexes,
-                    selectedRowGroups,
-                    columnEncodings);
+            try {
+                List<RowGroup> rowGroups = createRowGroups(
+                        stripe.getNumberOfRows(),
+                        streams,
+                        valueStreams,
+                        columnIndexes,
+                        selectedRowGroups,
+                        columnEncodings);
 
-            return new Stripe(stripe.getNumberOfRows(), columnEncodings, rowGroups, dictionaryStreamSources);
-        }
-        else {
-            // We can't skip because there is only one row group so don't read the indexes
-            ImmutableMap.Builder<StreamId, DiskRange> diskRangesBuilder = ImmutableMap.builder();
-            for (Entry<StreamId, DiskRange> entry : getDiskRanges(stripeFooter.getStreams()).entrySet()) {
-                StreamId streamId = entry.getKey();
-                if (streamId.getStreamKind() != ROW_INDEX && streams.keySet().contains(streamId)) {
-                    diskRangesBuilder.put(entry);
+                return new Stripe(stripe.getNumberOfRows(), columnEncodings, rowGroups, dictionaryStreamSources);
+            }
+            catch (InvalidCheckpointException e) {
+                // The ORC file contains a corrupt checkpoint stream
+                // If the file does not have a row group dictionary, treat the stripe as a single row group. Otherwise,
+                // we must fail because the length of the row group dictionary is contained in the checkpoint stream.
+                if (hasRowGroupDictionary) {
+                    throw new OrcCorruptionException(e, "ORC file %s has corrupt checkpoints", orcDataSource);
                 }
             }
-            ImmutableMap<StreamId, DiskRange> diskRanges = diskRangesBuilder.build();
-
-            // read the file regions
-            Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripe.getOffset(), diskRanges);
-
-            // value streams
-            Map<StreamId, ValueStream<?>> valueStreams = createValueStreams(streams, streamsData, columnEncodings);
-
-            // build the dictionary streams
-            StreamSources dictionaryStreamSources = createDictionaryStreamSources(streams, valueStreams, columnEncodings);
-
-            // build the row group
-            ImmutableMap.Builder<StreamId, StreamSource<?>> builder = ImmutableMap.builder();
-            for (Entry<StreamId, ValueStream<?>> entry : valueStreams.entrySet()) {
-                builder.put(entry.getKey(), new ValueStreamSource<>(entry.getValue()));
-            }
-            RowGroup rowGroup = new RowGroup(0, stripe.getNumberOfRows(), new StreamSources(builder.build()));
-
-            return new Stripe(stripe.getNumberOfRows(), columnEncodings, ImmutableList.of(rowGroup), dictionaryStreamSources);
         }
+
+        ImmutableMap.Builder<StreamId, DiskRange> diskRangesBuilder = ImmutableMap.builder();
+        for (Entry<StreamId, DiskRange> entry : getDiskRanges(stripeFooter.getStreams()).entrySet()) {
+            StreamId streamId = entry.getKey();
+            if (streamId.getStreamKind() != ROW_INDEX && streams.keySet().contains(streamId)) {
+                diskRangesBuilder.put(entry);
+            }
+        }
+        ImmutableMap<StreamId, DiskRange> diskRanges = diskRangesBuilder.build();
+
+        // read the file regions
+        Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripe.getOffset(), diskRanges);
+
+        // value streams
+        Map<StreamId, ValueStream<?>> valueStreams = createValueStreams(streams, streamsData, columnEncodings);
+
+        // build the dictionary streams
+        StreamSources dictionaryStreamSources = createDictionaryStreamSources(streams, valueStreams, columnEncodings);
+
+        // build the row group
+        ImmutableMap.Builder<StreamId, StreamSource<?>> builder = ImmutableMap.builder();
+        for (Entry<StreamId, ValueStream<?>> entry : valueStreams.entrySet()) {
+            builder.put(entry.getKey(), new ValueStreamSource<>(entry.getValue()));
+        }
+        RowGroup rowGroup = new RowGroup(0, stripe.getNumberOfRows(), new StreamSources(builder.build()));
+
+        return new Stripe(stripe.getNumberOfRows(), columnEncodings, ImmutableList.of(rowGroup), dictionaryStreamSources);
     }
 
     public Map<StreamId, OrcInputStream> readDiskRanges(long stripeOffset, Map<StreamId, DiskRange> diskRanges)
@@ -264,6 +273,7 @@ public class StripeReader
             Map<Integer, List<RowGroupIndex>> columnIndexes,
             Set<Integer> selectedRowGroups,
             List<ColumnEncoding> encodings)
+            throws InvalidCheckpointException
     {
         ImmutableList.Builder<RowGroup> rowGroupBuilder = ImmutableList.builder();
 

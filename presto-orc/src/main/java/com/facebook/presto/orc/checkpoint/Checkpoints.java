@@ -47,8 +47,8 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTI
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.equalTo;
+import static java.lang.String.format;
 
 public final class Checkpoints
 {
@@ -64,6 +64,7 @@ public final class Checkpoints
             List<ColumnEncoding> columnEncodings,
             Map<StreamId, Stream> streams,
             Map<Integer, List<RowGroupIndex>> columnIndexes)
+            throws InvalidCheckpointException
     {
         ImmutableSetMultimap.Builder<Integer, StreamKind> streamKindsBuilder = ImmutableSetMultimap.builder();
         for (Stream stream : streams.values()) {
@@ -124,12 +125,13 @@ public final class Checkpoints
             // it will write checkpoints for all streams, but in other cases it will write only the streams that exist.
             // We detect this case by checking that all offsets in the initial position list are zero, and if so, we
             // clear the extra offsets
-            checkState(!columnPositionsList.hasNextPosition() || Iterables.all(positionsList, equalTo(0)),
-                    "Column %s, of type %s, contains %s offset positions, but only %s positions were consumed",
-                    column,
-                    columnType,
-                    positionsList.size(),
-                    columnPositionsList.getIndex());
+            if (columnPositionsList.hasNextPosition() && !Iterables.all(positionsList, equalTo(0))) {
+                throw new InvalidCheckpointException(format("Column %s, of type %s, contains %s offset positions, but only %s positions were consumed",
+                        column,
+                        columnType,
+                        positionsList.size(),
+                        columnPositionsList.getIndex()));
+            }
         }
         return checkpoints.build();
     }
@@ -414,9 +416,11 @@ public final class Checkpoints
 
         public int nextPosition()
         {
-            checkState(hasNextPosition(), "Not enough positions for column %s, of type %s, checkpoints",
-                    column,
-                    columnType);
+            if (!hasNextPosition()) {
+                throw new InvalidCheckpointException("Not enough positions for column %s, of type %s, checkpoints",
+                        column,
+                        columnType);
+            }
 
             return positionsList.get(index++);
         }

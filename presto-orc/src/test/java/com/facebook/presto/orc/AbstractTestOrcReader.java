@@ -230,6 +230,31 @@ public abstract class AbstractTestOrcReader
         tester.testRoundTrip(javaByteArrayObjectInspector, limit(cycle(new byte[0]), 30_000), AbstractTestOrcReader::byteArrayToString);
     }
 
+    @Test
+    public void testDwrfInvalidCheckpointsForRowGroupDictionary()
+            throws Exception
+    {
+        Iterable<Integer> values = limit(cycle(concat(
+                        ImmutableList.of(1), Collections.nCopies(9999, 123),
+                        ImmutableList.of(2), Collections.nCopies(9999, 123),
+                        ImmutableList.of(3), Collections.nCopies(9999, 123),
+                        Collections.nCopies(1_000_000, null))),
+                200_000);
+
+        tester.assertRoundTrip(javaIntObjectInspector, values, transform(values, value -> value == null ? null : (long) value));
+
+        Iterable<String> stringValue = transform(values, value -> value == null ? null : String.valueOf(value));
+        tester.assertRoundTrip(javaStringObjectInspector, stringValue, stringValue);
+    }
+
+    @Test
+    public void testDwrfInvalidCheckpointsForStripeDictionary()
+            throws Exception
+    {
+        Iterable<String> values = limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), Object::toString)), 200_000);
+        tester.testRoundTrip(javaStringObjectInspector, values);
+    }
+
     private static <T> Iterable<T> skipEvery(final int n, final Iterable<T> iterable)
     {
         return new Iterable<T>()
