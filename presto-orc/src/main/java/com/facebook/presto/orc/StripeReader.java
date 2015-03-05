@@ -141,15 +141,31 @@ public class StripeReader
         return new Stripe(stripe.getNumberOfRows(), columnEncodings, rowGroups, dictionaryStreamSources);
     }
 
-    public Map<StreamId, OrcInputStream> readDiskRanges(final long stripeOffset, Map<StreamId, DiskRange> diskRanges)
+    public Map<StreamId, OrcInputStream> readDiskRanges(long stripeOffset, Map<StreamId, DiskRange> diskRanges)
             throws IOException
     {
-        // transform ranges to have an absolute offset in file
-        diskRanges = Maps.transformValues(diskRanges, diskRange -> new DiskRange(stripeOffset + diskRange.getOffset(), diskRange.getLength()));
+        //
+        // Note: this code does not use the Java 8 stream APIs to avoid any extra object allocation
+        //
 
+        // transform ranges to have an absolute offset in file
+        ImmutableMap.Builder<StreamId, DiskRange> diskRangesBuilder = ImmutableMap.builder();
+        for (Entry<StreamId, DiskRange> entry : diskRanges.entrySet()) {
+            DiskRange diskRange = entry.getValue();
+            diskRangesBuilder.put(entry.getKey(), new DiskRange(stripeOffset + diskRange.getOffset(), diskRange.getLength()));
+        }
+        diskRanges = diskRangesBuilder.build();
+
+        // read ranges
         Map<StreamId, FixedLengthSliceInput> streamsData = orcDataSource.readFully(diskRanges);
 
-        return ImmutableMap.copyOf(Maps.transformValues(streamsData, input -> new OrcInputStream(orcDataSource.toString(), input, compressionKind, bufferSize)));
+        // transform streams to OrcInputStream
+        String sourceName = orcDataSource.toString();
+        ImmutableMap.Builder<StreamId, OrcInputStream> streamsBuilder = ImmutableMap.builder();
+        for (Entry<StreamId, FixedLengthSliceInput> entry : streamsData.entrySet()) {
+            streamsBuilder.put(entry.getKey(), new OrcInputStream(sourceName, entry.getValue(), compressionKind, bufferSize));
+        }
+        return streamsBuilder.build();
     }
 
     private Map<StreamId, ValueStream<?>> createValueStreams(Map<StreamId, Stream> streams, Map<StreamId, OrcInputStream> streamsData, List<ColumnEncoding> columnEncodings)
