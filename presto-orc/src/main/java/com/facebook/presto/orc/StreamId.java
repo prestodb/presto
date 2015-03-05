@@ -16,8 +16,6 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 
-import java.util.Objects;
-
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public final class StreamId
@@ -50,7 +48,7 @@ public final class StreamId
     @Override
     public int hashCode()
     {
-        return Objects.hash(column, streamKind);
+        return 31 * column + streamKind.hashCode();
     }
 
     @Override
@@ -62,8 +60,9 @@ public final class StreamId
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
+
         StreamId other = (StreamId) obj;
-        return Objects.equals(this.column, other.column) && Objects.equals(this.streamKind, other.streamKind);
+        return column == other.column && streamKind == other.streamKind;
     }
 
     @Override
