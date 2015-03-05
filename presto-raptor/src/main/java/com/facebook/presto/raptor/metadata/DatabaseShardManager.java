@@ -25,8 +25,10 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.airlift.log.Logger;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
+import org.skife.jdbi.v2.exceptions.DBIException;
 
 import javax.inject.Inject;
 
@@ -53,6 +55,8 @@ public class DatabaseShardManager
         implements ShardManager
 {
     private static final String INDEX_TABLE_PREFIX = "x_shards_t";
+
+    private static final Logger log = Logger.get(DatabaseShardManager.class);
 
     private final IDBI dbi;
     private final ShardManagerDao dao;
@@ -161,6 +165,13 @@ public class DatabaseShardManager
             dao.dropShards(tableId);
             return null;
         });
+
+        try (Handle handle = dbi.open()) {
+            handle.execute("DROP TABLE " + shardIndexTable(tableId));
+        }
+        catch (DBIException e) {
+            log.warn(e, "Failed to drop table %s", shardIndexTable(tableId));
+        }
     }
 
     @Override
