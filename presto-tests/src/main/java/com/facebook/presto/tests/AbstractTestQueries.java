@@ -1893,6 +1893,13 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT max(a), max(b) FROM (SELECT custkey a, custkey b FROM orders) x");
     }
 
+    @Test
+    public void testWindowFunctionWithImplicitCoercion()
+            throws Exception
+    {
+        assertQuery("SELECT *, 1.0 * sum(x) OVER () FROM (VALUES 1) t(x)", "SELECT 1, 1.0");
+    }
+
     @SuppressWarnings("PointlessArithmeticExpression")
     @Test
     public void testWindowFunctionsExpressions()
