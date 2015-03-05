@@ -54,6 +54,7 @@ import org.joda.time.DateTimeZone;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -114,7 +115,7 @@ public class OrcTester
         orcTester.listTestsEnabled = true;
         orcTester.nullTestsEnabled = true;
         orcTester.skipBatchTestsEnabled = true;
-        orcTester.formats = ImmutableSet.of(ORC_12, DWRF);
+        orcTester.formats = ImmutableSet.of(DWRF);
         orcTester.compressions = ImmutableSet.of(ZLIB);
         return orcTester;
     }
@@ -289,7 +290,7 @@ public class OrcTester
         }
     }
 
-    private void assertRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues)
+    public void assertRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues)
             throws Exception
     {
         for (Format formatVersion : formats) {
@@ -420,6 +421,7 @@ public class OrcTester
 
         List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
 
+        int i = 0;
         while (values.hasNext()) {
             Object value = values.next();
             objectInspector.setStructFieldData(row, fields.get(0), value);
@@ -427,16 +429,57 @@ public class OrcTester
             @SuppressWarnings("deprecation") Serializer serde;
             if (DWRF == format) {
                 serde = new com.facebook.hive.orc.OrcSerde();
+                if (i == 142_345) {
+                    setDwrfLowMemoryFlag(recordWriter);
+                }
             }
             else {
                 serde = new OrcSerde();
             }
             Writable record = serde.serialize(row, objectInspector);
             recordWriter.write(record);
+            i++;
         }
 
         recordWriter.close(false);
         return new DataSize(outputFile.length(), Unit.BYTE).convertToMostSuccinctDataSize();
+    }
+
+    private static void setDwrfLowMemoryFlag(RecordWriter recordWriter)
+    {
+        Object writer = getFieldValue(recordWriter, "writer");
+        Object memoryManager = getFieldValue(writer, "memoryManager");
+        setFieldValue(memoryManager, "lowMemoryMode", true);
+        try {
+            writer.getClass().getMethod("enterLowMemoryMode").invoke(writer);
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    private static Object getFieldValue(Object instance, String name)
+    {
+        try {
+            Field writerField = instance.getClass().getDeclaredField(name);
+            writerField.setAccessible(true);
+            return writerField.get(instance);
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    private static void setFieldValue(Object instance, String name, Object value)
+    {
+        try {
+            Field writerField = instance.getClass().getDeclaredField(name);
+            writerField.setAccessible(true);
+            writerField.set(instance, value);
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     public static RecordWriter createOrcRecordWriter(File outputFile, Format format, Compression compression, ObjectInspector columnObjectInspector)
@@ -472,7 +515,6 @@ public class OrcTester
         OrcConf.setIntVar(jobConf, OrcConf.ConfVars.HIVE_ORC_ENTROPY_STRING_THRESHOLD, 1);
         OrcConf.setIntVar(jobConf, OrcConf.ConfVars.HIVE_ORC_DICTIONARY_ENCODING_INTERVAL, 2);
         OrcConf.setBoolVar(jobConf, OrcConf.ConfVars.HIVE_ORC_BUILD_STRIDE_DICTIONARY, true);
-        OrcConf.setBoolVar(jobConf, OrcConf.ConfVars.HIVE_ORC_DICTIONARY_SORT_KEYS, true);
         ReaderWriterProfiler.setProfilerOptions(jobConf);
 
         return new com.facebook.hive.orc.OrcOutputFormat().getHiveRecordWriter(
