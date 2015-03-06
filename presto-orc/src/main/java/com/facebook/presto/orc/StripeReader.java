@@ -23,12 +23,14 @@ import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
+import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.stream.OrcInputStream;
 import com.facebook.presto.orc.stream.StreamSource;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.facebook.presto.orc.stream.ValueStream;
+import com.facebook.presto.orc.stream.ValueStreamSource;
 import com.facebook.presto.orc.stream.ValueStreams;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -99,46 +101,83 @@ public class StripeReader
 
         // get streams for selected columns
         Map<StreamId, Stream> streams = new HashMap<>();
+        boolean hasRowGroupDictionary = false;
         for (Stream stream : stripeFooter.getStreams()) {
             if (includedOrcColumns.contains(stream.getColumn())) {
                 streams.put(new StreamId(stream), stream);
+
+                ColumnEncodingKind columnEncoding = columnEncodings.get(stream.getColumn()).getColumnEncodingKind();
+                if (columnEncoding == DICTIONARY && stream.getStreamKind() == StreamKind.IN_DICTIONARY) {
+                    hasRowGroupDictionary = true;
+                }
             }
         }
 
-        // determine ranges of the stripe to read
-        Map<StreamId, DiskRange> diskRanges = getDiskRanges(stripeFooter.getStreams());
-        diskRanges = Maps.filterKeys(diskRanges, Predicates.in(streams.keySet()));
+        if (stripe.getNumberOfRows() > 10_000 || hasRowGroupDictionary) {
+            // determine ranges of the stripe to read
+            Map<StreamId, DiskRange> diskRanges = getDiskRanges(stripeFooter.getStreams());
+            diskRanges = Maps.filterKeys(diskRanges, Predicates.in(streams.keySet()));
 
-        // read the file regions
-        Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripe.getOffset(), diskRanges);
+            // read the file regions
+            Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripe.getOffset(), diskRanges);
 
-        // read the row index for each column
-        Map<Integer, List<RowGroupIndex>> columnIndexes = readColumnIndexes(streams, streamsData);
+            // read the row index for each column
+            Map<Integer, List<RowGroupIndex>> columnIndexes = readColumnIndexes(streams, streamsData);
 
-        // select the row groups matching the tuple domain
-        Set<Integer> selectedRowGroups = selectRowGroups(stripe, columnIndexes);
+            // select the row groups matching the tuple domain
+            Set<Integer> selectedRowGroups = selectRowGroups(stripe, columnIndexes);
 
-        // if all row groups are skipped, return null
-        if (selectedRowGroups.isEmpty()) {
-            return null;
+            // if all row groups are skipped, return null
+            if (selectedRowGroups.isEmpty()) {
+                return null;
+            }
+
+            // value streams
+            Map<StreamId, ValueStream<?>> valueStreams = createValueStreams(streams, streamsData, columnEncodings);
+
+            // build the dictionary streams
+            StreamSources dictionaryStreamSources = createDictionaryStreamSources(streams, valueStreams, columnEncodings);
+
+            // build the row groups
+            List<RowGroup> rowGroups = createRowGroups(
+                    stripe.getNumberOfRows(),
+                    streams,
+                    valueStreams,
+                    columnIndexes,
+                    selectedRowGroups,
+                    columnEncodings);
+
+            return new Stripe(stripe.getNumberOfRows(), columnEncodings, rowGroups, dictionaryStreamSources);
         }
+        else {
+            // We can't skip because there is only one row group so don't read the indexes
+            ImmutableMap.Builder<StreamId, DiskRange> diskRangesBuilder = ImmutableMap.builder();
+            for (Entry<StreamId, DiskRange> entry : getDiskRanges(stripeFooter.getStreams()).entrySet()) {
+                StreamId streamId = entry.getKey();
+                if (streamId.getStreamKind() != ROW_INDEX && streams.keySet().contains(streamId)) {
+                    diskRangesBuilder.put(entry);
+                }
+            }
+            ImmutableMap<StreamId, DiskRange> diskRanges = diskRangesBuilder.build();
 
-        // value streams
-        Map<StreamId, ValueStream<?>> valueStreams = createValueStreams(streams, streamsData, columnEncodings);
+            // read the file regions
+            Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripe.getOffset(), diskRanges);
 
-        // build the dictionary streams
-        StreamSources dictionaryStreamSources = createDictionaryStreamSources(streams, valueStreams, columnEncodings);
+            // value streams
+            Map<StreamId, ValueStream<?>> valueStreams = createValueStreams(streams, streamsData, columnEncodings);
 
-        // build the row groups
-        List<RowGroup> rowGroups = createRowGroups(
-                stripe.getNumberOfRows(),
-                streams,
-                valueStreams,
-                columnIndexes,
-                selectedRowGroups,
-                columnEncodings);
+            // build the dictionary streams
+            StreamSources dictionaryStreamSources = createDictionaryStreamSources(streams, valueStreams, columnEncodings);
 
-        return new Stripe(stripe.getNumberOfRows(), columnEncodings, rowGroups, dictionaryStreamSources);
+            // build the row group
+            ImmutableMap.Builder<StreamId, StreamSource<?>> builder = ImmutableMap.builder();
+            for (Entry<StreamId, ValueStream<?>> entry : valueStreams.entrySet()) {
+                builder.put(entry.getKey(), new ValueStreamSource<>(entry.getValue()));
+            }
+            RowGroup rowGroup = new RowGroup(0, stripe.getNumberOfRows(), new StreamSources(builder.build()));
+
+            return new Stripe(stripe.getNumberOfRows(), columnEncodings, ImmutableList.of(rowGroup), dictionaryStreamSources);
+        }
     }
 
     public Map<StreamId, OrcInputStream> readDiskRanges(long stripeOffset, Map<StreamId, DiskRange> diskRanges)
