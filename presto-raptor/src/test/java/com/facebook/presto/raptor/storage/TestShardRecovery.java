@@ -43,6 +43,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestShardRecovery
 {
     private StorageService storageService;
@@ -88,7 +89,7 @@ public class TestShardRecovery
         File file = storageService.getStorageFile(shardUuid);
         File backupFile = storageService.getBackupFile(shardUuid);
 
-        try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, backupFile)) {
+        try (OrcFileWriter ignored = new OrcFileWriter(columnIds, columnTypes, backupFile)) {
             // create file with zero rows
         }
 
@@ -137,11 +138,6 @@ public class TestShardRecovery
     public void testNoBackupException()
             throws Exception
     {
-        UUID shardUuid = UUID.randomUUID();
-        File file = storageService.getStorageFile(shardUuid);
-        File backupFile = storageService.getBackupFile(shardUuid);
-
-        assertFalse(backupFile.exists());
-        recoveryManager.restoreFromBackup(shardUuid);
+        recoveryManager.restoreFromBackup(UUID.randomUUID());
     }
 }
