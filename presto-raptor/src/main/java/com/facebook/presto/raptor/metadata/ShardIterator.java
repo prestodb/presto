@@ -19,6 +19,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.log.Logger;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -37,6 +38,8 @@ final class ShardIterator
         extends AbstractIterator<ShardNodes>
         implements CloseableIterator<ShardNodes>
 {
+    private static final Logger log = Logger.get(ShardIterator.class);
+
     private final Connection connection;
     private final PreparedStatement statement;
     private final ResultSet resultSet;
@@ -56,6 +59,8 @@ final class ShardIterator
                 "LEFT JOIN nodes n ON (sn.node_id = n.node_id)\n" +
                 "WHERE " + predicate.getPredicate() + "\n" +
                 "ORDER BY shard_uuid";
+
+        log.debug("Executing shard query:\n%s", sql);
 
         this.connection = checkNotNull(connection, "connection is null");
         try {
