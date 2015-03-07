@@ -18,9 +18,7 @@ import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.tpch.TpchMetadata;
@@ -78,21 +76,9 @@ public class IndexedTpchConnectorFactory
             }
 
             @Override
-            public ConnectorPageSourceProvider getPageSourceProvider()
-            {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
             public ConnectorRecordSetProvider getRecordSetProvider()
             {
                 return new TpchRecordSetProvider();
-            }
-
-            @Override
-            public ConnectorRecordSinkProvider getRecordSinkProvider()
-            {
-                throw new UnsupportedOperationException();
             }
 
             @Override
