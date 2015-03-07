@@ -16,11 +16,8 @@ package com.facebook.presto.connector.jmx;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
 
@@ -74,27 +71,9 @@ public class JmxConnectorFactory
             }
 
             @Override
-            public ConnectorPageSourceProvider getPageSourceProvider()
-            {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
             public ConnectorRecordSetProvider getRecordSetProvider()
             {
                 return new JmxRecordSetProvider(mbeanServer, nodeManager);
-            }
-
-            @Override
-            public ConnectorRecordSinkProvider getRecordSinkProvider()
-            {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public ConnectorIndexResolver getIndexResolver()
-            {
-                throw new UnsupportedOperationException();
             }
         };
     }

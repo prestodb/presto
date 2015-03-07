@@ -24,21 +24,39 @@ public interface Connector
     /**
      * @throws UnsupportedOperationException if this connector does not support reading tables page at a time
      */
-    ConnectorPageSourceProvider getPageSourceProvider();
+    default ConnectorPageSourceProvider getPageSourceProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * @throws UnsupportedOperationException if this connector does not support reading tables record at a time
      */
-    ConnectorRecordSetProvider getRecordSetProvider();
+    default ConnectorRecordSetProvider getRecordSetProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
-     * @throws UnsupportedOperationException if this connector does not support writing tables
+     * @throws UnsupportedOperationException if this connector does not support writing tables page at a time
      */
-    ConnectorRecordSinkProvider getRecordSinkProvider();
-
-    ConnectorIndexResolver getIndexResolver();
-
     default ConnectorPageSinkProvider getPageSinkProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * @throws UnsupportedOperationException if this connector does not support writing tables record at a time
+     */
+    default ConnectorRecordSinkProvider getRecordSinkProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * @throws UnsupportedOperationException if this connector does not support indexes
+     */
+    default ConnectorIndexResolver getIndexResolver()
     {
         throw new UnsupportedOperationException();
     }
