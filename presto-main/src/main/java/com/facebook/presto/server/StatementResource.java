@@ -287,6 +287,7 @@ public class StatementResource
             if (lastResultPath != null && requestedPath.equals(lastResultPath)) {
                 // tell query manager we are still interested in the query
                 queryManager.getQueryInfo(queryId);
+                queryManager.recordHeartbeat(queryId);
                 return lastResult;
             }
 
@@ -311,6 +312,7 @@ public class StatementResource
             // get the query info before returning
             // force update if query manager is closed
             QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+            queryManager.recordHeartbeat(queryId);
 
             // if we have received all of the output data and the query is not marked as done, wait for the query to finish
             if (exchangeClient.isClosed() && !queryInfo.getState().isDone()) {
@@ -384,6 +386,7 @@ public class StatementResource
             // wait for query to start
             QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
             while (maxWait.toMillis() > 1 && !isQueryStarted(queryInfo)) {
+                queryManager.recordHeartbeat(queryId);
                 maxWait = queryManager.waitForStateChange(queryId, queryInfo.getState(), maxWait);
                 queryInfo = queryManager.getQueryInfo(queryId);
             }

@@ -29,6 +29,8 @@ public interface QueryManager
 
     QueryInfo getQueryInfo(QueryId queryId);
 
+    void recordHeartbeat(QueryId queryId);
+
     QueryInfo createQuery(Session session, String query);
 
     void cancelQuery(QueryId queryId);
