@@ -211,7 +211,6 @@ public class SqlQueryManager
             return maxWait;
         }
 
-        query.recordHeartbeat();
         return query.waitForStateChange(currentState, maxWait);
     }
 
@@ -225,8 +224,20 @@ public class SqlQueryManager
             throw new NoSuchElementException();
         }
 
-        query.recordHeartbeat();
         return query.getQueryInfo();
+    }
+
+    @Override
+    public void recordHeartbeat(QueryId queryId)
+    {
+        checkNotNull(queryId, "queryId is null");
+
+        QueryExecution query = queries.get(queryId);
+        if (query == null) {
+            return;
+        }
+
+        query.recordHeartbeat();
     }
 
     @Override
