@@ -20,13 +20,20 @@ import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.util.Locale.ENGLISH;
 
 public class TestTimeWithTimeZone
@@ -52,151 +59,167 @@ public class TestTimeWithTimeZone
         functionAssertions = new FunctionAssertions(session);
     }
 
-    private void assertFunction(String projection, Object expected)
+    private void assertFunction(String projection, Type expectedType, Object expected)
     {
-        functionAssertions.assertFunction(projection, expected);
+        functionAssertions.assertFunction(projection, expectedType, expected);
     }
 
     @Test
     public void testLiteral()
     {
-        assertFunction("TIME '03:04:05.321 +07:09'", new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
-        assertFunction("TIME '03:04:05 +07:09'", new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 0, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
-        assertFunction("TIME '03:04 +07:09'", new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 0, 0, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+        assertFunction("TIME '03:04:05.321 +07:09'",
+                TIME_WITH_TIME_ZONE,
+                new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+        assertFunction("TIME '03:04:05 +07:09'",
+                TIME_WITH_TIME_ZONE,
+                new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 0, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+        assertFunction("TIME '03:04 +07:09'",
+                TIME_WITH_TIME_ZONE,
+                new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 0, 0, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
 
-        assertFunction("TIME '3:4:5.321+07:09'", new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
-        assertFunction("TIME '3:4:5+07:09'", new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 0, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
-        assertFunction("TIME '3:4+07:09'", new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 0, 0, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+        assertFunction("TIME '3:4:5.321+07:09'",
+                TIME_WITH_TIME_ZONE,
+                new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+        assertFunction("TIME '3:4:5+07:09'",
+                TIME_WITH_TIME_ZONE,
+                new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 0, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+        assertFunction("TIME '3:4+07:09'",
+                TIME_WITH_TIME_ZONE,
+                new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 0, 0, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
     }
 
     @Test
     public void testEqual()
     {
-        assertFunction("TIME '03:04:05.321 +07:09' = TIME '03:04:05.321 +07:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' = TIME '02:04:05.321 +06:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' = TIME '02:04:05.321'", true);
+        assertFunction("TIME '03:04:05.321 +07:09' = TIME '03:04:05.321 +07:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' = TIME '02:04:05.321 +06:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' = TIME '02:04:05.321'", BOOLEAN, true);
 
-        assertFunction("TIME '03:04:05.321 +07:09' = TIME '03:04:05.333 +07:09'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' = TIME '02:04:05.333 +06:09'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' = TIME '02:04:05.333'", false);
+        assertFunction("TIME '03:04:05.321 +07:09' = TIME '03:04:05.333 +07:09'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' = TIME '02:04:05.333 +06:09'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' = TIME '02:04:05.333'", BOOLEAN, false);
     }
 
     @Test
     public void testNotEqual()
     {
-        assertFunction("TIME '03:04:05.321 +07:09' <> TIME '03:04:05.333 +07:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' <> TIME '02:04:05.333 +06:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' <> TIME '02:04:05.333'", true);
+        assertFunction("TIME '03:04:05.321 +07:09' <> TIME '03:04:05.333 +07:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' <> TIME '02:04:05.333 +06:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' <> TIME '02:04:05.333'", BOOLEAN, true);
 
-        assertFunction("TIME '03:04:05.321 +07:09' <> TIME '03:04:05.321 +07:09'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' <> TIME '02:04:05.321 +06:09'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' <> TIME '02:04:05.321'", false);
+        assertFunction("TIME '03:04:05.321 +07:09' <> TIME '03:04:05.321 +07:09'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' <> TIME '02:04:05.321 +06:09'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' <> TIME '02:04:05.321'", BOOLEAN, false);
     }
 
     @Test
     public void testLessThan()
     {
-        assertFunction("TIME '03:04:05.321 +07:09' < TIME '03:04:05.333 +07:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' < TIME '02:04:05.333 +06:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' < TIME '02:04:05.333'", true);
+        assertFunction("TIME '03:04:05.321 +07:09' < TIME '03:04:05.333 +07:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' < TIME '02:04:05.333 +06:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' < TIME '02:04:05.333'", BOOLEAN, true);
 
-        assertFunction("TIME '03:04:05.321 +07:09' < TIME '03:04:05.321 +07:09'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' < TIME '02:04:05.321 +06:09'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' < TIME '02:04:05.321'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' < TIME '03:04:05 +07:09'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' < TIME '02:04:05 +06:09'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' < TIME '02:04:05'", false);
+        assertFunction("TIME '03:04:05.321 +07:09' < TIME '03:04:05.321 +07:09'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' < TIME '02:04:05.321 +06:09'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' < TIME '02:04:05.321'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' < TIME '03:04:05 +07:09'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' < TIME '02:04:05 +06:09'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' < TIME '02:04:05'", BOOLEAN, false);
     }
 
     @Test
     public void testLessThanOrEqual()
     {
-        assertFunction("TIME '03:04:05.321 +07:09' <= TIME '03:04:05.333 +07:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' <= TIME '02:04:05.333 +06:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' <= TIME '02:04:05.333'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' <= TIME '03:04:05.321 +07:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' <= TIME '02:04:05.321 +06:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' <= TIME '02:04:05.321'", true);
+        assertFunction("TIME '03:04:05.321 +07:09' <= TIME '03:04:05.333 +07:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' <= TIME '02:04:05.333 +06:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' <= TIME '02:04:05.333'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' <= TIME '03:04:05.321 +07:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' <= TIME '02:04:05.321 +06:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' <= TIME '02:04:05.321'", BOOLEAN, true);
 
-        assertFunction("TIME '03:04:05.321 +07:09' <= TIME '03:04:05 +07:09'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' <= TIME '02:04:05 +06:09'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' <= TIME '02:04:05'", false);
+        assertFunction("TIME '03:04:05.321 +07:09' <= TIME '03:04:05 +07:09'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' <= TIME '02:04:05 +06:09'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' <= TIME '02:04:05'", BOOLEAN, false);
     }
 
     @Test
     public void testGreaterThan()
     {
-        assertFunction("TIME '03:04:05.321 +07:09' > TIME '03:04:05.111 +07:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' > TIME '02:04:05.111 +06:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' > TIME '02:04:05.111'", true);
+        assertFunction("TIME '03:04:05.321 +07:09' > TIME '03:04:05.111 +07:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' > TIME '02:04:05.111 +06:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' > TIME '02:04:05.111'", BOOLEAN, true);
 
-        assertFunction("TIME '03:04:05.321 +07:09' > TIME '03:04:05.321 +07:09'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' > TIME '02:04:05.321 +06:09'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' > TIME '02:04:05.321'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' > TIME '03:04:05.333 +07:09'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' > TIME '02:04:05.333 +06:09'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' > TIME '02:04:05.333'", false);
+        assertFunction("TIME '03:04:05.321 +07:09' > TIME '03:04:05.321 +07:09'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' > TIME '02:04:05.321 +06:09'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' > TIME '02:04:05.321'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' > TIME '03:04:05.333 +07:09'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' > TIME '02:04:05.333 +06:09'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' > TIME '02:04:05.333'", BOOLEAN, false);
     }
 
     @Test
     public void testGreaterThanOrEqual()
     {
-        assertFunction("TIME '03:04:05.321 +07:09' >= TIME '03:04:05.111 +07:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' >= TIME '02:04:05.111 +06:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' >= TIME '02:04:05.111'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' >= TIME '03:04:05.321 +07:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' >= TIME '02:04:05.321 +06:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' >= TIME '02:04:05.321'", true);
+        assertFunction("TIME '03:04:05.321 +07:09' >= TIME '03:04:05.111 +07:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' >= TIME '02:04:05.111 +06:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' >= TIME '02:04:05.111'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' >= TIME '03:04:05.321 +07:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' >= TIME '02:04:05.321 +06:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' >= TIME '02:04:05.321'", BOOLEAN, true);
 
-        assertFunction("TIME '03:04:05.321 +07:09' >= TIME '03:04:05.333 +07:09'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' >= TIME '02:04:05.333 +06:09'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' >= TIME '02:04:05.333'", false);
+        assertFunction("TIME '03:04:05.321 +07:09' >= TIME '03:04:05.333 +07:09'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' >= TIME '02:04:05.333 +06:09'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' >= TIME '02:04:05.333'", BOOLEAN, false);
     }
 
     @Test
     public void testBetween()
     {
-        assertFunction("TIME '03:04:05.321 +07:09' between TIME '03:04:05.111 +07:09' and TIME '03:04:05.333 +07:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.111 +06:09' and TIME '02:04:05.333 +06:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.111' and TIME '02:04:05.333'", true);
+        assertFunction("TIME '03:04:05.321 +07:09' between TIME '03:04:05.111 +07:09' and TIME '03:04:05.333 +07:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.111 +06:09' and TIME '02:04:05.333 +06:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.111' and TIME '02:04:05.333'", BOOLEAN, true);
 
-        assertFunction("TIME '03:04:05.321 +07:09' between TIME '03:04:05.321 +07:09' and TIME '03:04:05.333 +07:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.321 +06:09' and TIME '02:04:05.333 +06:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.321' and TIME '02:04:05.333'", true);
+        assertFunction("TIME '03:04:05.321 +07:09' between TIME '03:04:05.321 +07:09' and TIME '03:04:05.333 +07:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.321 +06:09' and TIME '02:04:05.333 +06:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.321' and TIME '02:04:05.333'", BOOLEAN, true);
 
-        assertFunction("TIME '03:04:05.321 +07:09' between TIME '03:04:05.111 +07:09' and TIME '03:04:05.321 +07:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.111 +06:09' and TIME '02:04:05.321 +06:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.111' and TIME '02:04:05.321'", true);
+        assertFunction("TIME '03:04:05.321 +07:09' between TIME '03:04:05.111 +07:09' and TIME '03:04:05.321 +07:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.111 +06:09' and TIME '02:04:05.321 +06:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.111' and TIME '02:04:05.321'", BOOLEAN, true);
 
-        assertFunction("TIME '03:04:05.321 +07:09' between TIME '03:04:05.321 +07:09' and TIME '03:04:05.321 +07:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.321 +06:09' and TIME '02:04:05.321 +06:09'", true);
-        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.321' and TIME '02:04:05.321'", true);
+        assertFunction("TIME '03:04:05.321 +07:09' between TIME '03:04:05.321 +07:09' and TIME '03:04:05.321 +07:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.321 +06:09' and TIME '02:04:05.321 +06:09'", BOOLEAN, true);
+        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.321' and TIME '02:04:05.321'", BOOLEAN, true);
 
-        assertFunction("TIME '03:04:05.321 +07:09' between TIME '03:04:05.322 +07:09' and TIME '03:04:05.333 +07:09'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.322 +06:09' and TIME '02:04:05.333 +06:09'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.322' and TIME '02:04:05.333'", false);
+        assertFunction("TIME '03:04:05.321 +07:09' between TIME '03:04:05.322 +07:09' and TIME '03:04:05.333 +07:09'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.322 +06:09' and TIME '02:04:05.333 +06:09'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.322' and TIME '02:04:05.333'", BOOLEAN, false);
 
-        assertFunction("TIME '03:04:05.321 +07:09' between TIME '03:04:05.311 +07:09' and TIME '03:04:05.312 +07:09'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.311 +06:09' and TIME '02:04:05.312 +06:09'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.311' and TIME '02:04:05.312'", false);
+        assertFunction("TIME '03:04:05.321 +07:09' between TIME '03:04:05.311 +07:09' and TIME '03:04:05.312 +07:09'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.311 +06:09' and TIME '02:04:05.312 +06:09'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.311' and TIME '02:04:05.312'", BOOLEAN, false);
 
-        assertFunction("TIME '03:04:05.321 +07:09' between TIME '03:04:05.333 +07:09' and TIME '03:04:05.111 +07:09'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.333 +06:09' and TIME '02:04:05.111 +06:09'", false);
-        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.333' and TIME '02:04:05.111'", false);
+        assertFunction("TIME '03:04:05.321 +07:09' between TIME '03:04:05.333 +07:09' and TIME '03:04:05.111 +07:09'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.333 +06:09' and TIME '02:04:05.111 +06:09'", BOOLEAN, false);
+        assertFunction("TIME '03:04:05.321 +07:09' between TIME '02:04:05.333' and TIME '02:04:05.111'", BOOLEAN, false);
     }
 
     @Test
     public void testCastToTime()
             throws Exception
     {
-        assertFunction("cast(TIME '03:04:05.321 +07:09' as time)", new SqlTime(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), session.getTimeZoneKey()));
+        assertFunction("cast(TIME '03:04:05.321 +07:09' as time)",
+                TIME,
+                new SqlTime(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), session.getTimeZoneKey()));
     }
 
     @Test
     public void testCastToTimestamp()
             throws Exception
     {
-        assertFunction("cast(TIME '03:04:05.321 +07:09' as timestamp)", new SqlTimestamp(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), session.getTimeZoneKey()));
+        assertFunction("cast(TIME '03:04:05.321 +07:09' as timestamp)",
+                TIMESTAMP,
+                new SqlTimestamp(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), session.getTimeZoneKey()));
     }
 
     @Test
@@ -204,14 +227,15 @@ public class TestTimeWithTimeZone
             throws Exception
     {
         assertFunction("cast(TIME '03:04:05.321 +07:09' as timestamp with time zone)",
+                TIMESTAMP_WITH_TIME_ZONE,
                 new SqlTimestampWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
     }
 
     @Test
     public void testCastToSlice()
     {
-        assertFunction("cast(TIME '03:04:05.321 +07:09' as varchar)", "03:04:05.321 +07:09");
-        assertFunction("cast(TIME '03:04:05 +07:09' as varchar)", "03:04:05.000 +07:09");
-        assertFunction("cast(TIME '03:04 +07:09' as varchar)", "03:04:00.000 +07:09");
+        assertFunction("cast(TIME '03:04:05.321 +07:09' as varchar)", VARCHAR, "03:04:05.321 +07:09");
+        assertFunction("cast(TIME '03:04:05 +07:09' as varchar)", VARCHAR, "03:04:05.000 +07:09");
+        assertFunction("cast(TIME '03:04 +07:09' as varchar)", VARCHAR, "03:04:00.000 +07:09");
     }
 }

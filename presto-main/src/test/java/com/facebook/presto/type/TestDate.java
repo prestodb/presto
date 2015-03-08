@@ -19,6 +19,7 @@ import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
@@ -26,7 +27,12 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.util.Locale.ENGLISH;
 import static org.joda.time.DateTimeZone.UTC;
@@ -52,9 +58,9 @@ public class TestDate
         functionAssertions = new FunctionAssertions(session);
     }
 
-    private void assertFunction(String projection, Object expected)
+    private void assertFunction(String projection, Type expectedType, Object expected)
     {
-        functionAssertions.assertFunction(projection, expected);
+        functionAssertions.assertFunction(projection, expectedType, expected);
     }
 
     @Test
@@ -62,82 +68,82 @@ public class TestDate
             throws Exception
     {
         long millis = new DateTime(2001, 1, 22, 0, 0, UTC).getMillis();
-        assertFunction("DATE '2001-1-22'", new SqlDate((int) TimeUnit.MILLISECONDS.toDays(millis)));
+        assertFunction("DATE '2001-1-22'", DATE, new SqlDate((int) TimeUnit.MILLISECONDS.toDays(millis)));
     }
 
     @Test
     public void testEqual()
             throws Exception
     {
-        assertFunction("DATE '2001-1-22' = DATE '2001-1-22'", true);
-        assertFunction("DATE '2001-1-22' = DATE '2001-1-22'", true);
+        assertFunction("DATE '2001-1-22' = DATE '2001-1-22'", BOOLEAN, true);
+        assertFunction("DATE '2001-1-22' = DATE '2001-1-22'", BOOLEAN, true);
 
-        assertFunction("DATE '2001-1-22' = DATE '2001-1-23'", false);
-        assertFunction("DATE '2001-1-22' = DATE '2001-1-11'", false);
+        assertFunction("DATE '2001-1-22' = DATE '2001-1-23'", BOOLEAN, false);
+        assertFunction("DATE '2001-1-22' = DATE '2001-1-11'", BOOLEAN, false);
     }
 
     @Test
     public void testNotEqual()
             throws Exception
     {
-        assertFunction("DATE '2001-1-22' <> DATE '2001-1-23'", true);
-        assertFunction("DATE '2001-1-22' <> DATE '2001-1-11'", true);
+        assertFunction("DATE '2001-1-22' <> DATE '2001-1-23'", BOOLEAN, true);
+        assertFunction("DATE '2001-1-22' <> DATE '2001-1-11'", BOOLEAN, true);
 
-        assertFunction("DATE '2001-1-22' <> DATE '2001-1-22'", false);
+        assertFunction("DATE '2001-1-22' <> DATE '2001-1-22'", BOOLEAN, false);
     }
 
     @Test
     public void testLessThan()
             throws Exception
     {
-        assertFunction("DATE '2001-1-22' < DATE '2001-1-23'", true);
+        assertFunction("DATE '2001-1-22' < DATE '2001-1-23'", BOOLEAN, true);
 
-        assertFunction("DATE '2001-1-22' < DATE '2001-1-22'", false);
-        assertFunction("DATE '2001-1-22' < DATE '2001-1-20'", false);
+        assertFunction("DATE '2001-1-22' < DATE '2001-1-22'", BOOLEAN, false);
+        assertFunction("DATE '2001-1-22' < DATE '2001-1-20'", BOOLEAN, false);
     }
 
     @Test
     public void testLessThanOrEqual()
             throws Exception
     {
-        assertFunction("DATE '2001-1-22' <= DATE '2001-1-22'", true);
-        assertFunction("DATE '2001-1-22' <= DATE '2001-1-23'", true);
+        assertFunction("DATE '2001-1-22' <= DATE '2001-1-22'", BOOLEAN, true);
+        assertFunction("DATE '2001-1-22' <= DATE '2001-1-23'", BOOLEAN, true);
 
-        assertFunction("DATE '2001-1-22' <= DATE '2001-1-20'", false);
+        assertFunction("DATE '2001-1-22' <= DATE '2001-1-20'", BOOLEAN, false);
     }
 
     @Test
     public void testGreaterThan()
             throws Exception
     {
-        assertFunction("DATE '2001-1-22' > DATE '2001-1-11'", true);
+        assertFunction("DATE '2001-1-22' > DATE '2001-1-11'", BOOLEAN, true);
 
-        assertFunction("DATE '2001-1-22' > DATE '2001-1-22'", false);
-        assertFunction("DATE '2001-1-22' > DATE '2001-1-23'", false);
+        assertFunction("DATE '2001-1-22' > DATE '2001-1-22'", BOOLEAN, false);
+        assertFunction("DATE '2001-1-22' > DATE '2001-1-23'", BOOLEAN, false);
     }
 
     @Test
     public void testGreaterThanOrEqual()
             throws Exception
     {
-        assertFunction("DATE '2001-1-22' >= DATE '2001-1-22'", true);
-        assertFunction("DATE '2001-1-22' >= DATE '2001-1-11'", true);
+        assertFunction("DATE '2001-1-22' >= DATE '2001-1-22'", BOOLEAN, true);
+        assertFunction("DATE '2001-1-22' >= DATE '2001-1-11'", BOOLEAN, true);
 
-        assertFunction("DATE '2001-1-22' >= DATE '2001-1-23'", false);
+        assertFunction("DATE '2001-1-22' >= DATE '2001-1-23'", BOOLEAN, false);
     }
 
     @Test
     public void testBetween()
             throws Exception
     {
-        assertFunction("DATE '2001-1-22' between DATE '2001-1-11' and DATE '2001-1-23'", true);
-        assertFunction("DATE '2001-1-22' between DATE '2001-1-11' and DATE '2001-1-22'", true);
-        assertFunction("DATE '2001-1-22' between DATE '2001-1-22' and DATE '2001-1-23'", true);
-        assertFunction("DATE '2001-1-22' between DATE '2001-1-22' and DATE '2001-1-22'", true);
+        assertFunction("DATE '2001-1-22' between DATE '2001-1-11' and DATE '2001-1-23'", BOOLEAN, true);
+        assertFunction("DATE '2001-1-22' between DATE '2001-1-11' and DATE '2001-1-22'", BOOLEAN, true);
+        assertFunction("DATE '2001-1-22' between DATE '2001-1-22' and DATE '2001-1-23'", BOOLEAN, true);
+        assertFunction("DATE '2001-1-22' between DATE '2001-1-22' and DATE '2001-1-22'", BOOLEAN, true);
 
-        assertFunction("DATE '2001-1-22' between DATE '2001-1-11' and DATE '2001-1-12'", false);
-        assertFunction("DATE '2001-1-22' between DATE '2001-1-23' and DATE '2001-1-24'", false);
-        assertFunction("DATE '2001-1-22' between DATE '2001-1-23' and DATE '2001-1-11'", false);
+        assertFunction("DATE '2001-1-22' between DATE '2001-1-11' and DATE '2001-1-12'", BOOLEAN, false);
+        assertFunction("DATE '2001-1-22' between DATE '2001-1-23' and DATE '2001-1-24'", BOOLEAN, false);
+        assertFunction("DATE '2001-1-22' between DATE '2001-1-23' and DATE '2001-1-11'", BOOLEAN, false);
     }
 
     @Test
@@ -145,6 +151,7 @@ public class TestDate
             throws Exception
     {
         assertFunction("cast(DATE '2001-1-22' as timestamp)",
+                TIMESTAMP,
                 new SqlTimestamp(new DateTime(2001, 1, 22, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
     }
 
@@ -153,6 +160,7 @@ public class TestDate
             throws Exception
     {
         assertFunction("cast(DATE '2001-1-22' as timestamp with time zone)",
+                TIMESTAMP_WITH_TIME_ZONE,
                 new SqlTimestampWithTimeZone(new DateTime(2001, 1, 22, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
     }
 
@@ -160,14 +168,14 @@ public class TestDate
     public void testCastToSlice()
             throws Exception
     {
-        assertFunction("cast(DATE '2001-1-22' as varchar)", "2001-01-22");
+        assertFunction("cast(DATE '2001-1-22' as varchar)", VARCHAR, "2001-01-22");
     }
 
     @Test
     public void testCastFromSlice()
             throws Exception
     {
-        assertFunction("cast('2001-1-22' as date) = Date '2001-1-22'", true);
+        assertFunction("cast('2001-1-22' as date) = Date '2001-1-22'", BOOLEAN, true);
     }
 
     @Test
@@ -175,8 +183,8 @@ public class TestDate
             throws Exception
     {
         int days = (int) TimeUnit.MILLISECONDS.toDays(new DateTime(2013, 3, 30, 0, 0, UTC).getMillis());
-        assertFunction("greatest(DATE '2013-03-30', DATE '2012-05-23')", new SqlDate(days));
-        assertFunction("greatest(DATE '2013-03-30', DATE '2012-05-23', DATE '2012-06-01')", new SqlDate(days));
+        assertFunction("greatest(DATE '2013-03-30', DATE '2012-05-23')", DATE, new SqlDate(days));
+        assertFunction("greatest(DATE '2013-03-30', DATE '2012-05-23', DATE '2012-06-01')", DATE, new SqlDate(days));
     }
 
     @Test
@@ -184,7 +192,7 @@ public class TestDate
             throws Exception
     {
         int days = (int) TimeUnit.MILLISECONDS.toDays(new DateTime(2012, 5, 23, 0, 0, UTC).getMillis());
-        assertFunction("least(DATE '2013-03-30', DATE '2012-05-23')", new SqlDate(days));
-        assertFunction("least(DATE '2013-03-30', DATE '2012-05-23', DATE '2012-06-01')", new SqlDate(days));
+        assertFunction("least(DATE '2013-03-30', DATE '2012-05-23')", DATE, new SqlDate(days));
+        assertFunction("least(DATE '2013-03-30', DATE '2012-05-23', DATE '2012-06-01')", DATE, new SqlDate(days));
     }
 }
