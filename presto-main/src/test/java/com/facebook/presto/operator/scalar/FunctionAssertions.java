@@ -63,6 +63,7 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -192,7 +193,7 @@ public final class FunctionAssertions
         return this;
     }
 
-    public void assertFunction(String projection, Object expected)
+    public void assertFunction(String projection, Type expectedType, Object expected)
     {
         if (expected instanceof Integer) {
             expected = ((Integer) expected).longValue();
@@ -201,7 +202,7 @@ public final class FunctionAssertions
             expected = ((Slice) expected).toString(UTF_8);
         }
 
-        Object actual = selectSingleValue(projection, compiler);
+        Object actual = selectSingleValue(projection, expectedType, compiler);
         try {
             assertEquals(actual, expected);
         }
@@ -210,15 +211,16 @@ public final class FunctionAssertions
         }
     }
 
-    public void assertFunctionNull(String projection)
+    public void assertFunctionNull(String projection, Type expectedType)
     {
-        assertNull(selectSingleValue(projection, compiler));
+        assertNull(selectSingleValue(projection, expectedType, compiler));
     }
 
     public void assertInvalidFunction(String projection)
     {
         try {
-            assertFunction(projection, null);
+            // type isn't necessary as the function is not valid
+            assertFunction(projection, UnknownType.UNKNOWN, null);
             fail();
         }
         catch (PrestoException e) {
@@ -226,29 +228,29 @@ public final class FunctionAssertions
         }
     }
 
-    public void tryEvaluate(String expression)
+    public void tryEvaluate(String expression, Type expectedType)
     {
-        tryEvaluate(expression, session);
+        tryEvaluate(expression, expectedType, session);
     }
 
-    public void tryEvaluate(String expression, Session session)
+    public void tryEvaluate(String expression, Type expectedType, Session session)
     {
-        selectUniqueValue(expression, session, compiler);
+        selectUniqueValue(expression, expectedType, session, compiler);
     }
 
-    public void tryEvaluateWithAll(String expression, Session session)
+    public void tryEvaluateWithAll(String expression, Type expectedType, Session session)
     {
-        executeProjectionWithAll(expression, session, compiler);
+        executeProjectionWithAll(expression, expectedType, session, compiler);
     }
 
-    private Object selectSingleValue(String projection, ExpressionCompiler compiler)
+    private Object selectSingleValue(String projection, Type expectedType, ExpressionCompiler compiler)
     {
-        return selectUniqueValue(projection, session, compiler);
+        return selectUniqueValue(projection, expectedType, session, compiler);
     }
 
-    private Object selectUniqueValue(String projection, Session session, ExpressionCompiler compiler)
+    private Object selectUniqueValue(String projection, Type expectedType, Session session, ExpressionCompiler compiler)
     {
-        List<Object> results = executeProjectionWithAll(projection, session, compiler);
+        List<Object> results = executeProjectionWithAll(projection, expectedType, session, compiler);
         HashSet<Object> resultSet = new HashSet<>(results);
 
         // we should only have a single result
@@ -257,7 +259,7 @@ public final class FunctionAssertions
         return Iterables.getOnlyElement(resultSet);
     }
 
-    public List<Object> executeProjectionWithAll(String projection, Session session, ExpressionCompiler compiler)
+    private List<Object> executeProjectionWithAll(String projection, Type expectedType, Session session, ExpressionCompiler compiler)
     {
         checkNotNull(projection, "projection is null");
 
@@ -269,6 +271,7 @@ public final class FunctionAssertions
         // If the projection does not need bound values, execute query using full engine
         if (!needsBoundValue(projectionExpression)) {
             MaterializedResult result = runner.execute("SELECT " + projection);
+            assertType(result.getTypes(), expectedType);
             assertEquals(result.getTypes().size(), 1);
             assertEquals(result.getMaterializedRows().size(), 1);
             Object queryResult = Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
@@ -277,15 +280,19 @@ public final class FunctionAssertions
 
         // execute as standalone operator
         OperatorFactory operatorFactory = compileFilterProject(TRUE_LITERAL, projectionExpression, compiler);
+        assertType(operatorFactory.getTypes(), expectedType);
         Object directOperatorValue = selectSingleValue(operatorFactory, session);
         results.add(directOperatorValue);
 
         // interpret
-        Object interpretedValue = selectSingleValue(interpretedFilterProject(TRUE_LITERAL, projectionExpression, session));
+        Operator interpretedFilterProject = interpretedFilterProject(TRUE_LITERAL, projectionExpression, session);
+        assertType(interpretedFilterProject.getTypes(), expectedType);
+        Object interpretedValue = selectSingleValue(interpretedFilterProject);
         results.add(interpretedValue);
 
         // execute over normal operator
         SourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(TRUE_LITERAL, projectionExpression, compiler);
+        assertType(scanProjectOperatorFactory.getTypes(), expectedType);
         Object scanOperatorValue = selectSingleValue(scanProjectOperatorFactory, createNormalSplit(), session);
         results.add(scanOperatorValue);
 
@@ -297,6 +304,7 @@ public final class FunctionAssertions
         // If the projection does not need bound values, execute query using full engine
         if (!needsBoundValue(projectionExpression)) {
             MaterializedResult result = runner.execute("SELECT " + projection);
+            assertType(result.getTypes(), expectedType);
             assertEquals(result.getTypes().size(), 1);
             assertEquals(result.getMaterializedRows().size(), 1);
             Object queryResult = Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
@@ -630,6 +638,13 @@ public final class FunctionAssertions
         return new TaskContext(new TaskId("query", "stage", "task"), EXECUTOR, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();
+    }
+
+    private static void assertType(List<Type> types, Type expectedType)
+    {
+        assertTrue(types.size() == 1, "Expected one type, but got " + types);
+        Type actualType = types.get(0);
+        assertEquals(actualType, expectedType);
     }
 
     private static class TestPageSourceProvider
