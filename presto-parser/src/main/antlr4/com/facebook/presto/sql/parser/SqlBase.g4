@@ -205,7 +205,7 @@ valueExpression
 primaryExpression
     : NULL                                                                           #nullLiteral
     | interval                                                                       #intervalLiteral
-    | identifier STRING                                                              #typeConstructor
+    | type STRING                                                                    #typeConstructor
     | number                                                                         #numericLiteral
     | booleanValue                                                                   #booleanLiteral
     | STRING                                                                         #stringLiteral
@@ -257,7 +257,7 @@ type
     : type ARRAY
     | ARRAY '<' type '>'
     | MAP '<' type ',' type '>'
-    | simpleType
+    | simpleType ('(' INTEGER_VALUE (',' INTEGER_VALUE)* ')')?
     ;
 
 simpleType
