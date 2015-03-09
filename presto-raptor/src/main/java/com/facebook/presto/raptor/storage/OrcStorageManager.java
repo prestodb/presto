@@ -25,6 +25,7 @@ import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.metadata.ColumnStats;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.util.CurrentNodeId;
+import com.facebook.presto.raptor.util.PageBuffer;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
@@ -186,9 +187,9 @@ public class OrcStorageManager
     }
 
     @Override
-    public DataSize getMaxBufferSize()
+    public PageBuffer createPageBuffer()
     {
-        return maxBufferSize;
+        return new PageBuffer(maxBufferSize.toBytes());
     }
 
     @Override

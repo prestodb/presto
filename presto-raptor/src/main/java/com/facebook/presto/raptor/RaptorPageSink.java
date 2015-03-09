@@ -77,7 +77,7 @@ public class RaptorPageSink
         this.sortTypes = ImmutableList.copyOf(sortFields.stream().map(columnTypes::get).collect(toList()));
         this.sortOrders = ImmutableList.copyOf(checkNotNull(sortOrders, "sortOrders is null"));
 
-        this.pageBuffer = new PageBuffer(storageManager.getMaxBufferSize().toBytes());
+        this.pageBuffer = storageManager.createPageBuffer();
     }
 
     @Override
