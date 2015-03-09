@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.metadata.FunctionListBuilder;
-import com.facebook.presto.operator.aggregation.state.NullableBigintState;
+import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -69,7 +69,7 @@ public class TestCountNullAggregation
         private CountNull() {}
 
         @InputFunction
-        public static void input(NullableBigintState state, @NullablePosition @SqlType(StandardTypes.BIGINT) Block block, @BlockIndex int position)
+        public static void input(NullableLongState state, @NullablePosition @SqlType(StandardTypes.BIGINT) Block block, @BlockIndex int position)
         {
             if (block.isNull(position)) {
                 state.setLong(state.getLong() + 1);
@@ -78,7 +78,7 @@ public class TestCountNullAggregation
         }
 
         @CombineFunction
-        public static void combine(NullableBigintState state, NullableBigintState scratchState)
+        public static void combine(NullableLongState state, NullableLongState scratchState)
         {
             state.setLong(state.getLong() + scratchState.getLong());
             state.setNull(state.isNull() && scratchState.isNull());

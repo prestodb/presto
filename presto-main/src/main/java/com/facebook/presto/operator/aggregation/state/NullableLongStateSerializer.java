@@ -19,8 +19,8 @@ import com.facebook.presto.spi.type.Type;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
-public class NullableBigintStateSerializer
-        implements AccumulatorStateSerializer<NullableBigintState>
+public class NullableLongStateSerializer
+        implements AccumulatorStateSerializer<NullableLongState>
 {
     @Override
     public Type getSerializedType()
@@ -29,7 +29,7 @@ public class NullableBigintStateSerializer
     }
 
     @Override
-    public void serialize(NullableBigintState state, BlockBuilder out)
+    public void serialize(NullableLongState state, BlockBuilder out)
     {
         if (state.isNull()) {
             out.appendNull();
@@ -40,7 +40,7 @@ public class NullableBigintStateSerializer
     }
 
     @Override
-    public void deserialize(Block block, int index, NullableBigintState state)
+    public void deserialize(Block block, int index, NullableLongState state)
     {
         state.setNull(block.isNull(index));
         if (!state.isNull()) {
