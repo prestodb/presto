@@ -17,7 +17,7 @@ import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.operator.aggregation.state.LongState;
-import com.facebook.presto.operator.aggregation.state.NullableBigintState;
+import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.operator.aggregation.state.VarianceState;
 import com.facebook.presto.spi.block.Block;
@@ -38,10 +38,10 @@ public class TestStateCompiler
     {
         StateCompiler compiler = new StateCompiler();
 
-        AccumulatorStateFactory<NullableBigintState> factory = compiler.generateStateFactory(NullableBigintState.class);
-        AccumulatorStateSerializer<NullableBigintState> serializer = compiler.generateStateSerializer(NullableBigintState.class);
-        NullableBigintState state = factory.createSingleState();
-        NullableBigintState deserializedState = factory.createSingleState();
+        AccumulatorStateFactory<NullableLongState> factory = compiler.generateStateFactory(NullableLongState.class);
+        AccumulatorStateSerializer<NullableLongState> serializer = compiler.generateStateSerializer(NullableLongState.class);
+        NullableLongState state = factory.createSingleState();
+        NullableLongState deserializedState = factory.createSingleState();
 
         state.setLong(2);
         state.setNull(false);

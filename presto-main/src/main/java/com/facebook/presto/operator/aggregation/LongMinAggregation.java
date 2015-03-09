@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.InitialLongValue;
-import com.facebook.presto.operator.aggregation.state.NullableBigintState;
+import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 
@@ -32,7 +32,7 @@ public final class LongMinAggregation
     }
 
     public interface BigintMinState
-            extends NullableBigintState
+            extends NullableLongState
     {
         @Override
         @InitialLongValue(Long.MAX_VALUE)
