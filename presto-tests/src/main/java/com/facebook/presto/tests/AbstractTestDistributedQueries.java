@@ -508,7 +508,7 @@ public abstract class AbstractTestDistributedQueries
 
         expected = resultBuilder(getSession(), VARCHAR, VARCHAR, BOOLEAN, BOOLEAN, VARCHAR)
                 .row("x", "bigint", true, false, "")
-                .row("y", "varchar", true, false, "")
+                .row("y", "varchar(3)", true, false, "")
                 .build();
 
         assertEquals(actual, expected);
