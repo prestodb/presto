@@ -29,6 +29,7 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.RegexpType.REGEXP;
@@ -43,6 +44,7 @@ public class TestTypeRegistry
     @Test
     public void testCanCoerce()
     {
+        assertTrue(TypeRegistry.canCoerce(createVarcharType(10), createVarcharType(11)));
         assertTrue(TypeRegistry.canCoerce(BIGINT, BIGINT));
         assertTrue(TypeRegistry.canCoerce(UNKNOWN, BIGINT));
         assertFalse(TypeRegistry.canCoerce(BIGINT, UNKNOWN));
@@ -71,6 +73,11 @@ public class TestTypeRegistry
         assertFalse(TypeRegistry.canCoerce(parseTypeSignature("row<bigint,double,varchar>('a','b','c')"), parseTypeSignature("row<bigint,double,varchar>")));
         assertFalse(TypeRegistry.canCoerce(parseTypeSignature("row<bigint,double,varchar>"), parseTypeSignature("row<bigint,double,varchar>('a','b','c')")));
         assertTrue(TypeRegistry.canCoerce(parseTypeSignature("row<bigint,double,varchar>('a','b','c')"), parseTypeSignature("row<bigint,double,varchar>('a','b','c')")));
+
+        assertTrue(TypeRegistry.canCoerce(createVarcharType(10), createVarcharType(11)));
+        assertTrue(TypeRegistry.canCoerce(createVarcharType(10), VARCHAR));
+        assertFalse(TypeRegistry.canCoerce(VARCHAR, createVarcharType(10)));
+        assertFalse(TypeRegistry.canCoerce(createVarcharType(11), createVarcharType(10)));
     }
 
     @Test
@@ -100,6 +107,10 @@ public class TestTypeRegistry
         assertCommonSuperType("row<bigint,double,varchar>", "row<bigint,double,varchar>", "row<bigint,double,varchar>");
         assertCommonSuperType("row<bigint,double,varchar>('a','b','c')", "row<bigint,double,varchar>", null);
         assertCommonSuperType("row<bigint,double,varchar>('a','b','c')", "row<bigint,double,varchar>('a','b','c')", "row<bigint,double,varchar>('a','b','c')");
+
+        assertCommonSuperType("varchar", "varchar", "varchar");
+        assertCommonSuperType("varchar(10)", "varchar", "varchar");
+        assertCommonSuperType("varchar(10)", "varchar(11)", "varchar(11)");
     }
 
     private void assertCommonSuperType(Type firstType, Type secondType, Type expected)

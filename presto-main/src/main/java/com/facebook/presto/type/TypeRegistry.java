@@ -38,12 +38,12 @@ import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.spi.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static com.facebook.presto.spi.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
+import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.ColorType.COLOR;
 import static com.facebook.presto.type.FunctionParametricType.FUNCTION;
@@ -83,7 +83,6 @@ public final class TypeRegistry
         addType(BOOLEAN);
         addType(BIGINT);
         addType(DOUBLE);
-        addType(VARCHAR);
         addType(VARBINARY);
         addType(DATE);
         addType(TIME);
@@ -99,6 +98,7 @@ public final class TypeRegistry
         addType(JSON_PATH);
         addType(COLOR);
         addType(JSON);
+        addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(ROW);
         addParametricType(ARRAY);
         addParametricType(MAP);
@@ -205,7 +205,7 @@ public final class TypeRegistry
                 return StandardTypes.TIME_WITH_TIME_ZONE.equals(toTypeBase);
             case StandardTypes.TIMESTAMP:
                 return StandardTypes.TIMESTAMP_WITH_TIME_ZONE.equals(toTypeBase);
-            case StandardTypes.VARCHAR:
+            case VARCHAR:
                 return RegexpType.NAME.equals(toTypeBase) || LikePatternType.NAME.equals(toTypeBase) || JsonPathType.NAME.equals(toTypeBase);
             case StandardTypes.P4_HYPER_LOG_LOG:
                 return StandardTypes.HYPER_LOG_LOG.equals(toTypeBase);
@@ -286,6 +286,16 @@ public final class TypeRegistry
             return Optional.of(firstType);
         }
 
+        // special case for varchar for now; needs fixing when pnowojski patches are applied
+        if (firstType.getBase().equals(VARCHAR) && secondType.getBase().equals(VARCHAR)) {
+            if (firstType.getLiteralParameters().isEmpty() || secondType.getLiteralParameters().isEmpty()) {
+                return Optional.of(new TypeSignature(VARCHAR, ImmutableList.of(), ImmutableList.of()));
+            }
+
+            long length = Math.max((long) firstType.getLiteralParameters().get(0), (long) secondType.getLiteralParameters().get(0));
+            return Optional.of(new TypeSignature(VARCHAR, ImmutableList.of(), ImmutableList.of(length)));
+        }
+
         List<TypeSignature> firstTypeTypeParameters = firstType.getParameters();
         List<TypeSignature> secondTypeTypeParameters = secondType.getParameters();
         if (firstTypeTypeParameters.size() != secondTypeTypeParameters.size()) {
@@ -318,5 +328,27 @@ public final class TypeRegistry
         }
 
         return Optional.of(new TypeSignature(commonSuperTypeBase.get(), typeParameters.build(), firstType.getLiteralParameters()));
+    }
+
+    public static boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
+    {
+        return isTypeOnlyCoercion(actualType.getTypeSignature(), expectedType.getTypeSignature());
+    }
+
+    private static boolean isTypeOnlyCoercion(TypeSignature actualType, TypeSignature expectedType)
+    {
+        if (actualType.equals(expectedType)) {
+            return true;
+        }
+
+        if (actualType.getBase().equals(VARCHAR) && actualType.getBase().equals(VARCHAR)) {
+            if (expectedType.getLiteralParameters().isEmpty()) {
+                return true;
+            }
+            int actualLength = actualType.getLiteralParameters().isEmpty() ? Integer.MAX_VALUE : (int) actualType.getLiteralParameters().get(0);
+            return actualLength < (int) expectedType.getLiteralParameters().get(1);
+        }
+
+        return false;
     }
 }

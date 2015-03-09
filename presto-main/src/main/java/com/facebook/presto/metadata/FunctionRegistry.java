@@ -72,6 +72,7 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
@@ -188,6 +189,7 @@ import static com.facebook.presto.operator.scalar.RowHashCodeOperator.ROW_HASH_C
 import static com.facebook.presto.operator.scalar.RowNotEqualOperator.ROW_NOT_EQUAL;
 import static com.facebook.presto.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static com.facebook.presto.operator.scalar.TryCastFunction.TRY_CAST;
+import static com.facebook.presto.operator.scalar.VarcharToVarcharCast.VARCHAR_TO_VARCHAR_CAST;
 import static com.facebook.presto.operator.window.AggregateWindowFunction.supplier;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
@@ -350,6 +352,8 @@ public class FunctionRegistry
                 .functions(MAP_AGG, MULTIMAP_AGG)
                 .function(HISTOGRAM)
                 .function(CHECKSUM_AGGREGATION)
+                .function(VARCHAR_TO_VARCHAR_CAST)
+                .function(IDENTITY_CAST)
                 .function(ARBITRARY_AGGREGATION)
                 .function(ARRAY_AGGREGATION)
                 .functions(GREATEST, LEAST)
@@ -697,6 +701,9 @@ public class FunctionRegistry
 
     public static Type typeForMagicLiteral(Type type)
     {
+        if (type instanceof VarcharType) {
+            return type;
+        }
         Class<?> clazz = type.getJavaType();
         clazz = Primitives.unwrap(clazz);
 
@@ -722,7 +729,13 @@ public class FunctionRegistry
 
     public static Signature getMagicLiteralFunctionSignature(Type type)
     {
-        TypeSignature argumentType = typeForMagicLiteral(type).getTypeSignature();
+        TypeSignature argumentType;
+        if (type.getJavaType() == Slice.class && !type.equals(VARCHAR)) {
+            argumentType = VARBINARY.getTypeSignature();
+        }
+        else {
+            argumentType = typeForMagicLiteral(type).getTypeSignature();
+        }
 
         return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getTypeSignature(),
                 SCALAR,

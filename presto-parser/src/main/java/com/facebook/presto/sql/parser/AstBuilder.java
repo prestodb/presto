@@ -131,6 +131,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 class AstBuilder
@@ -1386,7 +1387,7 @@ class AstBuilder
         if (type.simpleType() != null) {
             String signature = type.simpleType().getText();
             if (!type.INTEGER_VALUE().isEmpty()) {
-                signature += "(" + type.INTEGER_VALUE().stream().map(Object::toString).collect(Collectors.joining(", ")) + ")";
+                signature += "(" + type.INTEGER_VALUE().stream().map(Object::toString).collect(joining(", ")) + ")";
             }
             return signature;
         }
