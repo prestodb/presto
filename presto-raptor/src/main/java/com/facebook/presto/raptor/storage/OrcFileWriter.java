@@ -78,6 +78,7 @@ public class OrcFileWriter
     private final Object row;
 
     private long rowCount;
+    private long uncompressedSize;
 
     public OrcFileWriter(List<Long> columnIds, List<Type> columnTypes, File target)
     {
@@ -108,6 +109,7 @@ public class OrcFileWriter
                 appendRow(page, position);
             }
         }
+        updateDataSize(pages);
     }
 
     public void appendPages(List<Page> inputPages, int[] pageIndexes, int[] positionIndexes)
@@ -116,6 +118,14 @@ public class OrcFileWriter
         for (int i = 0; i < pageIndexes.length; i++) {
             Page page = inputPages.get(pageIndexes[i]);
             appendRow(page, positionIndexes[i]);
+        }
+        updateDataSize(inputPages);
+    }
+
+    private void updateDataSize(List<Page> pages)
+    {
+        for (Page page : pages) {
+            uncompressedSize += page.getSizeInBytes();
         }
     }
 
@@ -149,6 +159,11 @@ public class OrcFileWriter
     public long getRowCount()
     {
         return rowCount;
+    }
+
+    public long getUncompressedSize()
+    {
+        return uncompressedSize;
     }
 
     private static OrcSerde createSerializer(Configuration conf, Properties properties)

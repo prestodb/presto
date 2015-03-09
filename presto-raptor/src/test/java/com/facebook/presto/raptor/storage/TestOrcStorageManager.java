@@ -71,6 +71,7 @@ import static com.google.common.io.Files.createTempDir;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.airlift.testing.FileUtils.deleteRecursively;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -93,6 +94,7 @@ public class TestOrcStorageManager
     private static final Duration SHARD_RECOVERY_TIMEOUT = new Duration(30, TimeUnit.SECONDS);
     private static final DataSize MAX_BUFFER_SIZE = new DataSize(256, MEGABYTE);
     private static final int ROWS_PER_SHARD = 100;
+    private static final DataSize MAX_FILE_SIZE = new DataSize(1, MEGABYTE);
 
     private final NodeManager nodeManager = new InMemoryNodeManager();
     private Handle dummyHandle;
@@ -382,9 +384,54 @@ public class TestOrcStorageManager
         assertColumnStats(stats, 2, minTimestamp, maxTimestamp);
     }
 
+    @Test
+    public void testRowsPerShard()
+            throws Exception
+    {
+        OrcStorageManager manager = createOrcStorageManager(storageService, recoveryManager, 2, new DataSize(2, MEGABYTE));
+
+        List<Long> columnIds = ImmutableList.of(3L, 7L);
+        List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR);
+
+        StoragePageSink sink = manager.createStoragePageSink(columnIds, columnTypes);
+        List<Page> pages = rowPagesBuilder(columnTypes)
+                .row(123, "hello")
+                .row(456, "bye")
+                .build();
+        sink.appendPages(pages);
+        assertTrue(sink.isFull());
+    }
+
+    @Test
+    public void testMaxFileSize()
+            throws Exception
+    {
+        List<Long> columnIds = ImmutableList.of(3L, 7L);
+        List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR);
+
+        List<Page> pages = rowPagesBuilder(columnTypes)
+                .row(123, "hello")
+                .row(456, "bye")
+                .build();
+        long dataSize = 0;
+        for (Page page : pages) {
+            dataSize += page.getSizeInBytes();
+        }
+
+        OrcStorageManager manager = createOrcStorageManager(storageService, recoveryManager, 20, new DataSize(dataSize, BYTE));
+        StoragePageSink sink = manager.createStoragePageSink(columnIds, columnTypes);
+        sink.appendPages(pages);
+        assertTrue(sink.isFull());
+    }
+
     public static OrcStorageManager createOrcStorageManager(StorageService storageService, ShardRecoveryManager recoveryManager)
     {
-        return new OrcStorageManager(CURRENT_NODE, storageService, ORC_MAX_MERGE_DISTANCE, recoveryManager, SHARD_RECOVERY_TIMEOUT, ROWS_PER_SHARD, MAX_BUFFER_SIZE);
+        return createOrcStorageManager(storageService, recoveryManager, ROWS_PER_SHARD, MAX_FILE_SIZE);
+    }
+
+    public static OrcStorageManager createOrcStorageManager(StorageService storageService, ShardRecoveryManager recoveryManager, int rowsPerShard, DataSize maxFileSize)
+    {
+        return new OrcStorageManager(CURRENT_NODE, storageService, ORC_MAX_MERGE_DISTANCE, recoveryManager, SHARD_RECOVERY_TIMEOUT, rowsPerShard, maxFileSize, MAX_BUFFER_SIZE);
     }
 
     private static void assertColumnStats(List<ColumnStats> list, long columnId, Object min, Object max)

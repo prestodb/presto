@@ -30,7 +30,5 @@ public interface StorageManager
 
     boolean isBackupAvailable();
 
-    long getMaxRowCount();
-
     DataSize getMaxBufferSize();
 }

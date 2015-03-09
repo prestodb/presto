@@ -17,6 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 
 import javax.annotation.Nullable;
@@ -37,7 +38,9 @@ public class StorageManagerConfig
     private Duration missingShardDiscoveryInterval = new Duration(5, TimeUnit.MINUTES);
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private int recoveryThreads = 10;
+
     private long rowsPerShard = 1_000_000;
+    private DataSize maxShardSize = new DataSize(256, MEGABYTE);
     private DataSize maxBufferSize = new DataSize(256, MEGABYTE);
 
     @NotNull
@@ -133,6 +136,21 @@ public class StorageManagerConfig
     public StorageManagerConfig setRowsPerShard(long rowsPerShard)
     {
         this.rowsPerShard = rowsPerShard;
+        return this;
+    }
+
+    @MinDataSize("1MB")
+    @MaxDataSize("1GB")
+    public DataSize getMaxShardSize()
+    {
+        return maxShardSize;
+    }
+
+    @Config("storage.max-shard-size")
+    @ConfigDescription("Approximate maximum uncompressed size of a shard")
+    public StorageManagerConfig setMaxShardSize(DataSize maxShardSize)
+    {
+        this.maxShardSize = maxShardSize;
         return this;
     }
 
