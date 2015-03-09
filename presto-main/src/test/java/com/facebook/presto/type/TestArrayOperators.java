@@ -40,6 +40,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
@@ -152,7 +153,7 @@ public class TestArrayOperators
         assertFunction("ARRAY [ARRAY[1, 2], NULL, ARRAY[3]]", new ArrayType(new ArrayType(BIGINT)), Lists.newArrayList(ImmutableList.of(1L, 2L), null, ImmutableList.of(3L)));
         assertFunction("ARRAY [1.0, 2.5, 3.0]", new ArrayType(DOUBLE), ImmutableList.of(1.0, 2.5, 3.0));
         assertFunction("ARRAY [1, 2.5, 3]", new ArrayType(DOUBLE), ImmutableList.of(1.0, 2.5, 3.0));
-        assertFunction("ARRAY ['puppies', 'kittens']", new ArrayType(VARCHAR), ImmutableList.of("puppies", "kittens"));
+        assertFunction("ARRAY ['puppies', 'kittens']", new ArrayType(createVarcharType(7)), ImmutableList.of("puppies", "kittens"));
         assertFunction("ARRAY [TRUE, FALSE]", new ArrayType(BOOLEAN), ImmutableList.of(true, false));
         assertFunction("ARRAY [from_unixtime(1), from_unixtime(100)]", new ArrayType(TIMESTAMP), ImmutableList.of(
                 sqlTimestamp(1000), sqlTimestamp(100_000)));
@@ -169,7 +170,7 @@ public class TestArrayOperators
         assertFunction("ARRAY [1, NULL] || ARRAY [3]", new ArrayType(BIGINT), Lists.newArrayList(1L, null, 3L));
         assertFunction("ARRAY [1, 2] || ARRAY[3, 4]", new ArrayType(BIGINT), ImmutableList.of(1L, 2L, 3L, 4L));
         assertFunction("ARRAY [NULL] || ARRAY[NULL]", new ArrayType(UNKNOWN), Lists.newArrayList(null, null));
-        assertFunction("ARRAY ['puppies'] || ARRAY ['kittens']", new ArrayType(VARCHAR), ImmutableList.of("puppies", "kittens"));
+        assertFunction("ARRAY ['puppies'] || ARRAY ['kittens']", new ArrayType(createVarcharType(7)), ImmutableList.of("puppies", "kittens"));
         assertFunction("ARRAY [TRUE] || ARRAY [FALSE]", new ArrayType(BOOLEAN), ImmutableList.of(true, false));
         assertFunction("concat(ARRAY [1] , ARRAY[2,3])", new ArrayType(BIGINT), ImmutableList.of(1L, 2L, 3L));
         assertFunction("ARRAY [from_unixtime(1)] || ARRAY[from_unixtime(100)]", new ArrayType(TIMESTAMP), ImmutableList.of(
@@ -206,8 +207,8 @@ public class TestArrayOperators
         assertFunction("ARRAY [FALSE] || TRUE", new ArrayType(BOOLEAN), Lists.newArrayList(false, true));
         assertFunction("1.0 || ARRAY [2.0]", new ArrayType(DOUBLE), Lists.newArrayList(1.0, 2.0));
         assertFunction("ARRAY [2.0] || 1.0", new ArrayType(DOUBLE), Lists.newArrayList(2.0, 1.0));
-        assertFunction("'puppies' || ARRAY ['kittens']", new ArrayType(VARCHAR), Lists.newArrayList("puppies", "kittens"));
-        assertFunction("ARRAY ['kittens'] || 'puppies'", new ArrayType(VARCHAR), Lists.newArrayList("kittens", "puppies"));
+        assertFunction("'puppies' || ARRAY ['kittens']", new ArrayType(createVarcharType(7)), Lists.newArrayList("puppies", "kittens"));
+        assertFunction("ARRAY ['kittens'] || 'puppies'", new ArrayType(createVarcharType(7)), Lists.newArrayList("kittens", "puppies"));
         assertFunction("ARRAY [from_unixtime(1)] || from_unixtime(100)", new ArrayType(TIMESTAMP), ImmutableList.of(
                 sqlTimestamp(1000), sqlTimestamp(100_000)));
         assertFunction("from_unixtime(100) || ARRAY [from_unixtime(1)]", new ArrayType(TIMESTAMP), ImmutableList.of(
@@ -367,8 +368,8 @@ public class TestArrayOperators
         assertFunction("ARRAY [ARRAY[1, 2], ARRAY[3]][2]", new ArrayType(BIGINT), ImmutableList.of(3L));
         assertFunction("ARRAY [ARRAY[1, 2], NULL, ARRAY[3]][2]", new ArrayType(BIGINT), null);
         assertFunction("ARRAY [ARRAY[1, 2], ARRAY[3]][2][1]", BIGINT, 3);
-        assertFunction("ARRAY ['puppies', 'kittens'][2]", VARCHAR, "kittens");
-        assertFunction("ARRAY ['puppies', 'kittens', NULL][3]", VARCHAR, null);
+        assertFunction("ARRAY ['puppies', 'kittens'][2]", createVarcharType(7), "kittens");
+        assertFunction("ARRAY ['puppies', 'kittens', NULL][3]", createVarcharType(7), null);
         assertFunction("ARRAY [TRUE, FALSE][2]", BOOLEAN, false);
         assertFunction("ARRAY [from_unixtime(1), from_unixtime(100)][1]", TIMESTAMP, sqlTimestamp(1000));
         assertFunction("ARRAY [infinity()][1]", DOUBLE, POSITIVE_INFINITY);
@@ -429,7 +430,7 @@ public class TestArrayOperators
             throws Exception
     {
         assertFunction("ARRAY_SORT(ARRAY[2, 3, 4, 1])", new ArrayType(BIGINT), ImmutableList.of(1L, 2L, 3L, 4L));
-        assertFunction("ARRAY_SORT(ARRAY['z', 'f', 's', 'd', 'g'])", new ArrayType(VARCHAR), ImmutableList.of("d", "f", "g", "s", "z"));
+        assertFunction("ARRAY_SORT(ARRAY['z', 'f', 's', 'd', 'g'])", new ArrayType(createVarcharType(1)), ImmutableList.of("d", "f", "g", "s", "z"));
         assertFunction("ARRAY_SORT(ARRAY[TRUE, FALSE])", new ArrayType(BOOLEAN), ImmutableList.of(false, true));
         assertFunction("ARRAY_SORT(ARRAY[22.1, 11.1, 1.1, 44.1])", new ArrayType(DOUBLE), ImmutableList.of(1.1, 11.1, 22.1, 44.1));
         assertFunction("ARRAY_SORT(ARRAY [from_unixtime(100), from_unixtime(1), from_unixtime(200)])",
@@ -454,16 +455,15 @@ public class TestArrayOperators
         assertFunction("ARRAY_DISTINCT(ARRAY [TRUE, FALSE, FALSE, TRUE])", new ArrayType(BOOLEAN), ImmutableList.of(true, false));
         assertFunction("ARRAY_DISTINCT(ARRAY [from_unixtime(100), from_unixtime(1), from_unixtime(100)])", new ArrayType(TIMESTAMP),
                 ImmutableList.of(sqlTimestamp(100 * 1000), sqlTimestamp(1000)));
-        assertFunction("ARRAY_DISTINCT(ARRAY ['2', '3', '2'])", new ArrayType(VARCHAR), ImmutableList.of("2", "3"));
-        assertFunction("ARRAY_DISTINCT(ARRAY ['BB', 'CCC', 'BB'])", new ArrayType(VARCHAR), ImmutableList.of("BB", "CCC"));
+        assertFunction("ARRAY_DISTINCT(ARRAY ['2', '3', '2'])", new ArrayType(createVarcharType(1)), ImmutableList.of("2", "3"));
+        assertFunction("ARRAY_DISTINCT(ARRAY ['BB', 'CCC', 'BB'])", new ArrayType(createVarcharType(3)), ImmutableList.of("BB", "CCC"));
         assertFunction(
                 "ARRAY_DISTINCT(ARRAY [ARRAY [1], ARRAY [1, 2], ARRAY [1, 2, 3], ARRAY [1, 2]])",
                 new ArrayType(new ArrayType(BIGINT)),
                 ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(1L, 2L), ImmutableList.of(1L, 2L, 3L)));
-
         assertFunction("ARRAY_DISTINCT(ARRAY [NULL, 2.2, 3.3, 4.4, 3.3, 1, 2.2, 3.3])", new ArrayType(DOUBLE), asList(null, 2.2, 3.3, 4.4, 1.0));
         assertFunction("ARRAY_DISTINCT(ARRAY [2, 3, NULL, 4, 3, 1, 2, 3])", new ArrayType(BIGINT), asList(2L, 3L, null, 4L, 1L));
-        assertFunction("ARRAY_DISTINCT(ARRAY ['BB', 'CCC', 'BB', NULL])", new ArrayType(VARCHAR), asList("BB", "CCC", null));
+        assertFunction("ARRAY_DISTINCT(ARRAY ['BB', 'CCC', 'BB', NULL])", new ArrayType(createVarcharType(3)), asList("BB", "CCC", null));
         assertFunction("ARRAY_DISTINCT(ARRAY [NULL])", new ArrayType(UNKNOWN), asList((Object) null));
         assertFunction("ARRAY_DISTINCT(ARRAY [NULL, NULL])", new ArrayType(UNKNOWN), asList((Object) null));
         assertFunction("ARRAY_DISTINCT(ARRAY [NULL, NULL, NULL])", new ArrayType(UNKNOWN), asList((Object) null));
@@ -493,9 +493,9 @@ public class TestArrayOperators
             throws Exception
     {
         assertFunction("ARRAY_INTERSECT(ARRAY [12], ARRAY [10])", new ArrayType(BIGINT), ImmutableList.of());
-        assertFunction("ARRAY_INTERSECT(ARRAY ['foo', 'bar', 'baz'], ARRAY ['foo', 'test', 'bar'])", new ArrayType(VARCHAR), ImmutableList.of("bar", "foo"));
+        assertFunction("ARRAY_INTERSECT(ARRAY ['foo', 'bar', 'baz'], ARRAY ['foo', 'test', 'bar'])", new ArrayType(createVarcharType(4)), ImmutableList.of("bar", "foo"));
         assertFunction("ARRAY_INTERSECT(ARRAY [NULL], ARRAY [NULL, NULL])", new ArrayType(UNKNOWN), asList((Object) null));
-        assertFunction("ARRAY_INTERSECT(ARRAY ['abc', NULL, 'xyz', NULL], ARRAY [NULL, 'abc', NULL, NULL])", new ArrayType(VARCHAR), asList(null, "abc"));
+        assertFunction("ARRAY_INTERSECT(ARRAY ['abc', NULL, 'xyz', NULL], ARRAY [NULL, 'abc', NULL, NULL])", new ArrayType(createVarcharType(3)), asList(null, "abc"));
         assertFunction("ARRAY_INTERSECT(ARRAY [1, 5], ARRAY [1])", new ArrayType(BIGINT), ImmutableList.of(1L));
         assertFunction("ARRAY_INTERSECT(ARRAY [1, 1, 2, 4], ARRAY [1, 1, 4, 4])", new ArrayType(BIGINT), ImmutableList.of(1L, 4L));
         assertFunction("ARRAY_INTERSECT(ARRAY [2, 8], ARRAY [8, 3])", new ArrayType(BIGINT), ImmutableList.of(8L));
@@ -663,13 +663,13 @@ public class TestArrayOperators
     public void testArrayRemove()
             throws Exception
     {
-        assertFunction("ARRAY_REMOVE(ARRAY ['foo', 'bar', 'baz'], 'foo')", new ArrayType(VARCHAR), ImmutableList.of("bar", "baz"));
-        assertFunction("ARRAY_REMOVE(ARRAY ['foo', 'bar', 'baz'], 'bar')", new ArrayType(VARCHAR), ImmutableList.of("foo", "baz"));
-        assertFunction("ARRAY_REMOVE(ARRAY ['foo', 'bar', 'baz'], 'baz')", new ArrayType(VARCHAR), ImmutableList.of("foo", "bar"));
-        assertFunction("ARRAY_REMOVE(ARRAY ['foo', 'bar', 'baz'], 'zzz')", new ArrayType(VARCHAR), ImmutableList.of("foo", "bar", "baz"));
-        assertFunction("ARRAY_REMOVE(ARRAY ['foo', 'foo', 'foo'], 'foo')", new ArrayType(VARCHAR), ImmutableList.of());
-        assertFunction("ARRAY_REMOVE(ARRAY [NULL, 'bar', 'baz'], 'foo')", new ArrayType(VARCHAR), asList(null, "bar", "baz"));
-        assertFunction("ARRAY_REMOVE(ARRAY ['foo', 'bar', NULL], 'foo')", new ArrayType(VARCHAR), asList("bar", null));
+        assertFunction("ARRAY_REMOVE(ARRAY ['foo', 'bar', 'baz'], 'foo')", new ArrayType(createVarcharType(3)), ImmutableList.of("bar", "baz"));
+        assertFunction("ARRAY_REMOVE(ARRAY ['foo', 'bar', 'baz'], 'bar')", new ArrayType(createVarcharType(3)), ImmutableList.of("foo", "baz"));
+        assertFunction("ARRAY_REMOVE(ARRAY ['foo', 'bar', 'baz'], 'baz')", new ArrayType(createVarcharType(3)), ImmutableList.of("foo", "bar"));
+        assertFunction("ARRAY_REMOVE(ARRAY ['foo', 'bar', 'baz'], 'zzz')", new ArrayType(createVarcharType(3)), ImmutableList.of("foo", "bar", "baz"));
+        assertFunction("ARRAY_REMOVE(ARRAY ['foo', 'foo', 'foo'], 'foo')", new ArrayType(createVarcharType(3)), ImmutableList.of());
+        assertFunction("ARRAY_REMOVE(ARRAY [NULL, 'bar', 'baz'], 'foo')", new ArrayType(createVarcharType(3)), asList(null, "bar", "baz"));
+        assertFunction("ARRAY_REMOVE(ARRAY ['foo', 'bar', NULL], 'foo')", new ArrayType(createVarcharType(3)), asList("bar", null));
         assertFunction("ARRAY_REMOVE(ARRAY [1, 2, 3], 1)", new ArrayType(BIGINT), ImmutableList.of(2L, 3L));
         assertFunction("ARRAY_REMOVE(ARRAY [1, 2, 3], 2)", new ArrayType(BIGINT), ImmutableList.of(1L, 3L));
         assertFunction("ARRAY_REMOVE(ARRAY [1, 2, 3], 3)", new ArrayType(BIGINT), ImmutableList.of(1L, 2L));

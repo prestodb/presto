@@ -20,6 +20,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tpch.TpchMetadata;
@@ -171,7 +172,7 @@ public class H2QueryRunner
                             row.add(doubleValue);
                         }
                     }
-                    else if (VARCHAR.equals(type)) {
+                    else if (type instanceof VarcharType) {
                         String stringValue = resultSet.getString(i);
                         if (resultSet.wasNull()) {
                             row.add(null);

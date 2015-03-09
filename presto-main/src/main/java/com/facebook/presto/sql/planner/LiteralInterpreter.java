@@ -21,6 +21,7 @@ import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -133,13 +134,12 @@ public final class LiteralInterpreter
             }
         }
 
-        if (type.equals(VARCHAR)) {
+        if (type instanceof VarcharType) {
             if (object instanceof Slice) {
-                return new StringLiteral(((Slice) object).toString(UTF_8));
+                return new GenericLiteral(type.toString(), ((Slice) object).toString(UTF_8));
             }
-
-            if (object instanceof String) {
-                return new StringLiteral((String) object);
+            else if (object instanceof String) {
+                return new GenericLiteral(type.toString(), (String) object);
             }
 
             throw new IllegalArgumentException("object must be instance of Slice or String when type is VARCHAR");

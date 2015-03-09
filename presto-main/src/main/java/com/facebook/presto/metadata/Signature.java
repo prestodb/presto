@@ -342,11 +342,12 @@ public final class Signature
         }
 
         // The parameter is not a type parameter, so it must be a concrete type
+        Type parameterType = typeManager.getType(parseTypeSignature(parameter.getBase()));
         if (allowCoercion) {
-            return canCoerce(type, typeManager.getType(parseTypeSignature(parameter.getBase())));
+            return canCoerce(type, parameterType);
         }
         else {
-            return type.equals(typeManager.getType(parseTypeSignature(parameter.getBase())));
+            return type.getTypeSignature().getBase().equals(parameterType.getTypeSignature().getBase());
         }
     }
 

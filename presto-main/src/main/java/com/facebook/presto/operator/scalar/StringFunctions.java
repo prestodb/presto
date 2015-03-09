@@ -55,7 +55,7 @@ public final class StringFunctions
 
     @Description("convert Unicode code point to a string")
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
+    @SqlType("VARCHAR(1)")
     public static Slice chr(@SqlType(StandardTypes.BIGINT) long codepoint)
     {
         try {

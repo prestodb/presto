@@ -25,6 +25,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 
 public class TestStringFunctions
         extends AbstractTestFunctions
@@ -44,10 +45,10 @@ public class TestStringFunctions
     @Test
     public void testChr()
     {
-        assertFunction("CHR(65)", VARCHAR, "A");
-        assertFunction("CHR(9731)", VARCHAR, "\u2603");
-        assertFunction("CHR(131210)", VARCHAR, new String(Character.toChars(131210)));
-        assertFunction("CHR(0)", VARCHAR, "\0");
+        assertFunction("CHR(65)", createVarcharType(1), "A");
+        assertFunction("CHR(9731)", createVarcharType(1), "\u2603");
+        assertFunction("CHR(131210)", createVarcharType(1), new String(Character.toChars(131210)));
+        assertFunction("CHR(0)", createVarcharType(1), "\0");
 
         assertInvalidFunction("CHR(-1)", "Not a valid Unicode code point: -1");
         assertInvalidFunction("CHR(1234567)", "Not a valid Unicode code point: 1234567");
