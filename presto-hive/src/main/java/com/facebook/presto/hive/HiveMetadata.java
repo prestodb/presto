@@ -14,8 +14,8 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.HiveMetastore;
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -30,6 +30,7 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Function;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
@@ -64,11 +65,23 @@ import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
 import static com.facebook.presto.hive.HiveUtil.encodeViewData;
 import static com.facebook.presto.hive.HiveUtil.hiveColumnHandles;
+import static com.facebook.presto.hive.HiveUtil.isArrayType;
+import static com.facebook.presto.hive.HiveUtil.isMapType;
+import static com.facebook.presto.hive.HiveUtil.isRowType;
 import static com.facebook.presto.hive.HiveUtil.schemaTableName;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.StandardTypes.MAP;
+import static com.facebook.presto.spi.type.StandardTypes.ROW;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -311,7 +324,7 @@ public class HiveMetadata
         ImmutableList.Builder<String> columnNames = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
 
-        buildColumnInfo(tableMetadata, columnNames, columnTypes);
+        buildColumnInfo(tableMetadata, typeManager, columnNames, columnTypes);
 
         ImmutableList.Builder<FieldSchema> partitionKeys = ImmutableList.builder();
         ImmutableList.Builder<FieldSchema> columns = ImmutableList.builder();
@@ -409,7 +422,7 @@ public class HiveMetadata
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
 
-        buildColumnInfo(tableMetadata, columnNames, columnTypes);
+        buildColumnInfo(tableMetadata, typeManager, columnNames, columnTypes);
 
         Path targetPath = getTargetPath(schemaName, tableName, schemaTableName);
 
@@ -736,7 +749,7 @@ public class HiveMetadata
         }
     }
 
-    private static void buildColumnInfo(ConnectorTableMetadata tableMetadata, ImmutableList.Builder<String> names, ImmutableList.Builder<Type> types)
+    private static void buildColumnInfo(ConnectorTableMetadata tableMetadata, TypeManager typeManager, ImmutableList.Builder<String> names, ImmutableList.Builder<Type> types)
     {
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             // TODO: also verify that the OutputFormat supports the type
@@ -744,13 +757,58 @@ public class HiveMetadata
                 throw new PrestoException(NOT_SUPPORTED, format("Cannot create table with unsupported type: %s", column.getType().getDisplayName()));
             }
             names.add(column.getName());
-            types.add(column.getType());
+            types.add(toOutputType(typeManager, column.getType()));
         }
 
         if (tableMetadata.isSampled()) {
             names.add(SAMPLE_WEIGHT_COLUMN_NAME);
             types.add(BIGINT);
         }
+    }
+
+    private static Type toOutputType(TypeManager typeManager, Type type)
+    {
+        if (type.equals(BOOLEAN)) {
+            return type;
+        }
+        if (type.equals(BIGINT)) {
+            return type;
+        }
+        if (type.equals(DOUBLE)) {
+            return type;
+        }
+        if (type instanceof VarcharType) {
+            return VARCHAR;
+        }
+        if (type.equals(VARBINARY)) {
+            return type;
+        }
+        if (type.equals(DATE)) {
+            return type;
+        }
+        if (type.equals(TIMESTAMP)) {
+            return type;
+        }
+        if (isArrayType(type)) {
+            return typeManager.getParameterizedType(ARRAY,
+                    ImmutableList.of(toOutputType(typeManager, type.getTypeParameters().get(0)).getTypeSignature()),
+                    ImmutableList.of());
+        }
+        if (isMapType(type)) {
+            return typeManager.getParameterizedType(MAP,
+                    ImmutableList.of(
+                            toOutputType(typeManager, type.getTypeParameters().get(0)).getTypeSignature(),
+                            toOutputType(typeManager, type.getTypeParameters().get(1)).getTypeSignature()),
+                    ImmutableList.of());
+        }
+        if (isRowType(type)) {
+            return typeManager.getParameterizedType(ROW,
+                    type.getTypeParameters().stream()
+                            .map(parameterType -> toOutputType(typeManager, parameterType).getTypeSignature())
+                            .collect(toList()),
+                    ImmutableList.of());
+        }
+        throw new PrestoException(NOT_SUPPORTED, format("Cannot create table with unsupported type: %s", type.getDisplayName()));
     }
 
     private static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter(Table table, final TypeManager typeManager)

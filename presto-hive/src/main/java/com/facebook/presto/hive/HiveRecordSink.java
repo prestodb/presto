@@ -288,7 +288,7 @@ public class HiveRecordSink
         else if (type.equals(DoubleType.DOUBLE)) {
             return javaDoubleObjectInspector;
         }
-        else if (type.equals(VarcharType.VARCHAR)) {
+        else if (type instanceof VarcharType) {
             return javaStringObjectInspector;
         }
         else if (type.equals(VarbinaryType.VARBINARY)) {
