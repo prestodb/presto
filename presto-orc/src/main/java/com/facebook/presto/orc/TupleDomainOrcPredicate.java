@@ -103,8 +103,9 @@ public class TupleDomainOrcPredicate<C>
                 return Domain.create(SortedRangeSet.singleValue(false), hasNullValue);
             }
         }
-        else if (type.getTypeSignature().getBase().equals(StandardTypes.DATE) && columnStatistics.getDateStatistics() != null) {
-            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getDateStatistics());
+        else if (false && type.getTypeSignature().getBase().equals(StandardTypes.DATE) && columnStatistics.getDateStatistics() != null) {
+            // todo enable after testing
+            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getDateStatistics(), value -> (long) value);
         }
         else if (boxedJavaType == Long.class && columnStatistics.getIntegerStatistics() != null) {
             return createDomain(boxedJavaType, hasNullValue, columnStatistics.getIntegerStatistics());
