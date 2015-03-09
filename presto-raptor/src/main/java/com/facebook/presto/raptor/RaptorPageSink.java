@@ -89,6 +89,10 @@ public class RaptorPageSink
     @Override
     public void appendPage(Page page, Block sampleWeightBlock)
     {
+        if (page.getPositionCount() == 0) {
+            return;
+        }
+
         flushPageBufferIfNecessary(page.getPositionCount());
 
         if (sampleWeightField >= 0) {
