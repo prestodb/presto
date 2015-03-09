@@ -22,12 +22,14 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.SqlType;
 import com.facebook.presto.type.TypeRegistry;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nullable;
 
 import java.lang.annotation.Annotation;
+import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -43,6 +45,7 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.invoke.MethodHandles.lookup;
 
 public class AggregationCompiler
 {
@@ -112,19 +115,29 @@ public class AggregationCompiler
                         List<Type> inputTypes = getInputTypes(inputFunction);
                         Type outputType = AggregationUtils.getOutputType(outputFunction, stateSerializer, typeManager);
 
-                        AggregationMetadata metadata = new AggregationMetadata(
-                                generateAggregationName(name, outputType, inputTypes),
-                                getParameterMetadata(inputFunction, aggregationAnnotation.approximate()),
-                                inputFunction,
-                                getParameterMetadata(intermediateInputFunction, false),
-                                intermediateInputFunction,
-                                combineFunction,
-                                outputFunction,
-                                stateClass,
-                                stateSerializer,
-                                stateFactory,
-                                outputType,
-                                aggregationAnnotation.approximate());
+                        AggregationMetadata metadata = null;
+                        try {
+                            MethodHandle inputHandle = lookup().unreflect(inputFunction);
+                            MethodHandle intermediateInputHandle = intermediateInputFunction == null ? null : lookup().unreflect(intermediateInputFunction);
+                            MethodHandle combineHandle = combineFunction == null ? null : lookup().unreflect(combineFunction);
+                            MethodHandle outputHandle = outputFunction == null ? null : lookup().unreflect(outputFunction);
+                            metadata = new AggregationMetadata(
+                                    generateAggregationName(name, outputType, inputTypes),
+                                    getParameterMetadata(inputFunction, aggregationAnnotation.approximate()),
+                                    inputHandle,
+                                    getParameterMetadata(intermediateInputFunction, false),
+                                    intermediateInputHandle,
+                                    combineHandle,
+                                    outputHandle,
+                                    stateClass,
+                                    stateSerializer,
+                                    stateFactory,
+                                    outputType,
+                                    aggregationAnnotation.approximate());
+                        }
+                        catch (IllegalAccessException e) {
+                            throw Throwables.propagate(e);
+                        }
 
                         GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
                         builder.add(new InternalAggregationFunction(name, inputTypes, intermediateType, outputType, aggregationAnnotation.decomposable(), aggregationAnnotation.approximate(), factory));

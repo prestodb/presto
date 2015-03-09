@@ -27,7 +27,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
-import java.lang.reflect.Method;
+import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
@@ -38,16 +38,16 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
-import static com.facebook.presto.util.Reflection.method;
+import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class MaxBy
         extends ParametricAggregation
 {
     public static final MaxBy MAX_BY = new MaxBy();
     private static final String NAME = "max_by";
-    private static final Method OUTPUT_FUNCTION = method(MaxBy.class, "output", MaxOrMinByState.class, BlockBuilder.class);
-    private static final Method INPUT_FUNCTION = method(MaxBy.class, "input", MaxOrMinByState.class, Block.class, Block.class, int.class);
-    private static final Method COMBINE_FUNCTION = method(MaxBy.class, "combine", MaxOrMinByState.class, MaxOrMinByState.class);
+    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(MaxBy.class, "output", MaxOrMinByState.class, BlockBuilder.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(MaxBy.class, "input", MaxOrMinByState.class, Block.class, Block.class, int.class);
+    private static final MethodHandle COMBINE_FUNCTION = methodHandle(MaxBy.class, "combine", MaxOrMinByState.class, MaxOrMinByState.class);
     private static final Signature SIGNATURE = new Signature(NAME, ImmutableList.of(orderableTypeParameter("K"), typeParameter("V")), "V", ImmutableList.of("V", "K"), false, false);
 
     @Override

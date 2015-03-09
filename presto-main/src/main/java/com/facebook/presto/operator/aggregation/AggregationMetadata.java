@@ -28,8 +28,7 @@ import io.airlift.slice.Slice;
 import javax.annotation.Nullable;
 
 import java.lang.annotation.Annotation;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
+import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -49,14 +48,14 @@ public class AggregationMetadata
 
     private final String name;
     private final List<ParameterMetadata> inputMetadata;
-    private final Method inputFunction;
+    private final MethodHandle inputFunction;
     private final List<ParameterMetadata> intermediateInputMetadata;
     @Nullable
-    private final Method intermediateInputFunction;
+    private final MethodHandle intermediateInputFunction;
     @Nullable
-    private final Method combineFunction;
+    private final MethodHandle combineFunction;
     @Nullable
-    private final Method outputFunction;
+    private final MethodHandle outputFunction;
     private final Class<?> stateInterface;
     private final AccumulatorStateSerializer<?> stateSerializer;
     private final AccumulatorStateFactory<?> stateFactory;
@@ -66,11 +65,11 @@ public class AggregationMetadata
     public AggregationMetadata(
             String name,
             List<ParameterMetadata> inputMetadata,
-            Method inputFunction,
+            MethodHandle inputFunction,
             @Nullable List<ParameterMetadata> intermediateInputMetadata,
-            @Nullable Method intermediateInputFunction,
-            @Nullable Method combineFunction,
-            @Nullable Method outputFunction,
+            @Nullable MethodHandle intermediateInputFunction,
+            @Nullable MethodHandle combineFunction,
+            @Nullable MethodHandle outputFunction,
             Class<?> stateInterface,
             AccumulatorStateSerializer<?> stateSerializer,
             AccumulatorStateFactory<?> stateFactory,
@@ -134,25 +133,25 @@ public class AggregationMetadata
         return name;
     }
 
-    public Method getInputFunction()
+    public MethodHandle getInputFunction()
     {
         return inputFunction;
     }
 
     @Nullable
-    public Method getIntermediateInputFunction()
+    public MethodHandle getIntermediateInputFunction()
     {
         return intermediateInputFunction;
     }
 
     @Nullable
-    public Method getCombineFunction()
+    public MethodHandle getCombineFunction()
     {
         return combineFunction;
     }
 
     @Nullable
-    public Method getOutputFunction()
+    public MethodHandle getOutputFunction()
     {
         return outputFunction;
     }
@@ -177,10 +176,9 @@ public class AggregationMetadata
         return approximate;
     }
 
-    private static void verifyInputFunctionSignature(Method method, List<ParameterMetadata> parameterMetadatas, Class<?> stateInterface)
+    private static void verifyInputFunctionSignature(MethodHandle method, List<ParameterMetadata> parameterMetadatas, Class<?> stateInterface)
     {
-        verifyStaticAndPublic(method);
-        Class<?>[] parameters = method.getParameterTypes();
+        Class<?>[] parameters = method.type().parameterArray();
         checkArgument(stateInterface == parameters[0], "First argument of aggregation input function must be %s", stateInterface.getSimpleName());
         checkArgument(parameters.length > 0, "Aggregation input function must have at least one parameter");
         checkArgument(parameterMetadatas.get(0).getParameterType() == ParameterMetadata.ParameterType.STATE, "First parameter must be state");
@@ -205,34 +203,25 @@ public class AggregationMetadata
         }
     }
 
-    private static void verifyStaticAndPublic(Method method)
+    private static void verifyCombineFunction(MethodHandle method, Class<?> stateInterface)
     {
-        checkArgument(Modifier.isStatic(method.getModifiers()), "%s is not static", method.getName());
-        checkArgument(Modifier.isPublic(method.getModifiers()), "%s is not public", method.getName());
-    }
-
-    private static void verifyCombineFunction(Method method, Class<?> stateInterface)
-    {
-        verifyStaticAndPublic(method);
-        Class<?>[] parameterTypes = method.getParameterTypes();
+        Class<?>[] parameterTypes = method.type().parameterArray();
         checkArgument(parameterTypes.length == 2 && parameterTypes[0] == stateInterface && parameterTypes[1] == stateInterface, "Combine function must have the signature (%s, %s)", stateInterface.getSimpleName(), stateInterface.getSimpleName());
     }
 
-    private static void verifyApproximateOutputFunction(Method method, Class<?> stateInterface)
+    private static void verifyApproximateOutputFunction(MethodHandle method, Class<?> stateInterface)
     {
         checkNotNull(method, "Approximate aggregations must specify an output function");
-        verifyStaticAndPublic(method);
-        Class<?>[] parameterTypes = method.getParameterTypes();
+        Class<?>[] parameterTypes = method.type().parameterArray();
         checkArgument(parameterTypes.length == 3 && parameterTypes[0] == stateInterface && parameterTypes[1] == double.class && parameterTypes[2] == BlockBuilder.class, "Output function must have the signature (%s, double, BlockBuilder)", stateInterface.getSimpleName());
     }
 
-    private static void verifyExactOutputFunction(Method method, Class<?> stateInterface)
+    private static void verifyExactOutputFunction(MethodHandle method, Class<?> stateInterface)
     {
         if (method == null) {
             return;
         }
-        verifyStaticAndPublic(method);
-        Class<?>[] parameterTypes = method.getParameterTypes();
+        Class<?>[] parameterTypes = method.type().parameterArray();
         checkArgument(parameterTypes.length == 2 && parameterTypes[0] == stateInterface && parameterTypes[1] == BlockBuilder.class, "Output function must have the signature (%s, BlockBuilder)", stateInterface.getSimpleName());
     }
 
