@@ -51,10 +51,7 @@ public class RaptorPageSink
     private final List<Integer> sortFields;
     private final List<SortOrder> sortOrders;
 
-    private final long maxRowCount;
     private final PageBuffer pageBuffer;
-
-    private long rowCount;
 
     public RaptorPageSink(
             PageSorter pageSorter,
@@ -80,10 +77,7 @@ public class RaptorPageSink
         this.sortTypes = ImmutableList.copyOf(sortFields.stream().map(columnTypes::get).collect(toList()));
         this.sortOrders = ImmutableList.copyOf(checkNotNull(sortOrders, "sortOrders is null"));
 
-        this.maxRowCount = storageManager.getMaxRowCount();
         this.pageBuffer = new PageBuffer(storageManager.getMaxBufferSize().toBytes());
-
-        this.rowCount = 0;
     }
 
     @Override
@@ -100,7 +94,6 @@ public class RaptorPageSink
         }
 
         pageBuffer.add(page);
-        rowCount += page.getPositionCount();
     }
 
     @Override
@@ -153,11 +146,10 @@ public class RaptorPageSink
      */
     private void flushPageBufferIfNecessary(int rowsToAdd)
     {
-        if (rowCount >= maxRowCount) {
+        if (storagePageSink.isFull()) {
             // This StoragePageSink is full, flush it for the next batch of pages
             flushPages(pageBuffer.getPages());
             pageBuffer.reset();
-            rowCount = 0;
             storagePageSink.flush();
             return;
         }

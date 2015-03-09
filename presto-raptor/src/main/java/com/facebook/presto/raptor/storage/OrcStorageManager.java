@@ -72,6 +72,7 @@ public class OrcStorageManager
     private final ShardRecoveryManager recoveryManager;
     private final Duration recoveryTimeout;
     private final long rowsPerShard;
+    private final DataSize maxShardSize;
     private final DataSize maxBufferSize;
 
     @Inject
@@ -87,6 +88,7 @@ public class OrcStorageManager
                 recoveryManager,
                 config.getShardRecoveryTimeout(),
                 config.getRowsPerShard(),
+                config.getMaxShardSize(),
                 config.getMaxBufferSize());
     }
 
@@ -97,6 +99,7 @@ public class OrcStorageManager
             ShardRecoveryManager recoveryManager,
             Duration shardRecoveryTimeout,
             long rowsPerShard,
+            DataSize maxShardSize,
             DataSize maxBufferSize)
     {
         this.nodeId = checkNotNull(nodeId, "nodeId is null");
@@ -107,6 +110,7 @@ public class OrcStorageManager
 
         checkArgument(rowsPerShard > 0, "rowsPerShard must be > 0");
         this.rowsPerShard = rowsPerShard;
+        this.maxShardSize = checkNotNull(maxShardSize, "maxShardSize is null");
         this.maxBufferSize = checkNotNull(maxBufferSize, "maxBufferSize is null");
     }
 
@@ -152,7 +156,7 @@ public class OrcStorageManager
     @Override
     public StoragePageSink createStoragePageSink(List<Long> columnIds, List<Type> columnTypes)
     {
-        return new OrcStoragePageSink(columnIds, columnTypes);
+        return new OrcStoragePageSink(columnIds, columnTypes, rowsPerShard, maxShardSize);
     }
 
     private void writeShard(UUID shardUuid)
@@ -179,12 +183,6 @@ public class OrcStorageManager
                 throw new PrestoException(RAPTOR_ERROR, "Failed to create backup shard file", e);
             }
         }
-    }
-
-    @Override
-    public long getMaxRowCount()
-    {
-        return rowsPerShard;
     }
 
     @Override
@@ -273,13 +271,17 @@ public class OrcStorageManager
         private final List<Type> columnTypes;
 
         private final List<ShardInfo> shards = new ArrayList<>();
+        private final long rowsPerShard;
+        private final DataSize maxShardSize;
 
         private boolean committed;
         private OrcFileWriter writer;
         private UUID shardUuid;
 
-        public OrcStoragePageSink(List<Long> columnIds, List<Type> columnTypes)
+        public OrcStoragePageSink(List<Long> columnIds, List<Type> columnTypes, long rowsPerShard, DataSize maxShardSize)
         {
+            this.rowsPerShard = rowsPerShard;
+            this.maxShardSize = maxShardSize;
             this.columnIds = ImmutableList.copyOf(checkNotNull(columnIds, "columnIds is null"));
             this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
         }
@@ -299,6 +301,15 @@ public class OrcStorageManager
         }
 
         @Override
+        public boolean isFull()
+        {
+            if (writer == null) {
+                return false;
+            }
+            return (writer.getRowCount() >= rowsPerShard) || (writer.getUncompressedSize() >= maxShardSize.toBytes());
+        }
+
+        @Override
         public void flush()
         {
             if (writer != null) {
@@ -308,7 +319,7 @@ public class OrcStorageManager
                 List<ColumnStats> columns = computeShardStats(stagingFile, columnIds, columnTypes);
                 Set<String> nodes = ImmutableSet.of(nodeId);
                 long rowCount = writer.getRowCount();
-                long dataSize = stagingFile.length();
+                long dataSize = stagingFile.length();  // compressed size
 
                 shards.add(new ShardInfo(shardUuid, nodes, columns, rowCount, dataSize));
 
