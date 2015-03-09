@@ -14,10 +14,10 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.raptor.util.PageBuffer;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.UUID;
@@ -30,5 +30,5 @@ public interface StorageManager
 
     boolean isBackupAvailable();
 
-    DataSize getMaxBufferSize();
+    PageBuffer createPageBuffer();
 }
