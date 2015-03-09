@@ -19,9 +19,11 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.FunctionKind.APPROXIMATE_AGGREGATE;
@@ -38,19 +40,37 @@ public abstract class SqlAggregationFunction
         return new SimpleSqlAggregationFunction(name, description, function);
     }
 
-    protected SqlAggregationFunction(String name, List<TypeParameterRequirement> typeParameterRequirements, String returnType, List<String> argumentTypes)
+    protected SqlAggregationFunction(
+            String name,
+            List<TypeParameterRequirement> typeParameterRequirements,
+            String returnType,
+            List<String> argumentTypes)
     {
-        this(name, typeParameterRequirements, returnType, argumentTypes, AGGREGATE);
+        this(name, typeParameterRequirements, returnType, argumentTypes, AGGREGATE, ImmutableSet.of());
     }
 
-    protected SqlAggregationFunction(String name, List<TypeParameterRequirement> typeParameterRequirements, String returnType, List<String> argumentTypes, FunctionKind kind)
+    protected SqlAggregationFunction(
+            String name,
+            List<TypeParameterRequirement> typeParameterRequirements,
+            String returnType,
+            List<String> argumentTypes,
+            FunctionKind kind,
+            Set<String> literalParameters)
     {
         requireNonNull(name, "name is null");
         requireNonNull(typeParameterRequirements, "typeParameters is null");
         requireNonNull(returnType, "returnType is null");
         requireNonNull(argumentTypes, "argumentTypes is null");
+        requireNonNull(literalParameters, "argumentTypes is null");
         checkArgument(kind == AGGREGATE || kind == APPROXIMATE_AGGREGATE, "kind must be an aggregate");
-        this.signature = new Signature(name, kind, ImmutableList.copyOf(typeParameterRequirements), returnType, ImmutableList.copyOf(argumentTypes), false);
+        this.signature = new Signature(
+                name,
+                kind,
+                ImmutableList.copyOf(typeParameterRequirements),
+                returnType,
+                ImmutableList.copyOf(argumentTypes),
+                false,
+                literalParameters);
     }
 
     @Override
@@ -91,7 +111,8 @@ public abstract class SqlAggregationFunction
                             .map(Type::getTypeSignature)
                             .map(TypeSignature::toString)
                             .collect(ImmutableCollectors.toImmutableList()),
-                    function.isApproximate() ? APPROXIMATE_AGGREGATE : AGGREGATE);
+                    function.isApproximate() ? APPROXIMATE_AGGREGATE : AGGREGATE,
+                    ImmutableSet.of());
             this.description = description;
             this.function = requireNonNull(function, "function is null");
         }

@@ -19,6 +19,7 @@ import com.facebook.presto.operator.scalar.TestingRowConstructor;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -124,6 +125,8 @@ public abstract class AbstractTestQueries
                     "connector double property",
                     99.0,
                     false));
+
+    private static final String VARCHAR_MAX = format("varchar(%s)", VarcharType.MAX_LENGTH);
 
     protected AbstractTestQueries(QueryRunner queryRunner)
     {
@@ -3505,7 +3508,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT orderkey, CASE orderstatus WHEN 'O' THEN 'a' END FROM orders");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "line 1:67: All CASE results must be the same type: varchar")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:67: All CASE results must be the same type: varchar(1)\\E")
     public void testCaseNoElseInconsistentResultType()
         throws Exception
     {
@@ -3870,13 +3873,13 @@ public abstract class AbstractTestQueries
         MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, BOOLEAN, BOOLEAN, VARCHAR)
                 .row("orderkey", "bigint", true, false, "")
                 .row("custkey", "bigint", true, false, "")
-                .row("orderstatus", "varchar", true, false, "")
+                .row("orderstatus", VARCHAR_MAX, true, false, "")
                 .row("totalprice", "double", true, false, "")
                 .row("orderdate", "date", true, false, "")
-                .row("orderpriority", "varchar", true, false, "")
-                .row("clerk", "varchar", true, false, "")
+                .row("orderpriority", VARCHAR_MAX, true, false, "")
+                .row("clerk", VARCHAR_MAX, true, false, "")
                 .row("shippriority", "bigint", true, false, "")
-                .row("comment", "varchar", true, false, "")
+                .row("comment", VARCHAR_MAX, true, false, "")
                 .build();
 
         assertEquals(actual, expected);
@@ -3935,8 +3938,8 @@ public abstract class AbstractTestQueries
         assertEquals(functions.get("rank").asList().get(0).getField(3), "window");
 
         assertTrue(functions.containsKey("rank"), "Expected function names " + functions + " to contain 'split_part'");
-        assertEquals(functions.get("split_part").asList().get(0).getField(1), "varchar");
-        assertEquals(functions.get("split_part").asList().get(0).getField(2), "varchar, varchar, bigint");
+        assertEquals(functions.get("split_part").asList().get(0).getField(1), "varchar(x)");
+        assertEquals(functions.get("split_part").asList().get(0).getField(2), "varchar(x), varchar, bigint");
         assertEquals(functions.get("split_part").asList().get(0).getField(3), "scalar");
 
         assertFalse(functions.containsKey("like"), "Expected function names " + functions + " not to contain 'like'");
@@ -3988,9 +3991,9 @@ public abstract class AbstractTestQueries
             return (String) input.getField(0);
         });
 
-        assertEquals(properties.get("test_string"), new MaterializedRow(1, "test_string", "foo string", "test default", "varchar", "test string property"));
+        assertEquals(properties.get("test_string"), new MaterializedRow(1, "test_string", "foo string", "test default", VARCHAR_MAX, "test string property"));
         assertEquals(properties.get("test_long"), new MaterializedRow(1, "test_long", "424242", "42", "bigint", "test long property"));
-        assertEquals(properties.get("connector.connector_string"), new MaterializedRow(1, "connector.connector_string", "bar string", "connector default", "varchar", "connector string property"));
+        assertEquals(properties.get("connector.connector_string"), new MaterializedRow(1, "connector.connector_string", "bar string", "connector default", VARCHAR_MAX, "connector string property"));
         assertEquals(properties.get("connector.connector_long"), new MaterializedRow(1, "connector.connector_long", "11", "33", "bigint", "connector long property"));
     }
 
@@ -4962,7 +4965,7 @@ public abstract class AbstractTestQueries
         computeActual("SELECT greatest(rgb(255, 0, 0))");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:10: '<>' cannot be applied to bigint, varchar\\E")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:10: '<>' cannot be applied to bigint, varchar(1)\\E")
     public void testTypeMismatch()
     {
         computeActual("SELECT 1 <> 'x'");
@@ -4974,13 +4977,13 @@ public abstract class AbstractTestQueries
         computeActual("SELECT CAST(null AS array<foo>)");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:21: '+' cannot be applied to varchar, bigint\\E")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:21: '+' cannot be applied to varchar(2147483647), bigint\\E")
     public void testInvalidTypeInfixOperator()
     {
         computeActual("SELECT ('a' || 'z') + (3 * 4) / 5");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:12: Cannot check if varchar is BETWEEN bigint and varchar\\E")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:12: Cannot check if varchar(1) is BETWEEN bigint and varchar(1)\\E")
     public void testInvalidTypeBetweenOperator()
     {
         computeActual("SELECT 'a' BETWEEN 3 AND 'z'");
