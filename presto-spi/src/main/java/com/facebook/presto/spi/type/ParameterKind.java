@@ -18,5 +18,6 @@ public enum ParameterKind
 {
     TYPE_SIGNATURE,
     NAMED_TYPE_SIGNATURE,
-    LONG_LITERAL
+    LONG_LITERAL,
+    LITERAL_CALCULATION
 }
