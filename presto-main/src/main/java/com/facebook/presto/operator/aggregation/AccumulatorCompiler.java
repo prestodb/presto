@@ -30,7 +30,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.CompilerOperations;
-import com.facebook.presto.sql.gen.SqlTypeByteCodeExpression;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -133,8 +132,8 @@ public class AccumulatorCompiler
         // Generate methods
         generateAddInput(definition, stateField, inputChannelsField, maskChannelField, sampleWeightChannelField, metadata.getInputMetadata(), metadata.getInputFunction(), callSiteBinder, grouped);
         generateGetEstimatedSize(definition, stateField);
-        MethodDefinition getIntermediateType = generateGetIntermediateType(definition, callSiteBinder, stateSerializer.getSerializedType());
-        MethodDefinition getFinalType = generateGetFinalType(definition, callSiteBinder, metadata.getOutputType());
+        generateGetIntermediateType(definition, callSiteBinder, stateSerializer.getSerializedType());
+        generateGetFinalType(definition, callSiteBinder, metadata.getOutputType());
 
         if (metadata.getIntermediateInputFunction() == null) {
             generateAddIntermediateAsCombine(definition, stateField, stateSerializerField, stateFactoryField, metadata.getCombineFunction(), stateFactory.getSingleStateClass(), callSiteBinder, grouped);
@@ -147,14 +146,14 @@ public class AccumulatorCompiler
             generateGroupedEvaluateIntermediate(definition, stateSerializerField, stateField);
         }
         else {
-            generateEvaluateIntermediate(definition, getIntermediateType, stateSerializerField, stateField);
+            generateEvaluateIntermediate(definition, stateSerializerField, stateField);
         }
 
         if (grouped) {
             generateGroupedEvaluateFinal(definition, confidenceField, stateSerializerField, stateField, metadata.getOutputFunction(), metadata.isApproximate(), callSiteBinder);
         }
         else {
-            generateEvaluateFinal(definition, getFinalType, confidenceField, stateSerializerField, stateField, metadata.getOutputFunction(), metadata.isApproximate(), callSiteBinder);
+            generateEvaluateFinal(definition, confidenceField, stateSerializerField, stateField, metadata.getOutputFunction(), metadata.isApproximate(), callSiteBinder);
         }
 
         return defineClass(definition, accumulatorInterface, callSiteBinder.getBindings(), classLoader);
@@ -438,28 +437,28 @@ public class AccumulatorCompiler
         }
         else if (parameter == long.class) {
             block.comment("%s.getLong(block, position)", sqlType.getTypeSignature())
-                    .append(SqlTypeByteCodeExpression.constantType(new CompilerContext(BOOTSTRAP_METHOD), callSiteBinder, sqlType))
+                    .append(constantType(new CompilerContext(BOOTSTRAP_METHOD), callSiteBinder, sqlType))
                     .append(getBlockByteCode)
                     .getVariable("position")
                     .invokeInterface(Type.class, "getLong", long.class, com.facebook.presto.spi.block.Block.class, int.class);
         }
         else if (parameter == double.class) {
             block.comment("%s.getDouble(block, position)", sqlType.getTypeSignature())
-                    .append(SqlTypeByteCodeExpression.constantType(new CompilerContext(BOOTSTRAP_METHOD), callSiteBinder, sqlType))
+                    .append(constantType(new CompilerContext(BOOTSTRAP_METHOD), callSiteBinder, sqlType))
                     .append(getBlockByteCode)
                     .getVariable("position")
                     .invokeInterface(Type.class, "getDouble", double.class, com.facebook.presto.spi.block.Block.class, int.class);
         }
         else if (parameter == boolean.class) {
             block.comment("%s.getBoolean(block, position)", sqlType.getTypeSignature())
-                    .append(SqlTypeByteCodeExpression.constantType(new CompilerContext(BOOTSTRAP_METHOD), callSiteBinder, sqlType))
+                    .append(constantType(new CompilerContext(BOOTSTRAP_METHOD), callSiteBinder, sqlType))
                     .append(getBlockByteCode)
                     .getVariable("position")
                     .invokeInterface(Type.class, "getBoolean", boolean.class, com.facebook.presto.spi.block.Block.class, int.class);
         }
         else if (parameter == Slice.class) {
             block.comment("%s.getBoolean(block, position)", sqlType.getTypeSignature())
-                    .append(SqlTypeByteCodeExpression.constantType(new CompilerContext(BOOTSTRAP_METHOD), callSiteBinder, sqlType))
+                    .append(constantType(new CompilerContext(BOOTSTRAP_METHOD), callSiteBinder, sqlType))
                     .append(getBlockByteCode)
                     .getVariable("position")
                     .invokeInterface(Type.class, "getSlice", Slice.class, com.facebook.presto.spi.block.Block.class, int.class);
@@ -642,7 +641,7 @@ public class AccumulatorCompiler
                 .ret();
     }
 
-    private static void generateEvaluateIntermediate(ClassDefinition definition, MethodDefinition getIntermediateType, FieldDefinition stateSerializerField, FieldDefinition stateField)
+    private static void generateEvaluateIntermediate(ClassDefinition definition, FieldDefinition stateSerializerField, FieldDefinition stateField)
     {
         CompilerContext context = new CompilerContext();
         definition.declareMethod(
@@ -712,7 +711,6 @@ public class AccumulatorCompiler
 
     private static void generateEvaluateFinal(
             ClassDefinition definition,
-            MethodDefinition getFinalType,
             FieldDefinition confidenceField,
             FieldDefinition stateSerializerField,
             FieldDefinition stateField,
