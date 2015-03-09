@@ -440,6 +440,11 @@ public final class HiveUtil
         return type.getTypeSignature().getBase().equals(StandardTypes.MAP);
     }
 
+    public static boolean isRowType(Type type)
+    {
+        return type.getTypeSignature().getBase().equals(StandardTypes.ROW);
+    }
+
     public static boolean isStructuralType(Type type)
     {
         String baseName = type.getTypeSignature().getBase();
