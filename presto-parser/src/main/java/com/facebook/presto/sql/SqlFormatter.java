@@ -447,6 +447,7 @@ public final class SqlFormatter
         protected Void visitDropView(DropView node, Integer context)
         {
             builder.append("DROP VIEW ")
+                    .append(node.isExistsPredicate() ? "IF EXISTS " : "")
                     .append(node.getName());
 
             return null;
@@ -586,6 +587,7 @@ public final class SqlFormatter
         protected Void visitDropTable(DropTable node, Integer context)
         {
             builder.append("DROP TABLE ")
+                    .append(node.isExistsPredicate() ? "IF EXISTS " : "")
                     .append(node.getTableName());
 
             return null;

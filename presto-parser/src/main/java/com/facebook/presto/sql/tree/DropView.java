@@ -21,15 +21,22 @@ public class DropView
         extends Statement
 {
     private final QualifiedName name;
+    private final boolean existsPredicate;
 
-    public DropView(QualifiedName name)
+    public DropView(QualifiedName name, boolean existsPredicate)
     {
         this.name = name;
+        this.existsPredicate = existsPredicate;
     }
 
     public QualifiedName getName()
     {
         return name;
+    }
+
+    public boolean isExistsPredicate()
+    {
+        return existsPredicate;
     }
 
     @Override
@@ -41,7 +48,7 @@ public class DropView
     @Override
     public int hashCode()
     {
-        return Objects.hash(name);
+        return Objects.hash(name, existsPredicate);
     }
 
     @Override
@@ -54,7 +61,8 @@ public class DropView
             return false;
         }
         DropView o = (DropView) obj;
-        return Objects.equals(name, o.name);
+        return Objects.equals(name, o.name)
+                && (existsPredicate == o.existsPredicate);
     }
 
     @Override
@@ -62,6 +70,7 @@ public class DropView
     {
         return toStringHelper(this)
                 .add("name", name)
+                .add("existsPredicate", existsPredicate)
                 .toString();
     }
 }
