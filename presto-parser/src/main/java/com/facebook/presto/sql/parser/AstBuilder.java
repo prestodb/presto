@@ -156,13 +156,13 @@ class AstBuilder
     @Override
     public Node visitDropTable(@NotNull SqlBaseParser.DropTableContext context)
     {
-        return new DropTable(getQualifiedName(context.qualifiedName()));
+        return new DropTable(getQualifiedName(context.qualifiedName()), context.EXISTS() != null);
     }
 
     @Override
     public Node visitDropView(@NotNull SqlBaseParser.DropViewContext context)
     {
-        return new DropView(getQualifiedName(context.qualifiedName()));
+        return new DropView(getQualifiedName(context.qualifiedName()), context.EXISTS() != null);
     }
 
     @Override

@@ -184,6 +184,15 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testDropTableIfExists()
+            throws Exception
+    {
+        assertFalse(queryRunner.tableExists(getSession(), "test_drop_if_exists"));
+        assertQueryTrue("DROP TABLE IF EXISTS test_create");
+        assertFalse(queryRunner.tableExists(getSession(), "test_drop_if_exists"));
+    }
+
+    @Test
     public void testView()
             throws Exception
     {
