@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -41,6 +42,7 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Set;
 
+import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -69,6 +71,22 @@ public class TestDriver
         server = new TestingPrestoServer();
         server.installPlugin(new TpchPlugin());
         server.createCatalog(TEST_CATALOG, "tpch");
+        server.installPlugin(new BlackHolePlugin());
+        server.createCatalog("blackhole", "blackhole");
+
+        setupTestTables();
+    }
+
+    private void setupTestTables()
+            throws SQLException
+    {
+        try (
+                Connection connection = createConnection("blackhole", "blackhole");
+                Statement statement = connection.createStatement()
+        ) {
+            int updated = statement.executeUpdate("CREATE TABLE test_table (key BIGINT)");
+            assertGreaterThanOrEqual(updated, 0);
+        }
     }
 
     @AfterClass
@@ -242,7 +260,7 @@ public class TestDriver
     {
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getCatalogs()) {
-                assertEquals(readRows(rs), list(list("system"), list(TEST_CATALOG)));
+                assertEquals(readRows(rs), list(list("blackhole"), list("system"), list(TEST_CATALOG)));
 
                 ResultSetMetaData metadata = rs.getMetaData();
                 assertEquals(metadata.getColumnCount(), 1);
@@ -271,6 +289,10 @@ public class TestDriver
         system.add(list("system", "metadata"));
         system.add(list("system", "runtime"));
 
+        List<List<String>> blackhole = new ArrayList<>();
+        blackhole.add(list("blackhole", "information_schema"));
+        blackhole.add(list("blackhole", "default"));
+
         List<List<String>> test = new ArrayList<>();
         test.add(list(TEST_CATALOG, "information_schema"));
         for (String schema : TpchMetadata.SCHEMA_NAMES) {
@@ -280,6 +302,7 @@ public class TestDriver
         List<List<String>> all = new ArrayList<>();
         all.addAll(system);
         all.addAll(test);
+        all.addAll(blackhole);
 
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getSchemas()) {
@@ -306,6 +329,7 @@ public class TestDriver
             try (ResultSet rs = connection.getMetaData().getSchemas(null, "information_schema")) {
                 assertGetSchemasResult(rs, list(
                         list(TEST_CATALOG, "information_schema"),
+                        list("blackhole", "information_schema"),
                         list("system", "information_schema")));
             }
 
@@ -816,14 +840,17 @@ public class TestDriver
     }
 
     @Test
-    public void testExecute()
+    public void testExecuteWithQuery()
             throws Exception
     {
         try (Connection connection = createConnection()) {
             try (Statement statement = connection.createStatement()) {
                 assertTrue(statement.execute("SELECT 123 x, 'foo' y, CAST(NULL AS bigint) z"));
                 ResultSet rs = statement.getResultSet();
+
                 assertTrue(rs.next());
+                assertEquals(statement.getUpdateCount(), -1);
+                assertEquals(statement.getLargeUpdateCount(), -1L);
 
                 assertEquals(rs.getLong(1), 123);
                 assertFalse(rs.wasNull());
@@ -843,6 +870,111 @@ public class TestDriver
                 assertFalse(rs.wasNull());
 
                 assertFalse(rs.next());
+            }
+        }
+    }
+
+    @Test
+    public void testExecuteWithInsert()
+            throws Exception
+    {
+        try (Connection connection = createConnection("blackhole", "blackhole")) {
+            try (Statement statement = connection.createStatement()) {
+                assertFalse(statement.execute("INSERT INTO test_table VALUES (1)"));
+
+                assertNull(statement.getResultSet());
+                assertEquals(statement.getUpdateCount(), 1);
+                assertEquals(statement.getLargeUpdateCount(), 1L);
+            }
+        }
+    }
+
+    @Test
+    public void testExecuteUpdateWithDDLStatement()
+            throws Exception
+    {
+        try (Connection connection = createConnection("blackhole", "blackhole")) {
+            try (Statement statement = connection.createStatement()) {
+                assertEquals(statement.executeUpdate("INSERT INTO test_table VALUES (1)"), 1);
+                assertNull(statement.getResultSet());
+                assertEquals(statement.getUpdateCount(), 1);
+                assertEquals(statement.getLargeUpdateCount(), 1L);
+            }
+        }
+    }
+
+    @Test
+    public void testExecuteUpdateWithDMLStatement()
+            throws Exception
+    {
+        try (Connection connection = createConnection("blackhole", "blackhole")) {
+            try (Statement statement = connection.createStatement()) {
+                assertEquals(statement.executeUpdate("CREATE TABLE test_table_2 (key BIGINT)"), 0);
+                assertNull(statement.getResultSet());
+                assertEquals(statement.getUpdateCount(), 0);
+                assertEquals(statement.getLargeUpdateCount(), 0L);
+            }
+        }
+    }
+
+    @Test
+    public void testExecuteUpdateWithQueryStatement()
+            throws Exception
+    {
+        try (Connection connection = createConnection("blackhole", "blackhole")) {
+            try (Statement statement = connection.createStatement()) {
+                try {
+                    statement.executeUpdate("SELECT 123 x, 'foo' y, CAST(NULL AS bigint) z");
+                    fail("Expected SQL exception");
+                }
+                catch (SQLException e) {
+                    assertEquals(e.getMessage(), "Not an update statement: SELECT 123 x, 'foo' y, CAST(NULL AS bigint) z");
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testExecuteQueryWithDDLStatement()
+            throws Exception
+    {
+        try (Connection connection = createConnection("blackhole", "blackhole")) {
+            try (Statement statement = connection.createStatement()) {
+                try {
+                    statement.executeQuery("INSERT INTO test_table VALUES (1)");
+                    fail("Expected SQL exception");
+                }
+                catch (SQLException e) {
+                    assertEquals(e.getMessage(), "Not an query statement: INSERT INTO test_table VALUES (1)");
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testExecuteUpdateCountCurrentResultCleared()
+            throws Exception
+    {
+        try (Connection connection = createConnection("blackhole", "blackhole")) {
+            try (Statement statement = connection.createStatement()) {
+                // update statement
+                assertFalse(statement.execute("INSERT INTO test_table VALUES (1)"));
+                assertNull(statement.getResultSet());
+                assertEquals(statement.getUpdateCount(), 1);
+                assertEquals(statement.getLargeUpdateCount(), 1L);
+
+                // query statement
+                assertTrue(statement.execute("SELECT 123 x, 'foo' y, CAST(NULL AS bigint) z"));
+                assertNotNull(statement.getResultSet());
+                assertEquals(statement.getUpdateCount(), -1);
+                assertEquals(statement.getLargeUpdateCount(), -1L);
+                statement.getResultSet().close();
+
+                // update statement
+                assertFalse(statement.execute("INSERT INTO test_table VALUES (1)"));
+                assertNull(statement.getResultSet());
+                assertEquals(statement.getUpdateCount(), 1);
+                assertEquals(statement.getLargeUpdateCount(), 1L);
             }
         }
     }
