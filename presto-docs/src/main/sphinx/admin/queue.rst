@@ -4,6 +4,9 @@ Queue Configuration
 
 The queueing rules are defined in a JSON file and control the number of queries
 that can be submitted to Presto and the quota of running queries per queue.
+The filename of the JSON config file should be specified in ``query.queue-config-file``
+config property.
+
 Rules that specify multiple queues will cause the query to enter the queues sequentially.
 Rules are processed sequentially and the first one that matches will be used.
 In the example configuration below, there are five queue templates. In the
@@ -18,7 +21,8 @@ There are also five rules that define which queries go into which queues:
 * The second rule states that all queries submitted with the ``experimental_big_query``
   session property and that come from a source that includes ``pipeline`` should
   first be queued in the user's personal queue, then the ``pipeline`` queue, and
-  finally the ``big`` queue.
+  finally the ``big`` queue. When a query enters a new queue, it doesn't leave
+  previous queues until the query finishes execution.
 
 * The third rule is the same as the previous, but without the ``experimental_big_query``
   requirement, and uses the ``global`` queue instead of the ``big`` queue.
