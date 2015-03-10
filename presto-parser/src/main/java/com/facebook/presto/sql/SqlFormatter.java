@@ -447,8 +447,11 @@ public final class SqlFormatter
         @Override
         protected Void visitDropView(DropView node, Integer context)
         {
-            builder.append("DROP VIEW ")
-                    .append(node.getName());
+            builder.append("DROP VIEW ");
+            if (node.isExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(node.getName());
 
             return null;
         }
@@ -600,8 +603,11 @@ public final class SqlFormatter
         @Override
         protected Void visitDropTable(DropTable node, Integer context)
         {
-            builder.append("DROP TABLE ")
-                    .append(node.getTableName());
+            builder.append("DROP TABLE ");
+            if (node.isExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(node.getTableName());
 
             return null;
         }

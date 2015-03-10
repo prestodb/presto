@@ -41,7 +41,10 @@ public class DropViewTask
 
         Optional<ViewDefinition> view = metadata.getView(session, name);
         if (!view.isPresent()) {
-            throw new SemanticException(MISSING_TABLE, statement, "View '%s' does not exist", name);
+            if (!statement.isExists()) {
+                throw new SemanticException(MISSING_TABLE, statement, "View '%s' does not exist", name);
+            }
+            return;
         }
 
         metadata.dropView(session, name);

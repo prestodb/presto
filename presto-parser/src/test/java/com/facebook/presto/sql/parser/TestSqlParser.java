@@ -667,18 +667,26 @@ public class TestSqlParser
     public void testDropTable()
             throws Exception
     {
-        assertStatement("DROP TABLE a", new DropTable(QualifiedName.of("a")));
-        assertStatement("DROP TABLE a.b", new DropTable(QualifiedName.of("a", "b")));
-        assertStatement("DROP TABLE a.b.c", new DropTable(QualifiedName.of("a", "b", "c")));
+        assertStatement("DROP TABLE a", new DropTable(QualifiedName.of("a"), false));
+        assertStatement("DROP TABLE a.b", new DropTable(QualifiedName.of("a", "b"), false));
+        assertStatement("DROP TABLE a.b.c", new DropTable(QualifiedName.of("a", "b", "c"), false));
+
+        assertStatement("DROP TABLE IF EXISTS a", new DropTable(QualifiedName.of("a"), true));
+        assertStatement("DROP TABLE IF EXISTS a.b", new DropTable(QualifiedName.of("a", "b"), true));
+        assertStatement("DROP TABLE IF EXISTS a.b.c", new DropTable(QualifiedName.of("a", "b", "c"), true));
     }
 
     @Test
     public void testDropView()
             throws Exception
     {
-        assertStatement("DROP VIEW a", new DropView(QualifiedName.of("a")));
-        assertStatement("DROP VIEW a.b", new DropView(QualifiedName.of("a", "b")));
-        assertStatement("DROP VIEW a.b.c", new DropView(QualifiedName.of("a", "b", "c")));
+        assertStatement("DROP VIEW a", new DropView(QualifiedName.of("a"), false));
+        assertStatement("DROP VIEW a.b", new DropView(QualifiedName.of("a", "b"), false));
+        assertStatement("DROP VIEW a.b.c", new DropView(QualifiedName.of("a", "b", "c"), false));
+
+        assertStatement("DROP VIEW IF EXISTS a", new DropView(QualifiedName.of("a"), true));
+        assertStatement("DROP VIEW IF EXISTS a.b", new DropView(QualifiedName.of("a", "b"), true));
+        assertStatement("DROP VIEW IF EXISTS a.b.c", new DropView(QualifiedName.of("a", "b", "c"), true));
     }
 
     @Test

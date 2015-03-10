@@ -21,15 +21,22 @@ public class DropTable
         extends Statement
 {
     private final QualifiedName tableName;
+    private final boolean exists;
 
-    public DropTable(QualifiedName tableName)
+    public DropTable(QualifiedName tableName, boolean exists)
     {
         this.tableName = tableName;
+        this.exists = exists;
     }
 
     public QualifiedName getTableName()
     {
         return tableName;
+    }
+
+    public boolean isExists()
+    {
+        return exists;
     }
 
     @Override
@@ -41,7 +48,7 @@ public class DropTable
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableName);
+        return Objects.hash(tableName, exists);
     }
 
     @Override
@@ -54,7 +61,8 @@ public class DropTable
             return false;
         }
         DropTable o = (DropTable) obj;
-        return Objects.equals(tableName, o.tableName);
+        return Objects.equals(tableName, o.tableName)
+                && (exists == o.exists);
     }
 
     @Override
@@ -62,6 +70,7 @@ public class DropTable
     {
         return toStringHelper(this)
                 .add("tableName", tableName)
+                .add("exists", exists)
                 .toString();
     }
 }

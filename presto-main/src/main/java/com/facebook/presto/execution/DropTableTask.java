@@ -41,7 +41,10 @@ public class DropTableTask
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (!tableHandle.isPresent()) {
-            throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
+            if (!statement.isExists()) {
+                throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
+            }
+            return;
         }
 
         metadata.dropTable(tableHandle.get());
