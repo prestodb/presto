@@ -49,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
+import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -143,6 +144,25 @@ public class SqlQueryManager
     @PreDestroy
     public void stop()
     {
+        boolean queryCancelled = false;
+        for (QueryExecution queryExecution : queries.values()) {
+            QueryInfo queryInfo = queryExecution.getQueryInfo();
+            if (queryInfo.getState().isDone()) {
+                continue;
+            }
+
+            log.info("Server shutting down. Query %s has been cancelled", queryExecution.getQueryInfo().getQueryId());
+            queryExecution.fail(new PrestoException(SERVER_SHUTTING_DOWN, "Server is shutting down. Query " + queryInfo.getQueryId() + " has been cancelled"));
+            queryCancelled = true;
+        }
+        if (queryCancelled) {
+            try {
+                TimeUnit.SECONDS.sleep(5);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
         queryManagementExecutor.shutdownNow();
         queryExecutor.shutdownNow();
     }
