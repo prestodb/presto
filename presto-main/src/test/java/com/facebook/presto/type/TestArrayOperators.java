@@ -62,6 +62,7 @@ public class TestArrayOperators
     {
         try {
             assertFunction(projection, null);
+            fail("Expected to throw an INVALID_FUNCTION_ARGUMENT exception with message " + message);
         }
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
