@@ -7,7 +7,7 @@ that can be submitted to Presto and the quota of running queries per queue.
 Rules that specify multiple queues will cause the query to enter the queues sequentially.
 Rules are processed sequentially and the first one that matches will be used.
 In the example configuration below, there are five queue templates. In the
-``user.${USER}`` queue ``${USER}`` will be expanded to the name of the user
+``user.${USER}`` queue, ``${USER}`` will be expanded to the name of the user
 that submitted the query. ``${SOURCE}`` is also supported, which expands to the
 source submitting the query.
 
@@ -16,29 +16,28 @@ There are also five rules that define which queries go into which queues:
 * The first rule makes ``bob`` an admin.
 
 * The second rule states that all queries submitted with the ``experimental_big_query``
-   session property and that come from a source that includes "pipeline" should
-   first be queued in the user's personal queue, then the "pipeline" queue, and
-   finally the "big" queue.
+  session property and that come from a source that includes ``pipeline`` should
+  first be queued in the user's personal queue, then the ``pipeline`` queue, and
+  finally the ``big`` queue.
 
 * The third rule is the same as the previous, but without the ``experimental_big_query``
-   requirement, and uses the "global" queue instead of the "big" queue.
+  requirement, and uses the ``global`` queue instead of the ``big`` queue.
 
 * The last two rules are the same as the previous two, but without the
-   match on "pipeline" in the source.
+  match on ``pipeline`` in the source.
 
-All together these rules implement the following policy:
+All together these rules implement the policy that ``bob`` is an admin and
+all other users are subject to the follow limits:
 
-  Bob is an admin. All other users are subject to the follow limits:
+  * Users are allowed to have up to 5 queries running.
 
-  * Users are allowed to have 5 queries running.
+  * ``big`` queries may only run one at a time.
 
-  * "Big" queries may only run one at a time.
+  * No more than 10 ``pipeline`` queries may run at once.
 
-  * There may not be more than 10 "Pipeline" queries running at a time.
+  * No more than 100 non-``big`` queries may run at once.
 
-  * No more than 100 non-"big" queries may run at once.
-
-.. code-block:: none
+.. code-block:: json
 
     {
       "queues": {
