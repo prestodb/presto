@@ -1,0 +1,154 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>2.5. Benchmark Driver &mdash; Presto 0.97 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.97',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.97 Documentation" href="../index.html" />
+    <link rel="up" title="2. Installation" href="../installation.html" />
+    <link rel="next" title="3. Administration" href="../admin.html" />
+    <link rel="prev" title="2.4. Presto Verifier" href="verifier.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.97 Documentation</span></a></h1>
+    <h2 class="heading"><span>2.5. Benchmark Driver</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="verifier.html">2.4. Presto Verifier</a>
+    </span>
+    <span class="right">
+        <a href="../admin.html">3. Administration</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="benchmark-driver">
+<h1>2.5. Benchmark Driver</h1>
+<p>The benchmark driver can be used to measure the performance of queries in a
+Presto cluster. We use it to continuously measure the performance of trunk.</p>
+<p>Download <a class="reference external" href="https://repo1.maven.org/maven2/com/facebook/presto/presto-benchmark-driver/0.97/presto-benchmark-driver-0.97-executable.jar">presto-benchmark-driver-0.97-executable.jar</a>, rename it to <tt class="docutils literal"><span class="pre">presto-benchmark-driver</span></tt>,
+then make it executable with <tt class="docutils literal"><span class="pre">chmod</span> <span class="pre">+x</span></tt>.</p>
+<div class="section" id="suites">
+<h2>Suites</h2>
+<p>Create a <tt class="docutils literal"><span class="pre">suite.json</span></tt> file:</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span>
+    <span class="nt">&quot;file_formats&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;query&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;single_.*&quot;</span><span class="p">,</span> <span class="s2">&quot;tpch_.*&quot;</span><span class="p">],</span>
+        <span class="nt">&quot;schema&quot;</span><span class="p">:</span> <span class="p">[</span> <span class="s2">&quot;tpch_sf(?&lt;scale&gt;.*)_(?&lt;format&gt;.*)_(?&lt;compression&gt;.*?)&quot;</span> <span class="p">]</span>
+    <span class="p">},</span>
+    <span class="nt">&quot;legacy_orc&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;query&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;single_.*&quot;</span><span class="p">,</span> <span class="s2">&quot;tpch_.*&quot;</span><span class="p">],</span>
+        <span class="nt">&quot;schema&quot;</span><span class="p">:</span> <span class="p">[</span> <span class="s2">&quot;tpch_sf(?&lt;scale&gt;.*)_(?&lt;format&gt;orc)_(?&lt;compression&gt;.*?)&quot;</span> <span class="p">],</span>
+        <span class="nt">&quot;session&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="nt">&quot;hive.optimized_reader_enabled&quot;</span><span class="p">:</span> <span class="s2">&quot;false&quot;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>This example contains two suites <tt class="docutils literal"><span class="pre">file_formats</span></tt> and <tt class="docutils literal"><span class="pre">legacy_orc</span></tt>. The
+<tt class="docutils literal"><span class="pre">file_formats</span></tt> suite will run queries with names matching the regular expression
+<tt class="docutils literal"><span class="pre">single_.*</span></tt> or <tt class="docutils literal"><span class="pre">tpch_.*</span></tt> in all schemas matching the regular expression
+<tt class="docutils literal"><span class="pre">tpch_sf.*_.*_.*?</span></tt>. The <tt class="docutils literal"><span class="pre">legacy_orc</span></tt> suite adds a session property to
+disable the optimized ORC reader and only runs in the <tt class="docutils literal"><span class="pre">tpch_sf.*_orc_.*?</span></tt>
+schema.</p>
+</div>
+<div class="section" id="queries">
+<h2>Queries</h2>
+<p>The SQL files are contained in a directory named <tt class="docutils literal"><span class="pre">sql</span></tt> and must have the
+<tt class="docutils literal"><span class="pre">.sql</span></tt> file extension. The name of the query is the name of the file
+without the extension.</p>
+</div>
+<div class="section" id="output">
+<h2>Output</h2>
+<p>The benchmark driver will measure the wall time, total CPU time used by
+all Presto processes and the CPU time used by the query. For each timing, the
+driver reports median, mean and standard deviation of the query runs. The
+difference between process and query CPU times is the query overhead, which
+is normally from garbage collections. The following is the output from the
+<tt class="docutils literal"><span class="pre">file_formats</span></tt> suite above:</p>
+<div class="highlight-none"><div class="highlight"><pre>suite        query          compression format scale wallTimeP50 wallTimeMean wallTimeStd processCpuTimeP50 processCpuTimeMean processCpuTimeStd queryCpuTimeP50 queryCpuTimeMean queryCpuTimeStd
+============ ============== =========== ====== ===== =========== ============ =========== ================= ================== ================= =============== ================ ===============
+file_formats single_varchar none        orc    100   597         642          101         100840            97180              6373              98296           94610            6628
+file_formats single_bigint  none        orc    100   238         242          12          33930             34050              697               32452           32417            460
+file_formats single_varchar snappy      orc    100   530         525          14          99440             101320             7713              97317           99139            7682
+file_formats single_bigint  snappy      orc    100   218         238          35          34650             34606              83                33198           33188            83
+file_formats single_varchar zlib        orc    100   547         543          38          105680            103373             4038              103029          101021           3773
+file_formats single_bigint  zlib        orc    100   282         269          23          38990             39030              282               37574           37496            156
+</pre></div>
+</div>
+<p>Note that the above output has been reformatted for readability from the
+standard TSV that the driver outputs.</p>
+<p>The driver can add additional columns to the output by extracting values from
+the schema name or SQL files. In the suite file above, the schema names
+contain named regular expression capturing groups for <tt class="docutils literal"><span class="pre">compression</span></tt>,
+<tt class="docutils literal"><span class="pre">format</span></tt>, and <tt class="docutils literal"><span class="pre">scale</span></tt>, so if we ran the queries in a catalog containing the
+schemas <tt class="docutils literal"><span class="pre">tpch_sf100_orc_none</span></tt>, <tt class="docutils literal"><span class="pre">tpch_sf100_orc_snappy</span></tt>, and
+<tt class="docutils literal"><span class="pre">tpch_sf100_orc_zlib</span></tt>, we get the above output.</p>
+<p>Another way to create additional output columns is by adding tags to the
+SQL files. For example, the following SQL file declares two tags,
+<tt class="docutils literal"><span class="pre">projection</span></tt> and <tt class="docutils literal"><span class="pre">filter</span></tt>:</p>
+<div class="highlight-none"><div class="highlight"><pre>projection=true
+filter=false
+=================
+SELECT SUM(LENGTH(comment))
+FROM lineitem
+</pre></div>
+</div>
+<p>This will cause the driver to output these values for each run of this query.</p>
+</div>
+<div class="section" id="cli-arguments">
+<h2>CLI Arguments</h2>
+<p>The <tt class="docutils literal"><span class="pre">presto-benchmark-driver</span></tt> program contains many CLI arguments to control
+which suites and queries to run, the number of warm-up runs and the number
+of measurement runs. All of the command line arguments can be seen with the
+<tt class="docutils literal"><span class="pre">--help</span></tt> option.</p>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="verifier.html">2.4. Presto Verifier</a>
+    </span>
+    <span class="right">
+        <a href="../admin.html">3. Administration</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

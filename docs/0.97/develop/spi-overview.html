@@ -1,0 +1,151 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>9.1. SPI Overview &mdash; Presto 0.97 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.97',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.97 Documentation" href="../index.html" />
+    <link rel="up" title="9. Developer Guide" href="../develop.html" />
+    <link rel="next" title="9.2. Example HTTP Connector" href="example-http.html" />
+    <link rel="prev" title="9. Developer Guide" href="../develop.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.97 Documentation</span></a></h1>
+    <h2 class="heading"><span>9.1. SPI Overview</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../develop.html">9. Developer Guide</a>
+    </span>
+    <span class="right">
+        <a href="example-http.html">9.2. Example HTTP Connector</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="spi-overview">
+<h1>9.1. SPI Overview</h1>
+<p>When you implement a new Presto plugin, you implement interfaces and
+override methods defined by the SPI.</p>
+<p>Plugins can provide connectors, which are the source of all data
+for queries in Presto. Even if your data source doesn&#8217;t have underlying
+tables backing it, as long as you adapt your data source to the API
+expected by Presto, you can write queries against this data.</p>
+<div class="section" id="code">
+<h2>Code</h2>
+<p>The SPI source can be found in the <tt class="docutils literal"><span class="pre">presto-spi</span></tt> directory in the
+root of the Presto source tree.</p>
+</div>
+<div class="section" id="plugin-metadata">
+<h2>Plugin Metadata</h2>
+<p>Each plugin identifies an entry point: an implementation of the
+<tt class="docutils literal"><span class="pre">Plugin</span></tt> interface. This class name is provided to Presto via
+the standard Java <tt class="docutils literal"><span class="pre">ServiceLoader</span></tt> interface: the classpath contains
+a resource file named <tt class="docutils literal"><span class="pre">com.facebook.presto.spi.Plugin</span></tt> in the
+<tt class="docutils literal"><span class="pre">META-INF/services</span></tt> directory. The content of this file is a
+single line listing the name of the plugin class:</p>
+<div class="highlight-none"><div class="highlight"><pre>com.facebook.presto.example.ExamplePlugin
+</pre></div>
+</div>
+</div>
+<div class="section" id="plugin">
+<h2>Plugin</h2>
+<p>The <tt class="docutils literal"><span class="pre">Plugin</span></tt> interface is a good starting place for developers looking
+to understand the Presto SPI. The <tt class="docutils literal"><span class="pre">getServices()</span></tt> method is a top-level
+function that Presto calls to retrieve a <tt class="docutils literal"><span class="pre">ConnectorFactory</span></tt> when Presto
+is ready to create an instance of a connector to back a catalog.</p>
+</div>
+<div class="section" id="connectorfactory">
+<h2>ConnectorFactory</h2>
+<p>Instances of your connector are created by a <tt class="docutils literal"><span class="pre">ConnectorFactory</span></tt>
+instance which is created when Presto calls <tt class="docutils literal"><span class="pre">getServices()</span></tt> on the
+plugin to request a service of type <tt class="docutils literal"><span class="pre">ConnectorFactory</span></tt>.
+The connector factory is a simple interface responsible for creating an
+instance of a <tt class="docutils literal"><span class="pre">Connector</span></tt> object that returns instances of the
+following services:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">ConnectorMetadata</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">ConnectorSplitManager</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">ConnectorHandleResolver</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">ConnectorRecordSetProvider</span></tt></li>
+</ul>
+<div class="section" id="connectormetdata">
+<h3>ConnectorMetdata</h3>
+<p>The connector metadata interface has a large number of important
+methods that are responsible for allowing Presto to look at lists of
+schemas, lists of tables, lists of columns, and other metadata about a
+particular data source.</p>
+<p>This interface is too big to list in this documentation, but if you
+are interested in seeing strategies for implementing these methods,
+look at the <a class="reference internal" href="example-http.html"><em>Example HTTP Connector</em></a> and the Cassandra connector. If
+your underlying data source supports schemas, tables and columns, this
+interface should be straightforward to implement. If you are attempting
+to adapt something that is not a relational database (as the Example HTTP
+connector does), you may need to get creative about how you map your
+data source to Presto&#8217;s schema, table, and column concepts.</p>
+</div>
+<div class="section" id="connectorsplitmanger">
+<h3>ConnectorSplitManger</h3>
+<p>The split manager partitions the data for a table into the individual
+chunks that Presto will distribute to workers for processing.
+For example, the Hive connector lists the files for each Hive
+partition and creates one or more split per file.
+For data sources that don&#8217;t have partitioned data, a good strategy
+here is to simply return a single split for the entire table. This
+is the strategy employed by the Example HTTP connector.</p>
+</div>
+<div class="section" id="connectorrecordsetprovider">
+<h3>ConnectorRecordSetProvider</h3>
+<p>Given a split and a list of columns, the record set provider is
+responsible for delivering data to the Presto execution engine.
+It creates a <tt class="docutils literal"><span class="pre">RecordSet</span></tt>, which in turn creates a <tt class="docutils literal"><span class="pre">RecordCursor</span></tt>
+that is used by Presto to read the column values for each row.</p>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../develop.html">9. Developer Guide</a>
+    </span>
+    <span class="right">
+        <a href="example-http.html">9.2. Example HTTP Connector</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

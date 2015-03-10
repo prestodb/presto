@@ -1,0 +1,179 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>3.1. Queue Configuration &mdash; Presto 0.97 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.97',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.97 Documentation" href="../index.html" />
+    <link rel="up" title="3. Administration" href="../admin.html" />
+    <link rel="next" title="4. Connectors" href="../connector.html" />
+    <link rel="prev" title="3. Administration" href="../admin.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.97 Documentation</span></a></h1>
+    <h2 class="heading"><span>3.1. Queue Configuration</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../admin.html">3. Administration</a>
+    </span>
+    <span class="right">
+        <a href="../connector.html">4. Connectors</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="queue-configuration">
+<h1>3.1. Queue Configuration</h1>
+<p>The queueing rules are defined in a JSON file and control the number of queries
+that can be submitted to Presto and the quota of running queries per queue.
+Rules that specify multiple queues will cause the query to enter the queues sequentially.
+Rules are processed sequentially and the first one that matches will be used.
+In the example configuration below, there are five queue templates. In the
+<tt class="docutils literal"><span class="pre">user.${USER}</span></tt> queue <tt class="docutils literal"><span class="pre">${USER}</span></tt> will be expanded to the name of the user
+that submitted the query. <tt class="docutils literal"><span class="pre">${SOURCE}</span></tt> is also supported, which expands to the
+source submitting the query.</p>
+<p>There are also five rules that define which queries go into which queues:</p>
+<ul>
+<li><p class="first">The first rule makes <tt class="docutils literal"><span class="pre">bob</span></tt> an admin.</p>
+</li>
+<li><dl class="first docutils">
+<dt>The second rule states that all queries submitted with the <tt class="docutils literal"><span class="pre">experimental_big_query</span></tt></dt>
+<dd><p class="first last">session property and that come from a source that includes &#8220;pipeline&#8221; should
+first be queued in the user&#8217;s personal queue, then the &#8220;pipeline&#8221; queue, and
+finally the &#8220;big&#8221; queue.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>The third rule is the same as the previous, but without the <tt class="docutils literal"><span class="pre">experimental_big_query</span></tt></dt>
+<dd><p class="first last">requirement, and uses the &#8220;global&#8221; queue instead of the &#8220;big&#8221; queue.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>The last two rules are the same as the previous two, but without the</dt>
+<dd><p class="first last">match on &#8220;pipeline&#8221; in the source.</p>
+</dd>
+</dl>
+</li>
+</ul>
+<p>All together these rules implement the following policy:</p>
+<blockquote>
+<div><p>Bob is an admin. All other users are subject to the follow limits:</p>
+<ul class="simple">
+<li>Users are allowed to have 5 queries running.</li>
+<li>&#8220;Big&#8221; queries may only run one at a time.</li>
+<li>There may not be more than 10 &#8220;Pipeline&#8221; queries running at a time.</li>
+<li>No more than 100 non-&#8220;big&#8221; queries may run at once.</li>
+</ul>
+</div></blockquote>
+<div class="highlight-none"><div class="highlight"><pre>{
+  &quot;queues&quot;: {
+    &quot;user.${USER}&quot;: {
+      &quot;maxConcurrent&quot;: 5,
+      &quot;maxQueued&quot;: 20
+    },
+    &quot;pipeline&quot;: {
+      &quot;maxConcurrent&quot;: 10,
+      &quot;maxQueued&quot;: 100
+    },
+    &quot;admin&quot;: {
+      &quot;maxConcurrent&quot;: 100,
+      &quot;maxQueued&quot;: 100
+    },
+    &quot;global&quot;: {
+      &quot;maxConcurrent&quot;: 100,
+      &quot;maxQueued&quot;: 1000
+    },
+    &quot;big&quot;: {
+      &quot;maxConcurrent&quot;: 1,
+      &quot;maxQueued&quot;: 10
+    }
+  },
+  &quot;rules&quot;: [
+    {
+      &quot;user&quot;: &quot;bob&quot;,
+      &quot;queues&quot;: [&quot;admin&quot;]
+    },
+    {
+      &quot;session.experimental_big_query&quot;: &quot;true&quot;,
+      &quot;source&quot;: &quot;.*pipeline.*&quot;,
+      &quot;queues&quot;: [
+        &quot;user.${USER}&quot;,
+        &quot;pipeline&quot;,
+        &quot;big&quot;
+      ]
+    },
+    {
+      &quot;source&quot;: &quot;.*pipeline.*&quot;,
+      &quot;queues&quot;: [
+        &quot;user.${USER}&quot;,
+        &quot;pipeline&quot;,
+        &quot;global&quot;
+      ]
+    },
+    {
+      &quot;session.experimental_big_query&quot;: &quot;true&quot;,
+      &quot;queues&quot;: [
+        &quot;user.${USER}&quot;,
+        &quot;big&quot;
+      ]
+    },
+    {
+      &quot;queues&quot;: [
+        &quot;user.${USER}&quot;,
+        &quot;global&quot;
+      ]
+    }
+  ]
+}
+</pre></div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../admin.html">3. Administration</a>
+    </span>
+    <span class="right">
+        <a href="../connector.html">4. Connectors</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

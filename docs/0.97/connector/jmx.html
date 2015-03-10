@@ -1,0 +1,121 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>4.3. JMX Connector &mdash; Presto 0.97 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.97',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.97 Documentation" href="../index.html" />
+    <link rel="up" title="4. Connectors" href="../connector.html" />
+    <link rel="next" title="4.4. Kafka Connector" href="kafka.html" />
+    <link rel="prev" title="4.2. Hive Connector" href="hive.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.97 Documentation</span></a></h1>
+    <h2 class="heading"><span>4.3. JMX Connector</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="hive.html">4.2. Hive Connector</a>
+    </span>
+    <span class="right">
+        <a href="kafka.html">4.4. Kafka Connector</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="jmx-connector">
+<h1>4.3. JMX Connector</h1>
+<p>The JMX connector provides the ability to query JMX information from all
+nodes in a Presto cluster. This is very useful for monitoring or debugging.
+Java Management Extensions (JMX) provides information about the Java
+Virtual Machine and all of the software running inside it. Presto itself
+is heavily instrumented via JMX.</p>
+<div class="section" id="configuration">
+<h2>Configuration</h2>
+<p>To configure the JMX connector, create a catalog properties file
+<tt class="docutils literal"><span class="pre">etc/catalog/jmx.properties</span></tt> with the following contents:</p>
+<div class="highlight-none"><div class="highlight"><pre>connector.name=jmx
+</pre></div>
+</div>
+</div>
+<div class="section" id="querying-jmx">
+<h2>Querying JMX</h2>
+<p>The JMX connector provides a single schema <tt class="docutils literal"><span class="pre">jmx</span></tt> that contains
+every Managed Bean (MBean) from every node in the Presto cluster.
+You can see all of the available MBeans by running <tt class="docutils literal"><span class="pre">SHOW</span> <span class="pre">TABLES</span></tt>:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SHOW</span> <span class="n">TABLES</span> <span class="k">FROM</span> <span class="n">jmx</span><span class="p">.</span><span class="n">jmx</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>MBean names map to non-standard table names and must be quoted with
+double quotes when referencing them in a query. For example, the
+following query shows the JVM version of every node:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">node</span><span class="p">,</span> <span class="n">vmname</span><span class="p">,</span> <span class="n">vmversion</span>
+<span class="k">FROM</span> <span class="n">jmx</span><span class="p">.</span><span class="n">jmx</span><span class="p">.</span><span class="ss">&quot;java.lang:type=runtime&quot;</span><span class="p">;</span>
+</pre></div>
+</div>
+<div class="highlight-none"><div class="highlight"><pre>                 node                 |              vmname               | vmversion
+--------------------------------------+-----------------------------------+-----------
+ ddc4df17-0b8e-4843-bb14-1b8af1a7451a | Java HotSpot(TM) 64-Bit Server VM | 24.60-b09
+(1 row)
+</pre></div>
+</div>
+<p>The following query shows the open and maximum file descriptor counts
+for each node:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">openfiledescriptorcount</span><span class="p">,</span> <span class="n">maxfiledescriptorcount</span>
+<span class="k">FROM</span> <span class="n">jmx</span><span class="p">.</span><span class="n">jmx</span><span class="p">.</span><span class="ss">&quot;java.lang:type=operatingsystem&quot;</span><span class="p">;</span>
+</pre></div>
+</div>
+<div class="highlight-none"><div class="highlight"><pre> openfiledescriptorcount | maxfiledescriptorcount
+-------------------------+------------------------
+                     329 |                  10240
+(1 row)
+</pre></div>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="hive.html">4.2. Hive Connector</a>
+    </span>
+    <span class="right">
+        <a href="kafka.html">4.4. Kafka Connector</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
