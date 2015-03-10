@@ -1795,7 +1795,7 @@ public class PrestoResultSet
         }
     }
 
-    private static SQLException resultsException(QueryResults results)
+    static SQLException resultsException(QueryResults results)
     {
         QueryError error = requireNonNull(results.getError());
         String message = format("Query failed (#%s): %s", results.getId(), error.getMessage());
