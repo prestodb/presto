@@ -18,15 +18,38 @@ import org.testng.annotations.Test;
 import org.weakref.jmx.MBeanExporter;
 
 import java.lang.management.ManagementFactory;
+import java.util.regex.Pattern;
+
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestSqlQueryQueueManager
 {
     @Test
     public void testJsonParsing()
     {
-        String path = this.getClass().getClassLoader().getResource("queue_config.json").getPath();
+        parse("queue_config.json");
+        assertFails("queue_config_bad_cycle.json", "Queues must not contain a cycle. The shortest cycle found is \\[q(.), q., q., q., q\\1\\]");
+        assertFails("queue_config_bad_selfcycle.json", "Queues must not contain a cycle. The shortest cycle found is \\[q1, q1\\]");
+    }
+
+    private void parse(String fileName)
+    {
+        String path = this.getClass().getClassLoader().getResource(fileName).getPath();
         QueryManagerConfig config = new QueryManagerConfig();
         config.setQueueConfigFile(path);
         new SqlQueryQueueManager(config, new ObjectMapperProvider().get(), new MBeanExporter(ManagementFactory.getPlatformMBeanServer()));
+    }
+
+    private void assertFails(String fileName, String expectedPattern)
+    {
+        try {
+            parse(fileName);
+            fail("Expected to throw an IllegalArgumentException with message " + expectedPattern);
+        }
+        catch (IllegalArgumentException e) {
+            assertTrue(Pattern.matches(expectedPattern, e.getMessage()),
+                    "\nExpected (re) :" + expectedPattern + "\nActual        :" + e.getMessage());
+        }
     }
 }

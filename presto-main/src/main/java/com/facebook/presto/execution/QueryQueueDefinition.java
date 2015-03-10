@@ -50,6 +50,11 @@ public class QueryQueueDefinition
         return SOURCE_PATTERN.matcher(expanded).replaceAll(nullToEmpty(session.getSource()));
     }
 
+    String getTemplate()
+    {
+        return template;
+    }
+
     public int getMaxConcurrent()
     {
         return maxConcurrent;
