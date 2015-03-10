@@ -159,6 +159,7 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing-postgresql-server</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
