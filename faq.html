@@ -60,35 +60,28 @@
 
         <h3 id="hadoopversion">What versions of Hadoop does Presto support?</h3>
 
-        <ul>
-            <li>Hadoop 1.x via the <code>hive-hadoop1</code> connector</li>
-            <li>Hadoop 2.x via the <code>hive-hadoop2</code> connector</li>
-            <li>Cloudera CDH 4 via the <code>hive-cdh4</code> connector</li>
-            <li>Cloudera CDH 5 via the <code>hive-cdh5</code> connector</li>
-        </ul>
+        <p>
+            The <a href="docs/current/connector/hive.html">Hive Connector</a>
+            supports all popular versions of Hadoop.
+        </p>
 
         <h3>Does Presto connect to Cassandra?</h3>
 
         <p>
-            Yes, via the <code>cassandra</code> connector.
+            Yes, via the <a href="docs/current/connector/cassandra.html">Cassandra Connector</a>.
         </p>
 
-        <h3>Does Presto connect to HBase?</h3>
+        <h3>Does Presto connect to MySQL or PostgreSQL?</h3>
 
         <p>
-            Not yet. A high-performance HBase connector is currently in the works.
-        </p>
-
-        <h3>Does Presto connect to MySQL / PostgreSQL / Oracle?</h3>
-
-        <p>
-            Not yet. We have a basic JDBC connector in development.
-            Note that this is for connecting to an external JDBC
-            database. Presto already includes a
-            <a href="docs/current/installation/jdbc.html">JDBC driver</a>
+            Yes, via the
+            <a href="docs/current/connector/mysql.html">MySQL Connector</a> or
+            <a href="docs/current/connector/postgresql.html">PostgreSQL Connector</a>.
+            Both of these connectors extend a base JDBC connector that is
+            easy to extend to connect other databases. Presto also includes a
+            <a href="docs/current/installation/jdbc.html">JDBC Driver</a>
             that allows Java applications to connect to Presto.
         </p>
-
 
         <h2 id="errors">Common Errors and Troubleshooting</h2>
 
@@ -107,12 +100,11 @@
         </ul>
 
         <p>
-            There is probably a mismatch between your Hadoop version,
-            and the connector you have selected.
-            See the <i>Catalog Properties</i> section of the
-            <a href="docs/current/installation/deployment.html">Deployment</a>
-            section in the manual and make sure that the <code>connector.name</code>
-            property is correct for your version of Hadoop.
+            There is probably a mismatch between your Hadoop version and the
+            <a href="docs/current/connector/hive.html">Hive Connector</a>
+            version you have selected. Make sure that you set the
+            catalog property <code>connector.name</code> appropriately for
+            your version of Hadoop.
         </p>
 
         <h3>Why do I see a "<i>Cannot connect to discovery server for refresh</i>" error on startup?</h3>
@@ -152,7 +144,7 @@
             starting point for your investigation.</li>
         </ul>
 
-	<h2 id="querying">Running Presto Queries</h2>
+        <h2 id="querying">Running Presto Queries</h2>
 
         <h3>Is there a user-friendly interface for running Presto queries?</h3>
 
@@ -170,7 +162,7 @@
             <li><a href="#running">Running Presto</a></li>
             <li><a href="#compatibility">Compatibility</a></li>
             <li><a href="#errors">Common Errors</a></li>
-	    <li><a href="#querying">Running Presto Queries</a></li>
+            <li><a href="#querying">Running Presto Queries</a></li>
         </ul>
     </div>
 </div>
