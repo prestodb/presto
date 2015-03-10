@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.hive.$internal.com.google.common.annotations.VisibleForTesting;
 import com.facebook.presto.orc.metadata.BooleanStatistics;
 import com.facebook.presto.orc.metadata.ColumnStatistics;
 import com.facebook.presto.orc.metadata.RangeStatistics;
@@ -71,7 +72,8 @@ public class TupleDomainOrcPredicate<C>
         return effectivePredicate.overlaps(stripeDomain);
     }
 
-    private static Domain getDomain(Type type, long rowCount, ColumnStatistics columnStatistics)
+    @VisibleForTesting
+    public static Domain getDomain(Type type, long rowCount, ColumnStatistics columnStatistics)
     {
         Class<?> boxedJavaType = Primitives.wrap(type.getJavaType());
         if (rowCount == 0) {
@@ -103,8 +105,7 @@ public class TupleDomainOrcPredicate<C>
                 return Domain.create(SortedRangeSet.singleValue(false), hasNullValue);
             }
         }
-        else if (false && type.getTypeSignature().getBase().equals(StandardTypes.DATE) && columnStatistics.getDateStatistics() != null) {
-            // todo enable after testing
+        else if (type.getTypeSignature().getBase().equals(StandardTypes.DATE) && columnStatistics.getDateStatistics() != null) {
             return createDomain(boxedJavaType, hasNullValue, columnStatistics.getDateStatistics(), value -> (long) value);
         }
         else if (boxedJavaType == Long.class && columnStatistics.getIntegerStatistics() != null) {
