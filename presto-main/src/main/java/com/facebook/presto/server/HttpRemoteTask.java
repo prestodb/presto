@@ -855,6 +855,10 @@ public class HttpRemoteTask
                 return;
             }
 
+            if (reason instanceof RejectedExecutionException) {
+                throw new PrestoException(REMOTE_TASK_ERROR, reason);
+            }
+
             // log failure message
             if (isExpectedError(reason)) {
                 // don't print a stack for a known errors
