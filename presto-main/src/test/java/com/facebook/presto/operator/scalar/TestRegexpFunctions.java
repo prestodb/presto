@@ -23,6 +23,7 @@ import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 public class TestRegexpFunctions
 {
@@ -90,6 +91,7 @@ public class TestRegexpFunctions
     {
         try {
             assertFunction(projection, null);
+            fail("Expected to throw an INVALID_FUNCTION_ARGUMENT exception with message " + message);
         }
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
