@@ -19,9 +19,16 @@ import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.jgrapht.DirectedGraph;
+import org.jgrapht.GraphPath;
+import org.jgrapht.Graphs;
+import org.jgrapht.alg.FloydWarshallShortestPaths;
+import org.jgrapht.graph.DefaultEdge;
+import org.jgrapht.graph.DirectedPseudograph;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.ObjectNames;
 
@@ -45,6 +52,7 @@ import static com.facebook.presto.execution.QueuedExecution.createQueuedExecutio
 import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
 
 @ThreadSafe
 public class SqlQueryQueueManager
@@ -86,6 +94,61 @@ public class SqlQueryQueueManager
             }
         }
         this.rules = rules.build();
+        checkIsDAG(this.rules);
+    }
+
+    private void checkIsDAG(List<QueryQueueRule> rules)
+    {
+        DirectedPseudograph<String, DefaultEdge> graph = new DirectedPseudograph<String, DefaultEdge>(DefaultEdge.class);
+        for (QueryQueueRule rule : rules) {
+            String lastQueueName = null;
+            for (QueryQueueDefinition queue : rule.getQueues()) {
+                String currentQueueName = queue.getTemplate();
+                graph.addVertex(currentQueueName);
+                if (lastQueueName != null) {
+                    graph.addEdge(lastQueueName, currentQueueName);
+                }
+                lastQueueName = currentQueueName;
+            }
+        }
+
+        List<String> shortestCycle = shortestCycle(graph);
+
+        if (shortestCycle != null) {
+            String s = Joiner.on(", ").join(shortestCycle);
+            throw new IllegalArgumentException(format("Queues must not contain a cycle. The shortest cycle found is [%s]", s));
+        }
+    }
+
+    private static List<String> shortestCycle(DirectedGraph<String, DefaultEdge> graph)
+    {
+        FloydWarshallShortestPaths<String, DefaultEdge> floyd = new FloydWarshallShortestPaths<>(graph);
+        int minDistance = Integer.MAX_VALUE;
+        String minSource = null;
+        String minDestination = null;
+        for (DefaultEdge edge : graph.edgeSet()) {
+            String src = graph.getEdgeSource(edge);
+            String dst = graph.getEdgeTarget(edge);
+            int dist = (int) Math.round(floyd.shortestDistance(dst, src)); // from dst to src
+            if (dist < 0) {
+                continue;
+            }
+            if (dist < minDistance) {
+                minDistance = dist;
+                minSource = src;
+                minDestination = dst;
+            }
+        }
+        if (minSource == null) {
+            return null;
+        }
+        GraphPath<String, DefaultEdge> shortestPath = floyd.getShortestPath(minDestination, minSource);
+        List<String> pathVertexList = Graphs.getPathVertexList(shortestPath);
+        // note: pathVertexList will be [a, a] instead of [a] when the shortest path is a loop edge
+        if (shortestPath.getStartVertex() != shortestPath.getEndVertex()) {
+            pathVertexList.add(pathVertexList.get(0));
+        }
+        return pathVertexList;
     }
 
     @Override

@@ -85,4 +85,9 @@ public class QueryQueueRule
 
         return queues;
     }
+
+    List<QueryQueueDefinition> getQueues()
+    {
+        return queues;
+    }
 }
