@@ -29,13 +29,11 @@ import io.airlift.event.client.NullEventClient;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -133,16 +131,16 @@ public class TestSqlTask
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
 
-        BufferResult results = sqlTask.getTaskResults(OUT, 0, new DataSize(1, Unit.MEGABYTE)).get();
+        BufferResult results = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE)).get();
         assertEquals(results.isBufferClosed(), false);
         assertEquals(results.getPages().size(), 1);
         assertEquals(results.getPages().get(0).getPositionCount(), 1);
 
-        results = sqlTask.getTaskResults(OUT, results.getToken() + results.getPages().size(), new DataSize(1, Unit.MEGABYTE)).get();
+        results = sqlTask.getTaskResults(OUT, results.getToken() + results.getPages().size(), new DataSize(1, MEGABYTE)).get();
         assertEquals(results.isBufferClosed(), true);
         assertEquals(results.getPages().size(), 0);
 
-        taskInfo = sqlTask.getTaskInfo(taskInfo.getState()).get(1, TimeUnit.SECONDS);
+        taskInfo = sqlTask.getTaskInfo(taskInfo.getState()).get(1, SECONDS);
         assertEquals(taskInfo.getState(), TaskState.FINISHED);
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getState(), TaskState.FINISHED);
@@ -191,7 +189,7 @@ public class TestSqlTask
 
         sqlTask.abortTaskResults(OUT);
 
-        taskInfo = sqlTask.getTaskInfo(taskInfo.getState()).get(1, TimeUnit.SECONDS);
+        taskInfo = sqlTask.getTaskInfo(taskInfo.getState()).get(1, SECONDS);
         assertEquals(taskInfo.getState(), TaskState.FINISHED);
 
         taskInfo = sqlTask.getTaskInfo();
@@ -267,6 +265,7 @@ public class TestSqlTask
             fail("expected TimeoutException");
         }
         catch (TimeoutException expected) {
+            // expected
         }
         assertFalse(sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE)).isDone());
     }
