@@ -50,7 +50,7 @@ import static com.facebook.presto.execution.TaskTestUtils.updateTask;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -214,8 +214,8 @@ public class TestSqlTask
         updateTask(sqlTask, ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.<ScheduledSplit>of(), true)), outputBuffers);
         assertEquals(sqlTask.getTaskInfo().getState(), TaskState.FINISHED);
 
-        // buffer will be closed by cancel event (wait for 500 MS for event to fire)
-        assertTrue(bufferResult.get(200, MILLISECONDS).isBufferClosed());
+        // buffer will be closed by cancel event (wait for event to fire)
+        assertTrue(bufferResult.get(1, SECONDS).isBufferClosed());
         assertEquals(sqlTask.getTaskInfo().getOutputBuffers().getState(), BufferState.FINISHED);
 
         // verify the buffer is closed
@@ -239,7 +239,7 @@ public class TestSqlTask
         assertEquals(sqlTask.getTaskInfo().getState(), TaskState.CANCELED);
 
         // buffer will be closed by cancel event.. the event is async so wait a bit for event to propagate
-        assertTrue(bufferResult.get(200, MILLISECONDS).isBufferClosed());
+        assertTrue(bufferResult.get(1, SECONDS).isBufferClosed());
 
         bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
         assertTrue(bufferResult.isDone());
@@ -259,11 +259,11 @@ public class TestSqlTask
 
         TaskState taskState = sqlTask.getTaskInfo().getState();
         sqlTask.failed(new Exception("test"));
-        assertEquals(sqlTask.getTaskInfo(taskState).get(200, MILLISECONDS).getState(), TaskState.FAILED);
+        assertEquals(sqlTask.getTaskInfo(taskState).get(1, SECONDS).getState(), TaskState.FAILED);
 
         // buffer will not be closed by fail event.  event is async so wait a bit for event to fire
         try {
-            assertTrue(bufferResult.get(200, MILLISECONDS).isBufferClosed());
+            assertTrue(bufferResult.get(1, SECONDS).isBufferClosed());
             fail("expected TimeoutException");
         }
         catch (TimeoutException expected) {
