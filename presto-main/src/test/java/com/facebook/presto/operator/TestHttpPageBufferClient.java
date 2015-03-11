@@ -328,7 +328,7 @@ public class TestHttpPageBufferClient
         // request processor will throw exception, verify the request is marked a completed
         // this starts the error stopwatch
         client.scheduleRequest();
-        requestComplete.await(1, TimeUnit.SECONDS);
+        requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 1);
         assertEquals(callback.getFinishedBuffers(), 0);
@@ -340,7 +340,7 @@ public class TestHttpPageBufferClient
 
         // verify that the client has not failed
         client.scheduleRequest();
-        requestComplete.await(1, TimeUnit.SECONDS);
+        requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 2);
         assertEquals(callback.getFinishedBuffers(), 0);
@@ -352,7 +352,7 @@ public class TestHttpPageBufferClient
 
         // verify that the client has failed
         client.scheduleRequest();
-        requestComplete.await(1, TimeUnit.SECONDS);
+        requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 3);
         assertEquals(callback.getFinishedBuffers(), 0);
