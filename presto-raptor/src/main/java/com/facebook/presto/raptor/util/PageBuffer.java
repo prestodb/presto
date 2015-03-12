@@ -26,13 +26,16 @@ public class PageBuffer
 {
     private final long maxMemoryBytes;
     private final List<Page> pages = new ArrayList<>();
+    private final long maxRows;
 
     private long usedMemoryBytes;
     private long rowCount;
 
-    public PageBuffer(long maxMemoryBytes)
+    public PageBuffer(long maxMemoryBytes, long maxRows)
     {
         checkArgument(maxMemoryBytes > 0, "maxMemoryBytes must be positive");
+        checkArgument(maxRows > 0, "maxRows must be positive");
+        this.maxRows = maxRows;
         this.maxMemoryBytes = maxMemoryBytes;
     }
 
@@ -51,9 +54,14 @@ public class PageBuffer
         usedMemoryBytes = 0;
     }
 
+    public boolean canAddRows(int rowsToAdd)
+    {
+        return !isFull() && rowCount + rowsToAdd < maxRows;
+    }
+
     public boolean isFull()
     {
-        return usedMemoryBytes >= maxMemoryBytes;
+        return rowCount >= maxRows || usedMemoryBytes >= maxMemoryBytes;
     }
 
     public List<Page> getPages()

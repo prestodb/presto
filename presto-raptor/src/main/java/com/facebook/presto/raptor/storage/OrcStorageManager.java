@@ -189,7 +189,7 @@ public class OrcStorageManager
     @Override
     public PageBuffer createPageBuffer()
     {
-        return new PageBuffer(maxBufferSize.toBytes());
+        return new PageBuffer(maxBufferSize.toBytes(), Integer.MAX_VALUE);
     }
 
     @Override
