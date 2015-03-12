@@ -130,16 +130,25 @@ public class AddExchanges
                     .map(FunctionInfo::getAggregationFunction)
                     .allMatch(InternalAggregationFunction::isDecomposable);
 
-            if (!decomposable) {
-                return pushRequirementsToChild(node, Requirements.of(PartitioningProperties.unpartitioned()));
-            }
-
             // if child is unpartitioned or already partitioned on this node's group by keys
             // keep the current structure
             PlanWithProperties source = node.getSource().accept(this, context);
-            if (source.getProperties().isUnpartitioned() ||
-                    (!node.getGroupBy().isEmpty() && source.getProperties().isPartitionedOnKeys(node.getGroupBy()))) {
+
+            if (source.getProperties().isUnpartitioned()) {
                 return propagateChildProperties(node, source);
+            }
+
+            if (!node.getGroupBy().isEmpty() && source.getProperties().isPartitionedOnKeys(node.getGroupBy())) {
+                return propagateChildProperties(node, source);
+            }
+
+            if (!decomposable) {
+                if (node.getGroupBy().isEmpty()) {
+                    return pushRequirementsToChild(node, Requirements.of(PartitioningProperties.unpartitioned()));
+                }
+                else {
+                    return pushRequirementsToChild(node, Requirements.of(PartitioningProperties.partitioned(node.getGroupBy(), node.getHashSymbol())));
+                }
             }
 
             // otherwise, add a partial and final with an exchange in between
