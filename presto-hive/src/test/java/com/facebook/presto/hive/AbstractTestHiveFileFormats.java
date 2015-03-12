@@ -113,7 +113,6 @@ public abstract class AbstractTestHiveFileFormats
 {
     private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
 
-    private static final int NUM_ROWS = 1000;
     private static final double EPSILON = 0.001;
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
 
@@ -126,6 +125,7 @@ public abstract class AbstractTestHiveFileFormats
     public static final String TIMESTAMP_STRING = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS").print(TIMESTAMP);
 
     // TODO: support null values and determine if timestamp and binary are allowed as partition keys
+    public static final int NUM_ROWS = 1000;
     public static final List<TestColumn> TEST_COLUMNS = ImmutableList.<TestColumn>builder()
             .add(new TestColumn("p_empty_string", javaStringObjectInspector, "", Slices.EMPTY_SLICE, true))
             .add(new TestColumn("p_string", javaStringObjectInspector, "test", Slices.utf8Slice("test"), true))
@@ -260,7 +260,8 @@ public abstract class AbstractTestHiveFileFormats
             HiveOutputFormat<?, ?> outputFormat,
             @SuppressWarnings("deprecation") SerDe serDe,
             String compressionCodec,
-            List<TestColumn> testColumns)
+            List<TestColumn> testColumns,
+            int numRows)
             throws Exception
     {
         // filter out partition keys, which are not written to the file
@@ -308,7 +309,7 @@ public abstract class AbstractTestHiveFileFormats
 
             List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
 
-            for (int rowNumber = 0; rowNumber < NUM_ROWS; rowNumber++) {
+            for (int rowNumber = 0; rowNumber < numRows; rowNumber++) {
                 for (int i = 0; i < testColumns.size(); i++) {
                     Object writeValue = testColumns.get(i).getWriteValue();
                     if (writeValue instanceof Slice) {
@@ -331,10 +332,10 @@ public abstract class AbstractTestHiveFileFormats
         return new FileSplit(path, 0, file.length(), new String[0]);
     }
 
-    protected void checkCursor(RecordCursor cursor, List<TestColumn> testColumns)
+    protected void checkCursor(RecordCursor cursor, List<TestColumn> testColumns, int numRows)
             throws IOException
     {
-        for (int row = 0; row < NUM_ROWS; row++) {
+        for (int row = 0; row < numRows; row++) {
             assertTrue(cursor.advanceNextPosition());
             for (int i = 0, testColumnsSize = testColumns.size(); i < testColumnsSize; i++) {
                 TestColumn testColumn = testColumns.get(i);

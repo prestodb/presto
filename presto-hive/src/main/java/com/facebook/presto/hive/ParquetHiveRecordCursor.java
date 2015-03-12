@@ -736,7 +736,28 @@ class ParquetHiveRecordCursor
                     columnName,
                     listType.getFieldCount());
 
-            elementConverter = new ParquetListEntryConverter(columnName, listType.getType(0).asGroupType());
+            // The Parquet specification requires that the element value of a
+            // LIST type be wrapped in an inner repeated group, like so:
+            //
+            // optional group listField (LIST) {
+            //   repeated group list {
+            //     optional int element
+            //   }
+            // }
+            //
+            // However, some parquet libraries don't follow this spec. The
+            // compatibility rules used here are specified in the Parquet
+            // documentation at http://git.io/vf3wG.
+            parquet.schema.Type elementType = listType.getType(0);
+            if (elementType.isPrimitive() ||
+                    elementType.asGroupType().getFieldCount() > 1 ||
+                    elementType.getName().equals("array") ||
+                    elementType.getName().equals(listType.getName() + "_tuple")) {
+                elementConverter = createConverter(columnName + ".element", elementType);
+            }
+            else {
+                elementConverter = new ParquetListEntryConverter(columnName, elementType.asGroupType());
+            }
         }
 
         @Override
@@ -819,7 +840,7 @@ class ParquetHiveRecordCursor
             if (fieldIndex == 0) {
                 return (Converter) elementConverter;
             }
-            throw new IllegalArgumentException("LIST entry field must be 0 or 1 not " + fieldIndex);
+            throw new IllegalArgumentException("LIST entry field must be 0 not " + fieldIndex);
         }
 
         @Override

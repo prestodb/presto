@@ -22,11 +22,14 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.RowType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
 import org.apache.hadoop.hive.ql.io.RCFileInputFormat;
 import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
@@ -52,10 +55,15 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.TimeZone;
 
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
+import static com.facebook.presto.hive.HiveTestUtils.arraySliceOf;
+import static com.facebook.presto.hive.HiveTestUtils.rowSliceOf;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
@@ -63,6 +71,10 @@ import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaIntObjectInspector;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveFileFormats
@@ -102,9 +114,9 @@ public class TestHiveFileFormats
         SerDe serde = new ColumnarSerDe();
         File file = File.createTempFile("presto_test", "rc-text");
         try {
-            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, testColumns);
-            testCursorProvider(new ColumnarTextHiveRecordCursorProvider(), split, inputFormat, serde, testColumns);
-            testCursorProvider(new GenericHiveRecordCursorProvider(), split, inputFormat, serde, testColumns);
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, testColumns, NUM_ROWS);
+            testCursorProvider(new ColumnarTextHiveRecordCursorProvider(), split, inputFormat, serde, testColumns, NUM_ROWS);
+            testCursorProvider(new GenericHiveRecordCursorProvider(), split, inputFormat, serde, testColumns, NUM_ROWS);
         }
         finally {
             //noinspection ResultOfMethodCallIgnored
@@ -123,7 +135,7 @@ public class TestHiveFileFormats
         File file = File.createTempFile("presto_test", "rc-binary");
         file.delete();
         try {
-            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS);
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS, NUM_ROWS);
             testPageSourceFactory(new RcFilePageSourceFactory(TYPE_MANAGER), split, inputFormat, serde, TEST_COLUMNS);
         }
         finally {
@@ -142,9 +154,9 @@ public class TestHiveFileFormats
         SerDe serde = new LazyBinaryColumnarSerDe();
         File file = File.createTempFile("presto_test", "rc-binary");
         try {
-            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS);
-            testCursorProvider(new ColumnarBinaryHiveRecordCursorProvider(), split, inputFormat, serde, TEST_COLUMNS);
-            testCursorProvider(new GenericHiveRecordCursorProvider(), split, inputFormat, serde, TEST_COLUMNS);
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS, NUM_ROWS);
+            testCursorProvider(new ColumnarBinaryHiveRecordCursorProvider(), split, inputFormat, serde, TEST_COLUMNS, NUM_ROWS);
+            testCursorProvider(new GenericHiveRecordCursorProvider(), split, inputFormat, serde, TEST_COLUMNS, NUM_ROWS);
         }
         finally {
             //noinspection ResultOfMethodCallIgnored
@@ -163,7 +175,7 @@ public class TestHiveFileFormats
         File file = File.createTempFile("presto_test", "rc-binary");
         file.delete();
         try {
-            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS);
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS, NUM_ROWS);
             testPageSourceFactory(new RcFilePageSourceFactory(TYPE_MANAGER), split, inputFormat, serde, TEST_COLUMNS);
         }
         finally {
@@ -183,8 +195,8 @@ public class TestHiveFileFormats
         File file = File.createTempFile("presto_test", "orc");
         file.delete();
         try {
-            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS);
-            testCursorProvider(new OrcRecordCursorProvider(), split, inputFormat, serde, TEST_COLUMNS);
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS, NUM_ROWS);
+            testCursorProvider(new OrcRecordCursorProvider(), split, inputFormat, serde, TEST_COLUMNS, NUM_ROWS);
         }
         finally {
             //noinspection ResultOfMethodCallIgnored
@@ -203,7 +215,7 @@ public class TestHiveFileFormats
         File file = File.createTempFile("presto_test", "orc");
         file.delete();
         try {
-            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS);
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS, NUM_ROWS);
             testPageSourceFactory(new OrcPageSourceFactory(TYPE_MANAGER), split, inputFormat, serde, TEST_COLUMNS);
         }
         finally {
@@ -237,17 +249,68 @@ public class TestHiveFileFormats
         InputFormat<?, ?> inputFormat = new MapredParquetInputFormat();
         @SuppressWarnings("deprecation")
         SerDe serde = new ParquetHiveSerDe();
-        File file = File.createTempFile("presto_test", "ord");
+        File file = File.createTempFile("presto_test", "parquet");
         file.delete();
         try {
-            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, testColumns);
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, testColumns, NUM_ROWS);
             HiveRecordCursorProvider cursorProvider = new ParquetRecordCursorProvider(false);
-            testCursorProvider(cursorProvider, split, inputFormat, serde, testColumns);
+            testCursorProvider(cursorProvider, split, inputFormat, serde, testColumns, NUM_ROWS);
         }
         finally {
             //noinspection ResultOfMethodCallIgnored
             file.delete();
         }
+    }
+
+    @Test
+    public void testParquetThrift()
+            throws Exception
+    {
+        RowType nameType = new RowType(ImmutableList.of(VARCHAR, VARCHAR), Optional.empty());
+        RowType phoneType = new RowType(ImmutableList.of(VARCHAR, VARCHAR), Optional.empty());
+        RowType personType = new RowType(ImmutableList.of(nameType, BIGINT, VARCHAR, new ArrayType(phoneType)), Optional.empty());
+
+        List<TestColumn> testColumns = ImmutableList.<TestColumn>of(
+            new TestColumn(
+                "persons",
+                getStandardListObjectInspector(
+                    getStandardStructObjectInspector(
+                        ImmutableList.of("name", "id", "email", "phones"),
+                        ImmutableList.<ObjectInspector>of(
+                            getStandardStructObjectInspector(
+                              ImmutableList.of("first_name", "last_name"),
+                              ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)
+                            ),
+                            javaIntObjectInspector,
+                            javaStringObjectInspector,
+                            getStandardListObjectInspector(
+                              getStandardStructObjectInspector(
+                                ImmutableList.of("number", "type"),
+                                ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)
+                              )
+                            )
+                        )
+                    )
+                ),
+                null,
+                arraySliceOf(personType,
+                    rowSliceOf(ImmutableList.of(nameType, BIGINT, VARCHAR, new ArrayType(phoneType)),
+                        rowSliceOf(ImmutableList.of(VARCHAR, VARCHAR), "Bob", "Roberts"),
+                        0,
+                        "bob.roberts@example.com",
+                        arraySliceOf(phoneType, rowSliceOf(ImmutableList.of(VARCHAR, VARCHAR), "1234567890", null))
+                    )
+                )
+            )
+        );
+
+        InputFormat<?, ?> inputFormat = new MapredParquetInputFormat();
+        @SuppressWarnings("deprecation")
+        SerDe serde = new ParquetHiveSerDe();
+        File file = new File(this.getClass().getClassLoader().getResource("addressbook.parquet").getPath());
+        FileSplit split = new FileSplit(new Path(file.getAbsolutePath()), 0, file.length(), new String[0]);
+        HiveRecordCursorProvider cursorProvider = new ParquetRecordCursorProvider(false);
+        testCursorProvider(cursorProvider, split, inputFormat, serde, testColumns, 1);
     }
 
     @Test
@@ -272,8 +335,8 @@ public class TestHiveFileFormats
         File file = File.createTempFile("presto_test", "dwrf");
         file.delete();
         try {
-            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, testColumns);
-            testCursorProvider(new DwrfRecordCursorProvider(), split, inputFormat, serde, testColumns);
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, testColumns, NUM_ROWS);
+            testCursorProvider(new DwrfRecordCursorProvider(), split, inputFormat, serde, testColumns, NUM_ROWS);
         }
         finally {
             //noinspection ResultOfMethodCallIgnored
@@ -303,7 +366,7 @@ public class TestHiveFileFormats
         File file = File.createTempFile("presto_test", "dwrf");
         file.delete();
         try {
-            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, testColumns);
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, testColumns, NUM_ROWS);
             testPageSourceFactory(new DwrfPageSourceFactory(TYPE_MANAGER), split, inputFormat, serde, testColumns);
         }
         finally {
@@ -316,7 +379,8 @@ public class TestHiveFileFormats
             FileSplit split,
             InputFormat<?, ?> inputFormat,
             @SuppressWarnings("deprecation") SerDe serde,
-            List<TestColumn> testColumns)
+            List<TestColumn> testColumns,
+            int numRows)
             throws IOException
     {
         Properties splitProperties = new Properties();
@@ -344,7 +408,7 @@ public class TestHiveFileFormats
                 DateTimeZone.getDefault(),
                 TYPE_MANAGER).get();
 
-        checkCursor(cursor, testColumns);
+        checkCursor(cursor, testColumns, numRows);
     }
 
     private void testPageSourceFactory(HivePageSourceFactory sourceFactory, FileSplit split, InputFormat<?, ?> inputFormat, SerDe serde, List<TestColumn> testColumns)
