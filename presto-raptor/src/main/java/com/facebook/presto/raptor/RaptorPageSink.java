@@ -136,6 +136,15 @@ public class RaptorPageSink
         return new Page(blocks);
     }
 
+    private void flushPageBufferIfNecessary(int rowsToAdd)
+    {
+        if (shouldFlush(rowsToAdd)) {
+            flushPages(pageBuffer.getPages());
+            pageBuffer.reset();
+            storagePageSink.flush();
+        }
+    }
+
     /**
      * Flushes pages in the PageBuffer to StoragePageSink if ANY of the following is true:
      * <ul>
@@ -144,21 +153,9 @@ public class RaptorPageSink
      * <li>pageBuffer has more than Integer.MAX_VALUE rows (PagesSorter.sort can sort Integer.MAX_VALUE rows at a time)</li>
      * </ul>
      */
-    private void flushPageBufferIfNecessary(int rowsToAdd)
+    private boolean shouldFlush(int rowsToAdd)
     {
-        if (storagePageSink.isFull()) {
-            // This StoragePageSink is full, flush it for the next batch of pages
-            flushPages(pageBuffer.getPages());
-            pageBuffer.reset();
-            storagePageSink.flush();
-            return;
-        }
-
-        int maxRemainingRows = Integer.MAX_VALUE - Ints.checkedCast(pageBuffer.getRowCount());
-        if (pageBuffer.isFull() || (!sortFields.isEmpty() && (rowsToAdd > maxRemainingRows))) {
-            flushPages(pageBuffer.getPages());
-            pageBuffer.reset();
-        }
+        return storagePageSink.isFull() || !pageBuffer.canAddRows(rowsToAdd);
     }
 
     private void flushPages(List<Page> pages)
