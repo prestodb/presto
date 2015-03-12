@@ -44,7 +44,7 @@ public class TestStorageManagerConfig
                 .setShardRecoveryTimeout(new Duration(30, SECONDS))
                 .setMissingShardDiscoveryInterval(new Duration(5, MINUTES))
                 .setRecoveryThreads(10)
-                .setRowsPerShard(1_000_000)
+                .setMaxShardRows(1_000_000)
                 .setMaxShardSize(new DataSize(256, MEGABYTE))
                 .setMaxBufferSize(new DataSize(256, MEGABYTE)));
 
@@ -60,7 +60,7 @@ public class TestStorageManagerConfig
                 .put("storage.shard-recovery-timeout", "1m")
                 .put("storage.missing-shard-discovery-interval", "4m")
                 .put("storage.max-recovery-threads", "12")
-                .put("storage.rows-per-shard", "10000")
+                .put("storage.max-shard-rows", "10000")
                 .put("storage.max-shard-size", "10MB")
                 .put("storage.max-buffer-size", "512MB")
                 .build();
@@ -72,7 +72,7 @@ public class TestStorageManagerConfig
                 .setShardRecoveryTimeout(new Duration(1, MINUTES))
                 .setMissingShardDiscoveryInterval(new Duration(4, MINUTES))
                 .setRecoveryThreads(12)
-                .setRowsPerShard(10_000)
+                .setMaxShardRows(10_000)
                 .setMaxShardSize(new DataSize(10, MEGABYTE))
                 .setMaxBufferSize(new DataSize(512, MEGABYTE));
 
