@@ -93,7 +93,7 @@ public class TestOrcStorageManager
     private static final DataSize ORC_MAX_MERGE_DISTANCE = new DataSize(1, MEGABYTE);
     private static final Duration SHARD_RECOVERY_TIMEOUT = new Duration(30, TimeUnit.SECONDS);
     private static final DataSize MAX_BUFFER_SIZE = new DataSize(256, MEGABYTE);
-    private static final int ROWS_PER_SHARD = 100;
+    private static final int MAX_SHARD_ROWS = 100;
     private static final DataSize MAX_FILE_SIZE = new DataSize(1, MEGABYTE);
 
     private final NodeManager nodeManager = new InMemoryNodeManager();
@@ -385,7 +385,7 @@ public class TestOrcStorageManager
     }
 
     @Test
-    public void testRowsPerShard()
+    public void testMaxShardRows()
             throws Exception
     {
         OrcStorageManager manager = createOrcStorageManager(storageService, recoveryManager, 2, new DataSize(2, MEGABYTE));
@@ -426,12 +426,12 @@ public class TestOrcStorageManager
 
     public static OrcStorageManager createOrcStorageManager(StorageService storageService, ShardRecoveryManager recoveryManager)
     {
-        return createOrcStorageManager(storageService, recoveryManager, ROWS_PER_SHARD, MAX_FILE_SIZE);
+        return createOrcStorageManager(storageService, recoveryManager, MAX_SHARD_ROWS, MAX_FILE_SIZE);
     }
 
-    public static OrcStorageManager createOrcStorageManager(StorageService storageService, ShardRecoveryManager recoveryManager, int rowsPerShard, DataSize maxFileSize)
+    public static OrcStorageManager createOrcStorageManager(StorageService storageService, ShardRecoveryManager recoveryManager, int maxShardRows, DataSize maxFileSize)
     {
-        return new OrcStorageManager(CURRENT_NODE, storageService, ORC_MAX_MERGE_DISTANCE, recoveryManager, SHARD_RECOVERY_TIMEOUT, rowsPerShard, maxFileSize, MAX_BUFFER_SIZE);
+        return new OrcStorageManager(CURRENT_NODE, storageService, ORC_MAX_MERGE_DISTANCE, recoveryManager, SHARD_RECOVERY_TIMEOUT, maxShardRows, maxFileSize, MAX_BUFFER_SIZE);
     }
 
     private static void assertColumnStats(List<ColumnStats> list, long columnId, Object min, Object max)

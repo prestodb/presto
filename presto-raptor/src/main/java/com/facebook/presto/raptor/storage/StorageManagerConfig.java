@@ -39,7 +39,7 @@ public class StorageManagerConfig
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private int recoveryThreads = 10;
 
-    private long rowsPerShard = 1_000_000;
+    private long maxShardRows = 1_000_000;
     private DataSize maxShardSize = new DataSize(256, MEGABYTE);
     private DataSize maxBufferSize = new DataSize(256, MEGABYTE);
 
@@ -126,16 +126,16 @@ public class StorageManagerConfig
 
     @Min(1)
     @Max(1_000_000_000)
-    public long getRowsPerShard()
+    public long getMaxShardRows()
     {
-        return rowsPerShard;
+        return maxShardRows;
     }
 
-    @Config("storage.rows-per-shard")
+    @Config("storage.max-shard-rows")
     @ConfigDescription("Approximate maximum number of rows per shard")
-    public StorageManagerConfig setRowsPerShard(long rowsPerShard)
+    public StorageManagerConfig setMaxShardRows(long maxShardRows)
     {
-        this.rowsPerShard = rowsPerShard;
+        this.maxShardRows = maxShardRows;
         return this;
     }
 
