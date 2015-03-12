@@ -14,40 +14,22 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.GroupByHash;
-import com.facebook.presto.server.SliceSerializer;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.StructBuilder;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
-import com.facebook.presto.type.RowType;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.io.IOException;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.type.MapType.toStackRepresentation;
-import static com.facebook.presto.type.TypeJsonUtils.getValue;
-import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class KeyValuePairs
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(KeyValuePairs.class).instanceSize();
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer()));
     public static final int EXPECTED_HASH_SIZE = 10_000;
 
     private final GroupByHash keysHash;
@@ -96,22 +78,22 @@ public class KeyValuePairs
     // Once we move to Page for the native container type for Maps we will get rid of the auto-boxing/unboxing here
     private void deserialize(Slice serialized)
     {
-        Map<Object, Object> map = (Map<Object, Object>) stackRepresentationToObject(null, serialized, new MapType(keyType, valueType));
-        for (Map.Entry<Object, Object> entry : map.entrySet()) {
-            add(createBlock(entry.getKey(), keyType), createBlock(entry.getValue(), valueType), 0);
+        Block block = StructBuilder.readBlock(serialized.getInput());
+        for (int i = 0; i < block.getPositionCount(); i += 2) {
+            add(block.getSingleValueBlock(i), block.getSingleValueBlock(i + 1), 0);
         }
     }
 
-    // Once we move to Page for the native container type for Maps we will get rid of the auto-boxing/unboxing here
     public Slice serialize()
     {
-        Map<Object, Object> newMap = new LinkedHashMap<>();
+        StructBuilder builder = StructBuilder.mapBuilder(keyType, valueType);
         Block values = valuePageBuilder.getBlockBuilder(0).build();
         Block keys = keyPageBuilder.getBlockBuilder(0).build();
         for (int i = 0; i < keys.getPositionCount(); i++) {
-            newMap.put(getValue(keys, keyType, i), getValue(values, valueType, i));
+            builder.add(keys, i);
+            builder.add(values, i);
         }
-        return toStackRepresentation(newMap);
+        return builder.build();
     }
 
     public long estimatedInMemorySize()
@@ -132,44 +114,5 @@ public class KeyValuePairs
                 valueType.appendTo(value, position, valuePageBuilder.getBlockBuilder(0));
             }
         }
-    }
-
-    private static Block createBlock(Object obj, Type type)
-    {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
-        try {
-            if (obj == null) {
-                return blockBuilder.appendNull().build();
-            }
-            else if (type.getJavaType() == double.class) {
-                type.writeDouble(blockBuilder, ((Number) obj).doubleValue());
-            }
-            else if (type.getJavaType() == long.class) {
-                type.writeLong(blockBuilder, ((Number) obj).longValue());
-            }
-            else if (type.getJavaType() == Slice.class) {
-                //TODO is there a simpler way to handle these types?
-                if (type instanceof VarcharType) {
-                    type.writeSlice(blockBuilder, Slices.utf8Slice((String) obj));
-                }
-                else if (type instanceof ArrayType || type instanceof MapType || type instanceof RowType) {
-                    type.writeSlice(blockBuilder, Slices.utf8Slice(OBJECT_MAPPER.writeValueAsString(obj)));
-                }
-                else {
-                    type.writeSlice(blockBuilder, (Slice) obj);
-                }
-            }
-            else if (type.getJavaType() == boolean.class) {
-                type.writeBoolean(blockBuilder, (Boolean) obj);
-            }
-            else {
-                throw new IllegalArgumentException("Unsupported type: " + type.getJavaType().getSimpleName());
-            }
-        }
-        catch (IOException ioe) {
-            Throwables.propagate(ioe);
-        }
-
-        return blockBuilder.build();
     }
 }

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.json;
+package com.facebook.presto.orc.block;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
@@ -21,14 +21,13 @@ import com.facebook.presto.orc.stream.ByteArrayStream;
 import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.RowGroupDictionaryLengthStream;
 import com.facebook.presto.orc.stream.StreamSources;
-import com.fasterxml.jackson.core.JsonGenerator;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.google.common.primitives.Ints;
+import io.airlift.slice.Slices;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
 import java.io.IOException;
-import java.util.Base64;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
@@ -38,17 +37,16 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
-public class SliceDictionaryJsonReader
-        implements JsonMapKeyReader
+public class SliceDictionaryBlockReader
+        implements BlockReader
 {
     private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
 
     private final StreamDescriptor streamDescriptor;
-    private final boolean writeBinary;
 
     @Nonnull
     private byte[][] dictionary = new byte[0][];
@@ -71,47 +69,21 @@ public class SliceDictionaryJsonReader
     @Nullable
     private LongStream dataStream;
 
-    public SliceDictionaryJsonReader(StreamDescriptor streamDescriptor, boolean writeBinary)
+    public SliceDictionaryBlockReader(StreamDescriptor streamDescriptor)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
-        this.writeBinary = writeBinary;
     }
 
     @Override
-    public void readNextValueInto(JsonGenerator generator)
+    public void readNextValueInto(BlockBuilder builder)
             throws IOException
     {
         if (presentStream != null && !presentStream.nextBit()) {
-            generator.writeNull();
+            builder.appendNull();
             return;
         }
 
-        byte[] value = getNextValue();
-
-        if (writeBinary) {
-            generator.writeBinary(value);
-        }
-        else {
-            generator.writeUTF8String(value, 0, value.length);
-        }
-    }
-
-    @Override
-    public String nextValueAsMapKey()
-            throws IOException
-    {
-        if (presentStream != null && !presentStream.nextBit()) {
-            return null;
-        }
-
-        byte[] value = getNextValue();
-
-        if (writeBinary) {
-            return Base64.getEncoder().encodeToString(value);
-        }
-        else {
-            return new String(value, UTF_8);
-        }
+        VARCHAR.writeSlice(builder, Slices.wrappedBuffer(getNextValue()));
     }
 
     private byte[] getNextValue()

@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.RegexpType;
 import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Ints;
@@ -99,7 +100,7 @@ public final class RegexpFunctions
         while (matcher.find()) {
             matches.add(matcher.group(Ints.checkedCast(group)));
         }
-        return toStackRepresentation(matches);
+        return toStackRepresentation(matches, VarcharType.VARCHAR);
     }
 
     @Nullable

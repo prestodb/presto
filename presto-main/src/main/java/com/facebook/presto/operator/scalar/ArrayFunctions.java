@@ -13,12 +13,23 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.SqlType;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import javax.annotation.Nullable;
+
+import static com.facebook.presto.spi.block.StructBuilder.readBlock;
+import static com.facebook.presto.type.TypeUtils.createBlock;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 
 public final class ArrayFunctions
 {
@@ -30,7 +41,7 @@ public final class ArrayFunctions
     @SqlType("array<unknown>")
     public static Slice arrayConstructor()
     {
-        return Slices.utf8Slice("[]");
+        return ArrayType.toStackRepresentation(ImmutableList.of(), UNKNOWN);
     }
 
     @Nullable
@@ -38,7 +49,7 @@ public final class ArrayFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean contains(@SqlType("array<bigint>") Slice slice, @SqlType(StandardTypes.BIGINT) long value)
     {
-        return JsonFunctions.jsonArrayContains(slice, value);
+        return arrayContains(slice, BigintType.BIGINT, value);
     }
 
     @Nullable
@@ -46,7 +57,7 @@ public final class ArrayFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean contains(@SqlType("array<boolean>") Slice slice, @SqlType(StandardTypes.BOOLEAN) boolean value)
     {
-        return JsonFunctions.jsonArrayContains(slice, value);
+        return arrayContains(slice, BooleanType.BOOLEAN, value);
     }
 
     @Nullable
@@ -54,7 +65,7 @@ public final class ArrayFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean contains(@SqlType("array<double>") Slice slice, @SqlType(StandardTypes.DOUBLE) double value)
     {
-        return JsonFunctions.jsonArrayContains(slice, value);
+        return arrayContains(slice, DoubleType.DOUBLE, value);
     }
 
     @Nullable
@@ -62,6 +73,21 @@ public final class ArrayFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean contains(@SqlType("array<varchar>") Slice slice, @SqlType(StandardTypes.VARCHAR) Slice value)
     {
-        return JsonFunctions.jsonArrayContains(slice, value);
+        return arrayContains(slice, VarcharType.VARCHAR, value);
+    }
+
+    private static Boolean arrayContains(Slice slice, Type type, Object value)
+    {
+        Block block = readBlock(slice.getInput());
+        Block valueBlock = createBlock(type, value);
+
+        //TODO: This could be quite slow, it should use parametric equals
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            if (type.equalTo(block, i, valueBlock, 0)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

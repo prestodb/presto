@@ -25,11 +25,11 @@ import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.sql.gen.Bootstrap;
 import com.facebook.presto.sql.gen.ByteCodeUtils;
+import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.CompilerUtils;
 import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
-import com.facebook.presto.type.RowType;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -52,6 +52,7 @@ import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
+import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
 import static com.facebook.presto.sql.relational.Signatures.arrayConstructorSignature;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -117,19 +118,15 @@ public final class ArrayConstructor
         return new FunctionInfo(arrayConstructorSignature(parameterizedTypeName("array", type.getTypeSignature()), Collections.nCopies(arity, type.getTypeSignature())), "Constructs an array of the given elements", true, methodHandle, true, false, nullableParameters);
     }
 
-    public static Slice emptyArrayConstructor()
-    {
-        return ArrayType.toStackRepresentation(ImmutableList.of());
-    }
-
     private static Class<?> generateArrayConstructor(List<Class<?>> stackTypes, Type elementType)
     {
+        CompilerContext context = new CompilerContext(Bootstrap.BOOTSTRAP_METHOD);
         List<String> stackTypeNames = stackTypes.stream()
                 .map(Class::getSimpleName)
                 .collect(toImmutableList());
 
         ClassDefinition definition = new ClassDefinition(
-                new CompilerContext(null),
+                context,
                 a(PUBLIC, FINAL),
                 CompilerUtils.makeClassName(Joiner.on("").join(stackTypeNames) + "ArrayConstructor"),
                 type(Object.class));
@@ -144,9 +141,15 @@ public final class ArrayConstructor
             parameters.add(arg("arg" + i, stackType));
         }
 
-        CompilerContext context = new CompilerContext(null);
         Block body = definition.declareMethod(context, a(PUBLIC, STATIC), "arrayConstructor", type(Slice.class), parameters.build())
                 .getBody();
+
+        Variable elementTypeVariable = context.declareVariable(Type.class, "elementTypeVariable");
+        CallSiteBinder binder = new CallSiteBinder();
+
+        body.comment("elementTypeVariable = elementType;")
+                .append(constantType(context, binder, elementType))
+                .putVariable(elementTypeVariable);
 
         Variable valuesVariable = context.declareVariable(List.class, "values");
         body.comment("List<Object> values = new ArrayList();")
@@ -166,19 +169,12 @@ public final class ArrayConstructor
             body.invokeInterface(List.class, "add", boolean.class, Object.class);
         }
 
-        if (elementType instanceof ArrayType || elementType instanceof MapType || elementType instanceof RowType) {
-            body.comment("return rawSlicesToStackRepresentation(values);")
-                    .getVariable(valuesVariable)
-                    .invokeStatic(ArrayType.class, "rawSlicesToStackRepresentation", Slice.class, List.class)
-                    .retObject();
-        }
-        else {
-            body.comment("return toStackRepresentation(values);")
-                    .getVariable(valuesVariable)
-                    .invokeStatic(ArrayType.class, "toStackRepresentation", Slice.class, List.class)
-                    .retObject();
-        }
+        body.comment("return toStackRepresentation(values, elementType);")
+                .getVariable(valuesVariable)
+                .getVariable(elementTypeVariable)
+                .invokeStatic(ArrayType.class, "toStackRepresentation", Slice.class, List.class, Type.class)
+                .retObject();
 
-        return defineClass(definition, Object.class, new DynamicClassLoader());
+        return defineClass(definition, Object.class, binder.getBindings(), new DynamicClassLoader(ArrayConstructor.class.getClassLoader()));
     }
 }

@@ -19,9 +19,11 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
+import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
@@ -37,12 +39,17 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
+import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.MapType;
+import com.facebook.presto.type.RowType;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
+import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.spi.block.StructBuilder.readBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -143,9 +150,71 @@ public final class LiteralInterpreter
             return new FunctionCall(new QualifiedName("from_base64"), ImmutableList.of(new StringLiteral(VarbinaryFunctions.toBase64((Slice) object).toStringUtf8())));
         }
 
+        if (type instanceof ArrayType && object instanceof Slice) {
+            Block block = readBlock(((Slice) object).getInput());
+            Type elementType = ((ArrayType) type).getElementType();
+
+            List<Expression> expressions = new ArrayList<>();
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                expressions.add(toExpression(block, i, elementType));
+            }
+            return new ArrayConstructor(expressions);
+        }
+
+        if (type instanceof MapType && object instanceof Slice) {
+            Block block = readBlock(((Slice) object).getInput());
+            Type keyType = ((MapType) type).getKeyType();
+            Type valueType = ((MapType) type).getValueType();
+
+            List<Expression> keyExpressions = new ArrayList<>();
+            List<Expression> valueExpressions = new ArrayList<>();
+            for (int i = 0; i < block.getPositionCount(); i += 2) {
+                keyExpressions.add(toExpression(block, i, keyType));
+                valueExpressions.add(toExpression(block, i + 1, valueType));
+            }
+            return new FunctionCall(new QualifiedName("map"), ImmutableList.of(new ArrayConstructor(keyExpressions), new ArrayConstructor(valueExpressions)));
+        }
+
+        if (type instanceof RowType && object instanceof Slice) {
+            Block block = readBlock(((Slice) object).getInput());
+            List<Type> parameterTypes = type.getTypeParameters();
+
+            List<Expression> expressions = new ArrayList<>();
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                expressions.add(toExpression(block, i, parameterTypes.get(i)));
+            }
+            // TODO: we don't have RowType building expression yet but to pass test_row function test this is required
+            return new FunctionCall(new QualifiedName("test_row"), expressions);
+        }
+
         Signature signature = FunctionRegistry.getMagicLiteralFunctionSignature(type);
         Expression rawLiteral = toExpression(object, FunctionRegistry.type(type.getJavaType()));
+
         return new FunctionCall(new QualifiedName(signature.getName()), ImmutableList.of(rawLiteral));
+    }
+
+    private static Expression toExpression(Block block, int position, Type type)
+    {
+        Object value;
+        if (block.isNull(position)) {
+            value = null;
+        }
+        else if (type.getJavaType() == boolean.class) {
+            value = type.getBoolean(block, position);
+        }
+        else if (type.getJavaType() == long.class) {
+            value = type.getLong(block, position);
+        }
+        else if (type.getJavaType() == double.class) {
+            value = type.getDouble(block, position);
+        }
+        else if (type.getJavaType() == Slice.class) {
+            value = type.getSlice(block, position);
+        }
+        else {
+            throw new IllegalArgumentException("not supported type " + type);
+        }
+        return toExpression(value, type);
     }
 
     private static class LiteralVisitor

@@ -37,7 +37,7 @@ public final class LearnLibSvmVarcharClassifierAggregation
             @SqlType(VARCHAR) Slice parameters)
     {
         state.getLabels().add((double) state.enumerateLabel(label.toStringUtf8()));
-        FeatureVector featureVector = ModelUtils.jsonToFeatures(features);
+        FeatureVector featureVector = ModelUtils.toFeatures(features);
         state.addMemoryUsage(featureVector.getEstimatedSize());
         state.getFeatureVectors().add(featureVector);
         state.setParameters(parameters);

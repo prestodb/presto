@@ -22,19 +22,19 @@ import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AggregationCompiler;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.block.StructBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
@@ -93,12 +93,11 @@ public class TestLearnAggregations
     {
         Type mapType = typeManager.getParameterizedType("map", ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.DOUBLE)), ImmutableList.of());
         int datapoints = 100;
-        ObjectMapper mapper = new ObjectMapper();
         RowPageBuilder builder = RowPageBuilder.rowPageBuilder(BigintType.BIGINT, mapType, VarcharType.VARCHAR);
         Random rand = new Random(0);
         for (int i = 0; i < datapoints; i++) {
             long label = rand.nextDouble() < 0.5 ? 0 : 1;
-            builder.row(label, mapper.writeValueAsString(ImmutableMap.of(0, label + rand.nextGaussian())), "C=1");
+            builder.row(label, StructBuilder.mapBuilder(BigintType.BIGINT, DoubleType.DOUBLE).addAll(0, label + rand.nextGaussian()).build(), "C=1");
         }
 
         return builder.build();

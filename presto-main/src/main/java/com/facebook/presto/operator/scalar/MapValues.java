@@ -17,25 +17,17 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.server.SliceSerializer;
+import com.facebook.presto.spi.block.StructBuilder;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.fasterxml.jackson.databind.type.MapType;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 
-import java.io.IOException;
 import java.lang.invoke.MethodHandle;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.typeParameter;
-import static com.facebook.presto.type.ArrayType.toStackRepresentation;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -45,8 +37,7 @@ public class MapValues
 {
     public static final MapValues MAP_VALUES = new MapValues();
     private static final Signature SIGNATURE = new Signature("map_values", ImmutableList.of(typeParameter("K"), typeParameter("V")), "array<V>", ImmutableList.of("map<K,V>"), false, false);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapValues.class, "getValues", Slice.class);
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer()));
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapValues.class, "getValues", Type.class, Slice.class);
 
     @Override
     public Signature getSignature()
@@ -78,24 +69,20 @@ public class MapValues
         checkArgument(arity == 1, "map_values expects only one argument");
         Type keyType = types.get("K");
         Type valueType = types.get("V");
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(valueType);
         Signature signature = new Signature("map_values",
                 parameterizedTypeName("array", valueType.getTypeSignature()),
                 parameterizedTypeName("map", keyType.getTypeSignature(), valueType.getTypeSignature()));
-        return new FunctionInfo(signature, getDescription(), isHidden(), METHOD_HANDLE, isDeterministic(), true, ImmutableList.of(false));
+        return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), true, ImmutableList.of(false));
     }
 
-    public static Slice getValues(Slice map)
+    public static Slice getValues(Type valueType, Slice map)
     {
-        List<Object> values = new ArrayList<>(); // allow nulls
-        MapType type = OBJECT_MAPPER.getTypeFactory().constructMapType(Map.class, String.class, Object.class);
-        Map<String, Object> jsonMap;
-        try {
-            jsonMap = OBJECT_MAPPER.readValue(map.getInput(), type);
+        Block block = StructBuilder.readBlock(map.getInput());
+        StructBuilder valueBuilder = StructBuilder.arrayBuilder(valueType);
+        for (int i = 0; i < block.getPositionCount(); i += 2) {
+            valueBuilder.add(block, i + 1);
         }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
-        values.addAll(jsonMap.values());
-        return toStackRepresentation(values);
+        return valueBuilder.build();
     }
 }

@@ -15,13 +15,15 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -30,7 +32,7 @@ import java.util.Map;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.type.MapType.rawValueSlicesToStackRepresentation;
+import static com.facebook.presto.type.MapType.toStackRepresentation;
 import static org.testng.Assert.assertEquals;
 
 public class TestMapOperators
@@ -68,9 +70,26 @@ public class TestMapOperators
     public void testStackRepresentation()
             throws Exception
     {
-        Slice array = ArrayType.toStackRepresentation(ImmutableList.of(1L, 2L));
-        Slice slice = rawValueSlicesToStackRepresentation(ImmutableMap.of(1.0, array));
-        assertEquals(slice, Slices.utf8Slice("{\"1.0\":[1,2]}"));
+        Slice array = ArrayType.toStackRepresentation(ImmutableList.of(1L, 2L), BigintType.BIGINT);
+        Slice slice = toStackRepresentation(ImmutableMap.of(1.0, array), DoubleType.DOUBLE, new ArrayType(BigintType.BIGINT));
+
+        DynamicSliceOutput output = new DynamicSliceOutput(100);
+        output.appendInt(2) // size of map * 2
+                .appendInt(8) // length of double value 1.0
+                .appendInt(33) // length of array
+                .appendByte(0) // null flags
+                .appendInt(41) // length of data
+                .appendDouble(1.0) // value 1
+
+                .appendInt(2)
+                .appendInt(8)
+                .appendInt(8)
+                .appendByte(0)
+                .appendInt(16)
+                .appendLong(1)
+                .appendLong(2);
+
+        assertEquals(slice, output.slice());
     }
 
     @Test

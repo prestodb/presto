@@ -14,70 +14,52 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
-import com.facebook.presto.type.RowType;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.google.common.base.Throwables;
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import javax.annotation.Nullable;
 
-import java.io.IOException;
-
-import static com.facebook.presto.type.TypeJsonUtils.getDoubleValue;
+import static com.facebook.presto.spi.block.StructBuilder.readBlock;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ArrayUnnester
         extends Unnester
 {
     private final Type elementType;
+    private final Block arrayBlock;
+
+    private int position;
+    private final int positionCount;
 
     public ArrayUnnester(ArrayType arrayType, @Nullable Slice slice)
     {
-        super(1, slice);
+        super(1);
         this.elementType = checkNotNull(arrayType, "arrayType is null").getElementType();
+
+        if (slice == null) {
+            arrayBlock = null;
+            positionCount = 0;
+        }
+        else {
+            arrayBlock = readBlock(slice.getInput());
+            positionCount = arrayBlock.getPositionCount();
+        }
     }
 
     @Override
-    protected void appendTo(PageBuilder pageBuilder, int outputChannelOffset, JsonParser jsonParser)
+    protected void appendTo(PageBuilder pageBuilder, int outputChannelOffset)
     {
         BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset);
-        try {
-            if (jsonParser.getCurrentToken() == JsonToken.VALUE_NULL) {
-                blockBuilder.appendNull();
-            }
-            else if (elementType instanceof ArrayType || elementType instanceof MapType || elementType instanceof RowType) {
-                DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(ESTIMATED_JSON_OUTPUT_SIZE);
-                try (JsonGenerator jsonGenerator = JSON_FACTORY.createJsonGenerator(dynamicSliceOutput)) {
-                    jsonGenerator.copyCurrentStructure(jsonParser);
-                }
-                elementType.writeSlice(blockBuilder, dynamicSliceOutput.slice());
-            }
-            else if (elementType.getJavaType() == long.class) {
-                elementType.writeLong(blockBuilder, jsonParser.getLongValue());
-            }
-            else if (elementType.getJavaType() == double.class) {
-                elementType.writeDouble(blockBuilder, getDoubleValue(jsonParser));
-            }
-            else if (elementType.getJavaType() == boolean.class) {
-                elementType.writeBoolean(blockBuilder, jsonParser.getBooleanValue());
-            }
-            else if (elementType.getJavaType() == Slice.class) {
-                elementType.writeSlice(blockBuilder, Slices.utf8Slice(jsonParser.getValueAsString()));
-            }
-            else {
-                throw new IllegalArgumentException("Unsupported stack type: " + elementType.getJavaType());
-            }
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
+        elementType.appendTo(arrayBlock, position, blockBuilder);
+        position++;
+    }
+
+    @Override
+    public boolean hasNext()
+    {
+        return position < positionCount;
     }
 }

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.util.SerDeUtils;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -48,6 +47,7 @@ import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
+import static com.facebook.presto.hive.util.SerDeUtils.getBlockSlice;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -406,8 +406,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
             nulls[column] = true;
         }
         else if (isStructuralType(hiveTypes[column])) {
-            // temporarily special case MAP, LIST, and STRUCT types as strings
-            slices[column] = Slices.wrappedBuffer(SerDeUtils.getJsonBytes(sessionTimeZone, fieldData, fieldInspectors[column]));
+            slices[column] = getBlockSlice(sessionTimeZone, fieldData, fieldInspectors[column]);
             nulls[column] = false;
         }
         else {

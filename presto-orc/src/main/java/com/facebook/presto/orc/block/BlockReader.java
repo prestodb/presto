@@ -11,16 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.json;
+package com.facebook.presto.orc.block;
 
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.StreamSources;
-import com.fasterxml.jackson.core.JsonGenerator;
+import com.facebook.presto.spi.block.BlockBuilder;
+import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.util.List;
 
-public interface JsonReader
+public interface BlockReader
 {
     void openStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException;
@@ -28,9 +29,14 @@ public interface JsonReader
     void openRowGroup(StreamSources dataStreamSources)
             throws IOException;
 
-    void readNextValueInto(JsonGenerator generator)
+    void readNextValueInto(BlockBuilder builder)
             throws IOException;
 
     void skip(int skipSize)
             throws IOException;
+
+    default Slice toSlice()
+    {
+        throw new UnsupportedOperationException();
+    };
 }

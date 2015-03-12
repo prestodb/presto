@@ -17,11 +17,14 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.MapType.toStackRepresentation;
 
 public class TestBigintVarcharMapType
         extends AbstractTestType
@@ -31,11 +34,11 @@ public class TestBigintVarcharMapType
         super(new TypeRegistry().getType(parseTypeSignature("map<bigint,varchar>")), Map.class, createTestBlock(new TypeRegistry().getType(parseTypeSignature("map<bigint,varchar>"))));
     }
 
-    public static Block createTestBlock(Type arrayType)
+    public static Block createTestBlock(Type mapType)
     {
-        BlockBuilder blockBuilder = arrayType.createBlockBuilder(new BlockBuilderStatus());
-        VARCHAR.writeString(blockBuilder, "{\"1\":\"hi\"}");
-        VARCHAR.writeString(blockBuilder, "{\"1\":\"2\",\"2\":\"hello\"}");
+        BlockBuilder blockBuilder = mapType.createBlockBuilder(new BlockBuilderStatus());
+        mapType.writeSlice(blockBuilder, toStackRepresentation(ImmutableMap.of(1, "hi"), BIGINT, VARCHAR));
+        mapType.writeSlice(blockBuilder, toStackRepresentation(ImmutableMap.of(1, "2", 2, "hello"), BIGINT, VARCHAR));
         return blockBuilder.build();
     }
 

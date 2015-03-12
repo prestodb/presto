@@ -16,35 +16,31 @@ package com.facebook.presto.orc.reader;
 import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.Vector;
-import com.facebook.presto.orc.json.JsonReader;
+import com.facebook.presto.orc.block.BlockReader;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.StreamSource;
 import com.facebook.presto.orc.stream.StreamSources;
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
-import io.airlift.slice.DynamicSliceOutput;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.orc.json.JsonReaders.createJsonReader;
+import static com.facebook.presto.orc.block.BlockReaders.createBlockReader;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.OrcReaderUtils.castOrcVector;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class JsonStreamReader
+public class BlockStreamReader
         implements StreamReader
 {
     private final StreamDescriptor streamDescriptor;
-    private final JsonReader jsonReader;
+    private final BlockReader blockReader;
 
     private boolean stripeOpen;
     private boolean rowGroupOpen;
@@ -66,10 +62,10 @@ public class JsonStreamReader
 
     private List<ColumnEncoding> encoding;
 
-    public JsonStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
+    public BlockStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
-        this.jsonReader = createJsonReader(streamDescriptor, false, hiveStorageTimeZone);
+        this.blockReader = createBlockReader(streamDescriptor, false, hiveStorageTimeZone);
     }
 
     @Override
@@ -94,7 +90,7 @@ public class JsonStreamReader
                 readOffset = presentStream.countBitsSet(readOffset);
             }
 
-            jsonReader.skip(readOffset);
+            blockReader.skip(readOffset);
         }
 
         SliceVector sliceVector = castOrcVector(vector, SliceVector.class);
@@ -102,14 +98,11 @@ public class JsonStreamReader
             presentStream.getUnsetBits(nextBatchSize, isNullVector);
         }
 
-        DynamicSliceOutput out = new DynamicSliceOutput(1024);
         for (int i = 0; i < nextBatchSize; i++) {
             if (!isNullVector[i]) {
-                out.reset();
-                try (JsonGenerator generator = new JsonFactory().createGenerator(out)) {
-                    jsonReader.readNextValueInto(generator);
-                }
-                sliceVector.vector[i] = out.copySlice();
+                blockReader.readNextValueInto(null);
+
+                sliceVector.vector[i] = blockReader.toSlice();
             }
             else {
                 sliceVector.vector[i] = null;
@@ -126,10 +119,10 @@ public class JsonStreamReader
         presentStream = presentStreamSource.openStream();
 
         if (!stripeOpen) {
-            jsonReader.openStripe(dictionaryStreamSources, encoding);
+            blockReader.openStripe(dictionaryStreamSources, encoding);
         }
 
-        jsonReader.openRowGroup(dataStreamSources);
+        blockReader.openRowGroup(dataStreamSources);
 
         rowGroupOpen = true;
     }

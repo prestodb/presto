@@ -16,17 +16,22 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.HashGenerator;
 import com.facebook.presto.operator.InterpretedHashGenerator;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.util.Arrays;
 import java.util.List;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -87,10 +92,10 @@ public final class TypeUtils
         }
         HashGenerator hashGenerator = new InterpretedHashGenerator(ImmutableList.copyOf(hashTypes), hashChannels);
         int positionCount = hashBlocks[0].getPositionCount();
-        BlockBuilder builder = BigintType.BIGINT.createFixedSizeBlockBuilder(positionCount);
+        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(positionCount);
         Page page = new Page(hashBlocks);
         for (int i = 0; i < positionCount; i++) {
-            BigintType.BIGINT.writeLong(builder, hashGenerator.hashPosition(i, page));
+            BIGINT.writeLong(builder, hashGenerator.hashPosition(i, page));
         }
         return builder.build();
     }
@@ -108,5 +113,60 @@ public final class TypeUtils
         }
         blocks[page.getChannelCount()] = getHashBlock(hashTypes.build(), hashBlocks);
         return new Page(blocks);
+    }
+
+    public static Block createBlock(Type type, Object element)
+    {
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(1024, 1024));
+        Class<?> javaType = type.getJavaType();
+
+        if (element == null) {
+            blockBuilder.appendNull();
+        }
+        else if (javaType == boolean.class) {
+            type.writeBoolean(blockBuilder, (Boolean) element);
+        }
+        else if (javaType == long.class) {
+            type.writeLong(blockBuilder, ((Number) element).longValue());
+        }
+        else if (javaType == double.class) {
+            type.writeDouble(blockBuilder, (Double) element);
+        }
+        else if (javaType == Slice.class) {
+            if (element instanceof String) {
+                type.writeSlice(blockBuilder, Slices.utf8Slice(element.toString()));
+            }
+            else {
+                type.writeSlice(blockBuilder, (Slice) element);
+            }
+        }
+        else {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, String.format("Unexpected type %s", javaType.getName()));
+        }
+        return blockBuilder.build();
+    }
+
+    public static Object castValue(Type type, Block block, int position)
+    {
+        Class<?> javaType = type.getJavaType();
+
+        if (block.isNull(position)) {
+            return null;
+        }
+        else if (javaType == boolean.class) {
+            return type.getBoolean(block, position);
+        }
+        else if (javaType == long.class) {
+            return type.getLong(block, position);
+        }
+        else if (javaType == double.class) {
+            return type.getDouble(block, position);
+        }
+        else if (type.getJavaType() == Slice.class) {
+            return type.getSlice(block, position);
+        }
+        else {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, String.format("Unexpected type %s", javaType.getName()));
+        }
     }
 }
