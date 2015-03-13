@@ -54,7 +54,7 @@ public abstract class AbstractType
     @Override
     public List<Type> getTypeParameters()
     {
-        return Collections.unmodifiableList(new ArrayList<Type>());
+        return Collections.unmodifiableList(new ArrayList<>());
     }
 
     @Override
@@ -157,7 +157,7 @@ public abstract class AbstractType
             return false;
         }
 
-        return this.getTypeSignature().equals(((AbstractType) o).getTypeSignature());
+        return this.getTypeSignature().equals(((Type) o).getTypeSignature());
     }
 
     @Override
