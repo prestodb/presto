@@ -66,7 +66,7 @@ public final class TypeUtils
         return type.equalTo(leftBlock, leftPosition, rightBlock, rightPosition);
     }
 
-    public static List<Type> resolveTypes(List<TypeSignature> typeNames, final TypeManager typeManager)
+    public static List<Type> resolveTypes(List<TypeSignature> typeNames, TypeManager typeManager)
     {
         return typeNames.stream()
                 .map((TypeSignature type) -> checkNotNull(typeManager.getType(type), "Type '%s' not found", type))
