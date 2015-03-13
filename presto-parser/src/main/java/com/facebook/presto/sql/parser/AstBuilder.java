@@ -536,7 +536,7 @@ class AstBuilder
     @Override
     public Node visitUnnest(@NotNull SqlBaseParser.UnnestContext context)
     {
-        return new Unnest(visit(context.expression(), Expression.class));
+        return new Unnest(visit(context.expression(), Expression.class), context.ORDINALITY() != null);
     }
 
     @Override

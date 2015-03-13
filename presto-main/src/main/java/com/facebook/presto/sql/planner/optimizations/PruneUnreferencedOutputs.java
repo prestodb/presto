@@ -58,6 +58,7 @@ import com.google.common.collect.Sets;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -341,13 +342,17 @@ public class PruneUnreferencedOutputs
             List<Symbol> replicateSymbols = FluentIterable.from(node.getReplicateSymbols())
                     .filter(in(context.get()))
                     .toList();
+            Optional<Symbol> ordinalitySymbol = node.getOrdinalitySymbol();
+            if (ordinalitySymbol.isPresent() && !context.get().contains(ordinalitySymbol.get())) {
+                ordinalitySymbol = Optional.empty();
+            }
             Map<Symbol, List<Symbol>> unnestSymbols = node.getUnnestSymbols();
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(replicateSymbols)
                     .addAll(unnestSymbols.keySet());
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
-            return new UnnestNode(node.getId(), source, replicateSymbols, unnestSymbols);
+            return new UnnestNode(node.getId(), source, replicateSymbols, unnestSymbols, ordinalitySymbol);
         }
 
         @Override
