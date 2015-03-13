@@ -77,9 +77,8 @@ public class MapBlockReader
             throw new OrcCorruptionException("Value is not null but length stream is not present");
         }
 
-        BlockBuilder currentBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(1000, 1000));
-
         long length = lengthStream.next();
+        BlockBuilder currentBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), Ints.checkedCast(length));
         for (int i = 0; i < length; i++) {
             keyReader.readNextValueInto(currentBuilder);
             valueReader.readNextValueInto(currentBuilder);

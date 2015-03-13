@@ -85,7 +85,7 @@ public class ArbitraryAggregationStateSerializer
 
     private static Block toBlock(Type type, SliceInput input, int length)
     {
-        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), 1, length);
         if (type.getJavaType() == long.class) {
             type.writeLong(builder, input.readLong());
         }

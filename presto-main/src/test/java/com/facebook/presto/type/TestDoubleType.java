@@ -29,7 +29,7 @@ public class TestDoubleType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), 15);
         DOUBLE.writeDouble(blockBuilder, 11.11);
         DOUBLE.writeDouble(blockBuilder, 11.11);
         DOUBLE.writeDouble(blockBuilder, 11.11);

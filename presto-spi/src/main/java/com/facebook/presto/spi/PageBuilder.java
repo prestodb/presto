@@ -48,7 +48,7 @@ public class PageBuilder
 
         blockBuilders = new BlockBuilder[types.size()];
         for (int i = 0; i < blockBuilders.length; i++) {
-            blockBuilders[i] = types.get(i).createBlockBuilder(blockBuilderStatus);
+            blockBuilders[i] = types.get(i).createBlockBuilder(blockBuilderStatus, 1, blockBuilderStatus.getMaxBlockSizeInBytes());
         }
     }
 
@@ -61,7 +61,7 @@ public class PageBuilder
         blockBuilderStatus = new BlockBuilderStatus(blockBuilderStatus);
 
         for (int i = 0; i < types.size(); i++) {
-            blockBuilders[i] = types.get(i).createBlockBuilder(blockBuilderStatus);
+            blockBuilders[i] = types.get(i).createBlockBuilder(blockBuilderStatus, 1, blockBuilderStatus.getMaxBlockSizeInBytes());
         }
     }
 

@@ -29,7 +29,7 @@ public class TestDateMaxAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = DateType.DATE.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = DateType.DATE.createBlockBuilder(new BlockBuilderStatus(), length);
         for (int i = start; i < start + length; i++) {
             DateType.DATE.writeLong(blockBuilder, i);
         }

@@ -57,8 +57,8 @@ public class ArrayNotEqualOperator
 
     public static boolean notEqual(Type type, Slice left, Slice right)
     {
-        BlockBuilder leftBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
-        BlockBuilder rightBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder leftBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, left.length());
+        BlockBuilder rightBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, right.length());
         leftBlockBuilder.writeBytes(left, 0, left.length());
         rightBlockBuilder.writeBytes(right, 0, right.length());
         return !type.equalTo(leftBlockBuilder.closeEntry().build(), 0, rightBlockBuilder.closeEntry().build(), 0);

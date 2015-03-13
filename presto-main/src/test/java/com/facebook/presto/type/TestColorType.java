@@ -30,7 +30,7 @@ public class TestColorType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = COLOR.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = COLOR.createBlockBuilder(new BlockBuilderStatus(), 15);
         COLOR.writeLong(blockBuilder, rgb(1, 1, 1));
         COLOR.writeLong(blockBuilder, rgb(1, 1, 1));
         COLOR.writeLong(blockBuilder, rgb(1, 1, 1));

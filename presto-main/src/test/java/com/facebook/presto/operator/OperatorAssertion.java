@@ -44,7 +44,7 @@ public final class OperatorAssertion
     {
         return input.stream()
                 .map(page -> {
-                    BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
+                    BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), page.getPositionCount());
                     for (int i = 0; i < page.getPositionCount(); i++) {
                         BIGINT.writeLong(builder, sampleWeight);
                     }

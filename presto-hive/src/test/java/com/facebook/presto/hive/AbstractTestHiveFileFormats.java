@@ -422,7 +422,7 @@ public abstract class AbstractTestHiveFileFormats
                         assertEquals(actualValue, expectedValue, String.format("Wrong value for column %d", i));
                     }
                     else {
-                        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus());
+                        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), 1, ((Slice) expectedValue).length());
                         type.writeSlice(builder, (Slice) expectedValue);
                         expectedValue = type.getObjectValue(SESSION, builder.build(), 0);
                         assertEquals(actualValue, expectedValue, String.format("Wrong value for column %s", testColumn.getName()));

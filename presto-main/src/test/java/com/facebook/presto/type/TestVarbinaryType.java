@@ -32,7 +32,7 @@ public class TestVarbinaryType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 15);
         VARBINARY.writeSlice(blockBuilder, Slices.utf8Slice("apple"));
         VARBINARY.writeSlice(blockBuilder, Slices.utf8Slice("apple"));
         VARBINARY.writeSlice(blockBuilder, Slices.utf8Slice("apple"));

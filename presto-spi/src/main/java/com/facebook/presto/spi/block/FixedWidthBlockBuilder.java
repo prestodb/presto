@@ -41,10 +41,15 @@ public class FixedWidthBlockBuilder
 
     public FixedWidthBlockBuilder(int fixedSize, BlockBuilderStatus blockBuilderStatus)
     {
+        this(fixedSize, blockBuilderStatus, blockBuilderStatus.getMaxBlockSizeInBytes());
+    }
+
+    public FixedWidthBlockBuilder(int fixedSize, BlockBuilderStatus blockBuilderStatus, int expectedSize)
+    {
         super(fixedSize);
 
         this.blockBuilderStatus = blockBuilderStatus;
-        this.sliceOutput = new DynamicSliceOutput(blockBuilderStatus.getMaxBlockSizeInBytes());
+        this.sliceOutput = new DynamicSliceOutput(expectedSize);
         this.valueIsNull = new boolean[1024];
     }
 

@@ -130,7 +130,7 @@ public abstract class AbstractTestBlock
             assertTrue(block.equals(position, offset, expectedBlock, 0, offset, 3));
             assertEquals(block.compareTo(position, offset, 3, expectedBlock, 0, offset, 3), 0);
 
-            BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus());
+            BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1);
             block.writeBytesTo(position, offset, 3, blockBuilder);
             blockBuilder.closeEntry();
             Block segment = blockBuilder.build();
@@ -149,7 +149,7 @@ public abstract class AbstractTestBlock
 
     private static Block toSingeValuedBlock(Slice expectedValue)
     {
-        BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1, expectedValue.length());
         VARBINARY.writeSlice(blockBuilder, expectedValue);
         return blockBuilder.build();
     }

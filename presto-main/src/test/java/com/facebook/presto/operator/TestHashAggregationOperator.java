@@ -54,6 +54,7 @@ import static com.facebook.presto.operator.OperatorAssertion.without;
 import static com.facebook.presto.operator.aggregation.AverageAggregations.LONG_AVERAGE;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
+import static com.facebook.presto.spi.block.BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -185,7 +186,7 @@ public class TestHashAggregationOperator
     @Test(dataProvider = "hashEnabledValues")
     public void testHashBuilderResize(boolean hashEnabled)
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1, DEFAULT_MAX_BLOCK_SIZE_IN_BYTES);
         VARCHAR.writeSlice(builder, Slices.allocate(200_000)); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
         builder.build();
 
@@ -219,7 +220,7 @@ public class TestHashAggregationOperator
     @Test(dataProvider = "hashEnabledValues", expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Task exceeded max memory size of 3MB")
     public void testHashBuilderResizeLimit(boolean hashEnabled)
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1, DEFAULT_MAX_BLOCK_SIZE_IN_BYTES);
         VARCHAR.writeSlice(builder, Slices.allocate(5_000_000)); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
         builder.build();
 
@@ -256,7 +257,7 @@ public class TestHashAggregationOperator
         // estimate the number of entries required to create 1.5 pages of results
         int fixedWidthSize = SIZE_OF_LONG + SIZE_OF_DOUBLE + SIZE_OF_DOUBLE;
         int multiSlicePositionCount = (int) (1.5 * BlockBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES / fixedWidthSize);
-        multiSlicePositionCount = Math.min((int) (1.5 * BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES / SIZE_OF_DOUBLE), multiSlicePositionCount);
+        multiSlicePositionCount = Math.min((int) (1.5 * DEFAULT_MAX_BLOCK_SIZE_IN_BYTES / SIZE_OF_DOUBLE), multiSlicePositionCount);
 
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, BIGINT, BIGINT);

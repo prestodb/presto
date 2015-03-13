@@ -23,6 +23,8 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
+
 public class ChannelSet
 {
     private final GroupByHash hash;
@@ -76,7 +78,7 @@ public class ChannelSet
             List<Type> types = ImmutableList.of(type);
             this.hash = new GroupByHash(types, new int[] {0}, hashChannel, expectedPositions);
             this.operatorContext = operatorContext;
-            this.nullBlockPage = new Page(type.createBlockBuilder(new BlockBuilderStatus()).appendNull().build());
+            this.nullBlockPage = new Page(type.createBlockBuilder(new BlockBuilderStatus(), 1, UNKNOWN.getFixedSize()).appendNull().build());
         }
 
         public ChannelSet build()

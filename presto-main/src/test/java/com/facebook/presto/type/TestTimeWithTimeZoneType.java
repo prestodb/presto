@@ -33,7 +33,7 @@ public class TestTimeWithTimeZoneType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = TIME_WITH_TIME_ZONE.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = TIME_WITH_TIME_ZONE.createBlockBuilder(new BlockBuilderStatus(), 15);
         TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(1111, getTimeZoneKeyForOffset(0)));
         TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(1111, getTimeZoneKeyForOffset(1)));
         TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(1111, getTimeZoneKeyForOffset(2)));

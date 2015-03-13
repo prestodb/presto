@@ -29,7 +29,7 @@ public class TestBooleanType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), 15);
         BOOLEAN.writeBoolean(blockBuilder, true);
         BOOLEAN.writeBoolean(blockBuilder, true);
         BOOLEAN.writeBoolean(blockBuilder, true);

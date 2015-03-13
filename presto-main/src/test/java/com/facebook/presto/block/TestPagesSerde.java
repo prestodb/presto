@@ -40,7 +40,7 @@ public class TestPagesSerde
     @Test
     public void testRoundTrip()
     {
-        BlockBuilder expectedBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder expectedBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 5);
         VARCHAR.writeString(expectedBlockBuilder, "alice");
         VARCHAR.writeString(expectedBlockBuilder, "bob");
         VARCHAR.writeString(expectedBlockBuilder, "charlie");
@@ -63,7 +63,7 @@ public class TestPagesSerde
     @Test
     public void testBigintSerializedSize()
     {
-        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 5);
 
         // empty page
         Page page = new Page(builder.build());
@@ -86,7 +86,7 @@ public class TestPagesSerde
     @Test
     public void testVarcharSerializedSize()
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 5);
 
         // empty page
         Page page = new Page(builder.build());

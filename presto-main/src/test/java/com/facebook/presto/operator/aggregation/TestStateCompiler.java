@@ -46,7 +46,7 @@ public class TestStateCompiler
         state.setLong(2);
         state.setNull(false);
 
-        BlockBuilder builder = BigintType.BIGINT.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = BigintType.BIGINT.createBlockBuilder(new BlockBuilderStatus(), 2);
         serializer.serialize(state, builder);
         state.setNull(true);
         serializer.serialize(state, builder);
@@ -74,7 +74,7 @@ public class TestStateCompiler
 
         state.setLong(2);
 
-        BlockBuilder builder = BigintType.BIGINT.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = BigintType.BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1);
         serializer.serialize(state, builder);
 
         Block block = builder.build();
@@ -104,7 +104,7 @@ public class TestStateCompiler
 
         state.setBoolean(true);
 
-        BlockBuilder builder = BooleanType.BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = BooleanType.BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), 1);
         serializer.serialize(state, builder);
 
         Block block = builder.build();
@@ -124,7 +124,7 @@ public class TestStateCompiler
 
         state.setByte((byte) 3);
 
-        BlockBuilder builder = BigintType.BIGINT.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = BigintType.BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1);
         serializer.serialize(state, builder);
 
         Block block = builder.build();
@@ -146,7 +146,7 @@ public class TestStateCompiler
         singleState.setCount(2);
         singleState.setM2(3);
 
-        BlockBuilder builder = VarcharType.VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = VarcharType.VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1);
         serializer.serialize(singleState, builder);
 
         Block block = builder.build();
@@ -172,7 +172,7 @@ public class TestStateCompiler
         singleState.setDouble(2.0);
         singleState.setByte((byte) 3);
 
-        BlockBuilder builder = VarcharType.VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = VarcharType.VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1);
         serializer.serialize(singleState, builder);
 
         Block block = builder.build();

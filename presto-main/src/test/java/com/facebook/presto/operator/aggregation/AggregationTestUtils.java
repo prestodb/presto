@@ -74,14 +74,14 @@ public final class AggregationTestUtils
 
     public static Block getIntermediateBlock(Accumulator accumulator)
     {
-        BlockBuilder blockBuilder = accumulator.getIntermediateType().createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = accumulator.getIntermediateType().createBlockBuilder(new BlockBuilderStatus(), 1000);
         accumulator.evaluateIntermediate(blockBuilder);
         return blockBuilder.build();
     }
 
     public static Block getFinalBlock(Accumulator accumulator)
     {
-        BlockBuilder blockBuilder = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1000);
         accumulator.evaluateFinal(blockBuilder);
         return blockBuilder.build();
     }
@@ -168,7 +168,7 @@ public final class AggregationTestUtils
         Page[] maskedPages = new Page[pages.length];
         for (int i = 0; i < pages.length; i++) {
             Page page = pages[i];
-            BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
+            BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), page.getPositionCount());
             for (int j = 0; j < page.getPositionCount(); j++) {
                 BOOLEAN.writeBoolean(blockBuilder, maskValue);
             }
@@ -318,14 +318,14 @@ public final class AggregationTestUtils
             partialAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
         }
 
-        BlockBuilder partialOut = partialAggregation.getIntermediateType().createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder partialOut = partialAggregation.getIntermediateType().createBlockBuilder(new BlockBuilderStatus(), 1);
         partialAggregation.evaluateIntermediate(0, partialOut);
         Block partialBlock = partialOut.build();
 
         GroupedAccumulator finalAggregation = factory.createGroupedIntermediateAccumulator();
         // Add an empty block to test the handling of empty intermediates
         GroupedAccumulator emptyAggregation = factory.createGroupedAccumulator();
-        BlockBuilder emptyOut = emptyAggregation.getIntermediateType().createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder emptyOut = emptyAggregation.getIntermediateType().createBlockBuilder(new BlockBuilderStatus(), 1);
         emptyAggregation.evaluateIntermediate(0, emptyOut);
         Block emptyBlock = emptyOut.build();
         finalAggregation.addIntermediate(createGroupByIdBlock(0, emptyBlock.getPositionCount()), emptyBlock);
@@ -337,7 +337,7 @@ public final class AggregationTestUtils
 
     public static GroupByIdBlock createGroupByIdBlock(int groupId, int positions)
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), positions);
         for (int i = 0; i < positions; i++) {
             BIGINT.writeLong(blockBuilder, groupId);
         }
@@ -410,7 +410,7 @@ public final class AggregationTestUtils
 
     private static RunLengthEncodedBlock createNullRLEBlock(int positionCount)
     {
-        Block value = BOOLEAN.createBlockBuilder(new BlockBuilderStatus())
+        Block value = BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), 1)
                 .appendNull()
                 .build();
 
@@ -419,7 +419,7 @@ public final class AggregationTestUtils
 
     private static Object getGroupValue(GroupedAccumulator groupedAggregation, int groupId)
     {
-        BlockBuilder out = groupedAggregation.getFinalType().createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder out = groupedAggregation.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1);
         groupedAggregation.evaluateFinal(groupId, out);
         return BlockAssertions.getOnlyValue(groupedAggregation.getFinalType(), out.build());
     }

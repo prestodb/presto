@@ -21,14 +21,22 @@ public abstract class AbstractVariableWidthType
         extends AbstractType
         implements VariableWidthType
 {
+    private static final int EXPECTED_BYTES_PER_ENTRY = 32;
+
     protected AbstractVariableWidthType(TypeSignature signature, Class<?> javaType)
     {
         super(signature, javaType);
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
-        return new VariableWidthBlockBuilder(blockBuilderStatus);
+        return new VariableWidthBlockBuilder(blockBuilderStatus, Math.min(expectedEntries * expectedBytesPerEntry, blockBuilderStatus.getMaxBlockSizeInBytes()));
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        return createBlockBuilder(blockBuilderStatus, expectedEntries, EXPECTED_BYTES_PER_ENTRY);
     }
 }

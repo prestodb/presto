@@ -69,7 +69,7 @@ public class StructBlockReader
             return;
         }
 
-        BlockBuilder currentBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(1000, 1000));
+        BlockBuilder currentBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), structFields.length);
         for (BlockReader structField : structFields) {
             structField.readNextValueInto(currentBuilder);
         }

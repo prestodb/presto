@@ -209,7 +209,7 @@ public final class SerDeUtils
     private static BlockBuilder createBlockBuilder()
     {
         // default BlockBuilderStatus could cause OOM at unit tests
-        return VARBINARY.createBlockBuilder(new BlockBuilderStatus(1000, 1000));
+        return VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 100);
     }
 
     private static long formatDateAsLong(Object object, DateObjectInspector inspector)

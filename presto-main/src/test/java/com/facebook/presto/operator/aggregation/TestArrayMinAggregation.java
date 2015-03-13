@@ -30,7 +30,7 @@ public class TestArrayMinAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), length);
         for (int i = start; i < start + length; i++) {
             VARBINARY.writeSlice(blockBuilder, toStackRepresentation(ImmutableList.of(i), BigintType.BIGINT));
         }

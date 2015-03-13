@@ -81,7 +81,7 @@ public class TestLearnAggregations
             throws Exception
     {
         accumulator.addInput(getPage());
-        BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1);
         accumulator.evaluateFinal(finalOut);
         Block block = finalOut.build();
         Slice slice = accumulator.getFinalType().getSlice(block, 0);

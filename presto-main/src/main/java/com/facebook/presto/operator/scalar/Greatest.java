@@ -68,6 +68,7 @@ public final class Greatest
 {
     public static final Greatest GREATEST = new Greatest();
     private static final Signature SIGNATURE = new Signature("greatest", ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("E"), true, false);
+    public static final int EXPECTED_ELEMENT_SIZE = 32;
 
     @Override
     public Signature getSignature()
@@ -153,12 +154,14 @@ public final class Greatest
             Variable currentBlock = context.declareVariable(com.facebook.presto.spi.block.Block.class, "block" + i);
             Variable blockBuilder = context.declareVariable(BlockBuilder.class, "blockBuilder" + i);
             Block buildBlock = new Block(context)
-                    .comment("blockBuilder%d = typeVariable.createBlockBuilder(new BlockBuilderStatus());", i)
+                    .comment("blockBuilder%d = typeVariable.createBlockBuilder(new BlockBuilderStatus(), 1, EXPECTED_ELEMENT_SIZE);", i)
                     .getVariable(typeVariable)
                     .newObject(BlockBuilderStatus.class)
                     .dup()
                     .invokeConstructor(BlockBuilderStatus.class)
-                    .invokeInterface(Type.class, "createBlockBuilder", BlockBuilder.class, BlockBuilderStatus.class)
+                    .push(1)
+                    .push(EXPECTED_ELEMENT_SIZE)
+                    .invokeInterface(Type.class, "createBlockBuilder", BlockBuilder.class, BlockBuilderStatus.class, int.class, int.class)
                     .putVariable(blockBuilder);
 
             String writeMethodName;

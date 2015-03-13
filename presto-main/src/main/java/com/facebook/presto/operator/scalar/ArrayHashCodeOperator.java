@@ -56,7 +56,7 @@ public class ArrayHashCodeOperator
 
     public static long hash(Type type, Slice slice)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, slice.length());
         blockBuilder.writeBytes(slice, 0, slice.length());
         return type.hash(blockBuilder.closeEntry().build(), 0);
     }

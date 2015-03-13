@@ -77,7 +77,7 @@ public class ListBlockReader
         }
 
         long length = lengthStream.next();
-        BlockBuilder currentBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(1000, 1000));
+        BlockBuilder currentBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), Ints.checkedCast(length));
         for (int i = 0; i < length; i++) {
             elementReader.readNextValueInto(currentBuilder);
         }

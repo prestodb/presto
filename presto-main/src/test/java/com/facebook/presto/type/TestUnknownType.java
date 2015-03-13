@@ -24,7 +24,7 @@ public class TestUnknownType
     {
         super(UNKNOWN,
                 void.class,
-                UNKNOWN.createBlockBuilder(new BlockBuilderStatus())
+                UNKNOWN.createBlockBuilder(new BlockBuilderStatus(), 3)
                         .appendNull()
                         .appendNull()
                         .appendNull()

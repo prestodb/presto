@@ -59,6 +59,7 @@ import static java.lang.Math.min;
 public class OrcPageSource
         implements ConnectorPageSource
 {
+    public static final int NULL_SIZE = 0;
     private final OrcRecordReader recordReader;
     private final OrcDataSource orcDataSource;
 
@@ -214,7 +215,7 @@ public class OrcPageSource
 
     private static Block buildNullBlock(Type type)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_VECTOR_LENGTH, NULL_SIZE);
         for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
             blockBuilder.appendNull();
         }

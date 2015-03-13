@@ -1076,6 +1076,6 @@ class ParquetHiveRecordCursor
 
     private static BlockBuilder createBlockBuilder()
     {
-        return VARBINARY.createBlockBuilder(new BlockBuilderStatus(1000, 1000));
+        return VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 100);
     }
 }

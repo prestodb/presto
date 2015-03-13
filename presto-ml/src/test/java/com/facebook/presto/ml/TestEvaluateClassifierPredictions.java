@@ -56,7 +56,7 @@ public class TestEvaluateClassifierPredictions
         InternalAggregationFunction aggregation = metadata.getExactFunction(new Signature("evaluate_classifier_predictions", StandardTypes.VARCHAR, StandardTypes.BIGINT, StandardTypes.BIGINT)).getAggregationFunction();
         Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.empty(), Optional.empty(), 1.0).createAccumulator();
         accumulator.addInput(getPage());
-        BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1);
         accumulator.evaluateFinal(finalOut);
         Block block = finalOut.build();
 

@@ -30,7 +30,7 @@ public class TestIntervalYearMonthType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = INTERVAL_YEAR_MONTH.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = INTERVAL_YEAR_MONTH.createBlockBuilder(new BlockBuilderStatus(), 15);
         INTERVAL_YEAR_MONTH.writeLong(blockBuilder, 1111);
         INTERVAL_YEAR_MONTH.writeLong(blockBuilder, 1111);
         INTERVAL_YEAR_MONTH.writeLong(blockBuilder, 1111);

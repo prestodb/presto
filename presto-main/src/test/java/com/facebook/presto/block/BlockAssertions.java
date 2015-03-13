@@ -83,7 +83,7 @@ public final class BlockAssertions
 
     public static Block createStringsBlock(Iterable<String> values)
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 100);
 
         for (String value : values) {
             if (value == null) {
@@ -99,7 +99,7 @@ public final class BlockAssertions
 
     public static Block createStringSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 100);
 
         for (int i = start; i < end; i++) {
             VARCHAR.writeString(builder, String.valueOf(i));
@@ -122,7 +122,7 @@ public final class BlockAssertions
 
     public static Block createBooleansBlock(Iterable<Boolean> values)
     {
-        BlockBuilder builder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), 100);
 
         for (Boolean value : values) {
             if (value == null) {
@@ -139,7 +139,7 @@ public final class BlockAssertions
     // This method makes it easy to create blocks without having to add an L to every value
     public static Block createLongsBlock(int... values)
     {
-        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 100);
 
         for (int value : values) {
             BIGINT.writeLong(builder, (long) value);
@@ -157,7 +157,7 @@ public final class BlockAssertions
 
     public static Block createLongsBlock(Iterable<Long> values)
     {
-        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 100);
 
         for (Long value : values) {
             if (value == null) {
@@ -202,7 +202,7 @@ public final class BlockAssertions
 
     public static Block createDoublesBlock(Iterable<Double> values)
     {
-        BlockBuilder builder = DOUBLE.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), 100);
 
         for (Double value : values) {
             if (value == null) {

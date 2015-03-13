@@ -30,7 +30,7 @@ public class TestDateType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = DATE.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = DATE.createBlockBuilder(new BlockBuilderStatus(), 15);
         DATE.writeLong(blockBuilder, 1111);
         DATE.writeLong(blockBuilder, 1111);
         DATE.writeLong(blockBuilder, 1111);

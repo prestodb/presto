@@ -39,7 +39,7 @@ public class TestBigintArrayType
 
     public static Block createTestBlock(Type arrayType)
     {
-        BlockBuilder blockBuilder = arrayType.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = arrayType.createBlockBuilder(new BlockBuilderStatus(), 4);
         arrayType.writeSlice(blockBuilder, toStackRepresentation(ImmutableList.of(1, 2), BIGINT));
         arrayType.writeSlice(blockBuilder, toStackRepresentation(ImmutableList.of(1, 2, 3), BIGINT));
         arrayType.writeSlice(blockBuilder, toStackRepresentation(ImmutableList.of(1, 2, 3), BIGINT));

@@ -33,8 +33,8 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class TestApproximatePercentileAggregation
 {
-    private static final Block EMPTY_DOUBLE_BLOCK = DOUBLE.createBlockBuilder(new BlockBuilderStatus()).build();
-    private static final Block EMPTY_LONG_BLOCK = BIGINT.createBlockBuilder(new BlockBuilderStatus()).build();
+    private static final Block EMPTY_DOUBLE_BLOCK = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), 0).build();
+    private static final Block EMPTY_LONG_BLOCK = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 0).build();
 
     @Test
     public void testLongPartialStep()
@@ -369,7 +369,7 @@ public class TestApproximatePercentileAggregation
 
     private static RunLengthEncodedBlock createRLEBlock(double percentile, int positionCount)
     {
-        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), 1);
         DOUBLE.writeDouble(blockBuilder, percentile);
         return new RunLengthEncodedBlock(blockBuilder.build(), positionCount);
     }

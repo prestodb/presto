@@ -71,7 +71,7 @@ public abstract class AbstractTestType
 
     private Block createAlternatingNullsBlock(Block testBlock)
     {
-        BlockBuilder nullsBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder nullsBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), testBlock.getPositionCount());
         for (int position = 0; position < testBlock.getPositionCount(); position++) {
             if (type.getJavaType() == void.class) {
                 nullsBlockBuilder.appendNull();
@@ -121,7 +121,7 @@ public abstract class AbstractTestType
         assertPositionValue(block.getRegion(0, position + 1), position, expectedStackValue, hash, expectedObjectValue);
         assertPositionValue(block.getRegion(position, block.getPositionCount() - position), 0, expectedStackValue, hash, expectedObjectValue);
 
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
         type.appendTo(block, position, blockBuilder);
         assertPositionValue(blockBuilder.build(), 0, expectedStackValue, hash, expectedObjectValue);
     }
@@ -380,7 +380,7 @@ public abstract class AbstractTestType
 
     private static Block createBlock(Type type, Object value)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
 
         Class<?> javaType = type.getJavaType();
         if (value == null) {
@@ -426,7 +426,7 @@ public abstract class AbstractTestType
 
     private Block toBlock(Object value)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
         Class<?> javaType = type.getJavaType();
         if (value == null) {
             blockBuilder.appendNull();

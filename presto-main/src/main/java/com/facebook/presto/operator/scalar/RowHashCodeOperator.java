@@ -56,7 +56,7 @@ public class RowHashCodeOperator
 
     public static long hash(Type rowType, Slice slice)
     {
-        BlockBuilder blockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1, slice.length());
         blockBuilder.writeBytes(slice, 0, slice.length());
         return rowType.hash(blockBuilder.closeEntry().build(), 0);
     }

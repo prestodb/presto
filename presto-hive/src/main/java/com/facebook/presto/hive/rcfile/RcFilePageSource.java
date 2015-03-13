@@ -73,6 +73,8 @@ public class RcFilePageSource
         implements ConnectorPageSource
 {
     private static final int MAX_PAGE_SIZE = 1024;
+    public static final int MAX_FIXED_WIDTH_SIZE = 8;
+    public static final int NULL_ENTRY_SIZE = 0;
 
     private final RCFile.Reader recordReader;
     private final RcFileBlockLoader blockLoader;
@@ -168,7 +170,7 @@ public class RcFilePageSource
 
                 byte[] bytes = partitionKey.getValue().getBytes(UTF_8);
 
-                BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+                BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_PAGE_SIZE, Math.max(MAX_FIXED_WIDTH_SIZE, bytes.length));
 
                 if (HiveUtil.isHiveNull(bytes)) {
                     for (int i = 0; i < MAX_PAGE_SIZE; i++) {
@@ -220,7 +222,7 @@ public class RcFilePageSource
             else if (hiveColumnIndexes[columnIndex] >= recordReader.getCurrentKeyBufferObj().getColumnNumber()) {
                 // this partition may contain fewer fields than what's declared in the schema
                 // this happens when additional columns are added to the hive table after a partition has been created
-                BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+                BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_PAGE_SIZE, NULL_ENTRY_SIZE);
                 for (int i = 0; i < MAX_PAGE_SIZE; i++) {
                     blockBuilder.appendNull();
                 }
