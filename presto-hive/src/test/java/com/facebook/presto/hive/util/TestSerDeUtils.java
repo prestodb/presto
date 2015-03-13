@@ -286,7 +286,7 @@ public class TestSerDeUtils
 
     private static Slice getPrimitiveSlice(DateTimeZone sessionTimeZone, Object object, ObjectInspector inspector)
     {
-        BlockBuilder builder = VarbinaryType.VARBINARY.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = VarbinaryType.VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1);
         serializeObject(sessionTimeZone, builder, object, inspector);
         if (builder.isNull(0)) {
             return Slices.EMPTY_SLICE;

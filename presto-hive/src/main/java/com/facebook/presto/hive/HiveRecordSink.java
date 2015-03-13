@@ -186,7 +186,7 @@ public class HiveRecordSink
         }
         else if (isMapType(type) || isArrayType(type)) {
             // Hive expects a List<>/Map<> to write, so decode the value
-            BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+            BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, value.length);
             type.writeSlice(blockBuilder, Slices.wrappedBuffer(value));
             Object complexValue = type.getObjectValue(connectorSession, blockBuilder.build(), 0);
             if (hasDateTimeTypes.get(field)) {

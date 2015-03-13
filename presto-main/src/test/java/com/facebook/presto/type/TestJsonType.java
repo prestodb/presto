@@ -31,7 +31,7 @@ public class TestJsonType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = JSON.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = JSON.createBlockBuilder(new BlockBuilderStatus(), 1);
         Slice slice = Slices.utf8Slice("{\"x\":1, \"y\":2}");
         JSON.writeSlice(blockBuilder, slice);
         return blockBuilder.build();

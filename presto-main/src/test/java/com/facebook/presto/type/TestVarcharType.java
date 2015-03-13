@@ -31,7 +31,7 @@ public class TestVarcharType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 15);
         VARCHAR.writeString(blockBuilder, "apple");
         VARCHAR.writeString(blockBuilder, "apple");
         VARCHAR.writeString(blockBuilder, "apple");

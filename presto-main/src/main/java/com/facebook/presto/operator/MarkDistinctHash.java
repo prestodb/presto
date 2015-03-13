@@ -46,8 +46,8 @@ public class MarkDistinctHash
 
     public Block markDistinctRows(Page page)
     {
-        BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
         GroupByIdBlock ids = groupByHash.getGroupIds(page);
+        BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), ids.getPositionCount());
         for (int i = 0; i < ids.getPositionCount(); i++) {
             if (ids.getGroupId(i) == nextDistinctId) {
                 BOOLEAN.writeBoolean(blockBuilder, true);

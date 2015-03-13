@@ -34,7 +34,7 @@ public class TestVarBinaryMaxAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), length);
         for (int i = 0; i < length; i++) {
             VARBINARY.writeSlice(blockBuilder, Slices.wrappedBuffer(Ints.toByteArray(i)));
         }

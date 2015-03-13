@@ -44,6 +44,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class TypeUtils
 {
+    public static final int EXPECTED_ARRAY_SIZE = 1024;
+
     private TypeUtils()
     {
     }
@@ -123,7 +125,7 @@ public final class TypeUtils
 
     public static Block createBlock(Type type, Object element)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(1024, 1024));
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, EXPECTED_ARRAY_SIZE);
         appendToBlockBuilder(type, element, blockBuilder);
         return blockBuilder.build();
     }
@@ -137,14 +139,14 @@ public final class TypeUtils
         // TODO: This should be removed. Functions that rely on this functionality should
         // be doing the conversion themselves.
         else if (type.getTypeSignature().getBase().equals(StandardTypes.ARRAY) && element instanceof Iterable<?>) {
-            BlockBuilder subBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
+            BlockBuilder subBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), EXPECTED_ARRAY_SIZE);
             for (Object subElement : (Iterable<?>) element) {
                 appendToBlockBuilder(type.getTypeParameters().get(0), subElement, subBlockBuilder);
             }
             type.writeSlice(blockBuilder, buildStructuralSlice(subBlockBuilder));
         }
         else if (type.getTypeSignature().getBase().equals(StandardTypes.ROW) && element instanceof Iterable<?>) {
-            BlockBuilder subBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
+            BlockBuilder subBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), EXPECTED_ARRAY_SIZE);
             int field = 0;
             for (Object subElement : (Iterable<?>) element) {
                 appendToBlockBuilder(type.getTypeParameters().get(field), subElement, subBlockBuilder);
@@ -153,7 +155,7 @@ public final class TypeUtils
             type.writeSlice(blockBuilder, buildStructuralSlice(subBlockBuilder));
         }
         else if (type.getTypeSignature().getBase().equals(StandardTypes.MAP) && element instanceof Map<?, ?>) {
-            BlockBuilder subBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
+            BlockBuilder subBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), EXPECTED_ARRAY_SIZE);
             for (Map.Entry<?, ?> entry : ((Map<?, ?>) element).entrySet()) {
                 appendToBlockBuilder(type.getTypeParameters().get(0), entry.getKey(), subBlockBuilder);
                 appendToBlockBuilder(type.getTypeParameters().get(1), entry.getValue(), subBlockBuilder);

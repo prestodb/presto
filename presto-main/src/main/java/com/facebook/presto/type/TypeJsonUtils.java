@@ -16,6 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.core.JsonFactory;
@@ -35,6 +36,7 @@ import java.util.Map;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public final class TypeJsonUtils
@@ -103,7 +105,19 @@ public final class TypeJsonUtils
             return Collections.unmodifiableList(list);
         }
 
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+        Slice sliceValue = null;
+        if (type.getJavaType() == Slice.class) {
+            sliceValue = Slices.utf8Slice(parser.getValueAsString());
+        }
+
+        BlockBuilder blockBuilder;
+        if (type instanceof FixedWidthType) {
+            blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
+        }
+        else {
+            blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, checkNotNull(sliceValue, "sliceValue is null").length());
+        }
+
         if (type.getJavaType() == boolean.class) {
             type.writeBoolean(blockBuilder, parser.getBooleanValue());
         }
@@ -114,14 +128,20 @@ public final class TypeJsonUtils
             type.writeDouble(blockBuilder, getDoubleValue(parser));
         }
         else if (type.getJavaType() == Slice.class) {
-            type.writeSlice(blockBuilder, Slices.utf8Slice(parser.getValueAsString()));
+            type.writeSlice(blockBuilder, checkNotNull(sliceValue, "sliceValue is null"));
         }
         return type.getObjectValue(session, blockBuilder.build(), 0);
     }
 
     private static Object mapKeyToObject(ConnectorSession session, String jsonKey, Type type)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder;
+        if (type instanceof FixedWidthType) {
+            blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
+        }
+        else {
+            blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, jsonKey.length());
+        }
         if (type.getJavaType() == boolean.class) {
             type.writeBoolean(blockBuilder, Boolean.valueOf(jsonKey));
         }

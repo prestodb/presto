@@ -41,7 +41,7 @@ public class TestSimpleRowType
 
     private static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = TYPE.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = TYPE.createBlockBuilder(new BlockBuilderStatus(), 3);
         List<Type> parameterTypes = ImmutableList.of(BIGINT, VARCHAR);
         TYPE.writeSlice(blockBuilder, sliceOf(parameterTypes, 1, "cat"));
         TYPE.writeSlice(blockBuilder, sliceOf(parameterTypes, 2, "cats"));

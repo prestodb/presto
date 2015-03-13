@@ -39,6 +39,7 @@ public abstract class AbstractTestApproximateAggregationFunction
         extends AbstractTestAggregationFunction
 {
     private static final int WEIGHT = 10;
+
     protected abstract Type getType();
 
     // values may contain nulls
@@ -65,7 +66,7 @@ public abstract class AbstractTestApproximateAggregationFunction
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = getType().createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = getType().createBlockBuilder(new BlockBuilderStatus(), length);
         for (int i = start; i < start + length; i++) {
             if (getType() == BIGINT) {
                 BIGINT.writeLong(blockBuilder, (long) i);
@@ -168,8 +169,9 @@ public abstract class AbstractTestApproximateAggregationFunction
                 }
             }
 
-            BlockBuilder builder = getType().createBlockBuilder(new BlockBuilderStatus());
-            for (Number sample : sampledList.build()) {
+            ImmutableList<Number> list = sampledList.build();
+            BlockBuilder builder = getType().createBlockBuilder(new BlockBuilderStatus(), list.size());
+            for (Number sample : list) {
                 if (getType() == BIGINT) {
                     BIGINT.writeLong(builder, sample.longValue());
                 }

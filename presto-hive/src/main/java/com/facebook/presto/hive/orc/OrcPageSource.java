@@ -81,6 +81,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public class OrcPageSource
         implements ConnectorPageSource
 {
+    private static final int NULL_ENTRY_SIZE = 0;
     private final OrcRecordReader recordReader;
     private final OrcDataSource orcDataSource;
 
@@ -138,7 +139,13 @@ public class OrcPageSource
 
                 byte[] bytes = partitionKey.getValue().getBytes(UTF_8);
 
-                BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+                BlockBuilder blockBuilder;
+                if (type instanceof FixedWidthType) {
+                    blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_VECTOR_LENGTH);
+                }
+                else {
+                    blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_VECTOR_LENGTH, bytes.length);
+                }
 
                 if (HiveUtil.isHiveNull(bytes)) {
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
@@ -188,7 +195,7 @@ public class OrcPageSource
                 constantBlocks[columnIndex] = blockBuilder.build();
             }
             else if (!recordReader.isColumnPresent(column.getHiveColumnIndex())) {
-                BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+                BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_VECTOR_LENGTH, NULL_ENTRY_SIZE);
                 for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                     blockBuilder.appendNull();
                 }

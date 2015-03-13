@@ -31,7 +31,7 @@ public class TestBooleanAndAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), length);
         for (int i = start; i < start + length; i++) {
             // true, false, true, false...
             BOOLEAN.writeBoolean(blockBuilder, i % 2 == 0);

@@ -29,7 +29,7 @@ public class TestDoubleMaxAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), length);
         for (int i = start; i < start + length; i++) {
             DOUBLE.writeDouble(blockBuilder, (double) i);
         }
