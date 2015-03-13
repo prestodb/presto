@@ -107,7 +107,7 @@ public class TestHttpPageBufferClient
         processor.addPage(location, expectedPage);
         callback.resetStats();
         client.scheduleRequest();
-        requestComplete.await(1, TimeUnit.SECONDS);
+        requestComplete.await(10, TimeUnit.SECONDS);
 
         assertEquals(callback.getPages().size(), 1);
         assertPageEquals(expectedPage, callback.getPages().get(0));
@@ -118,7 +118,7 @@ public class TestHttpPageBufferClient
         // fetch no data and verify
         callback.resetStats();
         client.scheduleRequest();
-        requestComplete.await(1, TimeUnit.SECONDS);
+        requestComplete.await(10, TimeUnit.SECONDS);
 
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 1);
@@ -130,7 +130,7 @@ public class TestHttpPageBufferClient
         processor.addPage(location, expectedPage);
         callback.resetStats();
         client.scheduleRequest();
-        requestComplete.await(1, TimeUnit.SECONDS);
+        requestComplete.await(10, TimeUnit.SECONDS);
 
         assertEquals(callback.getPages().size(), 2);
         assertPageEquals(expectedPage, callback.getPages().get(0));
@@ -145,7 +145,7 @@ public class TestHttpPageBufferClient
         callback.resetStats();
         processor.setComplete(location);
         client.scheduleRequest();
-        requestComplete.await(1, TimeUnit.SECONDS);
+        requestComplete.await(10, TimeUnit.SECONDS);
 
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 0);
@@ -179,12 +179,12 @@ public class TestHttpPageBufferClient
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
         client.scheduleRequest();
-        beforeRequest.await(1, TimeUnit.SECONDS);
+        beforeRequest.await(10, TimeUnit.SECONDS);
         assertStatus(client, location, "running", 0, 1, 0, 0, "PROCESSING_REQUEST");
         assertEquals(client.isRunning(), true);
-        afterRequest.await(1, TimeUnit.SECONDS);
+        afterRequest.await(10, TimeUnit.SECONDS);
 
-        requestComplete.await(1, TimeUnit.SECONDS);
+        requestComplete.await(10, TimeUnit.SECONDS);
         assertStatus(client, location, "queued", 0, 1, 1, 1, "not scheduled");
 
         client.close();
@@ -217,7 +217,7 @@ public class TestHttpPageBufferClient
         // send not found response and verify response was ignored
         processor.setResponse(new TestingResponse(HttpStatus.NOT_FOUND, ImmutableListMultimap.of(CONTENT_TYPE, PRESTO_PAGES), new byte[0]));
         client.scheduleRequest();
-        requestComplete.await(1, TimeUnit.SECONDS);
+        requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 1);
         assertEquals(callback.getFinishedBuffers(), 0);
@@ -230,7 +230,7 @@ public class TestHttpPageBufferClient
         callback.resetStats();
         processor.setResponse(new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(CONTENT_TYPE, "INVALID_TYPE"), new byte[0]));
         client.scheduleRequest();
-        requestComplete.await(1, TimeUnit.SECONDS);
+        requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 1);
         assertEquals(callback.getFinishedBuffers(), 0);
@@ -243,7 +243,7 @@ public class TestHttpPageBufferClient
         callback.resetStats();
         processor.setResponse(new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(CONTENT_TYPE, "text/plain"), new byte[0]));
         client.scheduleRequest();
-        requestComplete.await(1, TimeUnit.SECONDS);
+        requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 1);
         assertEquals(callback.getFinishedBuffers(), 0);
@@ -283,14 +283,14 @@ public class TestHttpPageBufferClient
 
         // send request
         client.scheduleRequest();
-        beforeRequest.await(1, TimeUnit.SECONDS);
+        beforeRequest.await(10, TimeUnit.SECONDS);
         assertStatus(client, location, "running", 0, 1, 0, 0, "PROCESSING_REQUEST");
         assertEquals(client.isRunning(), true);
         // request is pending, now close it
         client.close();
 
         try {
-            requestComplete.await(1, TimeUnit.SECONDS);
+            requestComplete.await(10, TimeUnit.SECONDS);
         }
         catch (BrokenBarrierException ignored) {
         }
@@ -447,7 +447,7 @@ public class TestHttpPageBufferClient
         {
             completedRequests.getAndIncrement();
             try {
-                done.await(1, TimeUnit.SECONDS);
+                done.await(10, TimeUnit.SECONDS);
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -463,7 +463,7 @@ public class TestHttpPageBufferClient
         {
             finishedBuffers.getAndIncrement();
             try {
-                done.await(1, TimeUnit.SECONDS);
+                done.await(10, TimeUnit.SECONDS);
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -515,7 +515,7 @@ public class TestHttpPageBufferClient
         public Response apply(@Nullable Request request)
         {
             try {
-                beforeRequest.await(1, TimeUnit.SECONDS);
+                beforeRequest.await(10, TimeUnit.SECONDS);
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -530,7 +530,7 @@ public class TestHttpPageBufferClient
             }
             finally {
                 try {
-                    afterRequest.await(1, TimeUnit.SECONDS);
+                    afterRequest.await(10, TimeUnit.SECONDS);
                 }
                 catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
