@@ -25,6 +25,7 @@ import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
@@ -185,7 +186,7 @@ public class OrcTester
 
         // values wrapped in a struct wrapped in a struct
         if (complexStructuralTestsEnabled) {
-            testStructRoundTrip(createHiveStructInspector(objectInspector), transform(writeValues, OrcTester::toHiveStruct), transform(readStackValues, OrcTester::toObjectStruct), parameterType);
+            testStructRoundTrip(createHiveStructInspector(objectInspector), transform(writeValues, OrcTester::toHiveStruct), transform(readStackValues, value -> toObjectStruct(value, parameterType)), VarbinaryType.VARBINARY);
         }
 
         // values wrapped in map
@@ -200,7 +201,7 @@ public class OrcTester
 
         // values wrapped in a list wrapped in a list
         if (complexStructuralTestsEnabled) {
-            testListRoundTrip(createHiveListInspector(objectInspector), transform(writeValues, OrcTester::toHiveList), transform(readStackValues, OrcTester::toObjectList), parameterType);
+            testListRoundTrip(createHiveListInspector(objectInspector), transform(writeValues, OrcTester::toHiveList), transform(readStackValues, value -> toObjectList(value, parameterType)), VarbinaryType.VARBINARY);
         }
     }
 
@@ -627,15 +628,9 @@ public class OrcTester
         return buildStructuralSlice(blockBuilder);
     }
 
-    private static Object toObjectStruct(Object input)
+    private static Object toObjectStruct(Object input, Type parameterType)
     {
-        if (input instanceof Float) {
-            input = ((Float) input).doubleValue();
-        }
-        List<Object> data = new ArrayList<>();
-        data.add(input);
-        data.add(input);
-        return data;
+        return toBlockStruct(input, parameterType);
     }
 
     private static StandardMapObjectInspector createHiveMapInspector(ObjectInspector objectInspector)
@@ -746,16 +741,9 @@ public class OrcTester
         }
     }
 
-    private static Object toObjectList(Object input)
+    private static Object toObjectList(Object input, Type parameterType)
     {
-        if (input instanceof Float) {
-            input = ((Float) input).doubleValue();
-        }
-        List<Object> list = new ArrayList<>(4);
-        for (int i = 0; i < 4; i++) {
-            list.add(input);
-        }
-        return list;
+        return toBlockList(input, parameterType);
     }
 
     public static boolean hasType(ObjectInspector objectInspector, PrimitiveCategory... types)
